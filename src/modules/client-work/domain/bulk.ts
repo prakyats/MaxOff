@@ -4,11 +4,26 @@
  * same rule (migration `client_work_bulk_and_rounds`): `{n}` is the number (from `start`, in the
  * list's order), `{title}` the current title, `{n}` replaced first; the result trimmed, 1 to 200
  * characters; more than one deliverable needs `{n}` or `{title}` so they do not all get one name.
+ * Any other `{…}` in the pattern (`{2}`, `{N}`, `{}`) is refused here with its name, so a typo is
+ * not saved as literal braces (UX review 2026-10-21, S5); a `{` with no closing `}` is plain text.
  */
 
 export const RENAME_MAX = 200;
 export const START_MAX = 9999;
 export const SHIFT_MAX = 365;
+
+const PLACEHOLDERS = new Set(["{n}", "{title}"]);
+
+/** The `{…}` placeholders in a pattern other than `{n}` and `{title}`, each once, in order. */
+function unknownPlaceholders(pattern: string): string[] {
+  const found = pattern.match(/\{[^{}]*\}/g) ?? [];
+  return [...new Set(found.filter((token) => !PLACEHOLDERS.has(token)))];
+}
+
+function listWords(words: readonly string[]): string {
+  if (words.length <= 1) return words.join("");
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
 
 export type RenamePreview =
   { ok: true; rows: { id: string; from: string; to: string }[] } | { ok: false; issue: string };
@@ -23,6 +38,17 @@ export function renamePreview(
     return { ok: false, issue: "Type the new name, with {n} where its number goes." };
   if (!Number.isInteger(start) || start < 0 || start > START_MAX) {
     return { ok: false, issue: `Start the numbers between 0 and ${START_MAX}.` };
+  }
+  const unknown = unknownPlaceholders(text);
+  if (unknown.length > 0) {
+    const what =
+      unknown.length === 1
+        ? `${unknown[0]} is not a placeholder`
+        : `${listWords(unknown)} are not placeholders`;
+    return {
+      ok: false,
+      issue: `${what}. Use {n} for the number or {title} for the current name.`,
+    };
   }
   if (items.length > 1 && !text.includes("{n}") && !text.includes("{title}")) {
     return { ok: false, issue: "Add {n} so each deliverable gets its own number." };
