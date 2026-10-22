@@ -312,7 +312,7 @@ export function DataTable<TData>({
           // L2: the page scrolls, not a box inside it. From `lg` the header row sticks under the
           // laptop's top bar (`overflow-clip` clips the corners without making a scroll box, which
           // would trap the sticky header); a tablet keeps side-scrolling for a table too wide for it.
-          "border-border bg-card rounded-lg border md:overflow-x-auto lg:overflow-clip",
+          "border-border bg-card shadow-raised rounded-lg border md:overflow-x-auto lg:overflow-clip",
           // A phone gets the cards above instead; the table is never side-scrolled (§14.1).
           mobile && "hidden md:block",
         )}
