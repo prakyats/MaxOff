@@ -16,7 +16,7 @@ export {
   selectionColumn,
 } from "./composites/data-table";
 export { HelpSheet } from "./composites/help-sheet";
-export { EmptyState } from "./composites/empty-state";
+export { EmptyRow, EmptyState } from "./composites/empty-state";
 export { ErrorState } from "./composites/error-state";
 export { Forbidden } from "./composites/forbidden";
 export { LoadingState, PageLoading, type LoadingShape } from "./composites/loading-state";
