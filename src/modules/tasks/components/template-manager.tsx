@@ -124,7 +124,7 @@ export function TemplateManager({
                       kind="Template"
                       slot="task-template-actions"
                       edit={{ label: "Edit", onSelect: () => setEditing(template) }}
-                      onDelete={() => setArchiving(template)}
+                      onArchive={() => setArchiving(template)}
                     />
                   ) : null}
                 </li>
@@ -149,15 +149,14 @@ export function TemplateManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Delete ${archiving.name}?`}
+          title={`Archive ${archiving.name}?`}
           description="It won't be offered for new tasks. Tasks already made from it don't change."
-          confirmLabel={`Delete ${archiving.name}`}
-          destructive
-          pendingLabel="Deleting…"
+          confirmLabel={`Archive ${archiving.name}`}
+          pendingLabel="Archiving…"
           onConfirm={async () => {
             const template = archiving;
             toastResult(await setTemplateArchived({ templateId: template.id, archived: true }), {
-              success: `${template.name} deleted`,
+              success: `${template.name} archived`,
               undo: () => void restore(template),
             });
           }}

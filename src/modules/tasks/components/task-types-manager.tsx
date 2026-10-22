@@ -140,7 +140,7 @@ export function TaskTypesManager({
                     disabled: busyId !== null,
                   }}
                   edit={{ label: "Edit", onSelect: () => setEditing(type) }}
-                  onDelete={() => setArchiving(type)}
+                  onArchive={() => setArchiving(type)}
                 />
               </li>
             ))}
@@ -165,15 +165,14 @@ export function TaskTypesManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Delete ${archiving.name}?`}
+          title={`Archive ${archiving.name}?`}
           description="It won't be offered again. Tasks that use it keep it."
-          confirmLabel={`Delete ${archiving.name}`}
-          destructive
-          pendingLabel="Deleting…"
+          confirmLabel={`Archive ${archiving.name}`}
+          pendingLabel="Archiving…"
           onConfirm={async () => {
             const { id, name } = archiving;
             toastResult(await setTaskTypeArchived({ taskTypeId: id, archived: true }), {
-              success: `${name} deleted`,
+              success: `${name} archived`,
               undo: () =>
                 void setTaskTypeArchived({ taskTypeId: id, archived: false }).then((result) =>
                   toastResult(result),

@@ -645,12 +645,12 @@ test("Settings → Templates → Stage presets: an Admin adds, edits and deletes
   await edit.getByLabel("Stage 4", { exact: true }).fill("Deliver");
   await edit.getByRole("button", { name: "Save preset" }).click();
   await expect(row).toContainText("Brief → Shoot → Edit → Deliver · by you");
-  await rowAction(page, row, name, "Delete");
+  await rowAction(page, row, name, "Archive");
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: `Delete ${name}` })
+    .getByRole("button", { name: `Archive ${name}` })
     .click();
-  // D6: Delete is the archive underneath; the row leaves, no Archived list.
+  // D6: Archive; the row leaves, no Archived list.
   await expect(row).toHaveCount(0);
   await expect(page.locator('[data-slot="archived-stage-preset"]')).toHaveCount(0);
 });
@@ -1913,7 +1913,7 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url: here }]);
-    await rowAction(page, row, name, "Delete");
+    await rowAction(page, row, name, "Archive");
     const archive = page.getByRole("alertdialog");
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url: here }]);

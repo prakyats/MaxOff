@@ -1345,12 +1345,12 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Add preset" or "Save preset".',
             ),
             next(
-              'Delete on a preset stops "New project" offering it; the message "‹name› deleted" has Undo for a few seconds.',
+              'Archive on a preset stops "New project" offering it; the message "‹name› archived" has Undo for a few seconds.',
             ),
             note("Projects that used a preset keep their stages."),
           ],
           link: { href: "/settings/templates#presets", label: "Open Stage presets" },
-          keywords: ["preset", "checklist", "delete", "undo"],
+          keywords: ["preset", "checklist", "archive", "undo"],
         },
         {
           id: "owner-project-template",
@@ -1398,24 +1398,31 @@ export const OWNER_GUIDE: Guide = {
         },
         {
           id: "owner-templates-list",
-          title: "Preview, edit or delete a template",
+          title: "Preview, edit or archive a template",
           summary: "One Templates page: stage presets, deliverable, project and task templates.",
           blocks: [
             steps(
               "Open Settings, then Templates. It lists Stage presets, Deliverable templates and Project templates, then, under a line, Task templates. On a phone each is a tab.",
               "Type in the search box to find any of them by name, stage or deliverable.",
               'Tap "Preview" on a project or deliverable template to see what work made from it gets.',
-              'Tap the pencil ("Edit ‹name›") to change it, or the bin ("Delete ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Delete asks first.',
+              'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Archive asks first.',
             ),
             next(
-              'The message "‹name› deleted" has Undo for a few seconds. Work already made from it does not change.',
+              'The message "‹name› archived" has Undo for a few seconds. Work already made from it does not change.',
             ),
             note(
-              "The question's Delete button is red, as for every final action. Nothing is destroyed: the template is only no longer offered, and Undo brings it back.",
+              "The question's Archive button is plain, not red: nothing is destroyed. The template is only no longer offered, and Undo brings it back.",
             ),
           ],
           link: { href: "/settings/templates", label: "Open Templates" },
-          keywords: ["delete", "undo", "edit template", "preview", "task template", "stage preset"],
+          keywords: [
+            "archive",
+            "undo",
+            "edit template",
+            "preview",
+            "task template",
+            "stage preset",
+          ],
         },
         {
           id: "owner-save-as-template",
@@ -1689,7 +1696,7 @@ export const OWNER_GUIDE: Guide = {
                 ".",
             ),
             text(
-              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Delete; on a phone they are in the row\'s ⋯. Delete asks first, and its message has Undo for a few seconds; whoever already has the value keeps it.',
+              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Archive; on a phone they are in the row\'s ⋯. Archive asks first, and its message has Undo for a few seconds; whoever already has the value keeps it.',
             ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },

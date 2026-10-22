@@ -143,7 +143,7 @@ export function ProjectTemplateManager({
                       ? { label: "Edit", onSelect: () => setEditing(template) }
                       : undefined
                   }
-                  onDelete={allowed.edit ? () => setArchiving(template) : undefined}
+                  onArchive={allowed.edit ? () => setArchiving(template) : undefined}
                 />
               </li>
             );
@@ -175,16 +175,15 @@ export function ProjectTemplateManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Delete ${archiving.name}?`}
+          title={`Archive ${archiving.name}?`}
           description="It won't be offered for new projects. Projects already made from it don't change."
-          confirmLabel={`Delete ${archiving.name}`}
-          destructive
-          pendingLabel="Deleting…"
+          confirmLabel={`Archive ${archiving.name}`}
+          pendingLabel="Archiving…"
           onConfirm={async () => {
             const template = archiving;
             toastResult(
               await setProjectTemplateArchived({ templateId: template.id, archived: true }),
-              { success: `${template.name} deleted`, undo: () => void restore(template) },
+              { success: `${template.name} archived`, undo: () => void restore(template) },
             );
           }}
         />

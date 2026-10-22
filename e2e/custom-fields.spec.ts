@@ -129,22 +129,22 @@ test.describe("Owner", () => {
     await expect(page.getByText("Field saved")).toBeVisible();
     await expect(row(page, k.industry)).toContainText("Industry / sector");
 
-    // Delete (D6: the archive underneath), then Undo from its toast: never destroyed.
+    // Archive (D6), then Undo from its toast: never destroyed.
     await row(page, k.tier)
-      .getByRole("button", { name: `Delete Tier ${suffix(info)}` })
+      .getByRole("button", { name: `Archive Tier ${suffix(info)}` })
       .click();
     await page
-      .getByRole("button", { name: `Delete Tier ${suffix(info)}`, exact: true })
+      .getByRole("button", { name: `Archive Tier ${suffix(info)}`, exact: true })
       .last()
       .click();
-    const deleted = page.locator("[data-sonner-toast]", {
-      hasText: `Tier ${suffix(info)} deleted`,
+    const archived = page.locator("[data-sonner-toast]", {
+      hasText: `Tier ${suffix(info)} archived`,
     });
-    await expect(deleted).toBeVisible();
+    await expect(archived).toBeVisible();
     await expect(row(page, k.tier)).toHaveCount(0);
     // No Archived list (D6).
     await expect(page.locator('[data-slot="archived-field-definition"]')).toHaveCount(0);
-    await deleted.getByRole("button", { name: "Undo" }).click();
+    await archived.getByRole("button", { name: "Undo" }).click();
     await expect(row(page, k.tier)).toBeVisible();
 
     // Projects: Owner-only, no scope picker.
@@ -182,7 +182,7 @@ test.describe("Owner", () => {
       { url: /\/settings$/ },
     ]);
   });
-  test("installed: the Edit sheet and the Delete confirmation close on back", async ({
+  test("installed: the Edit sheet and the Archive confirmation close on back", async ({
     page,
     isMobile,
   }, info) => {
@@ -224,8 +224,8 @@ test.describe("Owner", () => {
     await expectBackStack(page, [{ closes: edit, url: /entity=item/ }]);
 
     await actions.click();
-    await sheet.getByRole("button", { name: "Delete" }).click();
-    const archive = page.getByRole("alertdialog", { name: `Delete ${label}?` });
+    await sheet.getByRole("button", { name: "Archive" }).click();
+    const archive = page.getByRole("alertdialog", { name: `Archive ${label}?` });
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url: /entity=item/ }]);
     // Nothing was archived, and the tabs added no history: one back leaves for Settings.
@@ -282,7 +282,7 @@ test.describe("Admin", () => {
     await expect(group.locator(`[data-key="${k.shootDays}"]`)).toContainText("Number");
     // A global row (the Owner's) offers no Edit or Archive to an Admin.
     const global = page.locator('[data-slot="field-group"]', { hasText: "Every client" });
-    await expect(global.getByRole("button", { name: /^(Edit|Delete) / })).toHaveCount(0);
+    await expect(global.getByRole("button", { name: /^(Edit|Archive) / })).toHaveCount(0);
   });
 });
 

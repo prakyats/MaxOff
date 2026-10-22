@@ -192,7 +192,7 @@ export function FieldDefinitionsManager({
                         kind="Field"
                         slot="list-item-actions"
                         edit={{ label: "Edit", onSelect: () => setEditing(definition) }}
-                        onDelete={() => setArchiving(definition)}
+                        onArchive={() => setArchiving(definition)}
                       />
                     ) : null}
                   </li>
@@ -230,15 +230,14 @@ export function FieldDefinitionsManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Delete ${archiving.label}?`}
+          title={`Archive ${archiving.label}?`}
           description={`It won't appear on new or edited ${labels.plural.toLowerCase()}. Records that already have it keep their value.`}
-          confirmLabel={`Delete ${archiving.label}`}
-          destructive
+          confirmLabel={`Archive ${archiving.label}`}
           onConfirm={async () => {
             const definition = archiving;
             toastResult(
               await setFieldDefinitionArchived({ definitionId: definition.id, archived: true }),
-              { success: `${definition.label} deleted`, undo: () => void restore(definition) },
+              { success: `${definition.label} archived`, undo: () => void restore(definition) },
             );
             setArchiving(null);
           }}

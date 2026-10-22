@@ -127,7 +127,7 @@ export function DeliverableTemplateManager({
                       ? { label: "Edit", onSelect: () => setEditing(template) }
                       : undefined
                   }
-                  onDelete={allowed.archive ? () => setArchiving(template) : undefined}
+                  onArchive={allowed.archive ? () => setArchiving(template) : undefined}
                 />
               </li>
             );
@@ -160,18 +160,17 @@ export function DeliverableTemplateManager({
         onOpenChange={(open) => {
           if (!open) setArchiving(null);
         }}
-        title={`Delete ${archiving?.name ?? "this template"}?`}
+        title={`Archive ${archiving?.name ?? "this template"}?`}
         description="It won't be offered for new deliverables. Deliverables already made from it don't change."
-        label="Why delete it"
-        submitLabel={`Delete ${archiving?.name ?? "template"}`}
-        destructive
+        label="Why archive it"
+        submitLabel={`Archive ${archiving?.name ?? "template"}`}
         onSubmit={async (reason) => {
-          // D6: Delete is the archive (with its reason, invariant 9); a final-looking action, red
-          // (owner correction 2026-10-21).
+          // Archive (D6; named Archive again, owner 2026-10-21) with its reason (invariant 9): the
+          // neutral commit, archive is never red; Undo in the toast.
           const template = archiving;
           return template
             ? toastResult(await archiveDeliverableTemplate({ templateId: template.id, reason }), {
-                success: `${template.name} deleted`,
+                success: `${template.name} archived`,
                 undo: () => void restore(template),
               })
             : false;

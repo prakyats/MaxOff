@@ -7,11 +7,11 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
-  Trash2Icon,
 } from "lucide-react";
 import { type ComponentProps, type ReactNode, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { ICONS } from "@/core/ui/icons";
 import { Button } from "@/core/ui/primitives/button";
 import {
   Sheet,
@@ -23,6 +23,8 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import { CARD_ROW_TRAILING } from "./row-metrics";
+
+const Archive = ICONS.archive;
 
 /**
  * The one Add pattern for Settings lists (C4, docs/DESIGN.md §4 "The Add pattern"): a neutral
@@ -87,13 +89,14 @@ export type ListRowMove = {
 
 /**
  * A Settings row's actions (C3, C4, P2). **Laptop** (`md` up): grey icon buttons, Move up and
- * Move down (when the list has an order), Edit (or Rename) and Delete. **Phone**: one 44 px ⋯
+ * Move down (when the list has an order), Edit (or Rename) and Archive. **Phone**: one 44 px ⋯
  * that opens a bottom sheet with the same actions as full-width rows, so a 375 px row never packs
  * four targets beside a name (ARCHITECTURE §14.1), and moving stays possible with a thumb
- * (Move up / Move down keep the sheet open, as ReorderNameList's menu does). **D6 (v1.8 V4):** the
- * one Settings list pattern is Edit · Delete, where Delete is the existing archive (its toast offers
- * Undo; no Archived list). The row's icon is grey (C3); its question is the caller's
- * `ConfirmDialog`, whose named Delete is red like every final action (owner correction 2026-10-21). A row that can be looked at (templates) also has Preview, a
+ * (Move up / Move down keep the sheet open, as ReorderNameList's menu does). **The one Settings
+ * list pattern is Edit · Archive** (D6, v1.8 V4; named Archive again with the archive box, owner
+ * 2026-10-21, PP-templates-2): the row's icon is grey (C3); its question is the caller's
+ * `ConfirmDialog`, whose named "Archive ‹name›" is the neutral `primary` (archive is never red), and
+ * its toast offers Undo; no Archived list. A row that can be looked at (templates) also has Preview, a
  * labelled button at every width, since anyone who may open the list may preview.
  */
 export function ListRowActions({
@@ -103,9 +106,9 @@ export function ListRowActions({
   move,
   edit,
   preview,
-  onDelete,
+  onArchive,
 }: {
-  /** The row's name, for the labels ("Delete Editor") and the sheet's title. */
+  /** The row's name, for the labels ("Archive Editor") and the sheet's title. */
   name: string;
   /** What the row is, for the sheet's description ("Job title actions"). */
   kind: string;
@@ -115,7 +118,7 @@ export function ListRowActions({
   edit?: { label: "Edit" | "Rename"; onSelect: () => void } | undefined;
   /** Preview, with the button's tooltip ("See what a project started from … gets"). */
   preview?: { onSelect: () => void; title: string };
-  onDelete?: (() => void) | undefined;
+  onArchive?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   function choose(then: () => void) {
@@ -176,20 +179,20 @@ export function ListRowActions({
           <PencilIcon aria-hidden />
         </Button>
       ) : null}
-      {onDelete ? (
+      {onArchive ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Delete ${name}`}
-          title={`Delete ${name}`}
-          onClick={onDelete}
+          aria-label={`Archive ${name}`}
+          title={`Archive ${name}`}
+          onClick={onArchive}
           className="hidden md:inline-flex"
         >
-          <Trash2Icon aria-hidden />
+          <Archive aria-hidden />
         </Button>
       ) : null}
-      {move || edit || onDelete ? (
+      {move || edit || onArchive ? (
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button
@@ -248,14 +251,14 @@ export function ListRowActions({
                   {edit.label}
                 </Button>
               ) : null}
-              {onDelete ? (
+              {onArchive ? (
                 <Button
                   variant="secondary"
                   className="w-full justify-start"
-                  onClick={() => choose(onDelete)}
+                  onClick={() => choose(onArchive)}
                 >
-                  <Trash2Icon aria-hidden />
-                  Delete
+                  <Archive aria-hidden />
+                  Archive
                 </Button>
               ) : null}
             </div>
