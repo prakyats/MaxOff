@@ -209,6 +209,13 @@ describe("badge contrast (globals.css)", () => {
       }
     });
 
+    if (theme === "light") {
+      it("light: the leave stripes read against their bar (PP-light-2)", () => {
+        const ratio = contrast(tokens["leave-stripe"] as string, tokens["leave-soft"] as string);
+        expect(ratio, `stripe on bar = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(1.25);
+      });
+    }
+
     it(`${theme}: today's box is a neutral surface step, apart from the weekly off, and its text reads (PP-calendar-15)`, () => {
       const bg = tokens["today"];
       expect(bg, `--today missing in ${selector}`).toBeDefined();

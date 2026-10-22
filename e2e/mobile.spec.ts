@@ -360,12 +360,20 @@ for (const role of ["owner", "admin", "staff"] as const) {
       for (const size of ["2", "3", "1"]) {
         await expect(phone).toHaveAttribute("data-size", size);
         await fits();
-        // Every size fits the screen (the owner's phone walk, 2026-10-08): the page never
-        // scrolls; in the week and the compact month the day's timeline is the one scroll.
+        // The full month fits the screen (the owner's phone walk, 2026-10-08); the week and the
+        // compact month are part of the page, which scrolls when the day is long, and nothing in
+        // them scrolls inside it (PP-light-4, V5b).
         const overflow = await page.evaluate(
           () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
         );
-        expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
+        if (size === "3") {
+          expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
+        } else {
+          const inner = await page
+            .locator('[data-slot="calendar-phone"] [data-slot="calendar-hours"]')
+            .evaluateAll((all) => all.map((hours) => hours.scrollHeight - hours.clientHeight));
+          expect(Math.max(0, ...inner), `size ${size}: no scroll inside the page`).toBe(0);
+        }
         await handle.click();
       }
       // A day of the full month opens its sheet, which fits too.

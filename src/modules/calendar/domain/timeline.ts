@@ -93,3 +93,25 @@ export function openingMinute(date: ISODate, today: ISODate, nowMinute: number):
 export function hourLabel(hour: number): string {
   return `${String(hour).padStart(2, "0")}:00`;
 }
+
+/**
+ * The hours the phone's day shows in the page (PP-light-4, V5b: the day area never scrolls inside
+ * the page; the page scrolls): from an hour before the first timed block to an hour after the
+ * last, on whole hours, never less than two hours and within the day. Minutes from midnight.
+ */
+export function spanOf(blocks: readonly Pick<PlacedBlock, "start" | "end">[]): {
+  from: number;
+  to: number;
+} {
+  if (blocks.length === 0)
+    return { from: VISIBLE_FROM_HOUR * HOUR, to: (VISIBLE_FROM_HOUR + 2) * HOUR };
+  const first = Math.min(...blocks.map((block) => block.start));
+  const last = Math.max(...blocks.map((block) => block.end));
+  let from = Math.max(0, Math.floor(first / HOUR) * HOUR - HOUR);
+  let to = Math.min(DAY_MINUTES, Math.ceil(last / HOUR) * HOUR + HOUR);
+  if (to - from < 2 * HOUR) {
+    if (from === 0) to = 2 * HOUR;
+    else from = Math.max(0, to - 2 * HOUR);
+  }
+  return { from, to };
+}

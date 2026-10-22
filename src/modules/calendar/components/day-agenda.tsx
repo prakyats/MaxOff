@@ -8,7 +8,7 @@ import { formatTime, type ISODate } from "@/core/time";
 
 import { type CalendarDay, type CalendarScope, EMPTY_DAY, isEmptyDay } from "../domain/calendar";
 import { agendaEvents, agendaTime } from "../domain/laptop";
-import { DoneTick, DUE_TONE, DueIcon, typeTint } from "./calendar-chip";
+import { DoneTick, DUE_TONE, DueIcon, TypeDot, typeTint } from "./calendar-chip";
 import { AllDayChips, eventLink } from "./day-detail";
 
 /**
@@ -59,7 +59,7 @@ export function DayAgenda({
               {eventLink(
                 event,
                 <>
-                  {event.completed ? <DoneTick /> : null}
+                  {event.completed ? <DoneTick /> : <TypeDot color={event.color} />}
                   <span className="min-w-0 truncate">
                     <span className="font-medium">{event.title}</span>
                     {" · "}
@@ -69,7 +69,7 @@ export function DayAgenda({
                   </span>
                 </>,
                 cn(
-                  "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md border-l-4 px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
+                  "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
                   event.completed && "opacity-60",
                 ),
                 typeTint(event.color),
@@ -100,11 +100,11 @@ export function DayAgenda({
                   data-task={item.id}
                   data-tone={tone}
                   className={cn(
-                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md border-l-4 px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
+                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
                     DUE_TONE[tone],
                   )}
-                  style={{ borderLeftColor: item.color }}
                 >
+                  <TypeDot color={item.color} />
                   <DueIcon tone={tone} />
                   <span className="min-w-0 truncate">
                     <span className="font-medium">{item.title}</span>
@@ -138,8 +138,8 @@ export function DayAgenda({
                   data-slot="calendar-item"
                   data-item={item.id}
                   className={cn(
-                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md border-l-4 px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
-                    item.done ? "bg-muted text-muted-foreground border-l-border" : DUE_TONE[tone],
+                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
+                    item.done ? "bg-muted text-muted-foreground" : DUE_TONE[tone],
                   )}
                 >
                   {item.done ? <DoneTick /> : <DueIcon tone={tone} />}
@@ -153,7 +153,7 @@ export function DayAgenda({
           </ul>
         </section>
       ) : null}
-      {free !== null && scope !== "staff" ? (
+      {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
         </p>

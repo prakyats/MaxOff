@@ -701,14 +701,14 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "On a phone, swipe, or tap the handle, to change size.",
-                'The day you choose shows a timeline. The header has "Today" and "Filters".',
+                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters".',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back; "Filters" is at the right.',
                 'The day popup has "Open day".',
               ],
             },
             {
               kind: "note",
-              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day."',
+              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day." A day you are on leave shows "You · On leave".',
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },

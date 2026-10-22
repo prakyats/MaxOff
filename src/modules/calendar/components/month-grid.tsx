@@ -14,7 +14,15 @@ import {
   HOLIDAY_COLOR,
   type Strip,
 } from "../domain/strips";
-import { DoneTick, DUE_TONE, DueIcon, LEAVE_TONE, LeaveIcon, typeTint } from "./calendar-chip";
+import {
+  DoneTick,
+  DUE_TONE,
+  DueIcon,
+  LEAVE_TONE,
+  LeaveIcon,
+  TypeDot,
+  typeTint,
+} from "./calendar-chip";
 
 /**
  * The month (6.4b; Kickoff 6 decision 25 A, B, C, C amended 2026-10-08): Monday to Sunday, the
@@ -59,20 +67,21 @@ function StripLine({
 }) {
   const fit = twoLines ? "line-clamp-2 break-words" : "truncate";
   if (strip.kind === "due") {
-    // PP-calendar-5: named, amber or red overdue with its icon, the type's colour on the edge.
+    // PP-calendar-5: named, amber or red overdue with its icon; the type's colour as the dot
+    // (V5b major change 5: no side stripe).
     return (
       <span
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
         className={cn(
-          "block rounded-sm border-l-2 px-1 font-medium",
+          "block rounded-sm px-1 font-medium",
           LINE[density],
           fit,
           DUE_TONE[strip.tone],
         )}
-        style={strip.color ? { borderLeftColor: strip.color } : undefined}
       >
+        {strip.color ? <TypeDot color={strip.color} className="mr-0.5" /> : null}
         <DueIcon tone={strip.tone} className="mr-0.5 size-2.5" />
         {strip.label}
       </span>
@@ -93,14 +102,18 @@ function StripLine({
         LINE[density],
         fit,
         color
-          ? "text-foreground border-l-2"
+          ? "text-foreground"
           : "border-muted-foreground/70 text-muted-foreground border border-dotted",
         // PP-calendar-7: done is dimmed with a ✓, never struck through.
         done && "opacity-60",
       )}
       style={color ? typeTint(color) : undefined}
     >
-      {done ? <DoneTick className="mr-0.5 size-2.5" /> : null}
+      {done ? (
+        <DoneTick className="mr-0.5 size-2.5" />
+      ) : color ? (
+        <TypeDot color={color} className="mr-1" />
+      ) : null}
       {text}
     </span>
   );
@@ -200,14 +213,12 @@ export function MonthGrid({
                           ? "min-h-0"
                           : "min-h-28 p-1",
                       // Each day its own faint tile (the owner's review): a hairline at low
-                      // contrast; the selected day outlined (PP-calendar-1); the weekly off lightly
-                      // tinted (PP-calendar-4); today's box a faint neutral lift, one surface step up (PP-calendar-15).
+                      // contrast; only the selected day outlined (PP-calendar-1, PP-phone-3: the
+                      // outline follows the tapped day); the weekly off lightly tinted
+                      // (PP-calendar-4); today's box a neutral tint, one surface step up, with no
+                      // shadow that could read as a second outline (PP-calendar-15, FINAL 4).
                       isSelected ? "border-foreground" : "border-border/60",
-                      isToday
-                        ? "bg-today shadow-raised"
-                        : day?.weeklyOff
-                          ? "bg-muted/50"
-                          : "bg-card/40",
+                      isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
                     )}

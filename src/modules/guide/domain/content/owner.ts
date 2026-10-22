@@ -608,7 +608,7 @@ export const OWNER_GUIDE: Guide = {
               "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
             ),
             text(
-              "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time, each with a small dot in its type’s colour on a soft tint of it; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             ),
             steps("Open Calendar.", {
               text: 'Tap "Filters" (highlighted) to narrow by Client, Person, Type or Status.',
@@ -625,7 +625,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet shows what is due, events and deliverables, as the same chips as the month, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop it opens in the middle of the screen.',
+              'The day sheet shows what is due, events and deliverables, as the same chips as the month, and who is away: a chip for each person on leave ("Asha · On leave") and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in the middle of the screen.',
             ),
             steps(
               "Open Calendar and tap a day.",

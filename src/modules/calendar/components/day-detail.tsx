@@ -27,7 +27,7 @@ import {
 } from "../domain/calendar";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
-import { DoneTick, LEAVE_TONE } from "./calendar-chip";
+import { DoneTick, LEAVE_TONE, TypeDot, typeTint } from "./calendar-chip";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
@@ -54,6 +54,14 @@ export const eventLink: TimelineEventLink = (event, children, className, style) 
     {children}
   </OverlayLink>
 );
+
+/**
+ * A leave chip's word (PP-phone-2, PP-crew-5, V5b): "On leave", as the month's bar says it ("You ·
+ * On leave"), "Half day" and "Comp leave" as they are.
+ */
+function leaveWord(label: string): string {
+  return label === "Leave" ? "On leave" : label;
+}
 
 /** "Asha" for "Asha Rao (freelancer)": a chip is one short line. */
 function firstName(name: string): string {
@@ -108,14 +116,8 @@ export function AllDayChips({
   return (
     <>
       {day.holiday ? (
-        <Chip
-          slot="calendar-holiday"
-          className="border-l-2"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${HOLIDAY_COLOR} 15%, transparent)`,
-            borderLeftColor: HOLIDAY_COLOR,
-          }}
-        >
+        <Chip slot="calendar-holiday" style={typeTint(HOLIDAY_COLOR)}>
+          <TypeDot color={HOLIDAY_COLOR} />
           <span className="min-w-0 truncate">{day.holiday}</span>
         </Chip>
       ) : null}
@@ -136,7 +138,7 @@ export function AllDayChips({
         >
           <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
           <span data-member={item.memberId} className="min-w-0 truncate">
-            {item.own ? "You" : firstName(item.name)} · {item.label}
+            {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
             {item.pending ? " · requested" : ""}
           </span>
         </Chip>
@@ -145,17 +147,21 @@ export function AllDayChips({
         eventLink(
           event,
           <>
-            {event.completed ? <DoneTick className="mr-1" /> : null}
+            {event.completed ? (
+              <DoneTick className="mr-1" />
+            ) : (
+              <TypeDot color={event.color} className="mr-1" />
+            )}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
               <span className="text-muted-foreground"> · {event.location}</span>
             ) : null}
           </>,
           cn(
-            "block max-w-full truncate rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4",
+            "block max-w-full truncate rounded-md px-1.5 py-0.5 text-xs leading-4",
             event.completed && "opacity-60",
           ),
-          { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
+          typeTint(event.color),
         ),
       )}
       {dueAsChip && dueCount(day) > 0 ? (
@@ -249,7 +255,7 @@ export function DayDetail({
   free,
   action,
   timeline,
-  fill = false,
+  inPage = false,
   footer,
   heading = true,
   headingId,
@@ -267,12 +273,11 @@ export function DayDetail({
    */
   timeline: boolean;
   /**
-   * The phone's week and compact month (the owner's phone walk, 2026-10-08): the detail fills the
-   * height left above the bottom bar. Its heading and all-day line stay put; under them one scroll
-   * takes the rest: the hour timeline with the day's other rows ("Due · N", "Who's free", the
-   * day's action) after its hours, or those rows alone on a day with no timed event.
+   * The phone's week and compact month (PP-light-4, V5b, replacing the owner's 2026-10-08 fill):
+   * the day is part of the page, which scrolls; the hour timeline draws only the hours around the
+   * day's timed events, with no scroll of its own, and the day's other rows follow it.
    */
-  fill?: boolean;
+  inPage?: boolean;
   /** "Open day" in the laptop's dialog. */
   footer?: ReactNode;
   /** The day's heading; a sheet's title says it instead. */
@@ -348,7 +353,7 @@ export function DayDetail({
       {day.items.length > 0 ? (
         <ClientItemsList items={day.items} headingId={`${headingId}-items`} />
       ) : null}
-      {free !== null && scope !== "staff" ? (
+      {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
         </p>
@@ -367,7 +372,7 @@ export function DayDetail({
       aria-label={heading ? undefined : dayHeading(day.date, today)}
       data-slot="calendar-detail"
       data-date={day.date}
-      className={cn("flex min-w-0 flex-col gap-3", fill && "grow basis-0")}
+      className="flex min-w-0 flex-col gap-3"
     >
       {heading ? (
         <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
@@ -386,30 +391,18 @@ export function DayDetail({
       ) : null}
       {timed.length > 0 ? (
         timeline ? (
-          fill ? (
-            <Timeline days={[day]} today={today} eventLink={eventLink} fill after={rest} />
-          ) : (
-            <Timeline
-              days={[day]}
-              today={today}
-              eventLink={eventLink}
-              className="border-border overflow-hidden rounded-lg border"
-            />
-          )
+          <Timeline
+            days={[day]}
+            today={today}
+            eventLink={eventLink}
+            span={inPage}
+            className="border-border overflow-hidden rounded-lg border"
+          />
         ) : (
           <EventRows events={day.events.filter((event) => event.startAt !== null)} />
         )
-      ) : fill ? (
-        <div
-          data-slot="calendar-day-scroll"
-          // The one scroll on a day with no timed event; two of the phone's hours at least, as the
-          // timeline keeps.
-          className="flex min-h-[5.5rem] min-w-0 grow basis-0 flex-col gap-3 overflow-y-auto overscroll-contain"
-        >
-          {rest}
-        </div>
       ) : null}
-      {fill ? null : rest}
+      {rest}
     </section>
   );
 }

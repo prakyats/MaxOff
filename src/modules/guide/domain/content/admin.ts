@@ -621,7 +621,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              text: "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time, each with a small dot in its type’s colour on a soft tint of it; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "steps",
@@ -638,7 +638,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day’s sheet names who is away (On leave, Busy all day), or says “Everyone is available”.",
+              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day shows each person on leave as a chip, “Asha · On leave” (“You · On leave” for you), and under it who is busy all day, or “Everyone is available”.",
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -651,7 +651,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day shows what is Due, events, and who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop it opens in a dialog; on a phone, in a sheet.",
+              text: "A day shows what is Due, events, and who is away: a chip for each person on leave (“You” for you) and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in a dialog; on a phone, in a sheet.",
             },
             {
               kind: "steps",
