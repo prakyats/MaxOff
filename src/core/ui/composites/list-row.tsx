@@ -156,7 +156,7 @@ export function ListRow({
             <ChevronRightIcon
               aria-hidden
               data-slot="list-row-open"
-              className="text-muted-foreground size-4 shrink-0"
+              className="text-faint size-4 shrink-0"
             />
           ) : null}
         </span>

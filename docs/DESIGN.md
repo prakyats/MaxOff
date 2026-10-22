@@ -138,6 +138,23 @@ a Dark/Light toggle).
   gap to a 20 px icon, the card's rounded tint), under a title line over a hairline: every row ⋯
   passes `title` (the record's name) to `DropdownMenuContent`.
 
+### Sample fidelity (SCOPE §6, owner 22 Oct)
+The tokens in `globals.css` are the approved samples' own values: the `.mx` / `.mx.light` blocks of
+`docs/design/v18-major-changes-sample.html` (the calendar sample uses the same block), with the
+project-page sample's sheet shadow. `status-badge.test.ts` ("sample fidelity") pins them. Where a
+sample value fails AA in the app's real compositions, the nearest passing value is kept and
+flagged here:
+
+| Flag | Sample | Kept | Why |
+|---|---|---|---|
+| Light green chip ink (`success`) | `#15803D` | `#157E3C` | `#15803D` on the green tint `#E6F4EA` is 4.42:1; `#157E3C` is 4.53:1. The Forest approve button stays `#15803D` (white on it is 5.0:1). |
+| Light count red (`brand`) | `#D92D34` | `#C42126` | white on `#D92D34` passes (4.8:1), but `brand` is also a chip ink and reads 4.20:1 on its tint `#FDECEC`; `#C42126` reads 5.1:1. |
+| Dark count red (`brand`) | `#E5484D` with white numerals | `#F2686D` with near-black numerals | white on `#E5484D` is 3.91:1, and as a chip ink it reads 4.13:1 on `#3A1517`. |
+| Placeholders | `faint` (`#8B8B93` / `#6B6B73`) | `muted-foreground` | placeholder text is text: `faint` is 3.4–3.5:1. `faint` is used for the row's › only. |
+
+The mocks' type sizes (13 px body, 12.5 px meta, 11.5 px chips) are the sample drawn at a reduced
+scale inside a frame; the app keeps the approved scale of FINAL 3 (12/14/16/18/20/24).
+
 ### The V5b shared foundations (where they live)
 | Pattern | Use |
 |---|---|
@@ -179,22 +196,22 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Step | Surface token | Light | Dark | Shadow token | Used for |
 |---|---|---|---|---|---|
 | 0 Page | `surface-0` (= `background`) | `#F6F5F2` (warm cream; V5b) | `#0B0B0C` | none | the page |
-| 1 Raised | `surface-1` (= `card`) | `#FFFFFF` | `#141416` | `shadow-raised` (= `shadow-sm`, `shadow`) | cards and grouped lists (`bg-card shadow-raised` + hairline) |
-| 2 Floating | `surface-2` | `#FFFFFF` | `#18181B` | `shadow-floating` (= `shadow-md`) | menus, popovers, tooltips, toasts, a floating sticky bar |
-| 3 Modal | `surface-3` | `#FFFFFF` | `#1C1C1F` | `shadow-modal` (= `shadow-lg`, `shadow-xl`) | dialogs and sheets |
+| 1 Raised | `surface-1` (= `card`) | `#FFFFFF` | `#131315` | `shadow-raised` (= `shadow-sm`, `shadow`) | cards and grouped lists (`bg-card shadow-raised` + hairline) |
+| 2 Floating | `surface-2` | `#FFFFFF` | `#1A1A1D` | `shadow-floating` (= `shadow-md`) | menus, popovers, tooltips, toasts, a floating sticky bar |
+| 3 Modal | `surface-3` | `#FFFFFF` | `#222226` | `shadow-modal` (= `shadow-lg`, `shadow-xl`) | dialogs and sheets |
 
-- `popover` keeps its v1.7 values (`#FFFFFF` / `#141416`) until V2 moves menus and sheets onto
-  steps 2 and 3 (and re-checks `muted` fills on them in dark).
-- **The sidebar** (`sidebar`, `#EFEEE9` / `#101013`) is chrome, a second neutral one step off the
+- `popover` is step 2 (`#FFFFFF` / `#1A1A1D`), the sample's sheet surface.
+- **The sidebar** (`sidebar`, `#EFEEE9` / `#0F0F11`) is chrome, a second neutral one step off the
   page: warmer and darker in light, cooler in dark, under the cards (V5b, FINAL 2); its active item
-  `sidebar-accent` (`#E6E5DF` / `#1F1F23`).
+  `sidebar-accent` is the sample's `s3` (`#FFFFFF` / `#222226`).
 - `muted` / `secondary` / `accent` (`#EEEDE8` / `#1F1F23`) are quiet fills (hover rows, active
-  nav), not elevation. `border` / `input` (`#E3E2DD` / `#26262A`) are hairlines (about 1.3:1 on a
-  card). Light's raised shadow is the approved sample's soft pair (`0 1px 2px` + `0 4px 14px`, 6%).
+  nav), not elevation. `border` / `input` (`#E3E2DD` / `#25252A`) are hairlines (about 1.3:1 on a
+  card). The raised shadow is the approved sample's: light `0 1px 2px` + `0 4px 14px` at 6%; dark a 3% white top edge + `0 6px 18px` at 35% black. The modal shadow is the project-page sample's sheet shadow.
 - **No pure white page** anywhere (V5b major change 4): white is a card or an overlay, never the
   page. `status-badge.test.ts` holds the three layers apart and their text at AA.
-- Text: `foreground` (`#18181B` / `#FAFAF9`) and `muted-foreground` (`#66666E` / `#A1A1AA`,
-  ≥ 4.5:1 on the page, every surface, the quiet fills and the sidebar).
+- Text: `foreground` (`#18181B` / `#EDEDEE`) and `muted-foreground` (`#62626A` / `#9D9DA5`,
+  ≥ 4.5:1 on the page, every surface, the quiet fills and the sidebar). `faint` (`#8B8B93` /
+  `#6B6B73`) is for decorative marks only (a row's ›), a 3:1 graphic, never text.
 - No other shadows: no `shadow-xs`, `shadow-2xl`, `shadow-inner`, no `shadow-[…]` (lint).
 
 ## 4. Colour: red is urgent or destructive only (ADR-0015)
@@ -202,18 +219,18 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 | Tone | Token | Light | Dark | Means |
 |---|---|---|---|---|
-| Red | `danger` (= `brand`, `destructive`) | `#C42126` | `#F2686D` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), **cancelled** (final; owner correction 2026-10-21, reversing C5), and destructive or final actions |
-| Amber | `attention` | `#AD5009` | `#FBBF24` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
-| Blue | `info` | `#1D4ED8` | `#7DA2FF` | in progress, new, unread: work in motion only |
-| Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
-| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
+| Red | `danger` (chips and red text; `brand` `#C42126` / `#F2686D` for counts; `destructive`) | `#B42318` on `#FDECEC` | `#FF8A8F` on `#3A1517` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), **cancelled** (final; owner correction 2026-10-21, reversing C5), and destructive or final actions |
+| Amber | `attention` | `#8F5400` on `#FDF3E2` | `#F5B55A` on `#33240E` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
+| Blue | `info` | `#2952CC` on `#E9EFFD` | `#8FB0FF` on `#18203A` | in progress, new, unread: work in motion only |
+| Green | `success` | `#157E3C` on `#E6F4EA` (flagged, see §Decisions) | `#5FD497` on `#10291C` | done, approved, present, active |
+| Grey | `neutral` | `#62626A` on `#EFEFEF` | `#9D9DA5` on `#232327` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
-| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#52525B` on `#F1F1F2`, stripes `#E4E4E7` | `#A1A1AA` on `#27272A`, stripes `#323236` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
-| Today lift | `today` (= `surface-3`) | `#FFFFFF` + `shadow-raised` | `#1C1C1F` | today's whole box on the calendar, under the red circle on its date: a faint neutral lift one surface step above the other days, never a red wash and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
+| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#62626A` on `#F1F1F2`, stripes `#EFEFEF` | `#9D9DA5` on `#27272A`, stripes `#232327` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
+| Today lift | `today` (= `surface-3`) | `#FFFFFF` + `shadow-raised` | `#222226` | today's whole box on the calendar, under the red circle on its date: a faint neutral lift one surface step above the other days, never a red wash and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 
-- Each tone has a `*-soft` background (12% over the light surface, 18% over the dark) whose text
-  reads at ≥ 4.5:1; `status-badge.test.ts` reads `globals.css` and fails below that.
+- Each tone has a `*-soft` background (the samples' chip tints) whose text reads at ≥ 4.5:1, and
+  the ink reads at ≥ 4.5:1 on the page and the card too; `status-badge.test.ts` reads `globals.css` and fails below that.
 - **Status → colour is one map:** `STATUS_TONES` and `attendanceStatus` in
   `src/core/lib/status-tones.ts` (B13). A screen asks for a tone from a status (`statusTone`), a
   domain function or `StatusBadge` / `StatusDot`; it never types a colour of its own.
@@ -330,7 +347,7 @@ Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by
 |---|---|---|---|
 | `radius-control` | `rounded-control` (= `rounded-sm`, `rounded-md`) | 6 px | buttons, inputs, selects, small chips' squares, menu items |
 | `radius-card` | `rounded-card` (= `rounded-lg`, `rounded`) | 10 px | cards, list groups, banners |
-| `radius-sheet` | `rounded-sheet` (= `rounded-xl`) | 12 px | dialogs, sheets, large panels |
+| `radius-sheet` | `rounded-sheet` (= `rounded-xl`) | 14 px (the sample's sheet) | dialogs, sheets, large panels |
 | full | `rounded-full` | round | chips, pills, dots, avatars |
 
 No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
