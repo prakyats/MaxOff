@@ -115,6 +115,9 @@ async function PersonHeader({ id }: { id: string }) {
             </>
           ) : undefined
         }
+        // Two header buttons (History and ⋯) beside the bell, as on the task page: at very large
+        // text the bell wraps to a second row rather than pushing the bar past the screen's edge.
+        className="flex-wrap"
       />
       {showsHistory(viewer, person) ? (
         <>

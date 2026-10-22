@@ -129,7 +129,12 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
         {primary?.phone || client.driveUrl ? (
           <div className="flex flex-wrap gap-2">
             {primary?.phone ? (
-              <Button variant="secondary" asChild>
+              // A long name at large text wraps inside the button, never past the screen's edge.
+              <Button
+                variant="secondary"
+                className="h-auto max-w-full py-1.5 text-left break-words whitespace-normal"
+                asChild
+              >
                 <a href={`tel:${primary.phone.replace(/\s+/g, "")}`} data-slot="call-primary">
                   <PhoneIcon aria-hidden />
                   Call {primary.name}
