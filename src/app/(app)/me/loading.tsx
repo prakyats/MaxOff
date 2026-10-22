@@ -99,7 +99,7 @@ export default async function Loading() {
           <CardContent className="flex flex-col gap-3">
             <div data-slot="loading-record">
               <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-[1_1_12rem] items-center gap-3">
+                <div className="flex min-w-0 flex-[1_1_12rem] items-start gap-3">
                   <Skeleton className="size-12 shrink-0 rounded-full" />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="flex h-6 min-w-0 items-center">
@@ -107,6 +107,11 @@ export default async function Loading() {
                     </span>
                     <Line width="w-20" />
                     <Line width="w-56" />
+                    {member?.role === "owner" ? null : (
+                      <span className="flex h-4 min-w-0 items-center">
+                        <Skeleton className="h-3 w-52 max-w-full" />
+                      </span>
+                    )}
                   </div>
                 </div>
                 <Skeleton className="h-11 w-32 rounded-lg md:h-8" />

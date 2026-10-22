@@ -146,7 +146,10 @@ a Dark/Light toggle).
 | The detail header (FINAL 6) | `DetailHeader` / `PageHeader`'s `status`, `history`, `primary` (`page-header.tsx`) |
 | The top bar's bell (change 9) | `TopBar` + `NavBadgeMark` place `topbar` |
 | Dates and times (change 6) | `DateInput` / `TimeInput` / `DateTimeInput` (`core/ui/primitives/date-time-input.tsx`), labels from `core/time/field.ts` |
-| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState` |
+| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState`, with its one action inside it (`action`) and no heading row above it (Expenses' Add expense, Extra work's Add note; V5b C) |
+| A calendar item (change 5) | `TypeDot` + `typeTint` (`modules/calendar/components/calendar-chip.tsx`); secondary words on a tint are `text-foreground/80`, never muted (PP-light-3) |
+| Light tint contrast (PP-light-3) | `core/ui/theme/tint-contrast.ts`: a tint composited over its surface, checked at 4.5:1 (`tint-contrast.test.ts`, `type-tint-contrast.test.ts`) |
+| An unread row (PP-alerts-2) | `bg-row-unread` (`--row-unread`: a warm step off the card in light, `surface-3` in dark) |
 
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`

@@ -153,7 +153,7 @@ export default async function MePage({
               savedMessage="Profile saved"
               onSave={updateOwnProfile}
               header={
-                <div className="flex min-w-0 items-center gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                   <Avatar size="lg" className="size-12">
                     {own?.avatarFileId ? (
                       <AvatarImage src={fileUrl(own.avatarFileId)} alt="" />
@@ -165,9 +165,13 @@ export default async function MePage({
                     <p className="text-muted-foreground">{subtitle}</p>
                     <p className="text-muted-foreground break-all" data-slot="me-email">
                       {viewer.email}
-                      {/* W4: only the people whose sign-in the Owner changes read this. */}
-                      {viewer.role === "owner" ? null : <span> (the Owner changes this)</span>}
                     </p>
+                    {/* W4: only the people whose sign-in the Owner changes read this. */}
+                    {viewer.role === "owner" ? null : (
+                      <p className="text-muted-foreground text-xs">
+                        The Owner changes your sign-in email.
+                      </p>
+                    )}
                   </div>
                 </div>
               }
