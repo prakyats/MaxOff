@@ -815,7 +815,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("An archived contact stays on the list, marked Archived."),
             note(
-              'Archiving the primary contact asks for the next primary contact. A contact nothing ever pointed at (never edited, archived or made primary over others) can be deleted for good from its ⋯ ("Delete").',
+              'Archiving the primary contact asks for the next primary contact. A contact no other record uses can be deleted for good from its ⋯ ("Delete"): its own edits and archiving never count, and the primary contact can go only while no other live contact is left.',
             ),
           ],
           keywords: ["contact", "primary contact", "archive"],
@@ -826,7 +826,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
