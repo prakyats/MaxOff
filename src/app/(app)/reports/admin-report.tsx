@@ -40,6 +40,12 @@ import { ADMIN_REPORT_DESCRIPTION } from "./copy";
 import { CustomRange } from "./custom-range";
 import { PeriodControls } from "./period-controls";
 
+/** "A", "A and B", "A, B and C". */
+function listWords(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
 function words<T>(split: Split<T>, say: (value: T) => string): Split<string> {
   return Object.fromEntries(
     ENGAGEMENTS.map((engagement) => [engagement, say(split[engagement])]),
@@ -91,6 +97,14 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
   // Amendment D2: each open item's own stages and ticks.
   const stages = await listItemStages(waiting.map((item) => item.id));
   const sits = sitLongest({ items: waiting, stages, cycles: current, now });
+  // PP-admin-5 (major change 7): a deliverable metric with no data folds into one muted line.
+  const onTimeNow = onTime(planned, period);
+  const onTimeBefore = onTime(planned, before);
+  const empty = [
+    onTimeNow.planned === 0 && onTimeBefore.planned === 0 ? "On time" : null,
+    totals.total === 0 ? "Cycle progress" : null,
+    sits.length === 0 ? "where deliverables wait" : null,
+  ].filter((name): name is string => name !== null);
   const openTasks = open.map((row) => ({
     id: row.id,
     state: row.state,
@@ -149,20 +163,24 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
             Deliverables
           </h2>
           <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
-            <ItemKpiCard
-              slot="kpi-on-time"
-              title="On time"
-              definition="Deliverables done on or before their planned date, of those planned."
-              now={onTimeWords(onTime(planned, period))}
-              before={onTimeWords(onTime(planned, before))}
-            />
-            <ItemKpiCard
-              slot="kpi-cycle-progress"
-              title="Cycle progress"
-              definition="The current cycles: done of planned."
-              now={cycleProgressWords(totals)}
-              before={null}
-            />
+            {onTimeNow.planned > 0 || onTimeBefore.planned > 0 ? (
+              <ItemKpiCard
+                slot="kpi-on-time"
+                title="On time"
+                definition="Deliverables done on or before their planned date, of those planned."
+                now={onTimeWords(onTimeNow)}
+                before={onTimeWords(onTimeBefore)}
+              />
+            ) : null}
+            {totals.total > 0 ? (
+              <ItemKpiCard
+                slot="kpi-cycle-progress"
+                title="Cycle progress"
+                definition="The current cycles: done of planned."
+                now={cycleProgressWords(totals)}
+                before={null}
+              />
+            ) : null}
             <ItemKpiCard
               slot="kpi-items-overdue"
               title="Overdue now"
@@ -171,14 +189,21 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
               before={null}
               href="/clients/items?filter=overdue"
             />
-            <ItemKpiCard
-              slot="kpi-sit-longest"
-              title="Where deliverables wait longest"
-              definition="Open deliverables by their first unticked stage, with the median days waiting."
-              lines={sits.slice(0, 5).map(sitWords)}
-              empty="No open deliverables waiting at a stage."
-            />
+            {sits.length > 0 ? (
+              <ItemKpiCard
+                slot="kpi-sit-longest"
+                title="Where deliverables wait longest"
+                definition="Open deliverables by their first unticked stage, with the median days waiting."
+                lines={sits.slice(0, 5).map(sitWords)}
+              />
+            ) : null}
           </div>
+          {/* PP-admin-5: the metrics with nothing to show fold into one quiet line. */}
+          {empty.length > 0 ? (
+            <p className="text-muted-foreground text-sm" data-slot="report-items-empty">
+              Nothing to show yet for {listWords(empty)}.
+            </p>
+          ) : null}
         </section>
         <section
           aria-labelledby="load-title"

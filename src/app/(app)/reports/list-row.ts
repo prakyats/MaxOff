@@ -24,7 +24,7 @@ export const OWNER_REPORTS = [
 ] as const;
 
 export const REPORTS_LIST_CLASS =
-  "border-border divide-border divide-y overflow-hidden rounded-lg border";
+  "border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border";
 
 export const REPORT_ROW_CLASS = "flex min-h-14 items-center gap-3 px-4 py-3";
 

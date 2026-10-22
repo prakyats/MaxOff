@@ -712,7 +712,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Reports (under More on a phone).",
                 "Choose Week, Month or Custom.",
                 "Read the four cards.",
-                "Scroll to Client items for your clients’ deliverables.",
+                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others.",
                 "Scroll to Who is loaded this week to see who has the most due.",
               ],
             },

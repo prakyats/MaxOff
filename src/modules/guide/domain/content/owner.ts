@@ -689,7 +689,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Read the Month report",
           summary: "Each person's month in IST, live.",
           blocks: [
-            text("Reports has two rows. Month shows each person's IST month, live."),
+            text(
+              'Reports opens with this month so far: Days worked (team, with leave and absence), Days waiting for you, Overtime notes and Expenses to pay, each tappable. One with nothing in it folds into one quiet line ("So far: no overtime notes and no expenses to pay."). Under it are two rows. Month shows each person\'s IST month, live.',
+            ),
             steps("Open Reports.", {
               text: 'Tap "Month" (highlighted).',
               shot: "owner/reports",
