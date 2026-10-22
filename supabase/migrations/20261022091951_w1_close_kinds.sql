@@ -323,27 +323,27 @@ as $$
 declare
   v_caller public.members;
   v_item public.project_items;
-  v_project public.projects;
 begin
   v_caller := app.client_work_caller('projects.manage', 'You cannot change closed deliverables.');
   if not app.is_owner() then
     perform app.fail('FORBIDDEN', 'Only the Owner sets why a deliverable was closed.');
   end if;
+  -- Owner 2026-10-22: any closed deliverable, a completed or cancelled project's included (only the
+  -- kind changes, never the project's read-only state or the close itself).
   v_item := app.item_lock(item_set_close_kind.item_id);
-  select p.* into v_project from public.projects p where p.id = v_item.project_id;
-  perform app.project_check_writable(v_project);
   if v_item.state <> 'cancelled' then
     perform app.fail('INVALID_STATE', format('This deliverable is %s, not closed.', v_item.state));
   end if;
-  if item_set_close_kind.close_kind is null
-     or item_set_close_kind.close_kind not in ('not_needed', 'not_delivered') then
+  if item_set_close_kind.close_kind is not null
+     and item_set_close_kind.close_kind not in ('not_needed', 'not_delivered') then
     perform app.fail('VALIDATION', 'Choose "Not needed" or "Not delivered".');
   end if;
   if v_item.close_kind is not distinct from item_set_close_kind.close_kind then
     return false;
   end if;
   perform set_config('app.audit_override', jsonb_build_object(
-    'action', 'close_kind_set', 'meta', jsonb_build_object('from', v_item.close_kind))::text, true);
+    'action', case when item_set_close_kind.close_kind is null then 'close_kind_cleared' else 'close_kind_set' end,
+    'meta', jsonb_build_object('from', v_item.close_kind))::text, true);
   update public.project_items set close_kind = item_set_close_kind.close_kind where id = v_item.id;
   return true;
 end;
@@ -354,10 +354,11 @@ grant execute on function public.item_set_close_kind(uuid, text) to authenticate
 
 comment on function public.item_set_close_kind(uuid, text) is
   'v1.9 W1-db (6b.4 D5, OPEN 4): the Owner only (projects.manage, then app.is_owner(): an Admin is '
-  'FORBIDDEN on any client); a cancelled deliverable of a project open or in progress (INVALID_STATE '
-  'otherwise; NOT_FOUND outside the organization); close_kind not_needed | not_delivered (VALIDATION, '
-  'null refused). Sets or changes the kind; false when it already held it. Audited ''close_kind_set'' '
-  '(meta from). No notification.';
+  'FORBIDDEN on any client); a cancelled deliverable (INVALID_STATE otherwise; NOT_FOUND outside the '
+  'organization), in any project state (owner 2026-10-22: completed and cancelled projects included); '
+  'close_kind not_needed | not_delivered (VALIDATION otherwise) or null to clear it. Sets, changes or clears '
+  'the kind; false when it already held it. Audited ''close_kind_set'' / ''close_kind_cleared'' (meta from). '
+  'No notification.';
 
 -- 5. "Also add ‹title› to ‹period›?": the line and the deliverable in one transaction ---------------------------
 create function public.project_blueprint_add_to_cycle(project_id uuid, title text, cycle_id uuid)
@@ -460,7 +461,8 @@ as $$
       p_action in ('generated', 'insert', 'item_list_added', 'extras_kept', 'extras_not_kept')
     when 'project_items' then
       p_action in ('insert', 'done', 'not_done', 'approved', 'rejected', 'sent_back', 'reopened', 'cancelled',
-                   'closed', 'carried', 'carried_in', 'left_pending', 'saved_as_template', 'close_kind_set')
+                   'closed', 'carried', 'carried_in', 'left_pending', 'saved_as_template', 'close_kind_set',
+                   'close_kind_cleared')
       or (p_action = 'update'
           and coalesce(p_diff -> 'new', '{}'::jsonb) ?| array['title', 'notes', 'planned_date', 'custom_fields', 'position'])
     when 'project_item_stages' then
@@ -469,6 +471,6 @@ as $$
 $$;
 comment on function app.client_work_activity_shown(text, text, jsonb) is
   'Internal (review fix 2026-10-09; 6b Release 1; 6b Release 2: + saved_as_template on a project and a '
-  'deliverable, + extras_kept / extras_not_kept on a cycle; v1.9 W1-db: + close_kind_set on a deliverable): '
+  'deliverable, + extras_kept / extras_not_kept on a cycle; v1.9 W1-db: + close_kind_set / close_kind_cleared on a deliverable): '
   'whether the project''s history describes an audit entry: the same list as describeProjectActivity in '
   'modules/client-work/domain/activity.ts. Read by project_activity and item_last_changes; change both together.';

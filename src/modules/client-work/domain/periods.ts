@@ -121,3 +121,32 @@ export function itemListCopy(periods: ItemListPeriods): {
         removeDescription: `${periods.from} starts without it.`,
       };
 }
+
+/**
+ * "Also add ‹title› to ‹October 2026›?" (v1.9 W1-db, ROADMAP 6b.4 D4 in full; WORKFLOWS §5.3): asked when a
+ * line is added to the deliverables list while the running cycle can take it (`periods.running`, D4's
+ * ‹October 2026›). **Add to ‹October 2026› too** (the default) is `project_blueprint_add_to_cycle` (the
+ * line and an open deliverable with its stages, one transaction); **From ‹November 2026› only** is
+ * `project_blueprint_add`. Null when there is no running cycle: the line is added from ‹from› without
+ * asking (D4's words). Titles are trimmed as the database stores them.
+ */
+export function alsoAddCopy(
+  periods: ItemListPeriods,
+  title: string,
+): {
+  question: string;
+  addToo: string;
+  listOnly: string;
+  addedBoth: string;
+  addedListOnly: string;
+} | null {
+  if (!periods.running) return null;
+  const name = title.trim();
+  return {
+    question: `Also add ${name} to ${periods.running}?`,
+    addToo: `Add to ${periods.running} too`,
+    listOnly: `From ${periods.from} only`,
+    addedBoth: `${name} added to ${periods.running} and every ${periods.unit} from ${periods.from}`,
+    addedListOnly: `${name} added from ${periods.from}`,
+  };
+}

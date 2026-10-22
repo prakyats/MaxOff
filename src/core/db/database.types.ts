@@ -2430,6 +2430,7 @@ export type Database = {
           carry_decided_at: string | null;
           carry_decided_by: string | null;
           carry_decision: Database["public"]["Enums"]["carry_decision"] | null;
+          close_kind: string | null;
           created_at: string;
           created_by: string | null;
           custom_fields: Json;
@@ -2460,6 +2461,7 @@ export type Database = {
           carry_decided_at?: string | null;
           carry_decided_by?: string | null;
           carry_decision?: Database["public"]["Enums"]["carry_decision"] | null;
+          close_kind?: string | null;
           created_at?: string;
           created_by?: string | null;
           custom_fields?: Json;
@@ -2490,6 +2492,7 @@ export type Database = {
           carry_decided_at?: string | null;
           carry_decided_by?: string | null;
           carry_decision?: Database["public"]["Enums"]["carry_decision"] | null;
+          close_kind?: string | null;
           created_at?: string;
           created_by?: string | null;
           custom_fields?: Json;
@@ -4469,6 +4472,7 @@ export type Database = {
       };
       cycle_carry_decide: {
         Args: {
+          close_kind?: string;
           decision: Database["public"]["Enums"]["carry_decision"];
           item_ids: string[];
           reason?: string;
@@ -4667,7 +4671,7 @@ export type Database = {
       item_add_revision_round: { Args: { item_id: string }; Returns: string };
       item_approve: { Args: { item_ids: string[] }; Returns: Json };
       item_cancel: {
-        Args: { item_id: string; reason: string };
+        Args: { close_kind?: string; item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
       };
       item_last_changes: {
@@ -4698,6 +4702,10 @@ export type Database = {
       item_save_as_template: {
         Args: { item_id: string; name: string };
         Returns: string;
+      };
+      item_set_close_kind: {
+        Args: { close_kind: string; item_id: string };
+        Returns: boolean;
       };
       item_stage_add:
         | { Args: { item_id: string; name: string }; Returns: string }
@@ -4946,6 +4954,10 @@ export type Database = {
       project_blueprint_add: {
         Args: { project_id: string; title: string };
         Returns: string;
+      };
+      project_blueprint_add_to_cycle: {
+        Args: { cycle_id: string; project_id: string; title: string };
+        Returns: Json;
       };
       project_blueprint_archive: {
         Args: { blueprint_id: string };

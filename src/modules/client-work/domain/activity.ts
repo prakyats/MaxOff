@@ -1,6 +1,8 @@
 import { groupStageLabel } from "@/core/lib/stage-groups";
 import { formatIST, istDayStart } from "@/core/time";
 
+import { closeKindWords, isCloseKind } from "./close-kinds";
+
 /**
  * A project's history (7.3; PRODUCT §4.14, WORKFLOWS §5; amendment D): each audit entry about the
  * project, its default stages, its item list, its cycles, its items and their own stages as one
@@ -361,8 +363,23 @@ function describeItem(
     case "reopened":
       return { text: `reopened ${title}`, ...(reason ? { note: reason } : {}) };
     case "cancelled":
-    case "closed":
-      return { text: `closed ${title}`, ...(reason ? { note: reason } : {}) };
+    case "closed": {
+      // v1.9 W1-db: a close with a kind says it ("closed Reel 2 as not delivered").
+      const kind = entry.new.close_kind ?? entry.meta.close_kind;
+      const as = isCloseKind(kind) ? ` as ${closeKindWords(kind)}` : "";
+      return { text: `closed ${title}${as}`, ...(reason ? { note: reason } : {}) };
+    }
+    case "close_kind_set": {
+      // v1.9 W1-db: the Owner sets or changes the kind of a close.
+      const kind = entry.new.close_kind;
+      return {
+        text: isCloseKind(kind)
+          ? `marked ${title}'s close as ${closeKindWords(kind)}`
+          : `changed why ${title} was closed`,
+      };
+    }
+    case "close_kind_cleared":
+      return { text: `cleared why ${title} was closed` };
     case "carried":
       return { text: `carried ${title} forward` };
     case "carried_in":

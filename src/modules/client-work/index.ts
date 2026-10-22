@@ -52,6 +52,7 @@ export {
   type ProjectSummary,
 } from "./domain/projects";
 export {
+  alsoAddCopy,
   cycleLabel,
   itemListPeriods,
   type ItemListPeriods,
@@ -77,6 +78,13 @@ export {
   type ItemViewContext,
   type LastChange,
 } from "./domain/views";
+export {
+  CLOSE_KINDS,
+  closeKindLabel,
+  closeKindWords,
+  isCloseKind,
+  type CloseKind,
+} from "./domain/close-kinds";
 export { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "./domain/extras";
 export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
 export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";
