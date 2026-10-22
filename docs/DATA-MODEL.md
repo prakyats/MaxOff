@@ -1665,9 +1665,15 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- own pending row (uploaded_by = caller, status pending; preview_of must be their own
                      -- file); file_complete(id, size, sha256) moves pending → ready and file_fail(id) → failed
                      -- (uploader only); file_mark_deleted(id) (service_role only, the cleanup job) sets
-                     -- deleted. app.file_visible(id): the uploader; any member for the company logo; team.view
-                     -- or the person for an avatar; app.client_visible or a label row for a client logo; a
+                     -- deleted. app.file_visible(id): the uploader; any member for the company logo; any active
+                     -- member for a member's current avatar (v1.8 V5b-D, migration w2_avatar_visibility; was
+                     -- team.view or the person); app.client_visible or a label row for a client logo; a
                      -- preview follows its original. storage_key = <org>/<yyyy>/<mm>/<file id>/<name>. Audited.
+                     -- v1.8 V5b-D (profile photos, no schema change): an avatar's original has two browser-made
+                     -- JPEG previews (preview_of → the original): 512 px for the person page and Me, and a
+                     -- 96 px thumbnail for every list. /api/files/<id>?variant=thumb serves the smallest ready
+                     -- preview, ?variant=preview the largest (one preview: the same file; none: the original),
+                     -- with Cache-Control private, immutable (a file id never changes).
                      -- 3A review: file_cleanup_candidates also returns failed rows past the pending window
                      -- (a browser that gave up after the PUT left an object); files_archive_replaced audits
                      -- each archived row (original and previews) as 'archived'; files_reference_guard

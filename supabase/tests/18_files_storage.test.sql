@@ -257,7 +257,7 @@ select pg_temp.as_member('admin');
 select is(pg_temp.update_count($$ update public.organizations set logo_file_id = null where id = pg_temp.fx('org') $$), 0::bigint,
   'an Admin''s change of the company logo matches no row (settings.manage)');
 
--- Avatars: own upload, raster only, team.view or the person ---------------------------------------
+-- Avatars: own upload, raster only, any active member (6b.3) ---------------------------------------
 select pg_temp.as_member('staff');
 select lives_ok($$ select pg_temp.begin('avatar', 'staff', 'me.jpg', 'image/jpeg', 2000) $$,
   'Staff start their own avatar upload');
@@ -277,8 +277,8 @@ select lives_ok(
 select is((select avatar_file_id from public.member_directory where id = pg_temp.fx('staff')), pg_temp.fx('avatar'),
   'the directory shows it');
 select pg_temp.as_member('staff2');
-select is((select count(*) from public.files where id = pg_temp.fx('avatar')), 0::bigint,
-  'another Staff member (no team.view) cannot read the avatar');
+select is((select count(*) from public.files where id = pg_temp.fx('avatar')), 1::bigint,
+  'another Staff member reads the avatar too (6b.3, v1.9 W2: every active member; was team.view or the person)');
 select pg_temp.as_member('admin');
 select is((select count(*) from public.files where id = pg_temp.fx('avatar')), 1::bigint,
   'an Admin (team.view) reads it');
