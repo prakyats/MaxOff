@@ -674,10 +674,16 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-person-page",
           title: "Use a person's page",
-          summary: "Profile, Leave, Attendance and Month tabs.",
+          summary: "A summary, then Profile, Leave, Attendance and Month tabs.",
           blocks: [
             text(
-              'Open a person to see a "today" line and four tabs: Profile, Leave, Attendance and Month. The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+              'Open a person to see their status beside their name, a "today" line and four tabs: Profile, Leave, Attendance and Month. The header\'s clock opens their History (invited, joined, role and job title changes, deactivated). The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+            ),
+            text(
+              "Profile opens with a summary: the days waiting for your review (with Review), their leave this month and the comp leave they have left; each opens its tab. Under it one card holds their phone, sign-in email and joining date, then Profile (name, role, job title).",
+            ),
+            text(
+              "In Attendance, a day waiting for you has Approve and Correct… on its row; open it to see the same as in Approvals (their week and comp leave) and approve it there with the green Approve.",
             ),
             note("Deactivating a person keeps all their history. Nothing is deleted."),
           ],
