@@ -142,7 +142,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
                 id={`${id}-note`}
                 rows={2}
                 maxLength={LEAVE_REASON_MAX_LENGTH}
-                placeholder="For the Sunday edit."
+                placeholder="e.g. For the Sunday edit."
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
               />
@@ -154,6 +154,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
                 variant="secondary"
                 onClick={() => close(false)}
                 disabled={pending}
+                data-dismiss=""
               >
                 Cancel
               </Button>

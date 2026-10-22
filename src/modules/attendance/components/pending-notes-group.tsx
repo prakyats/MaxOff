@@ -253,7 +253,7 @@ function DecideNoteDialog({
                 id={`${id}-note`}
                 rows={2}
                 maxLength={ATTENDANCE_REASON_MAX_LENGTH}
-                placeholder="Thanks for the late night."
+                placeholder="e.g. Thanks for the late night."
                 value={ownerNote}
                 onChange={(event) => setOwnerNote(event.target.value)}
               />
@@ -266,6 +266,7 @@ function DecideNoteDialog({
               variant="secondary"
               onClick={() => close(false)}
               disabled={pending}
+              data-dismiss=""
             >
               Cancel
             </Button>

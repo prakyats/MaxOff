@@ -176,6 +176,7 @@ export function DoneDialog({
               variant="secondary"
               onClick={() => close(false)}
               disabled={pending}
+              data-dismiss=""
             >
               Cancel
             </Button>
