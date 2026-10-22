@@ -164,9 +164,10 @@ test.describe("Staff on a phone", () => {
     await expect(leaveTabs).toHaveText(["Leave requests", "Attendance"]);
     await expect(page.getByRole("button", { name: "Request leave" })).toBeVisible();
 
-    // Me: Extra work & expenses, its two tabs, and Me stays the current tab.
+    // Me: My work holds both own pages (V5b, the Me restructure); Extra work & expenses, its two
+    // tabs, and Me stays the current tab.
     await nav.getByRole("link", { name: "Me" }).click();
-    await expect(page.locator('[data-slot="me-leave-link"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="me-leave-link"]')).toBeVisible();
     await page.locator('[data-slot="me-work-link"]').click();
     await expect(page).toHaveURL(/\/leave\/extra-work$/);
     await expect(
@@ -185,17 +186,39 @@ test.describe("Staff on a phone", () => {
     await expect(page).toHaveURL(/\/notifications$/);
   });
 
-  test("5B: Me ends with Help & troubleshooting: the test push, Reload app and the version", async ({
+  test("V5b: Me in the restructure's order: My work, Notifications, Appearance, Help, Sign out, the version last", async ({
     page,
   }) => {
     await page.goto("/me");
-    const help = page.locator('[data-slot="me-help"]');
-    await expect(help).toContainText("Help & troubleshooting");
-    await expect(help.locator('[data-slot="push-test"]')).toBeVisible();
-    await expect(help.locator('[data-slot="reload-app"]')).toBeVisible();
-    await expect(help.locator('[data-slot="app-version"]')).toHaveText(/^Version \S/);
-    // Nothing of it stays in the device card above.
+    await expect(page.locator("main h2:not(.sr-only)")).toHaveText([
+      "My work",
+      "Notifications",
+      "Appearance",
+      "Help",
+    ]);
+    // The test push sits with Notifications now, Reload app with Help.
+    const notifications = page.locator('[data-slot="me-notifications"]');
+    await expect(notifications.locator('[data-slot="push-device-row"]')).toBeVisible();
+    await expect(notifications.locator('[data-slot="me-devices"]')).toBeVisible();
+    await expect(notifications.locator('[data-slot="push-test"]')).toBeVisible();
     await expect(page.locator('[data-slot="push-test"]')).toHaveCount(1);
+    const help = page.locator('[data-slot="me-help"]');
+    await expect(help.locator('[data-slot="me-guide-link"]')).toBeVisible();
+    await expect(help.locator('[data-slot="reload-app"]')).toBeVisible();
+    // Sign out after Help, a red outline (never solid); the version the very last line.
+    const signOut = page.locator('[data-slot="me-sign-out"]');
+    await expect(signOut).toHaveText("Sign out of this device");
+    const box = async (selector: string) => (await page.locator(selector).boundingBox())?.y ?? 0;
+    expect(await box('[data-slot="me-sign-out"]')).toBeGreaterThan(
+      await box('[data-slot="me-help"]'),
+    );
+    const version = page.locator('[data-slot="app-version"]');
+    await expect(version).toHaveText(/^Version \S/);
+    expect(await box('[data-slot="app-version"]')).toBeGreaterThan(
+      await box('[data-slot="me-sign-out"]'),
+    );
+    const fill = await signOut.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(fill, "outline, not solid").toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
   });
 });
 

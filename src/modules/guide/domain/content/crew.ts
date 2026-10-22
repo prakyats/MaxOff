@@ -25,12 +25,12 @@ export const CREW_GUIDE: Guide = {
                 "Tasks: the work given to you.",
                 "Calendar: your events, due dates, leave and holidays.",
                 "Leave: attendance and leave requests.",
-                "Me: your profile, notifications and help.",
+                "Me: your profile, your own pages, notifications and help.",
               ],
             },
             {
               kind: "note",
-              text: '"Extra work & expenses" is in the laptop sidebar. On a phone it is a row on Me: "Note extra work and claim what you spent."',
+              text: '"Extra work & expenses" is in the laptop sidebar. On a phone it is on Me, under "My work", beside Attendance & leave: "Note extra work and claim what you spent."',
             },
             {
               kind: "text",
@@ -38,7 +38,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Help (this guide) is on Me, and on a laptop also in the account menu under your name and at the foot of the sidebar.",
+              text: "Help (this guide) is in the Help section of Me, and on a laptop also in the account menu under your name and at the foot of the sidebar.",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -618,7 +618,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'At the bottom of Me, "Your freelancers" lists them with a phone link each.',
+              text: 'On Me, under My work, "Your freelancers" lists them with a phone link each.',
             },
           ],
           link: { href: "/me", label: "Open Me" },
@@ -861,7 +861,7 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: 'Open Me and find the "Notifications" row (highlighted).',
+                  text: 'Open Me and find the "Notifications" section (highlighted).',
                   shot: "staff/me-notifications",
                 },
                 'Tap "Turn on", or "Turn on here" if your phone already has them on.',
@@ -879,6 +879,27 @@ export const CREW_GUIDE: Guide = {
           ],
           link: { href: "/me", label: "Open Me" },
           keywords: ["push", "enable", "allow", "alerts", "iphone", "phone"],
+        },
+        {
+          id: "use-me",
+          title: "Use Me",
+          summary: "Your profile, your own pages, notifications and help, in one place.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them to change your name or phone. Then, in this order: My work (Attendance & leave, Extra work & expenses), Notifications (this device, Your devices and Send a test notification), Appearance, and Help (this guide and Reload app). Sign out of this device is the last button, and the app's version is the small line at the very bottom.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Tap Me in the bottom bar (on a laptop, in the sidebar).",
+                "Tap Edit profile to change your name or phone, then Save.",
+                "Tap a row under My work or Help to open it.",
+              ],
+            },
+          ],
+          link: { href: "/me", label: "Open Me" },
+          keywords: ["profile", "account", "photo", "phone number", "help", "version"],
         },
         {
           id: "appearance",
@@ -905,8 +926,8 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open Me and find "Sign out of this device".',
-                'Tap "Sign out".',
+                'Open Me and scroll to the end: "Sign out of this device" is the last button, in red outline.',
+                "Tap it.",
                 'Read "Sign out of this device?" and confirm.',
               ],
             },

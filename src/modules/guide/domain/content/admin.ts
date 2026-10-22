@@ -29,7 +29,7 @@ export const ADMIN_GUIDE: Guide = {
                 { text: "Open Today. It is the first screen.", shot: "admin/today" },
                 "On a phone, tap More in the bottom bar.",
                 "Pick Reports, Clients, People or Settings.",
-                "Tap the Me row at the bottom of the sheet for your own page.",
+                "Tap the Me row near the bottom of the sheet for your own page, or Help under it for this guide.",
               ],
             },
             {
@@ -55,14 +55,14 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page: Notifications, Your devices and Help & troubleshooting. Help, this guide, is also in the account menu (your name, top right) and at the foot of the sidebar.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar.",
             },
             {
               kind: "steps",
               steps: [
                 "Tap the bell to open Alerts.",
                 "Tap Me (in the More sheet on a phone).",
-                "Pick the row you need, for example Attendance & leave.",
+                "Under My work, pick the row you need, for example Attendance & leave.",
               ],
             },
             {

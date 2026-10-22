@@ -502,6 +502,26 @@ test.describe("installed: overlays and view controls", () => {
       await view(page, "Expenses", /\/leave\/expenses$/);
       await expectBackStack(page, [{ url: /\/me$/ }, { url: /\/my-day$/ }]);
     });
+
+    test("Me (V5b restructure): Attendance & leave from My work pushes; the sign-out confirmation closes on back", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="me"]').click();
+      await expect(page).toHaveURL(/\/me$/);
+      await page.locator('[data-slot="me-leave-link"]').click();
+      await expect(page).toHaveURL(/\/leave$/);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/me$/);
+      await hydrated(page);
+      // Sign out, last on Me, asks first; back closes the question and stays signed in on Me.
+      await page.locator('[data-slot="me-sign-out"]').click();
+      const confirm = page.getByRole("alertdialog", { name: "Sign out of this device?" });
+      await expect(confirm).toBeVisible();
+      await expectNoHorizontalScroll(page);
+      await expectBackStack(page, [{ closes: confirm, url: /\/me$/ }, { url: /\/my-day$/ }]);
+    });
   });
 });
 
@@ -734,6 +754,22 @@ test.describe("installed: More destinations are tab roots", () => {
     await openFromMore(page, "Me");
     await expect(page).toHaveURL(/\/me$/);
     await expectBackStack(page, [{ url: /\/today$/ }]);
+  });
+
+  test("Help (V5b, PP-phone-1): More → Help opens the guide over the page; back returns to it", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const sheet = page.locator('[data-slot="more-sheet"]');
+    await sheet.locator('[data-slot="more-help"]').click();
+    await expect(page).toHaveURL(/\/me\/guide$/);
+    await expect(sheet).toBeHidden();
+    // A drill-down: back goes to the screen the sheet was over, never a second More.
+    await expectBackStack(page, [{ url: /\/calendar$/ }]);
+    await expect(sheet).toBeHidden();
   });
 
   test("a fast double tap lands once, with Today underneath", async ({ page }) => {

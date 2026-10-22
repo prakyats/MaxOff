@@ -444,7 +444,8 @@ test.describe("More, for Owner and Admin", () => {
         const sheet = page.locator('[data-slot="more-sheet"]');
         await expect(sheet).toBeVisible();
         // The rest of the navigation, in the same priority order as the bar, then the profile.
-        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too.
+        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too. Help (the
+        // guide) under Me (V5b, PP-phone-1).
         await expect(sheet.getByRole("link")).toHaveText(
           role === "admin"
             ? [
@@ -455,8 +456,9 @@ test.describe("More, for Owner and Admin", () => {
                 "Extra work & expenses",
                 "Settings",
                 "Me",
+                "Help",
               ]
-            : ["Reports", "Clients", "People", "Settings", "Me"],
+            : ["Reports", "Clients", "People", "Settings", "Me", "Help"],
         );
         // "Sign out of this device" lives under Me only (kickoff 3b decision 1): nothing here.
         await expect(sheet.getByRole("button", { name: /Log out|Sign out/ })).toHaveCount(0);

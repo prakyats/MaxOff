@@ -45,10 +45,10 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Tap a cell in the bottom bar to switch screen.",
               "Tap More for Reports, Clients, People and Settings.",
-              "Tap Me in the same sheet for your own page.",
+              "Tap Me in the same sheet for your own page, or Help under it for this guide.",
             ),
             next(
-              "The last cell, More, opens a sheet with Reports, Clients, People, Settings and a Me row.",
+              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me and Help.",
             ),
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
@@ -77,14 +77,12 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-me",
           title: "Use Me",
-          summary: "Your own page: devices, notifications and troubleshooting.",
+          summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me is where you turn on notifications for this device, see Your devices, and find Help & troubleshooting. On a phone, open it from More.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More.",
             ),
-            text(
-              "You do not mark attendance or take leave, so Me has no attendance or leave rows for you.",
-            ),
+            text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],
           link: { href: "/me", label: "Open Me" },
           keywords: ["profile", "account", "settings"],

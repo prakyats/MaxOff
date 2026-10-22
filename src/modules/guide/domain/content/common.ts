@@ -15,7 +15,7 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
         kind: "steps",
         steps: [
           "Pull down on the screen to refresh it, or close it and open it again.",
-          'Still stuck? Open Me and scroll to "Help & troubleshooting".',
+          'Still stuck? Open Me and scroll to "Help".',
           'Tap "Reload app". MaxOff starts again from the beginning.',
         ],
       },
@@ -76,16 +76,16 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: 'Notifications are turned on for each device separately. Open Me and look at the "Notifications" row.',
+        text: 'Notifications are turned on for each device separately. Open Me and look at the "Notifications" section: this device first, then Your devices, then a test.',
       },
       {
         kind: "steps",
         steps: [
           'On Me, tap "Turn on". If it says "Turn on here", your phone has them on but this app does not yet.',
           "If the message says they are blocked, allow notifications for MaxOff in your browser or phone, then come back.",
-          'Under "Help & troubleshooting", tap "Send a test notification", then "Send test".',
+          'In the same "Notifications" section, find "Send a test notification" and tap "Send test".',
           'Wait for the question "Did it arrive?" and answer it.',
-          'Check "Your devices". Tap "Remove" next to a device you no longer use.',
+          'Check "Your devices", just above it. Tap "Remove" next to a device you no longer use, then confirm.',
         ],
       },
       {

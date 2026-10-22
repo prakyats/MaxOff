@@ -1,8 +1,8 @@
 "use client";
 
-import { CircleUserIcon } from "lucide-react";
+import { CircleHelpIcon, CircleUserIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type MouseEvent, type ReactNode, useRef, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -27,7 +27,7 @@ const ROW =
 
 /**
  * The fifth slot of the bottom bar for Owner and Admin: the destinations that didn't make the
- * primary four, plus profile and appearance (ARCHITECTURE §14.1). Loaded after the page by
+ * primary four, plus Me, Help (the guide, V5b PP-phone-1) and appearance (ARCHITECTURE §14.1). Loaded after the page by
  * `MoreSheetLazy` (6.0, the first-load diet).
  *
  * `logoutItem` is an optional last row. Since 3b.1 the layout passes none: "Sign out of this
@@ -55,6 +55,7 @@ export function MoreSheet({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const pathname = usePathname();
+  const router = useRouter();
   const close = () => setOpen(false);
   // One destination per opening: a fast double tap must not navigate twice.
   const leaving = useRef(false);
@@ -77,6 +78,22 @@ export function MoreSheet({
     closeOverlaysThen(() => {
       close();
       tabs.navigate(href);
+    });
+  };
+
+  /**
+   * A drill-down from here (Help): not a tab root, so it is pushed over the page, as the laptop's
+   * account menu opens it; the sheet's own history entry is backed out first, so back from it
+   * lands on the page the sheet was over.
+   */
+  const drill = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey) return;
+    event.preventDefault();
+    if (leaving.current) return;
+    leaving.current = true;
+    closeOverlaysThen(() => {
+      close();
+      router.push(href);
     });
   };
 
@@ -143,6 +160,23 @@ export function MoreSheet({
           >
             <CircleUserIcon className="size-5 shrink-0" aria-hidden />
             {PROFILE_NAV_ITEM.label}
+          </Link>
+          {/* PP-phone-1 / PP-admin-7 (V5b): Help, the guide for the reader's role, under Me, so it
+              is two taps away on a phone too (FINAL 6). A drill-down over the page, as the
+              laptop's account menu opens it. */}
+          <Link
+            href="/me/guide"
+            data-slot="more-help"
+            onClick={drill("/me/guide")}
+            aria-current={isActivePath(pathname, "/me/guide") ? "page" : undefined}
+            className={cn(
+              ROW,
+              "pressable-row",
+              isActivePath(pathname, "/me/guide") && "bg-muted font-medium",
+            )}
+          >
+            <CircleHelpIcon className="size-5 shrink-0" aria-hidden />
+            Help
           </Link>
           <div className={cn(ROW, "justify-between")}>
             {/* The row states the current mode: an icon alone makes you tap to find out. */}
