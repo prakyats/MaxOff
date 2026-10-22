@@ -135,6 +135,11 @@ const SCREENS = [
   { path: "/calendar", role: "admin" },
   { path: "/calendar", role: "staff" },
   { path: "/me", role: "staff" },
+  { path: "/me", role: "admin" },
+  { path: "/me", role: "owner" },
+  // PP-crew-3 (V5b): the no-access page under its standard header.
+  { path: "/forbidden", role: "staff" },
+  { path: "/leave", role: "staff" },
   { path: "/leave/expenses", role: "staff" },
   { path: "/leave/expenses", role: "admin" },
   { path: "/my-day", role: "staff" },

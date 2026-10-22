@@ -106,6 +106,12 @@ test.describe("permission guards", () => {
           "You can't open this",
         );
       }
+      // PP-crew-3 (V5b): the standard header, titled "No access", and the way back home.
+      await expect(page.getByRole("heading", { name: "No access", level: 1 })).toBeVisible();
+      const home = page.locator('[data-slot="forbidden-home"]');
+      await expect(home).toHaveText("Back to My Day");
+      await home.click();
+      await expect(page).toHaveURL(/\/my-day$/);
       await page.goto("/tasks");
       await expect(page.getByRole("heading", { name: "My tasks", exact: true })).toBeVisible();
     });
