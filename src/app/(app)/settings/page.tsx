@@ -10,8 +10,8 @@ import { Badge } from "@/core/ui/primitives/badge";
 import {
   GROUP_HEADING_CLASS,
   GROUP_LIST_CLASS,
+  HELP_GROUP_CLASS,
   HELP_LIST_CLASS,
-  HELP_ROW_CLASS,
   SECTION_LABEL_CLASS,
   SECTION_LINE_CLASS,
   SECTION_ROW_CLASS,
@@ -110,31 +110,34 @@ export default async function SettingsPage() {
         ))}
       </div>
 
-      {/* Help and troubleshooting (ROADMAP 6b.14): the in-app guide, for the reader's role. */}
-      <ul data-slot="settings-help" className={HELP_LIST_CLASS}>
-        <li>
-          <DrillLink
-            href="/me/guide"
-            data-slot="settings-guide-link"
-            className={cn(
-              HELP_ROW_CLASS,
-              "focus-visible:ring-ring active:bg-muted/60 group/guide hover:bg-muted/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset",
-            )}
-          >
-            {/* Says what opens (unit U): the guide, step-by-step help for the reader's role. */}
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-medium">Help and troubleshooting</span>
-              <span className="text-muted-foreground truncate text-sm">
-                Opens How MaxOff works, for your role
+      {/* Help (ROADMAP 6b.14; PP-settings-2: a group of its own): the guide, for the role. */}
+      <section aria-labelledby="settings-group-help" className={HELP_GROUP_CLASS}>
+        <h2 id="settings-group-help" className={GROUP_HEADING_CLASS}>
+          Help
+        </h2>
+        <ul data-slot="settings-help" className={HELP_LIST_CLASS}>
+          <li>
+            <DrillLink
+              href="/me/guide"
+              data-slot="settings-guide-link"
+              className={cn(
+                SECTION_ROW_CLASS,
+                "focus-visible:ring-ring active:bg-muted/60 group/guide hover:bg-muted/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset",
+              )}
+            >
+              {/* Says what opens (unit U): the guide, step-by-step help for the reader's role. */}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className={SECTION_LABEL_CLASS}>How MaxOff works</span>
+                <span className={SECTION_LINE_CLASS}>Help and troubleshooting, for your role</span>
               </span>
-            </span>
-            <ChevronRightIcon
-              className="text-muted-foreground group-hover/guide:text-foreground size-4 shrink-0"
-              aria-hidden
-            />
-          </DrillLink>
-        </li>
-      </ul>
+              <ChevronRightIcon
+                className="text-muted-foreground group-hover/guide:text-foreground size-4 shrink-0"
+                aria-hidden
+              />
+            </DrillLink>
+          </li>
+        </ul>
+      </section>
     </>
   );
 }

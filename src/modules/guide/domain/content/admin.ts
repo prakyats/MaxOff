@@ -1903,7 +1903,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "You see four sections in two groups, each row with one line on what it holds. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
+              text: "You see four sections in two groups named by what they hold: Team (Notifications, Job titles) and Lists, fields and templates (Custom fields, Templates), each row with one line on what it holds; Help, at the foot, opens How MaxOff works. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
             },
             {
               kind: "steps",

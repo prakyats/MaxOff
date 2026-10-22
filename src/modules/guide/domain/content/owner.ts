@@ -1658,7 +1658,7 @@ export const OWNER_GUIDE: Guide = {
               "Templates: stage presets, deliverable, project and task templates, on one page.",
             ),
             text(
-              "The sections sit in four groups: Company and working days, Lists and fields, Templates, Integrations; each row says in one line what it holds. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
+              "The sections sit in groups named by what they hold: Company and working days; Team (Notifications, Job titles); Lists, templates and integrations. Each row says in one line what it holds, and Help, at the foot, opens How MaxOff works. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
             ),
           ],
           link: { href: "/settings", label: "Open Settings" },

@@ -407,7 +407,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "templates",
     label: "Templates",
     href: "/settings/templates",
-    description: "Stage presets, deliverable, project and task templates, on one page.",
+    // PP-settings-1: short enough for one line at 375 px.
+    description: "Stage presets and templates.",
     permission: "templates.manage",
     arrivesIn: "4.6",
     ready: true,
