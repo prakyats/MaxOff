@@ -15,7 +15,7 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
         kind: "steps",
         steps: [
           "Pull down on the screen to refresh it, or close it and open it again.",
-          'Still stuck? Open Me and scroll to "Help & troubleshooting".',
+          'Still stuck? Open Me and scroll to "Help".',
           'Tap "Reload app". MaxOff starts again from the beginning.',
         ],
       },
@@ -76,16 +76,16 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: 'Notifications are turned on for each device separately. Open Me and look at the "Notifications" row.',
+        text: 'Notifications are turned on for each device separately. Open Me and look at the "Notifications" section: this device first, then Your devices, then a test.',
       },
       {
         kind: "steps",
         steps: [
           'On Me, tap "Turn on". If it says "Turn on here", your phone has them on but this app does not yet.',
           "If the message says they are blocked, allow notifications for MaxOff in your browser or phone, then come back.",
-          'Under "Help & troubleshooting", tap "Send a test notification", then "Send test".',
+          'In the same "Notifications" section, find "Send a test notification" and tap "Send test".',
           'Wait for the question "Did it arrive?" and answer it.',
-          'Check "Your devices". Tap "Remove" next to a device you no longer use.',
+          'Check "Your devices", just above it. Tap "Remove" next to a device you no longer use, then confirm.',
         ],
       },
       {
@@ -95,6 +95,46 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
     ],
     link: { href: "/me", label: "Open Me" },
     keywords: ["push", "alerts", "not receiving", "blocked", "test", "devices", "silent"],
+  },
+  {
+    id: "help-photos",
+    title: "Profile photos",
+    summary: "Your photo shows beside your name for the whole team.",
+    blocks: [
+      {
+        kind: "text",
+        text: "Everyone on the team sees everyone's photo beside their name: in task chat, on a task's people, in the calendar's day, in Alerts and on the screens that list people. Without a photo, your initials show on a colour that is always yours. A photo never appears inside the calendar's month boxes or long tables.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Me.",
+          'Tap "Add photo" (or "Change photo"), choose a picture and tap "Save photo".',
+        ],
+      },
+      {
+        kind: "note",
+        text: "Your phone makes a small copy for lists, so photos load quickly. The original is kept as you chose it.",
+      },
+    ],
+    link: { href: "/me", label: "Open Me" },
+    keywords: ["photo", "picture", "avatar", "initials", "profile"],
+  },
+  {
+    id: "help-no-access",
+    title: "No access",
+    summary: "A screen for another role says who it is for.",
+    blocks: [
+      {
+        kind: "text",
+        text: "Opening a screen that is not for your role shows No access. It names what was blocked and who it is for, such as “The team list is for the Owner and Admins”. The button takes you back to your home screen.",
+      },
+      {
+        kind: "note",
+        text: "If you think you should see it, ask the Owner.",
+      },
+    ],
+    keywords: ["no access", "blocked", "cannot open", "forbidden", "permission"],
   },
   {
     id: "help-version",

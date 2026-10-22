@@ -1,9 +1,11 @@
+import { ReceiptIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
+import { EmptyState } from "@/core/ui/composites/empty-state";
 import { getClaimSetup, listOwnClaims } from "@/modules/expenses";
 import { AddExpenseButton } from "@/modules/expenses/components/add-expense-button";
 import { OwnClaimsList } from "@/modules/expenses/components/own-claims-list";
@@ -24,6 +26,26 @@ export default async function ExpensesPage() {
   );
   const waiting = claims.filter((claim) => claim.state === "submitted").length;
 
+  const add = (primary: boolean) => (
+    <AddExpenseButton
+      today={todayIST()}
+      setup={getClaimSetup().catch(() => null)}
+      primary={primary}
+    />
+  );
+  // PP-crew-10 / FINAL 7 (V5b): with no claims the empty state teaches and offers the one action,
+  // Add expense, inside it; an empty list takes no heading row.
+  if (claims.length === 0) {
+    return (
+      <EmptyState
+        icon={ReceiptIcon}
+        title="No expense claims yet"
+        description="Spent your own money on work? Add it here or when you end your day, and the Owner pays it back."
+        action={add(true)}
+      />
+    );
+  }
+
   return (
     <>
       <div className="mb-3 flex min-h-11 flex-wrap items-center justify-between gap-3">
@@ -31,7 +53,7 @@ export default async function ExpensesPage() {
           Expense claims <span className="tabular-nums">{claims.length}</span>
           {waiting > 0 ? <span className="tabular-nums"> · {waiting} waiting</span> : null}
         </h2>
-        <AddExpenseButton today={todayIST()} setup={getClaimSetup().catch(() => null)} />
+        {add(false)}
       </div>
       <OwnClaimsList claims={claims} />
     </>

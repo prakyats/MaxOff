@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -58,6 +59,14 @@ export const eventLink: TimelineEventLink = (event, children, className, style) 
   </OverlayLink>
 );
 
+/**
+ * A leave chip's word (PP-phone-2, PP-crew-5, V5b): "On leave", as the month's bar says it ("You ·
+ * On leave"), "Half day" and "Comp leave" as they are.
+ */
+function leaveWord(label: string): string {
+  return label === "Leave" ? "On leave" : label;
+}
+
 /** "Asha" for "Asha Rao (freelancer)": a chip is one short line. */
 function firstName(name: string): string {
   return name.split(/\s+/)[0] ?? name;
@@ -96,6 +105,7 @@ export function AllDayChips({
   dueAsChip,
   onDue,
   events = true,
+  avatars = false,
 }: {
   day: CalendarDay;
   /** A past day's open tasks are overdue: their "Due · N" reads red (decision 25 C). */
@@ -106,6 +116,8 @@ export function AllDayChips({
   onDue?: () => void;
   /** The all-day events in the line; the laptop's agenda lists them with the others instead. */
   events?: boolean;
+  /** Each person's photo beside their leave (the day popup only, V5b-D; never a month box). */
+  avatars?: boolean;
 }) {
   const overdue = day.date < today;
   return (
@@ -121,23 +133,43 @@ export function AllDayChips({
           Weekly off
         </Chip>
       ) : null}
-      {day.leave.map((item) => (
-        <Chip
-          key={`${item.memberId}-${item.label}-${item.pending}`}
-          slot="calendar-leave"
-          className={cn(
-            // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
-            LEAVE_TONE,
-            item.pending && "border-leave/60 border border-dashed",
-          )}
-        >
-          <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
-          <span data-member={item.memberId} className="min-w-0 truncate">
-            {item.own ? "You" : firstName(item.name)} · {item.label}
-            {item.pending ? " · requested" : ""}
+      {day.leave.map((item) => {
+        const chip = (
+          <Chip
+            key={`${item.memberId}-${item.label}-${item.pending}`}
+            slot="calendar-leave"
+            className={cn(
+              // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
+              LEAVE_TONE,
+              item.pending && "border-leave/60 border border-dashed",
+            )}
+          >
+            <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
+            <span data-member={item.memberId} className="min-w-0 truncate">
+              {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
+              {item.pending ? " · requested" : ""}
+            </span>
+          </Chip>
+        );
+        return avatars ? (
+          <span
+            key={`${item.memberId}-${item.label}-${item.pending}`}
+            className="inline-flex max-w-full min-w-0 items-center gap-1.5"
+          >
+            <PersonAvatar
+              person={{
+                id: item.memberId,
+                name: item.name,
+                avatarFileId: item.avatarFileId ?? null,
+              }}
+              size={20}
+            />
+            {chip}
           </span>
-        </Chip>
-      ))}
+        ) : (
+          chip
+        );
+      })}
       {(events ? allDayEvents(day) : []).map((event) =>
         eventLink(
           event,
@@ -149,7 +181,7 @@ export function AllDayChips({
             )}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
-              <span className="text-muted-foreground"> · {event.location}</span>
+              <span className="text-foreground/80"> · {event.location}</span>
             ) : null}
           </>,
           cn(
@@ -250,7 +282,7 @@ export function DayDetail({
   free,
   action,
   timeline,
-  fill = false,
+  inPage = false,
   footer,
   heading = true,
   headingId,
@@ -268,12 +300,11 @@ export function DayDetail({
    */
   timeline: boolean;
   /**
-   * The phone's week and compact month (the owner's phone walk, 2026-10-08): the detail fills the
-   * height left above the bottom bar. Its heading and all-day line stay put; under them one scroll
-   * takes the rest: the hour timeline with the day's other rows ("Due · N", "Who's free", the
-   * day's action) after its hours, or those rows alone on a day with no timed event.
+   * The phone's week and compact month (PP-light-4, V5b, replacing the owner's 2026-10-08 fill):
+   * the day is part of the page, which scrolls; the hour timeline draws only the hours around the
+   * day's timed events, with no scroll of its own, and the day's other rows follow it.
    */
-  fill?: boolean;
+  inPage?: boolean;
   /** "Open day" in the laptop's dialog. */
   footer?: ReactNode;
   /** The day's heading; a sheet's title says it instead. */
@@ -287,9 +318,9 @@ export function DayDetail({
   // day is unchanged (they never see client work).
   const split = scope !== "staff";
   const tasks = day.events.length + day.due.length;
-  // The all-day events are rows under "Tasks · n", except in the phone's panel (`fill`), whose
-  // all-day line keeps them as chips so the timeline keeps its room.
-  const rowsForAllDay = split && !fill;
+  // The all-day events are rows under "Tasks · n", except in the phone's in-page day (`inPage`),
+  // whose all-day line keeps them as chips above the timeline.
+  const rowsForAllDay = split && !inPage;
   const allDayEvents = rowsForAllDay ? day.events.filter((event) => event.startAt === null) : [];
   const hasAllDay =
     day.holiday !== null ||
@@ -307,9 +338,20 @@ export function DayDetail({
               key={`${block.memberId}-${block.startAt}`}
               data-slot="calendar-busy"
               data-member={block.memberId}
+              className="flex min-w-0 items-center gap-2"
             >
-              <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
-              {timeWords(block.startAt, block.endAt)}
+              <PersonAvatar
+                person={{
+                  id: block.memberId,
+                  name: block.name,
+                  avatarFileId: block.avatarFileId ?? null,
+                }}
+                size={20}
+              />
+              <span className="min-w-0">
+                <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
+                {timeWords(block.startAt, block.endAt)}
+              </span>
             </li>
           ))}
         </ul>
@@ -364,7 +406,7 @@ export function DayDetail({
           late={day.date < today}
         />
       ) : null}
-      {free !== null && scope !== "staff" ? (
+      {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
         </p>
@@ -383,7 +425,7 @@ export function DayDetail({
       aria-label={heading ? undefined : dayHeading(day.date, today)}
       data-slot="calendar-detail"
       data-date={day.date}
-      className={cn("flex min-w-0 flex-col gap-3", fill && "grow basis-0")}
+      className="flex min-w-0 flex-col gap-3"
     >
       {heading ? (
         <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
@@ -397,7 +439,7 @@ export function DayDetail({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} events={!rowsForAllDay} />
+          <AllDayChips day={day} today={today} dueAsChip={false} events={!rowsForAllDay} avatars />
         </div>
       ) : null}
       {split && tasks > 0 ? (
@@ -413,16 +455,13 @@ export function DayDetail({
       {allDayEvents.length > 0 && timeline ? <EventRows events={allDayEvents} /> : null}
       {timed.length > 0 ? (
         timeline ? (
-          fill ? (
-            <Timeline days={[day]} today={today} eventLink={eventLink} fill after={rest} />
-          ) : (
-            <Timeline
-              days={[day]}
-              today={today}
-              eventLink={eventLink}
-              className="border-border overflow-hidden rounded-lg border"
-            />
-          )
+          <Timeline
+            days={[day]}
+            today={today}
+            eventLink={eventLink}
+            span={inPage}
+            className="border-border overflow-hidden rounded-lg border"
+          />
         ) : (
           <EventRows
             events={
@@ -435,17 +474,7 @@ export function DayDetail({
       ) : !timeline && allDayEvents.length > 0 ? (
         <EventRows events={allDayEvents} />
       ) : null}
-      {timed.length > 0 ? null : fill ? (
-        <div
-          data-slot="calendar-day-scroll"
-          // The one scroll on a day with no timed event; two of the phone's hours at least, as the
-          // timeline keeps.
-          className="flex min-h-[5.5rem] min-w-0 grow basis-0 flex-col gap-3 overflow-y-auto overscroll-contain"
-        >
-          {rest}
-        </div>
-      ) : null}
-      {fill ? null : rest}
+      {rest}
     </section>
   );
 }

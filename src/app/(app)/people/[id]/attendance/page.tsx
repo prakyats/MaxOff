@@ -22,8 +22,9 @@ export async function generateMetadata({
 
 /**
  * One person's attendance, one IST month at a time, for the Owner (task 2.4): the member's own
- * history in the Owner's words, with Correct on every day (WORKFLOWS §1: any state, a reason the
- * member reads). The month switcher replaces the entry (ARCHITECTURE §14.2 d).
+ * history in the Owner's words; every row opens its day, whose sheet holds Correct (WORKFLOWS §1:
+ * any state, a reason the member reads) and, on a waiting day, Approve (V5b-D). The month
+ * switcher replaces the entry (ARCHITECTURE §14.2 d).
  */
 export default async function PersonAttendancePage({
   params,

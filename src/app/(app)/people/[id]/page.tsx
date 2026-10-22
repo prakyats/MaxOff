@@ -5,15 +5,13 @@ import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
-import { fileUrl } from "@/core/storage";
 import { formatIST, todayIST } from "@/core/time";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { getMonthSummary, monthLabel, monthOf } from "@/modules/attendance";
 import { getCompBalance } from "@/modules/leave";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
-import { initialsOf } from "@/core/ui/shell/viewer";
 import {
   type CoordinatorSpell,
   listCoordinatorHistory,
@@ -96,12 +94,12 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
       <Card>
         <CardContent className="flex flex-col gap-4 text-sm">
           <div className="flex min-w-0 items-start gap-4">
-            <Avatar size="lg" className="mt-1">
-              {person.avatarFileId ? (
-                <AvatarImage src={fileUrl(person.avatarFileId)} alt="" />
-              ) : null}
-              <AvatarFallback>{initialsOf(person.fullName)}</AvatarFallback>
-            </Avatar>
+            {/* The shared photo at 64 px, its 512 px preview (V5b-D). */}
+            <PersonAvatar
+              person={{ id: person.id, name: person.fullName, avatarFileId: person.avatarFileId }}
+              size={64}
+              eager
+            />
             <dl
               className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(min(10rem,100%),1fr))] gap-x-4 gap-y-3"
               data-slot="person-facts"

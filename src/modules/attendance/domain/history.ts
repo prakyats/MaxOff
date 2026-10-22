@@ -72,6 +72,31 @@ export function dayTimes(day: Pick<HistoryDay, "startedAt" | "endedAt" | "endNot
   };
 }
 
+/**
+ * The table's "Start · end" (the approved pull-in sample, V5b-D): both taps ("10:04 am · 6:40 pm"),
+ * one of them ("Not recorded · 6:40 pm", "10:04 am · —"), **"Not recorded"** when neither came on
+ * a working day, and "—" on a day away (leave, comp leave or a day off) where none was expected.
+ */
+export function dayTimesLine(
+  day: Pick<HistoryDay, "startedAt" | "endedAt" | "endNotRecorded" | "finalStatus" | "isDayOff">,
+): string {
+  if (!day.startedAt && !day.endedAt) {
+    const away = day.finalStatus === "leave" || day.finalStatus === "comp_leave" || day.isDayOff;
+    return away && !day.endNotRecorded ? "—" : "Not recorded";
+  }
+  const { start, end } = dayTimes(day);
+  return `${day.startedAt ? start : "Not recorded"} · ${end}`;
+}
+
+/**
+ * The day sheet's Approve for a day waiting for the Owner (V5b-D): what approving keeps, "Approve
+ * as present", or "Approve as absent" for the 23:59 job's proposal. Null for any other day.
+ */
+export function approveDayLabel(day: Pick<HistoryDay, "state" | "submittedChoice">): string | null {
+  if (day.state !== "pending_review") return null;
+  return `Approve as ${STATUS_LABELS[day.submittedChoice ?? "absent"].toLowerCase()}`;
+}
+
 /** The reasons the transition functions write when MaxOff itself changes a day (2.1, 2.2). */
 const LEAVE_APPROVED = "leave approved";
 const LEAVE_CANCELLED = "leave cancelled";

@@ -3,7 +3,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * The month's days under the layout's header and tabs: the month switcher row, then cards on a
- * phone and the table from `md` up.
+ * phone and the table from `md` up, then the one note under it (V5b-D).
  */
 export default function Loading() {
   return (
@@ -24,6 +24,10 @@ export default function Loading() {
         label="Loading your attendance"
         className="hidden md:block"
       />
+      {/* The one note under the table (V5b-D): one line of muted text. */}
+      <div aria-hidden className="mt-3 flex h-4 items-center">
+        <Skeleton className="h-3 w-80 max-w-full" />
+      </div>
     </>
   );
 }

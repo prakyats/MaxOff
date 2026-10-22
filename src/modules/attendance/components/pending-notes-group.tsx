@@ -39,7 +39,11 @@ import {
   noteTitle,
 } from "../domain/notes";
 
-export type PendingNote = ExtraWorkNote & { memberName: string };
+export type PendingNote = ExtraWorkNote & {
+  memberName: string;
+  /** Their photo, read with the name (V5b-D). */
+  memberAvatarFileId?: string | null;
+};
 
 /**
  * The Extra work group of Approvals (PRODUCT §4.3a, 3b.2; kickoff 3b decision 29: after Leave):
@@ -76,6 +80,11 @@ export function PendingNotesGroup({
         rows={notes.map((note) => ({
           id: note.id,
           title: note.memberName,
+          avatar: {
+            id: note.memberId,
+            name: note.memberName,
+            avatarFileId: note.memberAvatarFileId ?? null,
+          },
           // A compact row's first meta line is the short form, never cut short.
           subtitle: preview ? noteDetail(note) : noteTitle(note),
           status: "submitted",

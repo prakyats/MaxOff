@@ -163,11 +163,16 @@ scale inside a frame; the app keeps the approved scale of FINAL 3 (12/14/16/18/2
 | The detail header (FINAL 6) | `DetailHeader` / `PageHeader`'s `status`, `history`, `primary` (`page-header.tsx`) |
 | The top bar's bell (change 9) | `TopBar` + `NavBadgeMark` place `topbar` |
 | Dates and times (change 6) | `DateInput` / `TimeInput` / `DateTimeInput` (`core/ui/primitives/date-time-input.tsx`), labels from `core/time/field.ts` |
-| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState` |
+| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState`, with its one action inside it (`action`) and no heading row above it (Expenses' Add expense, Extra work's Add note; V5b C) |
 | Today / My Day's columns (change 1) | `DayColumns` + `ThisWeek` (`modules/dashboards`, `day-blocks.tsx`): a container query, two columns only from a 75rem (1200 px) content width, "This week" `minmax(260px, 28%)`; `PhoneDateLine` for the phone's date |
 | A page's primary in the header (FINAL 6, PP-crew-8) | `DetailHeader`'s `primary`; with `primaryOwnBar` the same element is the phone's sticky bar (`StickyActions`), so its dialogs mount once |
 | A stepped form (change 2) | New project: each later step a `useOverlayHistory` layer over the one before, Back via `closeOverlaysThen`; one primary a step (Next, then the commit) |
 | Waiting words (FINAL 4) | from a day a dot plus the word (amber, red from three), never colour alone (`ApprovalGroup`, `ApprovalPersonRow`) |
+| A calendar item (change 5) | `TypeDot` + `typeTint` (`modules/calendar/components/calendar-chip.tsx`); secondary words on a tint are `text-foreground/80`, never muted (PP-light-3) |
+| Light tint contrast (PP-light-3) | `core/ui/theme/tint-contrast.ts`: a tint composited over its surface, checked at 4.5:1 (`tint-contrast.test.ts`, `type-tint-contrast.test.ts`) |
+| An unread row (PP-alerts-2) | `bg-row-unread` (`--row-unread`: a warm step off the card in light, one surface step up in dark, `surface-2`) |
+| A person's photo (pull-in sample, V5b-D) | `PersonAvatar` / `AvatarStack` (`core/ui/composites/person-avatar.tsx`): 20 list rows, 28 chat and Alerts, 40 People and headers, 64 a person's page and Me; initials on `--avatar-1…4` (stable per member id, `core/lib/avatar.ts`); the ring and sizes in `globals.css`; lists load the 96 px thumbnail (`fileUrl(id, "thumb")`); never in calendar month boxes or long tables |
+| No access (FINAL 7, V5b-D) | `/forbidden?for=<keys>`; `blockedLine` (`core/permissions/blocked.ts`) names the area and who it is for from the permission table |
 
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`
@@ -229,7 +234,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Green | `success` | `#157E3C` on `#E6F4EA` (flagged, see §Decisions) | `#5FD497` on `#10291C` | done, approved, present, active |
 | Grey | `neutral` | `#62626A` on `#EFEFEF` | `#9D9DA5` on `#232327` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
-| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#62626A` on `#F1F1F2`, stripes `#EFEFEF` | `#9D9DA5` on `#27272A`, stripes `#232327` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
+| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#62626A` on `#F8F8F9`, stripes `#DFDFE1` (PP-light-2: stronger stripes, 1.25:1 on the bar, with the text still 4.5:1 on a stripe; the sample's `#EFEFEF` stripes on a clear bar were too faint for PP-light-2) | `#9D9DA5` on `#27272A`, stripes `#232327` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
 | Today lift | `today` (= `surface-3`) | `#FFFFFF` + `shadow-raised` | `#222226` | today's whole box on the calendar, under the red circle on its date: a faint neutral lift one surface step above the other days, never a red wash and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 

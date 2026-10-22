@@ -141,7 +141,7 @@ export function DayAgenda({
           late={day.date < today}
         />
       ) : null}
-      {free !== null && scope !== "staff" ? (
+      {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
         </p>

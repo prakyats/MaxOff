@@ -108,10 +108,10 @@ const ICON_BUTTON =
  * calendar or on the 44px handle under it, or by tapping the handle. Left and right swipes (and
  * the header's arrows) move a week or a month; a tap selects a day, or in the full month opens the
  * day sheet. The header: the month's name, Today (a calendar icon with today's number) and
- * Filters. Every size fits the screen above the bottom bar and the page never scrolls (the owner's
- * phone walk, 2026-10-08; `data-fit-viewport="phone"`, globals.css): in the week and the compact
- * month the day's timeline fills what is left as the one scroll, a swipe that starts on it scrolls
- * it; the full month fills the screen.
+ * Filters. The full month fits the screen above the bottom bar (the owner's phone walk,
+ * 2026-10-08; `data-fit-viewport="phone"`, globals.css); in the week and the compact month the
+ * day under the calendar is part of the page, which scrolls (PP-light-4, V5b): its timeline draws
+ * only the hours around the day's events and has no scroll of its own.
  *
  * **Laptop** (768px and up): Day · Week · Month, opening on Month; Week and Day are hour
  * timelines that fill the viewport below the page's header (no page scroll, one scroll inside:
@@ -184,8 +184,8 @@ export function CalendarScreen({
   const dayOf = (date: ISODate) => byDate.get(date) ?? emptyDay(date);
   const view: CalendarView = query.view ?? "month";
   const count = filterCount(query);
-  // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). The phone's sizes
-  // always fit it (`data-fit-viewport="phone"` below).
+  // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). On the phone only
+  // the full month fits it (`data-fit-viewport="phone"` below; PP-light-4).
   const fit = view !== "month";
   const desktop = useIsDesktop() === true;
 
@@ -441,7 +441,8 @@ export function CalendarScreen({
       data-pending={pending ? "" : undefined}
       aria-busy={pending || undefined}
       className={cn(
-        // Phone: grows into the route's column (`data-fit-viewport="phone"`, globals.css).
+        // Phone: the full month grows into the route's column (`data-fit-viewport="phone"`,
+        // globals.css).
         "flex min-w-0 flex-col gap-3 transition-opacity max-md:grow max-md:basis-0",
         fit && "md:min-h-0 md:flex-1",
         pending && "opacity-70",
@@ -451,11 +452,11 @@ export function CalendarScreen({
       <div
         data-slot="calendar-phone"
         data-size={size}
-        // Every size fits the screen above the bottom bar (the owner's phone walk, 2026-10-08):
-        // in the week and the compact month the header, the calendar, the handle, the day's title
-        // and its all-day line stay put and the day's timeline fills the rest as the one scroll;
-        // the full month fills it with no timeline.
-        data-fit-viewport="phone"
+        // The full month fits the screen above the bottom bar (the owner's phone walk,
+        // 2026-10-08). The week and the compact month are part of the page (PP-light-4, V5b): the
+        // day under them never scrolls inside the page; the page scrolls, and the day's last row
+        // (+ New task on the day) clears the bottom bar by main's own bottom space.
+        data-fit-viewport={size === 3 ? "phone" : undefined}
         className="flex min-w-0 grow basis-0 flex-col gap-1 md:hidden"
       >
         <div data-slot="calendar-header" className="flex min-w-0 flex-wrap items-center gap-1">
@@ -526,15 +527,12 @@ export function CalendarScreen({
                       aria-label={dayLabel(day, today)}
                       className={cn(
                         "pressable focus-visible:ring-ring flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 outline-none focus-visible:ring-2",
-                        // PP-calendar-1 (V5b): the chosen day is the outlined box, today the red
-                        // circle on its date and its box one surface step up (PP-calendar-15); PP-calendar-4: the
-                        // weekly off muted and tinted.
+                        // PP-calendar-1 (V5b): the chosen day is the only outlined box (PP-phone-3),
+                        // today the red circle on its date and its box one surface step up with
+                        // no shadow (PP-calendar-15, FINAL 4); PP-calendar-4: the weekly off muted
+                        // and tinted.
                         chosen ? "border-foreground" : "border-border/60 active:bg-muted/60",
-                        day.date === today
-                          ? "bg-today shadow-raised"
-                          : day.weeklyOff
-                            ? "bg-muted/50"
-                            : "bg-card",
+                        day.date === today ? "bg-today" : day.weeklyOff ? "bg-muted/50" : "bg-card",
                       )}
                     >
                       <span className="text-muted-foreground text-xs leading-4 uppercase">
@@ -592,7 +590,7 @@ export function CalendarScreen({
             free={freeOf(selected)}
             action={action(selected)}
             timeline
-            fill
+            inPage
             headingId="calendar-phone-day"
           />
         ) : null}

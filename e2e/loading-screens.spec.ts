@@ -169,7 +169,8 @@ const TASK_WORK: Record<string, Point> = {
 const ME: Record<string, Point> = {
   "profile card": {
     held: '[aria-label="Loading Me"] > [data-slot="card"]',
-    settled: 'main [data-slot="card"]',
+    // V5b: the identity block is its own card (`me-identity`), the first on the page.
+    settled: 'main [data-slot="me-identity"]',
   },
 };
 
@@ -441,8 +442,12 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "task page",
     trace: {
       ...TASK_VIEWS,
+      // V5b-D: the people's photo stack and names lead the card (PP-task-3), then each person.
+      "people at a glance": {
+        held: '[data-slot="loading-task-people-summary"]',
+        settled: '[data-slot="task-people-summary"]',
+      },
       "first person": {
-        // PP-task-3: the people sit inside Details' one card.
         held: '[data-slot="loading-task-person"]',
         settled: '[data-slot="task-person"]',
       },
@@ -624,7 +629,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role,
     path: "/notifications",
     marker: 'data-slot="loading-notifications"',
-    hold: "/rest/v1/rpc/notifications_inbox",
+    hold: "/rest/v1/rpc/notifications_inbox_page",
     fixture: "notification",
     trace: ALERTS,
   })),

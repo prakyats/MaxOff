@@ -4,7 +4,13 @@ import { z } from "zod";
 
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
-import { markOneRead, rpcMarkAllRead } from "@/core/notifications/inbox";
+import {
+  type InboxCursor,
+  type InboxRow,
+  listInboxPage,
+  markOneRead,
+  rpcMarkAllRead,
+} from "@/core/notifications/inbox";
 import { systemClock } from "@/core/time";
 
 /**
@@ -49,3 +55,22 @@ export const markAllNotificationsRead = action(async (): Promise<Result<ReadAnsw
   await requireCurrentMember();
   return answer(await rpcMarkAllRead());
 });
+
+const olderSchema = z.object({
+  before: z.object({ at: z.iso.datetime({ offset: true }), id: z.uuid() }),
+  unreadOnly: z.boolean(),
+});
+
+/**
+ * "Show older" at the foot of Alerts (V5b-D): the next entries after the last one shown (keyset,
+ * `notifications_inbox_page`), with where the next one starts. A read, so nothing is revalidated.
+ */
+export const loadOlderAlerts = action(
+  async (
+    input: z.input<typeof olderSchema>,
+  ): Promise<Result<{ rows: InboxRow[]; next: InboxCursor | null }>> => {
+    const { before, unreadOnly } = olderSchema.parse(input);
+    await requireCurrentMember();
+    return ok(await listInboxPage({ before, unreadOnly }));
+  },
+);

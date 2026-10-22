@@ -45,10 +45,10 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Tap a cell in the bottom bar to switch screen.",
               "Tap More for Reports, Clients, People and Settings.",
-              "Tap Me in the same sheet for your own page.",
+              "Tap Me in the same sheet for your own page, or Help under it for this guide.",
             ),
             next(
-              "The last cell, More, opens a sheet with Reports, Clients, People, Settings and a Me row.",
+              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me and Help.",
             ),
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
@@ -70,6 +70,9 @@ export const OWNER_GUIDE: Guide = {
             text(
               "On a phone the bell sits in the title bar of each screen. On a laptop it is in the top bar. Both open Alerts and show how many you have not read.",
             ),
+            text(
+              "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
+            ),
           ],
           link: { href: "/notifications", label: "Open Alerts" },
           keywords: ["bell", "notifications", "unread"],
@@ -77,14 +80,12 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-me",
           title: "Use Me",
-          summary: "Your own page: devices, notifications and troubleshooting.",
+          summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me is where you turn on notifications for this device, see Your devices, and find Help & troubleshooting. On a phone, open it from More.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More.",
             ),
-            text(
-              "You do not mark attendance or take leave, so Me has no attendance or leave rows for you.",
-            ),
+            text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],
           link: { href: "/me", label: "Open Me" },
           keywords: ["profile", "account", "settings"],
@@ -279,15 +280,18 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-person-attendance",
           title: "Correct a person's attendance",
-          summary: "Fix a recorded day from the Attendance tab.",
+          summary: "Fix a recorded day, or approve a waiting one, from the Attendance tab.",
           blocks: [
             steps(
               "Open People, tap the person, then the Attendance tab. It lists the month's days.",
-              "Find the day that is wrong.",
-              'Tap "Correct…" on that day.',
+              "Tap the day that is wrong. Its day opens, with what happened and when.",
+              'Tap "Correct this day…".',
               "Enter the right details and save.",
             ),
             next("The original stays in the history. A correction sits alongside it."),
+            text(
+              'A day still waiting for you has a green "Approve" on its row, and "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. A time that was never recorded reads "Not recorded".',
+            ),
             note("Only you can correct a recorded day."),
           ],
           link: { href: "/people", label: "Open People" },
@@ -616,7 +620,7 @@ export const OWNER_GUIDE: Guide = {
               "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
             ),
             text(
-              "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             ),
             text(
               "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
@@ -639,7 +643,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop it opens in the middle of the screen, with "Open day" and "+ New task on" the date at the bottom.',
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in the middle of the screen, with "Open day" and "+ New task on" the date at the bottom.',
             ),
             steps(
               "Open Calendar and tap a day.",

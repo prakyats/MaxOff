@@ -17,7 +17,11 @@ import { displayName } from "@/core/lib/display-name";
 import { approveExpenseClaim, rejectExpenseClaim } from "../actions/claims";
 import { claimDate, claimDetail, type ExpenseClaim, formatRupees } from "../domain/claims";
 
-export type PendingClaim = ExpenseClaim & { memberName: string };
+export type PendingClaim = ExpenseClaim & {
+  memberName: string;
+  /** Their photo, read with the name (V5b-D). */
+  memberAvatarFileId?: string | null;
+};
 
 /**
  * The Expenses group of Approvals (PRODUCT §4.18, 3b.3; kickoff 3b decision 29: after Extra
@@ -67,6 +71,11 @@ export function PendingClaimsGroup({
         rows={claims.map((claim) => ({
           id: claim.id,
           title: claim.memberName,
+          avatar: {
+            id: claim.memberId,
+            name: claim.memberName,
+            avatarFileId: claim.memberAvatarFileId ?? null,
+          },
           // A compact row has no status word of its own: a missing receipt joins its first meta
           // line ("₹385 · Food · Thu 8 Oct · No receipt").
           subtitle: preview

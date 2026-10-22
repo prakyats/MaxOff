@@ -29,7 +29,7 @@ export const ADMIN_GUIDE: Guide = {
                 { text: "Open Today. It is the first screen.", shot: "admin/today" },
                 "On a phone, tap More in the bottom bar.",
                 "Pick Reports, Clients, People or Settings.",
-                "Tap the Me row at the bottom of the sheet for your own page.",
+                "Tap the Me row near the bottom of the sheet for your own page, or Help under it for this guide.",
               ],
             },
             {
@@ -55,14 +55,14 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page: Notifications, Your devices and Help & troubleshooting. Help, this guide, is also in the account menu (your name, top right) and at the foot of the sidebar.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar.",
             },
             {
               kind: "steps",
               steps: [
                 "Tap the bell to open Alerts.",
                 "Tap Me (in the More sheet on a phone).",
-                "Pick the row you need, for example Attendance & leave.",
+                "Under My work, pick the row you need, for example Attendance & leave.",
               ],
             },
             {
@@ -621,7 +621,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              text: "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "text",
@@ -646,7 +646,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day’s sheet names who is away (On leave, Busy all day), or says “Everyone is available”.",
+              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day shows each person on leave as a chip, “Asha · On leave” (“You · On leave” for you), and under it who is busy all day, or “Everyone is available”.",
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -659,7 +659,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop it opens in a dialog; on a phone, in a sheet.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in a dialog; on a phone, in a sheet.",
             },
             {
               kind: "steps",
@@ -1995,7 +1995,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Alerts lists your notifications, newest day first.",
+              text: "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
             },
             {
               kind: "steps",

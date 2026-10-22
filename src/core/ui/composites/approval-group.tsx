@@ -13,6 +13,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { describeError } from "@/core/ui/toast";
 
 import { ConfirmDialog } from "./confirm-dialog";
+import { type AvatarPerson, PersonAvatar } from "./person-avatar";
 import { APPROVAL_ROW_MIN_H, CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
 import { StatusBadge, TONE_DOT_CLASSES } from "./status-badge";
 
@@ -44,6 +45,11 @@ export type ApprovalRow = {
   approvedLabel: string;
   /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
   marker?: ReactNode;
+  /**
+   * The person the row is about, when its title is their name (attendance, leave, extra work,
+   * expenses): their photo leads the row (20 px, V5b-D). Read with the name, never per row.
+   */
+  avatar?: AvatarPerson;
   /**
    * How long it has waited for the decision ("Waiting 4 days") and its colour: muted, amber from a
    * day, red from three (the Owner's Today rows, `layout="rows"`; the words carry the meaning).
@@ -324,33 +330,36 @@ export function ApprovalGroup<T>({
                 isHeld && "opacity-50",
               )}
             >
-              {/* The one row anatomy (FINAL 5): the title with its chat count, the muted meta
-                  line and how long it has waited; on the right the state as a chip, then the
-                  row's two actions. */}
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span data-slot="approval-title" className="min-w-0 truncate font-medium">
-                    {row.title}
-                  </span>
-                  {row.marker}
-                </div>
-                <span
-                  data-slot="approval-detail"
-                  className="text-muted-foreground truncate text-sm"
-                >
-                  {row.subtitle}
-                </span>
-                {/* The same context as Today's compact row and the Review panel (B4, V3). */}
-                {row.waiting && !isHeld ? <WaitingWords waiting={row.waiting} /> : null}
-                {error ? (
+              {/* The one row anatomy (FINAL 5): the person's photo (V5b-D), the title with its
+                  chat count, the muted meta line and how long it has waited; on the right the
+                  state as a chip, then the row's two actions. */}
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                {row.avatar ? <PersonAvatar person={row.avatar} size={20} /> : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span data-slot="approval-title" className="min-w-0 truncate font-medium">
+                      {row.title}
+                    </span>
+                    {row.marker}
+                  </div>
                   <span
-                    data-slot="approval-error"
-                    role="status"
-                    className="text-destructive text-sm"
+                    data-slot="approval-detail"
+                    className="text-muted-foreground truncate text-sm"
                   >
-                    {error}
+                    {row.subtitle}
                   </span>
-                ) : null}
+                  {/* The same context as Today's compact row and the Review panel (B4, V3). */}
+                  {row.waiting && !isHeld ? <WaitingWords waiting={row.waiting} /> : null}
+                  {error ? (
+                    <span
+                      data-slot="approval-error"
+                      role="status"
+                      className="text-destructive text-sm"
+                    >
+                      {error}
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2 *:flex-1 md:*:flex-none">
                 <StatusBadge

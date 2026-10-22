@@ -493,7 +493,7 @@ test.describe("Admin", () => {
       "/settings/task-types",
     ]) {
       await page.goto(path);
-      await expect(page, `${path} for an Admin`).toHaveURL(/\/forbidden$/);
+      await expect(page, `${path} for an Admin`).toHaveURL(/\/forbidden(\?|$)/);
     }
   });
 
@@ -531,7 +531,7 @@ test.describe("Staff", () => {
       "/settings/thresholds",
     ]) {
       await page.goto(path);
-      await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
+      await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden(\?|$)/);
     }
   });
 });

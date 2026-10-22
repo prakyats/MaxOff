@@ -23,7 +23,7 @@ import {
   eventStripText,
   HOLIDAY_COLOR,
 } from "../domain/strips";
-import { allDayEvents, minutesInDay, openingMinute, placeBlocks } from "../domain/timeline";
+import { allDayEvents, minutesInDay, openingMinute, placeBlocks, spanOf } from "../domain/timeline";
 import { busyWindow, whoFreeLine, whoIsFree } from "../domain/who-free";
 
 /**
@@ -305,7 +305,8 @@ describe("who's free (decision 25 D)", () => {
       onLeave: ["Meera (½)"],
     });
     // Owner 2026-10-21: only who is away; part-day busy stays on the timeline.
-    expect(whoFreeLine(who!)).toBe("On leave: Meera (½)");
+    // The leave chip names Meera; the line does not repeat it (PP-phone-2).
+    expect(whoFreeLine(who!)).toBe("");
   });
 
   it("an Admin: their own in full, everyone else through availability only (no title, no pending)", () => {
@@ -366,7 +367,7 @@ describe("who's free (decision 25 D)", () => {
         ],
         onLeave: ["Meera"],
       }),
-    ).toBe("On leave: Meera · Busy all day: Kiran, Ravi");
+    ).toBe("Busy all day: Kiran, Ravi");
     expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe(
       "9:15 am – 10:15 am",
     );
@@ -452,5 +453,23 @@ describe("the hour timelines (decision 25 E)", () => {
     expect(openingMinute(TODAY, TODAY, 15 * 60 + 20)).toBe(14 * 60);
     expect(openingMinute(TODAY, TODAY, 15 * 60 + 40)).toBe(15 * 60);
     expect(openingMinute(TODAY, TODAY, 23 * 60 + 50)).toBe(21 * 60);
+  });
+});
+
+describe("the phone's day in the page (PP-light-4, V5b): the hours around its blocks", () => {
+  const h = (hour: number) => hour * 60;
+  it("an hour either side of the blocks, on whole hours", () => {
+    expect(spanOf([{ start: h(10), end: h(11) }])).toEqual({ from: h(9), to: h(12) });
+    expect(
+      spanOf([
+        { start: h(10) + 15, end: h(11) + 30 },
+        { start: h(14), end: h(16) },
+      ]),
+    ).toEqual({ from: h(9), to: h(17) });
+  });
+  it("stays within the day and is never less than two hours", () => {
+    expect(spanOf([{ start: 0, end: 30 }])).toEqual({ from: 0, to: h(2) });
+    expect(spanOf([{ start: h(23), end: h(24) }])).toEqual({ from: h(22), to: h(24) });
+    expect(spanOf([])).toEqual({ from: h(8), to: h(10) });
   });
 });

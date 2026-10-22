@@ -199,6 +199,18 @@ async function phoneLayout(page: Page) {
   });
 }
 
+/**
+ * The day's availability for the Owner and Admins: the "Busy all day" / "Everyone is available"
+ * line, or, with someone on leave and nobody busy all day, no line beside the leave chip
+ * (PP-phone-2 / PP-admin-1, V5b): the chip says it once.
+ */
+async function expectAvailability(scope: Locator): Promise<void> {
+  const free = scope.locator('[data-slot="calendar-who-free"]');
+  const leave = scope.locator('[data-slot="calendar-leave"]');
+  await expect(free.or(leave).first()).toBeVisible();
+  if ((await free.count()) > 0) await expect(free).not.toContainText("On leave");
+}
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("the calendar, as Crew", () => {
@@ -499,13 +511,19 @@ test.describe("the calendar, as an Admin", () => {
     await expect(busy.first()).toContainText("busy");
     await expect(calendar(page)).not.toContainText(shoot.title);
     await expect(calendar(page)).not.toContainText("Studio B");
-    // The day's availability (owner 2026-10-21): only who is away (On leave, Busy all day),
-    // never a free list, never a part-day busy block (that one is on the timeline above).
+    // The day's availability (owner 2026-10-21): only who is away (Busy all day), never a free
+    // list, never a part-day busy block (that one is on the timeline above), and never leave:
+    // the "‹Name› · On leave" chip says it (PP-phone-2 / PP-admin-1, V5b). With someone on
+    // leave and nobody busy all day the line is left out and the chip stands alone.
     const free = detail(page).locator('[data-slot="calendar-who-free"]');
-    await expect(free).toBeVisible();
-    await expect(free).not.toContainText("Who's free");
-    await expect(free).not.toContainText(/Busy 10:00 am/);
-    await expect(free).toContainText(/^(On leave: |Busy all day: |Everyone is available$)/);
+    if ((await free.count()) === 0) {
+      await expect(detail(page).locator('[data-slot="calendar-leave"]').first()).toBeVisible();
+    } else {
+      await expect(free).not.toContainText("Who's free");
+      await expect(free).not.toContainText(/Busy 10:00 am/);
+      await expect(free).not.toContainText("On leave");
+      await expect(free).toContainText(/^(Busy all day: |Everyone is available$)/);
+    }
     // An Admin creates tasks: the pill, not "Suggest a task".
     await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
     await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
@@ -553,7 +571,9 @@ test.describe("the calendar, as the Owner", () => {
         .locator('[data-slot="calendar-strip"][data-kind="event"]')
         .first();
       await expect(strip).toBeVisible();
-      // A filled chip whose leading dot is the type's colour (the approved sample, no side stripe).
+      // A filled chip whose leading dot is the type's colour (the approved sample; V5b major change
+      // 5: a leading dot plus its tint, no side stripe).
+      await expect(strip).toHaveCSS("border-left-width", "0px");
       const dot = await strip
         .locator('[data-slot="calendar-type-dot"]')
         .evaluate((element) => getComputedStyle(element).backgroundColor);
@@ -610,7 +630,7 @@ test.describe("the calendar, as the Owner", () => {
     await hydrated(page);
     await dayBox(page, todayIST()).click();
     await expect(daySheet(page)).toBeVisible();
-    await expect(daySheet(page).locator('[data-slot="calendar-who-free"]')).toBeVisible();
+    await expectAvailability(daySheet(page));
     await daySheet(page).locator('[data-slot="calendar-open-day"]').click();
     await expect(daySheet(page)).toHaveCount(0);
     await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute("data-view", "day");
@@ -730,7 +750,7 @@ test.describe("the calendar, as the Owner", () => {
     // SCOPE §6: the Owner's popup is in two parts, "Tasks · n" (the events and what is due) first.
     await expect(popup.locator('[data-slot="calendar-tasks-title"]')).toContainText("Tasks · ");
     await expect(popup.locator('[data-slot="calendar-due-list"]')).toBeVisible();
-    await expect(popup.locator('[data-slot="calendar-who-free"]')).toBeVisible();
+    await expectAvailability(popup);
     const footer = popup.locator('[data-slot="calendar-day-footer"]');
     await expect(footer.locator('[data-slot="new-task-on-day"]')).toHaveText(
       `New task on ${shortDay(day)}`,
@@ -1072,17 +1092,17 @@ test.describe("the calendar, as the Owner", () => {
  * above its first hour so that label is whole. A finger on the timeline scrolls it; one on the
  * grid or the handle resizes. The full month fits with no timeline.
  */
-test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
+test.describe("the calendar on a phone, the owner's walk (2026-10-08; PP-light-4, V5b)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("week and compact month: the page never scrolls, the timeline is the one scroll down to the bottom bar, its first hour is whole; the handle swipes", async ({
+  test("week and compact month: the day is part of the page, which scrolls; the timeline has no scroll of its own and draws the hours around the events; the day's pill clears the bottom bar", async ({
     page,
   }, info) => {
     test.skip(!isPhone(info), "the phone's sizes");
     const prefix = `${prefixOf(info)}walk `;
     await removeTasksTitled(prefix);
-    // A day of its own, weeks from the days the other specs fill, never today: its timeline
-    // opens at 08:00. An all-day event (the owner's "Fire Chandan 2.0") and a timed shoot.
+    // A day of its own, weeks from the days the other specs fill, never today. An all-day event
+    // (the owner's "Fire Chandan 2.0") and a timed shoot, 10:00 to 11:00.
     const day = workingDay(36);
     const staffId = await memberIdOf(USERS.staff.email);
     const create = async (title: string, from: string | null, to: string | null) =>
@@ -1112,33 +1132,12 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
     const hours = page.locator('[data-slot="calendar-phone"] [data-slot="calendar-hours"]');
     await expect(hours).toBeVisible();
     const handle = page.locator('button[data-slot="calendar-handle"]');
-    const chip = detail(page)
-      .locator('[data-slot="calendar-all-day"] [data-slot="calendar-event"]')
-      .filter({ hasText: allDay });
-    await expect(chip).toBeVisible();
-    // What stays put while the timeline scrolls (the owner's list).
-    const fixed = [
-      page.locator('[data-slot="calendar-phone"] [data-slot="calendar-header"]'),
-      page.locator('[data-slot="calendar-area"]'),
-      handle,
-      detail(page).locator('[data-slot="calendar-day-title"]'),
-      chip,
-    ];
-    const boxes = () => Promise.all(fixed.map((part) => part.boundingBox()));
-    // The first hour in sight is 8 am (12-hour labels, the owner 22 Oct), its label whole (it opened 8 px above the hour).
-    const opensWhole = (layout: Awaited<ReturnType<typeof phoneLayout>>, where: string) => {
-      const inSight = layout.labels
-        .filter((label) => label.bottom > layout.top && label.top < layout.bottom)
-        .sort((a, b) => a.top - b.top);
-      expect.soft(inSight[0]?.text, `${where}: opens at 8 am`).toBe("8 am");
-      expect
-        .soft(inSight[0]?.top ?? 0, `${where}: the first hour's label is whole`)
-        .toBeGreaterThanOrEqual(layout.top - 1);
-    };
-    const hourOf = (layout: Awaited<ReturnType<typeof phoneLayout>>) => {
-      const at = (text: string) => layout.labels.find((label) => label.text === text)?.top ?? 0;
-      return at("9 am") - at("8 am");
-    };
+    await expect(
+      detail(page)
+        .locator('[data-slot="calendar-all-day"] [data-slot="calendar-event"]')
+        .filter({ hasText: allDay }),
+    ).toBeVisible();
+    const pill = detail(page).locator('[data-slot="new-task-on-day"]');
 
     for (const size of ["2", "1"] as const) {
       if (size === "1") {
@@ -1147,94 +1146,44 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
         await expect(phone(page)).toHaveAttribute("data-size", "1");
       }
       await animationsSettled(page);
-      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(0);
       const fit = await phoneLayout(page);
+      // No scroll inside the page: the timeline is as tall as its hours.
+      expect.soft(fit.scrolls, `size ${size}: the timeline never scrolls inside`).toBe(0);
+      // The hours around the shoot, an hour either side: 9 am to 12 pm (the first line unlabelled;
+      // 12-hour labels, the owner 22 Oct).
       expect
-        .soft(fit.pageOverflow, `size ${size}: the page does not scroll`)
-        .toBeLessThanOrEqual(1);
+        .soft(
+          fit.labels.map((label) => label.text),
+          `size ${size}: the hours around the shoot`,
+        )
+        .toEqual(["10 am", "11 am"]);
+      // The page scrolls to the day's last row, which clears the bottom bar.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect(pill).toBeVisible();
+      const end = await phoneLayout(page);
+      const box = (await pill.boundingBox())!;
       expect
-        .soft(Math.abs(fit.bottom - fit.dock), `size ${size}: the timeline ends at the bottom bar`)
-        .toBeLessThanOrEqual(1);
-      expect.soft(fit.scrolls, `size ${size}: the timeline scrolls inside`).toBeGreaterThan(0);
-      // It opened at 08:00 (the week keeps the scroll the person left in the compact month: a
-      // size is view state; a fresh week is checked at the end).
-      if (size === "2") opensWhole(fit, "the compact month");
-
-      // A finger on the timeline scrolls it: the calendar keeps its size and nothing else moves;
-      // a wheel over it scrolls it too, and the page stays at its top.
-      const before = await boxes();
-      await touchDrag(page, hours, -160);
-      await expect(phone(page)).toHaveAttribute("data-size", size);
-      // The drag's momentum settles first (the hours stop moving for a few frames).
-      await page.evaluate(
-        () =>
-          new Promise<void>((done) => {
-            const hours = document.querySelector<HTMLElement>(
-              '[data-slot="calendar-phone"] [data-slot="calendar-hours"]',
-            );
-            let last = hours?.scrollTop ?? 0;
-            let still = 0;
-            const frame = () => {
-              const now = hours?.scrollTop ?? 0;
-              still = now === last ? still + 1 : 0;
-              last = now;
-              if (still >= 5) done();
-              else requestAnimationFrame(frame);
-            };
-            requestAnimationFrame(frame);
-          }),
-      );
-      const from = (await phoneLayout(page)).scrollTop;
-      await hours.hover();
-      // Back up the way the finger came: the drag may have reached the end of a short day (V4's
-      // availability line is one short line), and a wheel there could not go further down.
-      await page.mouse.wheel(0, -300);
-      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeLessThan(from);
-      const after = await phoneLayout(page);
-      expect.soft(after.pageTop, `size ${size}: the page stays at its top`).toBe(0);
-      expect.soft(await boxes(), `size ${size}: the fixed parts stay put`).toEqual(before);
+        .soft(end.dock - (box.y + box.height), `size ${size}: the pill sits above the bottom bar`)
+        .toBeGreaterThanOrEqual(8);
+      await page.evaluate(() => window.scrollTo(0, 0));
     }
 
-    // Large text: the fixed parts may take more of the screen and the timeline what is left, never
-    // less than two hours; the page scrolls only when even those two hours do not fit, and at its
-    // end the timeline still ends at the bottom bar. Nothing scrolls sideways.
-    for (const size of ["1", "2"] as const) {
-      if (size === "2") {
-        await touchDrag(page, handle, 100);
-        await expect(phone(page)).toHaveAttribute("data-size", "2");
-      }
-      for (const scale of [130, 200]) {
-        await page.evaluate((percent) => {
-          document.documentElement.style.fontSize = `${percent}%`;
-        }, scale);
-        await animationsSettled(page);
-        await expectNoHorizontalScroll(page);
-        const large = await phoneLayout(page);
-        const hour = hourOf(large);
-        expect
-          .soft(large.height, `size ${size} at ${scale}%: two hours at least`)
-          .toBeGreaterThanOrEqual(2 * hour - 1);
-        if (large.pageOverflow > 1) {
-          expect
-            .soft(
-              Math.abs(large.height - 2 * hour),
-              `size ${size} at ${scale}%: the page scrolls only for the timeline's two hours`,
-            )
-            .toBeLessThanOrEqual(1);
-        }
-        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-        const end = await phoneLayout(page);
-        expect
-          .soft(Math.abs(end.bottom - end.dock), `size ${size} at ${scale}%: down to the bar`)
-          .toBeLessThanOrEqual(1);
-        await page.evaluate(() => window.scrollTo(0, 0));
-      }
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = "";
-      });
+    // Large text: nothing scrolls sideways, the timeline still has no scroll of its own.
+    for (const scale of [130, 200]) {
+      await page.evaluate((percent) => {
+        document.documentElement.style.fontSize = `${percent}%`;
+      }, scale);
+      await animationsSettled(page);
+      await expectNoHorizontalScroll(page);
+      expect.soft((await phoneLayout(page)).scrolls, `${scale}%: no inner scroll`).toBe(0);
     }
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "";
+    });
 
-    // The full month fits the screen with no timeline: the handle just above the bottom bar.
+    // The full month still fits the screen with no timeline: the handle just above the bottom bar.
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "2");
     await handle.click();
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     await expect(hours).toHaveCount(0);
@@ -1245,13 +1194,6 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
     expect
       .soft((handleBox?.y ?? 0) + (handleBox?.height ?? 0), "size 3: above the bottom bar")
       .toBeLessThanOrEqual(full.dock + 1);
-
-    // "Show less" goes back to a fresh week: its timeline opens at 08:00, the label whole.
-    await handle.click();
-    await expect(phone(page)).toHaveAttribute("data-size", "1");
-    await animationsSettled(page);
-    await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(0);
-    opensWhole(await phoneLayout(page), "the week");
 
     await removeTasksTitled(prefix);
   });

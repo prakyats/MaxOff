@@ -9,6 +9,7 @@ import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
+import { type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { StatusBadge, StatusDot, type StatusTone } from "@/core/ui/composites/status-badge";
 import { requestEdit } from "@/core/ui/edit/edit-requests";
 import { Button } from "@/core/ui/primitives/button";
@@ -35,6 +36,11 @@ import { useMemberDialogs } from "./use-member-dialogs";
 
 /** A row of the list: the person, and a freelancer's coordinator's name (ADR-0013, 4C). */
 type TeamRow = TeamMember & { coordinatorName: string | null };
+
+/** The person's photo or initials, from the same row as their name (V5b-D). */
+function faceOf(member: TeamMember): AvatarPerson {
+  return { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId };
+}
 
 /** A freelancer was added, not invited or joined (ADR-0013: no login). */
 function sinceWord(member: TeamMember): string {
@@ -110,21 +116,27 @@ export function TeamTable({
         accessorKey: "fullName",
         header: "Name",
         cell: ({ row }) => (
-          // PP-people-2: the name carries the weight; the line under it is muted.
-          <div className="min-w-0">
-            {opensPersonPage(viewer, row.original) ? (
-              <DrillLink
-                href={`/people/${row.original.id}`}
-                className="block truncate font-semibold underline-offset-4 hover:underline"
-              >
-                {row.original.fullName}
-              </DrillLink>
-            ) : (
-              <p className="font-semibold break-words">{row.original.fullName}</p>
-            )}
-            {nameLine(row.original) ? (
-              <p className="text-muted-foreground text-xs break-words">{nameLine(row.original)}</p>
-            ) : null}
+          // PP-people-2: the name carries the weight; the line under it is muted. The person's
+          // photo leads the row (V5b-D).
+          <div className="flex min-w-0 items-center gap-3">
+            <PersonAvatar person={faceOf(row.original)} size={40} />
+            <div className="min-w-0">
+              {opensPersonPage(viewer, row.original) ? (
+                <DrillLink
+                  href={`/people/${row.original.id}`}
+                  className="block truncate font-semibold underline-offset-4 hover:underline"
+                >
+                  {row.original.fullName}
+                </DrillLink>
+              ) : (
+                <p className="font-semibold break-words">{row.original.fullName}</p>
+              )}
+              {nameLine(row.original) ? (
+                <p className="text-muted-foreground text-xs break-words">
+                  {nameLine(row.original)}
+                </p>
+              ) : null}
+            </div>
           </div>
         ),
       },
@@ -268,6 +280,7 @@ export function TeamTable({
    */
   const mobile: MobileCard<TeamRow> = {
     title: (member) => member.fullName,
+    leading: (member) => <PersonAvatar person={faceOf(member)} size={40} />,
     href: (member) => (opensPersonPage(viewer, member) ? `/people/${member.id}` : null),
     moreLabel: (member) => `More for ${member.fullName}`,
     subtitle: (member) =>

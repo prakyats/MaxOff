@@ -454,7 +454,7 @@ test.describe("Staff", () => {
 
   test("cannot open Clients", async ({ page }) => {
     await page.goto("/clients");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 });
 

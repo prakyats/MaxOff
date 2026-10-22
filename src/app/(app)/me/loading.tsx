@@ -1,38 +1,26 @@
+import type { ReactNode } from "react";
+
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { PageLoading } from "@/core/ui/composites/loading-state";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/core/ui/primitives/card";
+import { Card, CardContent } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { ME_DESCRIPTION } from "./copy";
 
 /**
- * Traces `page.tsx` card for card (ARCHITECTURE §14.1): the profile card with the avatar block,
- * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
- * rows, task 2.9) under the photo button row (3.3), then for whoever marks attendance the rows of
- * their own pages (5B decision 3: Extra work & expenses; Attendance & leave above it for an
- * Admin), then Appearance, Notifications and Sign out, then "Your devices" (5.5: drawn with one
- * device, the usual case: its name, platform and last-notification lines and the trailing "This
- * device" or Remove), then "Help & troubleshooting" (5B decision 4: the test push, Reload app, the
- * version). Same member check as `my-day/loading.tsx`.
+ * Traces `page.tsx` section for section (ARCHITECTURE §14.1), in the V5b Me restructure's order:
+ * the identity card (the 64 px photo, the name, role and email lines, Edit profile beside them
+ * from `md` and under them on a phone, the Phone record and the photo button); for whoever marks
+ * attendance "My work" with its two rows; "Notifications" (this device's row, "Your devices" with
+ * one device, the usual case, and the test push); "Appearance"; "Help" (the guide and Reload app);
+ * the red outline "Sign out of this device" with its line; the version. "Your freelancers" is not
+ * drawn: few coordinate one, and the screen cannot know who does before the page reads it.
+ * Same member check as `my-day/loading.tsx`.
  *
  * Every column beside something else is `min-w-0`, as the page's is (3c review, CI red on /me at
- * 200%): a bar's `w-40` is 320px at 200% system text, and a flex or grid column with no minimum
- * takes its widest bar as its own minimum, so `max-w-full` on the bar had nothing to clamp to
- * and the column reached past a 430px phone. The device rows wrap like the page's
- * (`flex-[1_1_10rem]`).
- */
-/**
- * The device card's rows as `page.tsx` draws them at 375 px: the description's lines (Sign out's
- * and Reload app's wrap to two) and the control, at the shell's 44px minimum for buttons on a
- * phone (`globals.css`) and its own 32px from `md` up.
+ * 200%): a flex or grid column with no minimum takes its widest bar as its own minimum.
  */
 /** One text line of the page (`text-sm`, 20px): a bar in a line box of the same height. */
 function Line({ width, className }: { width: string; className?: string }) {
@@ -43,51 +31,43 @@ function Line({ width, className }: { width: string; className?: string }) {
   );
 }
 
-/**
- * A row's text lines: `lines` are drawn everywhere, `phoneLines` only below `md`, where the
- * description wraps further beside its button.
- */
-type Row = {
-  name: string;
-  lines: readonly string[];
-  phoneLines?: readonly string[];
-  control: string;
-};
-
-const DEVICE_ROWS: readonly Row[] = [
-  { name: "appearance", lines: ["w-52"], control: "size-11 md:size-8" },
-  // 5.2: the Notifications row ("Checking this device…", no control until it is known).
-  { name: "notifications", lines: ["w-40"], control: "" },
-  { name: "sign-out", lines: ["w-56", "w-40"], phoneLines: ["w-24"], control: "h-11 w-24 md:h-8" },
-];
-
-/** Help & troubleshooting's two rows (5B decision 4); the version line follows them. */
-const HELP_ROWS: readonly Row[] = [
-  { name: "push-test", lines: ["w-56"], phoneLines: ["w-44", "w-24"], control: "h-11 w-28 md:h-8" },
-  { name: "reload", lines: ["w-56", "w-28"], phoneLines: ["w-20"], control: "h-11 w-28 md:h-8" },
-];
-
-function Rows({ rows }: { rows: readonly Row[] }) {
-  return rows.map((row, index) => (
-    <div key={row.name} className="flex flex-col gap-4">
-      {index > 0 ? <Separator /> : null}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex min-w-0 flex-[1_1_10rem] flex-col">
-          <Line width="w-24" />
-          {row.lines.map((width, line) => (
-            <Line key={line} width={width} />
-          ))}
-          {(row.phoneLines ?? []).map((width, line) => (
-            <Line key={`phone-${line}`} width={width} className="md:hidden" />
-          ))}
-        </div>
-        {row.control ? <Skeleton className={`shrink-0 rounded-lg ${row.control}`} /> : null}
-      </div>
+/** A section's heading (14 px semibold) over its card. */
+function Section({ slot, title, children }: { slot: string; title: string; children: ReactNode }) {
+  return (
+    <div data-slot={slot} className="flex flex-col gap-2">
+      <Line width={title} />
+      {children}
     </div>
-  ));
+  );
 }
 
-/** A row of Me that opens one of the member's own pages. */
+/** A row with a title, its lines and a trailing button (the device card's and Help's rows). */
+function ControlRow({
+  lines,
+  phoneLines = [],
+  control,
+}: {
+  lines: readonly string[];
+  phoneLines?: readonly string[];
+  control: string | null;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex min-w-0 flex-[1_1_10rem] flex-col">
+        <Line width="w-24" />
+        {lines.map((width, line) => (
+          <Line key={line} width={width} />
+        ))}
+        {phoneLines.map((width, line) => (
+          <Line key={`phone-${line}`} width={width} className="md:hidden" />
+        ))}
+      </div>
+      {control ? <Skeleton className={`shrink-0 rounded-lg ${control}`} /> : null}
+    </div>
+  );
+}
+
+/** A row of Me that opens one of the member's own pages (or the guide). */
 function PageRow({ slot }: { slot: string }) {
   return (
     <div
@@ -106,7 +86,6 @@ function PageRow({ slot }: { slot: string }) {
 export default async function Loading() {
   const member = await getCurrentMember();
   const ownPages = member !== null && can(member.role, "attendance.self");
-  const leaveRow = ownPages && member.role !== "staff";
   return (
     <PageLoading title="Me" description={ME_DESCRIPTION} shape="detail">
       <div
@@ -114,113 +93,97 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading Me"
         data-slot="loading-state"
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-6"
       >
         <Card aria-hidden>
-          <CardHeader>
-            <div className="flex min-w-0 items-center gap-3">
-              <Skeleton className="size-10 shrink-0 rounded-full" />
-              <div className="flex min-w-0 flex-col">
-                <CardTitle>
-                  <span className="flex h-[1lh] items-center">
-                    <Skeleton className="h-4 w-40 max-w-full" />
-                  </span>
-                </CardTitle>
-                <CardDescription>
-                  <Line width="w-24" />
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {/* "Signs in as …": two lines on a phone, one from `md` up. */}
-            <div className="flex flex-col">
-              <Line width="w-64" />
-              <span className="md:hidden">
-                <Line width="w-28" />
-              </span>
-            </div>
-            <Skeleton className="h-11 w-36 rounded-lg md:h-8" />
-            <Separator />
+          <CardContent className="flex flex-col gap-3">
             <div data-slot="loading-record">
-              <div className="flex min-h-11 items-center justify-between gap-3">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-9 w-28 rounded-lg" />
-              </div>
-              <div className="mt-3 flex flex-col gap-3">
-                {[0, 1].map((row) => (
-                  <div key={row} className="flex flex-col">
+              <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-[1_1_16rem] items-start gap-3">
+                  <Skeleton className="size-16 shrink-0 rounded-full" />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="flex h-6 min-w-0 items-center">
+                      <Skeleton className="h-4 w-40 max-w-full" />
+                    </span>
                     <Line width="w-20" />
-                    <Line width="w-44" />
+                    <Line width="w-56" />
+                    {member?.role === "owner" ? null : (
+                      <span className="flex h-4 min-w-0 items-center">
+                        <Skeleton className="h-3 w-52 max-w-full" />
+                      </span>
+                    )}
                   </div>
-                ))}
+                </div>
+                <Skeleton className="h-11 w-32 rounded-lg md:h-8" />
+              </div>
+              <div className="mt-3 flex flex-col">
+                <Line width="w-12" />
+                <Line width="w-28" />
               </div>
             </div>
+            <Skeleton className="h-11 w-32 rounded-lg md:h-8" />
           </CardContent>
         </Card>
         {ownPages ? (
-          <Card aria-hidden className="gap-0 py-0" data-slot="loading-me-pages">
-            {leaveRow ? (
-              <>
-                <PageRow slot="loading-me-leave-link" />
-                <Separator />
-              </>
-            ) : null}
-            <PageRow slot="loading-me-work-link" />
-          </Card>
+          <Section slot="loading-me-work" title="w-16">
+            <Card aria-hidden className="gap-0 py-0" data-slot="loading-me-pages">
+              <PageRow slot="loading-me-leave-link" />
+              <Separator />
+              <PageRow slot="loading-me-work-link" />
+            </Card>
+          </Section>
         ) : null}
-        <Card aria-hidden>
-          <CardContent className="flex flex-col gap-4">
-            <Rows rows={DEVICE_ROWS} />
-          </CardContent>
-        </Card>
-        <Card aria-hidden data-slot="loading-me-devices">
-          {/* The header's grid cells take their widest bar as a minimum without `min-w-0`. */}
-          <CardHeader>
-            <CardTitle className="min-w-0">
-              <span className="flex h-[1lh] min-w-0 items-center">
-                <Skeleton className="h-4 w-28 max-w-full" />
-              </span>
-            </CardTitle>
-            <CardDescription className="min-w-0">
-              <Line width="w-44" />
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <div className="flex min-w-0 flex-[1_1_10rem] flex-col">
-                <Line width="w-36" />
-                <Line width="w-40" />
-                <Line width="w-48" />
+        <Section slot="loading-me-notifications" title="w-24">
+          <Card aria-hidden data-slot="loading-me-devices">
+            <CardContent className="flex flex-col gap-4">
+              {/* 5.2: "Checking this device…", no control until it is known. */}
+              <ControlRow lines={["w-40"]} control={null} />
+              <Separator />
+              <div className="flex flex-col">
+                <Line width="w-24" />
+                <Line width="w-44" className="mb-3" />
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                  <div className="flex min-w-0 flex-[1_1_10rem] flex-col">
+                    <Line width="w-36" />
+                    <Line width="w-40" />
+                    <Line width="w-48" />
+                  </div>
+                  <Line width="w-20" />
+                </div>
               </div>
-              <Line width="w-20" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card aria-hidden data-slot="loading-me-help">
-          <CardHeader>
-            <Line width="w-36" />
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {/* "How MaxOff works" (6b.14): a title, one line and a chevron. */}
-            <div
-              data-slot="loading-me-guide-link"
-              className="-mx-2 flex min-h-11 items-center justify-between gap-4 px-2"
-            >
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Line width="w-32" />
-                <Line width="w-48" />
-              </div>
-              <Skeleton className="size-4 shrink-0 rounded-sm" />
-            </div>
+              <Separator />
+              <ControlRow lines={["w-56"]} phoneLines={["w-24"]} control="h-11 w-24 md:h-8" />
+            </CardContent>
+          </Card>
+        </Section>
+        <Section slot="loading-me-appearance" title="w-24">
+          <Card aria-hidden>
+            <CardContent>
+              <ControlRow lines={["w-52"]} control="size-11 md:size-8" />
+            </CardContent>
+          </Card>
+        </Section>
+        <Section slot="loading-me-help" title="w-10">
+          <Card aria-hidden className="gap-0 py-0">
+            <PageRow slot="loading-me-guide-link" />
             <Separator />
-            <Rows rows={HELP_ROWS} />
-            <Separator />
-            <span className="flex h-5 items-center">
-              <Skeleton className="h-3.5 w-32" />
-            </span>
-          </CardContent>
-        </Card>
+            <div className="px-4 py-3">
+              <ControlRow
+                lines={["w-56", "w-28"]}
+                phoneLines={["w-20"]}
+                control="h-11 w-28 md:h-8"
+              />
+            </div>
+          </Card>
+        </Section>
+        <div aria-hidden className="flex flex-col gap-2">
+          <Skeleton className="h-11 w-full rounded-lg md:h-8 md:w-48" />
+          <Line width="w-72" />
+          <Line width="w-40" className="md:hidden" />
+        </div>
+        <span aria-hidden className="flex h-4 items-center">
+          <Skeleton className="h-3 w-24" />
+        </span>
         <span className="sr-only">Loading Me</span>
       </div>
     </PageLoading>

@@ -95,7 +95,7 @@ function StripLine({
   }
   if (strip.kind === "due") {
     // PP-calendar-5 and the approved sample: named, a filled soft chip in amber (red and its alert
-    // icon when overdue), the type's colour as the leading dot.
+    // icon when overdue), the type's colour as the leading dot (major change 5: no side stripe).
     return (
       <span
         data-slot="calendar-strip"
@@ -242,14 +242,12 @@ export function MonthGrid({
                           ? "min-h-0"
                           : "min-h-28 p-1",
                       // Each day its own faint tile (the owner's review): a hairline at low
-                      // contrast; the selected day outlined (PP-calendar-1); the weekly off lightly
-                      // tinted (PP-calendar-4); today's box a faint neutral lift, one surface step up (PP-calendar-15).
+                      // contrast; only the selected day outlined (PP-calendar-1, PP-phone-3: the
+                      // outline follows the tapped day); the weekly off lightly tinted
+                      // (PP-calendar-4); today's box a neutral tint, one surface step up, with no
+                      // shadow that could read as a second outline (PP-calendar-15, FINAL 4).
                       isSelected ? "border-foreground" : "border-border/60",
-                      isToday
-                        ? "bg-today shadow-raised"
-                        : day?.weeklyOff
-                          ? "bg-muted/50"
-                          : "bg-card/40",
+                      isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
                     )}

@@ -21,6 +21,8 @@ export type PendingLeave = {
   id: string;
   memberId: string;
   memberName: string;
+  /** Their photo (`members.avatar_file_id`), read with the name (V5b-D). */
+  memberAvatarFileId?: string | null;
   type: LeaveType;
   startDate: string;
   endDate: string;

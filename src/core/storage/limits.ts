@@ -47,6 +47,12 @@ export function isRasterMime(mime: string): boolean {
 /** The long edge and quality of the JPEG preview the browser makes (PRODUCT §4.9). */
 export const PREVIEW_MAX_EDGE = 512;
 export const PREVIEW_QUALITY = 0.82;
+/**
+ * A profile photo's list thumbnail (v1.8 V5b-D): a square JPEG this many pixels a side, cut from
+ * the middle of the photo, so a 40 px circle on a 2x screen is sharp and a list loads a few KB a
+ * face. The 512 px preview stays for the person page and Me.
+ */
+export const THUMB_EDGE = 96;
 
 /** Parts of a multipart upload (ARCHITECTURE §11): S3 needs ≥ 5 MiB per part but the last. */
 export const MULTIPART_PART_SIZE = 8 * MB;
@@ -124,6 +130,23 @@ export function previewSize(width: number, height: number): { width: number; hei
   return {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+/**
+ * The thumbnail's square crop of a `width` × `height` image: the largest centred square, drawn at
+ * `THUMB_EDGE` (a smaller image keeps its short edge, never upscaled).
+ */
+export function thumbCrop(
+  width: number,
+  height: number,
+): { sx: number; sy: number; side: number; edge: number } {
+  const side = Math.max(1, Math.min(width, height));
+  return {
+    sx: Math.round((width - side) / 2),
+    sy: Math.round((height - side) / 2),
+    side,
+    edge: Math.min(THUMB_EDGE, side),
   };
 }
 

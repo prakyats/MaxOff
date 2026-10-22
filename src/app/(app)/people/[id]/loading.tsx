@@ -30,7 +30,7 @@ export default async function Loading() {
       <Card aria-hidden>
         <CardContent className="flex flex-col gap-4 text-sm">
           <div className="flex items-start gap-4">
-            <Skeleton className="mt-1 size-10 shrink-0 rounded-full" />
+            <Skeleton className="size-16 shrink-0 rounded-full" />
             <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(min(10rem,100%),1fr))] gap-x-4 gap-y-3">
               {Array.from({ length: canEdit ? 3 : 1 }, (_, index) => (
                 <Cell key={index} />

@@ -156,9 +156,9 @@ test("an Admin reaches neither the team's month nor a person's", async ({ page }
   const memberId = await memberIdOf(person(info));
   await signIn(page, USERS.admin.email, USERS.admin.password);
   await page.goto("/reports/month");
-  await expect(page).toHaveURL(/\/forbidden$/);
+  await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   await page.goto(`/people/${memberId}/month`);
-  await expect(page).toHaveURL(/\/forbidden$/);
+  await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   // Their Reports stays the placeholder.
   await page.goto("/reports");
   await expect(page.locator('[data-slot="report-link"]')).toHaveCount(0);

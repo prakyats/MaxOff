@@ -164,7 +164,7 @@ test('End day\'s "Any expenses to claim today?", and an Admin never sees a claim
   await page.goto("/approvals");
   await expect(page.locator('[data-slot="approval-group"][data-group="expenses"]')).toHaveCount(0);
   await page.goto("/settings/expenses");
-  await expect(page).toHaveURL(/\/forbidden$/);
+  await expect(page).toHaveURL(/\/forbidden(\?|$)/);
 });
 
 test("the Owner approves one and rejects one; the member reads them and withdraws the third", async ({

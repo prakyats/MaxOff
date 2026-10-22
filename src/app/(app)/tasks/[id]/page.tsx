@@ -13,6 +13,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { formatDateTime, systemClock } from "@/core/time";
 import { HistorySheet } from "@/core/ui/composites/history-sheet";
 import { DetailHeader } from "@/core/ui/composites/page-header";
+import { AvatarStack, type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import {
   activeAssignees,
@@ -104,6 +105,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const names: Record<string, string> = Object.fromEntries(
     directory.map((member) => [member.id, displayName(member.fullName)]),
   );
+  // Each person's photo comes with their name, in the same directory read (V5b-D).
+  const faces: Record<string, AvatarPerson> = Object.fromEntries(
+    directory.map((member) => [
+      member.id,
+      { id: member.id, name: displayName(member.fullName), avatarFileId: member.avatarFileId },
+    ]),
+  );
   const name = (memberId: string | null) => (memberId ? (names[memberId] ?? "Someone") : "Someone");
   const nameOrYou = (memberId: string) => (memberId === viewer.id ? "you" : name(memberId));
   const people: PeopleIndex = Object.fromEntries(
@@ -185,7 +193,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   );
 
   const work = workPanel({ data, task, actions, pair });
-  const thread = chatThread({ data, viewerId: viewer.id, pair, names });
+  const thread = chatThread({ data, viewerId: viewer.id, pair, names, faces });
   const activity = activityPanel({ data, names, viewerId: viewer.id });
   const details = detailsPanel({
     data,
@@ -199,6 +207,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     clientName: client?.name ?? null,
     definitions,
     ownerId,
+    faces,
   });
 
   return (
@@ -491,11 +500,14 @@ function chatThread({
   viewerId,
   pair,
   names,
+  faces,
 }: {
   data: TaskReads;
   viewerId: string;
   pair: Pair;
   names: Record<string, string>;
+  /** Each person's photo, from the same directory read as the names (V5b-D). */
+  faces: Record<string, AvatarPerson>;
 }): ReactNode {
   if (data.comments.length === 0) {
     return (
@@ -509,25 +521,43 @@ function chatThread({
       {data.comments.map((comment) => {
         const own = comment.authorId === viewerId;
         const forName = comment.onBehalfOf ? (names[comment.onBehalfOf] ?? "a freelancer") : null;
+        const author = faces[comment.authorId];
         return (
           <li
             key={comment.id}
             data-slot="task-comment"
             data-own={own ? "true" : "false"}
+            // The approved pull-in sample (V5b-D): someone else's message leads with their photo,
+            // the name and time above the bubble; your own sits on the right.
             className={cn(
-              "flex max-w-[85%] min-w-0 flex-col gap-0.5 rounded-xl px-3 py-2",
-              own ? "bg-muted self-end" : "border-border bg-card self-start border",
+              "flex max-w-[85%] min-w-0 items-start gap-2.5",
+              own ? "self-end" : "self-start",
             )}
           >
-            <p className="text-xs break-words">
-              <span className="font-medium">
-                {own ? actorPair("You", forName) : pair(comment.authorId, comment.onBehalfOf)}
-              </span>{" "}
-              <time dateTime={comment.createdAt} className="text-muted-foreground">
-                {formatDateTime(comment.createdAt)}
-              </time>
-            </p>
-            <LinkedText text={comment.body} className="text-sm" />
+            {own ? null : author ? (
+              <PersonAvatar person={author} size={28} />
+            ) : (
+              <PersonAvatar
+                person={{ id: comment.authorId, name: "Someone", avatarFileId: null }}
+                size={28}
+              />
+            )}
+            <div className={cn("flex min-w-0 flex-col gap-0.5", own && "items-end")}>
+              <p className="text-muted-foreground text-xs break-words">
+                <span className="text-foreground font-medium">
+                  {own ? actorPair("You", forName) : pair(comment.authorId, comment.onBehalfOf)}
+                </span>
+                {" · "}
+                <time dateTime={comment.createdAt}>{formatDateTime(comment.createdAt)}</time>
+              </p>
+              <LinkedText
+                text={comment.body}
+                className={cn(
+                  "max-w-full rounded-xl px-3 py-2 text-sm",
+                  own ? "bg-muted" : "border-border bg-card border",
+                )}
+              />
+            </div>
           </li>
         );
       })}
@@ -604,11 +634,13 @@ function detailsPanel({
   clientName,
   definitions,
   ownerId,
+  faces,
 }: {
   data: TaskReads;
   task: LoadedTask;
   active: readonly TaskReads["assignees"][number][];
   people: PeopleIndex;
+  faces: Record<string, AvatarPerson>;
   viewerId: string;
   name: (memberId: string | null) => string;
   pair: Pair;
@@ -626,6 +658,9 @@ function detailsPanel({
     >
       <Section title="People" slot="task-people">
         <ul className="divide-border -mx-1 divide-y">
+          {active.length > 0 ? (
+            <PeopleSummary active={active} faces={faces} viewerId={viewerId} name={name} />
+          ) : null}
           {active.map((assignee) => {
             const person = people[assignee.memberId];
             const freelancer = person?.engagement === "freelance";
@@ -642,9 +677,21 @@ function detailsPanel({
                 className="flex min-w-0 flex-col gap-0.5 px-1 py-2.5"
               >
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <span className="min-w-0 text-sm font-medium break-words">
-                    {name(assignee.memberId)}
-                    {assignee.memberId === viewerId ? " (you)" : ""}
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-medium break-words">
+                    <PersonAvatar
+                      person={
+                        faces[assignee.memberId] ?? {
+                          id: assignee.memberId,
+                          name: name(assignee.memberId),
+                          avatarFileId: null,
+                        }
+                      }
+                      size={20}
+                    />
+                    <span className="min-w-0">
+                      {name(assignee.memberId)}
+                      {assignee.memberId === viewerId ? " (you)" : ""}
+                    </span>
                   </span>
                   <StatusDot
                     status={noted ? "noted" : "not_noted"}
@@ -652,7 +699,7 @@ function detailsPanel({
                     label={noted ? "Noted" : "Not noted"}
                   />
                 </div>
-                <span className="text-muted-foreground text-xs break-words">
+                <span className="text-muted-foreground pl-7 text-xs break-words">
                   {[
                     assignee.isPrimary ? "Primary owner" : null,
                     freelancer
@@ -693,6 +740,56 @@ function detailsPanel({
         <CustomFieldsView definitions={definitions} values={task.customFields} />
       </Section>
     </div>
+  );
+}
+
+/**
+ * The task's people at a glance (the approved pull-in sample, V5b-D): up to three overlapping
+ * photos then "+n", the first names, how many have noted it and who marks it done (the primary
+ * owner, invariant 6). The rows under it keep each person's Task Noted.
+ */
+function PeopleSummary({
+  active,
+  faces,
+  viewerId,
+  name,
+}: {
+  active: readonly TaskReads["assignees"][number][];
+  faces: Record<string, AvatarPerson>;
+  viewerId: string;
+  name: (memberId: string | null) => string;
+}) {
+  const people = active.map(
+    (assignee) =>
+      faces[assignee.memberId] ?? {
+        id: assignee.memberId,
+        name: name(assignee.memberId),
+        avatarFileId: null,
+      },
+  );
+  const noted = active.filter((assignee) => assignee.acknowledgedAt !== null).length;
+  const primary = active.find((assignee) => assignee.isPrimary) ?? null;
+  const names = people.slice(0, 3).map((person) => (person.id === viewerId ? "You" : person.name));
+  const more = people.length - names.length;
+  const notedLine = noted === active.length ? "All noted" : `${noted} of ${active.length} noted`;
+  const doneLine = primary
+    ? primary.memberId === viewerId
+      ? "You mark it done"
+      : `${name(primary.memberId)} marks it done`
+    : null;
+  return (
+    <li data-slot="task-people-summary" className="flex min-w-0 items-center gap-2.5 px-1 py-2.5">
+      <AvatarStack people={people} size={28} />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm font-semibold break-words">
+          {names.join(", ")}
+          {more > 0 ? ` +${more}` : ""}
+        </span>
+        <span className="text-muted-foreground text-xs break-words">
+          {[notedLine, doneLine].filter(Boolean).join(" · ")}
+        </span>
+      </span>
+    </li>
   );
 }
 

@@ -142,6 +142,11 @@ const SCREENS = [
   { path: "/calendar", role: "admin" },
   { path: "/calendar", role: "staff" },
   { path: "/me", role: "staff" },
+  { path: "/me", role: "admin" },
+  { path: "/me", role: "owner" },
+  // PP-crew-3 (V5b): the no-access page under its standard header.
+  { path: "/forbidden", role: "staff" },
+  { path: "/leave", role: "staff" },
   { path: "/leave/expenses", role: "staff" },
   { path: "/leave/expenses", role: "admin" },
   { path: "/my-day", role: "staff" },
@@ -367,12 +372,20 @@ for (const role of ["owner", "admin", "staff"] as const) {
       for (const size of ["2", "3", "1"]) {
         await expect(phone).toHaveAttribute("data-size", size);
         await fits();
-        // Every size fits the screen (the owner's phone walk, 2026-10-08): the page never
-        // scrolls; in the week and the compact month the day's timeline is the one scroll.
+        // The full month fits the screen (the owner's phone walk, 2026-10-08); the week and the
+        // compact month are part of the page, which scrolls when the day is long, and nothing in
+        // them scrolls inside it (PP-light-4, V5b).
         const overflow = await page.evaluate(
           () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
         );
-        expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
+        if (size === "3") {
+          expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
+        } else {
+          const inner = await page
+            .locator('[data-slot="calendar-phone"] [data-slot="calendar-hours"]')
+            .evaluateAll((all) => all.map((hours) => hours.scrollHeight - hours.clientHeight));
+          expect(Math.max(0, ...inner), `size ${size}: no scroll inside the page`).toBe(0);
+        }
         await handle.click();
       }
       // A day of the full month opens its sheet, which fits too.
@@ -451,7 +464,8 @@ test.describe("More, for Owner and Admin", () => {
         const sheet = page.locator('[data-slot="more-sheet"]');
         await expect(sheet).toBeVisible();
         // The rest of the navigation, in the same priority order as the bar, then the profile.
-        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too.
+        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too. Help (the
+        // guide) under Me (V5b, PP-phone-1).
         await expect(sheet.getByRole("link")).toHaveText(
           role === "admin"
             ? [
@@ -462,8 +476,9 @@ test.describe("More, for Owner and Admin", () => {
                 "Extra work & expenses",
                 "Settings",
                 "Me",
+                "Help",
               ]
-            : ["Reports", "Clients", "People", "Settings", "Me"],
+            : ["Reports", "Clients", "People", "Settings", "Me", "Help"],
         );
         // "Sign out of this device" lives under Me only (kickoff 3b decision 1): nothing here.
         await expect(sheet.getByRole("button", { name: /Log out|Sign out/ })).toHaveCount(0);

@@ -111,6 +111,8 @@ export function selectionColumn<TData>(): ColumnDef<TData> {
 export type MobileCard<TData> = {
   /** The line that identifies the row: a name, a title. */
   title: (row: TData) => ReactNode;
+  /** Before the title: a person's photo (People, V5b-D). Fixed size, so nothing moves. */
+  leading?: (row: TData) => ReactNode;
   /** One quieter line beneath it: a job title, a client, a date. */
   subtitle?: (row: TData) => ReactNode;
   /** The glance: a `StatusDot`, or the one number that matters. */
@@ -312,7 +314,7 @@ export function DataTable<TData>({
           // L2: the page scrolls, not a box inside it. From `lg` the header row sticks under the
           // laptop's top bar (`overflow-clip` clips the corners without making a scroll box, which
           // would trap the sticky header); a tablet keeps side-scrolling for a table too wide for it.
-          "border-border bg-card rounded-lg border md:overflow-x-auto lg:overflow-clip",
+          "border-border bg-card shadow-raised rounded-lg border md:overflow-x-auto lg:overflow-clip",
           // A phone gets the cards above instead; the table is never side-scrolled (§14.1).
           mobile && "hidden md:block",
         )}
@@ -574,6 +576,11 @@ function MobileCards<TData>({
           const cut = href !== null || card.detail ? "truncate" : "break-words";
           const body = (
             <>
+              {card.leading ? (
+                <span className="flex shrink-0" data-slot="data-card-leading">
+                  {card.leading(row.original)}
+                </span>
+              ) : null}
               <span className={cn("flex flex-col gap-0.5 text-left", CARD_ROW_TITLE)}>
                 <span className={cn("text-sm font-medium", cut)}>{card.title(row.original)}</span>
                 {card.subtitle ? (

@@ -20,3 +20,6 @@ export { CompLeaveCard } from "./components/comp-leave-card";
 export { compBalanceWords, compLeaveLine, type CompBalance } from "./domain/credits";
 /** The single approval, for the Approvals delayed send (`app/api/approvals/approve`). */
 export { approveLeave } from "./actions/review";
+/** The balance strip leading Attendance & leave (PP-crew-1, V5b). */
+export { leaveTakenThisMonth } from "./domain/balance";
+export { LeaveBalanceStrip, LeaveBalanceStripSkeleton } from "./components/leave-balance-strip";

@@ -1,9 +1,11 @@
+import { ClockIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
+import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ExtraWorkNotesList, getNoteDays, listOwnNotes } from "@/modules/attendance";
 import { AddNoteButton } from "@/modules/attendance/components/add-note-button";
 import { CompLeaveCard, getCompBalance, listCredits } from "@/modules/leave";
@@ -32,13 +34,26 @@ export default async function ExtraWorkPage() {
   return (
     <>
       <CompLeaveCard balance={balance} credits={credits} today={today} />
-      <div className="mb-3 flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <h2 className="text-muted-foreground text-sm font-medium">
-          Extra work <span className="tabular-nums">{notes.length}</span>
-        </h2>
-        <AddNoteButton days={noteDays} />
-      </div>
-      <ExtraWorkNotesList notes={notes} />
+      {notes.length === 0 ? (
+        // FINAL 7 (V5b): the empty list teaches and offers its one action inside it, with no
+        // heading row of its own.
+        <EmptyState
+          icon={ClockIcon}
+          title="No extra work noted yet"
+          description="Worked late, or on a day off? Add a note and the Owner decides whether it earns comp leave."
+          action={<AddNoteButton days={noteDays} variant="strong" />}
+        />
+      ) : (
+        <>
+          <div className="mb-3 flex min-h-11 flex-wrap items-center justify-between gap-3">
+            <h2 className="text-muted-foreground text-sm font-medium">
+              Extra work <span className="tabular-nums">{notes.length}</span>
+            </h2>
+            <AddNoteButton days={noteDays} />
+          </div>
+          <ExtraWorkNotesList notes={notes} />
+        </>
+      )}
     </>
   );
 }

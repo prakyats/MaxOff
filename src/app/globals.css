@@ -73,6 +73,7 @@
   --color-leave-stripe: var(--leave-stripe);
   /* Today's whole box on the calendar (PP-calendar-15): a faint neutral lift under the red circle. */
   --color-today: var(--today);
+  --color-row-unread: var(--row-unread);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
@@ -205,13 +206,28 @@
    * step above the other days (= surface-3; light adds the raised shadow), never a red wash: the
    * red circle on the date is the marker. Every text on it reads at 4.5:1. */
   --today: #ffffff;
+  /* An unread alert's row (PP-alerts-2, V5b): one quiet warm step off the white card in light, one
+   * surface step lighter in dark; its text reads at 4.5:1. */
+  --row-unread: #f3f2ec;
   /* Leave on the calendar (DESIGN.md §4, PP-calendar-10): a soft neutral bar with faint stripes,
    * apart from every task type's colour; its text reads at 4.5:1 on the bar and on a stripe. */
   --leave: #62626a;
-  --leave-soft: #f1f1f2;
-  --leave-stripe: #efefef;
+  /* PP-light-2 (V5b): the stripes one step stronger in light only, so they read on the cream
+   * page (dark is approved as it is). With the sample's `--leave` (#62626a) the text keeps AA on
+   * a stripe only down to about #DFDFE1 (#D4D4D8 fell to 4.1:1), so the bar is a near-white step
+   * instead (the sample's bar is clear over the day's white box): 4.54:1 text on a stripe, 1.25:1
+   * stripe on the bar. */
+  --leave-soft: #f8f8f9;
+  --leave-stripe: #dfdfe1;
   /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
   --scrim: rgb(0 0 0 / 0.1);
+  /* A person's initials when they have no photo (v1.8 V5b-D, the approved pull-in sample): four
+   * calm tones, the same in both themes, white initials at 4.9:1 or more on each. */
+  --avatar-1: #2f6b5f;
+  --avatar-2: #6d4fb3;
+  --avatar-3: #a8572e;
+  --avatar-4: #2c5aa0;
+  --avatar-foreground: #ffffff;
   /* The surface ladder (DESIGN.md §3, major change 4): a warm cream page and white steps above
    * it, so the page tint is distinct from the cards; the shadow confirms the step. No pure white
    * page anywhere. */
@@ -288,6 +304,8 @@
   --brand-soft: #3a1517;
   --holiday: #4ade80;
   --today: #222226;
+  /* One surface step lighter than the card (= surface-2). */
+  --row-unread: #1a1a1d;
   --leave: #9d9da5;
   --leave-soft: #27272a;
   --leave-stripe: #232327;
@@ -549,6 +567,64 @@
     background-image: linear-gradient(var(--press-tint), var(--press-tint));
     transition-duration: 0ms;
   }
+}
+
+/* A person's photo (`PersonAvatar`, v1.8 V5b-D, the approved pull-in sample): four fixed sizes,
+ * a 1 px ring in the line colour and a 2 px ring in the surface behind it (`--avatar-ring`, the
+ * card unless the row says otherwise), so a photo keeps its edge in both themes and faces in a
+ * stack stay apart. The ring is a shadow: it never changes the avatar's size. */
+[data-slot="person-avatar"] {
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 0 0 3px var(--avatar-ring, var(--card));
+  color: var(--avatar-foreground);
+  font-weight: 600;
+  line-height: 1;
+}
+[data-slot="person-avatar"][data-size="20"] {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+[data-slot="person-avatar"][data-size="28"] {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+[data-slot="person-avatar"][data-size="40"] {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+[data-slot="person-avatar"][data-size="64"] {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+[data-slot="person-avatar"][data-tone="1"] {
+  background-color: var(--avatar-1);
+}
+[data-slot="person-avatar"][data-tone="2"] {
+  background-color: var(--avatar-2);
+}
+[data-slot="person-avatar"][data-tone="3"] {
+  background-color: var(--avatar-3);
+}
+[data-slot="person-avatar"][data-tone="4"] {
+  background-color: var(--avatar-4);
+}
+/* No person to show (a job's alert, someone outside the viewer's directory): a quiet neutral. */
+[data-slot="person-avatar"][data-tone="none"] {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+/* An overlap stack: each face after the first tucks 6 px under the one before. */
+[data-slot="avatar-stack"] > [data-slot="person-avatar"] + [data-slot="person-avatar"] {
+  margin-left: -6px;
+}
+/* An unread alert's row is one surface lighter: its avatar's ring follows it. */
+[data-unread] {
+  --avatar-ring: var(--row-unread);
 }
 
 /* The one row (`ListRow`, FINAL 5): its opener is stretched over the row by its ::after, so the
