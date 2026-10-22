@@ -26,6 +26,112 @@
 - **First glance, then depth** (PRODUCT §2): a screen's first view answers the role's question;
   detail is one tap deeper.
 
+## Decisions (v1.8 V5b, the premium polish; issue #89, owner 2026-10-21/22)
+These win over anything below that disagrees (the earlier sections are brought into line as V5b
+lands). Precedence: the owner's later rulings (the truncation rule, the Me restructure, the nine
+approved major changes, change 6) win over the FINAL UI DECISIONS, which win over any earlier
+polish item (`docs/reviews/v18-polish/SCOPE.md`). The approved sample for the nine changes is
+`docs/design/v18-major-changes.html` (each change's real screen before and the target after, with
+a Dark/Light toggle).
+
+### FINAL UI DECISIONS (issue #89, comment 6322652532)
+1. **Hierarchy, on every screen.** One clear first thing: the title plus a one-line context (the
+   date on Today / My Day; "client · repeat" on a project). The role's question is answered in the
+   first viewport. Exceptions get rows; the normal case collapses to a count or a muted line.
+   **Empty sections never take a heading**: one muted line, or nothing (`EmptyRow`). One solid
+   button per layer (the colour plan); everything else is outline or quiet.
+2. **Surfaces and depth, in both themes.** The page is surface-0; cards and rows are surface-1
+   with a hairline border; overlays are surface-2/3, one shadow per step. The sidebar is a second
+   neutral one step off the page (cooler in dark, warmer in light), so it reads as chrome. **Light
+   gets the same depth as dark**: card borders visible at about 1.15:1, cards carry the raised
+   shadow, the page tint distinct from the cards. No card inside a card: sections separate by
+   spacing and headings, not by boxing everything.
+3. **Type.** Geist only, on the scale 12/14/16/18/20/24. Page title 24/semibold; section heading
+   14/semibold with a muted "· n" count; body 14; meta 12, muted. Numbers that are the point
+   (attendance tiles, ring %, report figures) are one step up and tabular.
+4. **Colour and state.** The approved colour plan: red final or urgent actions, Forest approve,
+   neutral commit, outline secondary; status chips red, amber, blue, green, grey. Text colour
+   alone never carries status: always a chip, or a dot plus a word. **No thick left-edge accent
+   stripes** on calendar chips and agenda rows (`border-l-4` / `border-l-2` in day-agenda,
+   day-detail, month-grid, timeline): a small leading type dot plus the soft tinted fill. Red only
+   where the plan says; today is a red circle on the date plus a neutral tint on the cell.
+5. **Rows and lists: one row anatomy app-wide** (`ListRow`, `core/ui/composites/list-row.tsx`): the
+   title (one line, an ellipsis only where a tap opens the full text), a muted meta line, then on
+   the right the chips, then › (with ⋯ before › when the row has actions). The chat count is a
+   small muted badge **next to the title**, never among the chips. Overdue and due text becomes a
+   chip; a risk reason becomes a chip plus plain text.
+6. **Headers and navigation.** Detail header (`DetailHeader`): back · title · status chip, then on
+   the right the History clock, then ⋯ (the person page too). Laptop: the page's one primary action
+   sits in the header's action area (e.g. Crew's Mark done); phone: a sticky bottom bar. The laptop
+   top bar is slimmer (about 56 px): the bell, theme and avatar, no empty band. Help is reachable
+   in two taps or fewer for every role: the laptop sidebar foot plus the profile menu; the phone's
+   More / Me.
+7. **Empty, loading, no-access.** Empty states teach and offer the one action ("Add expense"
+   inside it). The no-access page keeps the header, names what was blocked, and its button goes to
+   the role's home. Skeletons trace the new layouts (a Definition of Done rule).
+8. **Wide screens.** When a list has three rows or fewer on a laptop, the right column holds "This
+   week" (due dates plus own leave) on My Day, My tasks and Today instead of blank space (within
+   major change 1's conditions below).
+9. **Motion.** State transitions of 150–250 ms only (a sheet in or out, a row expanding, a toast).
+   No page-load choreography.
+
+### The truncation rule (owner, comment 6322342277)
+- **Where a tap opens more** (an expandable row, a chip that opens a sheet, a calendar item that
+  opens the day, a tab or row that drills down): the first view stays **one line with an
+  ellipsis**, and the opened view **always shows the full text**.
+- **Where nothing opens further** (the final detail view, a dialog body, a details field, a
+  sheet's content): **never truncate**; wrap as needed.
+- Withdrawn: PP-phone-5 and the min-width part of PP-project-3. Instead, expanded rows, checklists
+  and the deliverable sheet show every group and stage name in full.
+- **Audit:** every ellipsis in the app sits on something that opens to the full text. An ellipsis
+  on an element that opens nothing is a bug. (This replaces "two lines, then an ellipsis" in §2 and
+  §6 where they disagree.)
+
+### The nine major changes, all approved (comments 6331638458, 6331819942, 6331870421)
+1. **Today and My Day:** the date line under the title; empty sections collapsed to one quiet line;
+   larger attendance figures with the tiles keeping their current width (bigger numbers only, not
+   a wider bar); risk chips; a laptop **"This week"** column of **at most 25–30% of the content
+   width** (e.g. `minmax(260px, 28%)`), two columns **only at a content width of 1200 px or more**;
+   below that "This week" moves **under** "Overdue and risks" as a full-width section, never a
+   squeezed third column and never hidden.
+2. **New project in 3 steps** (PP-forms-7): 1 Basics (start from a template, name, repeats), 2
+   Deliverables & stages, 3 Preview & create; one primary per step; back goes to the previous step
+   (§14.2); one "Start from a template" button opens the browser and shows the chosen template as
+   a chip.
+3. **Me restructure**, every role, laptop and phone, in this order: identity header (photo with a
+   ring and an initials fallback, name, role and sign-in email, Edit profile; one block); My work
+   (Admin, Crew); Your freelancers (an Admin who coordinates one); Notifications (Turn on here,
+   Your devices each with Remove, Send a test notification); Appearance (Light / Dark / System);
+   Help (How MaxOff works, Reload app); Sign out of this device last, a red outline button with a
+   confirm (nothing is destroyed); the version in small muted text at the very bottom.
+4. **Light-theme depth, the same on every screen** (many of the team use light; it must not feel
+   too bright): a warm cream page (about `#F6F5F2`), white cards with a hairline border and a soft
+   shadow, the sidebar one tone darker, **no pure `#FFFFFF` page background anywhere**; every
+   route, sheet, dialog, table and empty state is checked in light.
+5. **Calendar chips:** a dot plus a tint, no side stripe.
+6. **Date and time fields, option C, labelling only** (`DateInput` / `TimeInput`,
+   `core/ui/primitives/date-time-input.tsx`): the native device and browser pickers and the
+   current form layouts stay; only how a chosen value reads changes: a date reads `Thu 22 Oct`
+   (the year only when it is not the current year), a time `6:00 pm` (the B1 formatter); empty,
+   the field says `Choose a date` / `Choose a time`. **No** quick-pick buttons, no custom calendar
+   popover, no layout change (PP-forms-2 dropped; PP-forms-1 replaced). Keyboard entry and the
+   native picker keep working; a screen reader hears the full date (`Thursday 22 October 2026`).
+   Every date and time input in the app.
+7. **Reports summary strip** (PP-reports-1, PP-admin-5): this month's days worked against
+   expected, decisions waiting, overtime notes and expenses to pay, from the existing month-report
+   reads (no new tables); a metric with no data collapses into one muted line.
+8. **Person page summary-first** (PP-person-2/3); the same header and summary pattern wherever a
+   record has a summary.
+9. **Slimmer top bar plus one row layout** (FINAL 5 and 6). **The bell:** the app's outline bell
+   icon at 20 px; the count a small pill **offset to the top-right, outside the glyph**, with a
+   2 px ring in the bar's background colour; capped at "99+" (`BellCount`).
+
+### Sheets and dismiss buttons (PP-forms-3, PP-sheet-4)
+- On a phone a sheet's ✕ and its grab handle are the dismiss: the big outlined Cancel becomes a
+  quiet text button (`variant="link"`-weight, no box) or goes.
+- A destructive confirmation's dismiss says what it keeps: "Keep it" (or "Keep ‹thing›").
+- The row ⋯ bottom sheet on a phone uses 44 px rows in More's list-item style, under a title line.
+
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`
 or above (lint).
@@ -42,8 +148,9 @@ or above (lint).
 - **Weights:** 400 for text, 500 for labels and buttons, 600 for titles and the one figure. No
   700+ in the app (the logo is the brand, not type).
 - **Numbers** are tabular everywhere (`tabular-nums` on `body`): counts, dates, times, amounts.
-- **Long names** follow one rule: left-aligned, at most two lines, then an ellipsis (full text
-  on hover or tap); never centred inside a chip.
+- **Long names** follow the truncation rule (§Decisions): one line with an ellipsis only where a
+  tap opens the full text; wrapped in full where nothing opens further; never centred inside a
+  chip.
 
 ## 3. Surfaces and elevation: four steps, one shadow each
 Depth comes from the surface step first and a hairline second; the shadow only confirms it. In
@@ -262,8 +369,8 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   group. **Needs you** beside the ring only when something is late or nearly done: nothing at all
   otherwise. **Details** is a full-width field grid (Repeats, Delivery date, Notes; then the
   project fields), a cell each, its small label over its value.
-- **Long names (F) everywhere:** left-aligned, two lines at most, then an ellipsis; never centred in a
-  chip.
+- **Long names (F) everywhere:** the truncation rule (§Decisions) replaces "two lines, then an
+  ellipsis": one line and an ellipsis where a tap opens more, the full text where nothing does.
 
 - **Toasts (P3):** bottom-centre on laptop and phone (a surface-2 card), never over the page
   header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
