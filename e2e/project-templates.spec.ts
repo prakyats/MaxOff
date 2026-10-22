@@ -970,3 +970,117 @@ test.describe("the deliverable template builder's layers, installed (ARCHITECTUR
     await expect(page).toHaveURL(here);
   });
 });
+
+test("the Owner deletes a used project template: the confirm says what happens, the projects keep everything and read “(deleted)”; an Admin has no Delete (V5a 6b)", async ({
+  page,
+  browser,
+}, info) => {
+  const client = nameOf(info, "delete client");
+  const template = nameOf(info, "delete me");
+  const clientId = await workClient(client);
+  await removeTemplate(template);
+  const admin = USERS.admin;
+  const made = await insertAs<{ id: string }>(admin.email, admin.password, "project_templates", {
+    name: template,
+    recurrence: "monthly",
+    stages: ["Shoot", "Edit"],
+    items: ["Reel"],
+  });
+  const create = (name: string) =>
+    rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: clientId,
+      name,
+      recurrence: "monthly",
+      stages: ["Shoot", "Edit"],
+      items: ["Reel"],
+      template_id: made.id,
+    });
+  const openId = await create("Open from template");
+  const closedId = await create("Closed from template");
+  await rpcAs(admin.email, admin.password, "project_cancel", {
+    project_id: closedId,
+    reason: "Neutral reason",
+  });
+  const shape = async (projectId: string) => ({
+    stages: await serviceSelect(`project_stages?project_id=eq.${projectId}&select=*&order=id`),
+    lines: await serviceSelect(
+      `project_item_blueprints?project_id=eq.${projectId}&select=*&order=id`,
+    ),
+    cycles: await serviceSelect(`project_cycles?project_id=eq.${projectId}&select=*&order=id`),
+    items: await serviceSelect(`project_items?project_id=eq.${projectId}&select=*&order=id`),
+  });
+  const before = { open: await shape(openId), closed: await shape(closedId) };
+
+  // An Admin (even its author) has no Delete: Edit and Archive only.
+  await page.goto("/settings/templates#projects");
+  await hydrated(page);
+  const adminRow = page.locator('[data-slot="project-template"]', { hasText: template });
+  await expect(adminRow).toBeVisible();
+  if (phone(page)) {
+    await adminRow.getByRole("button", { name: `Actions for ${template}` }).click();
+    const sheet = page.getByRole("dialog", { name: template, exact: true });
+    await expect(sheet.getByRole("button", { name: "Archive", exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+  } else {
+    await expect(adminRow.getByRole("button", { name: `Archive ${template}` })).toBeVisible();
+    await expect(adminRow.getByRole("button", { name: `Delete ${template}` })).toHaveCount(0);
+  }
+
+  // The Owner: Edit · Archive · Delete; the confirm reads the use first and says what happens.
+  const context = await browser.newContext({ storageState: storageStateFor("owner") });
+  const ownerPage = await context.newPage();
+  await ownerPage.goto("/settings/templates#projects");
+  await hydrated(ownerPage);
+  const row = ownerPage.locator('[data-slot="project-template"]', { hasText: template });
+  await rowAction(ownerPage, row, template, "Delete");
+  const confirm = ownerPage.getByRole("alertdialog", { name: `Delete template “${template}”?` });
+  await expect(confirm).toContainText(
+    `Used by 2 projects (1 still open). They keep all their deliverables, stages and months exactly as they are. Their details will show “Template: ${template} (deleted)”. New projects can't use it any more. This can't be undone.`,
+  );
+  await expect(confirm.getByRole("button", { name: "Keep it" })).toBeVisible();
+  const commit = confirm.getByRole("button", { name: `Delete ${template}` });
+  // Final, so red (ADR-0015): the named commit is the danger one.
+  await expect(commit).toHaveAttribute("data-variant", "danger");
+  await commit.click();
+  await expect(confirm).toBeHidden();
+  await expect(
+    ownerPage.locator("[data-sonner-toast]", { hasText: `${template} deleted` }),
+  ).toBeVisible();
+  await expect(row).toHaveCount(0);
+
+  const [stored] = await serviceSelect<{
+    name: string;
+    deleted_at: string | null;
+    archived_at: string | null;
+  }>(`project_templates?id=eq.${made.id}&select=name,deleted_at,archived_at`);
+  expect(stored?.name).toBe(template);
+  expect(stored?.deleted_at).not.toBeNull();
+  expect(stored?.archived_at).not.toBeNull();
+  const history = await serviceSelect<{ action: string; meta: unknown }>(
+    `activity_log?entity=eq.project_templates&entity_id=eq.${made.id}&action=eq.deleted&select=action,meta`,
+  );
+  expect(history).toEqual([
+    { action: "deleted", meta: { name: template, kind: "project", used: 2, open: 1 } },
+  ]);
+  // Nothing on either project changed.
+  expect({ open: await shape(openId), closed: await shape(closedId) }).toEqual(before);
+
+  // The project's Details read “‹name› (deleted)”; New project no longer offers it.
+  await ownerPage.goto(`/clients/${clientId}/projects/${openId}`);
+  await hydrated(ownerPage);
+  await expect(ownerPage.locator('[data-slot="detail-template"] dd')).toHaveText(
+    `${template} (deleted)`,
+  );
+  await context.close();
+
+  await page.goto(`/clients/${clientId}/projects/${closedId}`);
+  await hydrated(page);
+  await expect(page.locator('[data-slot="detail-template"] dd')).toHaveText(
+    `${template} (deleted)`,
+  );
+
+  await removeClientFixture(client);
+  await removeTemplate(template);
+});

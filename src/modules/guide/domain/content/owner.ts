@@ -1425,6 +1425,26 @@ export const OWNER_GUIDE: Guide = {
           ],
         },
         {
+          id: "owner-templates-delete",
+          title: "Delete a template for good",
+          summary: "Only you can; work made from it keeps everything.",
+          blocks: [
+            steps(
+              "Open Settings, then Templates.",
+              'Tap the red bin ("Delete ‹name›") on the template or preset; on a phone it is the red Delete in the row\'s ⋯.',
+              'Read the question: it says what uses it, such as "Used by 3 projects (2 still open)", and exactly what happens. Tap the red "Delete ‹name›", or "Keep it".',
+            ),
+            next(
+              'It is gone from Templates and from every list that offered it, and it cannot be brought back. Projects, deliverables and tasks made from it keep all their stages, deliverables and months; a project\'s Details read "Template: ‹name› (deleted)".',
+            ),
+            note(
+              "Deleting a task template first gives its reminders to every open task that follows it, so nobody's reminders change. Admins can archive their own templates but never delete one. To stop offering a template you may want again, use Archive instead.",
+            ),
+          ],
+          link: { href: "/settings/templates", label: "Open Templates" },
+          keywords: ["delete", "delete template", "remove template", "deleted", "bin"],
+        },
+        {
           id: "owner-save-as-template",
           title: "Save work as a template",
           summary: "Turn a good project or deliverable into a template.",
@@ -1721,6 +1741,9 @@ export const OWNER_GUIDE: Guide = {
           blocks: [
             text(
               'Days off & holidays holds the weekly off days and the list of holidays. On those days the Attendance heading on Today reads "Attendance · Day off".',
+            ),
+            note(
+              'A holiday still ahead has a bin ("Remove ‹name›"). On its day and after it stays, with no bin: it already counted for attendance and leave.',
             ),
           ],
           link: { href: "/settings/days-off", label: "Open Days off" },

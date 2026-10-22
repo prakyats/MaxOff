@@ -14,6 +14,9 @@ import {
   recoveryLinkFor,
   resetAttendanceAndLeave,
   runInstalled,
+  serviceInsert,
+  serviceRest,
+  serviceSelect,
   setPasswordFor,
   signIn,
   storageStateFor,
@@ -340,6 +343,47 @@ test.describe("installed: overlays and view controls", () => {
       await expect(page.locator('[data-slot="detail-sheet"]')).toBeHidden();
 
       await expectBackStack(page, [{ closes: confirm, url: /\/people$/ }]);
+    });
+
+    test("/settings/templates: the Owner's Delete confirm, handed off from a row's ⋯ sheet, closes on back (V5a 6b)", async ({
+      page,
+    }, info) => {
+      const name = `Back delete (${info.project.name})`;
+      await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("project_templates", {
+        org_id: org?.id,
+        name,
+        recurrence: "one_time",
+        created_by: await memberIdOf(USERS.owner.email),
+      });
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/templates#projects");
+      await hydrated(page);
+      const row = page.locator('[data-slot="project-template"]', { hasText: name });
+      await row.getByRole("button", { name: `Actions for ${name}` }).click();
+      const sheet = page.locator('[data-slot="project-template-actions"]');
+      await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete template “${name}”?` });
+      await expect(confirm).toBeVisible();
+      await expect(sheet).toBeHidden();
+      await expect(confirm.getByRole("button", { name: `Delete ${name}` })).toBeEnabled();
+
+      await expectBackStack(page, [
+        { closes: confirm, url: /\/settings\/templates#projects$/ },
+        { url: /\/settings$/ },
+      ]);
+      // Back changed nothing: the template is still there.
+      const [kept] = await serviceSelect<{ deleted_at: string | null }>(
+        `project_templates?name=eq.${encodeURIComponent(name)}&select=deleted_at`,
+      );
+      expect(kept?.deleted_at).toBeNull();
+      await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
     });
   });
 

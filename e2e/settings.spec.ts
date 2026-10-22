@@ -1,6 +1,13 @@
 import { expect, test } from "./fixtures";
 
-import { openThresholdGroups, removeJobTitles, storageStateFor } from "./helpers";
+import {
+  openThresholdGroups,
+  removeJobTitles,
+  serviceInsert,
+  serviceRest,
+  serviceSelect,
+  storageStateFor,
+} from "./helpers";
 import { describeOffDays, istWeekday, pinnedOffDays, WEEKDAY_LONG } from "./calendar";
 import { wallClock } from "./run-state";
 
@@ -9,7 +16,10 @@ import { wallClock } from "./run-state";
  * title list, plus who may open which section. The Owner tests change the one organization
  * row, so they run in order and put their changes back where a later test depends on them.
  */
-const HOLIDAY = { date: "2026-10-02", name: "Gandhi Jayanti" };
+// Still ahead, so the Owner may remove it (V5a 6b: only before its date); 2 Oct 2037 is a Friday.
+const HOLIDAY = { date: "2037-10-02", name: "Gandhi Jayanti" };
+// Already past: it stays, with no Remove.
+const PAST_HOLIDAY = { date: "2026-01-26", name: "Republic Day (past)" };
 
 // One organization, one job-title list: every test here writes to the same rows, so the file
 // runs in order rather than racing itself (the Admin test would otherwise add a title while
@@ -128,6 +138,23 @@ test.describe("Owner", () => {
       .click();
     await expect(page.getByText("Holiday removed")).toBeVisible();
     await expect(page.getByText("No holidays yet")).toBeVisible();
+  });
+
+  test("a holiday on or before today has no Remove: it already shaped attendance and leave (V5a 6b)", async ({
+    page,
+  }) => {
+    await serviceRest(`holidays?name=eq.${encodeURIComponent(PAST_HOLIDAY.name)}`, {
+      method: "DELETE",
+    });
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("holidays", { org_id: org?.id, ...PAST_HOLIDAY });
+    await page.goto("/settings/days-off");
+    const row = page.locator('[data-slot="holiday-row"]', { hasText: PAST_HOLIDAY.name });
+    await expect(row).toContainText("past");
+    await expect(row.getByRole("button", { name: `Remove ${PAST_HOLIDAY.name}` })).toHaveCount(0);
+    await serviceRest(`holidays?name=eq.${encodeURIComponent(PAST_HOLIDAY.name)}`, {
+      method: "DELETE",
+    });
   });
 
   test("saves the thresholds and refuses an Owner escalation before the Admin one", async ({

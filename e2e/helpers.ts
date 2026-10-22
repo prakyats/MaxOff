@@ -1147,7 +1147,7 @@ export async function rowAction(
   page: Page,
   row: Locator,
   name: string,
-  action: "Edit" | "Rename" | "Archive" | "Move up" | "Move down",
+  action: "Edit" | "Rename" | "Archive" | "Delete" | "Move up" | "Move down",
 ): Promise<void> {
   if ((page.viewportSize()?.width ?? 1280) < 768) {
     await row.getByRole("button", { name: `Actions for ${name}` }).click();

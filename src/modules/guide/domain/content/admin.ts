@@ -1634,7 +1634,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Deleting does not touch work already made from it.",
+              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Only the Owner can delete a template for good; work made from it keeps everything, and a project's Details then read “Template: ‹name› (deleted)”.",
             },
           ],
           link: { href: "/settings/templates", label: "Open Templates" },

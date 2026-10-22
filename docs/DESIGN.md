@@ -152,7 +152,11 @@ Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by
   on a phone: New task, Add person, New project).
 - **Settings rows** (`ListRowActions`, C3/P2): from `md` up, grey icon buttons (Move up / Move down
   when the list has an order, Edit or Rename, Archive); on a phone one 44 px ⋯ opening a bottom
-  sheet with the same actions as full-width rows (Move up / Move down keep it open).
+  sheet with the same actions as full-width rows (Move up / Move down keep it open). **The Owner's
+  Delete** (templates and stage presets, V5a 6b, owner 2026-10-22) is last: permanent, so red before
+  its confirmation too (`destructive`: a red outline bin on a laptop, a red outline "Delete" row in
+  the sheet); its confirmation (`TemplateDeleteDialog`) says exactly what happens and commits with
+  the red `danger` "Delete ‹name›", way out "Keep it". Admins and Crew never see it.
 - **Confirmations name the action** ("Deactivate Ravi", "Approve 3", "Discard changes"), never
   "OK", "Yes" or "Confirm". `ConfirmDialog` and `ReasonDialog` take `destructive` for a destructive
   act: their commit is then `danger`, otherwise `primary`.
