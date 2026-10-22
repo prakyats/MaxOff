@@ -438,8 +438,13 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "task page",
     trace: {
       ...TASK_VIEWS,
-      "first person": {
+      // V5b-D: the people's photo stack and names lead the card, then each person.
+      "people at a glance": {
         held: '[data-slot="loading-task-details"] > :first-child > :nth-child(2) > :first-child',
+        settled: '[data-slot="task-people-summary"]',
+      },
+      "first person": {
+        held: '[data-slot="loading-task-details"] > :first-child > :nth-child(2) > :nth-child(2)',
         settled: '[data-slot="task-person"]',
       },
     },

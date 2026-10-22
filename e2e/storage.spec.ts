@@ -181,7 +181,22 @@ test.describe("A member's photo", () => {
     await expect(sheet(page)).toBeVisible();
     await fileInput(page).setInputFiles({ name: "me.svg", mimeType: "image/svg+xml", buffer: SVG });
     await expect(sheet(page)).toContainText("SVG is not accepted for photos.");
-    await fileInput(page).setInputFiles({ name: "me.png", mimeType: "image/png", buffer: PNG });
+    // A real photo-sized PNG drawn by the browser (the tiny fixture PNG is not decoded by
+    // Chromium, so no preview could be made from it): 320 × 200, for the thumbnail's crop.
+    const drawn = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 200;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "rgb(168, 87, 46)";
+      context.fillRect(0, 0, 320, 200);
+      return canvas.toDataURL("image/png").split(",")[1] ?? "";
+    });
+    await fileInput(page).setInputFiles({
+      name: "me.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(drawn, "base64"),
+    });
     await sheet(page).getByRole("button", { name: "Save photo" }).click();
     await expect(page.getByText("Your photo saved")).toBeVisible();
     // The shared photo at 64 px over the initials (V5b-D), its 512 px preview.
