@@ -174,7 +174,7 @@ export function FieldDefinitionsManager({
             ) : (
               <ul
                 data-slot="field-definitions"
-                className="border-border divide-border divide-y rounded-lg border"
+                className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
               >
                 {group.fields.map((definition) => (
                   <li

@@ -102,7 +102,7 @@ export default function Loading() {
               them (a 44 px line). No select column: it shows only in Select mode. */}
           <ul
             className={cn(
-              "border-border divide-border bg-card divide-y rounded-lg border",
+              "border-border divide-border bg-card shadow-raised divide-y rounded-lg border",
               DELIVERABLE_COLUMNS,
             )}
           >

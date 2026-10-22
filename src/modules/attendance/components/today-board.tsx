@@ -196,7 +196,7 @@ export function PeopleBoard({
           <h2 id={`board-${bucket}`} className="text-muted-foreground mb-2 text-sm font-medium">
             {TODAY_BUCKET_LABELS[bucket]} <span className="tabular-nums">{people.length}</span>
           </h2>
-          <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+          <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
             {people.map((person) => (
               <li key={person.memberId}>
                 <DrillLink
@@ -277,7 +277,10 @@ export function TodayBoardSkeleton() {
 /** `rows` person rows, as the board draws them. */
 export function PersonRowsSkeleton({ rows }: { rows: number }) {
   return (
-    <ul aria-hidden className="border-border divide-border bg-card divide-y rounded-lg border">
+    <ul
+      aria-hidden
+      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
+    >
       {Array.from({ length: rows }, (_, i) => (
         <li key={i} className={cn("flex items-center gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}>
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">

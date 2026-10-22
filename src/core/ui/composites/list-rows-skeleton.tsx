@@ -70,7 +70,10 @@ export function ListRowsSkeleton({
   preview?: boolean;
 }) {
   return (
-    <ul aria-hidden className="border-border divide-border divide-y rounded-lg border">
+    <ul
+      aria-hidden
+      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
+    >
       {Array.from({ length: rows }, (_, row) => (
         <li
           key={row}

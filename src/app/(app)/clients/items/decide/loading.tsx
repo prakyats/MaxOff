@@ -18,7 +18,7 @@ export default function Loading() {
       <div aria-hidden className="flex flex-col gap-2">
         <Skeleton className="h-4 w-48" />
         <Skeleton className="h-3 w-24" />
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {[0, 1, 2].map((row) => (
             <li key={row} className="flex min-h-15 items-center gap-3 px-3 py-2 sm:px-4">
               {/* The row's 44 px select target around its box (§14.1), as the row draws it. */}

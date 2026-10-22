@@ -159,7 +159,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
           <ul
             data-slot="contact-list"
             aria-label="Contacts"
-            className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
           >
             {[...live, ...archived].map((contact) => (
               <li key={contact.id}>

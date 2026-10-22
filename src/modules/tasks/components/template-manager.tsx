@@ -106,7 +106,7 @@ export function TemplateManager({
         ) : (
           <ul
             data-slot="task-templates"
-            className="border-border divide-border divide-y rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
             {active.map((template) => {
               const allowed = templateActions(template, context.viewer);

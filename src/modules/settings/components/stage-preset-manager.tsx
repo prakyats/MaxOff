@@ -92,7 +92,7 @@ export function StagePresetManager({
         ) : (
           <ul
             data-slot="stage-presets"
-            className="border-border divide-border divide-y rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
             {active.map((preset) => {
               const allowed = presetActions(preset, viewer);

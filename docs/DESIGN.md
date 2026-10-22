@@ -158,17 +158,23 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 | Step | Surface token | Light | Dark | Shadow token | Used for |
 |---|---|---|---|---|---|
-| 0 Page | `surface-0` (= `background`) | `#FAFAF9` | `#0B0B0C` | none | the page |
-| 1 Raised | `surface-1` (= `card`) | `#FFFFFF` | `#141416` | `shadow-raised` (= `shadow-sm`, `shadow`) | cards, the sidebar, grouped lists |
+| 0 Page | `surface-0` (= `background`) | `#F6F5F2` (warm cream; V5b) | `#0B0B0C` | none | the page |
+| 1 Raised | `surface-1` (= `card`) | `#FFFFFF` | `#141416` | `shadow-raised` (= `shadow-sm`, `shadow`) | cards and grouped lists (`bg-card shadow-raised` + hairline) |
 | 2 Floating | `surface-2` | `#FFFFFF` | `#18181B` | `shadow-floating` (= `shadow-md`) | menus, popovers, tooltips, toasts, a floating sticky bar |
 | 3 Modal | `surface-3` | `#FFFFFF` | `#1C1C1F` | `shadow-modal` (= `shadow-lg`, `shadow-xl`) | dialogs and sheets |
 
 - `popover` keeps its v1.7 values (`#FFFFFF` / `#141416`) until V2 moves menus and sheets onto
   steps 2 and 3 (and re-checks `muted` fills on them in dark).
-- `muted` / `secondary` / `accent` (`#F2F1EF` / `#1F1F23`) are quiet fills (hover rows, active
-  nav), not elevation. `border` / `input` (`#E7E5E4` / `#26262A`) are hairlines.
-- Text: `foreground` (`#18181B` / `#FAFAF9`) and `muted-foreground` (`#71717A` / `#A1A1AA`,
-  ≥ 4.5:1 on the page and on every surface).
+- **The sidebar** (`sidebar`, `#EFEEE9` / `#101013`) is chrome, a second neutral one step off the
+  page: warmer and darker in light, cooler in dark, under the cards (V5b, FINAL 2); its active item
+  `sidebar-accent` (`#E6E5DF` / `#1F1F23`).
+- `muted` / `secondary` / `accent` (`#EEEDE8` / `#1F1F23`) are quiet fills (hover rows, active
+  nav), not elevation. `border` / `input` (`#E3E2DD` / `#26262A`) are hairlines (about 1.3:1 on a
+  card). Light's raised shadow is the approved sample's soft pair (`0 1px 2px` + `0 4px 14px`, 6%).
+- **No pure white page** anywhere (V5b major change 4): white is a card or an overlay, never the
+  page. `status-badge.test.ts` holds the three layers apart and their text at AA.
+- Text: `foreground` (`#18181B` / `#FAFAF9`) and `muted-foreground` (`#66666E` / `#A1A1AA`,
+  ≥ 4.5:1 on the page, every surface, the quiet fills and the sidebar).
 - No other shadows: no `shadow-xs`, `shadow-2xl`, `shadow-inner`, no `shadow-[…]` (lint).
 
 ## 4. Colour: red is urgent or destructive only (ADR-0015)

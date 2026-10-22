@@ -269,7 +269,7 @@ export function ApprovalGroup<T>({
           </Button>
         ) : null}
       </div>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
         {rows.map((row) => {
           const isHeld = held.has(row.id);
           const error = errors[row.id];

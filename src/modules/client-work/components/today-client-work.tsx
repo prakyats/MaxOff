@@ -70,7 +70,7 @@ export function TodayClientWork({
         aria-label="Client work"
         data-slot="today-client-work-rows"
         data-ready={ready ? "" : undefined}
-        className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
       >
         {items.map((item) => {
           const waiting = held.has(item.view.id);

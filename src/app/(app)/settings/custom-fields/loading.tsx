@@ -40,7 +40,7 @@ export default function Loading() {
         </div>
         <div aria-hidden className="flex max-w-2xl flex-col gap-3">
           <ListHeadingSkeleton titleWidth="w-28" addWidth="w-28" />
-          <ul className="border-border divide-border divide-y rounded-lg border">
+          <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
             {[0, 1, 2].map((row) => (
               <li
                 key={row}

@@ -565,7 +565,7 @@ function MobileCards<TData>({
       <ul
         data-slot="data-cards"
         aria-label={caption}
-        className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
       >
         {visible.map((row) => {
           const body = (

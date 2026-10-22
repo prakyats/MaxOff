@@ -126,7 +126,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
                 </p>
               ) : null}
             </div>
-            <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
               {group.rows.map((row) => (
                 <li
                   key={row.id}

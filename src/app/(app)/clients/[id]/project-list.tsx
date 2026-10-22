@@ -26,7 +26,7 @@ export function ProjectList({
     <ul
       aria-label={label}
       data-slot="project-list"
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {projects.map((project) => (
         <li key={project.id}>

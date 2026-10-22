@@ -102,7 +102,7 @@ export function DeliverableTemplateManager({
       ) : (
         <ul
           data-slot="deliverable-templates"
-          className="border-border divide-border divide-y rounded-lg border"
+          className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
         >
           {active.map((template) => {
             const allowed = templateRowActions(template, viewer);

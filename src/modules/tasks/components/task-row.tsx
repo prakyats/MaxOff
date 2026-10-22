@@ -114,7 +114,7 @@ export function TaskRowList({
     <ul
       aria-label={label}
       data-slot={slot ?? "task-rows"}
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {children}
     </ul>
@@ -141,7 +141,7 @@ export function TaskRowsSkeleton({
       aria-hidden
       data-slot="loading-task-rows"
       aria-label={label}
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, index) => (
         <li key={index} className="flex min-h-16 min-w-0 flex-col gap-1 px-4 py-3">

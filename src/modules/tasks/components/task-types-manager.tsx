@@ -114,7 +114,7 @@ export function TaskTypesManager({
         ) : (
           <ul
             data-slot="task-types"
-            className="border-border divide-border divide-y rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
             {active.map((type, index) => (
               <li

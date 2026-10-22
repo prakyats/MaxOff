@@ -56,7 +56,7 @@ export default async function Loading() {
             <p className="px-1 text-sm font-medium">
               <span className={UNSEEN}>{section.title}</span>
             </p>
-            <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
               {section.topics.map((topic) => (
                 // The row inside the item, as the page's button is: the divider is the item's,
                 // outside the row's 64px.

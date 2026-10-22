@@ -97,7 +97,7 @@ export function ListManager({
         ) : (
           <ul
             data-slot="list-items"
-            className="border-border divide-border divide-y rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
             {active.map((item, index) => (
               <li

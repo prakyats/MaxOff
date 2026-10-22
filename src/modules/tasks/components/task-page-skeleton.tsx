@@ -53,7 +53,7 @@ export function TaskViewsSkeleton() {
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-3 w-20" />
         </div>
-        <div className="border-border divide-border bg-card divide-y rounded-lg border">
+        <div className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {["w-40", "w-32"].map((width) => (
             <div key={width} className="flex min-h-12 min-w-0 items-center gap-3 py-2 pl-3">
               <Skeleton className="size-4 shrink-0 rounded-sm" />
@@ -144,7 +144,7 @@ export function TaskDetailsSkeleton() {
         <div className="flex h-5 items-center">
           <Skeleton className="h-4 w-14" />
         </div>
-        <div className="border-border divide-border bg-card divide-y rounded-lg border">
+        <div className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {["w-36", "w-28"].map((width) => (
             <div key={width} className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
               <div className="flex h-5 min-w-0 items-center justify-between gap-3">

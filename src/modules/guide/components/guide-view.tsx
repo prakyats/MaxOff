@@ -202,7 +202,7 @@ function SectionBlock({
       <h2 id={headingId} className="text-muted-foreground px-1 text-sm font-medium">
         {section.title}
       </h2>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
         {section.topics.map((topic) => (
           <TopicRow
             key={topic.id}

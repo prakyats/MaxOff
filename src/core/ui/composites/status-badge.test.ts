@@ -243,6 +243,34 @@ describe("badge contrast (globals.css)", () => {
       ).toBeGreaterThanOrEqual(4.5);
     });
 
+    it(`${theme}: the page, the cards and the sidebar are three readable layers (V5b major change 4, FINAL 2)`, () => {
+      // No pure white page; the page tint distinct from the cards; the sidebar one step off it.
+      expect(tokens["background"]).not.toBe("#ffffff");
+      expect(tokens["surface-0"]).toBe(tokens["background"]);
+      expect(tokens["card"]).not.toBe(tokens["background"]);
+      expect(tokens["sidebar"]).not.toBe(tokens["background"]);
+      expect(tokens["sidebar"]).not.toBe(tokens["card"]);
+      // The card's hairline is visible against the card (about 1.15:1 or more).
+      const edge = contrast(tokens["border"] as string, tokens["card"] as string);
+      expect(edge, `${theme} border on card = ${edge.toFixed(2)}`).toBeGreaterThanOrEqual(1.15);
+      // Muted text reads on the quiet fills and in the sidebar too.
+      for (const surface of ["muted", "sidebar", "sidebar-accent"]) {
+        const ratio = contrast(tokens["muted-foreground"] as string, tokens[surface] as string);
+        expect(
+          ratio,
+          `${theme} muted text on ${surface} = ${ratio.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+      // The secondary outline is a 3:1 edge on the page, the card and the sidebar (WCAG 1.4.11).
+      for (const surface of ["background", "card", "sidebar"]) {
+        const ratio = contrast(tokens["control-border"] as string, tokens[surface] as string);
+        expect(
+          ratio,
+          `${theme} control edge on ${surface} = ${ratio.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    });
+
     it(`${theme}: the holiday green reads as text on the page and on every surface`, () => {
       for (const surface of ["background", "card", "surface-2", "surface-3"]) {
         const bg = tokens[surface] as string;

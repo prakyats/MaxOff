@@ -86,7 +86,7 @@ export function MemberMonthClaims({
           No claims dated this month.
         </p>
       ) : (
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {claims.map((claim) => {
             const outcome = claimOutcome(claim);
             return (

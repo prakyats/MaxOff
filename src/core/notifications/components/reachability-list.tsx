@@ -31,7 +31,7 @@ export function ReachabilityList({
     <ul
       aria-label={label}
       data-slot="reachability-list"
-      className="border-border divide-border bg-card divide-y rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
     >
       {rows.map((row) => (
         <li
@@ -77,7 +77,10 @@ export function ReachabilityList({
 /** The same cards while the page loads: the same heights, paddings and line boxes. */
 export function ReachabilityListSkeleton({ rows }: { rows: number }) {
   return (
-    <ul aria-hidden className="border-border divide-border bg-card divide-y rounded-lg border">
+    <ul
+      aria-hidden
+      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
+    >
       {Array.from({ length: rows }, (_, row) => (
         <li
           key={row}

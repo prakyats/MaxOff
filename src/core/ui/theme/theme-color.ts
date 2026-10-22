@@ -9,7 +9,7 @@
  * see `pwa-files.test.ts`); the manifest's `background_color` (the splash) is the dark one.
  */
 export const THEME_COLORS = {
-  light: "#fafaf9",
+  light: "#f6f5f2",
   dark: "#0b0b0c",
 } as const;
 

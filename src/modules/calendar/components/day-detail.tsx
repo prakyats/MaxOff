@@ -191,7 +191,7 @@ function EventRows({ events }: { events: readonly EventItem[] }) {
     <ul
       aria-label="Events"
       data-slot="calendar-events"
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {events.map((event) => (
         <li key={event.id}>
@@ -314,7 +314,7 @@ export function DayDetail({
             <ClockIcon className="text-muted-foreground size-4" aria-hidden />
             Due · {day.due.length}
           </h3>
-          <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+          <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
             {day.due.map((item) => (
               <li key={item.id}>
                 <OverlayLink
@@ -437,7 +437,7 @@ export function ClientItemsList({
         <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
         Deliverables · {items.length}
       </h3>
-      <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
         {items.map((item) => (
           <li key={item.id} className="min-w-0">
             <OverlayLink

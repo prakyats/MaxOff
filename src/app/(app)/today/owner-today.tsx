@@ -266,7 +266,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
               <ul
                 aria-label="Waiting for you"
                 data-slot="today-approval-rows"
-                className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+                className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
               >
                 {folded.map((person) => (
                   <ApprovalPersonRow

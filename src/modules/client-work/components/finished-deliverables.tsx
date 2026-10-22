@@ -51,7 +51,7 @@ export function FinishedDeliverables({
           aria-label="Done and closed deliverables"
           data-slot="finished-items"
           className={cn(
-            "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
+            "border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border",
             deliverableColumns(selecting),
           )}
         >
