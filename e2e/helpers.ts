@@ -1206,3 +1206,24 @@ export async function templatesTab(
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }
+
+/**
+ * New project's steps (V5b PP-forms-7: 1 Basics, 2 Deliverables & stages, 3 Preview & create):
+ * Next until the dialog is on step `to`, each step waited for.
+ */
+export async function newProjectStep(dialog: Locator, to: 1 | 2 | 3): Promise<void> {
+  const current = dialog.locator('[data-slot="new-project-steps"] [aria-current="step"]');
+  let at = Number((await current.innerText()).trim().charAt(0));
+  while (at < to) {
+    await dialog.locator('[data-slot="new-project-next"]').click();
+    at += 1;
+    await expect(current).toHaveText(new RegExp(`^${at} `));
+  }
+}
+
+/** Create in the New project dialog: Next to its last step, then Create project. */
+export async function createFromNewProject(dialog: Locator): Promise<void> {
+  await newProjectStep(dialog, 3);
+  await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
+  await dialog.getByRole("button", { name: "Create project" }).click();
+}

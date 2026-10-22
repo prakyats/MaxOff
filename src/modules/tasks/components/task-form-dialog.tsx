@@ -731,9 +731,9 @@ function TaskForm({
           </Select>
         ) : null}
         {errors.assigneeIds ? <ErrorText slot="field-error">{errors.assigneeIds}</ErrorText> : null}
-        <p className="text-muted-foreground text-xs">
-          Pick the primary owner: they mark it done. A freelancer&apos;s coordinator notes it and
-          marks it done for them.
+        {/* PP-forms-6: one short line; the freelancer's coordinator rule is in the guide. */}
+        <p className="text-muted-foreground text-xs" data-slot="assign-hint">
+          The primary owner marks it done.
         </p>
         {checking ? (
           <p
