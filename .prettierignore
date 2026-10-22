@@ -21,3 +21,6 @@ supabase/migrations/
 
 # The app guide (docs/guide) is hand-formatted HTML: its screen mock-ups depend on exact whitespace.
 docs/guide/
+
+# Reference copies of approved design samples (byte-stable, not app code).
+docs/design/
