@@ -72,6 +72,7 @@
   --color-leave-stripe: var(--leave-stripe);
   /* Today's whole box on the calendar (PP-calendar-15): a faint neutral lift under the red circle. */
   --color-today: var(--today);
+  --color-row-unread: var(--row-unread);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
@@ -199,6 +200,9 @@
    * step above the other days (= surface-3; light adds the raised shadow), never a red wash: the
    * red circle on the date is the marker. Every text on it reads at 4.5:1. */
   --today: #ffffff;
+  /* An unread alert's row (PP-alerts-2, V5b): one quiet warm step off the white card in light, one
+   * surface step lighter in dark; its text reads at 4.5:1. */
+  --row-unread: #f3f2ec;
   /* Leave on the calendar (DESIGN.md §4, PP-calendar-10): a soft neutral bar with faint stripes,
    * apart from every task type's colour; its text reads at 4.5:1 on the bar and on a stripe. */
   --leave: #52525b;
@@ -283,6 +287,7 @@
   --brand-soft: #3c2326;
   --holiday: #4ade80;
   --today: #1c1c1f;
+  --row-unread: #1c1c1f;
   --leave: #a1a1aa;
   --leave-soft: #27272a;
   --leave-stripe: #323236;

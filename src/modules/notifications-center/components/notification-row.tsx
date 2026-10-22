@@ -32,7 +32,9 @@ export function NotificationRow({
       data-notification={id}
       data-unread={unread && !readHere ? "true" : undefined}
       data-run={runSize > 1 ? runSize : undefined}
-      className="group/row"
+      // PP-alerts-2 (V5b): an unread row sits one surface step apart (`row-unread`), so a long
+      // run of unread scans at a glance; read rows are the card.
+      className="group/row data-[unread]:bg-row-unread"
     >
       {children}
     </li>

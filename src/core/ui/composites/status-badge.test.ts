@@ -216,6 +216,19 @@ describe("badge contrast (globals.css)", () => {
       });
     }
 
+    it(`${theme}: an unread alert's row is a step off the card and its text reads (PP-alerts-2)`, () => {
+      const bg = tokens["row-unread"] as string;
+      expect(bg, `--row-unread missing in ${selector}`).toBeDefined();
+      expect(bg).not.toBe(tokens["card"]);
+      for (const text of ["foreground", "muted-foreground"]) {
+        const ratio = contrast(tokens[text] as string, bg);
+        expect(
+          ratio,
+          `${theme} ${text} on row-unread = ${ratio.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
     it(`${theme}: today's box is a neutral surface step, apart from the weekly off, and its text reads (PP-calendar-15)`, () => {
       const bg = tokens["today"];
       expect(bg, `--today missing in ${selector}`).toBeDefined();

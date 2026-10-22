@@ -8,7 +8,7 @@ import { openNotificationUrl } from "@/core/ui/navigation/deep-link";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { entryTitle, groupByDay } from "../domain/alerts";
-import { notificationWhen } from "../domain/when";
+import { notificationWhen, twelveHourTimes } from "../domain/when";
 import { NotificationLink } from "./notification-link";
 import { NotificationReadButton } from "./notification-read-button";
 import { NotificationRow } from "./notification-row";
@@ -125,7 +125,9 @@ function RowContent({ row, today }: { row: InboxRow; today: string }) {
               <span className="sr-only">Unread: </span>
             </span>
           ) : null}
-          <span className="min-w-0 font-medium group-data-[unread]/row:font-semibold">{title}</span>
+          <span className="min-w-0 font-medium group-data-[unread]/row:font-semibold">
+            {twelveHourTimes(title)}
+          </span>
         </span>
         <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
           {count ? (
@@ -151,7 +153,7 @@ function RowContent({ row, today }: { row: InboxRow; today: string }) {
           className="text-muted-foreground line-clamp-3 text-xs break-words"
           data-slot="notification-body"
         >
-          {row.body}
+          {twelveHourTimes(row.body)}
         </span>
       ) : null}
     </>

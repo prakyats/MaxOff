@@ -848,6 +848,10 @@ export const CREW_GUIDE: Guide = {
               kind: "next",
               text: 'When there is nothing, it says "Nothing yet" or "You\'re all caught up".',
             },
+            {
+              kind: "note",
+              text: "An unread alert has a dot, a bold title and a slightly shaded row; times read like 6:00 pm.",
+            },
           ],
           link: { href: "/notifications", label: "Open Alerts" },
           keywords: ["notifications", "unread", "mark all read", "bell", "inbox"],

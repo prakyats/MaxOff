@@ -1987,7 +1987,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Alerts lists your notifications, newest day first.",
+              text: "Alerts lists your notifications, newest day first. An unread one has a dot, a bold title and a slightly shaded row.",
             },
             {
               kind: "steps",

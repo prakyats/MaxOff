@@ -68,7 +68,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "The bell opens Alerts, with the unread count on it.",
           blocks: [
             text(
-              "On a phone the bell sits in the title bar of each screen. On a laptop it is in the top bar. Both open Alerts and show how many you have not read.",
+              "On a phone the bell sits in the title bar of each screen. On a laptop it is in the top bar. Both open Alerts and show how many you have not read. An unread alert has a dot, a bold title and a slightly shaded row.",
             ),
           ],
           link: { href: "/notifications", label: "Open Alerts" },
