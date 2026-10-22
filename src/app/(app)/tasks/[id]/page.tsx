@@ -1,4 +1,4 @@
-import { ChevronRightIcon, CircleAlertIcon, FlagIcon } from "lucide-react";
+import { CalendarClockIcon, ChevronRightIcon, CircleAlertIcon, FlagIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
@@ -12,8 +12,8 @@ import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { formatDateTime, systemClock } from "@/core/time";
 import { HistorySheet } from "@/core/ui/composites/history-sheet";
-import { PageHeader } from "@/core/ui/composites/page-header";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { DetailHeader } from "@/core/ui/composites/page-header";
+import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import {
   activeAssignees,
   actorPair,
@@ -153,6 +153,27 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     remindNames.every((one) => one !== undefined) ? (remindNames as string[]) : [],
   );
 
+  const state = (
+    <StatusBadge
+      status={task.state}
+      label={stateLabel(task, { finalApprover: can(viewer.role, "tasks.approve_final") })}
+    />
+  );
+  // PP-crew-8: the one next step is the header's primary action on a laptop and the sticky bar
+  // at a phone's foot: one element (`primaryOwnBar`), so its dialogs mount once.
+  const stepBar = (
+    <TaskNextStep
+      taskId={task.id}
+      dueAt={task.dueAt}
+      next={next}
+      done={actions.done}
+      review={actions.review}
+      names={names}
+      approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
+      primaryName={name(task.primaryOwnerId)}
+    />
+  );
+
   const work = workPanel({ data, task, actions, pair });
   const thread = chatThread({ data, viewerId: viewer.id, pair, names });
   const activity = activityPanel({ data, names });
@@ -185,9 +206,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         {/* The main column; on a phone its parts sit straight in the page, so the title bar and
             the views' bar stick for the whole page. */}
         <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
-          <PageHeader
+          <DetailHeader
             back={TASK_BACK}
             title={task.title}
+            status={state}
+            primary={stepBar}
+            primaryOwnBar
             menu={
               <>
                 {/* History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep). */}
@@ -216,48 +240,44 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             data-slot="task-summary"
             className="flex min-w-0 flex-col gap-2"
           >
+            {/* PP-task-1: the state as a chip (in the header on a laptop), the priority a quiet
+                label, and the deadline on a line of its own, red once it has passed. */}
             <p
               data-slot="task-glance"
               className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
             >
-              <StatusDot
-                status={task.state}
-                label={stateLabel(task, {
-                  finalApprover: can(viewer.role, "tasks.approve_final"),
-                })}
-              />
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
+              <span className="md:hidden">{state}</span>
               <span
                 data-slot="task-priority"
-                className="text-muted-foreground inline-flex items-center gap-1"
+                className="text-muted-foreground inline-flex items-center gap-1 text-xs"
               >
                 <FlagIcon aria-hidden className="size-3.5 shrink-0" />
-                {PRIORITY_LABELS[task.priority]}
-                <span className="sr-only"> priority</span>
-              </span>
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
-              <span
-                data-slot="task-deadline"
-                data-overdue={deadline.overdue ? "true" : "false"}
-                className={cn(
-                  "inline-flex min-w-0 items-center gap-1 break-words",
-                  deadline.overdue ? "text-destructive font-medium" : "text-muted-foreground",
-                )}
-              >
-                {deadline.overdue ? (
-                  <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
-                ) : null}
-                <span className="min-w-0">
-                  {deadline.label}
-                  {deadline.relative ? ` · ${deadline.relative}` : ""}
-                </span>
+                {PRIORITY_LABELS[task.priority]} priority
               </span>
             </p>
-            <p data-slot="task-needed" className="text-sm font-medium break-words">
+            <p
+              data-slot="task-deadline"
+              data-overdue={deadline.overdue ? "true" : "false"}
+              className={cn(
+                "flex min-w-0 items-center gap-1.5 text-sm break-words",
+                deadline.overdue ? "text-destructive font-medium" : "text-foreground",
+              )}
+            >
+              {deadline.overdue ? (
+                <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
+              ) : (
+                <CalendarClockIcon aria-hidden className="text-muted-foreground size-4 shrink-0" />
+              )}
+              <span className="min-w-0">
+                {deadline.label}
+                {deadline.relative ? ` · ${deadline.relative}` : ""}
+              </span>
+            </p>
+            {/* PP-task-2: what is needed now, as a calm callout above the actions. */}
+            <p
+              data-slot="task-needed"
+              className="border-border bg-muted/50 rounded-lg border px-3 py-2.5 text-sm font-medium break-words"
+            >
               {needed}
             </p>
             {actions.remind ? (
@@ -288,16 +308,6 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               </p>
             ) : null}
           </section>
-          <TaskNextStep
-            taskId={task.id}
-            dueAt={task.dueAt}
-            next={next}
-            done={actions.done}
-            review={actions.review}
-            names={names}
-            approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
-            primaryName={name(task.primaryOwnerId)}
-          />
           <TaskTabs />
           <TaskViewPanel name="work">{work}</TaskViewPanel>
           <TaskChat
@@ -594,10 +604,15 @@ function detailsPanel({
   definitions: TaskReads["definitions"];
   ownerId: string | null;
 }): ReactNode {
+  // PP-task-3: People and About the task sit on one subtle surface card (no card in a card: the
+  // people are divided rows inside it), the facts as aligned label and value pairs.
   return (
-    <>
+    <div
+      data-slot="task-about-card"
+      className="border-border bg-card shadow-raised flex min-w-0 flex-col gap-5 rounded-lg border p-4"
+    >
       <Section title="People" slot="task-people">
-        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
+        <ul className="divide-border -mx-1 divide-y">
           {active.map((assignee) => {
             const person = people[assignee.memberId];
             const freelancer = person?.engagement === "freelance";
@@ -611,7 +626,7 @@ function detailsPanel({
                 key={assignee.memberId}
                 data-slot="task-person"
                 data-member={assignee.memberId}
-                className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5"
+                className="flex min-w-0 flex-col gap-0.5 px-1 py-2.5"
               >
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <span className="min-w-0 text-sm font-medium break-words">
@@ -645,27 +660,26 @@ function detailsPanel({
         </ul>
       </Section>
       <Section title="About the task" slot="task-details">
-        <dl className="flex min-w-0 flex-col gap-3 text-sm">
-          {clientName ? (
-            <Fact label="Client" stacked>
-              {clientName}
-            </Fact>
-          ) : null}
+        <dl
+          data-slot="task-facts"
+          className="grid min-w-0 grid-cols-[minmax(5rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm"
+        >
+          {clientName ? <Fact label="Client">{clientName}</Fact> : null}
           {typeName ? (
-            <Fact label="Type" stacked>
+            <Fact label="Type">
               <span data-slot="task-type">{typeName}</span>
             </Fact>
           ) : null}
-          <Fact label="Approval" stacked>
+          <Fact label="Approval">
             <span data-slot="task-route">{routeLine(task, data.assignees, name, ownerId)}</span>
           </Fact>
-          <Fact label="Created by" stacked>
+          <Fact label="Created by">
             {name(task.createdBy)}, {formatDateTime(task.createdAt)}
           </Fact>
         </dl>
         <CustomFieldsView definitions={definitions} values={task.customFields} />
       </Section>
-    </>
+    </div>
   );
 }
 
@@ -681,7 +695,10 @@ function Section({ title, slot, children }: { title: string; slot: string; child
   );
 }
 
-/** A label and its value: side by side from `sm` up, stacked on a phone and under large text. */
+/**
+ * A label and its value. `stacked`: the label over its value (the brief's long texts); otherwise
+ * a row of the parent `dl`'s two-column grid, so the labels and values line up (PP-task-3).
+ */
 function Fact({
   label,
   children,
@@ -691,8 +708,16 @@ function Fact({
   children: ReactNode;
   stacked?: boolean;
 }) {
+  if (!stacked) {
+    return (
+      <>
+        <dt className="text-muted-foreground">{label}</dt>
+        <dd className="min-w-0 break-words">{children}</dd>
+      </>
+    );
+  }
   return (
-    <div className={stacked ? "flex min-w-0 flex-col gap-0.5" : "flex min-w-0 flex-wrap gap-x-2"}>
+    <div className="flex min-w-0 flex-col gap-0.5">
       <dt className="text-muted-foreground shrink-0">{label}</dt>
       <dd className="min-w-0 break-words">{children}</dd>
     </div>

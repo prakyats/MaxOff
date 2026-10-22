@@ -40,6 +40,7 @@ export function PageHeader({
   status,
   history,
   primary,
+  primaryOwnBar = false,
   className,
 }: {
   title: ReactNode;
@@ -67,6 +68,13 @@ export function PageHeader({
    * bar (`StickyActions`), which the caller draws.
    */
   primary?: ReactNode;
+  /**
+   * `primary` draws its own phone sticky bar (`StickyActions`, the task page's next step,
+   * PP-crew-8): one element in both places, so its dialogs mount once. On a phone the header's
+   * slot is `display: contents` and the bar is fixed at the foot; from `md` up it is the header's
+   * action area.
+   */
+  primaryOwnBar?: boolean;
   className?: string;
 }) {
   return (
@@ -128,7 +136,10 @@ export function PageHeader({
         {primary ? (
           <div
             data-slot="page-primary"
-            className="hidden shrink-0 items-center gap-2 md:order-last md:flex"
+            className={cn(
+              "shrink-0 items-center gap-2 md:order-last md:flex",
+              primaryOwnBar ? "max-md:contents" : "hidden",
+            )}
           >
             {primary}
           </div>
