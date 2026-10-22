@@ -338,8 +338,9 @@ export default async function ProjectPage({
           ) : null}
           {chosen && !previous && !next ? (
             // PP-project-1 / PP-phone-7: a single cycle is a plain month label; the switcher
-            // shows only with two or more.
-            <p className="flex min-h-11 items-center text-sm font-medium" data-slot="cycle-single">
+            // shows only with two or more. It keeps the switcher's height (a 44 px tab inside its
+            // 4 px frame, 52 px), so the page below sits where the loading screen drew it.
+            <p className="flex min-h-13 items-center text-sm font-medium" data-slot="cycle-single">
               <span className="break-words" data-slot="cycle-label">
                 {chosen.label ?? "The project's deliverables"}
               </span>

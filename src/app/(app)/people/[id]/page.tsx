@@ -16,6 +16,7 @@ import {
   type CoordinatorSpell,
   listCoordinatorHistory,
   listDirectory,
+  roleLabel,
   STATUS_LABELS,
   type TeamMember,
 } from "@/modules/team";
@@ -135,6 +136,14 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
                         : "Invited"}
                   </dt>
                   <dd className="font-medium">{formatIST(since, "d MMM yyyy")}</dd>
+                </div>
+              ) : null}
+              {/* A freelancer's Profile record has no Role (it cannot change), so the card says
+                  what they are (ADR-0013); an employee's role is in the record below. */}
+              {person.engagement === "freelance" ? (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-muted-foreground text-xs">Role</dt>
+                  <dd className="font-medium">{roleLabel(person)}</dd>
                 </div>
               ) : null}
               {/* The header carries the status chip from md; a phone reads it here. */}

@@ -125,7 +125,8 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   const form = page.getByRole("dialog", { name: "Request leave" });
   await form.getByLabel("Kind of leave").click();
   await page.getByRole("option", { name: "Comp leave (1 day)" }).click();
-  await expect(form).toContainText("1 day of comp leave");
+  // PP-forms-5 (V5b A): the balance sits above the dates, "Comp leave: 1 day · use by …".
+  await expect(form.locator('[data-slot="leave-balance"]')).toContainText("Comp leave: 1 day");
   // The date is picked from the working days up to the use-by date (3b review): the day after
   // the month's end is never offered (a weekly day off or a holiday isn't either; pgTAP 28).
   const date = today <= useBy ? today : useBy;
