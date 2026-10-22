@@ -82,8 +82,10 @@ function StripLine({
         )}
       >
         <ItemIcon className="mr-0.5 size-2.5" />
-        {/* An inline block cut on its own, so a long client never reaches past the box. */}
-        <span className="inline-block max-w-[calc(100%-0.75rem)] truncate align-top font-semibold">
+        {/* An inline block cut on its own, so a long client never reaches past the box: narrower
+            than the line by the icon and the box's own "…" (an atomic block reaching into the
+            ellipsis's room would be hidden whole, leaving "…" alone on a phone). */}
+        <span className="inline-block max-w-[calc(100%-1.5rem)] truncate align-top font-semibold">
           {strip.client}
         </span>{" "}
         · {strip.title}
