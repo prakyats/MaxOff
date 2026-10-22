@@ -598,6 +598,7 @@ export function NewProjectDialog({
                   Create project
                 </Button>
               ) : (
+                // pending: none (moves to the next step; Create project on the last commits)
                 <Button type="submit" variant="strong" data-slot="new-project-next">
                   Next
                 </Button>
