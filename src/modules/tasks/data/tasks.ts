@@ -513,7 +513,8 @@ function toBlocks(value: Json): { startAt: string; endAt: string }[] {
  */
 export async function availability(
   days: readonly string[],
-  memberIds: readonly string[],
+  /** Omitted: everyone the caller may see (the function's own default). */
+  memberIds?: readonly string[],
 ): Promise<AvailabilityDay[]> {
   const supabase = await createServerSupabase();
   const answers = await Promise.all(
@@ -521,7 +522,7 @@ export async function availability(
       supabase.rpc("member_availability", {
         from_date: day,
         to_date: day,
-        member_ids: [...memberIds],
+        ...(memberIds ? { member_ids: [...memberIds] } : {}),
       }),
     ),
   );

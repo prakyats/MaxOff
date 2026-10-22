@@ -691,7 +691,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "People lists everyone on the team with their role and job title. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
+              text: "People lists the active people on the team with their role and job title, and a Today column: Available, On leave, Half day or Busy (inside one of their timed event tasks right now). “Show all” at the foot adds the people who are invited or deactivated; “Show active only” goes back. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
             },
           ],
           link: { href: "/people", label: "Open People" },
