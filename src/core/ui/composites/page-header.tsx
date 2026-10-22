@@ -37,6 +37,9 @@ export function PageHeader({
   back,
   actions,
   menu,
+  status,
+  history,
+  primary,
   className,
 }: {
   title: ReactNode;
@@ -50,6 +53,20 @@ export function PageHeader({
    * screen's primary one.
    */
   menu?: ReactNode;
+  /**
+   * The detail header (FINAL 6, `DetailHeader`): the record's status chip right after the title.
+   * Laptop only: the phone's 44 px bar has no room beside History, ⋯ and the bell, so a phone
+   * keeps the state on the page's first-glance line under the bar.
+   */
+  status?: ReactNode;
+  /** The record's History clock (`HistoryButton` / `HistorySheet`), just before ⋯. */
+  history?: ReactNode;
+  /**
+   * The page's one primary action on a laptop, in the header's action area beside History (e.g.
+   * Crew's Mark done, PP-crew-8). Laptop only: on a phone the same action is the sticky bottom
+   * bar (`StickyActions`), which the caller draws.
+   */
+  primary?: ReactNode;
   className?: string;
 }) {
   return (
@@ -92,17 +109,34 @@ export function PageHeader({
         )}
 
         <div className="flex min-w-0 flex-1 items-center gap-0.5 md:block">
-          <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
-            {title}
-          </h1>
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
+              {title}
+            </h1>
+            {status ? (
+              <span data-slot="page-status" className="hidden shrink-0 md:inline-flex">
+                {status}
+              </span>
+            ) : null}
+          </div>
           {help ? <HelpSheet title={title}>{help}</HelpSheet> : null}
           {description ? (
             <p className="text-muted-foreground mt-1 hidden text-sm md:block">{description}</p>
           ) : null}
         </div>
 
-        {menu ? (
+        {primary ? (
+          <div
+            data-slot="page-primary"
+            className="hidden shrink-0 items-center gap-2 md:order-last md:flex"
+          >
+            {primary}
+          </div>
+        ) : null}
+
+        {menu || history ? (
           <div data-slot="page-menu" className="flex shrink-0 items-center md:order-last">
+            {history}
             {menu}
           </div>
         ) : null}
@@ -127,4 +161,18 @@ export function PageHeader({
       </div>
     </>
   );
+}
+
+/**
+ * **The detail header** (FINAL 6; V5b): back · title · status chip, then on the right the page's
+ * one primary action (laptop), the History clock, then ⋯; the bell after them on a phone. Every
+ * record page uses it (task, project, client, person). The phone's primary action is the sticky
+ * bottom bar (`StickyActions`), drawn by the page.
+ */
+export function DetailHeader(
+  props: Omit<Parameters<typeof PageHeader>[0], "actions"> & {
+    back: NonNullable<Parameters<typeof PageHeader>[0]["back"]>;
+  },
+) {
+  return <PageHeader {...props} />;
 }

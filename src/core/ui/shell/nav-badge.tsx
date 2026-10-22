@@ -5,7 +5,7 @@
  * server streams it (`NavCount`) and the client bars place it.
  */
 
-export type NavBadgePlace = "bar" | "bell" | "list" | "sheet";
+export type NavBadgePlace = "bar" | "bell" | "topbar" | "list" | "sheet";
 
 const CLASSES: Record<NavBadgePlace, string> = {
   // The ring punches the badge out of the icon so it stays readable over either.
@@ -16,6 +16,11 @@ const CLASSES: Record<NavBadgePlace, string> = {
   // box (top 4px, right 4px) it overlaps the bell's top-right corner, as a count should, and
   // "99+" (about 26px wide) still ends 4px short of the box's right edge.
   bell: "bg-brand text-brand-foreground ring-background absolute top-1 right-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
+  // The laptop top bar's bell (V5b major change 9): a small pill offset to the top-right of the
+  // 20 px outline glyph, outside it (its left edge 16 px in, 6 px above), with a 2 px ring in the
+  // bar's own background, capped at "99+". Placed against the glyph's box, not the button's.
+  topbar:
+    "bg-brand text-brand-foreground ring-background absolute -top-1.5 left-4 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
   list: "bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-none font-semibold tabular-nums",
   sheet:
     "bg-brand text-brand-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold",
@@ -28,7 +33,7 @@ function shown(count: number): string {
 /** The visible count; nothing for zero. In the bar it is decoration: `NavBadgeWords` speaks. */
 export function NavBadgeMark({ count, place }: { count: number; place: NavBadgePlace }) {
   if (count <= 0) return null;
-  if (place === "bar" || place === "bell") {
+  if (place === "bar" || place === "bell" || place === "topbar") {
     return (
       <span data-slot="nav-badge" className={CLASSES[place]}>
         {shown(count)}
