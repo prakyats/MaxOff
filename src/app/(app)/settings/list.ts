@@ -119,5 +119,3 @@ export const SECTION_LINE_CLASS = "text-muted-foreground block truncate text-sm 
 export const HELP_GROUP_CLASS = "mt-6 md:max-w-md";
 export const HELP_LIST_CLASS = GROUP_LIST_CLASS;
 
-/** The row: two lines (what opens, and for whom) beside a chevron. */
-export const HELP_ROW_CLASS = "flex min-h-14 items-center gap-2 px-4 py-2";
