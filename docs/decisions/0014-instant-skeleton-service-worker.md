@@ -44,7 +44,11 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
    router state tree), never by `_rsc` itself, which also hashes `Next-Url`, the page the
    prefetch was made from; an answer whose `Vary` names `Next-Url` (an interception route) is
    never kept (clarified 2026-10-16: keyed by `_rsc`, a copy kept on Today never answered the
-   same prefetch made on Tasks).
+   same prefetch made on Tasks). In the tree, the router's `inside-shared-layout` mark reads as
+   no mark (clarified 2026-10-22, V5b integration, sw.js v11): the router sets it when the
+   destination leaves the page it is asked from, and the server uses it only to start looking
+   for a loading boundary, which every kept address has below it, so a task prefetched from Today
+   and from Tasks get the same skeleton and now share one copy.
 2. **Keyed to the build.** Next's `deploymentId` (`core/lib/deployment-id.ts`, one per build) is
    sent by every router request as `x-deployment-id`; a copy is kept under the deployment that
    asked for it and is never answered to a page of another, and a new deployment's first copy
