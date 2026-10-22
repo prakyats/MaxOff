@@ -93,15 +93,49 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   return (
     <div className="flex flex-col gap-4" data-slot="client-overview">
       {active ? <ActiveProjects clientId={client.id} projects={active} /> : null}
-      <Card>
-        <CardContent className="flex flex-col gap-3 text-sm" data-slot="client-glance">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-muted-foreground">Admin</p>
-              <p className="font-medium">
-                {adminName ?? <span className="text-muted-foreground">No Admin yet</span>}
-              </p>
-            </div>
+      {/* PP-client-3: "Key people", one compact two-column strip: who runs it and whom to call,
+          with Call and the Drive folder under them. */}
+      <section
+        aria-labelledby="key-people"
+        data-slot="client-glance"
+        className="border-border bg-card shadow-raised flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm"
+      >
+        <h2 id="key-people" className="text-muted-foreground text-xs font-medium">
+          Key people
+        </h2>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <div className="flex min-w-0 flex-col gap-0.5" data-slot="key-admin">
+            <dt className="text-muted-foreground text-xs">Admin</dt>
+            <dd className={cn("break-words", adminName ? "font-medium" : "text-muted-foreground")}>
+              {adminName ?? "No Admin yet"}
+            </dd>
+          </div>
+          <div className="flex min-w-0 flex-col gap-0.5" data-slot="key-contact">
+            <dt className="text-muted-foreground text-xs">Primary contact</dt>
+            {primary ? (
+              <dd className="flex min-w-0 flex-col">
+                <span className="font-medium break-words">{primary.name}</span>
+                {primary.designation ? (
+                  <span className="text-muted-foreground text-xs break-words">
+                    {primary.designation}
+                  </span>
+                ) : null}
+              </dd>
+            ) : (
+              <dd className="text-muted-foreground">No contacts yet</dd>
+            )}
+          </div>
+        </dl>
+        {primary?.phone || client.driveUrl ? (
+          <div className="flex flex-wrap gap-2">
+            {primary?.phone ? (
+              <Button variant="secondary" asChild>
+                <a href={`tel:${primary.phone.replace(/\s+/g, "")}`} data-slot="call-primary">
+                  <PhoneIcon aria-hidden />
+                  Call {primary.name}
+                </a>
+              </Button>
+            ) : null}
             {client.driveUrl ? (
               <Button variant="secondary" asChild>
                 <a
@@ -117,31 +151,8 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
               </Button>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-muted-foreground">Primary contact</p>
-              {primary ? (
-                <>
-                  <p className="truncate font-medium">{primary.name}</p>
-                  {primary.designation ? (
-                    <p className="text-muted-foreground truncate">{primary.designation}</p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="text-muted-foreground">No contacts yet</p>
-              )}
-            </div>
-            {primary?.phone ? (
-              <Button variant="secondary" asChild>
-                <a href={`tel:${primary.phone.replace(/\s+/g, "")}`} data-slot="call-primary">
-                  <PhoneIcon aria-hidden />
-                  Call
-                </a>
-              </Button>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+        ) : null}
+      </section>
 
       <ClientTasksLine clientId={client.id} clientName={client.name} count={openTasks} />
 

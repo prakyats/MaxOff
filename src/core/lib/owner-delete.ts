@@ -160,7 +160,7 @@ export function unusedDeleteCopy(
       title,
       description:
         kind === "client"
-          ? `Nothing has been added to this draft or changed on it, so it goes for good. ${FINAL}`
+          ? `Nothing else uses this draft (no contact, project, task, file or note), so it goes for good. ${FINAL}`
           : `Nothing has ever used it, so it goes for good. ${FINAL}`,
       confirmLabel,
       cancelLabel: "Keep it",
@@ -171,7 +171,7 @@ export function unusedDeleteCopy(
   switch (kind) {
     case "client":
       description =
-        "In use — it stays. Only a draft that nothing was added to or changed on can be deleted.";
+        "In use — it stays. Only a draft that nothing else uses (no contact, project, task, file or note) can be deleted.";
       break;
     case "contact":
       description = `${IN_USE_REASON} Archived contacts stay in the history and can be restored.`;

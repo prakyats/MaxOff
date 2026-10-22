@@ -858,7 +858,7 @@ type HeldAtNavigation = {
 
 /**
  * Settings: the first and the last section (each card's description wraps to the page's lines
- * from `md` up), Help and troubleshooting under them, and that row's second line.
+ * from `md` up), the Help group under them, and its row's second line.
  */
 const SETTINGS: Record<string, Point> = {
   "first section": {
@@ -869,12 +869,13 @@ const SETTINGS: Record<string, Point> = {
     held: '[data-slot="loading-settings"] > div > section:last-child li:last-child',
     settled: '[data-slot="settings-list"] > section:last-child li:last-child',
   },
+  // PP-settings-2: Help is a group of its own under the others, its row a section row.
   "help and troubleshooting": {
-    held: '[data-slot="loading-settings"] > ul',
+    held: '[data-slot="loading-settings"] > section ul',
     settled: '[data-slot="settings-help"]',
   },
   "its second line": {
-    held: '[data-slot="loading-settings"] > ul li > span > :nth-child(2)',
+    held: '[data-slot="loading-settings"] > section ul li > div > span > :nth-child(2)',
     settled: '[data-slot="settings-guide-link"] > span > :nth-child(2)',
   },
 };

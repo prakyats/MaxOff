@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { formatDateTime, formatTime, formatWallTime } from "./ist";
+import { formatDateTime, formatHour, formatTime, formatWallTime } from "./ist";
 
 describe("formatTime (B1: one time format)", () => {
   it("is lower-case on the 12-hour clock, in IST", () => {
@@ -76,5 +76,22 @@ describe("no other time format in src/ (B1)", () => {
         return found;
       });
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("formatHour", () => {
+  it("says an hour in 12-hour words with no minutes", () => {
+    expect(formatHour(0)).toBe("12 am");
+    expect(formatHour(1)).toBe("1 am");
+    expect(formatHour(10)).toBe("10 am");
+    expect(formatHour(12)).toBe("12 pm");
+    expect(formatHour(13)).toBe("1 pm");
+    expect(formatHour(23)).toBe("11 pm");
+  });
+
+  it("refuses what is not an hour of the day", () => {
+    expect(() => formatHour(24)).toThrow(RangeError);
+    expect(() => formatHour(-1)).toThrow(RangeError);
+    expect(() => formatHour(1.5)).toThrow(RangeError);
   });
 });

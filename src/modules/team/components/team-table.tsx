@@ -9,7 +9,7 @@ import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
-import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
+import { StatusBadge, StatusDot, type StatusTone } from "@/core/ui/composites/status-badge";
 import { requestEdit } from "@/core/ui/edit/edit-requests";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -49,17 +49,19 @@ function editOnArrival(event: MouseEvent, memberId: string): void {
 }
 
 /**
- * The desktop Name cell's second line: the job title and a freelancer's coordinator. A person
- * with neither shows their role (the Role column's word), never "No job title" (owner 2026-10-01),
- * so every row keeps its two lines.
+ * The Name cell's second line (PP-people-1): the job title and a freelancer's coordinator, or
+ * nothing; never the role again (the Role column says it).
  */
-function nameLine(member: TeamRow): string {
+function nameLine(member: TeamRow): string | null {
   const parts = [
     member.jobTitle,
     member.coordinatorName ? `with ${member.coordinatorName}` : null,
   ].filter((part): part is string => Boolean(part));
-  return parts.length > 0 ? parts.join(" · ") : roleLabel(member);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
+
+/** An Admin's "Today" for a person (PP-admin-10), worked out by the page. */
+export type TeamToday = { label: string; tone: StatusTone };
 
 /**
  * The team list (PERMISSIONS §2: Admins see no email). Every person opens their page
@@ -72,7 +74,10 @@ export function TeamTable({
   members,
   viewer,
   coordinators,
+  today = null,
 }: {
+  /** PP-admin-10: an Admin's Today per active person (null: no column, the Owner's list). */
+  today?: Readonly<Record<string, TeamToday>> | null;
   members: TeamMember[];
   viewer: { id: string; canManage: boolean };
   /** A freelancer's current coordinator's name, by the freelancer's id (ADR-0013, 4C). */
@@ -105,18 +110,21 @@ export function TeamTable({
         accessorKey: "fullName",
         header: "Name",
         cell: ({ row }) => (
+          // PP-people-2: the name carries the weight; the line under it is muted.
           <div className="min-w-0">
             {opensPersonPage(viewer, row.original) ? (
               <DrillLink
                 href={`/people/${row.original.id}`}
-                className="block truncate font-medium underline-offset-4 hover:underline"
+                className="block truncate font-semibold underline-offset-4 hover:underline"
               >
                 {row.original.fullName}
               </DrillLink>
             ) : (
-              <p className="truncate font-medium">{row.original.fullName}</p>
+              <p className="font-semibold break-words">{row.original.fullName}</p>
             )}
-            <p className="text-muted-foreground truncate text-xs">{nameLine(row.original)}</p>
+            {nameLine(row.original) ? (
+              <p className="text-muted-foreground text-xs break-words">{nameLine(row.original)}</p>
+            ) : null}
           </div>
         ),
       },
@@ -136,6 +144,20 @@ export function TeamTable({
         size: 120,
       },
     ];
+    if (today) {
+      base.push({
+        id: "today",
+        header: "Today",
+        accessorFn: (member) => today[member.id]?.label ?? "",
+        cell: ({ row }) => {
+          const status = today[row.original.id];
+          return status ? (
+            <StatusDot status={status.label} tone={status.tone} label={status.label} />
+          ) : null;
+        },
+        size: 120,
+      });
+    }
     if (viewer.canManage) {
       base.push(
         {
@@ -237,7 +259,7 @@ export function TeamTable({
     return base;
     // The handlers only close over stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewer.id, viewer.canManage]);
+  }, [viewer.id, viewer.canManage, today]);
 
   /**
    * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand, and
@@ -255,7 +277,15 @@ export function TeamTable({
           : roleLabel(member),
         member.jobTitle,
       ),
-    trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
+    // An Admin reads an active person's Today here (PP-admin-10); otherwise their status.
+    trailing: (member) => {
+      const status = member.status === "active" ? today?.[member.id] : undefined;
+      return status ? (
+        <StatusDot status={status.label} tone={status.tone} label={status.label} />
+      ) : (
+        <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />
+      );
+    },
     detail: (member) => {
       const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;
       return (
@@ -267,12 +297,12 @@ export function TeamTable({
           {member.engagement === "freelance" ? (
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Coordinator</dt>
-              <dd className="text-right">{member.coordinatorName ?? "None"}</dd>
+              <dd className="text-right">{member.coordinatorName ?? "Not added"}</dd>
             </div>
           ) : null}
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Job title</dt>
-            <dd className="text-right">{member.jobTitle ?? "—"}</dd>
+            <dd className="text-right">{member.jobTitle ?? "Not added"}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Status</dt>
@@ -283,7 +313,7 @@ export function TeamTable({
           {member.email ? (
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground shrink-0">Email</dt>
-              <dd className="min-w-0 truncate text-right">{member.email}</dd>
+              <dd className="min-w-0 text-right break-all">{member.email}</dd>
             </div>
           ) : null}
           {member.phone ? (

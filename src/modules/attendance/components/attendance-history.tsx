@@ -2,12 +2,13 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { CalendarCheckIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
+import { toastResult } from "@/core/ui/toast";
 import { displayName } from "@/core/lib/display-name";
 import {
   Sheet,
@@ -30,7 +31,10 @@ import {
 
 import { canAddNote, type NoteDay } from "../domain/notes";
 
+import { approveDay } from "../actions/review";
+
 import { CorrectDayDialog, type CorrectTarget } from "./correct-day-dialog";
+import { DayReviewContext } from "./day-review-context";
 import { ExtraWorkNoteDialog } from "./extra-work-note-dialog";
 
 /**
@@ -65,9 +69,37 @@ export function AttendanceHistory({
   const [correct, setCorrect] = useState<CorrectTarget | null>(null);
   const owner = viewpoint.kind === "owner" ? viewpoint : null;
 
-  const dayAction = (day: HistoryDay, size: "sm" | "default") => {
+  const [approving, startApproving] = useTransition();
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  /**
+   * PP-person-4: a waiting day's Approve, the same decision as Approvals' (`approveDay` →
+   * `attendance_decide`); the sheet closes once it is recorded. `solid` is the sheet's one Forest
+   * commit; a table row's is outlined (a list never repeats a solid button).
+   */
+  const approve = (day: HistoryDay, size: "sm" | "default", solid: boolean) => (
+    <Button
+      variant={solid ? "approve" : "secondary"}
+      size={size}
+      commits
+      data-slot="day-approve"
+      pending={approving && approvingId === day.id}
+      pendingLabel="Approving…"
+      onClick={() => {
+        setApprovingId(day.id);
+        startApproving(async () => {
+          if (toastResult(await approveDay({ dayId: day.id }), { success: "Approved" })) {
+            setOpenId(null);
+          }
+        });
+      }}
+    >
+      Approve
+    </Button>
+  );
+
+  const dayAction = (day: HistoryDay, size: "sm" | "default", solid = false) => {
     if (owner) {
-      return (
+      const correctButton = (
         <Button
           variant="secondary"
           size={size}
@@ -82,8 +114,15 @@ export function AttendanceHistory({
             })
           }
         >
-          Correct
+          {day.state === "pending_review" ? "Correct…" : "Correct"}
         </Button>
+      );
+      if (day.state !== "pending_review") return correctButton;
+      return (
+        <>
+          {correctButton}
+          {approve(day, size, solid)}
+        </>
       );
     }
     if (!canAddNote(day.workDate, today) || !noteDays.some((d) => d.date === day.workDate)) {
@@ -147,7 +186,9 @@ export function AttendanceHistory({
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       enableSorting: false,
-      cell: ({ row }) => <div className="flex justify-end">{dayAction(row.original, "sm")}</div>,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-2">{dayAction(row.original, "sm")}</div>
+      ),
     },
   ];
 
@@ -161,9 +202,16 @@ export function AttendanceHistory({
       const summary = describeHistoryDay(day, viewpoint);
       return <StatusDot status={summary.dotStatus} label={summary.status} />;
     },
-    detail: (day) => <DayTimeline day={day} viewpoint={viewpoint} />,
+    detail: (day) => (
+      <div className="flex flex-col gap-4">
+        <DayTimeline day={day} viewpoint={viewpoint} />
+        {owner && day.state === "pending_review" ? (
+          <DayReviewContext dayId={day.id} workDate={day.workDate} />
+        ) : null}
+      </div>
+    ),
     detailTitle: (day) => historyDate(day.workDate),
-    actions: (day) => dayAction(day, "default"),
+    actions: (day) => dayAction(day, "default", true),
   };
 
   return (
@@ -196,10 +244,17 @@ export function AttendanceHistory({
                 <SheetTitle>{historyDate(open.workDate)}</SheetTitle>
                 <SheetDescription>{describeHistoryDay(open, viewpoint).standing}</SheetDescription>
               </SheetHeader>
-              <div className="px-4 text-sm">
+              <div className="flex flex-col gap-4 px-4 text-sm">
                 <DayTimeline day={open} viewpoint={viewpoint} />
+                {owner && open.state === "pending_review" ? (
+                  <DayReviewContext dayId={open.id} workDate={open.workDate} />
+                ) : null}
               </div>
-              {owner ? <div className="px-4">{dayAction(open, "default")}</div> : null}
+              {owner ? (
+                <div className="flex flex-wrap gap-2 px-4" data-slot="day-sheet-actions">
+                  {dayAction(open, "default", true)}
+                </div>
+              ) : null}
             </>
           ) : null}
         </SheetContent>

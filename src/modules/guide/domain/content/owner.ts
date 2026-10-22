@@ -613,10 +613,16 @@ export const OWNER_GUIDE: Guide = {
           summary: "Month, week and day views, with filters.",
           blocks: [
             text(
-              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
+              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
             ),
             text(
               "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+            ),
+            text(
+              "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+            ),
+            text(
+              "Beside Filters, All · Tasks · Client work shows both kinds or only one. This phone or laptop remembers your choice, and leave and holidays always show.",
             ),
             steps("Open Calendar.", {
               text: 'Tap "Filters" (highlighted) to narrow by Client, Person, Type or Status.',
@@ -633,7 +639,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet shows what is due, events and deliverables, as the same chips as the month, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop it opens in the middle of the screen.',
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop it opens in the middle of the screen, with "Open day" and "+ New task on" the date at the bottom.',
             ),
             steps(
               "Open Calendar and tap a day.",
@@ -680,10 +686,16 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-person-page",
           title: "Use a person's page",
-          summary: "Profile, Leave, Attendance and Month tabs.",
+          summary: "A summary, then Profile, Leave, Attendance and Month tabs.",
           blocks: [
             text(
-              'Open a person to see a "today" line and four tabs: Profile, Leave, Attendance and Month. The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+              'Open a person to see their status beside their name, a "today" line and four tabs: Profile, Leave, Attendance and Month. The header\'s clock opens their History (invited, joined, role and job title changes, deactivated). The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+            ),
+            text(
+              "Profile opens with a summary: the days waiting for your review (with Review), their leave this month and the comp leave they have left; each opens its tab. Under it one card holds their phone, sign-in email and joining date, then Profile (name, role, job title).",
+            ),
+            text(
+              "In Attendance, a day waiting for you has Approve and Correct… on its row; open it to see the same as in Approvals (their week and comp leave) and approve it there with the green Approve.",
             ),
             note("Deactivating a person keeps all their history. Nothing is deleted."),
           ],
@@ -695,7 +707,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Read the Month report",
           summary: "Each person's month in IST, live.",
           blocks: [
-            text("Reports has two rows. Month shows each person's IST month, live."),
+            text(
+              'Reports opens with this month so far: Days worked (team, with leave and absence), Days waiting for you, Overtime notes and Expenses to pay, each tappable. One with nothing in it folds into one quiet line ("So far: no overtime notes and no expenses to pay."). Under it are two rows. Month shows each person\'s IST month, live.',
+            ),
             steps("Open Reports.", {
               text: 'Tap "Month" (highlighted).',
               shot: "owner/reports",
@@ -728,7 +742,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Find a client",
           summary: "Filter by state or Admin, or search by name.",
           blocks: [
-            text("The list shows each client with its state and Admin. It opens on Active."),
+            text(
+              'The list shows each client with its state, its Admin, what is running now ("3 open · 9/12 done") and when work is due: a red "2 late" chip when deliverables are past their planned date, otherwise "Due Thu 22 Oct". It opens on Active.',
+            ),
             steps(
               "Open Clients.",
               'Tap "State" and "Admin" to filter, or type in "Search clients".',
@@ -761,7 +777,7 @@ export const OWNER_GUIDE: Guide = {
               "The client starts as Draft. After you assign an Admin and activate it, it can start work.",
             ),
             note(
-              'A Draft client cannot start work. Assign an Admin first, then activate. A draft made by mistake can be deleted from its ⋯ ("Delete") while nothing was added to it or changed on it.',
+              'A Draft client cannot start work. Assign an Admin first, then activate. A draft made by mistake can be deleted from its ⋯ ("Delete") while nothing else uses it (no contact, project, task, file or note); editing its details does not count.',
             ),
           ],
           link: { href: "/clients", label: "Open Clients" },
@@ -821,7 +837,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("An archived contact stays on the list, marked Archived."),
             note(
-              'Archiving the primary contact asks for the next primary contact. A contact nothing ever pointed at (never edited, archived or made primary over others) can be deleted for good from its ⋯ ("Delete").',
+              'Archiving the primary contact asks for the next primary contact. A contact no other record uses can be deleted for good from its ⋯ ("Delete"): its own edits and archiving never count, and the primary contact can go only while no other live contact is left.',
             ),
           ],
           keywords: ["contact", "primary contact", "archive"],
@@ -832,7 +848,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -976,7 +992,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Cycles, the progress ring, Needs you and the deliverable rows.",
           blocks: [
             text(
-              'The header shows the name, repeat and delivery date, with a History button (the clock) and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A one-time project shows "The project\'s deliverables".',
+              'The header shows the name, its state chip, the repeat and delivery date, with a History button (the clock) and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch; a project with only one cycle shows just its month, with no tabs. A one-time project shows "The project\'s deliverables".',
             ),
             steps({
               text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace reads "On track", or "N behind plan" in red. At 100% it says the cycle is complete.',
@@ -986,7 +1002,7 @@ export const OWNER_GUIDE: Guide = {
               'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done"). When nothing is late or nearly done, nothing is shown there.',
             ),
             text(
-              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct · 2 days late" in red, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or None), Notes and the project fields.',
+              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct · 2 days late" in red, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.',
             ),
             text(
               'Finished ones read "Done", "Closed" or "Carried" and sit in the collapsed "Done and closed (N)". An empty cycle says "No deliverables yet: add one or start from a template." with an Add deliverable button.',
@@ -1053,7 +1069,9 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Edit details" to change the title, notes, and the planned date while it is open.',
               'Open the ⋯ menu for "Another revision round", "Move up" or "Move down" (its place in the list, with a toast like "Moved Reel 2 down") and "Save as template".',
             ),
-            next('"Last change" has a History button that shows who changed what, and when.'),
+            next(
+              '"Last change · ‹who› ‹what› · ‹day›" sits on one line, with the History clock beside it: it shows who changed what, and when.',
+            ),
             note(
               "You can tick or untick stages only while the deliverable is open. Ticked boxes are plain, never red: red is kept for what is late.",
             ),
@@ -1117,7 +1135,7 @@ export const OWNER_GUIDE: Guide = {
               "There is no separate approval step for client work: marking it done is the approval.",
             ),
             text(
-              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
+              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open, as “Mark done…”, which asks first (“1 stage isn't ticked”). A deliverable with no stages always shows it. In the deliverable's sheet the action is “Next: ‹stage›” (it ticks that stage) until every stage is ticked, then the green Mark done; before that, Mark done… is in the sheet's ⋯. “Close deliverable…” is in red, and its confirmation's way out is “Keep it”.",
             ),
             steps(
               'Open the project and tap "Mark done" on the row (or in its ⋯), or in the sheet.',
@@ -1418,7 +1436,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open Settings, then Templates. It lists Stage presets, Deliverable templates and Project templates, then, under a line, Task templates. On a phone each is a tab.",
               "Type in the search box to find any of them by name, stage or deliverable.",
-              'Tap "Preview" on a project or deliverable template to see what work made from it gets.',
+              'Tap "Preview" on a stage preset, deliverable or project template to see what work made from it gets.',
               'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Archive asks first.',
             ),
             next(
@@ -1664,7 +1682,7 @@ export const OWNER_GUIDE: Guide = {
               "Templates: stage presets, deliverable, project and task templates, on one page.",
             ),
             text(
-              "The sections sit in four groups: Company and working days, Lists and fields, Templates, Integrations; each row says in one line what it holds. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
+              "The sections sit in groups named by what they hold: Company and working days; Team (Notifications, Job titles); Lists, templates and integrations. Each row says in one line what it holds, and Help, at the foot, opens How MaxOff works. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
             ),
           ],
           link: { href: "/settings", label: "Open Settings" },

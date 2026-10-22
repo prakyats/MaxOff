@@ -617,11 +617,19 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
             },
             {
               kind: "text",
               text: "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+            },
+            {
+              kind: "text",
+              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+            },
+            {
+              kind: "text",
+              text: "Beside Filters, All · Tasks · Client work shows both kinds or only one. This phone or laptop remembers your choice, and leave and holidays always show.",
             },
             {
               kind: "steps",
@@ -651,7 +659,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day shows what is Due, events, and who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop it opens in a dialog; on a phone, in a sheet.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop it opens in a dialog; on a phone, in a sheet.",
             },
             {
               kind: "steps",
@@ -691,7 +699,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "People lists everyone on the team with their role and job title. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
+              text: "People lists the active people on the team with their role and job title, and a Today column: Available, On leave, Half day or Busy (inside one of their timed event tasks right now). “Show all” at the foot adds the people who are invited or deactivated; “Show active only” goes back. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
             },
           ],
           link: { href: "/people", label: "Open People" },
@@ -712,7 +720,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Reports (under More on a phone).",
                 "Choose Week, Month or Custom.",
                 "Read the four cards.",
-                "Scroll to Client items for your clients’ deliverables.",
+                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others.",
                 "Scroll to Who is loaded this week to see who has the most due.",
               ],
             },
@@ -741,7 +749,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen. Beside each client it says what is running now, such as “3 open · 9/12 done”.",
+              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen. Beside each client it says what is running now, such as “3 open · 9/12 done”, and when work is due: a red “2 late” chip when deliverables are past their planned date, otherwise “Due Thu 22 Oct”.",
             },
             {
               kind: "steps",
@@ -800,7 +808,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress, then the Admin, the primary contact, the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",
@@ -992,7 +1000,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A repeating project has one cycle per period; the months sit as tabs (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track or “N behind plan”. At 100% it says the period is complete.",
+              text: "A repeating project has one cycle per period; the months sit as tabs (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A project with only one cycle shows just its month, with no tabs. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track or “N behind plan”. At 100% it says the period is complete.",
             },
             {
               kind: "steps",
@@ -1005,7 +1013,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (late ones in red), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or None), Notes and the project fields.",
+              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (late ones in red), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.",
             },
             {
               kind: "example",
@@ -1100,7 +1108,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, a History button and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
             },
             {
               kind: "steps",
@@ -1200,7 +1208,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid green); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
+              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid green); until then it waits in the row’s ⋯, beside Open, as “Mark done…”, which asks first (“1 stage isn’t ticked”). A deliverable with no stages always shows it. In its sheet the action is “Next: ‹stage›”, which ticks that stage, until every stage is ticked; then it is the green Mark done (before that, Mark done… is in the sheet’s ⋯). “Close deliverable…” is in red; its confirmation’s way out is “Keep it”.",
             },
             {
               kind: "steps",
@@ -1344,7 +1352,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Each deliverable also has its own History button.",
+              text: "Each deliverable also has its own History: the clock beside “Last change” in its sheet.",
             },
           ],
           keywords: ["history", "audit", "who changed"],
@@ -1615,7 +1623,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Prakyat · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1624,7 +1632,7 @@ export const ADMIN_GUIDE: Guide = {
                   text: "Open Settings, then Templates, and use the search box (highlighted).",
                   shot: "admin/templates",
                 },
-                "Tap Preview on a project or deliverable template to see what work made from it gets.",
+                "Tap Preview on a stage preset, deliverable or project template to see what work made from it gets.",
                 "Edit or archive one of your own. Archive asks first.",
               ],
             },
@@ -1903,7 +1911,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "You see four sections in two groups, each row with one line on what it holds. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
+              text: "You see four sections in two groups named by what they hold: Team (Notifications, Job titles) and Lists, fields and templates (Custom fields, Templates), each row with one line on what it holds; Help, at the foot, opens How MaxOff works. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
             },
             {
               kind: "steps",

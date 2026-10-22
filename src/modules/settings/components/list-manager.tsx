@@ -119,7 +119,7 @@ export function ListManager({
                 data-slot="list-item"
                 className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
               >
-                <span className={cn("truncate text-sm font-medium", CARD_ROW_TITLE)}>
+                <span className={cn("text-sm font-medium break-words", CARD_ROW_TITLE)}>
                   {item.name}
                 </span>
                 <ListRowActions

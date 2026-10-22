@@ -680,7 +680,8 @@ test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Need
   }
   await expectNoHorizontalScroll(page);
 
-  // Opened: a left-aligned checklist, three columns on a laptop, one on a phone; two lines at most.
+  // Opened: a left-aligned checklist, three columns on a laptop, one on a phone; every name in
+  // full, never cut (the owner's truncation rule: the opened view shows the full text).
   await strips(page, "Pre Production").click();
   const checks = pre.locator('[data-slot="stage-check"]');
   await expect(checks).toHaveCount(12);
@@ -688,10 +689,14 @@ test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Need
     nodes.map((node) => Math.round(node.getBoundingClientRect().left)),
   );
   expect(new Set(lefts).size).toBe(phone ? 1 : 3);
-  const heights = await checks.evaluateAll((nodes) =>
-    nodes.map((node) => node.querySelector(".line-clamp-2")!.getBoundingClientRect().height),
+  const checkNames = await checks.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const name = node.querySelector<HTMLElement>('[data-slot="stage-check-name"]')!;
+      return { text: name.textContent, cut: name.scrollHeight > name.clientHeight + 1 };
+    }),
   );
-  for (const height of heights) expect(height).toBeLessThanOrEqual(42);
+  expect(checkNames.map((name) => name.text)).toEqual([...LONG_STAGES]);
+  for (const name of checkNames) expect(name.cut, `${name.text} is shown in full`).toBe(false);
   await expect(checks.first()).toHaveAttribute("data-check", "next");
   await expect(checks.first()).toHaveCSS("font-weight", "600");
   await expectNoHorizontalScroll(page);

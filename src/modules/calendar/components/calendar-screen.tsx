@@ -52,6 +52,15 @@ import {
   stepDate,
   swipeOf,
 } from "../domain/size";
+import {
+  CALENDAR_SHOWS,
+  type CalendarShow,
+  parseShow,
+  SHOW_LABELS,
+  SHOW_STORAGE_KEY,
+  shownDay,
+  showsSwitch,
+} from "../domain/show";
 import { dayLabel } from "../domain/strips";
 import { AllDayChips, DayDetail, eventLink } from "./day-detail";
 import type { FilterChoices } from "./filters-sheet";
@@ -68,6 +77,23 @@ const FiltersSheet = dynamic(
 );
 
 const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", month: "Month" };
+
+/** This device's All · Tasks · Client work choice; "all" when storage is unavailable. */
+function storedShow(): CalendarShow {
+  try {
+    return parseShow(window.localStorage.getItem(SHOW_STORAGE_KEY));
+  } catch {
+    return "all";
+  }
+}
+
+function rememberShow(show: CalendarShow): void {
+  try {
+    window.localStorage.setItem(SHOW_STORAGE_KEY, show);
+  } catch {
+    // Storage is unavailable (a private window, blocked site data): the choice lasts this visit.
+  }
+}
 
 const ICON_BUTTON =
   "focus-visible:ring-ring text-muted-foreground hover:text-foreground active:bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg outline-none focus-visible:ring-2";
@@ -137,7 +163,24 @@ export function CalendarScreen({
     setShownDate(query.date);
     setSelected(query.date);
   }
-  const byDate = useMemo(() => new Map(days.map((day) => [day.date, day])), [days]);
+  // All · Tasks · Client work (SCOPE §6): the Owner's and Admins'; a view control, so it is state,
+  // never the address or history (§14.2), and this device remembers it.
+  const switchable = showsSwitch(scope);
+  const [show, setShow] = useState<CalendarShow>("all");
+  useEffect(() => {
+    if (!switchable) return;
+    // Read after mount only: the server's HTML cannot know this device's choice.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the choice lives in this browser only
+    setShow(storedShow());
+  }, [switchable]);
+  function chooseShow(next: CalendarShow) {
+    setShow(next);
+    rememberShow(next);
+  }
+  const byDate = useMemo(
+    () => new Map(days.map((day) => [day.date, switchable ? shownDay(day, show) : day])),
+    [days, show, switchable],
+  );
   const dayOf = (date: ISODate) => byDate.get(date) ?? emptyDay(date);
   const view: CalendarView = query.view ?? "month";
   const count = filterCount(query);
@@ -320,13 +363,59 @@ export function CalendarScreen({
       {count > 0 ? `Filters · ${count}` : "Filters"}
     </button>
   );
+  const showSwitch = switchable ? (
+    <div
+      role="group"
+      aria-label="Show"
+      data-slot="calendar-show"
+      data-current={show}
+      className="bg-muted grid shrink-0 grid-cols-[auto_auto_auto] gap-0.5 rounded-lg p-0.5 max-md:w-full max-md:grid-cols-3 md:gap-1 md:p-1"
+    >
+      {CALENDAR_SHOWS.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => chooseShow(option)}
+          aria-pressed={show === option}
+          data-show={option}
+          className={cn(
+            "pressable focus-visible:ring-ring flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 md:min-h-6",
+            show === option
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {SHOW_LABELS[option]}
+        </button>
+      ))}
+    </div>
+  ) : null;
+  // Today is inactive while the period on screen already holds today (the owner, 22 Oct): the
+  // phone's week or month, the laptop's day, week or month. Dimmed, `aria-disabled` and out of
+  // the tab order; it wakes as soon as another period is shown.
+  const weekHasToday = week.from <= today && today <= week.to;
+  const phoneHasToday = size === 1 ? weekHasToday : monthOf(selected) === monthOf(today);
+  const laptopHasToday =
+    view === "day"
+      ? selected === today
+      : view === "week"
+        ? weekHasToday
+        : grid.month === monthOf(today);
+  const inactive = (onScreen: boolean) =>
+    onScreen
+      ? { "aria-disabled": true, tabIndex: -1, onClick: undefined }
+      : { onClick: () => go(today) };
   const todayButton = (
     <button
       type="button"
-      onClick={() => go(today)}
+      {...inactive(phoneHasToday)}
       data-slot="calendar-today"
       aria-label={`Today, ${formatIST(istDayStart(today), "EEEE d MMMM")}`}
-      className={cn("pressable", ICON_BUTTON)}
+      className={cn(
+        "pressable",
+        ICON_BUTTON,
+        "aria-disabled:pointer-events-none aria-disabled:opacity-40",
+      )}
     >
       <span
         aria-hidden
@@ -399,6 +488,7 @@ export function CalendarScreen({
           </button>
           {todayButton}
           {filtersButton}
+          {showSwitch}
         </div>
         <div
           data-slot="calendar-area"
@@ -572,14 +662,17 @@ export function CalendarScreen({
             </div>
             <button
               type="button"
-              onClick={() => go(today)}
+              {...inactive(laptopHasToday)}
               data-slot="calendar-today-laptop"
-              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2"
+              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 aria-disabled:pointer-events-none aria-disabled:opacity-40"
             >
               Today
             </button>
           </div>
-          <div className="ml-auto flex items-center gap-2">{filtersButton}</div>
+          <div className="ml-auto flex items-center gap-2">
+            {showSwitch}
+            {filtersButton}
+          </div>
         </div>
         {view === "month" ? (
           <MonthGrid

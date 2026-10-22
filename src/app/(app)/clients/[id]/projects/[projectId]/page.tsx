@@ -4,13 +4,16 @@ import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
 
 import { cn } from "@/core/lib/utils";
-import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
+import {
+  CustomFieldCells,
+  CustomFieldsView,
+} from "@/core/custom-fields/components/custom-fields-view";
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { PageHeader } from "@/core/ui/composites/page-header";
+import { DetailHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { ViewLink } from "@/core/ui/composites/view-link";
 import {
@@ -36,6 +39,7 @@ import {
   listStages,
   needsYouPills,
   nextStartable,
+  readyToComplete,
   cycleMeter,
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
@@ -235,6 +239,17 @@ export default async function ProjectPage({
   );
   const definitions = projectFields.filter((definition) => definition.archivedAt === null);
   const base = `/clients/${client.id}/projects/${project.id}`;
+  // PP-client-2: a working one-time project with every deliverable done reads "Ready to complete".
+  const stateChip =
+    working &&
+    readyToComplete(
+      project.recurrence,
+      items.map((item) => item.state),
+    ) ? (
+      <StatusBadge status="ready" tone="attention" label="Ready to complete" />
+    ) : (
+      <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
+    );
   const cycleHref = (cycleId: string) => `${base}?cycle=${cycleId}`;
   const meta = [
     client.name,
@@ -247,9 +262,11 @@ export default async function ProjectPage({
       <Suspense fallback={null}>
         <RecordReadReceipt entity="projects" id={project.id} />
       </Suspense>
-      <PageHeader
+      <DetailHeader
         title={project.name}
         description={meta.join(" · ")}
+        // FINAL 6: back · title · status chip (from md; a phone reads it on the glance line).
+        status={stateChip}
         back={{ href: `/clients/${client.id}/projects`, label: client.name, from: PROJECT_ORIGINS }}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
@@ -299,9 +316,10 @@ export default async function ProjectPage({
       {/* One page grid (L1, the v1.8 sample (G)): every section shares the deliverables' width. */}
       <div className="flex min-w-0 flex-col gap-4" data-slot="project-page">
         <div className="flex min-w-0 flex-col gap-2" data-slot="project-glance">
-          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
-            <span className="md:hidden">{meta.join(" · ")}</span>
+          {/* A phone's glance line: the state and "client · repeat" (the header's from md). */}
+          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm md:hidden">
+            {stateChip}
+            <span>{meta.join(" · ")}</span>
           </p>
           {!working ? (
             <p
@@ -318,7 +336,15 @@ export default async function ProjectPage({
               </span>
             </p>
           ) : null}
-          {chosen ? (
+          {chosen && !previous && !next ? (
+            // PP-project-1 / PP-phone-7: a single cycle is a plain month label; the switcher
+            // shows only with two or more.
+            <p className="flex min-h-11 items-center text-sm font-medium" data-slot="cycle-single">
+              <span className="break-words" data-slot="cycle-label">
+                {chosen.label ?? "The project's deliverables"}
+              </span>
+            </p>
+          ) : chosen ? (
             // Months as tabs (the v1.8 sample, 08): the previous · this · the next cycle in one
             // segmented control. A view control: each tab replaces the address (`?cycle=`),
             // never adds history (§14.2).
@@ -347,7 +373,8 @@ export default async function ProjectPage({
                 className={cn(CYCLE_TAB, "bg-background text-foreground shadow-raised")}
                 data-slot="cycle-tab"
               >
-                <span className="max-w-full truncate" data-slot="cycle-label">
+                {/* The chosen tab opens nothing: its label wraps (the truncation rule). */}
+                <span className="max-w-full text-center break-words" data-slot="cycle-label">
                   {chosen.label ?? "The project's deliverables"}
                 </span>
               </span>
@@ -424,40 +451,39 @@ export default async function ProjectPage({
           <h2 id="project-details" className="text-sm font-medium">
             Details
           </h2>
-          <div className="border-border bg-card overflow-hidden rounded-lg border text-sm">
+          <div className="border-border bg-card shadow-raised overflow-hidden rounded-lg border text-sm">
             <dl
               data-slot="project-details-grid"
-              className="divide-border grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] divide-x"
+              // Each cell draws its right and bottom hairline; the grid sits a pixel past the card's
+              // clipped edge, so only the lines between cells show, however the cells wrap.
+              className="-mr-px -mb-px grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))]"
             >
-              <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3" data-slot="detail-contact">
+              <div className={DETAIL_CELL} data-slot="detail-contact">
                 <dt className="text-muted-foreground text-xs">Client contact</dt>
                 <dd className={cn("break-words", !contact && "text-muted-foreground")}>
                   {contact ? contact.name : "Not added"}
                 </dd>
               </div>
-              <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
+              <div className={DETAIL_CELL}>
                 <dt className="text-muted-foreground text-xs">Repeats</dt>
                 <dd>{RECURRENCE_LABELS[project.recurrence]}</dd>
               </div>
               {project.deliveryDate ? (
-                <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
+                <div className={DETAIL_CELL}>
                   <dt className="text-muted-foreground text-xs">Delivery date</dt>
                   <dd className="tabular-nums">{shortDate(project.deliveryDate)}</dd>
                 </div>
               ) : null}
               {/* A template the viewer may not read (RLS) leaves the cell out. */}
               {templateName || !project.templateId ? (
-                <div
-                  className="flex min-w-0 flex-col gap-0.5 px-4 py-3"
-                  data-slot="detail-template"
-                >
+                <div className={DETAIL_CELL} data-slot="detail-template">
                   <dt className="text-muted-foreground text-xs">Template</dt>
                   <dd className={cn("break-words", !templateName && "text-muted-foreground")}>
-                    {templateName ?? "None"}
+                    {templateName ?? "Not added"}
                   </dd>
                 </div>
               ) : null}
-              <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
+              <div className={DETAIL_CELL}>
                 <dt className="text-muted-foreground text-xs">Notes</dt>
                 <dd
                   className={cn(
@@ -468,20 +494,29 @@ export default async function ProjectPage({
                   {project.description ?? "Not added"}
                 </dd>
               </div>
-            </dl>
-            {definitions.length > 0 ? (
-              <CustomFieldsView
+              {/* PP-project-2: the project's fields flow into the same cells. */}
+              <CustomFieldCells
                 definitions={projectFields}
                 values={project.customFields}
-                className="border-border border-t px-4 py-3"
+                cellClassName={DETAIL_CELL}
               />
-            ) : null}
+            </dl>
+            {/* Archived fields that still hold a value stay apart, under the grid. */}
+            <CustomFieldsView
+              definitions={projectFields}
+              values={project.customFields}
+              archivedOnly
+              className="border-border border-t px-4 py-3"
+            />
           </div>
         </section>
       </div>
     </>
   );
 }
+
+/** A Details cell: its small label over its value (the approved field grid). */
+const DETAIL_CELL = "border-border flex min-w-0 flex-col gap-0.5 border-r border-b px-4 py-3";
 
 /** A month tab: the segmented control's cell, 44 px, one line (§14.1). */
 const CYCLE_TAB =

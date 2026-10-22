@@ -9,9 +9,13 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 
 import { parsePeriod } from "@/modules/reports";
 import { todayIST } from "@/core/time";
+import { getMonthSummary, monthLabel, monthOf, monthRange } from "@/modules/attendance";
+import { formatRupees, listApprovedInMonth } from "@/modules/expenses";
 
 import { AdminReport } from "./admin-report";
 import { REPORTS_DESCRIPTION } from "./copy";
+import { monthStrip } from "./month-strip";
+import { MonthStripView } from "./month-strip-view";
 import {
   OWNER_REPORTS,
   REPORT_LINES_CLASS,
@@ -39,9 +43,25 @@ export default async function ReportsPage({
   if (!can(viewer.role, "attendance.view_all")) {
     return <AdminReport viewer={viewer} period={parsePeriod(params, todayIST())} />;
   }
+  // Major change 7 (PP-reports-1): this month at a glance, from the Month report's own reads
+  // (month_summary(), and with expenses.decide the approved claims not yet paid; never money
+  // anywhere else, invariant 2).
+  const month = monthOf(todayIST());
+  const seesExpenses = can(viewer.role, "expenses.decide");
+  const [summaries, approved] = await Promise.all([
+    getMonthSummary(month),
+    seesExpenses ? listApprovedInMonth(monthRange(month)) : Promise.resolve(null),
+  ]);
+  // Paise as integers, so the total adds up exactly (as the Month report).
+  const paise = (approved ?? []).reduce((sum, claim) => sum + Math.round(claim.amount * 100), 0);
+  const strip = monthStrip(
+    summaries,
+    approved === null ? null : { paise, count: approved.length, words: formatRupees(paise / 100) },
+  );
   return (
     <>
       <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
+      <MonthStripView strip={strip} month={monthLabel(month)} />
       <ul data-slot="reports-list" className={REPORTS_LIST_CLASS}>
         {OWNER_REPORTS.map((report) => (
           <li key={report.key}>

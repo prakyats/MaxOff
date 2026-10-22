@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
 import { displayName } from "@/core/lib/display-name";
-
-import { checkThenRead } from "@/core/lib/start-early";
+import { checkThenRead, startEarly } from "@/core/lib/start-early";
+import { requirePermission } from "@/core/permissions/server";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
 import { fileUrl } from "@/core/storage";
-import { formatIST } from "@/core/time";
+import { formatIST, todayIST } from "@/core/time";
+import { getMonthSummary, monthLabel, monthOf } from "@/modules/attendance";
+import { getCompBalance } from "@/modules/leave";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import { Card, CardContent } from "@/core/ui/primitives/card";
@@ -16,14 +18,14 @@ import {
   type CoordinatorSpell,
   listCoordinatorHistory,
   listDirectory,
-  roleLabel,
   STATUS_LABELS,
   type TeamMember,
 } from "@/modules/team";
 import { ChangeCoordinatorButton } from "@/modules/team/components/coordinator-dialogs";
 import { MemberProfile } from "@/modules/team/components/member-profile";
 
-import { loadPerson } from "./person";
+import { loadPerson, showsHistory } from "./person";
+import { PersonSummary } from "./person-summary";
 
 /** The tab names the person ("Prishit Shetty · MaxOff"), from the page's cached read (`loadPerson`). */
 export async function generateMetadata({
@@ -48,13 +50,25 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   // together with the person, not after (ARCHITECTURE §19).
   // A freelancer's coordinators, now and before, with the names they need (ADR-0013, 4C):
   // `team.view` reads both; they are read with the rest, not after.
+  const personRead = loadPerson(id);
+  const othersRead = Promise.all([
+    listItems("job_title", { includeArchived: true }),
+    listCoordinatorHistory(id),
+    listDirectory(),
+  ]);
+  startEarly(personRead, othersRead);
+  // PP-person-3 (major change 8): for the Owner, the summary's reads (the month's days waiting
+  // and leave, the comp leave left), started once the viewer is known (the layout's read,
+  // `cache()`d) while the person's reads run; used only for someone with attendance.
+  const month = monthOf(todayIST());
+  const owner = can((await requirePermission("team.view")).role, "attendance.view_all");
+  const summaryRead = owner
+    ? Promise.all([getMonthSummary(month, id), getCompBalance(id)])
+    : Promise.resolve(null);
+  startEarly(summaryRead);
   const [{ viewer, person }, [titles, spells, directory]] = await checkThenRead(
-    loadPerson(id),
-    Promise.all([
-      listItems("job_title", { includeArchived: true }),
-      listCoordinatorHistory(id),
-      listDirectory(),
-    ]),
+    personRead,
+    othersRead,
   );
   const canManage = can(viewer.role, "team.manage");
   const jobTitles = titles.map(({ id: titleId, name, archived_at }) => ({
@@ -63,58 +77,77 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
     archived: archived_at !== null,
   }));
   const since = person.joinedAt ?? person.invitedAt;
+  const summary = showsHistory(viewer, person) ? await summaryRead : null;
+  const [monthRow] = summary?.[0] ?? [];
 
   return (
     <div className="flex flex-col gap-4" data-slot="person-profile">
+      {summary ? (
+        <PersonSummary
+          memberId={person.id}
+          waiting={monthRow?.pendingDays ?? 0}
+          leave={monthRow?.leaveDays ?? 0}
+          compLeft={summary[1].availableDays}
+          monthName={monthLabel(month).split(" ")[0] ?? "This month"}
+        />
+      ) : null}
+      {/* PP-person-2: one details card, its facts in the shared field grid (a cell each, a small
+          label over the value), then the Profile record; the role and status are not repeated. */}
       <Card>
         <CardContent className="flex flex-col gap-4 text-sm">
-          <div className="flex min-w-0 items-center gap-3">
-            <Avatar size="lg">
+          <div className="flex min-w-0 items-start gap-4">
+            <Avatar size="lg" className="mt-1">
               {person.avatarFileId ? (
                 <AvatarImage src={fileUrl(person.avatarFileId)} alt="" />
               ) : null}
               <AvatarFallback>{initialsOf(person.fullName)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-col items-start gap-1">
-              <p className="truncate font-medium">{roleLabel(person)}</p>
-              <StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />
-            </div>
+            <dl
+              className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(min(10rem,100%),1fr))] gap-x-4 gap-y-3"
+              data-slot="person-facts"
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <dt className="text-muted-foreground text-xs">Phone</dt>
+                <dd className="font-medium">
+                  {person.phone ? (
+                    <a
+                      href={`tel:${person.phone.replace(/\s+/g, "")}`}
+                      className="pressable-row inline-flex min-h-11 min-w-11 items-center underline underline-offset-4 md:min-h-0"
+                    >
+                      {person.phone}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground font-normal">Not added</span>
+                  )}
+                </dd>
+              </div>
+              {person.email ? (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-muted-foreground text-xs">Signs in as</dt>
+                  <dd className="font-medium break-all">{person.email}</dd>
+                </div>
+              ) : null}
+              {since ? (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-muted-foreground text-xs">
+                    {person.engagement === "freelance"
+                      ? "Added"
+                      : person.joinedAt
+                        ? "Joined"
+                        : "Invited"}
+                  </dt>
+                  <dd className="font-medium">{formatIST(since, "d MMM yyyy")}</dd>
+                </div>
+              ) : null}
+              {/* The header carries the status chip from md; a phone reads it here. */}
+              <div className="flex min-w-0 flex-col items-start gap-0.5 md:hidden">
+                <dt className="text-muted-foreground text-xs">Status</dt>
+                <dd>
+                  <StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />
+                </dd>
+              </div>
+            </dl>
           </div>
-          <dl className="flex flex-col gap-3" data-slot="person-facts">
-            <div>
-              <dt className="text-muted-foreground">Phone</dt>
-              <dd className="font-medium">
-                {person.phone ? (
-                  <a
-                    href={`tel:${person.phone.replace(/\s+/g, "")}`}
-                    className="pressable-row inline-flex min-h-11 min-w-11 items-center underline underline-offset-4"
-                  >
-                    {person.phone}
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground font-normal">Not added</span>
-                )}
-              </dd>
-            </div>
-            {person.email ? (
-              <div>
-                <dt className="text-muted-foreground">Signs in as</dt>
-                <dd className="font-medium break-all">{person.email}</dd>
-              </div>
-            ) : null}
-            {since ? (
-              <div>
-                <dt className="text-muted-foreground">
-                  {person.engagement === "freelance"
-                    ? "Added"
-                    : person.joinedAt
-                      ? "Joined"
-                      : "Invited"}
-                </dt>
-                <dd className="font-medium">{formatIST(since, "d MMM yyyy")}</dd>
-              </div>
-            ) : null}
-          </dl>
           <Separator />
           <MemberProfile
             member={person}

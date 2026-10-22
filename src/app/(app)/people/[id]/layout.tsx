@@ -3,12 +3,15 @@ import { type ReactNode, Suspense } from "react";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { PageHeader } from "@/core/ui/composites/page-header";
+import { DetailHeader, PageHeader } from "@/core/ui/composites/page-header";
+import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { getTodayPeople, PersonTodayLine, PersonTodayLineSkeleton } from "@/modules/attendance";
+import { STATUS_LABELS } from "@/modules/team";
 import { PersonMenu } from "@/modules/team/components/person-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
+import { PersonHistoryButton } from "./person-history";
 import { PersonTabs } from "./person-nav";
 import { loadPerson, showsHistory } from "./person";
 
@@ -60,7 +63,19 @@ export default async function PersonLayout({
       <Suspense
         fallback={
           <>
-            <PageHeader title={<Skeleton className="h-5 w-40" />} back={BACK} />
+            <PageHeader
+              title={<Skeleton className="h-5 w-40" />}
+              back={BACK}
+              status={<Skeleton className="h-5 w-16 rounded-full" />}
+              menu={
+                can(viewer.role, "team.manage") ? (
+                  <>
+                    <Skeleton aria-hidden className="size-11 rounded-lg" />
+                    <Skeleton aria-hidden className="size-11 rounded-lg" />
+                  </>
+                ) : undefined
+              }
+            />
             {can(viewer.role, "attendance.view_all") ? (
               <>
                 <PersonTodayLineSkeleton />
@@ -81,13 +96,23 @@ async function PersonHeader({ id }: { id: string }) {
   const { viewer, person } = await loadPerson(id);
   return (
     <>
-      <PageHeader
+      {/* FINAL 6 / PP-person-1: back · name · status chip, then the History clock (the Owner's:
+          the audit log is his to read) and ⋯. The history is read only when it opens. */}
+      <DetailHeader
         title={person.fullName}
         description={person.jobTitle ?? undefined}
         back={BACK}
+        status={<StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />}
         menu={
-          can(viewer.role, "team.manage") ? (
-            <PersonMenu member={person} viewerId={viewer.id} />
+          can(viewer.role, "activity.view_all") || can(viewer.role, "team.manage") ? (
+            <>
+              {can(viewer.role, "activity.view_all") ? (
+                <PersonHistoryButton memberId={person.id} />
+              ) : null}
+              {can(viewer.role, "team.manage") ? (
+                <PersonMenu member={person} viewerId={viewer.id} />
+              ) : null}
+            </>
           ) : undefined
         }
       />

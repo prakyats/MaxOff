@@ -19,6 +19,8 @@ import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
 
+import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
+
 import { deleteStagePreset, setStagePresetArchived } from "../actions/stage-presets";
 import { presetActions, stagesLine, type StagePreset } from "../domain/stage-presets";
 
@@ -59,6 +61,8 @@ export function StagePresetManager({
   const [archiving, setArchiving] = useState<StagePreset | null>(null);
   // The Owner's permanent Delete (V5a 6b): any preset, any time.
   const [deleting, setDeleting] = useState<StagePreset | null>(null);
+  // PP-templates-1: every row has Preview, presets too (one pattern across Templates).
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const all = presets.filter((preset) => !preset.archived);
   const active = all.filter((preset) => templateMatches(query, [preset.name, ...preset.stages]));
   // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
@@ -69,12 +73,19 @@ export function StagePresetManager({
       templateMatches(query, [preset.name, ...preset.stages]),
   );
 
+  // PP-admin-12: one the viewer cannot change says so ("by Ravi · view only").
   const author = (preset: StagePreset) =>
-    preset.createdBy === null
-      ? "built in"
-      : preset.createdBy === viewer.id
-        ? "by you"
-        : `by ${names[preset.createdBy] ?? "someone"}`;
+    [
+      preset.createdBy === null
+        ? "built in"
+        : preset.createdBy === viewer.id
+          ? "by you"
+          : `by ${names[preset.createdBy] ?? "someone"}`,
+      presetActions(preset, viewer).edit ? null : "view only",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const previewing = presets.find((preset) => preset.id === previewId) ?? null;
 
   async function restore(preset: StagePreset) {
     toastResult(await setStagePresetArchived({ presetId: preset.id, archived: false }), {
@@ -118,21 +129,28 @@ export function StagePresetManager({
                   className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
                 >
                   <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                    <span className="truncate text-sm font-medium">{preset.name}</span>
+                    {/* The row opens nothing: the name wraps in full (the truncation rule). */}
+                    <span className="text-sm font-medium break-words">{preset.name}</span>
                     <span className="text-muted-foreground text-xs break-words">
                       {stagesLine(preset.stages)} · {author(preset)}
                     </span>
                   </div>
-                  {allowed.edit ? (
-                    <ListRowActions
-                      name={preset.name}
-                      kind="Stage preset"
-                      slot="stage-preset-actions"
-                      edit={{ label: "Edit", onSelect: () => setEditing(preset) }}
-                      onArchive={() => setArchiving(preset)}
-                      onDelete={viewer.role === "owner" ? () => setDeleting(preset) : undefined}
-                    />
-                  ) : null}
+                  <ListRowActions
+                    name={preset.name}
+                    kind="Stage preset"
+                    slot="stage-preset-actions"
+                    preview={{
+                      onSelect: () => setPreviewId(preset.id),
+                      title: `See the stages ${preset.name} adds`,
+                    }}
+                    edit={
+                      allowed.edit
+                        ? { label: "Edit", onSelect: () => setEditing(preset) }
+                        : undefined
+                    }
+                    onArchive={allowed.archive ? () => setArchiving(preset) : undefined}
+                    onDelete={viewer.role === "owner" ? () => setDeleting(preset) : undefined}
+                  />
                 </li>
               );
             })}
@@ -191,6 +209,25 @@ export function StagePresetManager({
           }}
         />
       ) : null}
+      <TemplatePreviewDialog
+        open={previewing !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(null);
+        }}
+        name={previewing?.name ?? ""}
+        description="The stages it adds, as one group."
+        deliverables={
+          previewing
+            ? [
+                {
+                  title: previewing.name,
+                  stageGroups: [{ label: previewing.name, stages: [...previewing.stages] }],
+                },
+              ]
+            : []
+        }
+        defaults={[]}
+      />
     </div>
   );
 }

@@ -253,6 +253,19 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   the time; what is due by name in `attention` (amber) or `danger` (red, overdue) with its clock or
   alert icon and the type's colour on its edge; leave in `leave` with the palm icon; done dimmed
   with a small ✓, never struck through.
+- **Tasks vs client work (the approved calendar sample, SCOPE §6, owner 2026-10-22):** a task is a
+  filled soft chip, its type's colour as the tint and a small leading dot (`TypeDot`), no side
+  stripe; client work is an outlined chip (`border-border`, no fill) with the box icon and the
+  client first, "Shetty · Reel 1", outlined and written in `danger` when late. A month box's order
+  is fixed: timed tasks, due tasks, client work, then "+N more" (`allStrips`). Every chip is one
+  line at a fixed height ending in "…"; the day's popup or sheet shows the full text. The Owner's
+  and Admins' **All · Tasks · Client work** switch (`calendar-show`, a segmented control beside
+  Filters, a full-width row under the phone's header) is view state remembered per device
+  (`localStorage`, read after mount), never the address; leave, holidays and the weekly off always
+  show. Their day popup is "Tasks · n", then "Client work · n" grouped by client, then who is away,
+  then "Open day" and "+ New task on ‹day›". Crew's calendar is unchanged. **Today** is dimmed
+  (`aria-disabled`, out of the tab order) while the shown day, week or month holds today. The
+  Day and Week hour rail reads "10 am", "12 pm" (`formatHour`, `core/time`).
 
 ### The action colour rule (option A, with the approved colour plan of 2026-10-21)
 **The colour plan (owner-approved 2026-10-21, "colour plan approved with forest"; ADR-0015

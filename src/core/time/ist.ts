@@ -147,3 +147,15 @@ export function formatWallTime(time: string): string {
   const twelve = hours % 12 === 0 ? 12 : hours % 12;
   return `${twelve}:${match[2]} ${hours < 12 ? "am" : "pm"}`;
 }
+
+/**
+ * An hour of the day as the hour rail says it, the 12-hour variant with no minutes: `12 am`,
+ * `10 am`, `12 pm`, `1 pm` (the Day and Week timelines; the owner, 22 Oct). `hour` is 0–23.
+ */
+export function formatHour(hour: number): string {
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new RangeError(`Invalid hour: ${hour}`);
+  }
+  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelve} ${hour < 12 ? "am" : "pm"}`;
+}

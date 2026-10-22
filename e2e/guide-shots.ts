@@ -378,9 +378,11 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "admin/deliverable-sheet",
     path: project,
     prepare: (page) => openDeliverable(page, "Reel 2"),
-    highlight: (page) => layer(page).getByRole("button", { name: "Mark done", exact: true }),
+    // PP-sheet-2: the sheet's one action, "Next: ‹stage›" until every stage is ticked, then Mark done.
+    highlight: (page) =>
+      layer(page).locator('[data-slot="item-next-stage"], [data-slot="item-mark-done"]'),
     crop: layer,
-    alt: "A deliverable's sheet with its stages and the Mark done button highlighted.",
+    alt: "A deliverable's sheet with its stages and its next step highlighted.",
   },
   {
     id: "admin/edit-stages",

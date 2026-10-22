@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BoxIcon,
   ChevronRightIcon,
   ClockIcon,
   ListChecksIcon,
@@ -25,9 +26,11 @@ import {
   isEmptyDay,
   timeWords,
 } from "../domain/calendar";
+import { agendaEvents } from "../domain/laptop";
+import { clientWorkRows } from "../domain/show";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
-import { DoneTick, LEAVE_TONE } from "./calendar-chip";
+import { DoneTick, LEAVE_TONE, TypeDot, typeTint } from "./calendar-chip";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
@@ -108,14 +111,8 @@ export function AllDayChips({
   return (
     <>
       {day.holiday ? (
-        <Chip
-          slot="calendar-holiday"
-          className="border-l-2"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${HOLIDAY_COLOR} 15%, transparent)`,
-            borderLeftColor: HOLIDAY_COLOR,
-          }}
-        >
+        <Chip slot="calendar-holiday" style={typeTint(HOLIDAY_COLOR)}>
+          <TypeDot color={HOLIDAY_COLOR} />
           <span className="min-w-0 truncate">{day.holiday}</span>
         </Chip>
       ) : null}
@@ -145,17 +142,21 @@ export function AllDayChips({
         eventLink(
           event,
           <>
-            {event.completed ? <DoneTick className="mr-1" /> : null}
+            {event.completed ? (
+              <DoneTick className="mr-1" />
+            ) : (
+              <TypeDot color={event.color} className="mr-1" />
+            )}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
               <span className="text-muted-foreground"> · {event.location}</span>
             ) : null}
           </>,
           cn(
-            "block max-w-full truncate rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4",
+            "block max-w-full truncate rounded-md px-1.5 py-0.5 text-xs leading-4",
             event.completed && "opacity-60",
           ),
-          { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
+          typeTint(event.color),
         ),
       )}
       {dueAsChip && dueCount(day) > 0 ? (
@@ -281,11 +282,20 @@ export function DayDetail({
 }) {
   const empty = isEmptyDay(day);
   const timed = placeBlocks(day);
+  // The Owner and Admins see the day in two parts (SCOPE §6, the approved calendar sample):
+  // "Tasks · n" (the events, all-day ones too, and what is due), then "Client work · n"; Crew's
+  // day is unchanged (they never see client work).
+  const split = scope !== "staff";
+  const tasks = day.events.length + day.due.length;
+  // The all-day events are rows under "Tasks · n", except in the phone's panel (`fill`), whose
+  // all-day line keeps them as chips so the timeline keeps its room.
+  const rowsForAllDay = split && !fill;
+  const allDayEvents = rowsForAllDay ? day.events.filter((event) => event.startAt === null) : [];
   const hasAllDay =
     day.holiday !== null ||
     day.weeklyOff ||
     day.leave.length > 0 ||
-    day.events.some((event) => event.startAt === null);
+    (!rowsForAllDay && day.events.some((event) => event.startAt === null));
   // What follows the events: an Admin's others' busy times (beside the laptop Day's timeline),
   // "Due · N" and its tasks, "Who's free" and the day's buttons.
   const rest = (
@@ -306,14 +316,16 @@ export function DayDetail({
       ) : null}
       {day.due.length > 0 ? (
         <section
-          aria-labelledby={`${headingId}-due`}
+          aria-labelledby={split ? `${headingId}-tasks` : `${headingId}-due`}
           data-slot="calendar-due-list"
           className="flex flex-col gap-2"
         >
-          <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
-            <ClockIcon className="text-muted-foreground size-4" aria-hidden />
-            Due · {day.due.length}
-          </h3>
+          {split ? null : (
+            <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
+              <ClockIcon className="text-muted-foreground size-4" aria-hidden />
+              Due · {day.due.length}
+            </h3>
+          )}
           <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
             {day.due.map((item) => (
               <li key={item.id}>
@@ -346,7 +358,11 @@ export function DayDetail({
         </section>
       ) : null}
       {day.items.length > 0 ? (
-        <ClientItemsList items={day.items} headingId={`${headingId}-items`} />
+        <ClientItemsList
+          items={day.items}
+          headingId={`${headingId}-items`}
+          late={day.date < today}
+        />
       ) : null}
       {free !== null && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
@@ -381,9 +397,20 @@ export function DayDetail({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} />
+          <AllDayChips day={day} today={today} dueAsChip={false} events={!rowsForAllDay} />
         </div>
       ) : null}
+      {split && tasks > 0 ? (
+        <h3
+          id={`${headingId}-tasks`}
+          data-slot="calendar-tasks-title"
+          className="flex items-center gap-1.5 text-sm font-semibold"
+        >
+          <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
+          Tasks <span className="text-muted-foreground font-medium">· {tasks}</span>
+        </h3>
+      ) : null}
+      {allDayEvents.length > 0 && timeline ? <EventRows events={allDayEvents} /> : null}
       {timed.length > 0 ? (
         timeline ? (
           fill ? (
@@ -397,9 +424,18 @@ export function DayDetail({
             />
           )
         ) : (
-          <EventRows events={day.events.filter((event) => event.startAt !== null)} />
+          <EventRows
+            events={
+              rowsForAllDay
+                ? agendaEvents(day)
+                : day.events.filter((event) => event.startAt !== null)
+            }
+          />
         )
-      ) : fill ? (
+      ) : !timeline && allDayEvents.length > 0 ? (
+        <EventRows events={allDayEvents} />
+      ) : null}
+      {timed.length > 0 ? null : fill ? (
         <div
           data-slot="calendar-day-scroll"
           // The one scroll on a day with no timed event; two of the phone's hours at least, as the
@@ -415,17 +451,21 @@ export function DayDetail({
 }
 
 /**
- * "Client items · N" after "Due · N" (7.3; kickoff 7 decision 21 in decision 25's priority): each
- * row the item's title · project · client, done ones muted; a tap opens the project on the item's
- * cycle with its sheet open. The Owner's and the client's Admin's only (the page reads none for
- * Crew).
+ * "Client work · n" after the tasks (SCOPE §6, the approved calendar sample; kickoff 7 decision 21):
+ * grouped by client, each row the client first, then the deliverable and its project, done ones
+ * muted, a late one saying so in red; a tap opens the project on the item's cycle with its sheet
+ * open. The Owner's and the client's Admin's only (the page reads none for Crew). The full text,
+ * wrapped: the popup is where a chip's cut words are read whole.
  */
 export function ClientItemsList({
   items,
   headingId,
+  late,
 }: {
   items: readonly ClientItemEntry[];
   headingId: string;
+  /** The day is past: its open work is late. */
+  late: boolean;
 }) {
   return (
     <section
@@ -434,29 +474,31 @@ export function ClientItemsList({
       className="flex flex-col gap-2"
     >
       <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
-        <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
-        Deliverables · {items.length}
+        <BoxIcon className="text-muted-foreground size-4" aria-hidden />
+        Client work <span className="text-muted-foreground font-medium">· {items.length}</span>
       </h3>
       <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
-        {items.map((item) => (
+        {clientWorkRows(items).map((item) => (
           <li key={item.id} className="min-w-0">
             <OverlayLink
               href={item.href}
               data-slot="calendar-item"
               data-item={item.id}
+              data-client={item.client}
               className={cn(
                 "focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset",
                 item.done && "text-muted-foreground",
               )}
             >
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="font-medium break-words">
+                <span className="font-semibold break-words">
                   {item.done ? <DoneTick className="mr-1" /> : null}
-                  {item.title}
+                  {item.client}
                 </span>
                 <span className="text-muted-foreground text-xs break-words">
-                  {item.project} · {item.client}
+                  {item.title} · {item.project}
                   {item.done ? " · done" : ""}
+                  {late && !item.done ? <span className="text-danger"> · late</span> : null}
                 </span>
               </span>
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />

@@ -14,7 +14,16 @@ import {
   HOLIDAY_COLOR,
   type Strip,
 } from "../domain/strips";
-import { DoneTick, DUE_TONE, DueIcon, LEAVE_TONE, LeaveIcon, typeTint } from "./calendar-chip";
+import {
+  DoneTick,
+  DUE_TONE,
+  DueIcon,
+  ItemIcon,
+  LEAVE_TONE,
+  LeaveIcon,
+  TypeDot,
+  typeTint,
+} from "./calendar-chip";
 
 /**
  * The month (6.4b; Kickoff 6 decision 25 A, B, C, C amended 2026-10-08): Monday to Sunday, the
@@ -28,8 +37,9 @@ import { DoneTick, DUE_TONE, DueIcon, LEAVE_TONE, LeaveIcon, typeTint } from "./
  * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle and the selected day the
  * outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
  * weekdays read "Mon Tue …" on a laptop, single letters on a phone; done is dimmed with a ✓. Every
- * line is ellipsised when it does not fit, never clipped mid-word and never past its box (the
- * owner's preview review). Every box is one button: what a tap does is the caller's (select, or
+ * line is one line at a fixed height, ellipsised when it does not fit, never wrapped, clipped
+ * mid-word or past its box (the owner's preview review; SCOPE §6). Client deliverables are outlined
+ * chips with the client first, after the tasks (the approved calendar sample). Every box is one button: what a tap does is the caller's (select, or
  * open the day).
  */
 
@@ -44,36 +54,62 @@ const LINE = {
 } as const;
 
 /**
- * One chip of a box: an event, a thing due, the holiday or someone busy. One line, ellipsised;
- * on a laptop a box with a single chip lets it run to two lines first (PP-calendar-2), a fuller
- * box keeps one line each so nothing is clipped.
+ * One chip of a box: an event, a thing due, a client deliverable, the holiday or someone busy.
+ * One line at a fixed height, ellipsised, everywhere (SCOPE §6, "One line, always"): the day's
+ * popup or sheet shows the full text.
  */
 function StripLine({
   strip,
   density,
-  twoLines,
 }: {
   strip: Exclude<Strip, { kind: "leave" }>;
   density: "full" | "laptop";
-  twoLines: boolean;
 }) {
-  const fit = twoLines ? "line-clamp-2 break-words" : "truncate";
+  const fit = "truncate";
+  if (strip.kind === "item") {
+    // The approved calendar sample: an outlined chip, the box icon, the client first; red
+    // outlined when late, and it says so (never colour alone).
+    return (
+      <span
+        data-slot="calendar-strip"
+        data-kind="item"
+        data-late={strip.late ? "" : undefined}
+        className={cn(
+          "block rounded-sm border px-1",
+          LINE[density],
+          fit,
+          strip.late ? "border-danger text-danger" : "border-border text-foreground",
+        )}
+      >
+        <ItemIcon className="mr-0.5 size-2.5" />
+        {/* An inline block cut on its own, so a long client never reaches past the box: narrower
+            than the line by the icon and the box's own "…" (an atomic block reaching into the
+            ellipsis's room would be hidden whole, leaving "…" alone on a phone). */}
+        <span className="inline-block max-w-[calc(100%-1.5rem)] truncate align-top font-semibold">
+          {strip.client}
+        </span>{" "}
+        · {strip.title}
+        {strip.late ? " · late" : ""}
+      </span>
+    );
+  }
   if (strip.kind === "due") {
-    // PP-calendar-5: named, amber or red overdue with its icon, the type's colour on the edge.
+    // PP-calendar-5 and the approved sample: named, a filled soft chip in amber (red and its alert
+    // icon when overdue), the type's colour as the leading dot.
     return (
       <span
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
         className={cn(
-          "block rounded-sm border-l-2 px-1 font-medium",
+          "block rounded-sm px-1 font-medium",
           LINE[density],
           fit,
           DUE_TONE[strip.tone],
         )}
-        style={strip.color ? { borderLeftColor: strip.color } : undefined}
       >
-        <DueIcon tone={strip.tone} className="mr-0.5 size-2.5" />
+        {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
+        {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
         {strip.label}
       </span>
     );
@@ -92,15 +128,21 @@ function StripLine({
         "block rounded-sm px-1",
         LINE[density],
         fit,
+        // A task (and the holiday) is a filled soft chip with its dot (the approved sample, no
+        // side stripe); someone busy is grey and dotted.
         color
-          ? "text-foreground border-l-2"
+          ? "text-foreground"
           : "border-muted-foreground/70 text-muted-foreground border border-dotted",
         // PP-calendar-7: done is dimmed with a ✓, never struck through.
         done && "opacity-60",
       )}
       style={color ? typeTint(color) : undefined}
     >
-      {done ? <DoneTick className="mr-0.5 size-2.5" /> : null}
+      {done ? (
+        <DoneTick className="mr-0.5 size-2.5" />
+      ) : color ? (
+        <TypeDot color={color} className="mr-1" />
+      ) : null}
       {text}
     </span>
   );
@@ -265,12 +307,7 @@ export function MonthGrid({
                         className="@container flex min-h-0 min-w-0 flex-col gap-px overflow-hidden"
                       >
                         {others.map((strip) => (
-                          <StripLine
-                            key={strip.key}
-                            strip={strip}
-                            density={density}
-                            twoLines={density === "laptop" && others.length === 1}
-                          />
+                          <StripLine key={strip.key} strip={strip} density={density} />
                         ))}
                         {/* PP-calendar-14: what does not fit is one last line, "+N more" ("+N" where
                             the box is too narrow for the word), part of the box: a tap opens the day. */}

@@ -65,12 +65,58 @@ export function CustomFieldsView({
   );
 }
 
-function Row({ definition, value }: { definition: FieldDefinition; value: unknown }) {
+/**
+ * The active fields as cells of a caller's field grid (PP-project-2: a project's fields flow into
+ * the same Details cells as its built-in ones): each a `<div>` of a small label over its value,
+ * with `cellClassName`, to sit inside the caller's `<dl>`. A field's section names the cell
+ * ("Shoot · Location"). Archived fields with values stay apart (`CustomFieldsView archivedOnly`).
+ */
+export function CustomFieldCells({
+  definitions,
+  values,
+  cellClassName,
+}: {
+  definitions: readonly FieldDefinition[];
+  values: CustomFieldValues;
+  cellClassName?: string;
+}) {
+  const { active } = splitDefinitions(definitions);
+  return (
+    <>
+      {active.map((definition) => (
+        <Row
+          key={definition.id}
+          definition={definition}
+          value={values[definition.key]}
+          cell
+          className={cellClassName}
+        />
+      ))}
+    </>
+  );
+}
+
+function Row({
+  definition,
+  value,
+  cell = false,
+  className,
+}: {
+  definition: FieldDefinition;
+  value: unknown;
+  /** A grid cell: the small label (12 px) over a regular value, as the built-in cells read. */
+  cell?: boolean;
+  className?: string | undefined;
+}) {
   const text = describeValue(definition, value);
   return (
-    <div data-slot="custom-field-value" data-key={definition.key}>
-      <dt className="text-muted-foreground">{definition.label}</dt>
-      <dd className="font-medium break-words">
+    <div data-slot="custom-field-value" data-key={definition.key} className={className}>
+      <dt className={cell ? "text-muted-foreground text-xs" : "text-muted-foreground"}>
+        {cell && definition.section
+          ? `${definition.section} · ${definition.label}`
+          : definition.label}
+      </dt>
+      <dd className={cn("break-words", !cell && "font-medium")}>
         {definition.type === "color" && text ? (
           <span className="inline-flex items-center gap-2">
             <span

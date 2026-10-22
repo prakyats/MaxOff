@@ -7,10 +7,10 @@ import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
-import { formatDateTime } from "@/core/time";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { HistoryButton } from "@/core/ui/composites/history-button";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -42,7 +42,7 @@ import {
 } from "../actions/items";
 import { addRevisionRound } from "../actions/bulk";
 import { saveItemAsTemplate } from "../actions/templates";
-import { groupStrips } from "../domain/deliverable";
+import { groupStrips, lastChangeLine, untickedWords } from "../domain/deliverable";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
@@ -139,6 +139,8 @@ export function ItemSheet({
   // A stage's tick on its way (its box waits; the toast offers Undo).
   const [ticking, setTicking] = useState<string | null>(null);
   const [reason, setReason] = useState<"reopen" | "close" | null>(null);
+  // "Mark done…" from ⋯ before every stage is ticked (PP-sheet-2): its confirmation.
+  const [early, setEarly] = useState(false);
   // "Save as template" from the ⋯ (6b Release 2): the item it was opened for.
   const [templateFor, setTemplateFor] = useState<{ id: string; title: string } | null>(null);
   // "Discard your changes?" (§14.2 f): over the sheet when leaving the edit ("edit": back or
@@ -267,6 +269,26 @@ export function ItemSheet({
     });
   const canEditStages = permissions.manage && current.rules.editAll;
   const reopenWord = permissions.owner ? "Send back" : "Reopen";
+  // PP-sheet-2: until every stage is ticked the sheet's action is "Next: ‹stage›" (it ticks that
+  // stage); Mark done is the solid Forest commit only once it is ready (or has no stages), and
+  // before that it waits in ⋯ behind a confirmation that names what is left unticked.
+  const markDone = permissions.tick && current.rules.markDone;
+  const unticked = current.stages.filter((stage) => !stage.done).length;
+  const nextStage =
+    markDone && canTick && unticked > 0
+      ? (current.stages.find((stage) => stage.id === current.nextStageId) ??
+        current.stages.find((stage) => !stage.done) ??
+        null)
+      : null;
+  const earlyDone = markDone && unticked > 0;
+  function markItDone() {
+    if (onMarkDone) {
+      onMarkDone(current);
+      onOpenChange(false);
+      return;
+    }
+    void run("done", () => markItemDone({ itemId: current.id }), "Marked done");
+  }
   const actions = (
     <>
       {projectHref ? (
@@ -275,7 +297,13 @@ export function ItemSheet({
         </Button>
       ) : null}
       {permissions.manage && current.rules.cancel ? (
-        <Button variant="ghost" onClick={() => setReason("close")} data-slot="item-close">
+        // PP-sheet-3: the way to close it reads red (its confirm's dismiss is "Keep it").
+        <Button
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
+          onClick={() => setReason("close")}
+          data-slot="item-close"
+        >
           Close deliverable…
         </Button>
       ) : null}
@@ -284,20 +312,26 @@ export function ItemSheet({
           {reopenWord}…
         </Button>
       ) : null}
-      {permissions.tick && current.rules.markDone ? (
+      {nextStage ? (
+        <Button
+          variant="primary"
+          pending={ticking === nextStage.id}
+          pendingLabel="Ticking…"
+          disabled={ticking !== null}
+          data-slot="item-next-stage"
+          onClick={() =>
+            void tickWithUndo(nextStage, true, current.title, setTicking, { undo: false })
+          }
+        >
+          <span className="min-w-0 break-words">Next: {nextStage.name}</span>
+        </Button>
+      ) : markDone && !earlyDone ? (
         <Button
           variant="approve"
           pending={busy === "done"}
           pendingLabel="Marking done…"
           data-slot="item-mark-done"
-          onClick={() => {
-            if (onMarkDone) {
-              onMarkDone(current);
-              onOpenChange(false);
-              return;
-            }
-            void run("done", () => markItemDone({ itemId: current.id }), "Marked done");
-          }}
+          onClick={markItDone}
         >
           Mark done
         </Button>
@@ -388,27 +422,25 @@ export function ItemSheet({
                   })),
                 ]}
               />
-              {/* One row: the text wraps on its own, History stays at its end (owner's walk). */}
+              {/* One row: the short line wraps on its own, the History clock (44 px) stays at its
+                  end (PP-sheet-1: the clock, as every History in the app). */}
               <div
                 data-slot="item-last-change"
                 className="text-muted-foreground flex items-center justify-between gap-2"
               >
                 <p className="min-w-0 flex-1 break-words">
                   {current.lastChange
-                    ? `Last change: ${current.lastChange.text} by ${current.lastChange.by}, ${formatDateTime(current.lastChange.at)}`
+                    ? lastChangeLine(current.lastChange, current.title)
                     : "No changes recorded yet."}
                 </p>
-                <Button
-                  variant="ghost"
-                  className="h-11 min-w-11 shrink-0 px-2 whitespace-nowrap underline underline-offset-4"
-                  data-slot="item-history"
-                  onClick={() => {
-                    setHistory((count) => count + 1);
-                    setHistoryOpen(true);
-                  }}
-                >
-                  History
-                </Button>
+                <span className="flex shrink-0">
+                  <HistoryButton
+                    onOpen={() => {
+                      setHistory((count) => count + 1);
+                      setHistoryOpen(true);
+                    }}
+                  />
+                </span>
               </div>
               {current.sentBack ? (
                 <SentBackNote
@@ -426,11 +458,13 @@ export function ItemSheet({
                   {current.notes ?? <span className="text-muted-foreground">No notes.</span>}
                 </p>
               </div>
-              {permissions.manage ? (
+              {permissions.manage || earlyDone ? (
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={startEdit} data-slot="item-edit">
-                    Edit details
-                  </Button>
+                  {permissions.manage ? (
+                    <Button variant="secondary" onClick={startEdit} data-slot="item-edit">
+                      Edit details
+                    </Button>
+                  ) : null}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -443,8 +477,17 @@ export function ItemSheet({
                         <MoreHorizontalIcon aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      {current.state === "open" ? (
+                    <DropdownMenuContent align="start" title={current.title}>
+                      {earlyDone ? (
+                        <DropdownMenuItem
+                          data-slot="item-mark-done-early"
+                          onSelect={() => setEarly(true)}
+                        >
+                          <CheckIcon aria-hidden />
+                          Mark done…
+                        </DropdownMenuItem>
+                      ) : null}
+                      {permissions.manage && current.state === "open" ? (
                         // 6b.16 (c): one more revision stage, named after its own ("Revision 3").
                         <DropdownMenuItem
                           data-slot="item-revision-round"
@@ -454,7 +497,7 @@ export function ItemSheet({
                           Another revision round
                         </DropdownMenuItem>
                       ) : null}
-                      {onMove && current.rules.editAll ? (
+                      {permissions.manage && onMove && current.rules.editAll ? (
                         // Unit U: named menu items, not bare arrows (the list's order).
                         <>
                           <DropdownMenuItem
@@ -475,11 +518,13 @@ export function ItemSheet({
                           </DropdownMenuItem>
                         </>
                       ) : null}
-                      <DropdownMenuItem
-                        onSelect={() => setTemplateFor({ id: current.id, title: current.title })}
-                      >
-                        Save as template
-                      </DropdownMenuItem>
+                      {permissions.manage ? (
+                        <DropdownMenuItem
+                          onSelect={() => setTemplateFor({ id: current.id, title: current.title })}
+                        >
+                          Save as template
+                        </DropdownMenuItem>
+                      ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -597,6 +642,19 @@ export function ItemSheet({
             return;
           }
           leaveEdit();
+        }}
+      />
+      <ConfirmDialog
+        approve
+        open={early}
+        onOpenChange={setEarly}
+        title={`Mark ${current.title} done?`}
+        description={`${untickedWords(unticked)} Mark done counts every stage as delivered.`}
+        confirmLabel="Mark done"
+        cancelLabel="Keep it open"
+        onConfirm={() => {
+          setEarly(false);
+          markItDone();
         }}
       />
       <ReasonDialog

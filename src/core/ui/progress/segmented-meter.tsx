@@ -45,7 +45,8 @@ export function ringSegments(total: number): { offset: number; length: number }[
   if (total <= 0) return [];
   if (total === 1) return [{ offset: 0, length: 100 }];
   const step = 100 / total;
-  const gap = Math.min(1.4, step * 0.3);
+  // PP-project-4: a hairline gap, so the segments read as one ring.
+  const gap = Math.min(0.8, step * 0.2);
   return Array.from({ length: total }, (_, index) => ({
     offset: index * step + gap / 2,
     length: step - gap,

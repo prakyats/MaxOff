@@ -8,6 +8,7 @@ import {
   hydrated,
   memberIdOf,
   pageHeader,
+  removeClientFixture,
   removeTasksTitled,
   rpcAs,
   runInstalled,
@@ -171,7 +172,7 @@ async function phoneLayout(page: Page) {
     const box = hours?.getBoundingClientRect();
     const labels = hours
       ? [...hours.querySelectorAll("span")]
-          .filter((span) => /^\d{2}:00$/.test(span.textContent ?? ""))
+          .filter((span) => /^\d{1,2} (am|pm)$/.test(span.textContent ?? ""))
           .map((span) => {
             const rect = span.getBoundingClientRect();
             return { text: span.textContent ?? "", top: rect.top, bottom: rect.bottom };
@@ -353,13 +354,19 @@ test.describe("the calendar, as Crew", () => {
     await handle.click();
     await expect(phone(page)).toHaveAttribute("data-size", "2");
 
-    // A sideways drag moves a month; Today comes back.
+    // A sideways drag moves a month; Today comes back. Today is inactive while today's month is
+    // on screen (the owner, 22 Oct), and active once another month is.
     const label = page.locator('[data-slot="calendar-month-label"]');
     const thisMonth = formatIST(istDayStart(todayIST()), "MMM yyyy");
+    const todayButton = page.locator('[data-slot="calendar-today"]');
+    await expect(todayButton).toHaveAttribute("aria-disabled", "true");
+    await expect(todayButton).toHaveAttribute("tabindex", "-1");
     await page.locator('[data-slot="calendar-next"]').click();
     await expect(label).not.toHaveText(thisMonth);
-    await page.locator('[data-slot="calendar-today"]').click();
+    await expect(todayButton).not.toHaveAttribute("aria-disabled");
+    await todayButton.click();
     await expect(label).toHaveText(thisMonth);
+    await expect(todayButton).toHaveAttribute("aria-disabled", "true");
 
     // The full month: a day opens the day sheet with its detail.
     await handle.click();
@@ -546,8 +553,11 @@ test.describe("the calendar, as the Owner", () => {
         .locator('[data-slot="calendar-strip"][data-kind="event"]')
         .first();
       await expect(strip).toBeVisible();
-      const edge = await strip.evaluate((element) => getComputedStyle(element).borderLeftColor);
-      expect(edge).not.toMatch(/rgb\((19[0-9]|2\d\d), (\d|[1-5]\d), (\d|[1-5]\d)\)/);
+      // A filled chip whose leading dot is the type's colour (the approved sample, no side stripe).
+      const dot = await strip
+        .locator('[data-slot="calendar-type-dot"]')
+        .evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(dot).not.toMatch(/rgb\((19[0-9]|2\d\d), (\d|[1-5]\d), (\d|[1-5]\d)\)/);
     }
 
     await page.goto(`/calendar?view=day&date=${todayIST()}`);
@@ -717,7 +727,9 @@ test.describe("the calendar, as the Owner", () => {
       .locator('[data-slot="calendar-event"]')
       .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-task")));
     expect(order.indexOf(shoot.id), "time order").toBeLessThan(order.indexOf(longShoot));
-    await expect(popup.locator('[data-slot="calendar-due-list"] h3')).toContainText("Due · ");
+    // SCOPE §6: the Owner's popup is in two parts, "Tasks · n" (the events and what is due) first.
+    await expect(popup.locator('[data-slot="calendar-tasks-title"]')).toContainText("Tasks · ");
+    await expect(popup.locator('[data-slot="calendar-due-list"]')).toBeVisible();
     await expect(popup.locator('[data-slot="calendar-who-free"]')).toBeVisible();
     const footer = popup.locator('[data-slot="calendar-day-footer"]');
     await expect(footer.locator('[data-slot="new-task-on-day"]')).toHaveText(
@@ -842,8 +854,12 @@ test.describe("the calendar, as the Owner", () => {
 
     // 7. → moves a week: a week without today opens at 08:00.
     const beforeMoves = await historyLength();
+    // Today is inactive on the week that holds today (the owner, 22 Oct), active a week later.
+    const todayLaptop = page.locator('[data-slot="calendar-today-laptop"]');
+    await expect(todayLaptop).toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("ArrowRight");
     await expect(page).toHaveURL(new RegExp(`date=${addISTDays(todayIST(), 7)}`));
+    await expect(todayLaptop).not.toHaveAttribute("aria-disabled");
     await expect
       .poll(() =>
         week.locator('[data-slot="calendar-hours"]').evaluate((hours) => {
@@ -858,13 +874,18 @@ test.describe("the calendar, as the Owner", () => {
     await expect(page).not.toHaveURL(/date=/);
     await page.keyboard.press("d");
     await expect(laptop).toHaveAttribute("data-view", "day");
+    // The Day of today: Today inactive; a day away from it, active (the owner, 22 Oct).
+    await expect(todayLaptop).toHaveAttribute("aria-disabled", "true");
     const steps = Math.round(
       (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${todayIST()}T00:00:00Z`)) / 86_400_000,
     );
     for (let step = 0; step < Math.abs(steps); step += 1) {
       await page.keyboard.press(steps > 0 ? "ArrowRight" : "ArrowLeft");
     }
-    if (steps !== 0) await expect(page).toHaveURL(new RegExp(`date=${day}`));
+    if (steps !== 0) {
+      await expect(page).toHaveURL(new RegExp(`date=${day}`));
+      await expect(todayLaptop).not.toHaveAttribute("aria-disabled");
+    }
     expect(await historyLength(), "moves and views add no history").toBe(beforeMoves);
     const dayView = page.locator('[data-slot="calendar-day-view"]');
     await expect(dayView).toBeVisible();
@@ -1104,19 +1125,19 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
       chip,
     ];
     const boxes = () => Promise.all(fixed.map((part) => part.boundingBox()));
-    // The first hour in sight is 08:00, its label whole (it opened 8 px above the hour).
+    // The first hour in sight is 8 am (12-hour labels, the owner 22 Oct), its label whole (it opened 8 px above the hour).
     const opensWhole = (layout: Awaited<ReturnType<typeof phoneLayout>>, where: string) => {
       const inSight = layout.labels
         .filter((label) => label.bottom > layout.top && label.top < layout.bottom)
         .sort((a, b) => a.top - b.top);
-      expect.soft(inSight[0]?.text, `${where}: opens at 08:00`).toBe("08:00");
+      expect.soft(inSight[0]?.text, `${where}: opens at 8 am`).toBe("8 am");
       expect
         .soft(inSight[0]?.top ?? 0, `${where}: the first hour's label is whole`)
         .toBeGreaterThanOrEqual(layout.top - 1);
     };
     const hourOf = (layout: Awaited<ReturnType<typeof phoneLayout>>) => {
       const at = (text: string) => layout.labels.find((label) => label.text === text)?.top ?? 0;
-      return at("09:00") - at("08:00");
+      return at("9 am") - at("8 am");
     };
 
     for (const size of ["2", "1"] as const) {
@@ -1505,5 +1526,230 @@ test.describe("a deadline moved earlier by someone else (6b.12)", () => {
     await hydrated(page);
     await expect(dueOf(await show(earlier), id)).toBeVisible();
     await removeTasksTitled(title);
+  });
+});
+
+/**
+ * Tasks vs client work (SCOPE §6, the approved calendar sample): a task is a filled chip, a client
+ * deliverable an outlined one with the client first, after the tasks; every chip is one line,
+ * however long its words (a 60-character title and client name); the Owner's All · Tasks · Client
+ * work switch is a view control this device remembers, adding no history; the day popup is in two
+ * parts, the full text in each.
+ */
+test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  /** `words` padded with letters to exactly 60 characters. */
+  const sixty = (words: string) => `${words} `.padEnd(60, "x");
+
+  /** A day of its own with a 60-character shoot, a due task and a deliverable of a long-named client. */
+  async function longDay(info: TestInfo) {
+    const prefix = `${prefixOf(info)}scope6 `;
+    await removeTasksTitled(prefix);
+    // A day of each project's own: the projects' fixtures never share a box.
+    const day = workingDay(44 + 7 * ["desktop", "mobile", "mobile-lg"].indexOf(info.project.name));
+    const staffId = await memberIdOf(USERS.staff.email);
+    const shootTitle = sixty(`${prefix}shoot`);
+    const dueTitle = sixty(`${prefix}due`);
+    const base = {
+      description: null,
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(day, "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+    };
+    await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      ...base,
+      title: shootTitle,
+      task_type_id: await taskTypeId("Shoot / Site Visit"),
+      event_date: day,
+      event_start_at: istInstant(day, "10:00"),
+      event_end_at: istInstant(day, "11:00"),
+      location: null,
+    });
+    await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      ...base,
+      title: dueTitle,
+      task_type_id: await taskTypeId("Normal"),
+    });
+    const client = sixty(`Scope6 client ${info.project.name}`);
+    await removeClientFixture(client);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const row = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name: client,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", { client_id: row.id });
+    const item = sixty("Reel");
+    const projectId = await rpcAs<string>(
+      USERS.admin.email,
+      USERS.admin.password,
+      "project_create",
+      {
+        client_id: row.id,
+        name: "Scope6 reels",
+        recurrence: "one_time",
+        stages: [],
+        items: [item],
+        delivery_date: addISTDays(day, 5),
+      },
+    );
+    const [itemRow] = await serviceSelect<{ id: string }>(
+      `project_items?project_id=eq.${projectId}&select=id&limit=1`,
+    );
+    await rpcAs(USERS.admin.email, USERS.admin.password, "item_update", {
+      item_id: itemRow?.id,
+      changes: { planned_date: day },
+    });
+    return { day, shootTitle, dueTitle, client, item };
+  }
+
+  /** Each chip of a box: its kind, whether it is one line, whether its words were cut. */
+  async function chipLines(box: Locator) {
+    return box.locator('[data-slot="calendar-strip"]').evaluateAll((chips) =>
+      chips.map((chip) => {
+        const style = getComputedStyle(chip);
+        const inner =
+          chip.getBoundingClientRect().height -
+          parseFloat(style.borderTopWidth) -
+          parseFloat(style.borderBottomWidth);
+        return {
+          kind: chip.getAttribute("data-kind"),
+          oneLine: Math.abs(inner - parseFloat(style.lineHeight)) < 1,
+          cut: chip.scrollWidth > chip.clientWidth,
+          wraps: style.whiteSpace !== "nowrap",
+          text: chip.textContent ?? "",
+        };
+      }),
+    );
+  }
+
+  test("one line at 375, 430 and desktop; tasks then client work; the switch; the popup in two parts", async ({
+    page,
+  }, info) => {
+    const fixture = await longDay(info);
+    await page.goto(`/calendar?date=${fixture.day}`);
+    await hydrated(page);
+    // Every device starts on All (a fresh context's storage).
+    const shows = page.locator('[data-slot="calendar-show"]:visible');
+    await expect(shows).toHaveAttribute("data-current", "all");
+    if (isPhone(info)) {
+      // The phone's full month draws the chips (the compact month only bars).
+      await page.locator('button[data-slot="calendar-handle"]').click();
+      await expect(phone(page)).toHaveAttribute("data-size", "3");
+    }
+    const box = dayBox(page, fixture.day);
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toBeVisible();
+    const lines = await chipLines(box);
+    // The fixed order: the timed task, the due task, then the client work.
+    expect(lines.map((line) => line.kind)).toEqual(["event", "due", "item"]);
+    for (const line of lines) {
+      expect(line, `${line.kind} is one line`).toMatchObject({ oneLine: true, wraps: false });
+      expect(line.cut, `${line.kind}'s long words end in "…"`).toBe(true);
+    }
+    // The client first, outlined (not filled).
+    const item = box.locator('[data-slot="calendar-strip"][data-kind="item"]');
+    expect(lines[2]?.text.startsWith(fixture.client.trim().slice(0, 20))).toBe(true);
+    await expect(item.locator('[data-slot="calendar-item-icon"]')).toHaveCount(1);
+    expect(await item.evaluate((chip) => getComputedStyle(chip).backgroundColor)).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await expectNoHorizontalScroll(page);
+
+    // The switch is a view control: no history, remembered on this device; leave and holidays
+    // always show (none on this day: the strips alone are checked).
+    const before = await page.evaluate(() => window.history.length);
+    await shows.locator('[data-show="tasks"]').click();
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(0);
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toHaveCount(1);
+    await shows.locator('[data-show="client"]').click();
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(1);
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toHaveCount(0);
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="due"]')).toHaveCount(0);
+    expect(await page.evaluate(() => window.history.length)).toBe(before);
+    await page.reload();
+    await hydrated(page);
+    await expect(page.locator('[data-slot="calendar-show"]:visible')).toHaveAttribute(
+      "data-current",
+      "client",
+    );
+    await page.locator('[data-slot="calendar-show"]:visible [data-show="all"]').click();
+    if (isPhone(info)) {
+      await page.locator('button[data-slot="calendar-handle"]').click();
+      await expect(phone(page)).toHaveAttribute("data-size", "3");
+    }
+
+    // The popup: "Tasks · 2", then "Client work · 1" by client, the full text, wrapped.
+    await dayBox(page, fixture.day).click();
+    const popup = daySheet(page);
+    await expect(popup.locator('[data-slot="calendar-tasks-title"]')).toContainText("Tasks · 2");
+    const work = popup.locator('[data-slot="calendar-items-list"]');
+    await expect(work.locator("h3")).toContainText("Client work · 1");
+    const row = work.locator('[data-slot="calendar-item"]');
+    await expect(row).toContainText(fixture.client);
+    await expect(row).toContainText(fixture.item);
+    expect(await row.evaluate((link) => link.scrollWidth <= link.clientWidth)).toBe(true);
+    await expect(popup).toContainText(fixture.dueTitle);
+    // Tasks come before the client work, who is away after both.
+    const order = await popup
+      .locator(
+        '[data-slot="calendar-tasks-title"], [data-slot="calendar-items-list"], [data-slot="calendar-who-free"]',
+      )
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-slot")));
+    expect(order).toEqual(["calendar-tasks-title", "calendar-items-list", "calendar-who-free"]);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+
+    if (!isPhone(info)) {
+      // The laptop's Week: every block's lines are one line, never wrapped.
+      await page.goto(`/calendar?view=week&date=${fixture.day}`);
+      await hydrated(page);
+      const block = page.locator(
+        `[data-slot="calendar-laptop"] [data-slot="calendar-event"]:has-text("${fixture.shootTitle.slice(0, 24)}")`,
+      );
+      await expect(block).toBeVisible();
+      const wrapped = await block
+        .locator("span")
+        .evaluateAll(
+          (spans) =>
+            spans
+              .filter((span) => getComputedStyle(span).display === "block")
+              .filter((span) => getComputedStyle(span).whiteSpace !== "nowrap").length,
+        );
+      expect(wrapped).toBe(0);
+    }
+    await removeClientFixture(fixture.client);
+  });
+
+  test("installed: the split day sheet closes on back, the switch adds no history, a deliverable is a drill-down", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the installed app is a phone");
+    const fixture = await longDay(info);
+    await runInstalled(page);
+    await page.goto(`/calendar?date=${fixture.day}`);
+    await hydrated(page);
+    const shows = page.locator('[data-slot="calendar-show"]:visible');
+    await shows.locator('[data-show="client"]').click();
+    await shows.locator('[data-show="all"]').click();
+    await page.locator('button[data-slot="calendar-handle"]').click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await dayBox(page, fixture.day).click();
+    const sheet = daySheet(page);
+    await expect(sheet.locator('[data-slot="calendar-items-list"]')).toBeVisible();
+    await expect(sheet.locator('[data-slot="calendar-tasks-title"]')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    // The sheet is a layer: back closes it and stays on the calendar.
+    await expectBackStack(page, [{ closes: sheet, url: /\/calendar\?date=/ }]);
+    // A deliverable opens its record, the sheet backed out first: back returns to the calendar.
+    await dayBox(page, fixture.day).click();
+    await sheet.locator('[data-slot="calendar-item"]').first().click();
+    await expect(page).toHaveURL(/\/clients\/[^/]+\/projects\//);
+    await expectBackStack(page, [{ url: /\/calendar\?date=/ }]);
+    await removeClientFixture(fixture.client);
   });
 });

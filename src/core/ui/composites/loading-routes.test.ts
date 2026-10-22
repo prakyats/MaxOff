@@ -142,7 +142,8 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("settings"), "settings traces its own rows, not a shape").toBeUndefined();
     expect(sourceOf("settings")).toContain("settingsGroupsFor");
     expect(sourceOf("settings")).toContain("SECTION_ROW_CLASS");
-    expect(sourceOf("settings")).toContain("HELP_ROW_CLASS");
+    // PP-settings-2: Help is a group of its own, traced as one.
+    expect(sourceOf("settings")).toContain("HELP_GROUP_CLASS");
     expect(sourceOf("settings")).not.toContain(standIn);
     expect(shapeOf("me")).toBe("detail");
     // The guide (6b.14): topic rows on the card-row geometry, under the search box.

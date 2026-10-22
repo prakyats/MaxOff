@@ -24,7 +24,13 @@ import {
   periodNext,
   periodStart,
 } from "../domain/periods";
-import { clientWorkLine, progressByClient, projectSummaries } from "../domain/projects";
+import {
+  clientWorkLine,
+  dueByClient,
+  progressByClient,
+  projectSummaries,
+  readyToComplete,
+} from "../domain/projects";
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
@@ -846,5 +852,47 @@ describe("stage lists name each stage once (the 7B rework's review, S3)", () => 
     expect(
       updateBlueprintSchema.safeParse({ blueprintId: client, stages: ["Shoot", "Edit"] }).success,
     ).toBe(true);
+  });
+});
+
+describe("readyToComplete (PP-client-2)", () => {
+  it("is a one-time project with every deliverable done, none open or waiting", () => {
+    expect(readyToComplete("one_time", ["approved", "approved", "cancelled"])).toBe(true);
+    expect(readyToComplete("one_time", ["approved", "open"])).toBe(false);
+    expect(readyToComplete("one_time", ["approved", "done"])).toBe(false);
+    expect(readyToComplete("one_time", ["cancelled"])).toBe(false);
+    expect(readyToComplete("one_time", [])).toBe(false);
+  });
+  it("is never a repeating project: its next cycle comes on its own", () => {
+    expect(readyToComplete("monthly", ["approved", "approved"])).toBe(false);
+  });
+});
+
+describe("dueByClient (PP-admin-10)", () => {
+  const cycle = (clientId: string, states: ItemState[], plannedDates: (string | null)[]) => ({
+    id: `${clientId}-c`,
+    projectId: `${clientId}-p`,
+    label: null,
+    clientId,
+    states,
+    plannedDates,
+  });
+  it("counts the open late ones and finds the next date, across a client's cycles", () => {
+    const due = dueByClient(
+      [
+        cycle("a", ["open", "open", "approved"], ["2026-10-20", "2026-10-25", "2026-10-01"]),
+        cycle("a", ["open", "cancelled"], ["2026-10-23", "2026-10-10"]),
+        cycle("b", ["approved", "open"], ["2026-10-01", null]),
+      ],
+      "2026-10-22",
+    );
+    expect(due.get("a")).toEqual({ late: 1, next: "2026-10-23" });
+    expect(due.has("b")).toBe(false);
+  });
+  it("counts a deliverable planned today as due, not late", () => {
+    expect(dueByClient([cycle("a", ["open"], ["2026-10-22"])], "2026-10-22").get("a")).toEqual({
+      late: 0,
+      next: "2026-10-22",
+    });
   });
 });

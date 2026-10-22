@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures";
 
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { addISTDays, todayIST } from "../src/core/time";
+import { historyDate } from "../src/modules/attendance/domain/history";
 
 import {
   expectBackStack,
@@ -603,6 +604,85 @@ test("installed: opened directly, the on-screen back replaces it with People", a
   // Replaced, not pushed: back never returns to the person (it leaves the window's history,
   // which starts with Playwright's own blank page or nothing at all).
   await expectBackStack(page, [{ url: /^(?!.*\/people\/)/ }]);
+});
+
+test("the person page: Approve on a waiting day, with Approvals' context; History in the header; back closes each layer (PP-person-1, PP-person-4)", async ({
+  page,
+}, info) => {
+  const memberId = ids(info).absent;
+  // A proposed absence two working days back, this test's own (the others use yesterday's).
+  let workDate = inDays(-2);
+  while ([0, 6].includes(new Date(`${workDate}T12:00:00Z`).getUTCDay())) {
+    workDate = addISTDays(workDate, -1);
+  }
+  const [taken] = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&work_date=eq.${workDate}&select=id`,
+  );
+  test.skip(taken !== undefined, "the day is already recorded on this database");
+  const dayId = (
+    await serviceInsert<{ id: string }>("attendance_days", {
+      member_id: memberId,
+      work_date: workDate,
+      state: "pending_review",
+      final_status: "absent",
+      proposed_by_system: true,
+      is_day_off: false,
+    })
+  ).id;
+  await serviceInsert("attendance_events", {
+    attendance_day_id: dayId,
+    action: "proposed_absent",
+    to_status: "absent",
+  });
+  const phone = isPhone(info);
+  if (phone) await runInstalled(page);
+  await page.goto("/people");
+  await page.goto(`/people/${memberId}`);
+  await hydrated(page);
+  const here = new RegExp(`/people/${memberId}$`);
+
+  // PP-person-1: the History clock opens the person's history; back closes it.
+  await page.locator('[data-slot="history-open"]:visible').click();
+  const history = page.locator('[data-slot="history-sheet"]');
+  await expect(history).toBeVisible();
+  if (phone) await expectBackStack(page, [{ closes: history, url: here }]);
+  else await page.keyboard.press("Escape");
+
+  // PP-person-3: the summary counts the waiting day and opens Attendance.
+  await expect(
+    page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]'),
+  ).toContainText("Review");
+  await page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]').click();
+  await expect(page).toHaveURL(new RegExp(`/people/${memberId}/attendance$`));
+  await hydrated(page);
+
+  // PP-person-4: the day's sheet has Approvals' context and the solid Forest Approve.
+  const label = historyDate(workDate);
+  const openDay = () =>
+    phone
+      ? page.locator('[data-slot="data-card"] button', { hasText: label }).click()
+      : page.locator('[data-slot="data-table"] tbody button', { hasText: label }).click();
+  await openDay();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.locator('[data-slot="review-week-day"][data-current]')).toBeVisible();
+  const approve = sheet.getByRole("button", { name: "Approve", exact: true });
+  await expect(approve).toHaveAttribute("data-variant", "approve");
+  if (phone) {
+    await expectBackStack(page, [
+      { closes: sheet, url: new RegExp(`/people/${memberId}/attendance$`) },
+    ]);
+    await openDay();
+    await expect(approve).toBeVisible();
+  }
+  await approve.click();
+  await expect
+    .poll(async () => {
+      const [row] = await serviceSelect<{ state: string }>(
+        `attendance_days?id=eq.${dayId}&select=state`,
+      );
+      return row?.state;
+    })
+    .toBe("approved");
 });
 
 test.describe("who sees what", () => {
