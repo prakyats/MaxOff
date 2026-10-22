@@ -17,6 +17,8 @@ export async function listStagePresets(): Promise<StagePreset[]> {
   const { data, error } = await supabase
     .from("stage_presets")
     .select("id, name, stages, archived_at, created_by")
+    // A deleted preset (V5a 6b) is gone from every list and picker, archived ones included.
+    .is("deleted_at", null)
     .order("name");
   if (error) throw error;
   return data.map((row) => ({
@@ -68,4 +70,17 @@ export async function setStagePresetArchived(id: string, archived: boolean) {
     .select("id");
   if (error) throw error;
   if (!data || data.length === 0) notYours();
+}
+
+/**
+ * The Owner-only Delete (v1.8 V5a 6b): `template_delete` checks the Owner, writes the history row
+ * first and marks the preset deleted (and archived). Stages already copied from it stay.
+ */
+export async function deleteStagePreset(id: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("template_delete", {
+    kind: "stage_preset",
+    template_id: id,
+  });
+  if (error) throw error;
 }

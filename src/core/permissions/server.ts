@@ -36,3 +36,15 @@ export async function assertPermission(
   if (!can(member.role, permission)) throw new AppError("FORBIDDEN");
   return member;
 }
+
+/**
+ * The Owner-only acts PERMISSIONS names by role rather than by key (v1.8 V5a 6b: Delete of a
+ * template, a stage preset or a holiday). Throws `AppError` (`UNAUTHENTICATED` / `FORBIDDEN`) as
+ * `assertPermission` does; the database checks `app.is_owner()` again.
+ */
+export async function assertOwner(): Promise<CurrentMember> {
+  const member = await getCurrentMember();
+  if (!member) throw new AppError("UNAUTHENTICATED");
+  if (member.role !== "owner") throw new AppError("FORBIDDEN", "Only the Owner can delete this.");
+  return member;
+}

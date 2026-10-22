@@ -9,6 +9,7 @@ import {
 import {
   describeWeeklyOff,
   holidaysByYear,
+  canRemoveHoliday,
   isUpcoming,
   thresholdGroupSummaries,
   type Thresholds,
@@ -324,6 +325,15 @@ describe("isUpcoming", () => {
     const holiday = { id: "1", date: "2026-10-02", name: "Gandhi Jayanti" };
     expect(isUpcoming(holiday, "2026-10-02")).toBe(true);
     expect(isUpcoming(holiday, "2026-10-03")).toBe(false);
+  });
+});
+
+describe("canRemoveHoliday (V5a 6b)", () => {
+  it("lets the Owner remove a holiday only before its date", () => {
+    const holiday = { id: "1", date: "2026-10-02", name: "Gandhi Jayanti" } as const;
+    expect(canRemoveHoliday(holiday, "2026-10-01")).toBe(true);
+    expect(canRemoveHoliday(holiday, "2026-10-02")).toBe(false);
+    expect(canRemoveHoliday(holiday, "2026-10-03")).toBe(false);
   });
 });
 

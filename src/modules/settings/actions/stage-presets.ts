@@ -5,7 +5,7 @@ import { z } from "zod";
 import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, ok, type Result } from "@/core/errors";
 import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
-import { assertPermission } from "@/core/permissions/server";
+import { assertOwner, assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/stage-presets";
 import {
@@ -47,6 +47,7 @@ const values = z.object({
 const createSchema = values;
 const updateSchema = values.extend({ presetId: z.uuid() });
 const archiveSchema = z.object({ presetId: z.uuid(), archived: z.boolean() });
+const deleteSchema = z.object({ presetId: z.uuid() });
 
 export type StagePresetInput = z.input<typeof createSchema>;
 export type UpdateStagePresetInput = z.input<typeof updateSchema>;
@@ -80,6 +81,19 @@ export const setStagePresetArchived = action(
     await assertPermission("lists.manage");
     await repo.setStagePresetArchived(data.presetId, data.archived);
     revalidate();
+    return ok(null);
+  },
+);
+
+export type DeleteStagePresetInput = z.input<typeof deleteSchema>;
+
+/** The Owner-only Delete (v1.8 V5a 6b): any preset, any time; stages copied from it stay. */
+export const deleteStagePreset = action(
+  async (input: DeleteStagePresetInput): Promise<Result<null>> => {
+    const { presetId } = deleteSchema.parse(input);
+    await assertOwner();
+    await repo.deleteStagePreset(presetId);
+    revalidateScreens();
     return ok(null);
   },
 );

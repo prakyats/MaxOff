@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
-import { assertPermission } from "@/core/permissions/server";
+import { assertOwner, assertPermission } from "@/core/permissions/server";
 
 import {
   type CreateHolidayInput,
@@ -96,7 +96,8 @@ export const createHoliday = action(async (input: CreateHolidayInput): Promise<R
 
 export const removeHoliday = action(async (input: HolidayIdInput): Promise<Result<null>> => {
   const { holidayId } = holidayIdSchema.parse(input);
-  await assertPermission("settings.manage");
+  // The Owner only, before the holiday's date (v1.8 V5a 6b); the database checks both again.
+  await assertOwner();
   await repo.deleteHoliday(holidayId);
   revalidateScreens();
   return ok(null);

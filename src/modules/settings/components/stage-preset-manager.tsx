@@ -10,9 +10,10 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
 
-import { setStagePresetArchived } from "../actions/stage-presets";
+import { deleteStagePreset, setStagePresetArchived } from "../actions/stage-presets";
 import { presetActions, stagesLine, type StagePreset } from "../domain/stage-presets";
 
 type Viewer = { id: string; role: string };
@@ -50,6 +51,8 @@ export function StagePresetManager({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<StagePreset | null>(null);
   const [archiving, setArchiving] = useState<StagePreset | null>(null);
+  // The Owner's permanent Delete (V5a 6b): any preset, any time.
+  const [deleting, setDeleting] = useState<StagePreset | null>(null);
   const all = presets.filter((preset) => !preset.archived);
   const active = all.filter((preset) => templateMatches(query, [preset.name, ...preset.stages]));
 
@@ -112,6 +115,7 @@ export function StagePresetManager({
                       slot="stage-preset-actions"
                       edit={{ label: "Edit", onSelect: () => setEditing(preset) }}
                       onArchive={() => setArchiving(preset)}
+                      onDelete={viewer.role === "owner" ? () => setDeleting(preset) : undefined}
                     />
                   ) : null}
                 </li>
@@ -140,6 +144,22 @@ export function StagePresetManager({
             toastResult(await setStagePresetArchived({ presetId: preset.id, archived: true }), {
               success: `${preset.name} archived`,
               undo: () => void restore(preset),
+            });
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <TemplateDeleteDialog
+          key={deleting.id}
+          kind="stage_preset"
+          name={deleting.name}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const preset = deleting;
+            toastResult(await deleteStagePreset({ presetId: preset.id }), {
+              success: `${preset.name} deleted`,
             });
           }}
         />

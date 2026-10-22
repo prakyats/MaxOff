@@ -10,10 +10,12 @@ import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListRowActions } from "@/core/ui/composites/list-rows";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { type StagePresetOption, groupsSummary } from "@/core/ui/stage-groups/editing";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
 import { toastResult } from "@/core/ui/toast";
 
+import { deleteDeliverableTemplate } from "../actions/delete";
 import {
   archiveDeliverableTemplate,
   restoreDeliverableTemplate,
@@ -50,6 +52,8 @@ export function DeliverableTemplateManager({
   const [editing, setEditing] = useState<DeliverableTemplate | null>(null);
   const [adding, setAdding] = useState(false);
   const [archiving, setArchiving] = useState<DeliverableTemplate | null>(null);
+  // The Owner's permanent Delete (V5a 6b): any template, any time.
+  const [deleting, setDeleting] = useState<DeliverableTemplate | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const matches = (template: DeliverableTemplate) =>
     templateMatches(query, [
@@ -128,6 +132,7 @@ export function DeliverableTemplateManager({
                       : undefined
                   }
                   onArchive={allowed.archive ? () => setArchiving(template) : undefined}
+                  onDelete={viewer.role === "owner" ? () => setDeleting(template) : undefined}
                 />
               </li>
             );
@@ -176,6 +181,22 @@ export function DeliverableTemplateManager({
             : false;
         }}
       />
+      {deleting ? (
+        <TemplateDeleteDialog
+          key={deleting.id}
+          kind="deliverable"
+          name={deleting.name}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const template = deleting;
+            toastResult(await deleteDeliverableTemplate({ templateId: template.id }), {
+              success: `${template.name} deleted`,
+            });
+          }}
+        />
+      ) : null}
     </section>
   );
 }

@@ -9,10 +9,12 @@ import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListRowActions } from "@/core/ui/composites/list-rows";
+import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
 import { toastResult } from "@/core/ui/toast";
 
+import { deleteProjectTemplate, projectTemplateUsage } from "../actions/delete";
 import { setProjectTemplateArchived } from "../actions/project-templates";
 import {
   projectTemplateActions,
@@ -55,6 +57,9 @@ export function ProjectTemplateManager({
   const [editing, setEditing] = useState<ProjectTemplate | null>(null);
   const [adding, setAdding] = useState(false);
   const [archiving, setArchiving] = useState<ProjectTemplate | null>(null);
+  // The Owner's permanent Delete (V5a 6b): any template, any time.
+  const [deleting, setDeleting] = useState<ProjectTemplate | null>(null);
+  const isOwner = context.viewer.role === "owner";
   const [previewId, setPreviewId] = useState<string | null>(null);
   const matches = (template: ProjectTemplate) =>
     templateMatches(query, [
@@ -144,6 +149,7 @@ export function ProjectTemplateManager({
                       : undefined
                   }
                   onArchive={allowed.edit ? () => setArchiving(template) : undefined}
+                  onDelete={isOwner ? () => setDeleting(template) : undefined}
                 />
               </li>
             );
@@ -185,6 +191,23 @@ export function ProjectTemplateManager({
               await setProjectTemplateArchived({ templateId: template.id, archived: true }),
               { success: `${template.name} archived`, undo: () => void restore(template) },
             );
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <TemplateDeleteDialog
+          key={deleting.id}
+          kind="project"
+          name={deleting.name}
+          loadUsage={() => projectTemplateUsage({ templateId: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const template = deleting;
+            toastResult(await deleteProjectTemplate({ templateId: template.id }), {
+              success: `${template.name} deleted`,
+            });
           }}
         />
       ) : null}

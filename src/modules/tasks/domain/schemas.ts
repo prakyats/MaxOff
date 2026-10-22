@@ -311,6 +311,8 @@ export const saveTemplateSchema = z.object({
 export type SaveTemplateInput = z.input<typeof saveTemplateSchema>;
 
 export const archiveTemplateSchema = z.object({ templateId: z.uuid(), archived: z.boolean() });
+export const templateIdSchema = z.object({ templateId: z.uuid() });
+export type TemplateIdInput = z.input<typeof templateIdSchema>;
 export type ArchiveTemplateInput = z.input<typeof archiveTemplateSchema>;
 
 // 4C: Settings → Task types (the Owner's, Kickoff 4 decision 15) ------------------------------------

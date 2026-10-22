@@ -132,13 +132,12 @@ export async function createHoliday(input: { date: string; name: string }): Prom
 }
 
 /**
- * Holidays have no `archived_at` (DATA-MODEL §1): removing a mistyped date is a real delete,
- * Owner-only, and `audit_row_change()` keeps the removed row. It never rewrites the past —
- * an attendance day carries its own `is_day_off`, decided on the day itself (2.1).
+ * Holidays have no `archived_at` (DATA-MODEL §1): removing one is a real delete, Owner-only and
+ * only before its date (v1.8 V5a 6b). `holiday_delete` checks both, writes the history row first,
+ * and `audit_row_change()` keeps the removed row. It never rewrites the past.
  */
 export async function deleteHoliday(id: string): Promise<void> {
   const supabase = await createServerSupabase();
-  const { error, count } = await supabase.from("holidays").delete({ count: "exact" }).eq("id", id);
+  const { error } = await supabase.rpc("holiday_delete", { holiday_id: id });
   if (error) throw error;
-  if (count === 0) throw new AppError("NOT_FOUND", "That holiday is already gone.");
 }

@@ -19,6 +19,8 @@ export async function listDeliverableTemplates(): Promise<DeliverableTemplate[]>
   const { data, error } = await supabase
     .from("deliverable_templates")
     .select("id, name, stage_groups, archived_at, archived_reason, created_by")
+    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
+    .is("deleted_at", null)
     .order("name");
   if (error) throw error;
   return data.map((row) => ({

@@ -3,12 +3,15 @@
 import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
-import { assertPermission } from "@/core/permissions/server";
+import type { TemplateUsage } from "@/core/lib/owner-delete";
+import { assertOwner, assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/templates";
 import {
   type ArchiveTemplateInput,
   archiveTemplateSchema,
+  type TemplateIdInput,
+  templateIdSchema,
   type SaveTemplateInput,
   saveTemplateSchema,
 } from "../domain/schemas";
@@ -51,3 +54,21 @@ export const setTemplateArchived = action(
     return ok(null);
   },
 );
+
+/** The Owner-only Delete (v1.8 V5a 6b): what the confirm says first. */
+export const taskTemplateUsage = action(
+  async (input: TemplateIdInput): Promise<Result<TemplateUsage>> => {
+    const { templateId } = templateIdSchema.parse(input);
+    await assertOwner();
+    return ok(await repo.taskTemplateUsage(templateId));
+  },
+);
+
+/** The Owner deletes a task template; the open tasks that follow it keep their reminders. */
+export const deleteTaskTemplate = action(async (input: TemplateIdInput): Promise<Result<null>> => {
+  const { templateId } = templateIdSchema.parse(input);
+  await assertOwner();
+  await repo.deleteTaskTemplate(templateId);
+  refresh();
+  return ok(null);
+});
