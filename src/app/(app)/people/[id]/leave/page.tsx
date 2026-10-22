@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+
+import { displayName } from "@/core/lib/display-name";
 import { redirect } from "next/navigation";
 
 import { checkThenRead } from "@/core/lib/start-early";
@@ -16,7 +18,15 @@ import { LeavePager } from "../../../leave/leave-nav";
 
 import { assertMemberId, loadHistoryPerson } from "../person";
 
-export const metadata: Metadata = { title: "Attendance & leave" };
+/** The tab names the person, then this view ("Prishit Shetty · Attendance & leave · MaxOff"; cached read). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const person = await loadHistoryPerson((await params).id);
+  return { title: `${displayName(person.fullName)} · Attendance & leave` };
+}
 
 /**
  * One person's comp leave (3b.2: the balance, the credits, **Grant comp leave** and **Revoke**)

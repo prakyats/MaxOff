@@ -190,7 +190,7 @@ export function DeliverablesEditor({
                         <MoreHorizontalIcon aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-48">
+                    <DropdownMenuContent align="end" className="min-w-48" title={title}>
                       <ReorderMenuItems reorder={reorder} index={index} />
                       <DropdownMenuItem
                         disabled={value.length >= maxDeliverables}

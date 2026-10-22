@@ -9,6 +9,7 @@ import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { OFFLINE_BANNER_ID, useOnline } from "@/core/ui/connection/online";
+import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import {
@@ -115,13 +116,37 @@ export function TaskStages({
     action.run(stage.id, next);
   }
 
+  const addStage = () => {
+    setAddLoaded(true);
+    setAdding(true);
+  };
+  const empty = shown.length === 0;
+
   return (
     <section
-      aria-labelledby="task-stages-title"
+      {...(empty ? { "aria-label": "Stages" } : { "aria-labelledby": "task-stages-title" })}
       data-slot="task-stages"
       className="flex flex-col gap-2"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+      {/* PP-task-4, FINAL 1: no stages is one muted line with no heading, "+ Add stage" inline. */}
+      {empty ? (
+        <EmptyRow
+          slot="task-stages-empty"
+          action={
+            canManage ? (
+              <Button type="button" variant="ghost" className="h-11 px-2" onClick={addStage}>
+                <PlusIcon aria-hidden />
+                Add stage
+              </Button>
+            ) : null
+          }
+        >
+          No stages yet.
+        </EmptyRow>
+      ) : null}
+      <div
+        className={cn("flex flex-wrap items-baseline justify-between gap-x-3", empty && "hidden")}
+      >
         <h2 id="task-stages-title" className="text-sm font-semibold">
           Stages
         </h2>
@@ -131,7 +156,7 @@ export function TaskStages({
           </span>
         ) : null}
       </div>
-      {shown.length > 0 ? (
+      {!empty ? (
         <ReorderList
           reorder={reorder}
           label="Stages"
@@ -197,7 +222,7 @@ export function TaskStages({
                       <MoreHorizontalIcon aria-hidden />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
+                  <DropdownMenuContent align="end" className="min-w-48" title={stage.name}>
                     <ReorderMenuItems reorder={reorder} index={index} />
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -219,11 +244,7 @@ export function TaskStages({
             </ReorderItem>
           ))}
         </ReorderList>
-      ) : (
-        <p className="text-muted-foreground text-sm">
-          No stages. Add one to break the work into steps.
-        </p>
-      )}
+      ) : null}
       <ActionStatus action={action} />
       <ActionStatus action={moving} />
       {lockedNote && stages.length > 0 ? (
@@ -231,16 +252,8 @@ export function TaskStages({
           {lockedNote}
         </p>
       ) : null}
-      {canManage ? (
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-11 self-start"
-          onClick={() => {
-            setAddLoaded(true);
-            setAdding(true);
-          }}
-        >
+      {canManage && !empty ? (
+        <Button type="button" variant="secondary" className="h-11 self-start" onClick={addStage}>
           <PlusIcon aria-hidden />
           Add stage
         </Button>

@@ -154,7 +154,7 @@ export function PendingClaimsGroup({
             : undefined
         }
         label="Reason"
-        placeholder="Not a work expense."
+        placeholder="e.g. Not a work expense."
         submitLabel="Reject claim"
         destructive
         onSubmit={async (reason) => {

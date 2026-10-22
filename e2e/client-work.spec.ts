@@ -21,6 +21,8 @@ import {
   supabaseAuth,
   USERS,
   pageHeader,
+  createFromNewProject,
+  newProjectStep,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
@@ -129,16 +131,9 @@ async function showFinished(page: Page): Promise<void> {
 const valuesOf = (inputs: Locator) =>
   inputs.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value));
 
-/**
- * Create in the New project dialog (6b.16 (a)): a laptop creates from the form, beside its
- * preview; a phone goes through the Preview step first.
- */
-async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
-  if ((page.viewportSize()?.width ?? 1280) < 768) {
-    await dialog.getByRole("button", { name: "Preview", exact: true }).click();
-    await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
-  }
-  await dialog.getByRole("button", { name: "Create project" }).click();
+/** Create in the New project dialog (V5b PP-forms-7): Next to Preview & create, then Create. */
+async function createFromDialog(_page: Page, dialog: Locator): Promise<void> {
+  await createFromNewProject(dialog);
 }
 const itemRow = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { hasText: title });
@@ -245,7 +240,8 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await page.getByRole("button", { name: "New project" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Project name").fill("Monthly reels");
-  // The default stages as one untitled group (a group without a name), then "Reel" × 3.
+  // Step 2: the default stages as one untitled group (a group without a name), then "Reel" × 3.
+  await newProjectStep(dialog, 2);
   await dialog.getByRole("button", { name: "Add a group" }).click();
   await dialog.getByLabel("Stages of the new group").fill("Script\nEdit");
   await dialog.getByRole("button", { name: "Add group" }).click();
@@ -1157,6 +1153,29 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       tab,
     );
 
+    // Its steps (V5b PP-forms-7): each later step is a layer over the one before, so back returns
+    // one step at a time with what was typed intact, never leaving the tab; from step 1 it asks.
+    await page.getByRole("button", { name: "New project" }).click();
+    await create.getByLabel("Project name").fill("Stepped");
+    const onStep = create.locator('[data-slot="new-project-steps"] [aria-current="step"]');
+    await newProjectStep(create, 3);
+    await page.goBack();
+    await expect(onStep).toHaveText(/^2 /);
+    await expect(page).toHaveURL(tab);
+    await page.goBack();
+    await expect(onStep).toHaveText(/^1 /);
+    await expect(page).toHaveURL(tab);
+    await expect(create.getByLabel("Project name")).toHaveValue("Stepped");
+    await expectDiscardOnBack(
+      page,
+      create,
+      "Discard this project?",
+      "Discard project",
+      create.getByLabel("Project name"),
+      "Stepped",
+      tab,
+    );
+
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
     const menu = page.getByRole("button", { name: "Actions for Dialog reels" });
@@ -1855,14 +1874,19 @@ test("a project template in today's shape starts a New project: its stages and d
   await hydrated(page);
   await page.getByRole("button", { name: "New project" }).click();
   const create = page.getByRole("dialog", { name: "New project" });
-  await create.getByRole("combobox", { name: "Start from" }).click();
-  await page.getByRole("option", { name }).click();
+  // One "Start from a template" button opens the library (V5b PP-forms-7).
+  await create.getByRole("button", { name: "Start from a template" }).click();
+  const library = page.getByRole("dialog", { name: "Start from a template" });
+  await library.getByRole("button", { name: `Preview ${name}` }).click();
+  await page.getByRole("button", { name: "Use this template" }).click();
+  await expect(library).toBeHidden();
+  await create.getByLabel("Project name").fill("From the template");
   // Its stages are the one untitled default group; its items the deliverables, on the defaults.
+  await newProjectStep(create, 2);
   await expect
     .poll(() => valuesOf(create.locator('[data-slot="stage-name"]')))
     .toEqual(["Script", "Edit"]);
   await expect(create.locator('[data-slot="deliverable-title"]')).toHaveText(["Item 1", "Item 2"]);
-  await create.getByLabel("Project name").fill("From the template");
   await createFromDialog(page, create);
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
   await expect(progress(page)).toHaveText("0 of 4 stages · 0 of 2 deliverables done");

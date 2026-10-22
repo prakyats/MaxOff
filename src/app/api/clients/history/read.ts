@@ -61,6 +61,7 @@ export async function readClientHistory(input: unknown): Promise<ClientHistoryDa
     names,
     contacts: Object.fromEntries(contacts.map((contact) => [contact.id, contact.name])),
     showCloseReason: can(viewer.role, "clients.manage"),
+    viewerId: viewer.id,
   };
   const lines = [
     ...clientEntries.flatMap((entry) => {
@@ -73,6 +74,7 @@ export async function readClientHistory(input: unknown): Promise<ClientHistoryDa
         items: {},
         stages: {},
         projects: projectNames,
+        viewerId: viewer.id,
       });
       return line ? [line] : [];
     }),

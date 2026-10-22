@@ -24,7 +24,7 @@ export const ACTIVITY_PAGE = 20;
  */
 export async function readProjectActivity(input: unknown): Promise<ActivityPage> {
   const query = activityPageSchema.parse(input);
-  await assertPermission("projects.manage");
+  const viewer = await assertPermission("projects.manage");
   const entries = await repo.pageProjectActivity({
     projectId: query.projectId,
     kind: query.kind,
@@ -70,6 +70,7 @@ export async function readProjectActivity(input: unknown): Promise<ActivityPage>
     names: Object.fromEntries(people.map((person) => [person.id, person.fullName])),
     items: Object.fromEntries(items.map((item) => [item.id, item.title])),
     stages: Object.fromEntries(stages.map((stage) => [stage.id, stage.name])),
+    viewerId: viewer.id,
   };
   const last = entries.at(-1);
   return {

@@ -1,7 +1,7 @@
 import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
@@ -56,7 +56,21 @@ import { listStagePresets } from "@/modules/settings";
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
 import { PROJECT_ORIGINS } from "./back";
 
-export const metadata: Metadata = { title: "Project" };
+/** The page's project read, shared with its tab title in one request. */
+const readProject = cache(getProject);
+
+/** The tab names the project ("Monthly reels · MaxOff"), from the page's own reads (cached). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; projectId: string }>;
+}): Promise<Metadata> {
+  const { id, projectId } = await params;
+  if (!ID.test(projectId)) return { title: "Project" };
+  const { client } = await loadClientWork(id);
+  const project = await readProject(projectId);
+  return { title: project && project.clientId === client.id ? project.name : "Project" };
+}
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -110,7 +124,7 @@ export default async function ProjectPage({
     await checkThenRead(
       loadClientWork(id),
       Promise.all([
-        getProject(projectId),
+        readProject(projectId),
         listCycles([projectId]),
         listStages(projectId),
         listBlueprints(projectId),

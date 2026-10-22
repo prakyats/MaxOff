@@ -173,7 +173,7 @@ export function StageGroupsEditor({
                         <MoreHorizontalIcon aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-48">
+                    <DropdownMenuContent align="end" className="min-w-48" title={name || "Group"}>
                       <ReorderMenuItems reorder={groupReorder} index={at} />
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -342,7 +342,7 @@ function StageList({
                     <MoreHorizontalIcon aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-48">
+                <DropdownMenuContent align="end" className="min-w-48" title={stage || "Stage"}>
                   <ReorderMenuItems reorder={reorder} index={index} />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

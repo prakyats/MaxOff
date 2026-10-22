@@ -1,6 +1,8 @@
 import { CalendarRangeIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { displayName } from "@/core/lib/display-name";
+
 import { can } from "@/core/permissions";
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
@@ -18,7 +20,15 @@ import { MemberMonthClaims } from "@/modules/expenses/components/member-month-cl
 import { LeavePager } from "../../../leave/leave-nav";
 import { loadHistoryPerson, loadPerson } from "../person";
 
-export const metadata: Metadata = { title: "Month" };
+/** The tab names the person, then this view ("Prishit Shetty · Month · MaxOff"; cached read). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const person = await loadHistoryPerson((await params).id);
+  return { title: `${displayName(person.fullName)} · Month` };
+}
 
 /**
  * One person's month for the Owner (PRODUCT §4.18, WORKFLOWS §2b, 3b.4): the live summary of an

@@ -15,6 +15,7 @@ import {
   OWNER_TODAY_EMPTY,
   parsePeopleGroup,
   RISKS_EMPTY,
+  lateWords,
   riskWords,
   sortRisks,
   spanWords,
@@ -237,7 +238,7 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
     expect(ADMIN_NEEDS_YOU_EMPTY).toBe("Nothing needs you right now.");
   });
 
-  it("words each risk plainly and links it", () => {
+  it("words each risk as a chip plus plain text, and links it (PP-today-5)", () => {
     const context = {
       nameOf: (id: string) => (id === "a" ? "Asha" : "Ravi"),
       today: TODAY,
@@ -256,7 +257,8 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
       ),
     ).toEqual({
       title: "Reel",
-      detail: "Asha · overdue 3 h",
+      detail: "Asha",
+      chip: "3 h late",
       tone: "danger",
       href: "/tasks/o",
       icon: "overdue",
@@ -275,7 +277,8 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
         context,
       ),
     ).toMatchObject({
-      detail: "Asha and 1 more hasn't noted it · 24 h",
+      detail: "Asha and 1 more hasn't noted it",
+      chip: "Not noted · 24 h",
       tone: "attention",
       icon: "not_noted",
     });
@@ -293,6 +296,7 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
         context,
       ).detail,
     ).toBe("Ravi is on a half day tomorrow, the day it's due");
+    expect(lateWords(2 * 86_400_000)).toBe("2 days late");
     expect(
       riskWords(
         {
@@ -310,7 +314,8 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
     expect(
       riskWords({ kind: "unreachable", memberId: "a", name: "Asha", openTasks: 3 }, context),
     ).toMatchObject({
-      title: "Asha can't be reached",
+      title: "Asha",
+      chip: "Can't be reached",
       tone: "attention",
       icon: "unreachable",
       href: "/settings/notifications",

@@ -101,7 +101,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Needs you, attendance, your tasks, risks and the week ahead.",
           blocks: [
             text(
-              "Today answers one question: who is in, and what needs you. The sections come in this order.",
+              "Today answers one question: who is in, and what needs you. Today's date is under the title. The sections come in this order; a section with nothing in it is not shown.",
             ),
             steps(
               {
@@ -115,11 +115,11 @@ export const OWNER_GUIDE: Guide = {
               'Read "My tasks": your own tasks, overdue or due today. Tap one to open it (each row ends in a ›). When there are more than it shows, "See all N of my tasks" opens them all in All tasks.',
               'Read "Today\'s tasks": one line, "N due today · M handed in".',
               'Read "Client work": one red line when client items are overdue.',
-              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached.',
-              'Read "This week": up to seven days, then "See the week".',
+              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task.',
+              'Read "This week": up to seven days, each deadline by name and time with a "Due" chip, holidays, events and who is on leave, then "See the week". On a wide laptop screen it is a column on the right.',
             ),
             note(
-              'If everything below "Needs you" is empty, the screen says "Nothing else needs you today."',
+              'With nothing waiting, "Needs you" is one quiet line: "Nothing needs you right now." If everything below it is empty too, the screen says "Nothing else needs you today."',
             ),
           ],
           link: { href: "/today", label: "Open Today" },
@@ -176,14 +176,16 @@ export const OWNER_GUIDE: Guide = {
           title: "Decide an attendance day",
           summary: "Only you decide attendance. Approve it, or correct it.",
           blocks: [
-            text(`Attendance days sit under "Attendance" on Approvals.`),
+            text(
+              `Attendance days sit under "Attendance" on Approvals. With two or more waiting, "Approve all" is the green button. A single day's Approve is green only when nothing else waits on Approvals; beside other groups it is plain, so there is never more than one green button.`,
+            ),
             steps(
               "Open Approvals.",
               {
                 text: "Tap Approve (highlighted) on a day, or Review to see it first.",
                 shot: "owner/approvals",
               },
-              'The review shows the person\'s week (this day marked), their comp leave and any note. Tap Approve there, or "Correct…" if the day was something else.',
+              'The review shows the person\'s week (this day marked), their comp leave and any note, ready as it opens. Tap Approve there, or "Correct…" if the day was something else.',
             ),
             next(
               "Original records are never overwritten: a correction is kept beside the original.",
@@ -303,7 +305,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "What needs you first, then every open task by deadline.",
           blocks: [
             text(
-              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue, have changes requested, or have not been noted. Below it, "Open tasks" are listed by deadline.',
+              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue, have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right: the reason, then the state.',
             ),
             text(
               'Use "All tasks, with filters" for the full list, and "Suggested tasks" for ideas from your team.',
@@ -392,7 +394,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "Stages can be set when you create the task, and managed later on the task page by those who may.",
             ),
-            note("Ticks lock once the task is done."),
+            note(
+              'Ticks lock once the task is done. On the task page, a task with no stages says "No stages yet." with "Add stage" beside it.',
+            ),
           ],
           keywords: ["stages", "checklist", "reorder", "tick"],
         },
@@ -401,7 +405,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Follow a task from start to finish",
           summary: "Noted, worked on, marked done, checked, approved.",
           blocks: [
-            text("The task page shows one next-step button at a time."),
+            text(
+              "The task page shows one next-step button at a time: at the top beside the History clock on a laptop, in a bar at the bottom on a phone. Its state is a chip, the due time has its own line (red when late), and a box says what is needed now.",
+            ),
             steps(
               'Each assignee taps "Task Noted" once.',
               '"Start work" is optional.',
@@ -558,7 +564,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Approve in one tap, with a 6-second Undo.",
           blocks: [
             text(
-              'Each row has Review and Approve (quiet outlines; the group\'s one green button is "Approve all N"). Colours mean one thing everywhere: green approves or marks done, red ends or cancels something for good, and the plain solid button saves or creates. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": amber from a day, red from three), as on Today.',
+              'Each row has Review and Approve (quiet outlines; the group\'s one green button is "Approve all N", or the row\'s own Approve when it is the only one waiting). Colours mean one thing everywhere: green approves or marks done, red ends or cancels something for good, and the plain solid button saves or creates. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": an amber dot from a day, red from three), as on Today. The state is a chip on the right.',
             ),
             steps(
               "Open Approvals.",
@@ -826,7 +832,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -859,21 +865,23 @@ export const OWNER_GUIDE: Guide = {
           title: "Create a project",
           summary: "Name it, choose how often it repeats, list the deliverables.",
           blocks: [
+            text(
+              "New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create.",
+            ),
             steps(
               'Open the client, tap the Projects tab, then tap "New project".',
               {
-                text: '"Start from" (highlighted), if templates exist: pick a template, then change anything.',
+                text: '"Start from a template" (highlighted), if templates exist: pick one in the library. It shows as a chip; change anything after.',
                 shot: "owner/new-project",
               },
-              'Type the "Project name" (required). Choose "Repeats": One-time, Weekly or Monthly (Monthly is the default).',
+              'Type the "Project name" (required). Choose "Repeats": One-time, Weekly or Monthly (Monthly is the default). Add a "Description" and custom fields if you like, then tap "Next".',
               'For a one-time project, set a "Delivery date" that is not in the past.',
-              'Optionally set "Default stage groups". A deliverable without its own stages starts with these.',
-              'Fill in "Deliverables" (or "Deliverables list" for repeating projects), then "Description" and custom fields.',
-              'Check the preview, then tap "Create project".',
+              'On step 2, fill in "Deliverables" (or "Deliverables list" for repeating projects). Optionally set "Default stage groups": a deliverable without its own stages starts with these. Tap "Next".',
+              'Check the preview on step 3, then tap "Create project".',
             ),
             next("The project opens on its page, ready for work."),
             note(
-              'How often it repeats cannot change later. You cannot add a project to an Inactive client: the button is replaced by "No new projects on an Inactive client."',
+              'Back (the button or the back gesture) returns to the step before. How often it repeats cannot change later. You cannot add a project to an Inactive client: the button is replaced by "No new projects on an Inactive client."',
             ),
           ],
           link: { href: "/clients", label: "Open Clients" },
@@ -888,7 +896,7 @@ export const OWNER_GUIDE: Guide = {
               'The library lists templates with a summary like "Monthly · 6 deliverables · 72 stages".',
             ),
             steps(
-              'In New project, tap "Browse templates". "Start from a template" opens: "Preview one to see what it gives, then Use this template."',
+              'In New project, tap "Start from a template". The library opens: "Preview one to see what it gives, then Use this template."',
               'Type in "Search templates": a template\'s name or one of its deliverables.',
               {
                 text: "Tap Preview (highlighted) on a row to see what a project started from it gets.",
@@ -896,7 +904,9 @@ export const OWNER_GUIDE: Guide = {
               },
               'Tap "Use this template", or "Back to templates" to keep looking.',
             ),
-            next("The template's contents are copied into the new project form."),
+            next(
+              'The template\'s contents are copied into the new project form, and the template shows as a chip on Basics ("Change template" picks another; "Don\'t use a template" drops the chip).',
+            ),
             note(
               "Using a template replaces the repeat, the default stage groups and the deliverables. The description and custom fields fill only if they are empty.",
             ),
@@ -945,15 +955,15 @@ export const OWNER_GUIDE: Guide = {
           summary: "See what Create will make before anything is saved.",
           blocks: [
             text(
-              'On a laptop the preview sits beside the form. It says "What Create makes". The top shows three figures: deliverables, groups and stages.',
+              'On a laptop the preview sits beside the deliverables on step 2. Step 3, "Preview & create", shows it on every screen: "What Create makes". The top shows three figures: deliverables, groups and stages.',
             ),
             steps(
-              'On a phone, tap "Preview" to open it as a step.',
+              'Tap "Next" on step 2 to open it as step 3.',
               {
                 text: 'Read each card: it is tagged "Default stages" or "Own stages" (highlighted). Identical neighbours collapse, so "Reel 1–4" shows as one card with "×4"; tap it to see the names.',
                 shot: "owner/project-preview",
               },
-              'Tap "Back to edit" to return to the form.',
+              'Tap "Back" to return to the deliverables.',
             ),
             next("Nothing is saved until you create."),
             note('Closing after changes asks "Discard this project?".'),
@@ -1500,7 +1510,7 @@ export const OWNER_GUIDE: Guide = {
               "Open Settings, then Templates: add a deliverable template for Reel and one for Post, using those presets.",
               'Add a project template called "Monthly retainer", with Repeats set to Monthly and the deliverables Reel × 4 and Post × 2.',
               {
-                text: 'Open the client, then Projects, then tap "New project". Under "Start from" (highlighted), pick "Monthly retainer". Check the preview, then tap "Create project".',
+                text: 'Open the client, then Projects, then tap "New project". Tap "Start from a template" (highlighted) and use "Monthly retainer". Name it, tap "Next" twice, check the preview, then tap "Create project".',
                 shot: "owner/new-project",
               },
               'To adjust this month, tap "Add deliverable" for a one-off, or "Edit stages" on a deliverable. This changes this month only.',
@@ -1512,7 +1522,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("Each month a new cycle appears, with the deliverables list copied in."),
             note(
-              "A project template's deliverables are built in the template builder. In New project you pick the template through Start from; New project itself has no deliverable-template picker.",
+              "A project template's deliverables are built in the template builder. In New project you pick the template through “Start from a template”; New project itself has no deliverable-template picker.",
             ),
           ],
           link: { href: "/clients", label: "Open Clients" },

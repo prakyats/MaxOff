@@ -73,7 +73,9 @@ export function ApprovalGroupSkeleton({
               {/* How long it has waited (B4 context, V3). */}
               <Skeleton className="h-3 w-20" />
             </div>
-            <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 *:flex-1 md:*:flex-none">
+              {/* The state chip (V5b: the one row anatomy's chips, then the actions). */}
+              <Skeleton className="h-5 w-24 flex-none! self-center rounded-full" />
               <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />
               <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />
             </div>

@@ -85,7 +85,8 @@ export function CustomFieldsForm({
       {[...sections.entries()].map(([section, fields]) => (
         <div key={section || "_"} className="flex flex-col gap-4">
           {section ? (
-            <h3 className="text-muted-foreground text-sm font-medium">{section}</h3>
+            // PP-forms-8: a section reads as the form's own group labels do ("Assign to").
+            <h3 className="text-sm font-medium">{section}</h3>
           ) : null}
           {fields.map((definition) => (
             <CustomFieldControl

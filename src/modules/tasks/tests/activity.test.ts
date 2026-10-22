@@ -35,6 +35,23 @@ function line(overrides: Partial<TaskActivityEntry>) {
 }
 
 describe("a task's history (4.4, ADR-0013)", () => {
+  it('says "You" for the reader\'s own changes, "You for Asha" for a pair (v1.8 pull-in item 5)', () => {
+    const noted = entry({
+      entity: "task_assignees",
+      action: "acknowledged",
+      actorId: "ravi",
+      onBehalfOfId: "asha",
+      meta: { member_id: "asha" },
+    });
+    expect(describeTaskActivity(noted, { ...context, viewerId: "ravi" })?.actor).toBe(
+      "You for Asha",
+    );
+    expect(describeTaskActivity(entry({}), { ...context, viewerId: "owner" })?.actor).toBe("You");
+    expect(describeTaskActivity(entry({}), { ...context, viewerId: "asha" })?.actor).toBe(
+      "Prishit Shetty",
+    );
+  });
+
   it("names the pair when a coordinator acted for a freelancer", () => {
     expect(
       line({

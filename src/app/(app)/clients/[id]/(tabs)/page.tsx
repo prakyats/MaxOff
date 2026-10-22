@@ -41,7 +41,15 @@ import { AddClientFieldButton } from "@/modules/settings/components/add-client-f
 import { assertClientId, loadClient, loadPeople } from "../client";
 import { ProjectList } from "../project-list";
 
-export const metadata: Metadata = { title: "Client" };
+/** The tab names the client ("Shetty · MaxOff"), from the page's own cached read (`loadClient`). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { client } = await loadClient((await params).id);
+  return { title: client.name };
+}
 
 /**
  * A client's Overview (3.4, PRODUCT §4.4). **First glance** (PRODUCT §2; L6, UX review

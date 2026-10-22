@@ -90,7 +90,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Today updates by itself. The order is: your attendance strip, Needs you, Client work, My tasks, My clients, This week and Issues.",
+              text: "Today updates by itself. Today’s date is under the title. The order is: your attendance strip, Needs you, Client work, My tasks, My clients and Issues, then This week (a column on the right on a wide laptop screen). A section with nothing in it is not shown: an empty Needs you is one quiet line, “Nothing needs you right now”, and with no client work due you see “No client work due this week.” under My clients.",
             },
             {
               kind: "steps",
@@ -156,7 +156,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Client work lists deliverables on your clients that are overdue or due this week. Each row offers “Next: ‹stage›”, which ticks that stage with Undo, until every stage is ticked; then it offers Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
+              text: "Client work lists deliverables on your clients that are overdue or due this week. Each row offers “Next: ‹stage›”, which ticks that stage with Undo, until every stage is ticked; then it offers Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted (the amber “Note it” chip), have changes requested, are overdue or are due today. This week shows the next seven days: holidays, events with their place, each of your own deadlines by name and time, and your own leave. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached. Each issue shows the reason as a chip, such as “On leave”, with the plain words under the task.",
             },
             {
               kind: "note",
@@ -179,7 +179,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Your attendance strip has one button. On an approved leave day it reads “I’m working today”, and on a day off “I worked today”.",
+              text: "Your attendance strip has one button. Before you start it says “Start your day”, and Start day shows the time it will record. On an approved leave day the strip says “You’re on leave today” with an outline “I’m working today”, and on a day off “I worked today”.",
             },
             {
               kind: "steps",
@@ -218,7 +218,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Me, then Attendance & leave.",
                 "On the Leave requests tab, tap Request leave.",
                 "Choose the Kind of leave: Leave, Half day or Comp leave.",
-                "Pick the Date, or the First day and Last day.",
+                "If you have comp leave, the line above the dates says how much is left. Pick the Date, or the First day and Last day; MaxOff shows how long it is under them, such as “2 days”.",
                 "Add a reason if you like (it is optional) and send it.",
               ],
             },
@@ -310,7 +310,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged Overdue, Changes requested or Not noted. Open tasks follows, ordered by deadline. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
+              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged Overdue, Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right (the reason, then the state). Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -359,7 +359,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done. Pick the primary owner with the radio button beside a name. The form warns you if someone is busy that day or on leave.",
+              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done: the form says “The primary owner marks it done.” under Assign to. Pick the primary owner with the radio button beside a name. The form warns you if someone is busy that day or on leave.",
             },
             {
               kind: "example",
@@ -408,7 +408,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Approvals shows one group for you: Tasks to check. Each row has Review and Approve.",
+              text: "Approvals shows one group for you: Tasks to check. Each row has Review and Approve; with one task waiting its Approve is the green one, with two or more “Approve all” is. With nothing to check, Approvals offers Open Tasks.",
             },
             {
               kind: "steps",
@@ -438,7 +438,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Assignees tick stages as they go. The ticks lock once the task is marked done.",
+              text: "Assignees tick stages as they go. The ticks lock once the task is marked done. A task with no stages says “No stages yet.” with Add stage beside it.",
             },
             {
               kind: "steps",
@@ -816,7 +816,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "Your changes show on the client page and are added to its History (the clock in the header).",
+              text: "Your changes show on the client page and are added to its History (the clock in the header), where they read “You”.",
             },
             {
               kind: "note",
@@ -854,20 +854,20 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The New project form has Start from, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Default stage groups, the Deliverables, Description and any custom fields.",
+              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create.",
             },
             {
               kind: "steps",
               steps: [
                 "Open the client, then the Projects tab.",
                 "Tap New project.",
-                "Optionally pick a template under Start from.",
+                "Optionally tap Start from a template and pick one; it shows as a chip.",
                 {
-                  text: 'Enter the Project name and choose "Repeats" (highlighted).',
+                  text: 'Enter the Project name and choose "Repeats" (highlighted), then tap Next.',
                   shot: "admin/new-project",
                 },
-                "Add the deliverables and check the preview.",
-                "Tap Create project.",
+                "Add the deliverables, then tap Next to check the preview.",
+                "Tap Create project. Back returns to the step before.",
               ],
             },
             {
@@ -889,13 +889,13 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Browse templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
+              text: "A template fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. The Start from a template button opens the library: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title. The chosen template shows as a chip on Basics.",
             },
             {
               kind: "steps",
               steps: [
                 {
-                  text: 'In New project, tap "Browse templates" (highlighted).',
+                  text: 'In New project, tap "Start from a template" (highlighted).',
                   shot: "admin/templates",
                 },
                 "Type a name or deliverable in the search box.",
@@ -956,18 +956,18 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The preview sits beside the form on a laptop. On a phone, tap Preview. It shows one card per deliverable, tagged Default stages or Own stages, with its stage groups.",
+              text: "The preview sits beside the deliverables on a laptop, and step 3, Preview & create, shows it on every screen. It shows one card per deliverable, tagged Default stages or Own stages, with its stage groups.",
             },
             {
               kind: "steps",
               steps: [
                 "Fill in the deliverables.",
                 {
-                  text: "Open the preview (highlighted). On a phone, tap Preview.",
+                  text: "Open the preview (highlighted): tap Next on the deliverables step.",
                   shot: "admin/project-preview",
                 },
                 "Check the three totals: deliverables, groups, stages.",
-                "Tap Back to edit to fix anything, or Create project.",
+                "Tap Back to fix anything, or Create project.",
               ],
             },
             {

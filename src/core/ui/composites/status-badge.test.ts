@@ -296,12 +296,118 @@ describe("badge contrast (globals.css)", () => {
       expect(tokens["approve"]).not.toBe(tokens["primary"]);
     });
 
+    it(`${theme}: every chip ink also reads as text on the page and the card (risk and due text)`, () => {
+      for (const tone of STATUS_TONES_LIST) {
+        for (const surface of ["background", "card"]) {
+          const ratio = contrast(tokens[tone] as string, tokens[surface] as string);
+          expect(
+            ratio,
+            `${theme} ${tone} on ${surface} = ${ratio.toFixed(2)}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+
+    it(`${theme}: the faint mark (chevrons) is a 3:1 graphic on the card and the page (WCAG 1.4.11)`, () => {
+      for (const surface of ["background", "card"]) {
+        const ratio = contrast(tokens["faint"] as string, tokens[surface] as string);
+        expect(ratio, `${theme} faint on ${surface} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
+          3,
+        );
+      }
+    });
+
     it(`${theme}: the commit is neutral and only the destructive commit is red (ADR-0015)`, () => {
       expect(tokens["primary"]).toBe(tokens["strong"]);
       expect(tokens["primary"]).not.toBe(tokens["danger"]);
       expect(tokens["destructive-solid"]).toBe("#c42126");
     });
   }
+});
+
+/**
+ * SAMPLE FIDELITY (V5b SCOPE §6, owner 22 Oct): the tokens are the approved samples' own values
+ * (`docs/design/v18-major-changes-sample.html`, its `.mx` / `.mx.light` blocks). The only
+ * departures are the AA flags in DESIGN.md §Decisions: the light green ink (the sample's #15803d
+ * reads 4.42:1 on its tint) and the brand red (the sample's #d92d34 / #e5484d fail as chip text
+ * on their tint), so neither is listed here.
+ */
+const SAMPLE = {
+  light: {
+    background: "#f6f5f2",
+    card: "#ffffff",
+    "surface-1": "#ffffff",
+    "surface-2": "#ffffff",
+    "surface-3": "#ffffff",
+    sidebar: "#efeee9",
+    "sidebar-accent": "#ffffff",
+    foreground: "#18181b",
+    "muted-foreground": "#62626a",
+    faint: "#8b8b93",
+    border: "#e3e2dd",
+    "danger-soft": "#fdecec",
+    danger: "#b42318",
+    "attention-soft": "#fdf3e2",
+    attention: "#8f5400",
+    "info-soft": "#e9effd",
+    info: "#2952cc",
+    "success-soft": "#e6f4ea",
+    "neutral-soft": "#efefef",
+    neutral: "#62626a",
+    primary: "#18181b",
+    "primary-foreground": "#ffffff",
+  },
+  dark: {
+    background: "#0b0b0c",
+    card: "#131315",
+    "surface-1": "#131315",
+    "surface-2": "#1a1a1d",
+    "surface-3": "#222226",
+    sidebar: "#0f0f11",
+    "sidebar-accent": "#222226",
+    foreground: "#ededee",
+    "muted-foreground": "#9d9da5",
+    faint: "#6b6b73",
+    border: "#25252a",
+    "danger-soft": "#3a1517",
+    danger: "#ff8a8f",
+    "attention-soft": "#33240e",
+    attention: "#f5b55a",
+    "info-soft": "#18203a",
+    info: "#8fb0ff",
+    "success-soft": "#10291c",
+    success: "#5fd497",
+    "neutral-soft": "#232327",
+    neutral: "#9d9da5",
+    primary: "#ededee",
+    "primary-foreground": "#0b0b0c",
+  },
+} as const;
+
+describe("sample fidelity (V5b SCOPE §6)", () => {
+  for (const [theme, selector] of [
+    ["light", ":root"],
+    ["dark", ".dark"],
+  ] as const) {
+    it(`${theme}: the page, surfaces, sidebar, line, text and chips are the sample's values`, () => {
+      const tokens = readTokens(css, selector);
+      for (const [name, value] of Object.entries(SAMPLE[theme])) {
+        expect(tokens[name], `--${name} in ${selector}`).toBe(value);
+      }
+    });
+  }
+
+  it("the card shadow and the radii are the sample's", () => {
+    expect(css).toContain(
+      "--elevation-1: 0 1px 2px 0 rgb(20 20 20 / 0.06), 0 4px 14px 0 rgb(20 20 20 / 0.06);",
+    );
+    expect(css).toContain(
+      "--elevation-1: 0 1px 0 0 rgb(255 255 255 / 0.03), 0 6px 18px 0 rgb(0 0 0 / 0.35);",
+    );
+    expect(css).toContain("--radius: 0.625rem;");
+    expect(css).toContain("--radius-control: 0.375rem;");
+    expect(css).toContain("--radius-sheet: 0.875rem;");
+  });
 });
 
 describe("attendanceStatus (B13: one colour per attendance status)", () => {

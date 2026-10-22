@@ -581,6 +581,15 @@ describe("the project's history (7A notes for 7B (a))", () => {
     ...patch,
   });
 
+  it('says "You" for the reader\'s own changes (v1.8 pull-in item 5)', () => {
+    expect(
+      describeProjectActivity(entry({ action: "done" }), { ...context, viewerId: "r" })?.actor,
+    ).toBe("You");
+    expect(
+      describeProjectActivity(entry({ action: "done" }), { ...context, viewerId: "x" })?.actor,
+    ).toBe("Ravi");
+  });
+
   it("describes the client-work actions", () => {
     expect(describeProjectActivity(entry({ action: "done" }), context)?.text).toBe(
       "marked Reel 1 done",

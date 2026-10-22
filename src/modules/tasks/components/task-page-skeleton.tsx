@@ -129,7 +129,8 @@ function ChatThreadSkeleton() {
 
 /**
  * Details while the task loads: the desktop's right panel, and a phone's Details view (Kickoff 4
- * decisions 27, 32): the people (a name over its Task Noted line), then the facts.
+ * decisions 27, 32): one card (PP-task-3) with the people (a name over its Task Noted line), then
+ * the facts as label and value pairs.
  */
 export function TaskDetailsSkeleton() {
   const view = parseTaskView(useSearchParams().get("tab"));
@@ -140,38 +141,48 @@ export function TaskDetailsSkeleton() {
       data-view={view}
       className="min-w-0 flex-col gap-6 max-md:hidden max-md:data-[view=details]:flex md:sticky md:top-6 md:flex md:w-64 md:shrink-0 md:self-start lg:w-80"
     >
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex h-5 items-center">
-          <Skeleton className="h-4 w-14" />
-        </div>
-        <div className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
-          {["w-36", "w-28"].map((width) => (
-            <div key={width} className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
-              <div className="flex h-5 min-w-0 items-center justify-between gap-3">
-                <Skeleton className={`h-4 ${width} max-w-full`} />
-                <Skeleton className="h-3 w-14 shrink-0" />
-              </div>
-              <div className="flex h-4 min-w-0 items-center">
-                <Skeleton className="h-3 w-24" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-col gap-3">
-        <div className="flex h-5 items-center">
-          <Skeleton className="h-4 w-28" />
-        </div>
-        {["w-20", "w-44"].map((width) => (
-          <div key={width} className="flex min-w-0 flex-col gap-0.5">
-            <div className="flex h-5 items-center">
-              <Skeleton className="h-3.5 w-14" />
-            </div>
-            <div className="flex h-5 min-w-0 items-center">
-              <Skeleton className={`h-4 ${width} max-w-full`} />
-            </div>
+      {/* PP-task-3: People and About the task on one card, the people as divided rows, the
+          facts as aligned label and value pairs. */}
+      <div className="border-border bg-card shadow-raised flex min-w-0 flex-col gap-5 rounded-lg border p-4">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex h-5 items-center">
+            <Skeleton className="h-4 w-14" />
           </div>
-        ))}
+          <div className="divide-border -mx-1 divide-y">
+            {["w-36", "w-28"].map((width, index) => (
+              <div
+                key={width}
+                data-slot={index === 0 ? "loading-task-person" : undefined}
+                className="flex min-w-0 flex-col gap-0.5 px-1 py-2.5"
+              >
+                <div className="flex h-5 min-w-0 items-center justify-between gap-3">
+                  <Skeleton className={`h-4 ${width} max-w-full`} />
+                  <Skeleton className="h-3 w-14 shrink-0" />
+                </div>
+                <div className="flex h-4 min-w-0 items-center">
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex h-5 items-center">
+            <Skeleton className="h-4 w-28" />
+          </div>
+          <div className="grid min-w-0 grid-cols-[minmax(5rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2">
+            {["w-24", "w-40", "w-32"].map((width) => (
+              <div key={width} className="contents">
+                <div className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-16" />
+                </div>
+                <div className="flex h-5 min-w-0 items-center">
+                  <Skeleton className={`h-4 ${width} max-w-full`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

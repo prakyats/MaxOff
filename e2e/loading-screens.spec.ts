@@ -194,9 +194,9 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/today",
     marker: 'data-slot="loading-today"',
     hold: "/rest/v1/rpc/emails_held_today",
-    // Since the Today refresh (owner 2026-10-09) "Needs you" comes first and always stands, then
-    // the card: the heading, then the first compact approval row or, with nothing waiting, the
-    // "Nothing needs you." line, which starts where the first row does. The card follows however
+    // Since the Today refresh (owner 2026-10-09) "Needs you" comes first, then the card: the
+    // heading, then the first compact approval row (every run has the Owner's approvals; with
+    // nothing waiting, V5b's one quiet line takes the section's place). The card follows however
     // many rows wait (up to five, from every spec's Owner approvals), so its place is traced by
     // the static render at two rows (PROGRESS "Today refresh"), not here.
     trace: {
@@ -223,9 +223,12 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
         held: '[data-slot="attendance-strip-skeleton"]',
         settled: '[data-slot="attendance-strip"]',
       },
+      // With nothing waiting, Needs you is one quiet line with no heading (V5b, FINAL 1), where
+      // the heading would start.
       "needs you heading": {
         held: '[data-slot="loading-today"] > section > :first-child',
-        settled: '[data-slot="today-needs-you"] > :first-child',
+        settled:
+          '[data-slot="today-needs-you"] > :first-child, [data-slot="today-needs-you-empty"]',
       },
     },
   },
@@ -439,7 +442,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     trace: {
       ...TASK_VIEWS,
       "first person": {
-        held: '[data-slot="loading-task-details"] > :first-child > :nth-child(2) > :first-child',
+        // PP-task-3: the people sit inside Details' one card.
+        held: '[data-slot="loading-task-person"]',
         settled: '[data-slot="task-person"]',
       },
     },
@@ -467,13 +471,15 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
-  // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you" (always there, whatever
-  // it holds), Staff's first group (their own task, not noted).
+  // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you", Staff's first group
+  // (their own task, not noted). An empty "Needs you" is one quiet line since PP-tasks-1, so the
+  // Owner's and the Admin's runs give it something to decide: a Crew suggestion.
   {
     role: "owner",
     path: "/tasks",
     marker: 'aria-label="Loading tasks"',
     hold: "/rest/v1/tasks",
+    fixture: "suggestion",
     trace: TASKS_TEAM,
   },
   {
@@ -481,6 +487,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/tasks",
     marker: 'aria-label="Loading tasks"',
     hold: "/rest/v1/tasks",
+    fixture: "suggestion",
     trace: TASKS_TEAM,
   },
   {

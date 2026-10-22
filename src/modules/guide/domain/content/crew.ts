@@ -79,12 +79,12 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: 'Open My Day. The line at the top shows where your day stands, such as "Not started" (highlighted).',
+                  text: 'Open My Day. Today\'s date is under the title, and the line at the top shows where your day stands, such as "Start your day" (highlighted).',
                   shot: "staff/my-day",
                 },
                 "Tap the words in that line to open your attendance.",
                 'Read the groups below it: "Not noted", "Changes requested", "Overdue" and "Due today".',
-                '"N more in the next 7 days" opens Tasks. "Events" lists your own events for today and tomorrow.',
+                '"This week" names each of your deadlines with its time, your events with their place, holidays and your own leave. Tap a row to open it; "Calendar" opens the calendar.',
               ],
             },
             {
@@ -93,7 +93,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'One quiet line shows the next holiday or your own approved leave. "Suggest a task" is at the bottom.',
+              text: 'On a wide laptop screen "This week" is a column on the right; otherwise it sits below. "Suggest a task" is a quiet link at the bottom.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -109,7 +109,7 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 "Open My Day.",
                 {
-                  text: 'Tap "Start day" (highlighted) in the line at the top.',
+                  text: 'Tap "Start day" (highlighted) in the line at the top. It shows the time it will record, such as "Start day · 9:41 am".',
                   shot: "staff/start-day",
                 },
                 'Wait for "Your day has started".',
@@ -267,7 +267,8 @@ export const CREW_GUIDE: Guide = {
                   text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
                   shot: "staff/request-leave",
                 },
-                'Pick the "First day" and "Last day". A half day has a single "Date".',
+                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day". A half day has a single "Date".',
+                'Under the dates MaxOff shows how long it is, such as "2 days".',
                 "Add a reason if you like. It is optional.",
                 'Tap "Request leave".',
               ],
@@ -412,11 +413,11 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: 'Open Tasks. "My tasks" starts with "Not noted" (highlighted), then "Changes requested", "Due today", "Upcoming" and "Overdue".',
+                  text: 'Open Tasks. "My tasks" starts with "Not noted" (highlighted), then "Changes requested", "Due today", "Upcoming" and "Overdue". A group with nothing in it is not shown.',
                   shot: "staff/my-tasks",
                 },
                 'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
-                "Tap a task to open it.",
+                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right such as "Overdue" and the task\'s state. Tap a task to open it.',
               ],
             },
             {
@@ -439,14 +440,14 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
-                "Read the sentence under it. It says what is needed from you.",
-                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat" and "Details" (who is on it and about the task). The clock in the header opens the task\'s History.',
+                'Open a task. The top shows its state as a chip (beside the title on a laptop) and its priority, then the due time on its own line, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
+                "Read the box under it. It says what is needed from you.",
+                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat" and "Details" (who is on it and about the task). The clock in the header opens the task\'s History, where your own changes read "You".',
               ],
             },
             {
               kind: "note",
-              text: "There is one next-step button at a time. On a phone it sits in a bar at the bottom.",
+              text: 'There is one next-step button at a time, such as "Mark done". On a laptop it sits at the top, beside the History clock; on a phone it sits in a bar at the bottom.',
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -770,7 +771,7 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 'Open the "Expenses" tab and tap "Add expense".',
-                'Enter "Amount (₹)", "Category" and "Date".',
+                'Enter "Amount (₹)" (the ₹ is already in the field: type the number), "Category" and "Date".',
                 'Write "What was it for?".',
                 {
                   text: "Add a receipt photo (highlighted), if one is needed.",

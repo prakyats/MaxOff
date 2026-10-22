@@ -306,20 +306,32 @@ function ClaimForm({
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
       ) : null}
       <div className="flex flex-col gap-4 sm:flex-row">
+        {/* PP-forms-4: "₹" is a fixed prefix inside the field, the value starts empty, and the
+            placeholder is plainly an example. The label keeps the currency for screen readers. */}
         <FormField label="Amount (₹)" error={fieldErrors.amount} className="flex-1">
           {(control) => (
-            <Input
-              {...control}
-              name="amount"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="250"
-              value={amountText}
-              onChange={(event) => {
-                setAmountText(event.target.value);
-                clearError("amount");
-              }}
-            />
+            <div className="relative">
+              <span
+                aria-hidden
+                data-slot="amount-prefix"
+                className="text-muted-foreground pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-base md:text-sm"
+              >
+                ₹
+              </span>
+              <Input
+                {...control}
+                name="amount"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="e.g. 250"
+                className="pl-7"
+                value={amountText}
+                onChange={(event) => {
+                  setAmountText(event.target.value);
+                  clearError("amount");
+                }}
+              />
+            </div>
           )}
         </FormField>
         <FormField label="Category" error={fieldErrors.categoryId} className="flex-1">
@@ -373,7 +385,7 @@ function ClaimForm({
             name="note"
             rows={2}
             maxLength={CLAIM_NOTE_MAX_LENGTH}
-            placeholder="Auto to the shoot at Indiranagar"
+            placeholder="e.g. Auto to the shoot at Indiranagar"
             value={note}
             onChange={(event) => {
               setNote(event.target.value);

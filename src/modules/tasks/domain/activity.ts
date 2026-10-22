@@ -1,6 +1,6 @@
 import { formatDateTime, formatIST } from "@/core/time";
 
-import { joinNames, pairName } from "./task";
+import { actorPair, joinNames, pairName } from "./task";
 import { PRIORITY_LABELS, type Priority } from "./types";
 
 /** Where Remind's message goes (B6): to the people's Alerts and phones, never into Chat. */
@@ -38,6 +38,8 @@ export type TaskActivityContext = {
    * when it is still ticked from that moment; otherwise the line says "a stage".
    */
   tickedStages?: Readonly<Record<number, string>>;
+  /** The reader: their own changes say "You" (v1.8 pull-in item 5), "You for Asha" for a pair. */
+  viewerId?: string | null;
 };
 
 export type TaskHistoryLine = {
@@ -307,6 +309,12 @@ function describe(
  * always there; "Someone" only covers a row the read raced.
  */
 function actorOf(entry: TaskActivityEntry, context: TaskActivityContext): string {
+  if (entry.actorId && entry.actorId === context.viewerId) {
+    const forName = entry.onBehalfOfId
+      ? (context.names[entry.onBehalfOfId] ?? "a freelancer")
+      : null;
+    return actorPair("You", forName);
+  }
   return pairName(context.names, entry.actorId, entry.onBehalfOfId);
 }
 

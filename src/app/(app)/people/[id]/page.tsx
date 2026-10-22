@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { displayName } from "@/core/lib/display-name";
+
 import { checkThenRead } from "@/core/lib/start-early";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
@@ -23,7 +25,15 @@ import { MemberProfile } from "@/modules/team/components/member-profile";
 
 import { loadPerson } from "./person";
 
-export const metadata: Metadata = { title: "Person" };
+/** The tab names the person ("Prishit Shetty · MaxOff"), from the page's cached read (`loadPerson`). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { person } = await loadPerson((await params).id);
+  return { title: displayName(person.fullName) };
+}
 
 /**
  * A person's Profile (kickoff 3, task 3.4): the first view of their page for everyone with
