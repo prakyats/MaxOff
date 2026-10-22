@@ -27,7 +27,7 @@ import {
   VISIBLE_TO_HOUR,
 } from "../domain/timeline";
 import type { Hovered } from "./block-details";
-import { DoneTick } from "./calendar-chip";
+import { DoneTick, TypeDot, typeTint } from "./calendar-chip";
 
 /**
  * The hour timeline (6.4b; Kickoff 6 decision 25 E): one column (the phone's day detail, the
@@ -311,7 +311,11 @@ export function Timeline({
                         <>
                           {/* One line each, ellipsised (SCOPE §6): the task, opened, shows it in full. */}
                           <span className="block truncate font-medium">
-                            {event.completed ? <DoneTick className="mr-0.5" /> : null}
+                            {event.completed ? (
+                              <DoneTick className="mr-0.5" />
+                            ) : (
+                              <TypeDot color={event.color} className="mr-1" />
+                            )}
                             {event.title}
                           </span>
                           {client ? (
@@ -330,10 +334,10 @@ export function Timeline({
                           </span>
                         </>,
                         cn(
-                          "focus-visible:ring-ring block h-full min-h-11 overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4 outline-none focus-visible:ring-2 md:min-h-6",
+                          "focus-visible:ring-ring block h-full min-h-11 overflow-hidden rounded-md px-1.5 py-0.5 text-xs leading-4 outline-none focus-visible:ring-2 md:min-h-6",
                           event.completed && "opacity-60",
                         ),
-                        { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
+                        typeTint(event.color),
                       )}
                     </div>
                   );

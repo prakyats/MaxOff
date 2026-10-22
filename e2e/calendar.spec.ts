@@ -553,8 +553,11 @@ test.describe("the calendar, as the Owner", () => {
         .locator('[data-slot="calendar-strip"][data-kind="event"]')
         .first();
       await expect(strip).toBeVisible();
-      const edge = await strip.evaluate((element) => getComputedStyle(element).borderLeftColor);
-      expect(edge).not.toMatch(/rgb\((19[0-9]|2\d\d), (\d|[1-5]\d), (\d|[1-5]\d)\)/);
+      // A filled chip whose leading dot is the type's colour (the approved sample, no side stripe).
+      const dot = await strip
+        .locator('[data-slot="calendar-type-dot"]')
+        .evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(dot).not.toMatch(/rgb\((19[0-9]|2\d\d), (\d|[1-5]\d), (\d|[1-5]\d)\)/);
     }
 
     await page.goto(`/calendar?view=day&date=${todayIST()}`);

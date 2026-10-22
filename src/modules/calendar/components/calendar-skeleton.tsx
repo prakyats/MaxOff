@@ -89,7 +89,8 @@ export function CalendarSkeleton({ weeks, switcher }: { weeks: number; switcher:
           <span className="flex size-11 shrink-0 items-center justify-center">
             <Skeleton className="size-4 rounded-sm" />
           </span>
-          <span className="flex size-11 shrink-0 items-center justify-center">
+          {/* Today, dimmed: the calendar opens on today's month (the owner, 22 Oct). */}
+          <span className="flex size-11 shrink-0 items-center justify-center opacity-40">
             <Skeleton className="size-6 rounded-sm" />
           </span>
           <span className="flex min-h-11 w-24 shrink-0 items-center">
@@ -134,7 +135,7 @@ export function CalendarSkeleton({ weeks, switcher }: { weeks: number; switcher:
                 <Skeleton className="size-4 rounded-sm" />
               </span>
             </div>
-            <span className="border-control-border text-muted-foreground flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium">
+            <span className="border-control-border text-muted-foreground flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium opacity-40">
               Today
             </span>
           </div>

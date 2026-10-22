@@ -21,6 +21,7 @@ import {
   ItemIcon,
   LEAVE_TONE,
   LeaveIcon,
+  TypeDot,
   typeTint,
 } from "./calendar-chip";
 
@@ -91,21 +92,22 @@ function StripLine({
     );
   }
   if (strip.kind === "due") {
-    // PP-calendar-5: named, amber or red overdue with its icon, the type's colour on the edge.
+    // PP-calendar-5 and the approved sample: named, a filled soft chip in amber (red and its alert
+    // icon when overdue), the type's colour as the leading dot.
     return (
       <span
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
         className={cn(
-          "block rounded-sm border-l-2 px-1 font-medium",
+          "block rounded-sm px-1 font-medium",
           LINE[density],
           fit,
           DUE_TONE[strip.tone],
         )}
-        style={strip.color ? { borderLeftColor: strip.color } : undefined}
       >
-        <DueIcon tone={strip.tone} className="mr-0.5 size-2.5" />
+        {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
+        {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
         {strip.label}
       </span>
     );
@@ -124,15 +126,21 @@ function StripLine({
         "block rounded-sm px-1",
         LINE[density],
         fit,
+        // A task (and the holiday) is a filled soft chip with its dot (the approved sample, no
+        // side stripe); someone busy is grey and dotted.
         color
-          ? "text-foreground border-l-2"
+          ? "text-foreground"
           : "border-muted-foreground/70 text-muted-foreground border border-dotted",
         // PP-calendar-7: done is dimmed with a ✓, never struck through.
         done && "opacity-60",
       )}
       style={color ? typeTint(color) : undefined}
     >
-      {done ? <DoneTick className="mr-0.5 size-2.5" /> : null}
+      {done ? (
+        <DoneTick className="mr-0.5 size-2.5" />
+      ) : color ? (
+        <TypeDot color={color} className="mr-1" />
+      ) : null}
       {text}
     </span>
   );

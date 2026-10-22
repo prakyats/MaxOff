@@ -6,9 +6,11 @@ import { cn } from "@/core/lib/utils";
 /**
  * The calendar's chips (v1.8 V5b, PP-calendar-2, 3, 5, 7, 8): one look for the month's boxes and
  * the day's dialog, so a thing reads the same wherever it is.
- * - An event: its type's colour as a tint and a left edge, the title first, then its time.
+ * - An event: a small leading dot in its type's colour and the same colour as a soft tint, the
+ *   title first, then its time (V5b major change 5: no left-edge stripe).
  * - What is due: the amber `attention` tone (red `danger` when overdue, with its alert icon; a
- *   clock otherwise), its type's colour on the edge (a deliverable has none: the tone's).
+ *   clock otherwise), its type's colour as the leading dot (a deliverable has none: the icon is
+ *   the tone's).
  * - Leave: a soft neutral bar with faint stripes (`leave-stripes`), the palm icon, "Asha · On leave";
  *   never a task type's colour (PP-calendar-10).
  * - A client deliverable (the approved calendar sample, SCOPE §6): outlined, the box icon, the
@@ -17,20 +19,29 @@ import { cn } from "@/core/lib/utils";
  * Tokens only (DESIGN.md §4): a type's colour is data, mixed here like the holiday strip's.
  */
 
-/** An event's or a due chip's edge and tint in its type's colour. */
+/** An event's soft tint in its type's colour (the dot, `TypeDot`, carries the colour itself). */
 export function typeTint(color: string): CSSProperties {
-  return {
-    backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
-    borderLeftColor: color,
-  };
+  return { backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` };
+}
+
+/** The small leading dot in a type's colour (V5b major change 5: the dot plus the tint). */
+export function TypeDot({ color, className }: { color: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      data-slot="calendar-type-dot"
+      className={cn("inline-block size-1.5 shrink-0 rounded-full align-[1px]", className)}
+      style={{ backgroundColor: color }}
+    />
+  );
 }
 
 export type DueTone = "due" | "overdue";
 
 /** A due chip's tone: amber, or red when overdue (the soft fill and the tone's text). */
 export const DUE_TONE: Record<DueTone, string> = {
-  due: "bg-attention-soft text-attention border-l-attention",
-  overdue: "bg-danger-soft text-danger border-l-danger",
+  due: "bg-attention-soft text-attention",
+  overdue: "bg-danger-soft text-danger",
 };
 
 /** The leave chip's and bar's tone: neutral and striped, apart from the task types' colours. */

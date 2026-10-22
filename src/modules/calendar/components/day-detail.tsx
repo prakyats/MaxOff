@@ -30,7 +30,7 @@ import { agendaEvents } from "../domain/laptop";
 import { clientWorkRows } from "../domain/show";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
-import { DoneTick, LEAVE_TONE } from "./calendar-chip";
+import { DoneTick, LEAVE_TONE, TypeDot, typeTint } from "./calendar-chip";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
@@ -111,14 +111,8 @@ export function AllDayChips({
   return (
     <>
       {day.holiday ? (
-        <Chip
-          slot="calendar-holiday"
-          className="border-l-2"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${HOLIDAY_COLOR} 15%, transparent)`,
-            borderLeftColor: HOLIDAY_COLOR,
-          }}
-        >
+        <Chip slot="calendar-holiday" style={typeTint(HOLIDAY_COLOR)}>
+          <TypeDot color={HOLIDAY_COLOR} />
           <span className="min-w-0 truncate">{day.holiday}</span>
         </Chip>
       ) : null}
@@ -148,17 +142,21 @@ export function AllDayChips({
         eventLink(
           event,
           <>
-            {event.completed ? <DoneTick className="mr-1" /> : null}
+            {event.completed ? (
+              <DoneTick className="mr-1" />
+            ) : (
+              <TypeDot color={event.color} className="mr-1" />
+            )}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
               <span className="text-muted-foreground"> · {event.location}</span>
             ) : null}
           </>,
           cn(
-            "block max-w-full truncate rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4",
+            "block max-w-full truncate rounded-md px-1.5 py-0.5 text-xs leading-4",
             event.completed && "opacity-60",
           ),
-          { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
+          typeTint(event.color),
         ),
       )}
       {dueAsChip && dueCount(day) > 0 ? (
