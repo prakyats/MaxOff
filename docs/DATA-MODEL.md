@@ -571,6 +571,33 @@ holidays         + RLS policy holidays_delete_before_date (AS RESTRICTIVE, FOR D
 - `holiday_delete(holiday_id uuid) returns void` — the Owner only (`app.is_owner()`; `settings.manage` is the Owner's). `NOT_FOUND` when it is not the organisation's; **`INVALID_STATE` when its date is today or earlier** ("A holiday on or before today stays: it already shaped attendance and leave."). One `activity_log` row first (`holidays`, `deleted`, `meta {name, date}`), then the row is deleted (`audit_row_change` keeps it too).
 - All three: `security definer`, `set search_path = ''`, execute revoked from `public` and `anon`, granted to `authenticated`.
 
+#### The Owner-only Delete of what was never used (v1.8 V5a item 6c; owner 2026-10-22)
+> Migration `v5_owner_delete_unused` (2026-10-22; pgTAP 88). **Expand-only, works on the team's existing data:** no column, table or policy changes; two public functions and three internal helpers. **No existing row is rewritten**; a row is removed only when the Owner deletes it and nothing has ever pointed at it.
+
+**The owner's rule (22 Oct): any reference counts as used.** The Owner deletes only a row that nothing has ever pointed at: no live, archived, cancelled, closed, paid or deleted row, no history row (`activity_log`), no notification and no old custom-field value. Everything else stays Archive-only, so history never loses a name. **Kinds:** task types, job titles, expense categories (`list_items` by `list_key`), custom field definitions, **draft** clients (`state = 'draft'`) and client contacts. Never people, attendance, leave, expenses, tasks, projects, history or money.
+
+**The choice: a real row delete, not a soft state** (unlike templates, which stay linked). The rule guarantees nothing points at the row, so no foreign key, picker or screen can meet a missing row, and no list needs a new filter. The name is never lost: the row's own creation history row keeps it (its `diff.new`), and the delete writes a `deleted` history row with the name (`meta.name`) before the row goes; `audit_row_change` also records the delete (`diff.old`).
+
+**What "pointed at" means, checked inside the function, in its transaction, with the row locked (`for update`, so a concurrent foreign-key insert waits for the decision):**
+- **Every foreign key** that references the row's table (read from `pg_constraint` at run time, so a table added later is covered too), whatever the referencing row's state. For a client its own one-to-one parts (`client_private`, `client_brand`) are not references; they go with it, but only when empty (below).
+- **History:** any `activity_log` row whose `entity_id` is the row or whose `diff` or `meta` names its id, **except the row's own creation rows** (action `insert` on its own table; for a client also the `insert` rows of its `client_private` and `client_brand`, written by trigger with every client). Every row has a creation row written by `audit_row_change`, so counting it would leave nothing deletable (the brief's fallback for contacts, applied to every kind). Any later history (an edit, a rename, a reorder, an archive or restore, a primary change) counts.
+- **Notifications** (`entity_id`, `payload` or `link` naming the id) and **client-work alerts** (`entity_id`).
+- **A custom field definition** (no foreign key points at it; values are stored under its `key`): any value or template default under its key on its entity's rows (`clients`, `client_contacts`, `tasks` and `task_templates.field_defaults`, `projects` and `project_templates.field_defaults`, `project_items`), and any history row of those tables whose `diff` old or new `custom_fields` / `field_defaults` holds the key. The key is matched across the entity, not only the field's own client or task type: refusing too often is safe, deleting too often is not.
+- **A draft client:** also any non-empty note: `clients.notes`, `clients.requirements`, `client_private.owner_notes`, or anything in `client_brand` (logo, colours, fonts, tone of voice, brand notes). Other details on the row itself (phone, email, address…) are the client's own, not references.
+- **A contact:** also the **primary** contact while another live contact of the client exists (deleting it would leave the client with no primary; archiving hands it over).
+- **A task type:** also the organisation's **last active** type (`INVALID_STATE` "Keep at least one task type", as archiving; the same advisory lock).
+
+```
+(no schema change)
+app.unused_delete_target(kind, target_id, org, lock) -> text     -- the row's name, locked when asked
+app.unused_reference_found(kind, target_id, org)     -> boolean  -- the check above
+app.unused_history_found(target_id, own text[])      -> boolean  -- history, notifications, alerts
+-- internal helpers: service_role only
+```
+- `unused_usage(kind text, target_id uuid) returns jsonb` — **the Owner only** (`app.owner_delete_caller()`: signed out `UNAUTHENTICATED`, anyone else `FORBIDDEN`). `kind` is `task_type`, `job_title`, `expense_category`, `field`, `client` or `contact` (`VALIDATION` otherwise); the row is the caller's organisation's and of that kind (a list item of that `list_key`; a client in `draft`), else `NOT_FOUND`. Returns `{used: boolean}` only: no count and nothing about what uses it, so an expense category never tells anything about claims. Reads only.
+- `unused_delete(kind text, target_id uuid) returns void` — the Owner only, the same kinds and refusals. In one transaction: locks the row; runs the check (used → `INVALID_STATE` "In use — archive it instead.", for a client "In use — it stays."); writes **one `activity_log` row first** (`entity` = the row's table, `entity_id` = the row, `action` = `deleted`, `meta {name, kind}`, plus `client_id` for a contact); then deletes the row (a client: its `client_brand` and `client_private` rows first).
+- All of them: `security definer`, `set search_path = ''`; the two public ones revoked from `public` and `anon`, granted to `authenticated`.
+
 ## 3. Attendance and leave
 ```
 attendance_days      id, member_id, work_date date (IST), is_day_off bool,

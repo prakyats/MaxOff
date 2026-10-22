@@ -5371,6 +5371,11 @@ export type Database = {
         Args: { kind: string; template_id: string };
         Returns: Json;
       };
+      unused_delete: {
+        Args: { kind: string; target_id: string };
+        Returns: undefined;
+      };
+      unused_usage: { Args: { kind: string; target_id: string }; Returns: Json };
     };
     Enums: {
       admin_step: "required" | "none" | "skipped";
