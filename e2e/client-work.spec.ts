@@ -1153,6 +1153,29 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       tab,
     );
 
+    // Its steps (V5b PP-forms-7): each later step is a layer over the one before, so back returns
+    // one step at a time with what was typed intact, never leaving the tab; from step 1 it asks.
+    await page.getByRole("button", { name: "New project" }).click();
+    await create.getByLabel("Project name").fill("Stepped");
+    const onStep = create.locator('[data-slot="new-project-steps"] [aria-current="step"]');
+    await newProjectStep(create, 3);
+    await page.goBack();
+    await expect(onStep).toHaveText(/^2 /);
+    await expect(page).toHaveURL(tab);
+    await page.goBack();
+    await expect(onStep).toHaveText(/^1 /);
+    await expect(page).toHaveURL(tab);
+    await expect(create.getByLabel("Project name")).toHaveValue("Stepped");
+    await expectDiscardOnBack(
+      page,
+      create,
+      "Discard this project?",
+      "Discard project",
+      create.getByLabel("Project name"),
+      "Stepped",
+      tab,
+    );
+
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
     const menu = page.getByRole("button", { name: "Actions for Dialog reels" });

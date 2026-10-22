@@ -92,7 +92,11 @@ export function ReorderNameList({
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuContent
+              align="end"
+              className="min-w-48"
+              title={name.trim() || itemLabel(index)}
+            >
               <ReorderMenuItems reorder={reorder} index={index} />
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => onChange(names.filter((_, at) => at !== index))}>
