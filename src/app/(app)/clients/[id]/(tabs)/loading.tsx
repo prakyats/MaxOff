@@ -29,7 +29,7 @@ export default async function Loading() {
           <div className="flex min-h-11 items-center">
             <Skeleton className="h-4 w-28" />
           </div>
-          <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+          <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
             {[0, 1].map((row) => (
               <li key={row} className="flex min-h-16 items-center gap-3 px-4 py-3">
                 <span className="flex flex-1 flex-col gap-1.5">
@@ -64,7 +64,7 @@ export default async function Loading() {
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-9 w-32 rounded-lg" />
         </div>
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {[0, 1, 2].map((row) => (
             <li key={row} className="flex min-h-14 items-center gap-3 px-4 py-2">
               <span className="flex flex-1 flex-col gap-1.5">

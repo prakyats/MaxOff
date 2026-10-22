@@ -17,7 +17,13 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
-import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListHeading,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
@@ -85,7 +91,13 @@ export function TaskTypesManager({
   const [archiving, setArchiving] = useState<TaskTypeSetting | null>(null);
   const [deleting, setDeleting] = useState<TaskTypeSetting | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const { active } = splitTaskTypes(types);
+  const { active, archived } = splitTaskTypes(types);
+
+  async function restore(type: TaskTypeSetting): Promise<void> {
+    toastResult(await setTaskTypeArchived({ taskTypeId: type.id, archived: false }), {
+      success: `${type.name} restored`,
+    });
+  }
 
   async function run(id: string, call: () => Promise<Result<null>>, success?: string) {
     setBusyId(id);
@@ -114,7 +126,7 @@ export function TaskTypesManager({
         ) : (
           <ul
             data-slot="task-types"
-            className="border-border divide-border divide-y rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
             {active.map((type, index) => (
               <li
@@ -155,6 +167,18 @@ export function TaskTypesManager({
             ))}
           </ul>
         )}
+        <ArchivedSection count={archived.length}>
+          {archived.map((type) => (
+            <ArchivedRow
+              key={type.id}
+              name={type.name}
+              meta={taskTypeLine(type)}
+              kind="Task type"
+              onRestore={() => void restore(type)}
+              onDelete={canDelete ? () => setDeleting(type) : undefined}
+            />
+          ))}
+        </ArchivedSection>
       </section>
 
       {adding ? (
@@ -394,7 +418,13 @@ function TaskTypeDialog({
           />
           <ActionStatus action={action} />
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={pending}
+              data-dismiss=""
+            >
               Cancel
             </Button>
             <Button

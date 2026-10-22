@@ -8,7 +8,13 @@ import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListHeading,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
@@ -32,7 +38,7 @@ const PresetDialog = dynamic(
  * New project offers, shared company-wide. Everyone with `lists.manage` adds one; an Admin edits
  * and archives the ones they made, the Owner any (the seeded one belongs to nobody, so only the
  * Owner). A preset is copied into a project when chosen: changing it never touches a project.
- * Archive (D6; named Archive again, owner 2026-10-21) has Undo in the toast; no Archived list. "Add preset" sits on the list's heading (C4); each row's
+ * Archive (D6; named Archive again, owner 2026-10-21) has Undo in the toast, and the collapsed "Archived (n)" at the list's foot restores it later (V5b-0 item 9). "Add preset" sits on the list's heading (C4); each row's
  * Edit and Archive are `ListRowActions` (icons from `md` up, one ⋯ sheet on a phone), each opening
  * its own layer (§14.2 a).
  */
@@ -55,6 +61,13 @@ export function StagePresetManager({
   const [deleting, setDeleting] = useState<StagePreset | null>(null);
   const all = presets.filter((preset) => !preset.archived);
   const active = all.filter((preset) => templateMatches(query, [preset.name, ...preset.stages]));
+  // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
+  const archived = presets.filter(
+    (preset) =>
+      preset.archived &&
+      presetActions(preset, viewer).edit &&
+      templateMatches(query, [preset.name, ...preset.stages]),
+  );
 
   const author = (preset: StagePreset) =>
     preset.createdBy === null
@@ -64,7 +77,9 @@ export function StagePresetManager({
         : `by ${names[preset.createdBy] ?? "someone"}`;
 
   async function restore(preset: StagePreset) {
-    toastResult(await setStagePresetArchived({ presetId: preset.id, archived: false }));
+    toastResult(await setStagePresetArchived({ presetId: preset.id, archived: false }), {
+      success: `${preset.name} restored`,
+    });
   }
 
   return (
@@ -92,7 +107,7 @@ export function StagePresetManager({
         ) : (
           <ul
             data-slot="stage-presets"
-            className="border-border divide-border divide-y rounded-lg border"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
             {active.map((preset) => {
               const allowed = presetActions(preset, viewer);
@@ -123,6 +138,18 @@ export function StagePresetManager({
             })}
           </ul>
         )}
+        <ArchivedSection count={archived.length}>
+          {archived.map((preset) => (
+            <ArchivedRow
+              key={preset.id}
+              name={preset.name}
+              meta={`${stagesLine(preset.stages)} · ${author(preset)}`}
+              kind="Stage preset"
+              onRestore={() => void restore(preset)}
+              onDelete={viewer.role === "owner" ? () => setDeleting(preset) : undefined}
+            />
+          ))}
+        </ArchivedSection>
       </section>
 
       {adding ? <PresetDialog key="add" onClose={() => setAdding(false)} /> : null}

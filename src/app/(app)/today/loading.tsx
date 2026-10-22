@@ -56,7 +56,7 @@ export default async function Loading() {
           // client · date line and the stages in miniature, 6b.11) with their Mark done.
           <section className="flex min-w-0 flex-col gap-2" data-slot="loading-today-client-work">
             <DashSectionHeadingSkeleton width="w-24" />
-            <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
               {[0, 1].map((row) => (
                 <li key={row} className="flex items-center gap-3 px-4 py-2">
                   <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1.5">

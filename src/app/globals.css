@@ -126,9 +126,10 @@
   --text-2xl--line-height: calc(2 / 1.5);
 }
 
-/* Pixora Clips brand theme (ARCHITECTURE §3.3). Light: bone surfaces, graphite text. */
+/* Pixora Clips brand theme (DESIGN.md §3, §4). Light: a warm cream page, white cards, graphite text;
+ * the sidebar one tone darker than the page (V5b major change 4). */
 :root {
-  --background: #fafaf9;
+  --background: #f6f5f2;
   --foreground: #18181b;
   --card: #ffffff;
   --card-foreground: #18181b;
@@ -150,12 +151,12 @@
   /* The Forest green approve commit (owner 2026-10-21): Mark done when ready; one solid a layer. */
   --approve: #15803d;
   --approve-foreground: #ffffff;
-  --control-border: #8a8a91;
-  --secondary: #f2f1ef;
+  --control-border: #85858c;
+  --secondary: #eeede8;
   --secondary-foreground: #18181b;
-  --muted: #f2f1ef;
-  --muted-foreground: #71717a;
-  --accent: #f2f1ef;
+  --muted: #eeede8;
+  --muted-foreground: #66666e;
+  --accent: #eeede8;
   --accent-foreground: #18181b;
   --brand-foreground: #ffffff;
   /* The logo tile is a fixed brand asset: same red in both themes, never overridden in .dark. */
@@ -163,8 +164,8 @@
   --logo-foreground: #ffffff;
   --destructive: #c42126;
   --destructive-foreground: #ffffff;
-  --border: #e7e5e4;
-  --input: #e7e5e4;
+  --border: #e3e2dd;
+  --input: #e3e2dd;
   --ring: #18181b;
   --chart-1: #18181b;
   --chart-2: #52525b;
@@ -172,13 +173,13 @@
   --chart-4: #a1a1aa;
   --chart-5: #d4d4d8;
   --radius: 0.625rem;
-  --sidebar: #ffffff;
+  --sidebar: #efeee9;
   --sidebar-foreground: #18181b;
   --sidebar-primary: #18181b;
   --sidebar-primary-foreground: #fafaf9;
-  --sidebar-accent: #f2f1ef;
+  --sidebar-accent: #e6e5df;
   --sidebar-accent-foreground: #18181b;
-  --sidebar-border: #e7e5e4;
+  --sidebar-border: #e3e2dd;
   --sidebar-ring: #18181b;
   --success: #047857;
   --success-soft: #e1efeb;
@@ -205,13 +206,15 @@
   --leave-stripe: #e4e4e7;
   /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
   --scrim: rgb(0 0 0 / 0.1);
-  /* The surface ladder (DESIGN.md §3). Light keeps white steps; the shadow tells them apart. */
-  --surface-0: #fafaf9;
+  /* The surface ladder (DESIGN.md §3, major change 4): a warm cream page and white steps above
+   * it, so the page tint is distinct from the cards; the shadow confirms the step. No pure white
+   * page anywhere. */
+  --surface-0: #f6f5f2;
   --surface-1: #ffffff;
   --surface-2: #ffffff;
   --surface-3: #ffffff;
   /* One shadow per step: soft and offset, never heavy. */
-  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --elevation-1: 0 1px 2px 0 rgb(20 20 20 / 0.06), 0 4px 14px 0 rgb(20 20 20 / 0.06);
   --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.08);
   --elevation-3: 0 8px 24px -6px rgb(0 0 0 / 0.12);
   /* Calm motion (DESIGN.md §7): one ease, three durations. */
@@ -255,7 +258,8 @@
   --chart-3: #71717a;
   --chart-4: #52525b;
   --chart-5: #3f3f46;
-  --sidebar: #141416;
+  /* The sidebar is chrome: a cooler neutral one step off the page, under the cards (FINAL 2). */
+  --sidebar: #101013;
   --sidebar-foreground: #fafaf9;
   --sidebar-primary: #fafaf9;
   --sidebar-primary-foreground: #18181b;
@@ -539,6 +543,15 @@
     transition-duration: 0ms;
   }
 }
+
+/* The one row (`ListRow`, FINAL 5): its opener is stretched over the row by its ::after, so the
+ * pressed tint is drawn there, over the whole row, and not on the opener's own text box. */
+[data-slot="list-row-opener"].pressable-row:active:not(:disabled, [aria-disabled="true"]) {
+  background-image: none;
+}
+[data-slot="list-row-opener"]:active:not(:disabled, [aria-disabled="true"])::after {
+  background-image: linear-gradient(var(--press-tint), var(--press-tint));
+}
 :root {
   --press-tint: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
@@ -819,9 +832,21 @@ html[data-nav-slide="forward"] [data-slot="route"] {
     animation-duration: var(--motion-base);
     animation-timing-function: var(--motion-ease);
   }
+  /* PP-sheet-4 (V5b): the rows are More's list items: 44 px, 12 px in, a 12 px gap to a 20 px
+   * icon, the card's rounded pressed tint. */
   [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"] {
     font-size: 1rem;
+    min-height: 2.75rem;
     padding-inline: 0.75rem;
+    gap: 0.75rem;
+    border-radius: var(--radius-card);
+  }
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"] svg:not([class*="size-"]) {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-separator"] {
+    margin-inline: 0.75rem;
   }
   [data-slot="menu-sheet-handle"] {
     display: block;

@@ -7,7 +7,12 @@ import { useState } from "react";
 import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton, ListRowActions } from "@/core/ui/composites/list-rows";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
@@ -62,6 +67,11 @@ export function DeliverableTemplateManager({
     ]);
   const all = templates.filter((template) => !template.archived);
   const active = all.filter(matches);
+  // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
+  const archived = templates.filter(
+    (template) =>
+      template.archived && templateRowActions(template, viewer).archive && matches(template),
+  );
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: DeliverableTemplate): string {
@@ -71,7 +81,9 @@ export function DeliverableTemplateManager({
   }
 
   async function restore(template: DeliverableTemplate) {
-    toastResult(await restoreDeliverableTemplate({ templateId: template.id }));
+    toastResult(await restoreDeliverableTemplate({ templateId: template.id }), {
+      success: `${template.name} restored`,
+    });
   }
 
   const addButton = (
@@ -102,7 +114,7 @@ export function DeliverableTemplateManager({
       ) : (
         <ul
           data-slot="deliverable-templates"
-          className="border-border divide-border divide-y rounded-lg border"
+          className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
         >
           {active.map((template) => {
             const allowed = templateRowActions(template, viewer);
@@ -139,6 +151,18 @@ export function DeliverableTemplateManager({
           })}
         </ul>
       )}
+      <ArchivedSection count={archived.length}>
+        {archived.map((template) => (
+          <ArchivedRow
+            key={template.id}
+            name={template.name}
+            meta={line(template)}
+            kind="Deliverable template"
+            onRestore={() => void restore(template)}
+            onDelete={viewer.role === "owner" ? () => setDeleting(template) : undefined}
+          />
+        ))}
+      </ArchivedSection>
       {adding ? <TemplateDialog presets={presets} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog

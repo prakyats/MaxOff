@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { describeError, toastResult } from "@/core/ui/toast";
@@ -337,9 +338,8 @@ function EditProjectDialog({
             {project.recurrence === "one_time" ? (
               <FormField label="Delivery date" error={fieldErrors.deliveryDate}>
                 {(control) => (
-                  <Input
+                  <DateInput
                     {...control}
-                    type="date"
                     value={deliveryDate}
                     onChange={(event) => setDeliveryDate(event.target.value)}
                     required
@@ -366,7 +366,13 @@ function EditProjectDialog({
               disabled={pending}
             />
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button type="submit" variant="primary" pending={pending} pendingLabel="Saving…">

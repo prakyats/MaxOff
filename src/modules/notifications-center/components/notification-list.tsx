@@ -26,7 +26,8 @@ import { UnreadSummary } from "./unread-summary";
  */
 
 const ROW = "flex min-h-16 w-full min-w-0 flex-col gap-1 px-4 py-3 text-left";
-const LIST = "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border";
+const LIST =
+  "border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border";
 /** A day group's heading: one fixed line above its card. */
 const HEADING =
   "text-muted-foreground mb-2 h-5 text-xs leading-5 font-semibold tracking-wide uppercase";

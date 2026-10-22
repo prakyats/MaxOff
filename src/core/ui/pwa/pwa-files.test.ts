@@ -108,7 +108,7 @@ describe("theme-color", () => {
   });
 
   it("keeps the iOS status bar readable in light mode", () => {
-    // black-translucent forces white glyphs, unreadable on #fafaf9 (owner decision 2026-09-23).
+    // black-translucent forces white glyphs, unreadable on the light page (owner decision 2026-09-23).
     expect(layout).toContain('statusBarStyle: "default"');
   });
 });

@@ -1509,7 +1509,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You can edit or archive only the presets you made. Archive stops new projects from offering it, with Undo in its message for a few seconds. Projects that already used it keep their stages.",
+              text: 'You can edit or archive only the presets you made. Archive stops new projects from offering it, with Undo in its message for a few seconds; later, "Archived (n)" at the foot of the list has Restore. Projects that already used it keep their stages.',
             },
           ],
           link: { href: "/settings/templates#presets", label: "Open Stage presets" },
@@ -1630,7 +1630,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "An archived template stops being offered: the message “‹name› archived” has Undo for a few seconds. The question's Archive button is plain, not red: nothing is destroyed.",
+              text: "An archived template stops being offered: the message “‹name› archived” has Undo for a few seconds, and “Archived (n)” at the foot of the list has Restore later. The question's Archive button is plain, not red: nothing is destroyed.",
             },
             {
               kind: "note",

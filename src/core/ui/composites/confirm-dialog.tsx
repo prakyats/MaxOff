@@ -36,7 +36,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   pendingLabel,
-  cancelLabel = "Cancel",
+  cancelLabel,
   onConfirm,
   confirmDisabled = false,
   confirmHidden = false,
@@ -51,6 +51,10 @@ export function ConfirmDialog({
   confirmLabel: string;
   /** The button while it runs; defaults to the label's verb in -ing ("Approving 3…"). */
   pendingLabel?: string;
+  /**
+   * The way out. Defaults to "Keep it" for a destructive act (PP-forms-3: the dismiss says what it
+   * keeps), "Close" when there is nothing to commit, else "Cancel".
+   */
   cancelLabel?: string;
   onConfirm: () => void | boolean | Promise<void | boolean>;
   /** The commit waits for something inside the dialog (a choice still to make). */
@@ -89,7 +93,9 @@ export function ConfirmDialog({
         {children}
         <ActionStatus action={action} />
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>
+            {cancelLabel ?? (confirmHidden ? "Close" : destructive ? "Keep it" : "Cancel")}
+          </AlertDialogCancel>
           {confirmHidden ? null : (
             <Button
               variant={destructive ? "danger" : approve ? "approve" : "primary"}

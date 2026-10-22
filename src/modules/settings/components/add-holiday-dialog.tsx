@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import { createHoliday } from "../actions/settings";
@@ -68,10 +69,9 @@ export function AddHolidayDialog({ onClose }: { onClose: () => void }) {
           ) : null}
           <FormField label="Date" error={fieldErrors.date}>
             {(control) => (
-              <Input
+              <DateInput
                 {...control}
                 name="date"
-                type="date"
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
                 autoFocus
@@ -94,7 +94,13 @@ export function AddHolidayDialog({ onClose }: { onClose: () => void }) {
           </FormField>
           <ActionStatus action={action} />
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={pending}
+              data-dismiss=""
+            >
               Cancel
             </Button>
             <Button

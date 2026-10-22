@@ -453,7 +453,7 @@ function AddGroupForm({
       />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button type="button" variant="secondary" onClick={onCancel} data-dismiss="">
           Cancel
         </Button>
         <Button type="button" variant="secondary" data-slot="add-group-confirm" onClick={add}>

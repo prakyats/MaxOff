@@ -32,7 +32,7 @@ export default function GlobalError({
           display: "grid",
           placeItems: "center",
           padding: 24,
-          background: "#fff",
+          background: "#f6f5f2",
           color: "#171717",
         }}
       >

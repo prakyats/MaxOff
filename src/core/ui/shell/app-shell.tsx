@@ -121,8 +121,8 @@ export function AppShell({
             logoutItem={logoutItem}
             bellCount={
               <>
-                {count(["alerts"], "bar")}
-                {count(["alerts"], "bar", "words")}
+                {count(["alerts"], "topbar")}
+                {count(["alerts"], "topbar", "words")}
               </>
             }
           />

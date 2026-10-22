@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -360,10 +361,9 @@ export function NewProjectDialog({
                     error={fieldErrors.deliveryDate}
                   >
                     {(control) => (
-                      <Input
+                      <DateInput
                         {...control}
                         name="deliveryDate"
-                        type="date"
                         min={today}
                         value={deliveryDate}
                         onChange={(event) => setDeliveryDate(event.target.value)}
@@ -451,7 +451,13 @@ export function NewProjectDialog({
                   Back to edit
                 </Button>
               ) : (
-                <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={requestClose}
+                  disabled={pending}
+                  data-dismiss=""
+                >
                   Cancel
                 </Button>
               )}

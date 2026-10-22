@@ -168,7 +168,9 @@ function RequestSection({
         {title}
         {count > 0 ? <span className="text-muted-foreground font-normal"> · {count}</span> : null}
       </h2>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">{children}</ul>
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
+        {children}
+      </ul>
     </section>
   );
 }

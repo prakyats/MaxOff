@@ -45,7 +45,8 @@ function DropdownMenuTrigger({
  * The menu's surface. From `md` up a floating menu beside its trigger (surface step 2). **On a
  * phone it is a bottom sheet** (L5, UX review 2026-10-21: the project ⋯ was a narrow dropdown with
  * wrapped items): full width at the bottom edge above the home indicator, 44 px rows at 16 px, a
- * grab handle, a scrim over the page and, when given, its `title` (the record's name) at the top.
+ * grab handle, a scrim over the page and, when given, its `title` (the record's name) as a title
+ * line over a hairline (PP-sheet-4: every row ⋯ passes one; rows in More's list-item style).
  * Pure CSS (`globals.css`, "Menus as bottom sheets"), so it costs no JavaScript and works the same
  * for the lazily loaded menus; it is still the same layer, so back closes it first (§14.2 a).
  */
@@ -76,7 +77,7 @@ function DropdownMenuContent({
         {title ? (
           <DropdownMenuPrimitive.Label
             data-slot="menu-sheet-title"
-            className="text-muted-foreground truncate px-1.5 pt-1 pb-2 text-sm font-medium md:hidden"
+            className="text-muted-foreground border-border mx-3 mb-1 border-b pt-1 pb-2 text-sm font-medium break-words md:hidden"
           >
             {title}
           </DropdownMenuPrimitive.Label>

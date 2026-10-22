@@ -125,7 +125,7 @@ export function TeamMonthList({
   return (
     <ul
       data-slot="team-month"
-      className="border-border divide-border bg-card divide-y rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
     >
       {summaries.map((summary) => (
         <li key={summary.memberId} data-slot="team-month-row">

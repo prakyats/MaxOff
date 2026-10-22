@@ -133,7 +133,7 @@ export default async function TasksPage() {
           ) : (
             <div className="flex flex-col gap-2">
               {summary.approvalsLink > 0 || requests > 0 ? (
-                <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+                <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
                   {summary.approvalsLink > 0 ? (
                     <CountRow
                       href="/approvals"

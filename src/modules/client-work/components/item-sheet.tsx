@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-history";
 import { describeError, toastResult } from "@/core/ui/toast";
@@ -338,9 +339,8 @@ export function ItemSheet({
               {current.rules.editAll ? (
                 <FormField label="Planned date" hint="Optional. Overdue once it has passed.">
                   {(control) => (
-                    <Input
+                    <DateInput
                       {...control}
-                      type="date"
                       value={planned}
                       onChange={(event) => setPlanned(event.target.value)}
                     />
@@ -359,7 +359,7 @@ export function ItemSheet({
                 )}
               </FormField>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={cancelEdit}>
+                <Button type="button" variant="secondary" onClick={cancelEdit} data-dismiss="">
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" pending={saving} pendingLabel="Saving…">

@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -351,10 +352,9 @@ function ClaimForm({
       </div>
       <FormField label="Date" error={fieldErrors.expenseDate}>
         {(control) => (
-          <Input
+          <DateInput
             {...control}
             name="expenseDate"
-            type="date"
             min={range.from}
             max={range.to}
             value={expenseDate}

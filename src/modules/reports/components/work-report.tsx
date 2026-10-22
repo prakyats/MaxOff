@@ -205,7 +205,7 @@ export function LoadList({
             <h3 className="text-muted-foreground text-xs font-medium">
               {ENGAGEMENT_LABELS[engagement]}
             </h3>
-            <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
               {rows[engagement].map((row) => (
                 <li
                   key={row.memberId}

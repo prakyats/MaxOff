@@ -34,7 +34,7 @@ export function TaskActivityList({ lines }: { lines: ActivityLine[] }) {
       <ol
         aria-label="History"
         data-slot="task-history"
-        className="border-border divide-border bg-card divide-y rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
       >
         {shown.map((line) => (
           <li

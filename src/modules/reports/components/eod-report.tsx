@@ -175,7 +175,7 @@ export function EodReportView({ report }: { report: EodReport }) {
               <ul
                 aria-label="Approvals per approver"
                 data-slot="eod-approval-rows"
-                className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+                className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
               >
                 {report.approvals.map((row) => (
                   <li
@@ -219,7 +219,7 @@ export function EodReportView({ report }: { report: EodReport }) {
                         </p>
                         <ul
                           aria-label={`${clientAdminName(admin)}: ${group.title}`}
-                          className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+                          className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
                         >
                           {admin[group.key].items.map((item) => (
                             <li

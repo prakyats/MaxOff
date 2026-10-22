@@ -4,6 +4,7 @@ import type { FieldErrors } from "@/core/errors";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput, DateTimeInput } from "@/core/ui/primitives/date-time-input";
 import { Label } from "@/core/ui/primitives/label";
 import {
   Select,
@@ -178,10 +179,9 @@ function CustomFieldControl({
             );
           case "date":
             return (
-              <Input
+              <DateInput
                 {...control}
                 name={name}
-                type="date"
                 value={textOf(value)}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
@@ -189,10 +189,9 @@ function CustomFieldControl({
             );
           case "datetime":
             return (
-              <Input
+              <DateTimeInput
                 {...control}
                 name={name}
-                type="datetime-local"
                 value={textOf(value)}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}

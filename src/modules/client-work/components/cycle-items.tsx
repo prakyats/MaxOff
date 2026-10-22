@@ -274,7 +274,7 @@ export function CycleItems({
               aria-label="Deliverables"
               data-slot="cycle-items"
               className={cn(
-                "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
+                "border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border",
                 deliverableColumns(mode.selectMode),
               )}
             >

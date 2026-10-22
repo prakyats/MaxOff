@@ -31,7 +31,7 @@ export function ExtraWorkNotesList({ notes }: { notes: ExtraWorkNote[] }) {
   return (
     <ul
       data-slot="extra-work-notes"
-      className="border-border divide-border bg-card divide-y rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
     >
       {notes.map((note) => {
         const outcome = noteOutcome(note);

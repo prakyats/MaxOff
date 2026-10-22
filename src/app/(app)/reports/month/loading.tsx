@@ -30,7 +30,7 @@ export default function Loading() {
         <ul
           aria-hidden
           data-slot="loading-team-month"
-          className="border-border divide-border bg-card divide-y rounded-lg border"
+          className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
         >
           {[0, 1, 2, 3, 4].map((i) => (
             <li

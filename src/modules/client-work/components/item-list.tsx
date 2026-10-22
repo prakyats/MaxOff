@@ -203,7 +203,7 @@ export function ItemList({
                 <span className="tabular-nums">{group.rows.length}</span>
               </h2>
             ) : null}
-            <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
               {group.rows.map((row) => (
                 <li key={row.id}>
                   <DrillLink

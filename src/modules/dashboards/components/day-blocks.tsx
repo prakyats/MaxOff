@@ -104,7 +104,7 @@ export function EventRowsSkeleton({ rows }: { rows: number }) {
   return (
     <ul
       aria-hidden
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, index) => (
         <li key={index} className={cn(EVENT_ROW, "min-w-0")}>
@@ -254,7 +254,7 @@ export function EventsStrip<T extends DayEvent>({
     <div className="flex min-w-0 flex-col gap-2" data-slot="events-strip">
       <ul
         aria-label="The next 7 days"
-        className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
       >
         {days.map((day) => (
           <li key={day.date} data-slot="strip-day" data-date={day.date} className="flex flex-col">
@@ -323,7 +323,7 @@ export function WeekBlocks({ blocks, hidden }: { blocks: readonly WeekBlock[]; h
     <div className="flex min-w-0 flex-col gap-2" data-slot="week-blocks">
       <ul
         aria-label="The next 7 days"
-        className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
       >
         {blocks.map((block) => (
           <li
@@ -416,7 +416,7 @@ function CalendarLink({ label }: { label: string }) {
 export function EventsStripSkeleton() {
   return (
     <div aria-hidden className="flex min-w-0 flex-col gap-2">
-      <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
         {[0, 1].map((day) => (
           <li key={day} className="flex flex-col">
             <div className="flex min-h-9 items-center px-4 pt-2">

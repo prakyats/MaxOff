@@ -46,3 +46,34 @@ export function EmptyState({
     </div>
   );
 }
+
+/**
+ * **The empty row** (FINAL 1 and 7, PP-task-4, PP-admin-4; V5b): what an empty section becomes.
+ * One muted line in the section's place, **with no heading** ("Empty sections never take a
+ * heading"), optionally followed by one inline action ("+ Add stage", a quiet `ghost` or link
+ * button the caller passes). The section's normal case collapses to it: "Nothing needs you right
+ * now". A screen that would only say why a section is empty shows nothing instead (PP-tasks-1).
+ * A whole empty list that should teach and offer its one action is `EmptyState`.
+ */
+export function EmptyRow({
+  children,
+  action,
+  className,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-slot="empty-row"
+      className={cn(
+        "text-muted-foreground flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 text-sm",
+        className,
+      )}
+    >
+      <p className="min-w-0 break-words">{children}</p>
+      {action ? <div className="flex shrink-0 items-center">{action}</div> : null}
+    </div>
+  );
+}

@@ -35,7 +35,7 @@ export default async function Loading() {
           ))}
         </div>
         {owner ? <Skeleton className="h-3 w-24" /> : null}
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {[0, 1, 2, 3, 4].map((row) => (
             <li key={row} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
               <span className="flex flex-1 flex-col gap-1.5">

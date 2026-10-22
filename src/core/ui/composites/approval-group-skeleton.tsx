@@ -14,7 +14,7 @@ export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
     <ul
       aria-hidden
       data-slot="loading-approval-rows"
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, i) => (
         <li key={i} className={cn("flex min-w-0 items-center gap-3 pr-4", APPROVAL_ROW_MIN_H)}>
@@ -58,7 +58,7 @@ export function ApprovalGroupSkeleton({
         <Skeleton className="h-3.5 w-24" />
         {bulk ? <Skeleton className="h-11 w-28 rounded-md md:h-7" /> : null}
       </div>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
         {Array.from({ length: rows }, (_, i) => (
           <li
             key={i}

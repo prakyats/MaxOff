@@ -47,7 +47,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
               <h2 className="text-muted-foreground text-sm font-medium">{year.year}</h2>
               <ul
                 data-slot="holiday-list"
-                className="border-border divide-border divide-y rounded-lg border"
+                className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
               >
                 {year.holidays.map((holiday) => (
                   <li

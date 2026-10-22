@@ -1349,7 +1349,7 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Add preset" or "Save preset".',
             ),
             next(
-              'Archive on a preset stops "New project" offering it; the message "‹name› archived" has Undo for a few seconds.',
+              'Archive on a preset stops "New project" offering it; the message "‹name› archived" has Undo for a few seconds, and "Archived (n)" at the foot of the list has Restore later.',
             ),
             note("Projects that used a preset keep their stages."),
           ],
@@ -1412,7 +1412,7 @@ export const OWNER_GUIDE: Guide = {
               'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Archive asks first.',
             ),
             next(
-              'The message "‹name› archived" has Undo for a few seconds. Work already made from it does not change.',
+              'The message "‹name› archived" has Undo for a few seconds; later, "Archived (n)" at the foot of the list has Restore. Work already made from it does not change.',
             ),
             note(
               "The question's Archive button is plain, not red: nothing is destroyed. The template is only no longer offered, and Undo brings it back.",
@@ -1720,7 +1720,7 @@ export const OWNER_GUIDE: Guide = {
                 ".",
             ),
             text(
-              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Archive; on a phone they are in the row\'s ⋯. Archive asks first, and its message has Undo for a few seconds; whoever already has the value keeps it.',
+              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Archive; on a phone they are in the row\'s ⋯. Archive asks first, and its message has Undo for a few seconds; whoever already has the value keeps it. Later, open "Archived (n)" at the foot of the list: Restore brings a row back, and Delete removes one nothing else ever used.',
             ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },
@@ -1741,7 +1741,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("It is gone for good, from every list and picker. Its name stays in the history."),
             note(
-              'Anything ever used stays: a title someone once held, a category on any claim (paid ones too), a type on any task or template, a field with a value now or in the past, a draft with a contact, a note or an edit, anything renamed or archived before. The question then says "In use — archive it instead." and offers only Close. A draft client has no Archive; it simply stays a draft. Admins never see Delete.',
+              'Anything something else ever used stays: a title someone once held, a category on any claim (paid ones too), a type on any task or template, a field with a value now or in the past, a draft with a contact or a note. Its own history never stops a Delete: renaming, editing, reordering, archiving or restoring it is fine. The question then says "In use — archive it instead." and offers only Close. A draft client has no Archive; it simply stays a draft. Admins never see Delete.',
             ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },

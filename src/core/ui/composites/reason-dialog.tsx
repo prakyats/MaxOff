@@ -45,7 +45,7 @@ export function ReasonDialog({
   placeholder = "Explain briefly. This is recorded in the history.",
   submitLabel,
   pendingLabel,
-  cancelLabel = "Cancel",
+  cancelLabel,
   destructive = false,
   approve = false,
   onSubmit,
@@ -63,6 +63,7 @@ export function ReasonDialog({
   submitLabel: string;
   /** The button while it runs; defaults to the label's verb in -ing ("Rejecting leave…"). */
   pendingLabel?: string;
+  /** The way out: "Keep it" for a destructive act by default (PP-forms-3), else "Cancel". */
   cancelLabel?: string;
   /**
    * The act is destructive (cancel, reject, decline, revoke): its button is the red `danger`,
@@ -155,8 +156,9 @@ export function ReasonDialog({
               variant="secondary"
               onClick={() => close(false)}
               disabled={pending}
+              data-dismiss=""
             >
-              {cancelLabel}
+              {cancelLabel ?? (destructive ? "Keep it" : "Cancel")}
             </Button>
             <Button
               type="submit"

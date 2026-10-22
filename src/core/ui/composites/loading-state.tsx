@@ -81,7 +81,7 @@ export function LoadingState({
 /** Rows of text with a leading status dot, and optional trailing action buttons. */
 function ListSkeleton({ items, actions }: { items: number; actions: number }) {
   return (
-    <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+    <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
       {Array.from({ length: items }, (_, i) => (
         <li
           key={i}
@@ -105,7 +105,7 @@ function ListSkeleton({ items, actions }: { items: number; actions: number }) {
  */
 function CardsSkeleton({ items }: { items: number }) {
   return (
-    <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+    <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
       {Array.from({ length: items }, (_, i) => (
         <li
           key={i}

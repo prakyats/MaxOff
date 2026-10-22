@@ -597,7 +597,7 @@ function detailsPanel({
   return (
     <>
       <Section title="People" slot="task-people">
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {active.map((assignee) => {
             const person = people[assignee.memberId];
             const freelancer = person?.engagement === "freelance";

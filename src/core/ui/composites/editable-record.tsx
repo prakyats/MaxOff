@@ -355,7 +355,7 @@ export function EditableRecord<K extends string, V = undefined>({
           {extra?.first ? null : extraEditor}
           {/* Only while editing, so it never hangs over the rest of the page (§14.1). */}
           <StickyActions>
-            <Button type="button" variant="secondary" onClick={cancel}>
+            <Button type="button" variant="secondary" onClick={cancel} data-dismiss="">
               Cancel
             </Button>
             {/* pending: none (it opens the confirmation; the confirmation's Save commits) */}

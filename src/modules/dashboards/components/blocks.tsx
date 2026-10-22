@@ -83,7 +83,7 @@ export function RowList({
     <ul
       aria-label={label}
       data-slot={slot}
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {children}
     </ul>
@@ -225,7 +225,7 @@ export function LinkRowsSkeleton({
     <ul
       aria-hidden
       data-slot={slot}
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, index) => (
         <li key={index} className={cn(ROW, "min-w-0")}>
