@@ -548,6 +548,29 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
+#### The Owner-only Delete: templates, stage presets and holidays (v1.8 V5a item 6b; owner 2026-10-22)
+> Migration `v5_owner_delete` (2026-10-22; pgTAP 87). **Expand-only, works on the team's existing data:** two nullable columns on each of the four template tables (every existing row: both null, so the pair checks hold), one trigger function, three functions and one restrictive DELETE policy on `holidays`. **No existing row is rewritten** except, at the moment the Owner deletes a task template, the open tasks that follow it (below).
+
+**The choice: a soft "deleted" state, not a row delete.** `projects.template_id` and `tasks.template_id` are foreign keys, and the owner's rule keeps the template's name readable on everything made from it ("‹name› (deleted)"). A soft state keeps every FK valid, rewrites no project or task, and keeps the name where it already is (on the template row), so nothing new is copied onto the referencing side. A deleted template is **also archived** (the delete sets `archived_at`, and on `deliverable_templates` the required `archived_reason`, when they are not set yet), so every existing filter (`archived_at is null`: the pickers, the active-name unique indexes, `tasks_template_check`, `project_create`) already leaves it out and its name is free again. The lists filter `deleted_at is null` as well, so it never shows among the archived ones and Undo or a restore cannot bring it back.
+
+```
+project_templates, deliverable_templates, task_templates, stage_presets
+                 + deleted_at timestamptz null, deleted_by → members null,
+                   check (deleted_at is null) = (deleted_by is null),
+                   check (deleted_at is null or archived_at is not null)
+                 -- deleted by the Owner through template_delete (below) only: no API grant on either
+                 -- column. app.template_deleted_guard (BEFORE UPDATE on the four tables): a deleted row
+                 -- never changes again (INVALID_STATE "This template was deleted."), so it cannot be
+                 -- edited, restored or un-deleted. SELECT is unchanged (the row stays readable to whoever
+                 -- read it before), so a project's Details reads its name and says "(deleted)".
+holidays         + RLS policy holidays_delete_before_date (AS RESTRICTIVE, FOR DELETE): only a holiday whose
+                   date is after app.today_ist(). The screens delete through holiday_delete.
+```
+- `template_delete(kind text, template_id uuid) returns jsonb` — **the Owner only** (`app.is_owner()`, `FORBIDDEN` otherwise; signed out `UNAUTHENTICATED`). `kind` is `project`, `deliverable`, `task` or `stage_preset` (`VALIDATION` otherwise); the row is the caller's organisation's and not deleted yet (`NOT_FOUND`). Any time, used or not, active or archived. In one transaction: locks the row; writes **one `activity_log` row first** (`entity` = the table, `entity_id` = the template, `action` = `deleted`, `meta {name, kind, used, open}`: "deleted the template ‹name›"); for `task` only, copies the template's `reminder_rules` onto every **open** task (`todo`, `in_progress`, `changes_requested`) that follows it, i.e. `template_id` = it and its own `reminder_rules` = `[]`, and only when the template's list is not empty (the tasks trigger re-arms them with the same rules, so nobody's reminders change; each task's change is audited by `audit_row_change`); then sets `deleted_at`, `deleted_by` and, if not archived, `archived_at` (and `archived_reason` "Deleted" on a deliverable template). Nothing else changes: a project, deliverable, cycle or task keeps every stage, deliverable, month and value it has (templates and presets are copied, never read live; the V5d safety check). A submitted, approved, completed or cancelled task keeps its link, and `app.task_reminder_rules` still reads the deleted template's frozen list if it is ever reopened. Returns `{used, open, copied}`.
+- `template_usage(kind text, template_id uuid) returns jsonb` — the Owner only (as above). What the confirm sheet says: `project` → `{used, open}` = the projects started from it and those still `open` / `in_progress`; `task` → the tasks that follow it and the open ones; `deliverable` and `stage_preset` → `{used: 0, open: 0}` (copied, never linked). Reads only.
+- `holiday_delete(holiday_id uuid) returns void` — the Owner only (`app.is_owner()`; `settings.manage` is the Owner's). `NOT_FOUND` when it is not the organisation's; **`INVALID_STATE` when its date is today or earlier** ("A holiday on or before today stays: it already shaped attendance and leave."). One `activity_log` row first (`holidays`, `deleted`, `meta {name, date}`), then the row is deleted (`audit_row_change` keeps it too).
+- All three: `security definer`, `set search_path = ''`, execute revoked from `public` and `anon`, granted to `authenticated`.
+
 ## 3. Attendance and leave
 ```
 attendance_days      id, member_id, work_date date (IST), is_day_off bool,

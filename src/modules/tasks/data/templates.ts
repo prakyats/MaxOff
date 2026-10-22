@@ -3,6 +3,7 @@ import "server-only";
 import type { Json } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
+import { type TemplateUsage, usageFromJson } from "@/core/lib/owner-delete";
 import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
 import { systemClock } from "@/core/time";
 
@@ -24,10 +25,15 @@ function asObject(value: Json): Record<string, unknown> {
     : {};
 }
 
-/** Every template the viewer may use, archived ones included (Settings lists them apart). */
+/** Every template the viewer may use, archived ones included (Settings lists them apart); never a deleted one. */
 export async function listTaskTemplates(): Promise<TaskTemplate[]> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.from("task_templates").select(COLUMNS).order("name");
+  const { data, error } = await supabase
+    .from("task_templates")
+    .select(COLUMNS)
+    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
+    .is("deleted_at", null)
+    .order("name");
   if (error) throw error;
   return data.map((row) => ({
     id: row.id,
@@ -107,4 +113,22 @@ export async function setTemplateArchived(id: string, archived: boolean): Promis
   if (error) friendlyConflict(error);
   if (count === 0)
     throw new AppError("NOT_FOUND", "This template is gone, or it is not yours to change.");
+}
+
+/**
+ * The Owner-only Delete (v1.8 V5a 6b): `template_usage` says how many tasks follow it (and how many
+ * are open); `template_delete` copies its reminder rules onto the open tasks that follow it first,
+ * writes the history row and marks it deleted (and archived).
+ */
+export async function taskTemplateUsage(id: string): Promise<TemplateUsage> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("template_usage", { kind: "task", template_id: id });
+  if (error) throw error;
+  return usageFromJson(data);
+}
+
+export async function deleteTaskTemplate(id: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("template_delete", { kind: "task", template_id: id });
+  if (error) throw error;
 }

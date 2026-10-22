@@ -7,6 +7,7 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { type ComponentProps, type ReactNode, useState } from "react";
 
@@ -98,6 +99,11 @@ export type ListRowMove = {
  * `ConfirmDialog`, whose named "Archive ‹name›" is the neutral `primary` (archive is never red), and
  * its toast offers Undo; no Archived list. A row that can be looked at (templates) also has Preview, a
  * labelled button at every width, since anyone who may open the list may preview.
+ *
+ * **Delete** (v1.8 V5a 6b, owner 2026-10-22) is the Owner's only, so a caller passes `onDelete` for
+ * the Owner alone: the row keeps Edit · Archive · Delete. Delete is permanent, so it is red before
+ * its confirmation too (`destructive`: a red outline icon on a laptop, a red outline row in the
+ * phone sheet); the confirmation's named "Delete ‹name›" is the red `danger` commit.
  */
 export function ListRowActions({
   name,
@@ -107,6 +113,7 @@ export function ListRowActions({
   edit,
   preview,
   onArchive,
+  onDelete,
 }: {
   /** The row's name, for the labels ("Archive Editor") and the sheet's title. */
   name: string;
@@ -119,6 +126,8 @@ export function ListRowActions({
   /** Preview, with the button's tooltip ("See what a project started from … gets"). */
   preview?: { onSelect: () => void; title: string };
   onArchive?: (() => void) | undefined;
+  /** The Owner's permanent Delete (opens the caller's confirmation). */
+  onDelete?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   function choose(then: () => void) {
@@ -192,7 +201,20 @@ export function ListRowActions({
           <Archive aria-hidden />
         </Button>
       ) : null}
-      {move || edit || onArchive ? (
+      {onDelete ? (
+        <Button
+          type="button"
+          variant="destructive"
+          size="icon"
+          aria-label={`Delete ${name}`}
+          title={`Delete ${name}`}
+          onClick={onDelete}
+          className="ml-1 hidden md:inline-flex"
+        >
+          <Trash2Icon aria-hidden />
+        </Button>
+      ) : null}
+      {move || edit || onArchive || onDelete ? (
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button
@@ -259,6 +281,16 @@ export function ListRowActions({
                 >
                   <Archive aria-hidden />
                   Archive
+                </Button>
+              ) : null}
+              {onDelete ? (
+                <Button
+                  variant="destructive"
+                  className="w-full justify-start"
+                  onClick={() => choose(onDelete)}
+                >
+                  <Trash2Icon aria-hidden />
+                  Delete
                 </Button>
               ) : null}
             </div>

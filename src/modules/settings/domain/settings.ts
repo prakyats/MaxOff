@@ -152,6 +152,15 @@ export function isUpcoming(holiday: Holiday, today: ISODate): boolean {
   return holiday.date >= today;
 }
 
+/**
+ * A holiday the Owner may still remove (v1.8 V5a 6b, owner 2026-10-22): only before its date. On
+ * its day or after it has already shaped attendance and leave, so it stays (`holiday_delete`
+ * refuses it too).
+ */
+export function canRemoveHoliday(holiday: Holiday, today: ISODate): boolean {
+  return holiday.date > today;
+}
+
 /** The Thresholds page's groups (6b.6, v1.8 V4), in order. */
 export type ThresholdGroupKey = "working-day" | "tasks" | "client-work" | "notifications";
 

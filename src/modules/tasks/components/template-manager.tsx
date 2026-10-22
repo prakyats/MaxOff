@@ -10,9 +10,10 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
 
-import { setTemplateArchived } from "../actions/templates";
+import { deleteTaskTemplate, setTemplateArchived, taskTemplateUsage } from "../actions/templates";
 import { templateActions, type TaskTemplate } from "../domain/templates";
 import { PRIORITY_LABELS } from "../domain/types";
 import type { TemplateContext } from "./template-dialog";
@@ -45,6 +46,9 @@ export function TemplateManager({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
   const [archiving, setArchiving] = useState<TaskTemplate | null>(null);
+  // The Owner's permanent Delete (V5a 6b): any template, any time.
+  const [deleting, setDeleting] = useState<TaskTemplate | null>(null);
+  const isOwner = context.viewer.role === "owner";
   const all = templates.filter((template) => !template.archived);
   const active = all
     .filter((template) => templateMatches(query, [template.name, ...template.stages]))
@@ -125,6 +129,7 @@ export function TemplateManager({
                       slot="task-template-actions"
                       edit={{ label: "Edit", onSelect: () => setEditing(template) }}
                       onArchive={() => setArchiving(template)}
+                      onDelete={isOwner ? () => setDeleting(template) : undefined}
                     />
                   ) : null}
                 </li>
@@ -158,6 +163,23 @@ export function TemplateManager({
             toastResult(await setTemplateArchived({ templateId: template.id, archived: true }), {
               success: `${template.name} archived`,
               undo: () => void restore(template),
+            });
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <TemplateDeleteDialog
+          key={deleting.id}
+          kind="task"
+          name={deleting.name}
+          loadUsage={() => taskTemplateUsage({ templateId: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const template = deleting;
+            toastResult(await deleteTaskTemplate({ templateId: template.id }), {
+              success: `${template.name} deleted`,
             });
           }}
         />

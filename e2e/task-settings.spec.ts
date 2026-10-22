@@ -693,3 +693,70 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     await serviceRest(`stage_presets?name=eq.${encodeURIComponent(preset)}`, { method: "DELETE" });
   });
 });
+
+test.describe("task templates: the Owner's Delete keeps every open task's reminders (V5a 6b)", () => {
+  test("deleting a followed template copies its reminders onto the open task; the confirm says so", async ({
+    page,
+  }, info) => {
+    const name = `Delete followed (${info.project.name})`;
+    const title = `${prefixOf(info)}follows a deleted template`;
+    await removeTasksTitled(title);
+    await removeTemplatesNamed(name);
+    const rules = [
+      { before: 1, unit: "days" },
+      { before: 0, unit: "minutes" },
+    ];
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const made = await serviceInsert<{ id: string }>("task_templates", {
+      org_id: org?.id,
+      name,
+      task_type_id: await taskTypeId("Normal"),
+      reminder_rules: rules,
+      created_by: await memberIdOf(USERS.owner.email),
+    });
+    const staffId = await memberIdOf(USERS.staff.email);
+    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(workingDay(5), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+      reminder_rules: [],
+      template_id: made.id,
+    });
+    const waiting = () =>
+      serviceSelect<{ kind: string; offset_minutes: number | null; fire_at: string }>(
+        `task_reminders?task_id=eq.${taskId}&member_id=is.null&sent_at=is.null&cancelled_at=is.null&select=kind,offset_minutes,fire_at&order=fire_at,kind`,
+      );
+    const before = await waiting();
+    expect(before.map((row) => row.kind)).toContain("before_due");
+
+    await page.goto("/settings/templates#tasks");
+    await hydrated(page);
+    const row = page.locator('[data-slot="task-template"]').filter({ hasText: name });
+    await rowAction(page, row, name, "Delete");
+    const confirm = page.getByRole("alertdialog", { name: `Delete template “${name}”?` });
+    await expect(confirm).toContainText(
+      "Used by 1 task (still open). It keeps everything exactly as it is. Its reminders stay the same. New tasks can't use it any more. This can't be undone.",
+    );
+    await confirm.getByRole("button", { name: `Delete ${name}` }).click();
+    await expect(confirm).toBeHidden();
+    await expect(row).toHaveCount(0);
+
+    // The open task now holds the template's reminders as its own; its schedule is unchanged.
+    const [task] = await serviceSelect<{ reminder_rules: unknown; template_id: string }>(
+      `tasks?id=eq.${taskId}&select=reminder_rules,template_id`,
+    );
+    expect(task?.reminder_rules).toEqual(rules);
+    expect(task?.template_id).toBe(made.id);
+    expect(await waiting()).toEqual(before);
+
+    await removeTasksTitled(title);
+    await removeTemplatesNamed(name);
+  });
+});

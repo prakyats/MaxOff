@@ -10,14 +10,15 @@ import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
 import { removeHoliday } from "../actions/settings";
-import { type Holiday, holidaysByYear, isUpcoming } from "../domain/settings";
+import { canRemoveHoliday, type Holiday, holidaysByYear, isUpcoming } from "../domain/settings";
 import { AddHolidayDialog } from "./add-holiday-dialog";
 
 /**
  * The holiday list (PRODUCT §7: none seeded, the Owner adds them). A holiday is not a working
  * day, so the absent check skips it (WORKFLOWS §1). Removing one is a real delete: it has no
  * archived state, the activity log keeps the removed row, and days already recorded keep the
- * meaning they had — an attendance day carries its own "day off" flag (2.1).
+ * meaning they had — an attendance day carries its own "day off" flag (2.1). Since v1.8 V5a 6b
+ * (owner 2026-10-22) only a holiday still ahead has Remove: on its day or after it stays.
  */
 export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today: string }) {
   const [pendingDelete, setPendingDelete] = useState<Holiday | null>(null);
@@ -61,15 +62,17 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
                         {isUpcoming(holiday, today) ? "" : " · past"}
                       </p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove ${holiday.name}`}
-                      onClick={() => setPendingDelete(holiday)}
-                    >
-                      <Trash2Icon aria-hidden />
-                    </Button>
+                    {canRemoveHoliday(holiday, today) ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${holiday.name}`}
+                        onClick={() => setPendingDelete(holiday)}
+                      >
+                        <Trash2Icon aria-hidden />
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -86,8 +89,9 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
             if (!open) setPendingDelete(null);
           }}
           title={`Remove ${pendingDelete.name}?`}
-          description={`${pendingDelete.date} becomes an ordinary day again. Days already recorded keep the meaning they had.`}
+          description={`${pendingDelete.date} becomes an ordinary day again. This can't be undone.`}
           confirmLabel={`Remove ${pendingDelete.name}`}
+          cancelLabel="Keep it"
           onConfirm={async () => {
             toastResult(await removeHoliday({ holidayId: pendingDelete.id }), {
               success: "Holiday removed",
