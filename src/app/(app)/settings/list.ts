@@ -118,4 +118,3 @@ export const SECTION_LINE_CLASS = "text-muted-foreground block truncate text-sm 
  */
 export const HELP_GROUP_CLASS = "mt-6 md:max-w-md";
 export const HELP_LIST_CLASS = GROUP_LIST_CLASS;
-
