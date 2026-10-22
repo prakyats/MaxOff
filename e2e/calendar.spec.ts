@@ -972,10 +972,22 @@ test.describe("the calendar, as the Owner", () => {
   }, info) => {
     const prefix = `${prefixOf(info)}crowd `;
     await removeTasksTitled(prefix);
-    // Its own day per project, five weeks on and more (never a day another test fills), so the
-    // count is exactly this test's: five deadlines, two shown, "+3 more".
-    const offset = { desktop: 35, mobile: 42, "mobile-lg": 49 }[info.project.name] ?? 56;
+    // Its own day per project, so the count is exactly this test's: five deadlines, two shown,
+    // "+3 more". The offsets are reserved for this test (nine to eleven weeks on): every other
+    // spec dates its rows 46 days out or nearer. It used 35/42/49 until CI shard 2 (runs
+    // 39720856747, 39730557999) put task-page's "Reorder … reel" (its day 42) on the phone's
+    // 2026-12-03 first, and the box said "+4 more"; task-page and task-lists also use day 35.
+    const offset = { desktop: 63, mobile: 70, "mobile-lg": 77 }[info.project.name] ?? 84;
     const day = workingDay(offset);
+    // A collision names itself rather than miscounting: no other test's task is due that day.
+    const others = await serviceSelect<{ title: string }>(
+      `tasks?select=title&due_at=gte.${encodeURIComponent(istInstant(day, "00:00"))}` +
+        `&due_at=lt.${encodeURIComponent(istInstant(addISTDays(day, 1), "00:00"))}`,
+    );
+    expect(
+      others.map((task) => task.title),
+      `${day} is this test's alone`,
+    ).toEqual([]);
     const staffId = await memberIdOf(USERS.staff.email);
     const normal = await taskTypeId("Normal");
     for (const n of [1, 2, 3, 4, 5]) {
