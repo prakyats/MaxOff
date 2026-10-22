@@ -1260,7 +1260,10 @@ project_items        id, org_id, project_id, cycle_id, title, position, planned_
                      search tsvector (generated: title, notes), created_at, updated_at,
                      reopened_at null (Q8, migration client_work_alerts_answers: the last return to open, by trigger),
                      overdue_armed_at null (M1, migration client_work_alerts_armed: the insert, the last planned-date
-                     change or return to open, by trigger; E1 waits for the first 08:00 IST after it)
+                     change or return to open, by trigger; E1 waits for the first 08:00 IST after it),
+                     close_kind text null (v1.9 W1-db, migration w1_close_kinds: 'not_needed' | 'not_delivered';
+                     only on a cancelled item; null = a close made before W1, a project_cancel or a close
+                     without a kind; §5b "Close kinds")
                      -- kickoff 7 (WORKFLOWS §5.4): at most 100 items per cycle; new items only in a cycle
                      -- whose period has not ended (or a one-time project's); planned_date any date
                      -- (overdue = planned_date < today IST and state open); item_unmark_done clears
@@ -1393,6 +1396,23 @@ project_cycles  + extras_decided_at timestamptz null, extras_decided_by → memb
   - `items_rename(item_ids uuid[], pattern text, start_at integer = 1, apply boolean = true) returns jsonb` (`{n}` = start_at, +1, … in the order given; `{title}` the current title; 1..200 characters; more than one needs `{n}` or `{title}`; `apply = false` is the preview and writes nothing; returns `[{id, from, to}]`).
 - Internal helpers `app.client_work_bulk_items(uuid[])` and `app.cycle_extras(uuid)` (`service_role` only; the core grants test lists them). **`app.client_work_bulk_items` since migration `20261016090349_r2_review_fixes` (Release 2 review, 2026-10-16, expand-only, same signature and grants):** it locks the selection's projects and then its deliverables **in id order** first (only rows the caller may see: their organization, a client they may see), then checks and returns them **in the order given** (`items_rename` numbers in that order), so two overlapping selections made in opposite orders wait for each other instead of deadlocking; the checks and their errors are unchanged (pgTAP 79: the order given is honoured both ways round). The TypeScript twins (`domain/extras.ts` `cycleExtras`, `domain/bulk.ts` `renamePreview`) follow the same rules: change both together.
 - "Copy schedule as text" (6b.16 (g)) reads only; no SQL.
+
+#### Close kinds and "Also add ‹title› to ‹period›?" (v1.9 W1-db; ROADMAP 6b.4 (3), (4); OPEN 4 answered as recommended)
+> Migration `w1_close_kinds` (pgTAP 123). **Expand-only, works on the team's existing data:** one nullable column with two checks every existing row meets (null), two functions re-created with one more optional argument (the old signatures dropped first so calls without it resolve to the new ones; grants and comments re-made exactly as before), two new functions. No row is rewritten; every close made before stays without a kind. **No money anywhere:** the kind is a word about the close, never an amount (kickoff 9 decision 24 reads it later, in the Owner-only revenue module).
+
+```
+project_items  + close_kind text null
+                 check project_items_close_kind_values (close_kind is null or close_kind in ('not_needed', 'not_delivered'))
+                 check project_items_close_kind_cancelled (close_kind is null or state = 'cancelled')
+                 -- 'not_needed' = "Not needed this ‹month/week›" (the scope changed); 'not_delivered' = "Not
+                 -- delivered" (we missed it). Written only by item_cancel, cycle_carry_decide (close) and
+                 -- item_set_close_kind (which may also clear it; protect_close_kind trigger: no API write; the API role has no UPDATE
+                 -- on project_items anyway). Audited by the row trigger.
+```
+- `item_cancel(item_id uuid, reason text, close_kind text default null) returns item_state` (was `(uuid, text)`): as before (`projects.manage`; the Owner on any client, the client's Admin on theirs, another Admin `NOT_FOUND`, Crew `FORBIDDEN`), plus the kind stored with the close; an unknown kind is `VALIDATION`. Audited `cancelled` with meta `{from_state, close_kind}`. The Owner's `item_cancelled` notice body names the kind when there is one ("… Not delivered. Reason: …").
+- `cycle_carry_decide(item_ids uuid[], decision carry_decision, reason text default null, close_kind text default null) returns jsonb` (was `(uuid[], carry_decision, text)`): as before; `close_kind` is taken with `close` only (`VALIDATION` with carry forward or leave pending, and for an unknown kind). The client's Admin's `carry_decided` body names the kind when there is one.
+- `item_set_close_kind(item_id uuid, close_kind text) returns boolean` (new): **the Owner only** (OPEN 4: the closed deliverable's sheet, ⋯ "Set close kind"; the screen comes in W4/W5). `projects.manage` first (Crew `FORBIDDEN`), then the Owner (an Admin, on any client, `FORBIDDEN`); the item found in the caller's organization (`NOT_FOUND` otherwise); **any project state** (owner 2026-10-22: a completed or cancelled project's closed deliverables too; only the kind changes, the project stays read-only otherwise); the deliverable `cancelled` (`INVALID_STATE` otherwise); the kind one of the two (`VALIDATION`) or **null to clear it** (owner 2026-10-22). Sets, changes or clears the kind; returns false when it already held that value (nothing written). Audited `close_kind_set` or `close_kind_cleared` with meta `{from}`, both shown in the project's history. No notification (WORKFLOWS §9 names none).
+- `project_blueprint_add_to_cycle(project_id uuid, title text, cycle_id uuid) returns jsonb` (new): "Also add ‹title› to ‹period›?" answered **Add to ‹period› too**, ONE transaction: the deliverables-list line (exactly `project_blueprint_add`: `projects.manage`, a recurring project open or in progress, at most 100 active lines, the project's default stages in their groups) **and** an open deliverable at the end of the cycle with the line's stages in their groups (the `item_add` rules: the client not Inactive, at most 100 live deliverables). The cycle must be this project's (`NOT_FOUND`), the one whose period holds today IST (`INVALID_STATE`: a past or a future cycle) and have its list already in (`item_list_copied`; `INVALID_STATE` otherwise, since the line will join it with the list). Any refusal leaves neither row. Returns `{blueprint_id, item_id}`. Audited by the row triggers (`insert` on the line and the deliverable, `initial` on its stages). No notification (as `project_blueprint_add` and `item_add`). "From ‹next period› only" stays `project_blueprint_add`.
 
 ## 6. Staff tasks
 ```
