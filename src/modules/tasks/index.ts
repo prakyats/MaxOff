@@ -135,6 +135,17 @@ export {
   type RelativeDeadline,
   type TaskView,
 } from "./domain/page";
+export {
+  CHAT_PAGE,
+  chatRows,
+  firstUnreadId,
+  mergeMessages,
+  type ChatEvent,
+  type ChatFace,
+  type ChatMessage,
+  type ChatRow,
+} from "./domain/chat";
+export { chatDayLabel, chatEvents, chatMessages, type ChatPeople } from "./domain/chat-feed";
 export { linkSegments, type TextSegment } from "./domain/links";
 export {
   activeAssignees,
@@ -174,4 +185,4 @@ export {
 /** The Approvals screen's single approve, behind the delayed send's route (4.5). */
 export { approveTask } from "./actions/approvals";
 /** Background calls behind `/api/tasks/*` (ARCHITECTURE §4.4): plain server functions, not actions. */
-export { markTaskRead, readAvailability } from "./actions/background";
+export { markTaskRead, readAvailability, readEarlierComments } from "./actions/background";

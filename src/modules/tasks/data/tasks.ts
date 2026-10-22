@@ -10,6 +10,7 @@ import { nextPosition } from "@/core/lists";
 import { parseReminderRules } from "@/core/lib/reminder-rules";
 import { systemClock } from "@/core/time";
 
+import { CHAT_PAGE } from "../domain/chat";
 import type { TaskChanges, TaskFields } from "../domain/form";
 import type { TaskListRow } from "../domain/lists";
 import type {
@@ -144,23 +145,43 @@ export async function listStages(taskId: string): Promise<TaskStage[]> {
   }));
 }
 
-/** The comments, oldest first (a timeline reads down). */
-export async function listComments(taskId: string): Promise<TaskComment[]> {
+/**
+ * A page of the comments, oldest first (a timeline reads down): the latest `CHAT_PAGE`, or with
+ * `before` the page just before that message (Chat's "Load earlier", v1.8 V5b E). `more`: earlier
+ * comments remain.
+ */
+export async function listComments(
+  taskId: string,
+  before: { at: string; id: string } | null = null,
+): Promise<{ comments: TaskComment[]; more: boolean }> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from("task_comments")
     .select("id, author_id, on_behalf_of, body, created_at")
-    .eq("task_id", taskId)
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
+    .eq("task_id", taskId);
+  // Keyset (created_at, id): the page just before the oldest message the reader holds.
+  if (before) {
+    query = query.or(
+      `created_at.lt."${before.at}",and(created_at.eq."${before.at}",id.lt.${before.id})`,
+    );
+  }
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(CHAT_PAGE + 1);
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    authorId: row.author_id,
-    onBehalfOf: row.on_behalf_of,
-    body: row.body,
-    createdAt: row.created_at,
-  }));
+  const more = data.length > CHAT_PAGE;
+  const comments = data
+    .slice(0, CHAT_PAGE)
+    .reverse()
+    .map((row) => ({
+      id: row.id,
+      authorId: row.author_id,
+      onBehalfOf: row.on_behalf_of,
+      body: row.body,
+      createdAt: row.created_at,
+    }));
+  return { comments, more };
 }
 
 /**

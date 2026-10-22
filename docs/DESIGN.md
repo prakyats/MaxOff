@@ -151,6 +151,10 @@ flagged here:
 | Light count red (`brand`) | `#D92D34` | `#C42126` | white on `#D92D34` passes (4.8:1), but `brand` is also a chip ink and reads 4.20:1 on its tint `#FDECEC`; `#C42126` reads 5.1:1. |
 | Dark count red (`brand`) | `#E5484D` with white numerals | `#F2686D` with near-black numerals | white on `#E5484D` is 3.91:1, and as a chip ink it reads 4.13:1 on `#3A1517`. |
 | Placeholders | `faint` (`#8B8B93` / `#6B6B73`) | `muted-foreground` | placeholder text is text: `faint` is 3.4–3.5:1. `faint` is used for the row's › only. |
+| Chat: others' bubbles on the laptop panel, light (V5b E) | `--s3` (`#FFFFFF`) on the panel's `--s1` (`#FFFFFF`) | `muted` (`#EEEDE8`) from `md` | white on white has no edge; the phone's feed is the page (`background`), where `surface-3` shows, so the phone keeps the sample's value; dark keeps `surface-3` everywhere. |
+| Chat: the group's time (V5b E) | `faint` | `muted-foreground` | text, as for placeholders. |
+| Chat: Send on a laptop (V5b E) | solid `--primary` | solid only when the screen holds no next-step solid; else the neutral outline | one solid commit per layer (colour rule): the header's next step is already solid. The phone's Chat view is its own layer, so Send is solid there. |
+| Chat: the first bubble's top corner (V5b E) | the sample's CSS rounds it (16 px), but its name line defeats `:first-child` for others' groups | rounded on both sides | the sample's evident intent; joined corners are 6 px. |
 
 The mocks' type sizes (13 px body, 12.5 px meta, 11.5 px chips) are the sample drawn at a reduced
 scale inside a frame; the app keeps the approved scale of FINAL 3 (12/14/16/18/20/24).
@@ -371,6 +375,8 @@ Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by
 | `radius-card` | `rounded-card` (= `rounded-lg`, `rounded`) | 10 px | cards, list groups, banners |
 | `radius-sheet` | `rounded-sheet` (= `rounded-xl`) | 14 px (the sample's sheet) | dialogs, sheets, large panels |
 | full | `rounded-full` | round | chips, pills, dots, avatars |
+
+Chat only (V5b E, the approved chat sample): `rounded-bubble` (16 px, a message bubble; a group's joined corners are `rounded-control`) and `rounded-composer` (22 px, the message field).
 
 No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 

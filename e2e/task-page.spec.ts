@@ -450,7 +450,7 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     await expect(page.locator('[data-slot="task-tab"]:visible')).toHaveText(["Work", "Chat"]);
     await tab(page, "chat").click();
     await expect(panel(page, "chat")).toBeVisible();
-    await expect(panel(page, "chat").getByRole("textbox", { name: "Comment" })).toBeVisible();
+    await expect(panel(page, "chat").getByRole("textbox", { name: "Message" })).toBeVisible();
     await expect(chatSheet(page)).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`\\?tab=chat$`));
   });
@@ -520,7 +520,7 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     // Staff's own reply is not new to them; to the helper it is.
     const composer = phone(page) ? chatSheet(page) : panel(page, "chat");
     await tab(page, "chat").click();
-    await composer.getByRole("textbox", { name: "Comment" }).fill("Got it, thanks.");
+    await composer.getByRole("textbox", { name: "Message" }).fill("Got it, thanks.");
     // One solid commit per layer (decision 26, phase 4 review A-M1): Send is solid only in the
     // phone's sheet, its own layer; inline on desktop it sits beside the next step's solid button.
     await expect(composer.getByRole("button", { name: "Send" })).toHaveAttribute(
@@ -573,7 +573,7 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     await live(page);
     await tab(page, "chat").click();
     const chat = phone(page) ? chatSheet(page) : panel(page, "chat");
-    const box = chat.getByRole("textbox", { name: "Comment" });
+    const box = chat.getByRole("textbox", { name: "Message" });
     const own = chat.locator('[data-slot="task-comment"][data-own="true"]');
     const hint = chat.locator('[data-slot="composer-hint"]');
     await expect(box).toBeVisible();
@@ -661,6 +661,129 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     await expect(listed.locator('[data-slot="task-unread"]')).toContainText("1 new comment");
   });
 });
+
+/**
+ * Chat as a conversation (v1.8 V5b E, the approved sample `docs/design/v18-task-chat-sample.html`):
+ * the latest 50 messages in their own scroller, day lines, grouped bubbles, the red "New" line it
+ * opens at, "Load earlier" and "Jump to latest".
+ */
+test.describe("Chat as a conversation (v1.8 V5b E)", () => {
+  test.skip(({ viewport }) => viewport?.width === 430, "the flows run at 375px and desktop");
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("opens at the first unread under day lines; Load earlier keeps the place; Jump to latest", async ({
+    page,
+  }, info) => {
+    const prefix = `Conversation ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const helper = person("helper", info);
+    const [staffId, helperId] = await Promise.all([
+      memberIdOf(staff.email),
+      memberIdOf(helper.email),
+    ]);
+    const taskId = await ownerCreates({
+      title: `${prefix}reel`,
+      assignees: [staffId, helperId],
+      primary: staffId,
+      day: 47,
+    });
+    // 52 of the helper's yesterday, a minute apart; today the Crew member's "Morning", then two
+    // of the helper's. 55 in all: the page holds the latest 50, "Load earlier" the five before.
+    const yesterday = addISTDays(todayIST(), -1);
+    const earlier = Array.from({ length: 52 }, (_, index) => ({
+      body: `Earlier ${String(index + 1).padStart(2, "0")}`,
+      at: istInstant(yesterday, `10:${String(index).padStart(2, "0")}`),
+    }));
+    await postComments(helper.email, taskId, earlier);
+    await postComments(staff.email, taskId, [
+      { body: "Morning", at: istInstant(todayIST(), "00:05") },
+    ]);
+    await postComments(helper.email, taskId, [
+      { body: "On it", at: istInstant(todayIST(), "00:06") },
+      { body: "Uploading now", at: istInstant(todayIST(), "00:07") },
+    ]);
+    // The Crew member read up to their own "Morning": the helper's two after it are new.
+    await rpcAs(staff.email, PASSWORD, "task_mark_read", {
+      task_id: taskId,
+      up_to: istInstant(todayIST(), "00:05"),
+    });
+    await fixtureNotificationsRead(taskId);
+
+    await as(page, "staff", info);
+    await page.goto(`/tasks/${taskId}?tab=chat`);
+    await live(page);
+    const chat = phone(page) ? chatSheet(page) : panel(page, "chat");
+    await expect(chat).toBeVisible();
+    const thread = chat.locator('[data-slot="task-chat-thread"]');
+    const bubbles = chat.locator('[data-slot="task-comment"]');
+    await expect(bubbles).toHaveCount(50);
+
+    // Day lines, the grouping, and the "New" line where the unread start, in view on opening.
+    await expect(chat.locator('[data-slot="chat-day"]')).toHaveText(["Yesterday", "Today"]);
+    const newLine = chat.locator('[data-slot="chat-new-line"]');
+    await expect(newLine).toHaveText("New");
+    await expect(newLine).toBeInViewport();
+    await expect(bubbles.first()).not.toBeInViewport();
+    const groups = chat.locator('[data-slot="chat-group"]');
+    await expect(groups).toHaveCount(3);
+    await expect(groups.nth(1)).toHaveAttribute("data-own", "true");
+    await expect(groups.nth(2).locator('[data-slot="task-comment"]')).toHaveText([
+      /On it$/,
+      /Uploading now$/,
+    ]);
+    // A bubble fits its text: "Morning" is a small one on the right.
+    const own = (await groups.nth(1).locator('[data-slot="task-comment"]').boundingBox())!;
+    const feed = (await thread.boundingBox())!;
+    expect(own.width).toBeLessThan(feed.width / 2);
+    expect(own.x + own.width).toBeGreaterThan(feed.x + feed.width / 2);
+
+    // Load earlier, at the top: the five before; the message that was first stays in view.
+    await thread.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await chat.locator('[data-slot="chat-load-earlier"]').click();
+    await expect(bubbles).toHaveCount(55);
+    await expect(chat.locator('[data-slot="chat-load-earlier"]')).toHaveCount(0);
+    await expect(bubbles.filter({ hasText: "Earlier 06" })).toBeInViewport();
+    await expect(bubbles.first()).toContainText("Earlier 01");
+
+    // Scrolled up, a new message arrives (its notification re-reads the page): Jump to latest.
+    await expect(page.locator("html")).toHaveAttribute("data-live", "on");
+    await insertAs(helper.email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: "Fresh from the edit suite",
+    });
+    const fresh = bubbles.filter({ hasText: "Fresh from the edit suite" });
+    await expect(fresh).toHaveCount(1);
+    await expect(fresh).not.toBeInViewport();
+    const jump = chat.locator('[data-slot="chat-jump"]');
+    await expect(jump).toHaveText("Jump to latest");
+    await jump.click();
+    await expect(fresh).toBeInViewport();
+    await expect(jump).toHaveCount(0);
+    await receiptsSettled(page);
+    if (phone(page)) {
+      await page.goBack();
+      await expect(chatSheet(page)).toBeHidden();
+    }
+  });
+});
+
+/** Posts comments as one person, then sets their times (the API stamps "now"). */
+async function postComments(
+  email: string,
+  taskId: string,
+  rows: readonly { body: string; at: string }[],
+): Promise<void> {
+  for (const row of rows) {
+    const comment = await insertAs<{ id: string }>(email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: row.body,
+    });
+    await serviceUpdate(`task_comments?id=eq.${comment.id}`, { created_at: row.at });
+  }
+}
 
 test.describe("History (decision 29; the header's History sheet since V5a)", () => {
   test.skip(({ viewport }) => viewport?.width === 430, "the flows run at 375px and desktop");
@@ -871,6 +994,55 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
       { closes: chatSheet(page), url: new RegExp(`/tasks/${taskId}\\?tab=chat$`) },
       { url: /\/tasks$/ },
     ]);
+  });
+
+  test("Chat is a full-height view: ‹ returns to the task, the gesture too, then one back leaves", async ({
+    page,
+  }, info) => {
+    const prefix = `Chat view ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staffId = await memberIdOf(person("staff", info).email);
+    const helper = person("helper", info);
+    const taskId = await ownerCreates({
+      title: `${prefix}promo`,
+      assignees: [staffId, await memberIdOf(helper.email)],
+      primary: staffId,
+      day: 52,
+    });
+    await insertAs(helper.email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: "The first cut is up.",
+    });
+    await fixtureNotificationsRead(taskId);
+    await runInstalled(page);
+    await as(page, "staff", info);
+    await page.goto("/tasks");
+    await page.goto(`/tasks/${taskId}`);
+    const url = new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`);
+    await live(page);
+
+    // Full height, its own title with ‹, the composer at its foot.
+    await tab(page, "chat").click();
+    const sheet = chatSheet(page);
+    await expect(sheet).toBeVisible();
+    await receiptsSettled(page);
+    await animationsSettled(page);
+    const viewport = page.viewportSize() as { width: number; height: number };
+    const box = (await sheet.boundingBox()) as { y: number; height: number };
+    expect(box.y).toBe(0);
+    expect(Math.round(box.y + box.height)).toBe(viewport.height);
+    await expect(sheet.getByRole("heading", { name: `${prefix}promo · Chat` })).toBeVisible();
+    const composer = (await sheet.locator('[data-slot="task-chat-composer-row"]').boundingBox())!;
+    expect(Math.round(composer.y + composer.height)).toBe(viewport.height);
+    await expect(sheet.locator('[data-slot="task-comment"]')).toContainText("The first cut is up.");
+
+    // ‹ returns to the task (the layer's own back), the gesture too, then back leaves.
+    await sheet.getByRole("button", { name: "Back to the task" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(url);
+    await tab(page, "chat").click();
+    await expect(chatSheet(page)).toBeVisible();
+    await expectBackStack(page, [{ closes: chatSheet(page), url }, { url: /\/tasks$/ }]);
   });
 });
 

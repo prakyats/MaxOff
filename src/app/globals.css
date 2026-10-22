@@ -95,6 +95,12 @@
   --radius-2xl: var(--radius-sheet);
   --radius-3xl: var(--radius-sheet);
   --radius-4xl: var(--radius-sheet);
+  /*
+   * Chat only (v1.8 V5b E, the approved chat sample): a message bubble's 16px corners (the joined
+   * corners of a group are a control's 6px) and the composer's rounded field.
+   */
+  --radius-bubble: 1rem;
+  --radius-composer: 1.375rem;
 
   /*
    * One shadow per elevation step (DESIGN.md §3): raised (cards), floating (menus, popovers,

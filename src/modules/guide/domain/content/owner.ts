@@ -474,13 +474,36 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/remind",
             }),
             next(
-              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s History (the clock in its header) reads "sent ‹names› a reminder", and Chat stays as it was.',
+              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s History (the clock in its header) reads "sent ‹names› a reminder", and Chat shows only a quiet line that it went out.',
             ),
             note(
               'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',
             ),
           ],
           keywords: ["remind", "nudge", "chase"],
+        },
+        {
+          id: "owner-task-chat",
+          title: "Chat on a task",
+          summary: "Talk with the people on a task, on the task itself.",
+          blocks: [
+            steps(
+              'Open the task and choose "Chat". On a laptop it fills the space under the tabs; on a phone it opens full screen and ‹ takes you back to the task.',
+              'Type in "Message…" at the bottom. The box grows as you write.',
+              "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
+            ),
+            next(
+              'Everyone on the task sees it. Yours sit on the right; others\' on the left with their photo and name. The tab shows "Chat · N new" when something is unread.',
+            ),
+            text(
+              'Chat opens at a red "New" line where unread messages start, otherwise at the latest. Days are divided ("Today", "Yesterday", "Mon 20 Oct"). Quiet lines in the middle show when someone noted the task, the deadline moved or a reminder went out; the full story stays in History (the clock in the header).',
+            ),
+            note(
+              'Scrolled up when a message arrives? Tap "Jump to latest". Older messages appear with "Load earlier" at the top.',
+            ),
+          ],
+          link: { href: "/tasks", label: "Open Tasks" },
+          keywords: ["comment", "message", "discussion", "reply", "new", "load earlier"],
         },
         {
           id: "owner-task-menu",

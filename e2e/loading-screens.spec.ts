@@ -469,10 +469,13 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     },
     trace: {
       ...TASK_GLANCE,
-      "first comment": {
-        held: '[data-slot="loading-task-chat"] > :first-child > :first-child, [data-slot="loading-task-chat-sheet"] > :nth-child(2) > div > :first-child',
+      // v1.8 V5b E (deliberate): the feed's first row is its day line ("Today"), traced in the
+      // panel on a laptop and the full-height view on a phone. The first message is no longer the
+      // point: the red "New" line sits above it when something is unread (data, not layout).
+      "first day line": {
+        held: '[data-slot="loading-chat-day"]',
         settled:
-          '[data-slot="task-panel-chat"] [data-slot="task-comment"], [data-slot="task-chat-sheet"] [data-slot="task-comment"]',
+          '[data-slot="task-panel-chat"] [data-slot="chat-day"], [data-slot="task-chat-sheet"] [data-slot="chat-day"]',
       },
     },
   },

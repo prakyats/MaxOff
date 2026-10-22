@@ -10,24 +10,27 @@ import { startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { formatDateTime, systemClock } from "@/core/time";
+import { formatDateTime, systemClock, todayIST } from "@/core/time";
 import { HistorySheet } from "@/core/ui/composites/history-sheet";
 import { DetailHeader } from "@/core/ui/composites/page-header";
 import { AvatarStack, type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import {
   activeAssignees,
-  actorPair,
+  chatEvents,
+  chatMessages,
   collapseTicks,
   describeTaskActivity,
   eventLabel,
   earlierHandInLabel,
+  firstUnreadId,
   handInFirst,
   HISTORY_ARRIVAL,
   reopenAfterHandIn,
   isFinal,
   isLocked,
   latestChangeRequest,
+  listUnreadCounts,
   LinkedText,
   moreSteps,
   neededLine,
@@ -193,7 +196,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   );
 
   const work = workPanel({ data, task, actions, pair });
-  const thread = chatThread({ data, viewerId: viewer.id, pair, names, faces });
+  const chat = await chatData({ data, viewerId: viewer.id, names, faces, active });
   const activity = activityPanel({ data, names, viewerId: viewer.id });
   const details = detailsPanel({
     data,
@@ -211,10 +214,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   });
 
   return (
-    <TaskViewProvider
-      unread={unreadCount(data.comments, data.lastRead, viewer.id)}
-      newestAt={newestCommentAt(data.comments)}
-    >
+    <TaskViewProvider unread={chat.unread} newestAt={newestCommentAt(data.comments)}>
       <Suspense fallback={null}>
         <RecordReadReceipt entity="tasks" id={task.id} />
       </Suspense>
@@ -331,9 +331,16 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           <TaskViewPanel name="work">{work}</TaskViewPanel>
           <TaskChat
             taskId={task.id}
-            thread={thread}
-            count={data.comments.length}
+            taskTitle={task.title}
+            messages={chat.messages}
+            events={chat.events}
+            more={data.earlierComments}
+            firstUnread={chat.firstUnread}
             newestAt={newestCommentAt(data.comments)}
+            people={chat.people}
+            // One solid commit a screen: Send is solid on a laptop only without a next step.
+            solidSend={next === null}
+            placeholder={chat.placeholder}
             forOptions={commentFor}
             defaultFor={selfOnTask ? null : (commentFor[0]?.id ?? null)}
           />
@@ -492,77 +499,47 @@ function workPanel({
 }
 
 /**
- * Chat's thread (decision 28): the comments, oldest first, the viewer's own on the right ("You",
- * or "You for Asha" when written for a freelancer), everyone else's named as the pair.
+ * Chat's feed (decision 28; v1.8 V5b E): the latest page of messages and the task's small events,
+ * worded for the reader ("You" for their own), the first unread one, the people on the task for
+ * the panel's head, and the unread count. When every message held is unread and earlier ones
+ * remain, the count is the database's own (`task_unread_counts`; 50+ unread, rare).
  */
-function chatThread({
+async function chatData({
   data,
   viewerId,
-  pair,
   names,
   faces,
+  active,
 }: {
   data: TaskReads;
   viewerId: string;
-  pair: Pair;
   names: Record<string, string>;
   /** Each person's photo, from the same directory read as the names (V5b-D). */
   faces: Record<string, AvatarPerson>;
-}): ReactNode {
-  if (data.comments.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm" data-slot="task-comments-empty">
-        No comments yet. Ask a question or post an update: everyone on the task sees it.
-      </p>
-    );
+  active: { memberId: string }[];
+}) {
+  const today = todayIST();
+  const messages = chatMessages(data.comments, { viewerId, names, faces, today });
+  const events = chatEvents(data.activity, { viewerId, names, today });
+  const firstUnread = firstUnreadId(data.comments, data.lastRead, viewerId);
+  let unread = unreadCount(data.comments, data.lastRead, viewerId);
+  if (data.earlierComments && firstUnread !== null && firstUnread === data.comments[0]?.id) {
+    unread = (await listUnreadCounts([data.task?.id ?? ""]))[data.task?.id ?? ""] ?? unread;
   }
-  return (
-    <ol aria-label="Comments" data-slot="task-comments" className="flex min-w-0 flex-col gap-3">
-      {data.comments.map((comment) => {
-        const own = comment.authorId === viewerId;
-        const forName = comment.onBehalfOf ? (names[comment.onBehalfOf] ?? "a freelancer") : null;
-        const author = faces[comment.authorId];
-        return (
-          <li
-            key={comment.id}
-            data-slot="task-comment"
-            data-own={own ? "true" : "false"}
-            // The approved pull-in sample (V5b-D): someone else's message leads with their photo,
-            // the name and time above the bubble; your own sits on the right.
-            className={cn(
-              "flex max-w-[85%] min-w-0 items-start gap-2.5",
-              own ? "self-end" : "self-start",
-            )}
-          >
-            {own ? null : author ? (
-              <PersonAvatar person={author} size={28} />
-            ) : (
-              <PersonAvatar
-                person={{ id: comment.authorId, name: "Someone", avatarFileId: null }}
-                size={28}
-              />
-            )}
-            <div className={cn("flex min-w-0 flex-col gap-0.5", own && "items-end")}>
-              <p className="text-muted-foreground text-xs break-words">
-                <span className="text-foreground font-medium">
-                  {own ? actorPair("You", forName) : pair(comment.authorId, comment.onBehalfOf)}
-                </span>
-                {" · "}
-                <time dateTime={comment.createdAt}>{formatDateTime(comment.createdAt)}</time>
-              </p>
-              <LinkedText
-                text={comment.body}
-                className={cn(
-                  "max-w-full rounded-xl px-3 py-2 text-sm",
-                  own ? "bg-muted" : "border-border bg-card border",
-                )}
-              />
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
+  // The others first, then the reader: "Asha, You".
+  const people = [...active]
+    .sort((a, b) => Number(a.memberId === viewerId) - Number(b.memberId === viewerId))
+    .map((assignee) => {
+      const name = assignee.memberId === viewerId ? "You" : (names[assignee.memberId] ?? "Someone");
+      return {
+        id: assignee.memberId,
+        name,
+        face: faces[assignee.memberId] ?? { id: assignee.memberId, name, avatarFileId: null },
+      };
+    });
+  const others = people.filter((person) => person.id !== viewerId).map((person) => person.name);
+  const placeholder = others.length === 1 ? `Message ${others[0]}…` : "Message…";
+  return { messages, events, firstUnread, unread, people, placeholder };
 }
 
 /** Activity (decision 29): every change as a sentence, ticks collapsed, the newest five first. */
