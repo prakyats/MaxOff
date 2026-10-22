@@ -23,7 +23,9 @@ const text = (over: Partial<ActivityEntry>) => describeMemberActivity(entry(over
 describe("describeMemberActivity (PP-person-1)", () => {
   it("says the lifecycle in words", () => {
     expect(text({ action: "invited" })).toBe("invited them");
-    expect(text({ action: "deactivated", new: { status: "deactivated" } })).toBe("deactivated them");
+    expect(text({ action: "deactivated", new: { status: "deactivated" } })).toBe(
+      "deactivated them",
+    );
     expect(text({ action: "reactivated" })).toBe("reactivated them");
     expect(text({ action: "freelancer_added" })).toBe("added them as a freelancer");
   });
