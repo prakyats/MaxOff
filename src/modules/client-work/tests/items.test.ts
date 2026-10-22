@@ -24,7 +24,12 @@ import {
   periodNext,
   periodStart,
 } from "../domain/periods";
-import { clientWorkLine, progressByClient, projectSummaries } from "../domain/projects";
+import {
+  clientWorkLine,
+  progressByClient,
+  projectSummaries,
+  readyToComplete,
+} from "../domain/projects";
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
@@ -837,5 +842,18 @@ describe("stage lists name each stage once (the 7B rework's review, S3)", () => 
     expect(
       updateBlueprintSchema.safeParse({ blueprintId: client, stages: ["Shoot", "Edit"] }).success,
     ).toBe(true);
+  });
+});
+
+describe("readyToComplete (PP-client-2)", () => {
+  it("is a one-time project with every deliverable done, none open or waiting", () => {
+    expect(readyToComplete("one_time", ["approved", "approved", "cancelled"])).toBe(true);
+    expect(readyToComplete("one_time", ["approved", "open"])).toBe(false);
+    expect(readyToComplete("one_time", ["approved", "done"])).toBe(false);
+    expect(readyToComplete("one_time", ["cancelled"])).toBe(false);
+    expect(readyToComplete("one_time", [])).toBe(false);
+  });
+  it("is never a repeating project: its next cycle comes on its own", () => {
+    expect(readyToComplete("monthly", ["approved", "approved"])).toBe(false);
   });
 });

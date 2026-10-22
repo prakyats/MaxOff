@@ -34,6 +34,12 @@ export type ProjectSummary = {
    */
   meter: CycleMeter | null;
   finished: boolean;
+  /**
+   * PP-client-2: a working one-time project whose deliverables are all done (none open, none
+   * waiting), so Complete would go through (WORKFLOWS §5 item 14): it reads "Ready to complete".
+   * Never a repeating one: its next cycle comes on its own, and completing it is a choice.
+   */
+  readyToComplete: boolean;
 };
 
 /**
@@ -75,11 +81,26 @@ export function projectSummaries(
         : progressLine(progressOf((cycle?.states ?? []).map((state) => ({ state })))),
       meter: meterOf(cycle, today),
       finished,
+      readyToComplete: !finished && readyToComplete(project.recurrence, cycle?.states ?? []),
     };
   });
   return summaries.sort(
     (a, b) => Number(a.finished) - Number(b.finished) || a.name.localeCompare(b.name),
   );
+}
+
+/**
+ * Whether a working project reads "Ready to complete" (PP-client-2) from its cycle's deliverable
+ * states: one-time only, at least one done and none open or waiting (`project_complete` refuses
+ * while any is open or done, WORKFLOWS §5 item 14; a one-time project has the one cycle).
+ */
+export function readyToComplete(
+  recurrence: Project["recurrence"],
+  states: readonly ItemState[],
+): boolean {
+  if (recurrence !== "one_time") return false;
+  const done = states.some((state) => state === "approved");
+  return done && !states.some((state) => state === "open" || state === "done");
 }
 
 function meterOf(

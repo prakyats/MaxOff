@@ -39,6 +39,7 @@ import {
   listStages,
   needsYouPills,
   nextStartable,
+  readyToComplete,
   cycleMeter,
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
@@ -224,6 +225,17 @@ export default async function ProjectPage({
   );
   const definitions = projectFields.filter((definition) => definition.archivedAt === null);
   const base = `/clients/${client.id}/projects/${project.id}`;
+  // PP-client-2: a working one-time project with every deliverable done reads "Ready to complete".
+  const stateChip =
+    working &&
+    readyToComplete(
+      project.recurrence,
+      items.map((item) => item.state),
+    ) ? (
+      <StatusBadge status="ready" tone="attention" label="Ready to complete" />
+    ) : (
+      <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
+    );
   const cycleHref = (cycleId: string) => `${base}?cycle=${cycleId}`;
   const meta = [
     client.name,
@@ -240,7 +252,7 @@ export default async function ProjectPage({
         title={project.name}
         description={meta.join(" · ")}
         // FINAL 6: back · title · status chip (from md; a phone reads it on the glance line).
-        status={<StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />}
+        status={stateChip}
         back={{ href: `/clients/${client.id}/projects`, label: client.name, from: PROJECT_ORIGINS }}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
@@ -292,7 +304,7 @@ export default async function ProjectPage({
         <div className="flex min-w-0 flex-col gap-2" data-slot="project-glance">
           {/* A phone's glance line: the state and "client · repeat" (the header's from md). */}
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm md:hidden">
-            <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
+            {stateChip}
             <span>{meta.join(" · ")}</span>
           </p>
           {!working ? (

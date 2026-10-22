@@ -51,6 +51,7 @@ export {
   clientWorkLine,
   progressByClient,
   projectSummaries,
+  readyToComplete,
   type CurrentCycleStates,
   type ProjectSummary,
 } from "./domain/projects";
