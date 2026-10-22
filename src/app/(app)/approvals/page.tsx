@@ -1,5 +1,6 @@
 import { CheckCheckIcon } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { withSessionUserId } from "@/core/auth/server";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
@@ -9,6 +10,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { buttonVariants } from "@/core/ui/primitives/button-variants";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
 import { reachedAt, waitingFor, type Waiting } from "@/modules/dashboards";
 import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
@@ -110,6 +112,18 @@ export default async function ApprovalsPage() {
             decidesAttendance
               ? "Attendance, leave, extra work, expense claims and tasks that need you appear here."
               : "The tasks you check appear here. Attendance, leave and expenses are the Owner's to decide."
+          }
+          // PP-admin-2: an Admin with nothing to check is pointed at what they can do instead.
+          action={
+            decidesAttendance ? undefined : (
+              <Link
+                href="/tasks"
+                data-slot="approvals-open-tasks"
+                className={buttonVariants({ variant: "secondary" })}
+              >
+                Open Tasks
+              </Link>
+            )
           }
         />
       ) : (
