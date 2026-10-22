@@ -4993,6 +4993,28 @@ export type Database = {
           total: number;
         }[];
       };
+      notifications_inbox_page: {
+        Args: {
+          p_before_at: string;
+          p_before_id: string;
+          p_limit: number;
+          p_unread_only: boolean;
+        };
+        Returns: {
+          actor_avatar_file_id: string;
+          actor_id: string;
+          actor_name: string;
+          body: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          link: string;
+          run_kinds: string[];
+          run_size: number;
+          run_unread: string[];
+          title: string;
+        }[];
+      };
       notifications_mark_all_read: { Args: never; Returns: number };
       notifications_mark_read: {
         Args: { entity: string; entity_id: string };

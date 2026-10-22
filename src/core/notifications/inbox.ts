@@ -15,7 +15,7 @@ import type { ServerUnread } from "./read-receipts";
  * not audited). Rows are written by `app.notify()` inside the transitions, never here.
  */
 
-/** History rows per page. */
+/** Alerts' entries per read: the first screen, then each "Show older" (V5b-D). */
 export const INBOX_PAGE_SIZE = 20;
 
 /**
@@ -37,6 +37,17 @@ export interface InboxRow {
   runKinds: string[];
   /** The ids still unread, newest first: the entry is unread while any is. */
   runUnread: string[];
+  /**
+   * Who caused the newest row (V5b-D: their photo leads the row), with the name and photo the
+   * viewer's directory shows (null when they are not in it); null for a job's alert.
+   */
+  actor: { id: string; name: string | null; avatarFileId: string | null } | null;
+}
+
+/** Where "Show older" carries on: the newest row of the last entry shown (V5b-D, keyset). */
+export interface InboxCursor {
+  at: string;
+  id: string;
 }
 
 /**
@@ -68,36 +79,54 @@ export async function readUnreadAlone(): Promise<ServerUnread> {
 }
 
 /**
- * One page of the member's Alerts, newest first, with the number of entries for the pager. Same-
- * record runs are made by the database (`notifications_inbox`), so a page of 20 is 20 entries and
- * a run never splits across pages. `unreadOnly`: the "Unread" filter.
+ * The member's Alerts in keyset pages, newest first (`notifications_inbox_page`, V5b-D): the first
+ * `INBOX_PAGE_SIZE` entries, or with `before` the ones after that entry ("Show older"), so a new
+ * alert never shifts or repeats a row. Same-record runs are made by the database, and each entry
+ * carries its actor's name and photo from the same read. `next` is where the next "Show older"
+ * starts; null at the end. `unreadOnly`: the "Unread" filter.
  */
-export async function listInbox(
-  page: number,
+export async function listInboxPage({
   unreadOnly = false,
-): Promise<{ rows: InboxRow[]; total: number }> {
+  before = null,
+}: {
+  unreadOnly?: boolean;
+  before?: InboxCursor | null;
+} = {}): Promise<{ rows: InboxRow[]; next: InboxCursor | null }> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("notifications_inbox", {
+  const { data, error } = await supabase.rpc("notifications_inbox_page", {
     p_unread_only: unreadOnly,
-    p_offset: (page - 1) * INBOX_PAGE_SIZE,
-    p_limit: INBOX_PAGE_SIZE,
+    // The generated types mark a function's arguments not-null; null means the first page.
+    p_before_at: (before?.at ?? null) as string,
+    p_before_id: (before?.id ?? null) as string,
+    // One more than a page: whether there is anything older.
+    p_limit: INBOX_PAGE_SIZE + 1,
   });
   if (error) throw error;
-  return {
-    rows: data.map((row) => ({
+  const rows = data.slice(0, INBOX_PAGE_SIZE).map(
+    (row): InboxRow => ({
       id: row.id,
       kind: row.kind,
       title: row.title,
-      // A function's columns are typed not-null; these two may be null.
+      // A function's columns are typed not-null; these may be null.
       body: (row.body as string | null) ?? null,
       link: (row.link as string | null) ?? null,
       createdAt: row.created_at,
       runSize: row.run_size,
       runKinds: row.run_kinds,
       runUnread: row.run_unread,
-    })),
-    // Every row carries the total; a page past the end has none.
-    total: data[0]?.total ?? 0,
+      actor: (row.actor_id as string | null)
+        ? {
+            id: row.actor_id,
+            name: (row.actor_name as string | null) ?? null,
+            avatarFileId: (row.actor_avatar_file_id as string | null) ?? null,
+          }
+        : null,
+    }),
+  );
+  const last = rows.at(-1);
+  return {
+    rows,
+    next: data.length > INBOX_PAGE_SIZE && last ? { at: last.createdAt, id: last.id } : null,
   };
 }
 
