@@ -244,12 +244,11 @@ export function ClientList({
   }
 
   const mobile: MobileCard<ClientSummary> = {
-    title: (client) => (
-      <span className="inline-flex max-w-full items-center gap-2 align-middle">
-        <ClientLogo fileId={client.logoFileId} name={client.name} />
-        <span className="truncate">{client.name}</span>
-      </span>
-    ),
+    // The logo leads the card, beside the title rather than inside it: at large system text the
+    // name then drops under the logo with the card's full width instead of being cut to a sliver
+    // between the logo and the card's ⋯ and › (§14.2 i, the truncation rule).
+    leading: (client) => <ClientLogo fileId={client.logoFileId} name={client.name} />,
+    title: (client) => client.name,
     detailTitle: (client) => client.name,
     // The Owner's card: who runs it, then the work; an Admin's: the work (N4, PP-clients-1).
     subtitle: (client) =>

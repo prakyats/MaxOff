@@ -56,7 +56,7 @@ const COLD_MS = 3_000;
 const INSTANT_MS = 300;
 /** How long a finger rests on the glass in a tap. */
 const TAP_HOLD_MS = 80;
-const SHELL_CACHE = "maxoff-shell-v10";
+const SHELL_CACHE = "maxoff-shell-v11";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 const ISO_DATE = /\b20\d\d-[01]\d-[0-3]\d\b/;
@@ -175,10 +175,17 @@ test.describe("what the worker keeps carries no member data", () => {
             ),
           )
           .toEqual(awaited);
-        // A task's page, from its row (the Owner and the Crew member see the fixture's).
+        // A task's page, from its row on Tasks (the Owner and the Crew member see the fixture's).
+        // Tasks' own row: My Day links the task twice by design (its row, and its deadline by name
+        // under "This week", FINAL 8 / PP-today-4), so the row is found once Tasks is on screen.
         if (role !== "admin") {
           await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-          await expect(page.getByRole("link", { name: new RegExp(title(info)) })).toBeVisible();
+          await expect(page).toHaveURL(/\/tasks$/);
+          await expect(
+            page
+              .locator('[data-slot="task-row"]')
+              .getByRole("link", { name: new RegExp(title(info)) }),
+          ).toBeVisible();
           await expect
             .poll(() =>
               [...answers.keys()].some((key) => /^\/tasks\/[0-9a-f-]{36} loading$/.test(key)),
@@ -394,11 +401,17 @@ test.describe("a tap on a cold Worker shows its skeleton at once", () => {
     await prep.close();
     await runInstalled(page);
 
-    // A warm visit: home, then Tasks, where the task's row is seen.
+    // A warm visit: home, then Tasks, where the task's row is seen. Tasks' own row: Today links
+    // the task too, and stays on screen until Tasks commits (a row found there is gone a moment
+    // later), so the row is found once Tasks is the page.
     await page.goto("/today");
     await hydrated(page);
     await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-    const row = page.getByRole("link", { name: new RegExp(TASK) }).first();
+    await expect(page).toHaveURL(/\/tasks$/);
+    const row = page
+      .locator('[data-slot="task-row"]')
+      .getByRole("link", { name: new RegExp(TASK) })
+      .first();
     await expect(row).toBeVisible();
     // Seen means on the screen: a row prefetches its skeleton when it comes into view, and a run's
     // overdue tasks under Needs you can hold the Open tasks below the fold.

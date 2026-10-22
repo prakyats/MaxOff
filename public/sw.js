@@ -37,7 +37,7 @@
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v10";
+const VERSION = "v11";
 const CACHE = `maxoff-${VERSION}`;
 const SHELL_CACHE = `maxoff-shell-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -296,9 +296,40 @@ function shellKey(request) {
   if (!deployment || !rsc || [...url.searchParams.keys()].length !== 1) return null;
   const key = new URL(url.pathname, self.location.origin);
   key.searchParams.set("segment", headers.get("next-router-segment-prefetch") ?? "");
-  key.searchParams.set("tree", headers.get("next-router-state-tree") ?? "");
+  key.searchParams.set("tree", requestTreeKey(headers.get("next-router-state-tree") ?? ""));
   key.searchParams.set("dpl", deployment);
   return key.href;
+}
+
+/**
+ * The router state tree as the cache key holds it: the router's "inside-shared-layout" marks
+ * read as no mark. The router sends one where the destination leaves the page it is asked from
+ * and that part is already in its memory, and none when it is asked from under the same part
+ * (a task's row on Today or on Tasks): the server uses the mark only to begin looking for a
+ * loading boundary, and every kept address has its own below it, so both requests render from
+ * the same "refetch" mark down and get the same skeleton. Without this, a task's skeleton kept
+ * from Today never answered the same task tapped on Tasks after a cold reopen (seconds on a cold
+ * Worker). Any other tree is kept as sent.
+ */
+function requestTreeKey(header) {
+  if (!header.includes("inside-shared-layout")) return header;
+  try {
+    const unmark = (node) => {
+      if (!Array.isArray(node)) return node;
+      const copy = node.slice();
+      if (copy[3] === "inside-shared-layout") copy[3] = null;
+      const children = copy[1];
+      if (children && typeof children === "object" && !Array.isArray(children)) {
+        copy[1] = Object.fromEntries(
+          Object.entries(children).map(([slot, child]) => [slot, unmark(child)]),
+        );
+      }
+      return copy;
+    };
+    return encodeURIComponent(JSON.stringify(unmark(JSON.parse(decodeURIComponent(header)))));
+  } catch {
+    return header;
+  }
 }
 
 async function readShellViewer() {
