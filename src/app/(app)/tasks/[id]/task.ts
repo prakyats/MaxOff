@@ -55,7 +55,7 @@ export const loadTask = cache(async (id: string) => {
     task,
     assignees,
     stages,
-    comments,
+    chat,
     submissions,
     reviews,
     activity,
@@ -80,11 +80,14 @@ export const loadTask = cache(async (id: string) => {
     readTaskDefinitions(),
     getTaskRead(id),
   ]);
+  const { comments, more: earlierComments } = chat;
   return {
     task,
     assignees,
     stages,
     comments,
+    /** Earlier comments remain before the latest page (Chat's "Load earlier"). */
+    earlierComments,
     submissions,
     reviews,
     activity,

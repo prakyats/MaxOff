@@ -799,9 +799,9 @@ test.describe("staff tasks, the flows", () => {
       // A comment for the freelancer: the coordinator reads it as theirs, "You for Asha".
       const chat = await openChat(page);
       await expect(chat.getByLabel("Writing as")).toContainText(`For ${asha.name}`);
-      await chat.getByRole("textbox", { name: "Comment" }).fill("Uploaded the final cut.");
+      await chat.getByRole("textbox", { name: "Message" }).fill("Uploaded the final cut.");
       await chat.getByRole("button", { name: "Send" }).click();
-      await expect(chat.getByRole("textbox", { name: "Comment" })).toHaveValue("");
+      await expect(chat.getByRole("textbox", { name: "Message" })).toHaveValue("");
       await expect(chat.locator('[data-slot="task-comment"]')).toContainText(
         `You for ${asha.name}`,
       );

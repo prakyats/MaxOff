@@ -1,6 +1,6 @@
 "use client";
 
-import { SendIcon } from "lucide-react";
+import { SendHorizontalIcon } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import { ActionStatus } from "@/core/ui/action/action-status";
@@ -28,9 +28,11 @@ import { WRITING_AS_SELF } from "../domain/page";
  * reply it offers no Retry, which could post it twice. A freelancer's coordinator picks who is
  * writing: themselves or the freelancer ("Ravi for Asha", ADR-0013); the guard checks it again.
  *
- * **Send's colour (colour rule, Kickoff 4 decision 26):** solid only inside the phone's Chat
- * sheet, its own layer. Inline on desktop the composer shares the screen with the next step's
- * solid action, so Send is the neutral outline there (still a commit: offline-aware, pending).
+ * **The look (v1.8 V5b E, the approved chat sample):** a rounded field that grows with the text up
+ * to five lines, and a round Send beside it. **Send's colour (colour rule, Kickoff 4 decision
+ * 26):** the solid neutral commit in the phone's Chat sheet (its own layer) and on a laptop when
+ * the screen holds no other solid action; inline beside the next step's solid button it is the
+ * neutral outline (still a commit: offline-aware, pending).
  *
  * **Keys (owner's note 2026-10-08, ARCHITECTURE §14.3 rule 1):** on a laptop Enter sends and
  * Shift+Enter makes a new line, with a quiet hint under the field; on a phone (touch) Enter makes
@@ -44,7 +46,8 @@ export function ChatComposer({
   writingFor,
   onWritingForChange,
   forOptions,
-  inSheet,
+  solid,
+  placeholder,
 }: {
   taskId: string;
   body: string;
@@ -52,8 +55,10 @@ export function ChatComposer({
   writingFor: string;
   onWritingForChange: (writingFor: string) => void;
   forOptions: { id: string; name: string }[];
-  /** Drawn in the phone's Chat sheet (a layer of its own) rather than inline on the page. */
-  inSheet: boolean;
+  /** Send is the layer's one solid commit (the phone's sheet, or a laptop screen without one). */
+  solid: boolean;
+  /** "Message Asha…": who the message reaches. */
+  placeholder: string;
 }) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
@@ -119,16 +124,18 @@ export function ChatComposer({
       <div className="flex min-w-0 items-end gap-2">
         <Textarea
           ref={field}
-          aria-label="Comment"
+          aria-label="Message"
           name="comment"
           rows={1}
           maxLength={COMMENT_MAX}
-          placeholder="Write a comment"
+          placeholder={placeholder}
           value={body}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
           aria-keyshortcuts={laptop ? "Enter" : undefined}
-          className="field-sizing-content max-h-40 min-h-11 min-w-0 flex-1 resize-none"
+          // Grows with the text up to five lines (16px type and 24px lines on a phone, 14px and
+          // 20px from `md`), then scrolls inside itself.
+          className="rounded-composer bg-background dark:bg-background field-sizing-content max-h-36 min-h-11 min-w-0 flex-1 resize-none px-4 py-2.5 md:max-h-31"
           keyHint={false}
           onChange={(event) => {
             onBodyChange(event.target.value);
@@ -147,18 +154,21 @@ export function ChatComposer({
         />
         <Button
           type="submit"
-          variant={inSheet ? "primary" : "secondary"}
+          variant={solid ? "primary" : "secondary"}
+          size="icon"
           commits
-          className="h-11 shrink-0"
+          aria-label="Send"
+          data-slot="chat-send"
+          className="size-11 shrink-0 rounded-full"
           pending={pending}
+          // Icon-only: a spinner stands in while it sends (`aria-busy`).
           pendingLabel="Sending…"
         >
-          <SendIcon aria-hidden />
-          Send
+          <SendHorizontalIcon aria-hidden className="size-5" />
         </Button>
       </div>
       {laptop ? (
-        <p data-slot="composer-hint" className="text-muted-foreground text-xs">
+        <p data-slot="composer-hint" className="text-muted-foreground px-4 text-xs">
           Enter to send · Shift+Enter for a new line
         </p>
       ) : null}

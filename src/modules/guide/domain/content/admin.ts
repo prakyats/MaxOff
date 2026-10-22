@@ -505,7 +505,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: the task’s History (the clock in its header) reads “sent Sam and Ria a reminder”.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: the task’s History (the clock in its header) reads “sent Sam and Ria a reminder”, and Chat shows only a quiet line that it went out.",
             },
             {
               kind: "next",
@@ -517,6 +517,35 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           keywords: ["remind", "nudge", "reminder"],
+        },
+        {
+          id: "admin-task-chat",
+          title: "Chat on a task",
+          summary: "Talk with the people on a task, on the task itself.",
+          blocks: [
+            {
+              kind: "steps",
+              steps: [
+                "Open the task and choose “Chat”. On a laptop it fills the space under the tabs; on a phone it opens full screen and ‹ takes you back to the task.",
+                "Type in “Message…” at the bottom. The box grows as you write.",
+                "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "Everyone on the task sees it. Yours sit on the right; others’ on the left with their photo and name. The tab shows “Chat · N new” when something is unread.",
+            },
+            {
+              kind: "text",
+              text: "Chat opens at a red “New” line where unread messages start, otherwise at the latest. Days are divided (“Today”, “Yesterday”, “Mon 20 Oct”). Quiet lines in the middle show when someone noted the task, the deadline moved or a reminder went out; the full story stays in History (the clock in the header).",
+            },
+            {
+              kind: "note",
+              text: "Scrolled up when a message arrives? Tap “Jump to latest”. Older messages appear with “Load earlier” at the top.",
+            },
+          ],
+          link: { href: "/tasks", label: "Open Tasks" },
+          keywords: ["comment", "message", "discussion", "reply", "new", "load earlier"],
         },
         {
           id: "admin-all-tasks",

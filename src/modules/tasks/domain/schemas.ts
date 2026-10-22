@@ -247,6 +247,13 @@ export const markReadSchema = z.object({
 });
 export type MarkReadInput = z.input<typeof markReadSchema>;
 
+/** Chat's "Load earlier" (v1.8 V5b E): the page before this message (its time and id). */
+export const earlierCommentsSchema = z.object({
+  taskId: z.uuid(),
+  before: z.iso.datetime({ offset: true }),
+  beforeId: z.uuid(),
+});
+
 // 4.5: Approvals ------------------------------------------------------------------------------------
 
 export const approveTaskSchema = z.object({ taskId: z.uuid() });

@@ -579,14 +579,22 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open the task and tap "Chat". On a phone it opens as a sheet.',
-                'Tap "Write a comment" and type your message.',
-                "Send it.",
+                'Open the task and tap "Chat". On a phone it opens full screen; ‹ takes you back to the task.',
+                'Tap "Message…" at the bottom and type. The box grows as you write.',
+                "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
               ],
             },
             {
               kind: "next",
-              text: 'People on the task see your comment. The tab shows "Chat · N new" when something is unread.',
+              text: 'Everyone on the task sees your message. Yours sit on the right; others\' on the left with their photo and name. The tab shows "Chat · N new" when something is unread.',
+            },
+            {
+              kind: "text",
+              text: 'Chat opens at a red "New" line where unread messages start, otherwise at the latest. Days are divided ("Today", "Yesterday", "Mon 20 Oct"). Quiet lines in the middle show when someone noted the task, the deadline moved or a reminder went out; the full story is in History (the clock in the header).',
+            },
+            {
+              kind: "text",
+              text: 'If you scroll up and a message arrives, tap "Jump to latest". Older messages appear when you tap "Load earlier" at the top.',
             },
             {
               kind: "note",
@@ -594,7 +602,7 @@ export const CREW_GUIDE: Guide = {
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
-          keywords: ["comment", "message", "discussion", "ask", "reply"],
+          keywords: ["comment", "message", "discussion", "ask", "reply", "new", "load earlier"],
         },
         {
           id: "freelancer-tasks",

@@ -171,7 +171,7 @@ test.describe("push and email dispatch (cron)", () => {
     await ownerPage.goto(`/tasks/${taskId}`);
     await ownerPage.locator('[data-slot="task-tab"][data-view-tab="chat"]').click();
     const composer = ownerPage.locator('[data-slot="task-panel-chat"]');
-    await composer.getByRole("textbox", { name: "Comment" }).fill("Straight to the phone");
+    await composer.getByRole("textbox", { name: "Message" }).fill("Straight to the phone");
     await composer.getByRole("button", { name: "Send" }).click();
     await expect(composer.locator('[data-slot="task-comment"][data-own="true"]')).toContainText(
       "Straight to the phone",

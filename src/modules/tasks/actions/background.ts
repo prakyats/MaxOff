@@ -3,7 +3,8 @@ import "server-only";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/tasks";
-import { availabilitySchema, markReadSchema } from "../domain/schemas";
+import { availabilitySchema, earlierCommentsSchema, markReadSchema } from "../domain/schemas";
+import type { TaskComment } from "../domain/types";
 import type { AvailabilityDay } from "../domain/warnings";
 
 /**
@@ -37,4 +38,17 @@ export async function markTaskRead(input: unknown): Promise<null> {
   await assertPermission("tasks.work");
   await repo.rpcMarkRead(data.taskId, data.upTo);
   return null;
+}
+
+/**
+ * Chat's "Load earlier" (v1.8 V5b E), `GET /api/tasks/comments`: the page of comments just before
+ * the oldest one the reader holds (keyset on its time and id). RLS (`app.task_visible()`) answers
+ * an empty page for a task the reader may not see.
+ */
+export async function readEarlierComments(
+  input: unknown,
+): Promise<{ comments: TaskComment[]; more: boolean }> {
+  const data = earlierCommentsSchema.parse(input);
+  await assertPermission("tasks.work");
+  return repo.listComments(data.taskId, { at: data.before, id: data.beforeId });
 }

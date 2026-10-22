@@ -7,14 +7,14 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { parseTaskView } from "../domain/page";
 
-import { ChatComposerSkeleton } from "./task-chat-skeleton";
+import { ChatComposerSkeleton, ChatFeedSkeleton, ChatHeadSkeleton } from "./task-chat-skeleton";
 
 /**
  * The task page's loading screen below its first glance (Kickoff 4 decision 31): the views' bar
  * and **the view the address asks for** (`?tab=`), traced, so a task opened on Details or Chat
  * loads in the shape it lands in: Work (the landing view) by default (an old `?tab=activity` too:
- * its History is a sheet over Work), Chat's thread on a desktop and Chat's full-height sheet over
- * Work on a phone, Details' people.
+ * its History is a sheet over Work), Chat's panel on a laptop and Chat's full-height view over
+ * Work on a phone (v1.8 V5b E), Details' people.
  * The same CSS as the page decides what shows where (`TaskViewPanel`), so nothing waits for
  * JavaScript. Every column is `min-w-0`, so a rem-wide bar never widens a phone at 200% text.
  */
@@ -65,65 +65,41 @@ export function TaskViewsSkeleton() {
         </div>
       </div>
 
-      {/* Chat on a desktop: the thread, then the composer. */}
+      {/* Chat on a laptop (v1.8 V5b E): the panel, its head, the feed, the pinned composer. */}
       <div
         aria-hidden
         data-slot="loading-task-chat"
         data-view={view}
-        className="hidden min-w-0 flex-col gap-4 md:data-[view=chat]:flex"
+        className="bg-card border-border shadow-raised rounded-sheet hidden h-[max(20rem,calc(100dvh-22rem))] min-w-0 flex-col overflow-hidden border md:data-[view=chat]:flex"
       >
-        <ChatThreadSkeleton />
-        <ChatComposerSkeleton />
+        <ChatHeadSkeleton />
+        <ChatFeedSkeleton />
+        <div className="bg-card border-t px-3 pt-2.5 pb-2">
+          <ChatComposerSkeleton />
+        </div>
       </div>
 
-      {/* Chat on a phone: the full-height sheet, over Work. */}
+      {/* Chat on a phone: the full-height view over Work, its back and title, feed, composer. */}
       <div
         aria-hidden
         data-slot="loading-task-chat-sheet"
         data-view={view}
-        className="bg-popover rounded-t-sheet fixed inset-x-0 bottom-0 z-50 hidden h-[calc(100dvh-var(--app-safe-top)-0.75rem)] flex-col border-t shadow-lg max-md:data-[view=chat]:flex"
+        className="bg-background fixed inset-0 z-50 hidden flex-col border-t pt-[var(--app-safe-top)] shadow-lg max-md:data-[view=chat]:flex"
       >
-        <div className="flex min-h-11 items-center justify-between gap-2 border-b py-1 pr-1 pl-4">
-          <div className="flex h-6 items-center">
-            <Skeleton className="h-4 w-12" />
+        <div className="flex items-center gap-1 border-b pr-4 pl-1">
+          <div className="flex size-11 shrink-0 items-center justify-center">
+            <Skeleton className="size-5" />
           </div>
-          <div className="flex size-11 items-center justify-center">
-            <Skeleton className="size-4" />
+          <div className="flex min-h-11 min-w-0 flex-1 items-center">
+            <Skeleton className="h-4 w-32" />
           </div>
         </div>
-        <div className="min-h-0 flex-1 px-4 py-3">
-          <ChatThreadSkeleton />
-        </div>
-        <div className="border-t p-3 pb-[calc(0.75rem+var(--app-safe-bottom))]">
+        <ChatFeedSkeleton />
+        <div className="border-t px-3 pt-2.5 pb-[calc(0.625rem+var(--app-safe-bottom))]">
           <ChatComposerSkeleton />
         </div>
       </div>
     </>
-  );
-}
-
-/** Two comments of the thread, as bubbles: a name and time over a line of text. */
-function ChatThreadSkeleton() {
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      {["self-start", "self-end"].map((side) => (
-        <div
-          key={side}
-          className={cn(
-            "flex w-3/5 max-w-[85%] min-w-0 flex-col gap-0.5 rounded-xl px-3 py-2",
-            side,
-            side === "self-end" ? "bg-muted" : "border-border border",
-          )}
-        >
-          <div className="flex h-4 min-w-0 items-center">
-            <Skeleton className="h-3 w-24 max-w-full" />
-          </div>
-          <div className="flex h-5 min-w-0 items-center">
-            <Skeleton className="h-4 w-40 max-w-full" />
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
 
