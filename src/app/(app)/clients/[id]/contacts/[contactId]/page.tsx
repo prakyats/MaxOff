@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { listDefinitions } from "@/core/custom-fields/server";
@@ -11,7 +12,20 @@ import { ContactMenu, ContactRecord } from "@/modules/clients/components/contact
 
 import { assertClientId, loadClient, loadPeople } from "../../client";
 
-export const metadata: Metadata = { title: "Contact" };
+/** The page's contacts read, shared with its tab title in one request. */
+const readContacts = cache(listContacts);
+
+/** The tab names the contact ("Asha Rao · MaxOff"), from the page's own reads (cached). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; contactId: string }>;
+}): Promise<Metadata> {
+  const { id, contactId } = await params;
+  await loadClient(id);
+  const contact = (await readContacts(id)).find((candidate) => candidate.id === contactId);
+  return { title: contact?.name ?? "Contact" };
+}
 
 /**
  * One contact of a client (3.4): a drill-down from the Overview (back returns there, §14.2 b),
@@ -28,7 +42,7 @@ export default async function ContactPage({
   assertClientId(id);
   const [{ viewer, client, canEdit }, [contacts, definitions, people]] = await checkThenRead(
     loadClient(id),
-    Promise.all([listContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
+    Promise.all([readContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
   );
   const contact = contacts.find((candidate) => candidate.id === contactId);
   if (!contact) notFound();

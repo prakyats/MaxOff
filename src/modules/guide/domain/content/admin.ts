@@ -816,7 +816,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "Your changes show on the client page and are added to its History (the clock in the header).",
+              text: "Your changes show on the client page and are added to its History (the clock in the header), where they read “You”.",
             },
             {
               kind: "note",

@@ -438,6 +438,8 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     await page.goto(`/tasks/${taskId}`);
     await hydrated(page);
     await live(page);
+    // The browser tab names the task (v1.8 pull-in item 5), not "Task".
+    await expect(page).toHaveTitle(`${prefix}layout · MaxOff`);
     const main = await page.locator('[data-slot="task-tabs"]').boundingBox();
     const details = await panel(page, "details").boundingBox();
     expect(details?.x ?? 0).toBeGreaterThan((main?.x ?? 0) + (main?.width ?? 0));
@@ -691,10 +693,9 @@ test.describe("History (decision 29; the header's History sheet since V5a)", () 
     }
 
     await openHistory(page);
-    // Three ticks within ten minutes by the same person: one line (newest first).
-    await expect(historyRows(page).first()).toContainText(
-      `${person("staff", info).name} ticked “Cut”, “Grade” and “Mix”`,
-    );
+    // Three ticks within ten minutes by the same person: one line (newest first). The reader's
+    // own changes say "You" (v1.8 pull-in item 5).
+    await expect(historyRows(page).first()).toContainText(`You ticked “Cut”, “Grade” and “Mix”`);
     // Created, assigned, four stages added, the ticks: more than five lines, five shown.
     await expect(historyRows(page)).toHaveCount(5);
     const all = page.locator('[data-slot="task-history-show-all"]');
@@ -1096,13 +1097,13 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the edi
     await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2", "Stage 4", "Stage 3"]);
     await receiptsSettled(page);
 
-    // The history: each move, by the Admin, newest first.
+    // The history: each move, by the Admin reading it ("You", v1.8 pull-in item 5), newest first.
     await openHistory(page);
     await expect(historyRows(page).first()).toContainText(
-      `${admin.name} moved the stage “Stage 4” to position 3 of 4`,
+      `You moved the stage “Stage 4” to position 3 of 4`,
     );
     await expect(historyRows(page).nth(1)).toContainText(
-      `${admin.name} moved the stage “Stage 4” to position 2 of 4`,
+      `You moved the stage “Stage 4” to position 2 of 4`,
     );
   });
 

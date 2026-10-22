@@ -8,7 +8,15 @@ import { ClientLogo } from "@/modules/clients/components/client-logo";
 
 import { assertClientId, loadClient } from "../../client";
 
-export const metadata: Metadata = { title: "Brand" };
+/** The tab names the client, then this view ("Shetty · Brand · MaxOff"; `loadClient`, cached). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { client } = await loadClient((await params).id);
+  return { title: `${client.name} · Brand` };
+}
 
 /**
  * A client's light brand kit (3.4, PRODUCT §4.4): the logo (the list shows it) with its upload

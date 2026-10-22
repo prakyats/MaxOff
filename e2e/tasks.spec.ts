@@ -788,12 +788,13 @@ test.describe("staff tasks, the flows", () => {
       await expect(page.getByRole("checkbox", { name: "Colour grade" })).toBeDisabled();
       await expect(page.locator('[data-slot="task-stages-locked"]')).toBeVisible();
       const history = await historyRows(page);
-      await expect(
-        history.filter({ hasText: `${coord.name} for ${asha.name} noted the task` }),
-      ).toHaveCount(1);
-      await expect(
-        history.filter({ hasText: `${coord.name} for ${asha.name} marked it done` }),
-      ).toHaveCount(1);
+      // The coordinator reads their own changes as "You for Asha" (v1.8 pull-in item 5).
+      await expect(history.filter({ hasText: `You for ${asha.name} noted the task` })).toHaveCount(
+        1,
+      );
+      await expect(history.filter({ hasText: `You for ${asha.name} marked it done` })).toHaveCount(
+        1,
+      );
 
       // A comment for the freelancer: the coordinator reads it as theirs, "You for Asha".
       const chat = await openChat(page);

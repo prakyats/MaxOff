@@ -58,7 +58,17 @@ import { loadTaskFormSetup } from "../task-form-setup";
 
 import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
-export const metadata: Metadata = { title: "Task" };
+/** The tab names the task ("Test 4 · MaxOff"), from the page's own cached read (`loadTask`). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  if (!UUID.test(id)) return { title: "Task" };
+  const { task } = await loadTask(id);
+  return { title: task?.title ?? "Task" };
+}
 
 /**
  * A task's page (4.4, reworked to the owner's review, Kickoff 4 decisions 26–32; PRODUCT §4.6,
@@ -176,7 +186,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
 
   const work = workPanel({ data, task, actions, pair });
   const thread = chatThread({ data, viewerId: viewer.id, pair, names });
-  const activity = activityPanel({ data, names });
+  const activity = activityPanel({ data, names, viewerId: viewer.id });
   const details = detailsPanel({
     data,
     task,
@@ -529,9 +539,11 @@ function chatThread({
 function activityPanel({
   data,
   names,
+  viewerId,
 }: {
   data: TaskReads;
   names: Record<string, string>;
+  viewerId: string;
 }): ReactNode {
   const tickedStages = Object.fromEntries(
     data.stages.flatMap((stage) =>
@@ -544,6 +556,7 @@ function activityPanel({
       types: Object.fromEntries(data.types.map((option) => [option.id, option.name])),
       clients: Object.fromEntries(data.labels.map((label) => [label.id, label.name])),
       tickedStages,
+      viewerId,
     });
     return line ? [line] : [];
   });

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { displayName } from "@/core/lib/display-name";
+
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
 import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
@@ -8,7 +10,15 @@ import { getCompBalance } from "@/modules/leave";
 import { LeavePager } from "../../../leave/leave-nav";
 import { loadHistoryPerson } from "../person";
 
-export const metadata: Metadata = { title: "Attendance & leave" };
+/** The tab names the person, then this view ("Prishit Shetty · Attendance & leave · MaxOff"; cached read). */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const person = await loadHistoryPerson((await params).id);
+  return { title: `${displayName(person.fullName)} · Attendance & leave` };
+}
 
 /**
  * One person's attendance, one IST month at a time, for the Owner (task 2.4): the member's own

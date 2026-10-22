@@ -85,6 +85,8 @@ test.describe("the Owner", () => {
     await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/);
     await expect(pageHeader(page)).toContainText(name);
     await expect(banner(page)).toContainText("Not active yet");
+    // The browser tab names the record (v1.8 pull-in item 5), not "Client".
+    await expect(page).toHaveTitle(`${name} · MaxOff`);
     // Back from the new client returns to the list, never to the form (§14.2 e).
     await page.goBack();
     await expect(page).toHaveURL(/\/clients$/);
