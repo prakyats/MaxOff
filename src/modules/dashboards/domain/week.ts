@@ -14,7 +14,7 @@ import type { LeaveDay } from "./today";
  *   ("All day" · "Prakyat on leave · Wed 14 – Thu 15"; the Owner sees names, as on the calendar);
  * - each event task by its time and title, opening the task (the calendar's order: all-day first,
  *   then by time);
- * - the day's other deadlines as one count ("Due" · "3 tasks due"), opening the calendar's day.
+ * - the day's other deadlines as one count ("3 tasks due", no time; 6b.9), opening the calendar's day.
  *
  * Days with nothing are left out. At most `WEEK_DAYS_SHOWN` days and `WEEK_ROWS_SHOWN` rows, then
  * "See the week" (the calendar's week). Pure, so it is unit-tested; the caller hands over the
@@ -40,7 +40,7 @@ export type WeekDay = {
 /** A row: the time column, the words, where a tap goes, and what it is. */
 export type WeekRow = {
   kind: "holiday" | "leave" | "event" | "due";
-  /** "All day", "11:49 am", "Due". */
+  /** "All day", "11:49 am", or empty for the day's due count. */
   when: string;
   title: string;
   href: string;
@@ -136,7 +136,8 @@ function dayRows(day: WeekDay, leave: readonly WeekRow[], today: ISODate): WeekR
   if (day.due > 0) {
     rows.push({
       kind: "due",
-      when: "Due",
+      // 6b.9 (2): the row reads "2 tasks due", not "Due · 2 tasks due"; the time column stays empty.
+      when: "",
       title: day.due === 1 ? "1 task due" : `${day.due} tasks due`,
       href: dayHref(day.date, today),
       key: `due-${day.date}`,

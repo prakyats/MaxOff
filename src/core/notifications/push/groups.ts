@@ -42,6 +42,8 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   leave_requested: "approvals",
   extra_work_submitted: "approvals",
   expense_submitted: "approvals",
+  // v1.9 W3 (6b.5): the Owner's repeat reminder for what still waits for their approval.
+  approval_reminder: "approvals",
   // Time off and the working day: the answers a member gets.
   leave_decided: "leave",
   attendance_decided: "leave",

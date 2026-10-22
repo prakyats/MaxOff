@@ -78,6 +78,68 @@ export type Database = {
           },
         ];
       };
+      approval_reminder_sends: {
+        Row: {
+          created_at: string;
+          id: string;
+          notified: boolean;
+          org_id: string;
+          recipient_id: string;
+          slot: string;
+          slot_at: string;
+          task_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          notified: boolean;
+          org_id: string;
+          recipient_id: string;
+          slot: string;
+          slot_at: string;
+          task_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          notified?: boolean;
+          org_id?: string;
+          recipient_id?: string;
+          slot?: string;
+          slot_at?: string;
+          task_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "approval_reminder_sends_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_reminder_sends_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_reminder_sends_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_reminder_sends_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       attendance_days: {
         Row: {
           created_at: string;
@@ -1934,6 +1996,7 @@ export type Database = {
           id: string;
           kind: string;
           link: string | null;
+          no_email: boolean;
           org_id: string;
           payload: Json;
           read_at: string | null;
@@ -1950,6 +2013,7 @@ export type Database = {
           id?: string;
           kind: string;
           link?: string | null;
+          no_email?: boolean;
           org_id: string;
           payload?: Json;
           read_at?: string | null;
@@ -1966,6 +2030,7 @@ export type Database = {
           id?: string;
           kind?: string;
           link?: string | null;
+          no_email?: boolean;
           org_id?: string;
           payload?: Json;
           read_at?: string | null;
@@ -2022,6 +2087,9 @@ export type Database = {
           ack_escalate_hours: number;
           ack_escalate_owner_hours: number;
           ack_repeat_hours: number;
+          approval_reminder_daily_time: string;
+          approval_reminder_high_times: string[];
+          approval_reminder_urgent_minutes: number;
           created_at: string;
           cycle_decide_escalate_days: number;
           default_task_reminders: Json;
@@ -2039,12 +2107,17 @@ export type Database = {
           updated_at: string;
           weekly_digest_day: number;
           weekly_off_days: number[];
+          work_end_time: string;
+          work_start_time: string;
           workload_warning_threshold: number | null;
         };
         Insert: {
           ack_escalate_hours?: number;
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
+          approval_reminder_daily_time?: string;
+          approval_reminder_high_times?: string[];
+          approval_reminder_urgent_minutes?: number;
           created_at?: string;
           cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
@@ -2062,12 +2135,17 @@ export type Database = {
           updated_at?: string;
           weekly_digest_day?: number;
           weekly_off_days?: number[];
+          work_end_time?: string;
+          work_start_time?: string;
           workload_warning_threshold?: number | null;
         };
         Update: {
           ack_escalate_hours?: number;
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
+          approval_reminder_daily_time?: string;
+          approval_reminder_high_times?: string[];
+          approval_reminder_urgent_minutes?: number;
           created_at?: string;
           cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
@@ -2085,6 +2163,8 @@ export type Database = {
           updated_at?: string;
           weekly_digest_day?: number;
           weekly_off_days?: number[];
+          work_end_time?: string;
+          work_start_time?: string;
           workload_warning_threshold?: number | null;
         };
         Relationships: [

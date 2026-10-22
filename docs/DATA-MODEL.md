@@ -59,6 +59,10 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    push, never email); item_rejected*, cycle_generated* (actionable).
                    6b.2 (migration tasks_for_owner, v1.7.1): task_asked_about (info: in-app and
                    push, never email): "<name> is asking about <task>", task_remind's row.
+                   v1.9 W3 (6b.5, migration approval_reminders): approval_reminder (info: in-app and
+                   push, never email, the Owner only): an urgent task's hourly "<task> is waiting for
+                   your approval" (entity the task) or the grouped "N tasks waiting for your approval ·
+                   oldest D days" (the leave and attendance waiting as one line each at the daily time).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -248,6 +252,17 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- period end and the Admin's prompt before undecided items escalate to the Owner); both in
                      -- the API UPDATE grant, settings.manage through the existing UPDATE policy (the Owner; pgTAP
                      -- 71 per role), Settings -> Thresholds (7B). WORKFLOWS §5.4 item 21, §8 client_work_alerts.
+                     -- v1.9 W3 (6b.5, kickoff 6b decision 2, owner 2026-10-16; migration approval_reminders,
+                     -- expand-only): work_start_time time not null default '10:00' and work_end_time time not
+                     -- null default '18:00' (check start < end; the working hours, which W0's late start and
+                     -- end time read too), approval_reminder_urgent_minutes int not null default 60 (check
+                     -- 15..480: an urgent task waiting for the Owner is reminded this often within the working
+                     -- hours), approval_reminder_high_times time[] not null default '{11:00,14:00,17:00}'
+                     -- (check 1..8 times: the grouped reminders for high-priority tasks) and
+                     -- approval_reminder_daily_time time not null default '11:00' (the grouped reminder for
+                     -- medium and low tasks, with the leave and attendance waiting); all in the API UPDATE
+                     -- grant, settings.manage through the existing UPDATE policy (the Owner; pgTAP 120 per
+                     -- role), Settings -> Thresholds "Working day" and "Approvals" (the screen is W4).
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
                      -- 48 h "can't be reached" clock starts before it (null: no floor).
@@ -1712,6 +1727,11 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- `6:00 pm` (lower-case, 12-hour, IST): app.ist_time(timestamptz), app.wall_time(time)
                      -- and app.notify_when ("19 Oct, 6:00 pm"), the same as core/time's formatTime;
                      -- service_role only. Rows already written keep their words.
+                     -- no_email boolean not null default false (v1.9 W3, 6b.9, migration approval_reminders,
+                     -- expand-only): set by app.notify() when the row is an attendance_decided, leave_decided
+                     -- or expense_decided about a record the same transaction audited 'approved' (an approved
+                     -- day, leave, comp leave or expense claim); email_claim() never emails such a row, even
+                     -- with no working push. Rejected and corrected keep the email fallback (actionable).
                      -- 5.1 as built: written only by app.notify() (service_role only, called inside the
                      -- transition or job that caused it, ADR-0006): one row per remaining recipient after
                      -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
@@ -1893,6 +1913,15 @@ activity_log         id bigint identity, org_id, actor_id null (system), on_beha
                      -- deactivated entry (the reason is the Owner's note). Scope is per entity, never per
                      -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
+approval_reminder_sends  id, org_id, recipient_id → members (cascade), slot_at timestamptz (the slot's instant),
+                     slot text ('urgent' | 'grouped'), task_id null → tasks (cascade; an urgent slot's task; null for a
+                     grouped slot), notified bool (false: the slot was decided and nothing was waiting),
+                     created_at
+                     -- v1.9 W3 (6b.5, migration approval_reminders): the record that each slot was handled
+                     -- once. Unique (org_id, slot_at, slot) where task_id is null; unique (org_id, slot_at,
+                     -- task_id) where task_id is not null. Written only by app.approval_reminders() (pg_cron
+                     -- every 5 minutes); RLS enabled with no policy and every API grant revoked: no role reads
+                     -- or writes it (pgTAP 120). Not audited (a job's own bookkeeping, like client_work_alerts).
 eod_reports          id, org_id, report_date, data jsonb (check: an object), generated_at, created_at,
                      unique(org_id, report_date)
                      -- kickoff 6 (owner decision 2026-10-01, built in 6.5, migration

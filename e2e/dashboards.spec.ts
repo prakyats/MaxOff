@@ -436,13 +436,14 @@ test.describe("the Owner's Today (6.2)", () => {
     const todayBlock = week.locator(`[data-slot="week-day"][data-date="${todayIST()}"]`);
     await expect(todayBlock.locator('[data-slot="week-day-label"]')).toHaveText("Today");
     const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]');
-    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("Due");
+    // 6b.9 (2): "2 tasks due" alone, no "Due" in the time column.
+    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("");
     await expect(due.locator('[data-slot="week-row-title"]')).toHaveText(/^\d+ tasks? due$/);
     const rows = week.locator('[data-slot="week-row"]');
     for (let index = 0; index < (await rows.count()); index++) {
       const row = rows.nth(index);
       await expect(row.locator('[data-slot="week-row-when"]')).toHaveText(
-        /^(All day|\d{1,2}:\d{2} (am|pm)|Due)$/,
+        /^(All day|\d{1,2}:\d{2} (am|pm)|)$/,
       );
       await expect(row.locator('[data-slot="week-row-title"]')).toHaveText(/\S/);
       if ((await row.getAttribute("data-kind")) === "event") {

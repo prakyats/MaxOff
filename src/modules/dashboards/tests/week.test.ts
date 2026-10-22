@@ -118,7 +118,7 @@ describe("weekBlocks: the Owner's This week, a block per day (owner 2026-10-09)"
       today: TODAY,
     });
     expect(text(blocks)).toEqual([
-      "Today: All day Fire Chandan 2.0 | 11:49 am cal test | Due 2 tasks due",
+      "Today: All day Fire Chandan 2.0 | 11:49 am cal test |  2 tasks due",
       "Tomorrow: All day Edit",
       "Mon 12 Oct: All day Holiday: Diwali",
       "Wed 14 Oct: All day Prakyat on leave · Wed 14 – Thu 15",
@@ -146,7 +146,7 @@ describe("weekBlocks: the Owner's This week, a block per day (owner 2026-10-09)"
     });
     expect(text(blocks)).toEqual([
       "Mon 12 Oct: All day Anna on leave · Mon 12 – Tue 13 | All day Ravi Kumar on a half day · Mon 12",
-      "Tue 13 Oct: Due 1 task due",
+      "Tue 13 Oct:  1 task due",
     ]);
   });
 
@@ -165,7 +165,7 @@ describe("weekBlocks: the Owner's This week, a block per day (owner 2026-10-09)"
     });
     expect(blocks[0]?.rows.map((row) => row.kind)).toEqual(["holiday", "leave", "event", "due"]);
     expect(text(blocks)).toEqual([
-      "Mon 12 Oct: All day Holiday: Diwali | All day Asha on comp leave · Mon 12 | 11:00 am Shoot | Due 3 tasks due",
+      "Mon 12 Oct: All day Holiday: Diwali | All day Asha on comp leave · Mon 12 | 11:00 am Shoot |  3 tasks due",
     ]);
   });
 

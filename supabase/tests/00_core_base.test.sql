@@ -183,7 +183,10 @@ insert into app_internal values
   ('owner_delete_caller'), ('template_usage_of'), ('template_name_for_delete'),
   -- v1.8 V5a 6c: the Delete of what was never used: the target's name, the reference check and its
   -- history part (migration v5_owner_delete_unused; unused_usage and unused_delete are public)
-  ('unused_delete_target'), ('unused_reference_found'), ('unused_history_found');
+  ('unused_delete_target'), ('unused_reference_found'), ('unused_history_found'),
+  -- v1.9 W3: the approval reminders' job, its quiet-hours test and its "2 days" (migration
+  -- approval_reminders, pgTAP 120), run by pg_cron only
+  ('approval_reminders'), ('in_quiet_hours'), ('approval_waited');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -204,7 +207,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 128::bigint,
+             and p.proname in (select name from app_internal)), 131::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
