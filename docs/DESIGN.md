@@ -406,7 +406,7 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   actions are Edit · Archive (`ListRowActions`: grey icons from `md`, one ⋯ sheet on a phone), plus a
   labelled **Preview** at every width where there is something to look at (templates). **Archive**
   (V4 named it "Delete"; named Archive again with the archive box, owner 2026-10-21, PP-templates-2):
-  no Archived list; the toast "‹name› archived" offers Undo for 6 s where unarchive exists; records
+  the toast "‹name› archived" offers Undo for 6 s where unarchive exists, and **every list with Archive ends in a collapsed "Archived (n)"** (V5b-0 item 9, owner 2026-10-22; `ArchivedSection` / `ArchivedRow`, `list-rows.tsx`): hidden when nothing is archived, a native `<details>` (a view control, no history), each row the name muted with **Restore** (whoever may archive it) and the Owner's **Delete** (the list's own confirmation, which checks use first); records
   that carry it keep it; the row's icon stays grey, and the confirmation's named commit ("Archive
   ‹name›") is the neutral `primary` (archive is never red); a deliverable template still asks its
   reason (invariant 9). **The one Templates page (6b.6 owner note):** Stage presets →

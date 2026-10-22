@@ -16,7 +16,13 @@ import {
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListHeading,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { Badge } from "@/core/ui/primitives/badge";
@@ -63,7 +69,7 @@ export function FieldDefinitionsManager({
 
   const kind = scopeKindOf(entity);
   const scoped = kind !== null;
-  const { active } = splitDefinitions(definitions);
+  const { active, archived } = splitDefinitions(definitions);
   const labels = ENTITY_LABELS[entity];
   const scopeName = new Map(scopes.map((scope) => [scope.id, scope.name]));
   const canAdd = canGlobal || (scoped && scopes.length > 0);
@@ -115,7 +121,12 @@ export function FieldDefinitionsManager({
   };
 
   async function restore(definition: FieldDefinition) {
-    toastResult(await setFieldDefinitionArchived({ definitionId: definition.id, archived: false }));
+    toastResult(
+      await setFieldDefinitionArchived({ definitionId: definition.id, archived: false }),
+      {
+        success: `${definition.label} restored`,
+      },
+    );
   }
 
   return (
@@ -213,6 +224,29 @@ export function FieldDefinitionsManager({
           </section>
         ),
       )}
+
+      {/* V5b-0 item 9: what was archived stays reachable; the viewer's own rows only. */}
+      <ArchivedSection count={archived.filter(editable).length}>
+        {archived.filter(editable).map((definition) => {
+          const scope = scopeIdOf(definition);
+          return (
+            <ArchivedRow
+              key={definition.id}
+              name={definition.label}
+              meta={`${FIELD_TYPE_LABELS[definition.type]} · ${
+                scope === null
+                  ? kind
+                    ? SCOPE_WORDS[kind].every
+                    : `All ${labels.plural.toLowerCase()}`
+                  : `${scopeName.get(scope) ?? (kind ? SCOPE_WORDS[kind].another : "")} only`
+              }`}
+              kind="Field"
+              onRestore={() => void restore(definition)}
+              onDelete={canDelete ? () => setDeleting(definition) : undefined}
+            />
+          );
+        })}
+      </ArchivedSection>
 
       {adding ? (
         <FieldDefinitionDialog

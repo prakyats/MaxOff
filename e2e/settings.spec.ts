@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "./fixtures";
 
 import {
@@ -277,7 +279,7 @@ test.describe("Owner", () => {
     await expect(page.getByText("Job title renamed")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
-    // D6: Archive, Undo in its toast, no Archived list.
+    // D6: Archive and Undo in its toast (the Archived section at the foot: V5b-0 item 9, below).
     const deleteColourist = async () => {
       await page.getByRole("button", { name: "Archive Colourist" }).click();
       await page
@@ -369,6 +371,100 @@ test.describe("Owner: Delete only what was never used (V5a 6c)", () => {
       await serviceSelect(`list_items?name=eq.${encodeURIComponent(spare)}&select=id`),
     ).toEqual([]);
     await removeJobTitles([used]);
+  });
+});
+
+test.describe("Archived (n) at a list's foot (V5b-0 item 9)", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
+  const archivedToggle = (page: Page) => page.locator('[data-slot="archived-toggle"]');
+  const archivedRow = (page: Page, name: string) =>
+    page.locator('[data-slot="archived-item"]', { hasText: name });
+
+  test.describe("the Owner", () => {
+    test.use({ storageState: storageStateFor("owner") });
+
+    test("archive → it waits under Archived → Restore brings it back; Delete removes an unused one", async ({
+      page,
+    }) => {
+      const name = "Archive me (9)";
+      await removeJobTitles([name]);
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y3",
+      });
+      await page.goto("/settings/job-titles");
+      const names = page.locator('[data-slot="list-item"]');
+      await page.getByRole("button", { name: `Archive ${name}` }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: `Archive ${name}` })
+        .click();
+      await expect(names.filter({ hasText: name })).toHaveCount(0);
+
+      // Collapsed by default; opening it is a view control: no history entry.
+      await expect(archivedToggle(page)).toHaveText(/^Archived \(\d+\)$/);
+      await expect(archivedRow(page, name)).toBeHidden();
+      const before = await page.evaluate(() => history.length);
+      await archivedToggle(page).click();
+      await expect(archivedRow(page, name)).toBeVisible();
+      expect(await page.evaluate(() => history.length)).toBe(before);
+
+      await archivedRow(page, name)
+        .getByRole("button", { name: `Restore ${name}` })
+        .click();
+      await expect(page.getByText(`${name} restored`)).toBeVisible();
+      await expect(names.filter({ hasText: name })).toHaveCount(1);
+      await expect(archivedRow(page, name)).toHaveCount(0);
+
+      // Archived again, never used by anything else: the Owner deletes it from Archived.
+      await page.getByRole("button", { name: `Archive ${name}` }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: `Archive ${name}` })
+        .click();
+      await expect(names.filter({ hasText: name })).toHaveCount(0);
+      if (!(await archivedRow(page, name).isVisible())) await archivedToggle(page).click();
+      await archivedRow(page, name)
+        .getByRole("button", { name: `Delete ${name}` })
+        .click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete job title “${name}”?` });
+      await confirm.getByRole("button", { name: `Delete ${name}` }).click();
+      await expect(confirm).toBeHidden();
+      await expect(archivedRow(page, name)).toHaveCount(0);
+      expect(
+        await serviceSelect(`list_items?name=eq.${encodeURIComponent(name)}&select=id`),
+      ).toEqual([]);
+    });
+  });
+
+  test.describe("an Admin", () => {
+    test.use({ storageState: storageStateFor("admin") });
+
+    test("restores an archived job title and has no Delete", async ({ page }) => {
+      const name = "Admin archived (9)";
+      await removeJobTitles([name]);
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y4",
+        archived_at: wallClock().toISOString(),
+      });
+      await page.goto("/settings/job-titles");
+      await archivedToggle(page).click();
+      const row = archivedRow(page, name);
+      await expect(row.getByRole("button", { name: `Restore ${name}` })).toBeVisible();
+      await expect(row.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+      await row.getByRole("button", { name: `Restore ${name}` }).click();
+      await expect(page.locator('[data-slot="list-item"]').filter({ hasText: name })).toHaveCount(
+        1,
+      );
+      await removeJobTitles([name]);
+    });
   });
 });
 

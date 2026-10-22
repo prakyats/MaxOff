@@ -7,6 +7,7 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
+  RotateCcwIcon,
   Trash2Icon,
 } from "lucide-react";
 import { type ComponentProps, type ReactNode, useState } from "react";
@@ -97,7 +98,7 @@ export type ListRowMove = {
  * list pattern is Edit · Archive** (D6, v1.8 V4; named Archive again with the archive box, owner
  * 2026-10-21, PP-templates-2): the row's icon is grey (C3); its question is the caller's
  * `ConfirmDialog`, whose named "Archive ‹name›" is the neutral `primary` (archive is never red), and
- * its toast offers Undo; no Archived list. A row that can be looked at (templates) also has Preview, a
+ * its toast offers Undo, and `ArchivedSection` (below) restores it later. A row that can be looked at (templates) also has Preview, a
  * labelled button at every width, since anyone who may open the list may preview.
  *
  * **Delete** (v1.8 V5a 6b, owner 2026-10-22) is the Owner's only, so a caller passes `onDelete` for
@@ -113,6 +114,7 @@ export function ListRowActions({
   edit,
   preview,
   onArchive,
+  onRestore,
   onDelete,
 }: {
   /** The row's name, for the labels ("Archive Editor") and the sheet's title. */
@@ -126,6 +128,11 @@ export function ListRowActions({
   /** Preview, with the button's tooltip ("See what a project started from … gets"). */
   preview?: { onSelect: () => void; title: string };
   onArchive?: (() => void) | undefined;
+  /**
+   * Restore, on an archived row (`ArchivedSection`, V5b-0 item 9): a labelled grey button at every
+   * width, since it is the row's one everyday action there.
+   */
+  onRestore?: (() => void) | undefined;
   /** The Owner's permanent Delete (opens the caller's confirmation). */
   onDelete?: (() => void) | undefined;
 }) {
@@ -147,6 +154,19 @@ export function ListRowActions({
         >
           <EyeIcon aria-hidden />
           Preview
+        </Button>
+      ) : null}
+      {onRestore ? (
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11"
+          aria-label={`Restore ${name}`}
+          onClick={onRestore}
+          data-slot="list-row-restore"
+        >
+          <RotateCcwIcon aria-hidden />
+          Restore
         </Button>
       ) : null}
       {move ? (
@@ -298,5 +318,81 @@ export function ListRowActions({
         </Sheet>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * **The Archived section** (V5b-0 item 9, owner 2026-10-22: archived rows must not vanish with no
+ * way back). At the foot of every list that has Archive: a collapsed "Archived (n)" (a native
+ * `<details>`, a view control: opening it adds no history, §14.2 d), hidden when nothing is
+ * archived. Its rows are `ArchivedRow`s: the name, muted, with Restore (whoever may archive the
+ * row) and the Owner's Delete (through the list's own confirmation, which checks use first).
+ */
+export function ArchivedSection({
+  count,
+  children,
+  slot = "archived-section",
+}: {
+  count: number;
+  children: ReactNode;
+  slot?: string;
+}) {
+  if (count <= 0) return null;
+  return (
+    <details data-slot={slot} className="group/archived">
+      <summary
+        data-slot="archived-toggle"
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-1 text-sm font-medium outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden"
+      >
+        <ICONS.open
+          aria-hidden
+          className="size-4 shrink-0 transition-transform duration-200 group-open/archived:rotate-90 motion-reduce:transition-none"
+        />
+        Archived ({count})
+      </summary>
+      <ul
+        data-slot="archived-items"
+        className="border-border divide-border bg-card shadow-raised mt-2 divide-y rounded-lg border"
+      >
+        {children}
+      </ul>
+    </details>
+  );
+}
+
+/** One archived row: its name (and a muted meta line), then Restore and the Owner's Delete. */
+export function ArchivedRow({
+  name,
+  meta,
+  kind,
+  onRestore,
+  onDelete,
+}: {
+  name: string;
+  meta?: ReactNode;
+  /** What the row is ("Job title"), for the phone sheet's description. */
+  kind: string;
+  onRestore?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
+}) {
+  return (
+    <li
+      data-slot="archived-item"
+      className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+    >
+      <span className="flex min-w-0 flex-[1_1_6rem] flex-col gap-0.5">
+        <span className="text-muted-foreground text-sm font-medium break-words">{name}</span>
+        {meta ? <span className="text-muted-foreground text-xs break-words">{meta}</span> : null}
+      </span>
+      {onRestore || onDelete ? (
+        <ListRowActions
+          name={name}
+          kind={kind}
+          slot="archived-item-actions"
+          onRestore={onRestore}
+          onDelete={onDelete}
+        />
+      ) : null}
+    </li>
   );
 }

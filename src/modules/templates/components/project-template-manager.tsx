@@ -8,7 +8,12 @@ import { countDeliverables, templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton, ListRowActions } from "@/core/ui/composites/list-rows";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
@@ -68,6 +73,13 @@ export function ProjectTemplateManager({
     ]);
   const all = templates.filter((template) => !template.archived);
   const active = all.filter(matches);
+  // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
+  const archived = templates.filter(
+    (template) =>
+      template.archived &&
+      projectTemplateActions(template, context.viewer).edit &&
+      matches(template),
+  );
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: ProjectTemplate): string {
@@ -88,7 +100,9 @@ export function ProjectTemplateManager({
   }
 
   async function restore(template: ProjectTemplate) {
-    toastResult(await setProjectTemplateArchived({ templateId: template.id, archived: false }));
+    toastResult(await setProjectTemplateArchived({ templateId: template.id, archived: false }), {
+      success: `${template.name} restored`,
+    });
   }
 
   const addButton = (
@@ -156,6 +170,18 @@ export function ProjectTemplateManager({
           })}
         </ul>
       )}
+      <ArchivedSection count={archived.length}>
+        {archived.map((template) => (
+          <ArchivedRow
+            key={template.id}
+            name={template.name}
+            meta={line(template)}
+            kind="Project template"
+            onRestore={() => void restore(template)}
+            onDelete={isOwner ? () => setDeleting(template) : undefined}
+          />
+        ))}
+      </ArchivedSection>
       {adding ? <TemplateDialog {...context} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog

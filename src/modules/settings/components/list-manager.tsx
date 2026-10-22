@@ -7,7 +7,13 @@ import { cn } from "@/core/lib/utils";
 import type { ListKey } from "@/core/lists";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListHeading,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
@@ -34,7 +40,8 @@ export type ManagedListItem = {
  * registry and a page. Adding follows the Settings Add pattern (C4): "Add ‹thing›" on the list's
  * heading opens a one-field dialog. Order is changed one step at a time, which a phone (in the
  * row's ⋯ sheet) and a keyboard both handle. Archive (D6; named Archive again, owner 2026-10-21): a member
- * who carries one keeps it; Undo in its toast brings it back, and no Archived list is shown.
+ * who carries one keeps it; Undo in its toast brings it back, and the collapsed "Archived (n)" at the
+ * list's foot (V5b-0 item 9) restores it later.
  * Delete (v1.8 V5a 6c) is the Owner's (`canDelete`): its confirm asks first whether anything ever
  * used the entry, and only one nothing ever pointed at goes; otherwise it says "In use — archive it
  * instead."
@@ -65,6 +72,13 @@ export function ListManager({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const active = items.filter((item) => !item.archivedAt);
+  const archived = items.filter((item) => item.archivedAt);
+
+  async function restore(item: ManagedListItem): Promise<void> {
+    toastResult(await setListItemArchived({ listKey, id: item.id, archived: false }), {
+      success: `${item.name} restored`,
+    });
+  }
   const thing = labels.singular.toLowerCase();
 
   async function move(item: ManagedListItem, direction: "up" | "down"): Promise<void> {
@@ -126,6 +140,17 @@ export function ListManager({
             ))}
           </ul>
         )}
+        <ArchivedSection count={archived.length}>
+          {archived.map((item) => (
+            <ArchivedRow
+              key={item.id}
+              name={item.name}
+              kind={labels.singular}
+              onRestore={() => void restore(item)}
+              onDelete={canDelete ? () => setDeleting(item) : undefined}
+            />
+          ))}
+        </ArchivedSection>
       </section>
 
       {adding ? (
