@@ -31,7 +31,7 @@ These win over anything below that disagrees (the earlier sections are brought i
 lands). Precedence: the owner's later rulings (the truncation rule, the Me restructure, the nine
 approved major changes, change 6) win over the FINAL UI DECISIONS, which win over any earlier
 polish item (`docs/reviews/v18-polish/SCOPE.md`). The approved sample for the nine changes is
-`docs/design/v18-major-changes.html` (each change's real screen before and the target after, with
+`docs/design/v18-major-changes-sample.html` (each change's real screen before and the target after, with
 a Dark/Light toggle).
 
 ### FINAL UI DECISIONS (issue #89, comment 6322652532)

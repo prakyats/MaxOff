@@ -6,7 +6,7 @@ This file collects every polish item the advisor posted on issue #89 between 21 
 - The FINAL UI DECISIONS (section 1) win over any earlier PP item that conflicts.
 - The owner's later rulings (truncation, Me restructure, the 9 approved samples, change 6) win over both.
 
-The approved sample page for the 9 major changes is `docs/design/v18-major-changes.html`. Open it in a browser and use its Dark/Light toggle. Each change shows the real screen before, and the target after.
+The approved sample page for the 9 major changes is `docs/design/v18-major-changes-sample.html`. Open it in a browser and use its Dark/Light toggle. Each change shows the real screen before, and the target after.
 
 **Builder areas.** Each builder works in its own worktree.
 - **A (`V5b-0` first, then its area):**
@@ -285,3 +285,32 @@ Update the Me specs, the back-gesture specs and the guide's "Use Me" topics for 
 - **Before finishing:** `pnpm check`, plus the touched Playwright specs at desktop, 375 and 430, with 375/430 back-gesture specs for any changed overlay.
 - **Guide:** update its text for every changed role. `guide:screenshots` runs once, at the integration step, not per builder.
 - **Commits:** commit after every item or small group of items.
+
+---
+
+## 6. Added on resume (#89 comment 6338397901, owner 22 Oct)
+
+**Approved calendar sample** (`docs/design/v18-calendar-tasks-vs-client-work-sample.html`), builder B:
+- **Chip styles:** tasks are a filled soft chip with the task-type dot. Client deliverables are an outlined chip with a box icon and the client name first ("Shetty · Reel 1"). A late deliverable has a red outline.
+- **Order in a day box, always:** timed tasks, then due tasks, then client work, then "+N more".
+- **All · Tasks · Client work** switch beside Filters, for the Owner and Admins.
+  - It is remembered per device.
+  - Leave and holidays always show.
+- **The day popup** is split into **Tasks · n** and **Client work · n**.
+  - Client work is grouped by client, and each row opens its record.
+  - Then who's away, then the two buttons.
+- Crew's calendar is unchanged.
+- The route is at its budget: make room first, never raise it.
+- **One line, always:** every calendar chip, bar and label is a single line at a fixed height, ending in "…" when long. Nothing in the month grid or week view wraps. Tapping the item or its day opens the popup or sheet, which shows the full text.
+- **Spec:** a 60-character task title and client name stay on one line at 375, 430 and desktop.
+
+**SAMPLE FIDELITY (owner rule, all of v1.8).** The real app must look the same as the samples.
+- Take the exact token values from the samples:
+  - the `.mx` / `.mx.light` blocks in `v18-major-changes-sample.html`;
+  - the colour-plan sample;
+  - the calendar and project-page samples.
+- That covers page, surface, sidebar and line colours, chip tints and text colours, the shadow, radii and type sizes.
+- Where `globals.css` differs, **the sample wins**. Keep AA: flag any sample value that fails AA instead of silently changing it.
+- Every V5b screen's report includes a **sample vs built** screenshot pair in both themes.
+
+**Scope is FROZEN for v1.8.** Anything new goes to a v1.9 list unless it is a bug or a mismatch with an approved sample.
