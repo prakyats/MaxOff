@@ -26,6 +26,7 @@ import {
 } from "../domain/periods";
 import {
   clientWorkLine,
+  dueByClient,
   progressByClient,
   projectSummaries,
   readyToComplete,
@@ -855,5 +856,34 @@ describe("readyToComplete (PP-client-2)", () => {
   });
   it("is never a repeating project: its next cycle comes on its own", () => {
     expect(readyToComplete("monthly", ["approved", "approved"])).toBe(false);
+  });
+});
+
+describe("dueByClient (PP-admin-10)", () => {
+  const cycle = (clientId: string, states: ItemState[], plannedDates: (string | null)[]) => ({
+    id: `${clientId}-c`,
+    projectId: `${clientId}-p`,
+    label: null,
+    clientId,
+    states,
+    plannedDates,
+  });
+  it("counts the open late ones and finds the next date, across a client's cycles", () => {
+    const due = dueByClient(
+      [
+        cycle("a", ["open", "open", "approved"], ["2026-10-20", "2026-10-25", "2026-10-01"]),
+        cycle("a", ["open", "cancelled"], ["2026-10-23", "2026-10-10"]),
+        cycle("b", ["approved", "open"], ["2026-10-01", null]),
+      ],
+      "2026-10-22",
+    );
+    expect(due.get("a")).toEqual({ late: 1, next: "2026-10-23" });
+    expect(due.has("b")).toBe(false);
+  });
+  it("counts a deliverable planned today as due, not late", () => {
+    expect(dueByClient([cycle("a", ["open"], ["2026-10-22"])], "2026-10-22").get("a")).toEqual({
+      late: 0,
+      next: "2026-10-22",
+    });
   });
 });

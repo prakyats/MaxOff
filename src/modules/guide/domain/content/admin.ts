@@ -741,7 +741,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen. Beside each client it says what is running now, such as “3 open · 9/12 done”.",
+              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen. Beside each client it says what is running now, such as “3 open · 9/12 done”, and when work is due: a red “2 late” chip when deliverables are past their planned date, otherwise “Due Thu 22 Oct”.",
             },
             {
               kind: "steps",

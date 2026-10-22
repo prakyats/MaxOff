@@ -351,7 +351,12 @@ export async function listCyclesById(cycleIds: readonly string[]): Promise<Cycle
 }
 
 /** A working project's current cycle: its client and its items' states (each progress line). */
-export type CurrentCycle = Cycle & { clientId: string; states: ItemState[] };
+export type CurrentCycle = Cycle & {
+  clientId: string;
+  states: ItemState[];
+  /** Each item's planned date, in `states`' order (PP-admin-10: the Clients list's Due). */
+  plannedDates: (string | null)[];
+};
 
 /**
  * **The current cycles, in one request** (ARCHITECTURE §19, "one wave per screen"): the cycle of
@@ -368,7 +373,7 @@ export async function listCurrentCycles(
     let request = supabase
       .from("project_cycles")
       .select(
-        `${CYCLE_COLUMNS}, project:projects!project_cycles_project_id_fkey!inner(client_id, state), items:project_items!project_items_cycle_id_fkey(state)`,
+        `${CYCLE_COLUMNS}, project:projects!project_cycles_project_id_fkey!inner(client_id, state), items:project_items!project_items_cycle_id_fkey(state, planned_date)`,
       )
       .in("project.state", ["open", "in_progress"])
       .or(`period_start.is.null,and(period_start.lte.${today},period_end.gte.${today})`);
@@ -379,6 +384,7 @@ export async function listCurrentCycles(
     ...toCycle(row),
     clientId: row.project.client_id,
     states: row.items.map((item) => item.state as ItemState),
+    plannedDates: row.items.map((item) => item.planned_date),
   }));
 }
 
@@ -918,6 +924,7 @@ export async function listCurrentCycleMeters(
       ...toCycle(row),
       clientId: row.project.client_id,
       states: items.map((item) => item.state),
+      plannedDates: items.map((item) => item.plannedDate),
       items,
     };
   });

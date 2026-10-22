@@ -51,6 +51,8 @@ export type CurrentCycleStates = Pick<Cycle, "id" | "projectId" | "label"> & {
   states: readonly ItemState[];
   /** The items with their dates and ticks (`listCurrentCycleMeters`), for the meter. */
   items?: readonly MeterItem[];
+  /** Each item's planned date in `states`' order (`listCurrentCycles`), for a client's Due. */
+  plannedDates?: readonly (string | null)[];
 };
 
 export function projectSummaries(
@@ -148,4 +150,30 @@ export function clientProgressLine(
 ): string | null {
   if (!progress || progress.total === 0) return null;
   return `Deliverables ${progress.done}/${progress.total} done`;
+}
+
+/** A client's open deliverables by date (PP-admin-10): how many are late, and the next one due. */
+export type ClientDue = { late: number; next: ISODate | null };
+
+/**
+ * Each client's Due across its running cycles (PP-admin-10, the Clients list's column): the open
+ * deliverables past their planned date (IST, as `isOverdue`), and the earliest planned date from
+ * today on. A client with nothing open and dated is left out.
+ */
+export function dueByClient(
+  current: readonly CurrentCycleStates[],
+  today: ISODate,
+): Map<string, ClientDue> {
+  const due = new Map<string, ClientDue>();
+  for (const cycle of current) {
+    cycle.states.forEach((state, index) => {
+      const planned = cycle.plannedDates?.[index] ?? null;
+      if (state !== "open" || planned === null) return;
+      const sum = due.get(cycle.clientId) ?? { late: 0, next: null };
+      if (planned < today) sum.late += 1;
+      else if (sum.next === null || planned < sum.next) sum.next = planned;
+      due.set(cycle.clientId, sum);
+    });
+  }
+  return due;
 }

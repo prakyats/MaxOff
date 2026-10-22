@@ -49,9 +49,11 @@ export {
 export {
   clientProgressLine,
   clientWorkLine,
+  dueByClient,
   progressByClient,
   projectSummaries,
   readyToComplete,
+  type ClientDue,
   type CurrentCycleStates,
   type ProjectSummary,
 } from "./domain/projects";

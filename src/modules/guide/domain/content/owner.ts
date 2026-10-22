@@ -722,7 +722,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Find a client",
           summary: "Filter by state or Admin, or search by name.",
           blocks: [
-            text("The list shows each client with its state and Admin. It opens on Active."),
+            text(
+              'The list shows each client with its state, its Admin, what is running now ("3 open · 9/12 done") and when work is due: a red "2 late" chip when deliverables are past their planned date, otherwise "Due Thu 22 Oct". It opens on Active.',
+            ),
             steps(
               "Open Clients.",
               'Tap "State" and "Admin" to filter, or type in "Search clients".',
