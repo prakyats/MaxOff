@@ -222,7 +222,7 @@ export function TaskStages({
                       <MoreHorizontalIcon aria-hidden />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
+                  <DropdownMenuContent align="end" className="min-w-48" title={stage.name}>
                     <ReorderMenuItems reorder={reorder} index={index} />
                   </DropdownMenuContent>
                 </DropdownMenu>
