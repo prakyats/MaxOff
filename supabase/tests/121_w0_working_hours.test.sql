@@ -8,14 +8,14 @@
 --    Owner's decisions (approve a waiting request ends the day at the ask, stay, approve or correct a
 --    "Left early, not answered" beside the original, refusals); Stay until refusals per role; the reads
 --    per role; the month summary and the end-of-day report.
--- B. Clock-driven (the real now(): the working hours are set around it; skipped within ~2 h of
---    midnight IST): Start day marks Late (never blocked, nobody told), a morning half day is never
---    Late, the reason, "Shoot at ‹time›", End day refused before the end time, Ask to leave early (the
---    Owner only is told), the wait, "Left early, not answered", Stay until, Stay, Approve, lapsed, and
---    the switch off. Neutral names only.
+-- B. On fixed instants through app.now()'s test clock (migration w0_test_clock; never skipped): Start day
+--    marks Late (never blocked, nobody told), a morning half day is never Late, the reason, "Shoot at
+--    ‹time›", End day refused before the end time, Ask to leave early (the Owner only is told), the
+--    30-minute wait, "Left early, not answered", Stay until, Stay, Approve at the ask, lapsed, the
+--    Owner's read, and the switch off. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(123);
+select plan(132);
 
 delete from public.approval_reminder_sends;
 delete from public.early_leave_requests;
@@ -407,132 +407,137 @@ select is((app.eod_report_payload(pg_temp.fx('org'), '2026-11-04', now()) -> 'at
 select is((select p ->> 'late_reason' from jsonb_array_elements(app.eod_report_payload(pg_temp.fx('org'), '2026-11-04', now()) -> 'attendance' -> 'people') p
            where p ->> 'member_id' = pg_temp.fx('staff6')::text), 'Bus', 'with the reason');
 
--- B. Clock-driven ------------------------------------------------------------------------------------
-create function pg_temp.clocked() returns setof text language plpgsql as $f$
-declare
-  v_t time := (now() at time zone 'Asia/Kolkata')::time;
-  v_req uuid;
-  v_end timestamptz;
-  v_shoot text := 'Shoot at ' || app.ist_time(now() + interval '30 minutes');
-begin
-  if v_t < '01:45' or v_t > '21:15' then
-    return next skip('the clock-driven checks need the IST time between 01:45 and 21:15', 34);
-    return;
-  end if;
-  delete from public.holidays where date = app.today_ist();
-  update public.org_settings set weekly_off_days = '{}', working_hours_on = true, late_grace_minutes = 15,
-    early_leave_wait_minutes = 30, work_start_time = date_trunc('minute', v_t - interval '90 minutes')::time,
-    work_end_time = date_trunc('minute', v_t + interval '120 minutes')::time
-  where org_id = pg_temp.fx('org');
-  delete from public.notifications;
-  perform pg_temp.leave('staff2', app.today_ist(), 'half_day', 'morning');
-  insert into public.tasks (org_id, title, task_type_id, priority, due_at, state, created_by, primary_owner_id,
-                            event_date, event_start_at, event_end_at)
-  values (pg_temp.fx('org'), 'Shoot today', pg_temp.fx('type'), 'medium', now() + interval '3 hours', 'todo',
-          pg_temp.fx('owner'), pg_temp.fx('staff1'), app.today_ist(), now() + interval '30 minutes', now() + interval '40 minutes');
-  insert into public.task_assignees (task_id, member_id, is_primary)
-  select t.id, t.primary_owner_id, true from public.tasks t where t.title = 'Shoot today';
+-- B. On fixed instants (Wed 11 Nov 2026) through app.now()'s test clock -------------------------------
+-- pg_temp.at() sets the transaction-local app.test_now that the working-hours functions read.
+create function pg_temp.at(t text) returns void language sql as $$
+  select set_config('app.test_now', pg_temp.ist(t)::text, true);
+$$;
+create function pg_temp.today_of(k text) returns public.attendance_days language sql stable as $$
+  select d.* from public.attendance_days d where d.member_id = pg_temp.fx(k) and d.work_date = '2026-11-11';
+$$;
+grant execute on function pg_temp.at(text) to authenticated;
+delete from public.notification_deliveries;
+delete from public.notifications;
+select pg_temp.leave('staff2', '2026-11-11', 'half_day', 'morning');
+insert into public.tasks (org_id, title, task_type_id, priority, due_at, state, created_by, primary_owner_id,
+                          event_date, event_start_at, event_end_at)
+values (pg_temp.fx('org'), 'Shoot on the 11th', pg_temp.fx('type'), 'medium', pg_temp.ist('2026-11-11 20:00'), 'todo',
+        pg_temp.fx('owner'), pg_temp.fx('staff1'), '2026-11-11', pg_temp.ist('2026-11-11 12:00'), pg_temp.ist('2026-11-11 12:30'));
+insert into public.task_assignees (task_id, member_id, is_primary)
+select t.id, t.primary_owner_id, true from public.tasks t where t.title = 'Shoot on the 11th';
 
-  -- Start day: Late, never blocked, nobody told.
-  perform pg_temp.as_member('staff1');
-  return next lives_ok($$ select public.attendance_start_day() $$, 'a late Start day still works');
-  perform pg_temp.as_system();
-  return next ok((select d.late_minutes from public.attendance_days d where d.member_id = pg_temp.fx('staff1') and d.work_date = app.today_ist())
-                 between 90 and 91, 'it records the minutes after the start time');
-  return next is((select count(*) from public.notifications), 0::bigint, 'a late start notifies nobody');
-  perform pg_temp.as_member('staff2');
-  perform public.attendance_start_day();
-  perform pg_temp.as_system();
-  return next is((select d.late_minutes from public.attendance_days d where d.member_id = pg_temp.fx('staff2') and d.work_date = app.today_ist()),
-    null, 'a morning half day is never Late');
+select pg_temp.at('2026-11-11 11:30');
+select is(app.now(), pg_temp.ist('2026-11-11 11:30'), 'the test clock reads the fixed instant');
+-- Start day: Late, never blocked, nobody told.
+select pg_temp.as_member('staff1');
+select lives_ok($$ select public.attendance_start_day() $$, 'a late Start day still works');
+select pg_temp.as_system();
+select is((pg_temp.today_of('staff1')).late_minutes, 90, 'it records the minutes after the start time (11:30 is 90 late)');
+select is((pg_temp.today_of('staff1')).started_at, pg_temp.ist('2026-11-11 11:30'), 'the start is the tap');
+select is((select count(*) from public.notifications), 0::bigint, 'a late start notifies nobody');
+select pg_temp.as_member('staff2');
+select public.attendance_start_day();
+select pg_temp.as_system();
+select is((pg_temp.today_of('staff2')).late_minutes, null, 'a morning half day is never Late');
 
-  perform pg_temp.as_member('staff1');
-  return next is((select o.late_reason_suggestion from public.attendance_own_hours() o),
-    v_shoot, 'a shoot later that day pre-fills the reason');
-  return next throws_ok($$ select public.attendance_late_reason('   ') $$, 'P0001', 'VALIDATION', 'the reason cannot be empty');
-  return next lives_ok($$ select public.attendance_late_reason('Traffic') $$, 'the person adds the reason');
-  return next is((select o.late_reason from public.attendance_own_hours() o), 'Traffic', 'and reads it back');
-  return next is((select o.can_end_now from public.attendance_own_hours() o), false, 'End day is not open before the end time');
+select pg_temp.as_member('staff1');
+select is((select o.late_reason_suggestion from public.attendance_own_hours() o), 'Shoot at 12:00 pm',
+  'a shoot later that day pre-fills the reason');
+select throws_ok($$ select public.attendance_late_reason('   ') $$, 'P0001', 'VALIDATION', 'the reason cannot be empty');
+select lives_ok($$ select public.attendance_late_reason('Traffic') $$, 'the person adds the reason');
+select is((select o.late_reason from public.attendance_own_hours() o), 'Traffic', 'and reads it back');
+select is((select o.can_end_now from public.attendance_own_hours() o), false, 'End day is not open before the end time');
 
-  -- End day before the end time, and Ask to leave early.
-  return next throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'End day is refused before the end time');
-  return next throws_ok($$ select public.attendance_ask_leave_early('') $$, 'P0001', 'VALIDATION', 'asking needs a reason');
-  v_req := public.attendance_ask_leave_early('Doctor at five');
-  return next ok(v_req is not null, 'the person asks to leave early');
-  return next throws_ok($$ select public.attendance_ask_leave_early('Again') $$, 'P0001', 'CONFLICT', 'one request waits at a time');
-  return next throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'End day waits for the answer');
-  perform pg_temp.as_system();
-  return next is(pg_temp.notes('owner', 'early_leave_requested'), 1::bigint, 'the Owner is told');
-  return next is(pg_temp.notes('admin1', 'early_leave_requested'), 0::bigint, 'Admins are not');
-  return next is((select count(*) from public.notification_deliveries d join public.notifications n on n.id = d.notification_id
-                  where n.kind = 'early_leave_requested' and d.channel = 'push'), 1::bigint, 'by push');
+-- End day before the end time, and Ask to leave early (15:00).
+select pg_temp.at('2026-11-11 15:00');
+select throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'End day is refused before the end time');
+select throws_ok($$ select public.attendance_ask_leave_early('') $$, 'P0001', 'VALIDATION', 'asking needs a reason');
+insert into fx select 'b1', public.attendance_ask_leave_early('Doctor at five');
+select pg_temp.as_system();
+select is((select requested_at from public.early_leave_requests where id = pg_temp.fx('b1')), pg_temp.ist('2026-11-11 15:00'),
+  'the person asks to leave early, at the tap');
+select pg_temp.as_member('staff1');
+select throws_ok($$ select public.attendance_ask_leave_early('Again') $$, 'P0001', 'CONFLICT', 'one request waits at a time');
+select throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'End day waits for the answer');
+select pg_temp.as_system();
+select is(pg_temp.notes('owner', 'early_leave_requested'), 1::bigint, 'the Owner is told');
+select is(pg_temp.notes('admin1', 'early_leave_requested'), 0::bigint, 'Admins are not');
+select is((select count(*) from public.notification_deliveries d join public.notifications n on n.id = d.notification_id
+           where n.kind = 'early_leave_requested' and d.channel = 'push'), 1::bigint, 'by push');
 
-  -- Unanswered for the wait: End day records the tap and marks it.
-  update public.early_leave_requests set requested_at = now() - interval '31 minutes' where id = v_req;
-  perform pg_temp.as_member('staff1');
-  return next is((select o.can_end_now from public.attendance_own_hours() o), true, 'after the wait End day opens');
-  return next lives_ok($$ select public.attendance_end_day() $$, 'the person ends the day');
-  perform pg_temp.as_system();
-  return next is((select row(e.state, e.left_at = now())::text from public.early_leave_requests e where e.id = v_req),
-    row('left_unanswered', true)::text, 'marked "Left early, not answered" at the real tap');
-  return next is((select d.ended_at from public.attendance_days d where d.member_id = pg_temp.fx('staff1') and d.work_date = app.today_ist()),
-    now(), 'the recorded end is the real tap');
+-- Unanswered for the wait: End day records the tap and marks it.
+select pg_temp.at('2026-11-11 15:29');
+select pg_temp.as_member('staff1');
+select throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'not before the 30 minutes are up');
+select pg_temp.at('2026-11-11 15:31');
+select is((select o.can_end_now from public.attendance_own_hours() o), true, 'after the wait End day opens');
+select lives_ok($$ select public.attendance_end_day() $$, 'the person ends the day');
+select pg_temp.as_system();
+select is((select row(e.state, e.left_at)::text from public.early_leave_requests e where e.id = pg_temp.fx('b1')),
+  row('left_unanswered', pg_temp.ist('2026-11-11 15:31'))::text, 'marked "Left early, not answered" at the real tap');
+select is((pg_temp.today_of('staff1')).ended_at, pg_temp.ist('2026-11-11 15:31'), 'the recorded end is the real tap');
 
-  -- Stay until (the Owner), then Stay.
-  perform pg_temp.as_member('staff3');
-  perform public.attendance_start_day();
-  perform pg_temp.as_member('owner');
-  return next throws_ok(format($$ select public.attendance_stay_until(%L, now() + interval '60 minutes') $$, pg_temp.fx('staff3')),
-    'P0001', 'VALIDATION', 'Stay until must be after the working day''s end');
-  v_end := public.attendance_stay_until(pg_temp.fx('staff3'), date_trunc('minute', now() + interval '150 minutes'));
-  return next is(v_end, date_trunc('minute', now() + interval '150 minutes'), 'the Owner sets Stay until');
-  perform pg_temp.as_system();
-  return next is(pg_temp.notes('staff3', 'stay_until_set'), 1::bigint, 'the person is told at once');
-  perform pg_temp.as_member('staff3');
-  return next is((select o.end_source from public.attendance_own_hours() o), 'stay', 'their end time is the Stay until');
-  v_req := public.attendance_ask_leave_early('Family');
-  perform pg_temp.as_member('owner');
-  perform public.early_leave_decide(v_req, 'stay');
-  perform pg_temp.as_member('staff3');
-  return next throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'after Stay, End day waits for the end time');
+-- Stay until (the Owner), then Stay.
+select pg_temp.as_member('staff3');
+select public.attendance_start_day();
+select pg_temp.as_member('owner');
+select throws_ok(format($$ select public.attendance_stay_until(%L, %L) $$, pg_temp.fx('staff3'), pg_temp.ist('2026-11-11 17:00')),
+  'P0001', 'VALIDATION', 'Stay until must be after the working day''s end');
+select throws_ok(format($$ select public.attendance_stay_until(%L, %L) $$, pg_temp.fx('staff3'), pg_temp.ist('2026-11-12 09:00')),
+  'P0001', 'VALIDATION', 'and on the same day');
+select is(public.attendance_stay_until(pg_temp.fx('staff3'), pg_temp.ist('2026-11-11 20:30')), pg_temp.ist('2026-11-11 20:30'),
+  'the Owner sets Stay until');
+select pg_temp.as_system();
+select is(pg_temp.notes('staff3', 'stay_until_set'), 1::bigint, 'the person is told at once');
+select pg_temp.as_member('staff3');
+select is((select o.end_source from public.attendance_own_hours() o), 'stay', 'their end time is the Stay until');
+insert into fx select 'b3', public.attendance_ask_leave_early('Family');
+select pg_temp.as_member('owner');
+select is(public.early_leave_decide(pg_temp.fx('b3'), 'stay'), 'stay', 'the Owner asks them to stay');
+select pg_temp.as_member('staff3');
+select throws_ok($$ select public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'after Stay, End day waits for the end time');
 
-  -- Approve ends the day at the ask.
-  perform pg_temp.as_member('admin1');
-  perform public.attendance_start_day();
-  v_req := public.attendance_ask_leave_early('Pickup');
-  perform pg_temp.as_member('owner');
-  return next is(public.early_leave_decide(v_req, 'approve'), 'approved', 'the Owner approves');
-  perform pg_temp.as_system();
-  return next is((select d.ended_at from public.attendance_days d where d.member_id = pg_temp.fx('admin1') and d.work_date = app.today_ist()),
-    (select requested_at from public.early_leave_requests where id = v_req), 'the day ends at the time they asked');
+-- Approve ends the day at the ask (asked 15:40, approved 15:50).
+select pg_temp.as_member('admin1');
+select public.attendance_start_day();
+select pg_temp.at('2026-11-11 15:40');
+insert into fx select 'ba', public.attendance_ask_leave_early('Pickup');
+select pg_temp.at('2026-11-11 15:50');
+select pg_temp.as_member('owner');
+select is(public.early_leave_decide(pg_temp.fx('ba'), 'approve'), 'approved', 'the Owner approves');
+select pg_temp.as_system();
+select is((pg_temp.today_of('admin1')).ended_at, pg_temp.ist('2026-11-11 15:40'), 'the day ends at the time they asked');
 
-  -- At or after the end time a request still waiting lapses.
-  perform pg_temp.as_member('staff5');
-  perform public.attendance_start_day();
-  v_req := public.attendance_ask_leave_early('Rain');
-  perform pg_temp.as_system();
-  update public.org_settings set work_end_time = date_trunc('minute', v_t - interval '1 minute')::time where org_id = pg_temp.fx('org');
-  perform pg_temp.as_member('staff5');
-  return next lives_ok($$ select public.attendance_end_day() $$, 'after the end time End day is one tap');
-  perform pg_temp.as_system();
-  return next is((select e.state from public.early_leave_requests e where e.id = v_req), 'lapsed', 'the waiting request lapses');
+-- At or after the end time a request still waiting lapses (asked 16:00, End day 18:05).
+select pg_temp.at('2026-11-11 16:00');
+select pg_temp.as_member('staff5');
+select public.attendance_start_day();
+insert into fx select 'b5', public.attendance_ask_leave_early('Rain');
+select pg_temp.at('2026-11-11 18:05');
+select is((select o.can_end_now from public.attendance_own_hours() o), true, 'at the end time End day is open');
+select lives_ok($$ select public.attendance_end_day() $$, 'and one tap');
+select pg_temp.as_system();
+select is((select e.state from public.early_leave_requests e where e.id = pg_temp.fx('b5')), 'lapsed', 'the waiting request lapses');
+select pg_temp.as_member('owner');
+select is((select o.ended_after_end from public.attendance_hours_today() o where o.member_id = pg_temp.fx('staff5')), true,
+  'the Owner reads who ended after their end time');
+select is((select o.left_early from public.attendance_hours_today() o where o.member_id = pg_temp.fx('staff1')), true,
+  'and who left early');
+select pg_temp.as_system();
 
-  -- The switch off: no Late, End day any time.
-  update public.org_settings set working_hours_on = false, work_end_time = date_trunc('minute', v_t + interval '120 minutes')::time
-  where org_id = pg_temp.fx('org');
-  perform pg_temp.as_member('staff6');
-  perform public.attendance_start_day();
-  perform pg_temp.as_system();
-  return next is((select d.late_minutes from public.attendance_days d where d.member_id = pg_temp.fx('staff6') and d.work_date = app.today_ist()),
-    null, 'with the switch off a late start is not marked');
-  perform pg_temp.as_member('staff6');
-  return next lives_ok($$ select public.attendance_end_day() $$, 'and End day works any time, as before');
-  perform pg_temp.as_member('staff4');
-  return next throws_ok($$ select public.attendance_ask_leave_early('x') $$, 'P0001', 'INVALID_STATE', 'Ask to leave early needs a started day');
-  perform pg_temp.as_system();
-end;
-$f$;
-select * from pg_temp.clocked();
+-- The switch off: no Late, End day any time (start at 18:05, end at once).
+update public.org_settings set working_hours_on = false where org_id = pg_temp.fx('org');
+select pg_temp.as_member('staff6');
+select public.attendance_start_day();
+select pg_temp.as_system();
+select is((pg_temp.today_of('staff6')).late_minutes, null, 'with the switch off a late start is not marked');
+select pg_temp.as_member('staff6');
+select lives_ok($$ select public.attendance_end_day() $$, 'and End day works any time, as before');
+select pg_temp.as_member('staff4');
+select throws_ok($$ select public.attendance_ask_leave_early('x') $$, 'P0001', 'INVALID_STATE', 'Ask to leave early needs a started day');
+select pg_temp.as_system();
+select set_config('app.test_now', '', true);
+select isnt(app.now(), pg_temp.ist('2026-11-11 18:05'), 'cleared, the clock is the real one again');
 
 select * from finish();
 rollback;

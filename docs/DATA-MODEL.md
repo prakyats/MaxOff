@@ -78,6 +78,13 @@ Schema **`app`** holds the helpers every module uses. It's not exposed through t
 app.set_updated_at()            BEFORE UPDATE row trigger: every table with updated_at attaches it
 app.to_ist_date(timestamptz)    -> date in Asia/Kolkata (stable, strict; null in -> null out)
 app.today_ist()                 -> app.to_ist_date(now())
+app.now()                       -> now(); v1.9 W0 review (migration w0_test_clock): the clock of the
+                                   working-hours functions only (attendance_start_day / _end_day /
+                                   _late_reason / _stay_until / _ask_leave_early / _own_hours,
+                                   early_leave_decide, attendance_hours_today). A transaction-local
+                                   app.test_now overrides it on a non-API session (pgTAP runs W0 on
+                                   fixed instants); the API role (authenticator) always gets now().
+                                   service_role only. today_ist() and everything else keep now().
 app.fail(code, detail)          raises SQLSTATE P0001 with message = code, detail = the human reason
                                 (ARCHITECTURE 4.3). Every transition function raises through it
 app.is_working_day(date)        (1.4) false when the date's weekday is in org_settings.weekly_off_days
