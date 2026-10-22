@@ -127,10 +127,26 @@ a Dark/Light toggle).
    2 px ring in the bar's background colour; capped at "99+" (`BellCount`).
 
 ### Sheets and dismiss buttons (PP-forms-3, PP-sheet-4)
-- On a phone a sheet's ✕ and its grab handle are the dismiss: the big outlined Cancel becomes a
-  quiet text button (`variant="link"`-weight, no box) or goes.
-- A destructive confirmation's dismiss says what it keeps: "Keep it" (or "Keep ‹thing›").
-- The row ⋯ bottom sheet on a phone uses 44 px rows in More's list-item style, under a title line.
+- On a phone a sheet's ✕ and its grab handle are the dismiss: the way out in a dialog footer
+  (marked `data-dismiss`: `AlertDialogCancel`, `ReasonDialog`'s, `DialogFooter`'s Close, every
+  form's Cancel) is a quiet muted text button under the commit, keeping its 44 px target
+  (`MODAL_FOOTER`, `modal-surface.ts`); from `md` it is the dialog's outline button. A new dialog
+  marks its way out `data-dismiss=""`.
+- A destructive confirmation's dismiss says what it keeps: `ConfirmDialog` and `ReasonDialog`
+  default to "Keep it" when `destructive` ("Close" when there is nothing to commit).
+- The row ⋯ bottom sheet on a phone uses 44 px rows in More's list-item style (12 px in, a 12 px
+  gap to a 20 px icon, the card's rounded tint), under a title line over a hairline: every row ⋯
+  passes `title` (the record's name) to `DropdownMenuContent`.
+
+### The V5b shared foundations (where they live)
+| Pattern | Use |
+|---|---|
+| Light depth (major change 4) | tokens in `globals.css`; a grouped list or card is `bg-card shadow-raised` + hairline (`ListRows`, `Card`); a list inside a sheet or dialog stays flat |
+| The one row (FINAL 5) | `ListRow` / `ListRows` / `ListRowsSkeleton`, `ChatCount` (`core/ui/composites/list-row.tsx`) |
+| The detail header (FINAL 6) | `DetailHeader` / `PageHeader`'s `status`, `history`, `primary` (`page-header.tsx`) |
+| The top bar's bell (change 9) | `TopBar` + `NavBadgeMark` place `topbar` |
+| Dates and times (change 6) | `DateInput` / `TimeInput` / `DateTimeInput` (`core/ui/primitives/date-time-input.tsx`), labels from `core/time/field.ts` |
+| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState` |
 
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`
