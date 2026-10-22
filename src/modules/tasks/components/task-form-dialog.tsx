@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput, TimeInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -752,10 +753,9 @@ function TaskForm({
       <div className="flex flex-col gap-4 sm:flex-row">
         <FormField label="Deadline" error={errors.dueDate} className="min-w-0 flex-1">
           {(control) => (
-            <Input
+            <DateInput
               {...control}
               name="dueDate"
-              type="date"
               {...(creating ? { min: loaded.today } : {})}
               value={draft.dueDate}
               onChange={(event) => pickDeadline({ dueDate: event.target.value })}
@@ -765,10 +765,9 @@ function TaskForm({
         </FormField>
         <FormField label="Time (IST)" error={errors.dueTime} className="min-w-0 sm:w-40">
           {(control) => (
-            <Input
+            <TimeInput
               {...control}
               name="dueTime"
-              type="time"
               value={draft.dueTime}
               onChange={(event) => pickDeadline({ dueTime: event.target.value })}
               required
@@ -889,10 +888,9 @@ function TaskForm({
           <div className="flex flex-col gap-4" data-slot="task-event-fields">
             <FormField label="Event date" error={errors.eventDate}>
               {(control) => (
-                <Input
+                <DateInput
                   {...control}
                   name="eventDate"
-                  type="date"
                   value={draft.eventDate}
                   onChange={(event) => update({ eventDate: event.target.value }, ["eventDate"])}
                   required
@@ -907,10 +905,9 @@ function TaskForm({
                 className="min-w-0 flex-1"
               >
                 {(control) => (
-                  <Input
+                  <TimeInput
                     {...control}
                     name="eventStart"
-                    type="time"
                     value={draft.eventStart}
                     onChange={(event) =>
                       update({ eventStart: event.target.value }, ["eventStart", "eventEnd"])
@@ -925,10 +922,9 @@ function TaskForm({
                 className="min-w-0 flex-1"
               >
                 {(control) => (
-                  <Input
+                  <TimeInput
                     {...control}
                     name="eventEnd"
-                    type="time"
                     value={draft.eventEnd}
                     onChange={(event) =>
                       update({ eventEnd: event.target.value }, ["eventEnd", "eventStart"])

@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { StageGroupsEditor } from "@/core/ui/stage-groups/stage-groups-editor";
 import { describeError } from "@/core/ui/toast";
@@ -168,9 +169,8 @@ function BulkEditForm({
       {kind === "plan" ? (
         <FormField label="Planned date" hint="Every selected deliverable is planned for it.">
           {(control) => (
-            <Input
+            <DateInput
               {...control}
-              type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
               required

@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -196,10 +197,9 @@ export function AddItemDialog({
               error={error?.field === "plannedDate" ? error.message : undefined}
             >
               {(control) => (
-                <Input
+                <DateInput
                   {...control}
                   name="plannedDate"
-                  type="date"
                   value={planned}
                   onChange={(event) => setPlanned(event.target.value)}
                 />

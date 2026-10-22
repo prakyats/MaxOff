@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
-import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -147,10 +147,9 @@ export function OwnerEditLeaveDialog({
               className="flex-1"
             >
               {(control) => (
-                <Input
+                <DateInput
                   {...control}
                   name="startDate"
-                  type="date"
                   value={startDate}
                   onChange={(event) => {
                     setStartDate(event.target.value);
@@ -163,10 +162,9 @@ export function OwnerEditLeaveDialog({
             {singleDate ? null : (
               <FormField label="Last day" error={fieldErrors.endDate} className="flex-1">
                 {(control) => (
-                  <Input
+                  <DateInput
                     {...control}
                     name="endDate"
-                    type="date"
                     min={startDate}
                     value={endDate}
                     onChange={(event) => setEndDate(event.target.value)}

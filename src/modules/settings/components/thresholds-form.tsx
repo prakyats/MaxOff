@@ -16,6 +16,7 @@ import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor"
 import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
+import { TimeInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -110,10 +111,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
           error={fieldErrors.logoutReminderTime}
         >
           {(control) => (
-            <Input
+            <TimeInput
               {...control}
               name="logoutReminderTime"
-              type="time"
               defaultValue={thresholds.logoutReminderTime}
               className="max-w-40"
               required
@@ -126,10 +126,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
           error={fieldErrors.endDayCutoffTime}
         >
           {(control) => (
-            <Input
+            <TimeInput
               {...control}
               name="endDayCutoffTime"
-              type="time"
               defaultValue={thresholds.endDayCutoffTime}
               className="max-w-40"
               required
@@ -345,10 +344,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Quiet from" error={fieldErrors.quietHoursStart}>
               {(control) => (
-                <Input
+                <TimeInput
                   {...control}
                   name="quietHoursStart"
-                  type="time"
                   defaultValue={thresholds.quietHoursStart}
                   className="max-w-40"
                   required
@@ -361,10 +359,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
               error={fieldErrors.quietHoursEnd}
             >
               {(control) => (
-                <Input
+                <TimeInput
                   {...control}
                   name="quietHoursEnd"
-                  type="time"
                   defaultValue={thresholds.quietHoursEnd}
                   className="max-w-40"
                   required

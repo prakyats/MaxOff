@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
-import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -261,10 +261,9 @@ function LeaveForm({
                 </SelectContent>
               </Select>
             ) : (
-              <Input
+              <DateInput
                 {...control}
                 name="startDate"
-                type="date"
                 min={minStart}
                 {...(isComp && comp.useBy ? { max: comp.useBy } : {})}
                 value={startDate}
@@ -281,10 +280,9 @@ function LeaveForm({
         {singleDate ? null : (
           <FormField label="Last day" error={fieldErrors.endDate} className="flex-1">
             {(control) => (
-              <Input
+              <DateInput
                 {...control}
                 name="endDate"
-                type="date"
                 min={startDate || minStart}
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
