@@ -43,6 +43,62 @@ describe("renamePreview (the same rule as items_rename)", () => {
   });
 });
 
+describe("renamePreview names an unknown {…} placeholder (UX review S5)", () => {
+  const items = [
+    { id: "a", title: "Reel" },
+    { id: "b", title: "Teaser" },
+  ];
+  const works = "Use {n} for the number or {title} for the current name.";
+
+  it("takes {n}, {title} and both", () => {
+    expect(renamePreview("Cut {n}", items).ok).toBe(true);
+    expect(renamePreview("{title} final", items).ok).toBe(true);
+    const both = renamePreview("{n}. {title}", items, 3);
+    expect(both.ok && both.rows.map((row) => row.to)).toEqual(["3. Reel", "4. Teaser"]);
+  });
+
+  it("refuses one unknown placeholder by name", () => {
+    expect(renamePreview("Yesss test {2}", items)).toEqual({
+      ok: false,
+      issue: `{2} is not a placeholder. ${works}`,
+    });
+    expect(renamePreview("Cut {x} {n}", items)).toEqual({
+      ok: false,
+      issue: `{x} is not a placeholder. ${works}`,
+    });
+  });
+
+  it("lists several unknowns once each, in order", () => {
+    expect(renamePreview("{N} {x} {n} {y} {x}", items)).toEqual({
+      ok: false,
+      issue: `{N}, {x} and {y} are not placeholders. ${works}`,
+    });
+    expect(renamePreview("{a}{b}", [items[0]!])).toEqual({
+      ok: false,
+      issue: `{a} and {b} are not placeholders. ${works}`,
+    });
+  });
+
+  it("refuses braces with no name", () => {
+    expect(renamePreview("Cut {} {n}", items)).toEqual({
+      ok: false,
+      issue: `{} is not a placeholder. ${works}`,
+    });
+  });
+
+  it("keeps an unclosed { as plain text", () => {
+    const open = renamePreview("Cut {n} {draft", items);
+    expect(open.ok && open.rows.map((row) => row.to)).toEqual(["Cut 1 {draft", "Cut 2 {draft"]);
+  });
+
+  it("takes text with no braces for one deliverable", () => {
+    expect(renamePreview("Launch reel", [items[0]!])).toEqual({
+      ok: true,
+      rows: [{ id: "a", from: "Reel", to: "Launch reel" }],
+    });
+  });
+});
+
 describe("shiftDays and shiftWords", () => {
   it("takes 1 to 365 days", () => {
     expect(shiftDays("3")).toEqual({ ok: true, days: 3 });
