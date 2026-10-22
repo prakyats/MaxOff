@@ -77,7 +77,7 @@ export function ProjectTemplateManager({
   const archived = templates.filter(
     (template) =>
       template.archived &&
-      projectTemplateActions(template, context.viewer).edit &&
+      projectTemplateActions(template, context.viewer).restore &&
       matches(template),
   );
   const previewing = templates.find((template) => template.id === previewId) ?? null;

@@ -70,7 +70,7 @@ export function DeliverableTemplateManager({
   // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
   const archived = templates.filter(
     (template) =>
-      template.archived && templateRowActions(template, viewer).archive && matches(template),
+      template.archived && templateRowActions(template, viewer).restore && matches(template),
   );
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 

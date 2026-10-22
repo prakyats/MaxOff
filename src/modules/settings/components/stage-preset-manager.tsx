@@ -69,7 +69,7 @@ export function StagePresetManager({
   const archived = presets.filter(
     (preset) =>
       preset.archived &&
-      presetActions(preset, viewer).edit &&
+      presetActions(preset, viewer).restore &&
       templateMatches(query, [preset.name, ...preset.stages]),
   );
 

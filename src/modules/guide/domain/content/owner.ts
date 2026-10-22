@@ -1490,7 +1490,7 @@ export const OWNER_GUIDE: Guide = {
           blocks: [
             steps(
               "Open Settings, then Templates.",
-              'Tap the red bin ("Delete ‹name›") on the template or preset; on a phone it is the red Delete in the row\'s ⋯.',
+              'Tap the grey bin ("Delete ‹name›") on the template or preset; on a phone it is Delete in the row\'s ⋯. Only the confirmation's Delete button is red.',
               'Read the question: it says what uses it, such as "Used by 3 projects (2 still open)", and exactly what happens. Tap the red "Delete ‹name›", or "Keep it".',
             ),
             next(
@@ -1788,7 +1788,7 @@ export const OWNER_GUIDE: Guide = {
           blocks: [
             steps(
               {
-                text: 'In Settings, open Job titles, Expenses, Task types or Custom fields and tap the red bin ("Delete ‹name›") on the row (highlighted); on a phone it is the red Delete in the row\'s ⋯.',
+                text: 'In Settings, open Job titles, Expenses, Task types or Custom fields and tap the grey bin ("Delete ‹name›") on the row (highlighted); on a phone it is Delete in the row\'s ⋯. Only the confirmation's Delete button is red.',
                 shot: "owner/delete-unused",
               },
               'For a draft client or a contact, open its ⋯ menu and tap the red "Delete".',

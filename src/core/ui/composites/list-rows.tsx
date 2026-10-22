@@ -222,14 +222,16 @@ export function ListRowActions({
         </Button>
       ) : null}
       {onDelete ? (
+        // A quiet grey bin (owner, V5b preview): red belongs to the confirmation's commit only
+        // (the colour rule); a 44 px target.
         <Button
           type="button"
-          variant="destructive"
+          variant="ghost"
           size="icon"
           aria-label={`Delete ${name}`}
           title={`Delete ${name}`}
           onClick={onDelete}
-          className="ml-1 hidden md:inline-flex"
+          className="text-muted-foreground ml-1 hidden size-11 md:inline-flex"
         >
           <Trash2Icon aria-hidden />
         </Button>
@@ -305,7 +307,7 @@ export function ListRowActions({
               ) : null}
               {onDelete ? (
                 <Button
-                  variant="destructive"
+                  variant="secondary"
                   className="w-full justify-start"
                   onClick={() => choose(onDelete)}
                 >

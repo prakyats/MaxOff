@@ -64,7 +64,7 @@ export function TemplateManager({
     .filter(
       (template) =>
         template.archived &&
-        templateActions(template, context.viewer).edit &&
+        templateActions(template, context.viewer).restore &&
         templateMatches(query, [template.name, ...template.stages]),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
