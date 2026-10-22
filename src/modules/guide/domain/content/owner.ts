@@ -177,7 +177,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Only you decide attendance. Approve it, or correct it.",
           blocks: [
             text(
-              `Attendance days sit under "Attendance" on Approvals. With one day waiting, its Approve is the green button; with two or more, "Approve all" is.`,
+              `Attendance days sit under "Attendance" on Approvals. With two or more waiting, "Approve all" is the green button. A single day's Approve is green only when nothing else waits on Approvals; beside other groups it is plain, so there is never more than one green button.`,
             ),
             steps(
               "Open Approvals.",

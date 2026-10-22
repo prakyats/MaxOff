@@ -49,9 +49,19 @@ export function TaskRow({
       slot="task-row"
       data={{ "data-task": id }}
       href={`/tasks/${id}`}
-      title={<span data-slot="task-row-title">{title}</span>}
+      // Block and cut themselves: an inline span would run on past its cut parent's box, reaching
+      // past the screen's edge at large text (the `expectNoHorizontalScroll` sweep).
+      title={
+        <span data-slot="task-row-title" className="block truncate">
+          {title}
+        </span>
+      }
       titleBadge={<UnreadMarker count={unread} />}
-      meta={<span data-slot="task-row-meta">{meta}</span>}
+      meta={
+        <span data-slot="task-row-meta" className="block truncate">
+          {meta}
+        </span>
+      }
       note={note ? <span data-slot="task-row-note">{note}</span> : undefined}
       chips={
         <>

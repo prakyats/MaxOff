@@ -8,9 +8,10 @@ import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
+import { ApprovalScreen } from "@/core/ui/composites/approval-group";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { buttonVariants } from "@/core/ui/primitives/button-variants";
+import { Button } from "@/core/ui/primitives/button";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
 import { reachedAt, waitingFor, type Waiting } from "@/modules/dashboards";
 import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
@@ -93,6 +94,14 @@ export default async function ApprovalsPage() {
         waited(reachedAt(item.submission?.at ?? item.row.submittedAt, item.adminApprovedAt)),
     ),
   };
+  // The groups with something waiting: a one-row group's Approve is solid only when it is alone.
+  const groupsShown = [
+    own.days,
+    own.requests,
+    own.notes,
+    decidesExpenses ? claims : [],
+    tasks,
+  ].filter((rows) => rows.length > 0).length;
   const nothing =
     own.days.length === 0 &&
     own.requests.length === 0 &&
@@ -116,32 +125,35 @@ export default async function ApprovalsPage() {
           // PP-admin-2: an Admin with nothing to check is pointed at what they can do instead.
           action={
             decidesAttendance ? undefined : (
-              <Link
-                href="/tasks"
-                data-slot="approvals-open-tasks"
-                className={buttonVariants({ variant: "secondary" })}
-              >
-                Open Tasks
-              </Link>
+              // The Button (asChild) carries the variant and size the phone's 44 px rule keys on.
+              <Button variant="secondary" asChild>
+                <Link href="/tasks" data-slot="approvals-open-tasks">
+                  Open Tasks
+                </Link>
+              </Button>
             )
           }
         />
       ) : (
-        <div className="flex flex-col gap-6">
-          {decidesAttendance ? (
-            <>
-              <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
-              <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
-              <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />
-            </>
-          ) : null}
-          {decidesExpenses ? <PendingClaimsGroup claims={claims} waiting={waiting.claims} /> : null}
-          <TaskApprovalGroup
-            tasks={tasks}
-            waiting={waiting.tasks}
-            heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
-          />
-        </div>
+        <ApprovalScreen groups={groupsShown}>
+          <div className="flex flex-col gap-6">
+            {decidesAttendance ? (
+              <>
+                <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
+                <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
+                <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />
+              </>
+            ) : null}
+            {decidesExpenses ? (
+              <PendingClaimsGroup claims={claims} waiting={waiting.claims} />
+            ) : null}
+            <TaskApprovalGroup
+              tasks={tasks}
+              waiting={waiting.tasks}
+              heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
+            />
+          </div>
+        </ApprovalScreen>
       )}
     </>
   );

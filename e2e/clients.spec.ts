@@ -185,8 +185,12 @@ test.describe("the Owner", () => {
     const kept = nameOf(info, "Kept draft");
     const spareId = await seedClient(spare);
     const keptId = await seedClient(kept);
-    // One edit is history pointing at it: in use (owner 2026-10-22, "any reference counts").
-    await serviceRest(`clients?id=eq.${keptId}`, {
+    // A contact is another record pointing at it: in use (owner 2026-10-22, "any reference
+    // counts"). Its own edits never are (V5b-0 item 8: own history never blocks Delete), so the
+    // spare draft is edited first and still deletes.
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("client_contacts", { org_id: org?.id, client_id: keptId, name: "Asha" });
+    await serviceRest(`clients?id=eq.${spareId}`, {
       method: "PATCH",
       body: JSON.stringify({ city: "Udupi" }),
     });

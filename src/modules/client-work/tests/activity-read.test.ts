@@ -43,7 +43,8 @@ function entry(id: number, patch: Record<string, unknown> = {}) {
 describe("readProjectActivity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assertPermission.mockResolvedValue({ id: "ravi", role: "admin" });
+    // The Owner reads Ravi's changes: Ravi is named (his own read says "You", below).
+    assertPermission.mockResolvedValue({ id: "owner", role: "owner" });
     listDirectoryOf.mockResolvedValue([{ id: "ravi", fullName: "Ravi" }]);
     listItemsById.mockResolvedValue([{ id: ITEM, title: "Reel 1" }]);
     listStages.mockResolvedValue([]);
@@ -101,6 +102,13 @@ describe("readProjectActivity", () => {
     expect(listItemsById).toHaveBeenCalledWith([ITEM]);
     expect(listDirectoryOf).toHaveBeenCalledWith(["ravi"]);
     expect(listStages).not.toHaveBeenCalled();
+  });
+
+  it('says "You" for the reader\'s own changes (v1.8 pull-in item 5)', async () => {
+    assertPermission.mockResolvedValue({ id: "ravi", role: "admin" });
+    pageProjectActivity.mockResolvedValue([entry(1)]);
+    const page = await readProjectActivity({ projectId: PROJECT });
+    expect(page.lines[0]).toMatchObject({ actor: "You", text: "marked Reel 1 done" });
   });
 
   it("ends at a short page, and reads the project's stages only for the old tick entries", async () => {

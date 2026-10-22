@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type BulkOutcome, bulkSummary } from "@/core/errors/bulk";
@@ -15,6 +15,18 @@ import { describeError } from "@/core/ui/toast";
 import { ConfirmDialog } from "./confirm-dialog";
 import { APPROVAL_ROW_MIN_H, CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
 import { StatusBadge, TONE_DOT_CLASSES } from "./status-badge";
+
+/**
+ * How many groups on the screen have something waiting (Approvals sets it; no provider is one).
+ * The colour rule is one solid commit per layer (ARCHITECTURE §14.1): a group's one waiting row
+ * carries the solid Approve only when it is the screen's only group with rows, so two one-row
+ * groups, or one beside another group's "Approve all", never show two solids side by side.
+ */
+const ApprovalGroupsShown = createContext(1);
+
+export function ApprovalScreen({ groups, children }: { groups: number; children: ReactNode }) {
+  return <ApprovalGroupsShown value={groups}>{children}</ApprovalGroupsShown>;
+}
 
 /** One row waiting for a decision: what it is, whose, and where it stands. */
 export type ApprovalRow = {
@@ -270,6 +282,7 @@ export function ApprovalGroup<T>({
   }
   const headingId = `approvals-${id}-heading`;
   const count = waiting.length;
+  const groupsShown = use(ApprovalGroupsShown);
 
   return (
     <section aria-labelledby={headingId} data-slot="approval-group" data-group={id}>
@@ -350,9 +363,14 @@ export function ApprovalGroup<T>({
                 </Button>
                 {approve ? (
                   // PP-approvals-1: a group's one waiting row carries its solid Forest Approve;
-                  // with two or more, "Approve all n" above is the solid one.
+                  // with two or more, "Approve all n" above is the solid one. Only when it is
+                  // the screen's one group with rows (`ApprovalScreen`): one solid per layer.
                   <Button
-                    variant={count === 1 && rows.length === 1 ? "approve" : "secondary"}
+                    variant={
+                      count === 1 && rows.length === 1 && groupsShown === 1
+                        ? "approve"
+                        : "secondary"
+                    }
                     commits
                     onClick={() => approveOne(row)}
                     disabled={isHeld}

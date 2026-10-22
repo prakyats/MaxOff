@@ -56,7 +56,8 @@ export default async function Loading() {
             a laptop) and the quiet priority, the deadline's own line, the callout of what is
             needed now. */}
         <div aria-hidden data-slot="loading-task-glance" className="flex min-w-0 flex-col gap-2">
-          <div className="flex h-5 min-w-0 flex-wrap items-center gap-2">
+          {/* 20px with the phone's chip; 16px on a laptop, where only the 12px priority shows. */}
+          <div className="flex h-5 min-w-0 flex-wrap items-center gap-2 md:h-4">
             <Skeleton className="h-5 w-20 rounded-full md:hidden" />
             <Skeleton className="h-3 w-24" />
           </div>

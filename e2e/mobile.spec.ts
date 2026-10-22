@@ -87,6 +87,13 @@ async function expectTouchTargets(page: Page): Promise<void> {
           const outer = label.getBoundingClientRect();
           if (outer.width >= min && outer.height >= min) return false;
         }
+        // A row's stretched opener (`ListRow`): its absolute ::after covers the row, so the row's
+        // box is the target, not the text's.
+        const after = getComputedStyle(el, "::after");
+        if (after.content !== "none" && after.position === "absolute") {
+          const host = el.offsetParent?.getBoundingClientRect();
+          if (host && host.width >= min && host.height >= min) return false;
+        }
         return true;
       })
       .slice(0, 8)
@@ -494,7 +501,9 @@ test.describe("More, for Owner and Admin", () => {
         await expect(page.locator('[data-slot="bottom-nav"]')).toBeVisible();
       });
 
-      test("only Approvals can carry a count today (2.4; Alerts join in 5.1)", async ({ page }) => {
+      test("only Approvals and Tasks can carry a count today (2.4; Alerts join in 5.1; the Owner's own tasks, 6b)", async ({
+        page,
+      }) => {
         await page.goto("/today");
         // The counts stream after the page (4C): wait until every cell's count has landed (a
         // zero draws no badge, so the settled marker says it arrived) before reading any of them.
@@ -504,11 +513,13 @@ test.describe("More, for Owner and Admin", () => {
         );
         // Whether a count shows depends on what other specs left waiting; where it shows does not.
         const badges = page.locator('[data-slot="bottom-nav"] [data-slot="nav-badge"]');
-        const onApprovals = page.locator(
-          '[data-slot="bottom-nav"] [data-nav="approvals"] [data-slot="nav-badge"]',
+        // The Owner can be on a task since 6b (`tasks_for_owner`): one he has not noted counts on
+        // Tasks, as it does for everyone else.
+        const allowed = page.locator(
+          '[data-slot="bottom-nav"] :is([data-nav="approvals"], [data-nav="tasks"]) [data-slot="nav-badge"]',
         );
-        await expect(badges).toHaveCount(await onApprovals.count());
-        expect(await badges.count()).toBeLessThanOrEqual(1);
+        await expect(badges).toHaveCount(await allowed.count());
+        expect(await badges.count()).toBeLessThanOrEqual(2);
       });
 
       test("More reads as current while one of its screens is open", async ({ page }) => {

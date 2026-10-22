@@ -471,13 +471,15 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
-  // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you" (always there, whatever
-  // it holds), Staff's first group (their own task, not noted).
+  // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you", Staff's first group
+  // (their own task, not noted). An empty "Needs you" is one quiet line since PP-tasks-1, so the
+  // Owner's and the Admin's runs give it something to decide: a Crew suggestion.
   {
     role: "owner",
     path: "/tasks",
     marker: 'aria-label="Loading tasks"',
     hold: "/rest/v1/tasks",
+    fixture: "suggestion",
     trace: TASKS_TEAM,
   },
   {
@@ -485,6 +487,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/tasks",
     marker: 'aria-label="Loading tasks"',
     hold: "/rest/v1/tasks",
+    fixture: "suggestion",
     trace: TASKS_TEAM,
   },
   {
