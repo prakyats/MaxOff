@@ -95,7 +95,7 @@ export default async function Loading() {
         data-slot="loading-state"
         className="flex flex-col gap-6"
       >
-        <Card aria-hidden data-slot="loading-me-identity">
+        <Card aria-hidden>
           <CardContent className="flex flex-col gap-3">
             <div data-slot="loading-record">
               <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
