@@ -147,6 +147,10 @@ a Dark/Light toggle).
 | The top bar's bell (change 9) | `TopBar` + `NavBadgeMark` place `topbar` |
 | Dates and times (change 6) | `DateInput` / `TimeInput` / `DateTimeInput` (`core/ui/primitives/date-time-input.tsx`), labels from `core/time/field.ts` |
 | An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState` |
+| Today / My Day's columns (change 1) | `DayColumns` + `ThisWeek` (`modules/dashboards`, `day-blocks.tsx`): a container query, two columns only from a 75rem (1200 px) content width, "This week" `minmax(260px, 28%)`; `PhoneDateLine` for the phone's date |
+| A page's primary in the header (FINAL 6, PP-crew-8) | `DetailHeader`'s `primary`; with `primaryOwnBar` the same element is the phone's sticky bar (`StickyActions`), so its dialogs mount once |
+| A stepped form (change 2) | New project: each later step a `useOverlayHistory` layer over the one before, Back via `closeOverlaysThen`; one primary a step (Next, then the commit) |
+| Waiting words (FINAL 4) | from a day a dot plus the word (amber, red from three), never colour alone (`ApprovalGroup`, `ApprovalPersonRow`) |
 
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`

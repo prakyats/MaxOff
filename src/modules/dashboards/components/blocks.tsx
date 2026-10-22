@@ -186,19 +186,25 @@ export function ApprovalPersonRow({
           <span data-slot="approval-detail" className="text-muted-foreground text-xs break-words">
             {detail}
           </span>
+          {/* FINAL 4: from a day, a dot plus the word (amber, red from three), never colour alone. */}
           {waiting ? (
             <span
               data-slot="approval-waiting"
               data-tone={waiting.tone}
               className={cn(
-                "text-xs break-words",
-                waiting.tone === "danger"
-                  ? "text-danger"
-                  : waiting.tone === "attention"
-                    ? "text-attention"
-                    : "text-muted-foreground",
+                "inline-flex items-center gap-1.5 text-xs break-words",
+                waiting.tone === "muted" ? "text-muted-foreground" : "text-foreground",
               )}
             >
+              {waiting.tone === "muted" ? null : (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    waiting.tone === "danger" ? "bg-danger" : "bg-attention",
+                  )}
+                />
+              )}
               {waiting.label}
             </span>
           ) : null}
