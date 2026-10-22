@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   dayTimes,
+  approveDayLabel,
+  dayTimesLine,
   describeEvent,
   describeHistoryDay,
   eventActor,
@@ -47,6 +49,36 @@ const DAY: HistoryDay = {
   events: [],
 };
 const day = (patch: Partial<HistoryDay>): HistoryDay => ({ ...DAY, ...patch });
+
+describe("approveDayLabel (V5b-D)", () => {
+  it("names what approving keeps, only on a day waiting for the Owner", () => {
+    expect(approveDayLabel(day({ state: "pending_review", submittedChoice: "present" }))).toBe(
+      "Approve as present",
+    );
+    expect(approveDayLabel(day({ state: "pending_review", submittedChoice: null }))).toBe(
+      "Approve as absent",
+    );
+    expect(approveDayLabel(day({ state: "approved" }))).toBeNull();
+  });
+});
+
+describe("dayTimesLine (V5b-D, the approved pull-in sample)", () => {
+  it("reads both taps, one of them, or Not recorded on a working day", () => {
+    expect(
+      dayTimesLine(day({ startedAt: "2026-09-24T03:42:00Z", endedAt: "2026-09-24T13:00:00Z" })),
+    ).toBe("9:12 am · 6:30 pm");
+    expect(dayTimesLine(day({ startedAt: "2026-09-24T03:40:00Z" }))).toBe("9:10 am · —");
+    expect(dayTimesLine(day({ endedAt: "2026-09-24T13:00:00Z" }))).toBe("Not recorded · 6:30 pm");
+    expect(dayTimesLine(day({}))).toBe("Not recorded");
+    expect(dayTimesLine(day({ endNotRecorded: true, isDayOff: true }))).toBe("Not recorded");
+  });
+
+  it("is a dash on a day away, where no time was expected", () => {
+    expect(dayTimesLine(day({ finalStatus: "leave" }))).toBe("—");
+    expect(dayTimesLine(day({ finalStatus: "comp_leave" }))).toBe("—");
+    expect(dayTimesLine(day({ isDayOff: true }))).toBe("—");
+  });
+});
 
 describe("dayTimes (3b.1, kickoff 3b decision 31)", () => {
   it("shows the Start day and End day taps", () => {
