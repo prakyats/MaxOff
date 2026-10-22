@@ -692,18 +692,18 @@ test.describe("dialogs are bottom sheets", () => {
     await expect(dialog).toHaveCSS("overscroll-behavior-y", "contain");
   });
 
-  test("a confirm sheet keeps the destructive button clear of the thumb", async ({ page }) => {
+  test("a confirm sheet keeps the commit button clear of the thumb", async ({ page }) => {
     await page.goto("/settings/job-titles");
     await page
       .getByRole("button", { name: /^Actions for/ })
       .first()
       .click();
-    await page.getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("button", { name: "Archive" }).click();
 
     const dialog = page.locator('[data-slot="alert-dialog-content"]');
     await expect(dialog).toBeVisible();
 
-    const confirm = await dialog.getByRole("button", { name: /^Delete / }).boundingBox();
+    const confirm = await dialog.getByRole("button", { name: /^Archive / }).boundingBox();
     const cancel = await dialog.getByRole("button", { name: "Cancel" }).boundingBox();
     // Cancel sits below Confirm, so the thumb rests on the harmless one (§14.1).
     expect(cancel?.y ?? 0).toBeGreaterThan(confirm?.y ?? 0);

@@ -25,7 +25,7 @@ export type ManagedListItem = {
  * are the first (1.3 seeded them); expense categories reuse it by adding a key to `core/lists`'
  * registry and a page. Adding follows the Settings Add pattern (C4): "Add ‹thing›" on the list's
  * heading opens a one-field dialog. Order is changed one step at a time, which a phone (in the
- * row's ⋯ sheet) and a keyboard both handle. "Delete" (D6) is the archive underneath, so a member
+ * row's ⋯ sheet) and a keyboard both handle. Archive (D6; named Archive again, owner 2026-10-21): a member
  * who carries one keeps it; Undo in its toast brings it back, and no Archived list is shown.
  */
 export function ListManager({
@@ -104,7 +104,7 @@ export function ListManager({
                     disabled: busyId !== null,
                   }}
                   edit={{ label: "Rename", onSelect: () => setRenaming(item) }}
-                  onDelete={() => setArchiving(item)}
+                  onArchive={() => setArchiving(item)}
                 />
               </li>
             ))}
@@ -137,14 +137,13 @@ export function ListManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Delete ${archiving.name}?`}
+          title={`Archive ${archiving.name}?`}
           description={`It won't be offered again. People who already have this ${labels.singular.toLowerCase()} keep it.`}
-          confirmLabel={`Delete ${archiving.name}`}
-          destructive
+          confirmLabel={`Archive ${archiving.name}`}
           onConfirm={async () => {
             const { id, name } = archiving;
             toastResult(await setListItemArchived({ listKey, id, archived: true }), {
-              success: `${name} deleted`,
+              success: `${name} archived`,
               undo: () =>
                 void setListItemArchived({ listKey, id, archived: false }).then((result) =>
                   toastResult(result),

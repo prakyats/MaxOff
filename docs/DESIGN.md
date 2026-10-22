@@ -270,13 +270,13 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   fields, Templates, Integrations), each a quiet heading over one bordered list; every row is the
   section's name over one line saying what it holds, on a phone and a laptop alike (two groups to a
   row from `lg`). **D6, one list pattern:** "Add ‹thing›" on the list's heading (C4); each row's
-  actions are Edit · Delete (`ListRowActions`: grey icons from `md`, one ⋯ sheet on a phone), plus a
-  labelled **Preview** at every width where there is something to look at (templates). **Delete is
-  the existing archive** (no Archived list; the toast "‹name› deleted" offers Undo for 6 s where
-  unarchive exists; records that carry it keep it); the row's icon stays grey, and the
-  confirmation's named commit ("Delete ‹name›") is red like every final action (owner correction
-  2026-10-21); a deliverable template still asks its reason (invariant 9). The word "Archive" leaves these pages
-  (it stays in code, DB and docs). **The one Templates page (6b.6 owner note):** Stage presets →
+  actions are Edit · Archive (`ListRowActions`: grey icons from `md`, one ⋯ sheet on a phone), plus a
+  labelled **Preview** at every width where there is something to look at (templates). **Archive**
+  (V4 named it "Delete"; named Archive again with the archive box, owner 2026-10-21, PP-templates-2):
+  no Archived list; the toast "‹name› archived" offers Undo for 6 s where unarchive exists; records
+  that carry it keep it; the row's icon stays grey, and the confirmation's named commit ("Archive
+  ‹name›") is the neutral `primary` (archive is never red); a deliverable template still asks its
+  reason (invariant 9). **The one Templates page (6b.6 owner note):** Stage presets →
   Deliverable templates → Project templates, a divider, then Task templates; one search across all
   four; one "Add …" per section. On a phone the four sections are a **segmented control** (a view
   control, no history; a muted track with the chosen segment raised; while a search is typed each

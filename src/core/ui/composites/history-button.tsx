@@ -8,9 +8,9 @@ const History = ICONS.history;
 /**
  * **History, the one pattern** (v1.8 consistency sweep, owner 2026-10-21; docs/DESIGN.md
  * "Patterns"): the clock icon labelled "History", 44 px, in a detail page's header just before
- * its ⋯. `HistoryButton` is the trigger alone (a caller that loads its own panel: the project
- * page); `HistorySheet` is the trigger with the history the page already rendered (the task, the
- * client), shown in the same sheet: a bottom sheet on a phone, a side panel from `md` up
+ * its ⋯. `HistoryButton` is the trigger alone (a caller that reads its own history when it
+ * opens: the project page, the client page, whose layout must never read it); `HistorySheet` is
+ * the trigger with the history the page already rendered (the task), shown in the same sheet: a bottom sheet on a phone, a side panel from `md` up
  * (`ReviewSheet`), an overlay layer that back closes (§14.2 a).
  */
 export function HistoryButton({ onOpen }: { onOpen: () => void }) {

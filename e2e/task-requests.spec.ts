@@ -105,8 +105,8 @@ function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** A template row's Edit or Delete: on the row from `md` up, in its ⋯ sheet on a phone. */
-async function templateAction(page: Page, name: string, action: "Edit" | "Delete") {
+/** A template row's Edit or Archive: on the row from `md` up, in its ⋯ sheet on a phone. */
+async function templateAction(page: Page, name: string, action: "Edit" | "Archive") {
   if ((page.viewportSize()?.width ?? 1280) >= 768) {
     await page
       .getByRole("button", { name: `${action} ${name}` })
@@ -398,7 +398,7 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/settings/templates#tasks");
     await expect(templateRow(page, name)).toContainText(`by ${admin.name}`);
     await expect(page.getByRole("button", { name: `Edit ${name}` })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: `Archive ${name}` })).toHaveCount(0);
     await expect(page.getByRole("button", { name: `Actions for ${name}` })).toHaveCount(0);
 
     // Its author edits it (renamed), then archives it: New task stops offering it.
@@ -409,13 +409,13 @@ test.describe("task requests and templates, the flows", () => {
     await edit.getByLabel("Name").fill(`${name} (weekly)`);
     await edit.getByRole("button", { name: "Save template" }).click();
     await expect(page.getByText("Template saved")).toBeVisible();
-    await templateAction(page, `${name} (weekly)`, "Delete");
+    await templateAction(page, `${name} (weekly)`, "Archive");
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: `Delete ${name} (weekly)` })
+      .getByRole("button", { name: `Archive ${name} (weekly)` })
       .click();
-    // D6: Delete is the archive underneath; no Archived list.
-    await expect(page.getByText(`${name} (weekly) deleted`)).toBeVisible();
+    // D6: Archive, Undo in its toast; no Archived list.
+    await expect(page.getByText(`${name} (weekly) archived`)).toBeVisible();
     await expect(templateRow(page, `${name} (weekly)`)).toHaveCount(0);
     await expect(page.locator('[data-slot="archived-task-template"]')).toHaveCount(0);
     await page.goto("/tasks");
@@ -451,15 +451,15 @@ test.describe("task requests and templates, the flows", () => {
     await edit.getByRole("button", { name: "Save template" }).click();
     await expect(page.getByText("Template saved")).toBeVisible();
     await expect(templateRow(page, name)).toContainText("Meeting · Urgent · 1 stage");
-    await templateAction(page, name, "Delete");
+    await templateAction(page, name, "Archive");
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: `Delete ${name}` })
+      .getByRole("button", { name: `Archive ${name}` })
       .click();
     await expect(templateRow(page, name)).toHaveCount(0);
     // D6: the toast's Undo brings it back.
     await page
-      .locator("[data-sonner-toast]", { hasText: `${name} deleted` })
+      .locator("[data-sonner-toast]", { hasText: `${name} archived` })
       .getByRole("button", { name: "Undo" })
       .click();
     await expect(templateRow(page, name)).toBeVisible();
@@ -635,8 +635,8 @@ test.describe("task requests and templates, installed: back and large text", () 
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url }]);
 
-    await templateAction(page, name, "Delete");
-    const archive = page.getByRole("alertdialog", { name: `Delete ${name}?` });
+    await templateAction(page, name, "Archive");
+    const archive = page.getByRole("alertdialog", { name: `Archive ${name}?` });
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url }, { url: /\/settings$/ }]);
     // Back decided nothing: the template is still active.

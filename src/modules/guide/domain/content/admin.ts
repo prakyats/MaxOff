@@ -1509,7 +1509,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You can edit or delete only the presets you made. Delete stops new projects from offering it, with Undo in its message for a few seconds. Projects that already used it keep their stages.",
+              text: "You can edit or archive only the presets you made. Archive stops new projects from offering it, with Undo in its message for a few seconds. Projects that already used it keep their stages.",
             },
           ],
           link: { href: "/settings/templates#presets", label: "Open Stage presets" },
@@ -1611,11 +1611,11 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-templates-yours",
           title: "Your templates and the Owner’s",
-          summary: "You edit and delete your own; templates are copied, never linked.",
+          summary: "You edit and archive your own; templates are copied, never linked.",
           blocks: [
             {
               kind: "text",
-              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and a bin (“Delete ‹name›”; on a phone, in the row’s ⋯). You edit and delete only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1625,12 +1625,12 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/templates",
                 },
                 "Tap Preview on a project or deliverable template to see what work made from it gets.",
-                "Edit or delete one of your own. Delete asks first.",
+                "Edit or archive one of your own. Archive asks first.",
               ],
             },
             {
               kind: "next",
-              text: "A deleted template stops being offered: the message “‹name› deleted” has Undo for a few seconds. The question's Delete button is red, as for every final action; nothing is destroyed.",
+              text: "An archived template stops being offered: the message “‹name› archived” has Undo for a few seconds. The question's Archive button is plain, not red: nothing is destroyed.",
             },
             {
               kind: "note",

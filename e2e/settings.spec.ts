@@ -248,16 +248,19 @@ test.describe("Owner", () => {
     await expect(page.getByText("Job title renamed")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
-    // D6: Delete (the archive underneath), Undo in its toast, no Archived list.
+    // D6: Archive, Undo in its toast, no Archived list.
     const deleteColourist = async () => {
-      await page.getByRole("button", { name: "Delete Colourist" }).click();
-      await page.getByRole("alertdialog").getByRole("button", { name: "Delete Colourist" }).click();
+      await page.getByRole("button", { name: "Archive Colourist" }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Archive Colourist" })
+        .click();
       await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
     };
     await deleteColourist();
     await expect(page.locator('[data-slot="archived-list-item"]')).toHaveCount(0);
     await page
-      .locator("[data-sonner-toast]", { hasText: "Colourist deleted" })
+      .locator("[data-sonner-toast]", { hasText: "Colourist archived" })
       .getByRole("button", { name: "Undo" })
       .click();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
@@ -317,12 +320,12 @@ test.describe("Admin", () => {
     await expect(page.locator('[data-slot="list-item"]')).toContainText(["Sound Engineer"]);
 
     // Put the list back as it was: an Admin may delete too.
-    await page.getByRole("button", { name: "Delete Sound Engineer" }).click();
+    await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Delete Sound Engineer" })
+      .getByRole("button", { name: "Archive Sound Engineer" })
       .click();
-    await expect(page.getByText("Sound Engineer deleted")).toBeVisible();
+    await expect(page.getByText("Sound Engineer archived")).toBeVisible();
   });
 });
 

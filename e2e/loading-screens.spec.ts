@@ -204,10 +204,12 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
         held: '[data-slot="loading-today"] > section > :first-child',
         settled: '[data-slot="owner-today"] > :first-child > :first-child',
       },
+      // The first row, whichever kind leads: a person's folded attendance days (a member with
+      // several waiting) come before the single rows.
       "first approval row": {
         held: '[data-slot="loading-approval-rows"] li',
         settled:
-          '[data-slot="today-approval-rows"] [data-slot="approval-row"], [data-slot="today-approvals-empty"]',
+          '[data-slot="today-approval-rows"] [data-slot="approval-person-row"], [data-slot="today-approval-rows"] [data-slot="approval-row"], [data-slot="today-approvals-empty"]',
       },
     },
   },

@@ -31,7 +31,7 @@ const PresetDialog = dynamic(
  * New project offers, shared company-wide. Everyone with `lists.manage` adds one; an Admin edits
  * and archives the ones they made, the Owner any (the seeded one belongs to nobody, so only the
  * Owner). A preset is copied into a project when chosen: changing it never touches a project.
- * "Delete" (D6) archives, with Undo in the toast; no Archived list. "Add preset" sits on the list's heading (C4); each row's
+ * Archive (D6; named Archive again, owner 2026-10-21) has Undo in the toast; no Archived list. "Add preset" sits on the list's heading (C4); each row's
  * Edit and Archive are `ListRowActions` (icons from `md` up, one ⋯ sheet on a phone), each opening
  * its own layer (§14.2 a).
  */
@@ -111,7 +111,7 @@ export function StagePresetManager({
                       kind="Stage preset"
                       slot="stage-preset-actions"
                       edit={{ label: "Edit", onSelect: () => setEditing(preset) }}
-                      onDelete={() => setArchiving(preset)}
+                      onArchive={() => setArchiving(preset)}
                     />
                   ) : null}
                 </li>
@@ -131,15 +131,14 @@ export function StagePresetManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Delete ${archiving.name}?`}
+          title={`Archive ${archiving.name}?`}
           description="It won't be offered for new projects. Projects already made from it don't change."
-          confirmLabel={`Delete ${archiving.name}`}
-          destructive
-          pendingLabel="Deleting…"
+          confirmLabel={`Archive ${archiving.name}`}
+          pendingLabel="Archiving…"
           onConfirm={async () => {
             const preset = archiving;
             toastResult(await setStagePresetArchived({ presetId: preset.id, archived: true }), {
-              success: `${preset.name} deleted`,
+              success: `${preset.name} archived`,
               undo: () => void restore(preset),
             });
           }}

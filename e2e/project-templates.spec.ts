@@ -742,7 +742,7 @@ test("the library's search narrows both lists; a preview opens and back closes i
   await templatesTab(page, "projects");
 
   // Each row says what its buttons do ("say what it does", v1.7.1): Preview in words, Edit and
-  // Delete (D6) named for the template (a tooltip on a laptop; in the row's ⋯ sheet on a phone).
+  // Archive (D6, named Archive again 2026-10-21) named for the template (a tooltip on a laptop; in the row's ⋯ sheet on a phone).
   // V4: the shared Settings row actions, compact 32px icons on a laptop (DESIGN §6), Preview a
   // 44px labelled button at every width.
   for (const [row, name, tab] of [
@@ -754,7 +754,7 @@ test("the library's search narrows both lists; a preview opens and back closes i
     expect(
       (await boxOf(row.getByRole("button", { name: `Preview ${name}` }))).h,
     ).toBeGreaterThanOrEqual(44);
-    for (const verb of phone(page) ? [] : ["Edit", "Delete"]) {
+    for (const verb of phone(page) ? [] : ["Edit", "Archive"]) {
       const button = row.getByRole("button", { name: `${verb} ${name}` });
       await expect(button).toHaveAttribute("title", `${verb} ${name}`);
       expect((await boxOf(button)).h).toBeGreaterThanOrEqual(32);
@@ -860,7 +860,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   // The Owner's: previewed, never edited or archived by the Admin.
   await expect(row(theirs).getByRole("button", { name: `Preview ${theirs}` })).toBeVisible();
   await expect(row(theirs).getByRole("button", { name: `Edit ${theirs}` })).toHaveCount(0);
-  await expect(row(theirs).getByRole("button", { name: `Delete ${theirs}` })).toHaveCount(0);
+  await expect(row(theirs).getByRole("button", { name: `Archive ${theirs}` })).toHaveCount(0);
 
   // The project template builder's "Add deliverables" row offers them: the groups come along.
   await templatesTab(page, "projects");
@@ -888,14 +888,14 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
     .click();
   await expect(builder).toBeHidden();
 
-  // Delete their own (D6: the archive with its reason); Undo brings it back.
+  // Archive their own (D6: with its reason); Undo brings it back.
   await templatesTab(page, "deliverables");
-  await rowAction(page, row(mine), mine, "Delete");
-  const archive = page.getByRole("dialog", { name: `Delete ${mine}?` });
-  await archive.getByLabel("Why delete it").fill("Not used any more");
-  const commit = archive.getByRole("button", { name: `Delete ${mine}` });
-  // Owner correction 2026-10-21: Delete is a final action, so its named commit is red.
-  await expect(commit).toHaveAttribute("data-variant", "danger");
+  await rowAction(page, row(mine), mine, "Archive");
+  const archive = page.getByRole("dialog", { name: `Archive ${mine}?` });
+  await archive.getByLabel("Why archive it").fill("Not used any more");
+  const commit = archive.getByRole("button", { name: `Archive ${mine}` });
+  // Archive is never red (owner 2026-10-21): its named commit is the neutral primary.
+  await expect(commit).toHaveAttribute("data-variant", "primary");
   await commit.click();
   await expect(archive).toBeHidden();
   await expect(row(mine)).toHaveCount(0);
@@ -905,7 +905,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   expect(archived?.archived_reason).toBe("Not used any more");
   await expect(page.locator('[data-slot="archived-deliverable-template"]')).toHaveCount(0);
   await page
-    .locator("[data-sonner-toast]", { hasText: `${mine} deleted` })
+    .locator("[data-sonner-toast]", { hasText: `${mine} archived` })
     .getByRole("button", { name: "Undo" })
     .click();
   await expect(row(mine)).toBeVisible();

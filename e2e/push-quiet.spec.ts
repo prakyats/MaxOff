@@ -271,6 +271,8 @@ test.describe("the Owner edits the default reminders (Settings → Thresholds)",
         { before: 2, unit: "hours" },
       ]);
       await page.reload();
+      // Thresholds open folded into their groups (V4): the Tasks group is opened again.
+      await openThresholdGroups(page, "Tasks");
       await expect(summary).toHaveText("Reminders: 2 days before, 1 day before, 2 hours before");
 
       await summary.click();
