@@ -142,15 +142,17 @@ function step(page: Page): Locator {
 
 /** The ⋯: the viewer's other work and a manager's edits (decision 26). */
 async function fromMenu(page: Page, item: string | RegExp): Promise<void> {
+  await closeHistory(page);
   await page.getByRole("button", { name: "Task actions" }).click();
   await page.getByRole("menuitem", { name: item }).click();
 }
 
 /**
  * Shows a view (decisions 27, 32): taps its tab. Details has no tab on a desktop, where it is
- * the right panel, always there.
+ * the right panel, always there. An open History sheet is closed first.
  */
-async function openView(page: Page, view: "work" | "activity" | "details"): Promise<void> {
+async function openView(page: Page, view: "work" | "details"): Promise<void> {
+  await closeHistory(page);
   await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
   const tab = page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`);
   if (await tab.isVisible()) await tab.click();
@@ -158,6 +160,7 @@ async function openView(page: Page, view: "work" | "activity" | "details"): Prom
 
 /** Chat, whichever way the screen has it: the view on a desktop, the sheet on a phone. */
 async function openChat(page: Page): Promise<Locator> {
+  await closeHistory(page);
   await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
   await page.locator('[data-slot="task-tab"][data-view-tab="chat"]').click();
   const chat = page.locator(
@@ -167,12 +170,31 @@ async function openChat(page: Page): Promise<Locator> {
   return chat;
 }
 
-/** The history, every line of it (Activity, then Show all when there are more than five). */
+/** The header's History sheet (the one History pattern, v1.8 consistency sweep). */
+function historySheet(page: Page): Locator {
+  return page.locator('[data-slot="review-sheet"]:has([data-slot="history-sheet"])');
+}
+
+/**
+ * The history, every line of it: the header's History clock opens the sheet (once; the task's
+ * Activity view became this sheet in the v1.8 consistency sweep), then Show all when there are
+ * more than five. The sheet stays open until `closeHistory` (or `openView` / `openChat`).
+ */
 async function historyRows(page: Page): Promise<Locator> {
-  await openView(page, "activity");
-  const all = page.locator('[data-slot="task-history-show-all"]');
+  if (!(await historySheet(page).isVisible())) {
+    await page.locator('[data-slot="history-open"]:visible').click();
+    await expect(historySheet(page)).toBeVisible();
+  }
+  const all = historySheet(page).locator('[data-slot="task-history-show-all"]');
   if (await all.isVisible()) await all.click();
-  return page.locator('[data-slot="task-history-row"]');
+  return historySheet(page).locator('[data-slot="task-history-row"]');
+}
+
+/** Closes the History sheet when it is open (back closes the top layer, §14.2 a). */
+async function closeHistory(page: Page): Promise<void> {
+  if (!(await historySheet(page).isVisible())) return;
+  await page.keyboard.press("Escape");
+  await expect(historySheet(page)).toBeHidden();
 }
 
 function formDialog(page: Page): Locator {
@@ -418,6 +440,7 @@ test.describe("staff tasks, the flows", () => {
       await expect(
         (await historyRows(page)).filter({ hasText: "moved the deadline from" }),
       ).toHaveCount(1);
+      await closeHistory(page);
 
       await page.getByRole("button", { name: "Task actions" }).click();
       await page.getByRole("menuitem", { name: "Cancel task" }).click();
@@ -582,6 +605,7 @@ test.describe("staff tasks, the flows", () => {
       await expect(
         (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
       ).toHaveCount(1);
+      await closeHistory(page);
 
       // Only the title: no date moved and nobody was added, so nothing is recorded again (S1).
       await page.getByRole("button", { name: "Task actions" }).click();

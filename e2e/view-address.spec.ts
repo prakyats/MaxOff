@@ -79,9 +79,13 @@ test("the task page: views switched during a refresh change at once; the address
   await returnToApp(page);
   await refresh.held;
 
-  await tab(page, "activity").click();
-  await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
-  await expect(panel(page, "activity")).toBeVisible();
+  // On a phone the views are Work and Details (Chat is a sheet, History the header's sheet).
+  await tab(page, "details").click();
+  await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
+  await expect(panel(page, "details")).toBeVisible();
+  await tab(page, "work").click();
+  await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
+  await expect(panel(page, "work")).toBeVisible();
   await tab(page, "details").click();
   await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
   await expect(panel(page, "details")).toBeVisible();
@@ -98,20 +102,41 @@ test("the task page: a view switched before a refresh is written at once and sta
   page,
 }, info) => {
   const taskId = await taskOpened(page, `View address ${info.project.name} before`);
-  await tab(page, "activity").click();
-  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
+  await tab(page, "details").click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
 
   const refresh = await holdNextRefresh(page, `/tasks/${taskId}`);
   await returnToApp(page);
   await refresh.held;
   refresh.release();
   await refresh.answered;
-  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
-  await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
-
-  // With nothing in flight, a switch writes its address at once.
-  await tab(page, "details").click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+  await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
+
+  // With nothing in flight, a switch writes its address at once (Work, the default, has none).
+  await tab(page, "work").click();
+  await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+});
+
+test("an old Activity link opens the History sheet over Work and leaves a clean address", async ({
+  page,
+}, info) => {
+  // The task's Activity view became the header's History sheet (v1.8 consistency sweep): an old
+  // `?tab=activity` link lands on Work with the sheet open, the parameter dropped by replace.
+  const taskId = await taskOpened(page, `View address ${info.project.name} old link`);
+  await page.goto(`/tasks/${taskId}?tab=activity`);
+  await hydrated(page);
+  const sheet = page.locator('[data-slot="review-sheet"]:has([data-slot="history-sheet"])');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-slot="task-history-row"]').last()).toContainText(
+    "created the task",
+  );
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
+  await expect(panel(page, "work")).toBeVisible();
 });
 
 test("the app's report on opening never holds a view's address: after it, and while it is out", async ({
@@ -127,8 +152,10 @@ test("the app's report on opening never holds a view's address: after it, and wh
   const answered = page.waitForResponse((response) => isReport(response.request()));
   const taskId = await taskOpened(page, `View address ${info.project.name} report`);
   await answered;
-  await tab(page, "activity").click();
-  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
+  await tab(page, "details").click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+  await tab(page, "work").click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
 
   // A new open, its report held until the switch has been made.
   let letGo: () => void = () => undefined;
@@ -239,13 +266,13 @@ test.describe("as the Crew member", () => {
     await step.getByRole("button", { name: "Task Noted" }).click();
     await held;
 
-    await tab(page, "activity").click();
-    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
+    await tab(page, "details").click();
+    await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
     letGo();
     await expect(step.getByRole("button", { name: "Start work" })).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
-    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+    await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
     // No second entry was pushed under the view: one back leaves the task.
     await page.goBack();
     await expect(page).toHaveURL(/\/tasks$/);

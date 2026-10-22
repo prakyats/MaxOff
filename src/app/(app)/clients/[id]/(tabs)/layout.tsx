@@ -2,7 +2,6 @@ import { InfoIcon } from "lucide-react";
 import { type ReactNode, Suspense } from "react";
 
 import { checkThenRead } from "@/core/lib/start-early";
-import { HistorySheet } from "@/core/ui/composites/history-sheet";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
@@ -10,12 +9,9 @@ import { CLIENT_STATE_LABELS, CLIENT_STATE_NOTES } from "@/modules/clients";
 import { ClientMenu } from "@/modules/clients/components/client-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
-import { ClientHistory, ClientHistorySkeleton } from "../client-history";
+import { ClientHistoryButton } from "../client-history";
 import { ClientTabs } from "../client-nav";
 import { loadClient, loadPeople } from "../client";
-
-/** The old Activity tab's path redirects with this: the History sheet opens on arrival. */
-const HISTORY_ARRIVAL = { history: "1" };
 
 /** Clients is the parent; Today opens a client too, and back returns there (§14.2 k, 6b.12). */
 const BACK = { href: "/clients", label: "Clients", from: [{ path: "/today", label: "Today" }] };
@@ -79,11 +75,8 @@ async function ClientHeader({ id }: { id: string }) {
       className="flex-wrap"
       menu={
         <>
-          <HistorySheet arrival={HISTORY_ARRIVAL} description="Changes to this client">
-            <Suspense fallback={<ClientHistorySkeleton />}>
-              <ClientHistory id={client.id} />
-            </Suspense>
-          </HistorySheet>
+          {/* Reads the history only when it opens, never with this layout (P2 item 6). */}
+          <ClientHistoryButton clientId={client.id} />
           {canEdit ? (
             <ClientMenu
               client={{
