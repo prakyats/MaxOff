@@ -48,6 +48,8 @@ export type ListRowProps = {
   className?: string;
   /** The `<li>`'s `data-slot`, for a screen's specs ("task-row"). */
   slot?: string;
+  /** More `data-*` attributes on the `<li>` (`{ "data-task": id }`), for a screen's specs. */
+  data?: { [key: `data-${string}`]: string | undefined };
 };
 
 /** What a row draws on its right and whether its text is cut (pure; `list-row.test.tsx`). */
@@ -71,6 +73,7 @@ export function ListRow({
   openLabel,
   className,
   slot = "list-row",
+  data,
 }: ListRowProps) {
   const opens = href !== undefined || onOpen !== undefined;
   const parts = rowParts({ opens, actions: actions !== undefined && actions !== null });
@@ -95,6 +98,7 @@ export function ListRow({
   );
   return (
     <li
+      {...data}
       data-slot={slot}
       data-opens={opens ? "" : undefined}
       className={cn(
@@ -197,12 +201,26 @@ export function chatCountLabel(count: number): string {
  * bubble and the number, spoken as "2 new comments". Never red, never among the chips. Nothing
  * when there is nothing new.
  */
-export function ChatCount({ count, label }: { count: number; label?: string }) {
+export function ChatCount({
+  count,
+  label,
+  slot = "chat-count",
+  className,
+}: {
+  count: number;
+  label?: string;
+  /** The badge's `data-slot`, when a screen's specs already name it ("task-unread"). */
+  slot?: string;
+  className?: string | undefined;
+}) {
   if (count <= 0) return null;
   return (
     <span
-      data-slot="chat-count"
-      className="bg-muted text-muted-foreground inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 text-xs leading-5 font-medium"
+      data-slot={slot}
+      className={cn(
+        "bg-muted text-muted-foreground inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 text-xs leading-5 font-medium",
+        className,
+      )}
     >
       <MessageCircleIcon aria-hidden className="size-3" />
       <span aria-hidden>{count > 99 ? "99+" : count}</span>

@@ -1,19 +1,12 @@
-import {
-  AlertTriangleIcon,
-  CalendarDaysIcon,
-  ChevronRightIcon,
-  ClockIcon,
-  MailWarningIcon,
-  MapPinIcon,
-  UserXIcon,
-  WifiOffIcon,
-} from "lucide-react";
+import { ChevronRightIcon, MailWarningIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { ListRow } from "@/core/ui/composites/list-row";
+import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
+import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import type { ISODate } from "@/core/time";
 
@@ -22,19 +15,16 @@ import type { DayEvent } from "../domain/my-day";
 import {
   type HeldEmails,
   heldEmailsLine,
-  onLeaveLine,
   type Risk,
   riskWords,
   RISKS_SHOWN,
-  STRIP_EMPTY,
-  type StripDay,
 } from "../domain/today";
 import { SEE_THE_WEEK_HREF, type WeekBlock, type WeekRow } from "../domain/week";
 
-import { LinkRow, QuietText, RowList, ShowFirst } from "./blocks";
+import { DashSection, LinkRow, RowList, ShowFirst } from "./blocks";
 
 /**
- * The dashboards' day blocks (6A): event rows, the risk rows, the events strip and the clients'
+ * The dashboards' day blocks (6A): event rows, the risk rows, "This week" and the clients'
  * counts. Server components only (the first-load budget, 6.0); see `blocks.tsx`.
  */
 
@@ -100,77 +90,35 @@ export function EventRows<T extends DayEvent>({
   );
 }
 
-export function EventRowsSkeleton({ rows }: { rows: number }) {
-  return (
-    <ul
-      aria-hidden
-      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
-    >
-      {Array.from({ length: rows }, (_, index) => (
-        <li key={index} className={cn(EVENT_ROW, "min-w-0")}>
-          <span className="flex h-4 w-24 shrink-0 items-center pt-px">
-            <Skeleton className="h-3 w-20" />
-          </span>
-          <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
-            <span className="flex h-5 min-w-0 items-center">
-              <Skeleton className="h-4 w-40 max-w-full" />
-            </span>
-            <span className="flex h-4 min-w-0 items-center">
-              <Skeleton className="h-3 w-28 max-w-full" />
-            </span>
-          </span>
-          <Skeleton className="mt-0.5 size-4 shrink-0 rounded-sm" />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const RISK_ICONS = {
-  overdue: AlertTriangleIcon,
-  not_noted: ClockIcon,
-  on_leave: UserXIcon,
-  unreachable: WifiOffIcon,
-} as const;
-
-/** The one status signal's colour: the icon and the meta line together (owner 2026-10-09). */
-const RISK_TONE = { danger: "text-danger", attention: "text-attention" } as const;
-
 /**
- * One risk as a row (decisions 6, 10): what it is, about whom, and where a tap goes. **One status
- * signal** (the owner's preview review and final note, 2026-10-09): the kind's icon at the left
- * (a triangle for overdue, a clock for not noted, the leave and no-signal icons) and the meta line,
- * both red (overdue) or amber (the rest); no chip and no dot, the same for every kind.
+ * One risk as a row (decisions 6, 10; PP-today-5): the one row anatomy (`ListRow`), the task or
+ * person as the title, the plain-words reason on the muted meta line ("Asha hasn't noted it"),
+ * and the reason as a chip on the right ("3 h late" red, "Not noted · 24 h" amber), then ›.
  */
 function riskRow(
   risk: Risk,
   context: { nameOf: (id: string) => string; today: ISODate; now: Date },
 ): ReactNode {
   const words = riskWords(risk, context);
-  const Icon = RISK_ICONS[words.icon];
-  const tone = RISK_TONE[words.tone];
   const key =
     "taskId" in risk
       ? `${risk.kind}-${risk.taskId}-${"memberId" in risk ? risk.memberId : ""}`
       : `${risk.kind}-${risk.memberId}`;
   return (
-    <LinkRow
+    <ListRow
       key={key}
-      href={words.href}
       slot="risk-row"
-      icon={
-        <Icon
-          data-slot="risk-icon"
-          data-tone={words.tone}
-          className={cn("size-4", tone)}
-          aria-hidden
-        />
-      }
+      data={{ "data-kind": words.icon }}
+      href={words.href}
       title={words.title}
-      detail={
-        <span data-slot="risk-signal" data-tone={words.tone} className={tone}>
-          {words.detail}
-        </span>
+      meta={<span data-slot="risk-detail">{words.detail}</span>}
+      chips={
+        <StatusBadge
+          status={words.icon}
+          tone={words.tone}
+          label={words.chip}
+          className="whitespace-nowrap"
+        />
       }
     />
   );
@@ -230,88 +178,6 @@ export function RiskRows({
 }
 
 /**
- * The events strip (decision 12): today and the next six days, event tasks and holidays, at most
- * five rows, then "Open calendar". The Owner's also says "N on leave" per day.
- */
-export function EventsStrip<T extends DayEvent>({
-  days,
-  hidden,
-  today,
-}: {
-  days: readonly StripDay<T>[];
-  hidden: number;
-  today: ISODate;
-}) {
-  if (days.length === 0) {
-    return (
-      <div className="flex min-w-0 flex-col gap-2">
-        <QuietText slot="events-strip-empty">{STRIP_EMPTY}</QuietText>
-        <CalendarLink label="Open calendar" />
-      </div>
-    );
-  }
-  return (
-    <div className="flex min-w-0 flex-col gap-2" data-slot="events-strip">
-      <ul
-        aria-label="The next 7 days"
-        className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
-      >
-        {days.map((day) => (
-          <li key={day.date} data-slot="strip-day" data-date={day.date} className="flex flex-col">
-            <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-3 px-4 pt-2 text-xs">
-              <span className="font-semibold">{dayWord(day.date, today)}</span>
-              {day.onLeave ? (
-                <span className="text-muted-foreground" data-slot="strip-on-leave">
-                  {onLeaveLine(day.onLeave)}
-                </span>
-              ) : null}
-            </div>
-            <ul className="flex flex-col pb-1">
-              {day.holiday ? (
-                <li
-                  data-slot="strip-holiday"
-                  className="flex min-h-11 items-center gap-3 px-4 text-sm"
-                >
-                  <CalendarDaysIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                  <span className="break-words">Holiday: {day.holiday}</span>
-                </li>
-              ) : null}
-              {day.events.map((event) => (
-                <li key={event.id} data-slot="strip-event">
-                  <DrillLink
-                    href={`/tasks/${event.id}`}
-                    // `flex-wrap`, as every row with `CARD_ROW_TITLE`: at large system text the
-                    // time, the title's 6rem and the chevron no longer fit one line at 375px.
-                    className="focus-visible:ring-ring flex min-h-11 flex-wrap items-center gap-3 px-4 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
-                  >
-                    <span className="text-muted-foreground w-16 shrink-0 text-xs tabular-nums">
-                      {event.eventStartAt ? clockWord(event.eventStartAt) : "All day"}
-                    </span>
-                    <span className={cn("flex flex-col", CARD_ROW_TITLE)}>
-                      <span className="font-medium break-words">{event.title}</span>
-                      {event.location ? (
-                        <span className="text-muted-foreground text-xs break-words">
-                          {event.location}
-                        </span>
-                      ) : null}
-                    </span>
-                    <ChevronRightIcon
-                      className="text-muted-foreground size-4 shrink-0"
-                      aria-hidden
-                    />
-                  </DrillLink>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-      <CalendarLink label={hidden > 0 ? `Open calendar · ${hidden} more` : "Open calendar"} />
-    </div>
-  );
-}
-
-/**
  * The Owner's "This week" (the Today refresh, owner 2026-10-09, in the detailed layout of his
  * final note): `weekBlocks`' day blocks, each a heading ("Today", "Wed 14 Oct") over its rows, a
  * time on the left ("All day", "11:49 am", "Due") and the words on the right, each row opening
@@ -354,7 +220,10 @@ export function WeekBlocks({ blocks, hidden }: { blocks: readonly WeekBlock[]; h
   );
 }
 
-/** One row of a day: an event drills into its task; the rest open the calendar (another tab). */
+/**
+ * One row of a day: an event or a deadline drills into its task; the rest open the calendar
+ * (another tab). A deadline carries a "Due" chip (PP-today-4); an event its place on a muted line.
+ */
 function WeekRowLink({ row }: { row: WeekRow }) {
   const content = (
     <>
@@ -364,9 +233,21 @@ function WeekRowLink({ row }: { row: WeekRow }) {
       >
         {row.when}
       </span>
-      <span data-slot="week-row-title" className={cn("font-medium break-words", CARD_ROW_TITLE)}>
-        {row.title}
+      <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
+        <span data-slot="week-row-title" className="font-medium break-words">
+          {row.title}
+        </span>
+        {row.detail ? (
+          <span data-slot="week-row-detail" className="text-muted-foreground text-xs break-words">
+            {row.detail}
+          </span>
+        ) : null}
       </span>
+      {row.kind === "due" ? (
+        <span className={CARD_ROW_TRAILING}>
+          <StatusBadge status="due" tone="attention" label="Due" />
+        </span>
+      ) : null}
       <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
     </>
   );
@@ -374,7 +255,7 @@ function WeekRowLink({ row }: { row: WeekRow }) {
   // 6rem and the chevron no longer fit one line at 375px.
   const className =
     "focus-visible:ring-ring flex min-h-11 flex-wrap items-center gap-3 px-4 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset";
-  return row.kind === "event" ? (
+  return row.kind === "event" || row.kind === "due" ? (
     <DrillLink href={row.href} className={className}>
       {content}
     </DrillLink>
@@ -382,6 +263,67 @@ function WeekRowLink({ row }: { row: WeekRow }) {
     <Link href={row.href} className={cn("pressable-row", className)}>
       {content}
     </Link>
+  );
+}
+
+/**
+ * "This week" as a section (FINAL 8, major change 1): the day blocks under the heading, with
+ * "Calendar ›" beside it. Nothing at all when the week holds nothing (FINAL 1: an empty section
+ * takes no heading).
+ */
+export function ThisWeek({
+  blocks,
+  hidden,
+  slot = "today-events",
+}: {
+  blocks: readonly WeekBlock[];
+  hidden: number;
+  slot?: string;
+}) {
+  if (blocks.length === 0) return null;
+  return (
+    <DashSection title="This week" slot={slot} action={<CalendarHeaderLink />}>
+      <WeekBlocks blocks={blocks} hidden={hidden} />
+    </DashSection>
+  );
+}
+
+/**
+ * Today's and My Day's two columns (major change 1, FINAL 8): the main column, then "This week".
+ * A container query on the content width: **two columns only from 1200 px (75rem)**, "This week"
+ * at most 28% (`minmax(260px, 28%)`); below that one column, "This week" under the rest (under
+ * "Overdue and risks"), full width, never squeezed and never hidden.
+ */
+export function DayColumns({
+  main,
+  week,
+  slot = "day-main",
+  loading,
+}: {
+  main: ReactNode;
+  week: ReactNode;
+  /** The main column's `data-slot` ("owner-today"), for the screen's specs. */
+  slot?: string;
+  /** A loading screen's name ("Loading Today"): the main column is its busy status. */
+  loading?: string;
+}) {
+  return (
+    <div className="@container min-w-0" data-slot="day-columns">
+      <div className="flex min-w-0 flex-col gap-6 @min-[75rem]:grid @min-[75rem]:grid-cols-[minmax(0,1fr)_minmax(260px,28%)] @min-[75rem]:items-start @min-[75rem]:gap-8">
+        <div
+          className="flex min-w-0 flex-col gap-6"
+          data-slot={slot}
+          {...(loading ? { role: "status", "aria-busy": true, "aria-label": loading } : {})}
+        >
+          {main}
+        </div>
+        {week ? (
+          <aside aria-label="This week" className="min-w-0" data-slot="day-week">
+            {week}
+          </aside>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -399,23 +341,14 @@ export function CalendarHeaderLink() {
   );
 }
 
-function CalendarLink({ label }: { label: string }) {
+/** "This week" while the page loads: its heading with "Calendar ›", then two day blocks. */
+export function ThisWeekSkeleton() {
   return (
-    <Link
-      href="/calendar"
-      data-slot="open-calendar"
-      className="pressable-row border-border bg-card focus-visible:ring-ring flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium outline-none focus-visible:ring-2"
-    >
-      <span className="min-w-0 break-words">{label}</span>
-      <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-    </Link>
-  );
-}
-
-/** The strip while Today loads: two days with a row each, and the calendar link. */
-export function EventsStripSkeleton() {
-  return (
-    <div aria-hidden className="flex min-w-0 flex-col gap-2">
+    <div aria-hidden className="flex min-w-0 flex-col gap-2" data-slot="loading-this-week">
+      <div className="flex min-h-5 items-center justify-between gap-3">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-20" />
+      </div>
       <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
         {[0, 1].map((day) => (
           <li key={day} className="flex flex-col">
@@ -429,10 +362,6 @@ export function EventsStripSkeleton() {
           </li>
         ))}
       </ul>
-      <div className="border-border bg-card flex min-h-12 items-center justify-between rounded-lg border px-4">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="size-4 rounded-sm" />
-      </div>
     </div>
   );
 }

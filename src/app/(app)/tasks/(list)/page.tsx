@@ -10,7 +10,7 @@ import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { EmptyState } from "@/core/ui/composites/empty-state";
+import { EmptyRow, EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import {
@@ -125,12 +125,11 @@ export default async function TasksPage() {
         actions={<NewTaskButton setup={loadTaskFormSetup(viewer).catch(() => null)} />}
       />
       <div className="flex min-w-0 flex-col gap-6" data-slot="tasks-team">
-        <Section title="Needs you" slot="tasks-needs-you" count={summary.count}>
-          {nothingNeeded ? (
-            <p className="text-muted-foreground text-sm" data-slot="tasks-needs-nothing">
-              Nothing needs you right now.
-            </p>
-          ) : (
+        {/* FINAL 1, PP-tasks-1: an empty section takes no heading, only one quiet line. */}
+        {nothingNeeded ? (
+          <EmptyRow slot="tasks-needs-nothing">Nothing needs you right now.</EmptyRow>
+        ) : (
+          <Section title="Needs you" slot="tasks-needs-you" count={summary.count}>
             <div className="flex flex-col gap-2">
               {summary.approvalsLink > 0 || requests > 0 ? (
                 <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
@@ -179,19 +178,18 @@ export default async function TasksPage() {
                 </TaskRowList>
               ) : null}
             </div>
-          )}
-        </Section>
+          </Section>
+        )}
 
-        <Section title="Open tasks" slot="tasks-open" count={open.length}>
-          {open.length === 0 && needs.length === 0 ? (
-            <EmptyState
-              title="No open tasks"
-              description="Give out work with New task. Each one opens on its own page, where people note it and you approve it."
-              size="compact"
-            />
-          ) : open.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Every open task is under Needs you.</p>
-          ) : (
+        {/* PP-tasks-1: with every open task under Needs you, Open tasks is not drawn at all. */}
+        {open.length === 0 && needs.length === 0 ? (
+          <EmptyState
+            title="No open tasks"
+            description="Give out work with New task. Each one opens on its own page, where people note it and you approve it."
+            size="compact"
+          />
+        ) : open.length === 0 ? null : (
+          <Section title="Open tasks" slot="tasks-open" count={open.length}>
             <TaskRowList label="Open tasks by deadline">
               {open.slice(0, OPEN_ON_FIRST_SCREEN).map((row) => (
                 <TaskRow
@@ -206,8 +204,8 @@ export default async function TasksPage() {
                 />
               ))}
             </TaskRowList>
-          )}
-        </Section>
+          </Section>
+        )}
 
         <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
           <MoreLink href="/tasks/all" slot="tasks-see-all">
@@ -360,6 +358,8 @@ function reasonFlag(item: NeedsYouItem): { label: string; tone: "danger" | "atte
     case "to_approve":
       return { label: "To approve", tone: "attention" };
     case "your_note":
+      // PP-admin-13: their own note to give is the same chip as every row state.
+      return { label: "Note it", tone: "attention" };
     case "not_noted":
       return { label: "Not noted", tone: "attention" };
   }
@@ -372,7 +372,8 @@ function needsNote(
 ): string | null {
   switch (item.reason) {
     case "your_note":
-      return forNote(item.part.notNoted, viewerId, nameOf) ?? "Yours to note";
+      // The "Note it" chip says it is theirs; a line only when it is someone else's too.
+      return forNote(item.part.notNoted, viewerId, nameOf);
     case "changes_requested":
       return "Back with you to fix";
     case "to_approve":

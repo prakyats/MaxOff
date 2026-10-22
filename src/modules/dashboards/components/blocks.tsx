@@ -302,3 +302,16 @@ export function ShowFirst({
     </div>
   );
 }
+
+/**
+ * The date under the title on a phone (PP-phone-6), where the header's line of context does not
+ * render: "Thursday, 22 October", muted, right under the title bar. The laptop has it in the
+ * header's description.
+ */
+export function PhoneDateLine({ line }: { line: string }) {
+  return (
+    <p data-slot="day-date" className="text-muted-foreground -mt-1 mb-4 text-sm md:hidden">
+      {line}
+    </p>
+  );
+}

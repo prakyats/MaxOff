@@ -82,10 +82,11 @@ const END: StripAction = { kind: "end", label: "End day" };
 const WORKING: StripAction = { kind: "working", label: "I'm working today" };
 const WORKED_DAY_OFF: StripAction = { kind: "worked_day_off", label: "I worked today" };
 
+/** PP-admin-3: one plain sentence, "You're on leave today". */
 const ON_LEAVE_TEXT: Record<LeaveType, string> = {
-  leave: "On leave today",
+  leave: "You're on leave today",
   half_day: "Half day today",
-  comp_leave: "On comp leave today",
+  comp_leave: "You're on comp leave today",
 };
 
 /**
@@ -139,7 +140,8 @@ export function describeTodayStrip(today: OwnToday): TodayStrip {
     if (!today.isWorkingDay) {
       return { kind: "day_off", text: "Day off", dot: "none", action: WORKED_DAY_OFF };
     }
-    return { kind: "start", text: "Not started", dot: "awaiting_choice", action: START };
+    // PP-crew-2: a clear call to action before the day starts (Start day says the time it records).
+    return { kind: "start", text: "Start your day", dot: "awaiting_choice", action: START };
   }
 
   if (day.state === "awaiting_choice") {

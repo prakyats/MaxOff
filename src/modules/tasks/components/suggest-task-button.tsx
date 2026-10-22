@@ -4,6 +4,7 @@ import { LightbulbIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { Button } from "@/core/ui/primitives/button";
 
 /** The form (a select, a textarea) loads when it first opens (§19), as "New task" does. */
@@ -29,9 +30,10 @@ export function SuggestTaskButton({
   clients: readonly { id: string; name: string }[];
   /**
    * `secondary` (a neutral outline) where the screen's one solid button is another (My Day, under
-   * the strip's Start day: Kickoff 6 decision 3, "a neutral Suggest a task").
+   * the strip's Start day: Kickoff 6 decision 3, "a neutral Suggest a task"); `quiet`, a muted
+   * text link at the foot of My Day (PP-crew-2), still a 44 px target on a phone.
    */
-  variant?: "strong" | "secondary";
+  variant?: "strong" | "secondary" | "quiet";
   /**
    * What the details start with: a calendar day's "For Thu 8 Oct." (6.4b; Kickoff 6 decision 25
    * D: Crew get "Suggest a task" with the day prefilled; a suggestion has no date of its own).
@@ -43,10 +45,15 @@ export function SuggestTaskButton({
   return (
     <>
       <Button
-        variant={variant}
+        variant={variant === "quiet" ? "ghost" : variant}
         onClick={() => setOpen(true)}
         data-slot="suggest-task"
-        className={className}
+        data-quiet={variant === "quiet" ? "" : undefined}
+        className={cn(
+          variant === "quiet" &&
+            "text-muted-foreground hover:text-foreground -ml-2 px-2 underline-offset-4 hover:bg-transparent hover:underline",
+          className,
+        )}
       >
         <LightbulbIcon aria-hidden />
         Suggest a task

@@ -60,7 +60,8 @@ const COUNT_DOT: Record<CountTone | "zero", string> = {
  */
 const COUNT_GRID =
   "border-border bg-card grid grid-cols-2 gap-1 rounded-lg border p-1 @min-[21rem]:grid-cols-4";
-/** One count: the dot and the number on a 24px line, the label under it; 44px tall at least. */
+/** One count: the dot and the number (20 px, one step up: PP-today-3) on a 28px line, the label
+ * under it; 44px tall at least. */
 const COUNT_CELL =
   "focus-visible:ring-ring flex min-h-11 min-w-0 flex-col justify-center rounded-md px-1 py-1 outline-none focus-visible:ring-2";
 
@@ -109,10 +110,10 @@ export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
           const tone = value > 0 ? TODAY_CARD_TONES[count] : "zero";
           const content = (
             <>
-              <span className="flex h-6 items-center gap-1.5">
+              <span className="flex h-7 items-center gap-1.5">
                 <span aria-hidden className={cn("size-2 shrink-0 rounded-full", COUNT_DOT[tone])} />
                 <span
-                  className={cn("text-lg font-semibold tabular-nums", COUNT_NUMBER[tone])}
+                  className={cn("text-xl font-semibold tabular-nums", COUNT_NUMBER[tone])}
                   data-tone={tone}
                 >
                   {value}
@@ -358,9 +359,9 @@ export function TodayCardSkeleton() {
       <div className={COUNT_GRID}>
         {TODAY_STRIP_COUNTS.map((bucket) => (
           <div key={bucket} className={COUNT_CELL}>
-            <div className="flex h-6 items-center gap-1.5">
+            <div className="flex h-7 items-center gap-1.5">
               <Skeleton className="size-2 rounded-full" />
-              <Skeleton className="h-5 w-5" />
+              <Skeleton className="h-6 w-6" />
             </div>
             <div className="flex h-4 items-center">
               <Skeleton className="h-3 w-12 max-w-full" />

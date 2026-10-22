@@ -86,7 +86,7 @@ describe("describeTodayStrip", () => {
   it("offers Start day until the day is started or leave chosen", () => {
     expect(describeTodayStrip(today({}))).toEqual({
       kind: "start",
-      text: "Not started",
+      text: "Start your day",
       dot: "awaiting_choice",
       action: { kind: "start", label: "Start day" },
     });
@@ -172,15 +172,15 @@ describe("describeTodayStrip", () => {
       );
     expect(onLeave("leave")).toEqual({
       kind: "on_leave",
-      text: "On leave today",
+      text: "You're on leave today",
       dot: "leave",
       action: { kind: "working", label: "I'm working today" },
     });
-    expect(onLeave("comp_leave")).toMatchObject({ text: "On comp leave today" });
+    expect(onLeave("comp_leave")).toMatchObject({ text: "You're on comp leave today" });
     // Before anyone opens the row, the covering leave says the same.
     expect(describeTodayStrip(today({ coveringLeaveType: "leave" }))).toMatchObject({
       kind: "on_leave",
-      text: "On leave today",
+      text: "You're on leave today",
       action: { kind: "working" },
     });
     expect(describeTodayStrip(today({ coveringLeaveType: "half_day" }))).toMatchObject({
