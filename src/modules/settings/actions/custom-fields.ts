@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import {
   type CreateDefinitionInput,
@@ -16,7 +18,10 @@ import {
   updateDefinition,
 } from "@/core/custom-fields/server";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
-import { assertPermission } from "@/core/permissions/server";
+import type { UnusedUsage } from "@/core/lib/owner-delete";
+import { assertOwner, assertPermission } from "@/core/permissions/server";
+
+import { deleteUnused, unusedUsage } from "../data/unused";
 
 /**
  * Settings → Custom fields (3.2): zod → `assertPermission("lists.manage")` → the
@@ -85,6 +90,31 @@ export const setFieldDefinitionArchived = action(
     const data = definitionArchiveSchema.parse(input);
     await assertPermission("lists.manage");
     await setDefinitionArchived(data.definitionId, data.archived);
+    revalidateScreens();
+    return ok(null);
+  },
+);
+
+const definitionIdSchema = z.object({ definitionId: z.uuid() });
+export type DefinitionIdInput = z.input<typeof definitionIdSchema>;
+
+/**
+ * The Owner-only Delete of a field nothing has ever used (v1.8 V5a 6c): no value, no default and no
+ * history under its key. The confirm reads the usage first; the database checks again.
+ */
+export const fieldDefinitionUsage = action(
+  async (input: DefinitionIdInput): Promise<Result<UnusedUsage>> => {
+    const { definitionId } = definitionIdSchema.parse(input);
+    await assertOwner();
+    return ok(await unusedUsage("field", definitionId));
+  },
+);
+
+export const deleteFieldDefinition = action(
+  async (input: DefinitionIdInput): Promise<Result<null>> => {
+    const { definitionId } = definitionIdSchema.parse(input);
+    await assertOwner();
+    await deleteUnused("field", definitionId);
     revalidateScreens();
     return ok(null);
   },

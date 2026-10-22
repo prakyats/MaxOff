@@ -692,6 +692,13 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "Templates with a project template's Preview button highlighted.",
   },
   {
+    id: "owner/delete-unused",
+    path: "/settings/job-titles",
+    highlight: (page) => button(page, "Delete Graphic Designer"),
+    crop: main,
+    alt: "Job titles with a row's red Delete highlighted.",
+  },
+  {
     id: "owner/settings",
     path: "/settings",
     highlight: (page) => page.getByRole("link", { name: /^Thresholds/ }),

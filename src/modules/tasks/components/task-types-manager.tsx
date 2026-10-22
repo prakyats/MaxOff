@@ -20,6 +20,7 @@ import { FormField } from "@/core/ui/composites/form-field";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import {
@@ -36,9 +37,11 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
   addTaskType,
+  deleteTaskType,
   editTaskType,
   moveTaskType,
   setTaskTypeArchived,
+  taskTypeUsage,
 } from "../actions/task-types";
 import { typeDefaultReminders } from "../domain/reminders";
 import {
@@ -64,18 +67,23 @@ import type { TaskTypeKind } from "../domain/types";
  * ⋯ sheet on a phone). The kind is fixed
  * once the type exists. Each type carries its tasks' default reminders (5.3), edited in its dialog
  * with the same editor as a task's; "Using the default" there is the organisation's list.
+ * Delete (v1.8 V5a 6c) is the Owner's (`canDelete`): only a type nothing ever used goes.
  */
 export function TaskTypesManager({
   types,
   orgReminders,
+  canDelete = false,
 }: {
   types: readonly TaskTypeSetting[];
+  /** The Owner's Delete of a type nothing ever used (V5a 6c). */
+  canDelete?: boolean;
   /** The organisation's default reminders (Settings → Thresholds), under each type's. */
   orgReminders: readonly ReminderRule[];
 }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTypeSetting | null>(null);
   const [archiving, setArchiving] = useState<TaskTypeSetting | null>(null);
+  const [deleting, setDeleting] = useState<TaskTypeSetting | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const { active } = splitTaskTypes(types);
 
@@ -141,6 +149,7 @@ export function TaskTypesManager({
                   }}
                   edit={{ label: "Edit", onSelect: () => setEditing(type) }}
                   onArchive={() => setArchiving(type)}
+                  onDelete={canDelete ? () => setDeleting(type) : undefined}
                 />
               </li>
             ))}
@@ -179,6 +188,21 @@ export function TaskTypesManager({
                 ),
             });
             setArchiving(null);
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <UnusedDeleteDialog
+          key={deleting.id}
+          kind="task_type"
+          name={deleting.name}
+          loadUsage={() => taskTypeUsage({ typeId: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const { id, name } = deleting;
+            toastResult(await deleteTaskType({ typeId: id }), { success: `${name} deleted` });
           }}
         />
       ) : null}

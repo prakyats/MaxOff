@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Job titles" };
  */
 export default async function JobTitlesSettingsPage() {
   // Read together with the permission check, not after it (ARCHITECTURE §19).
-  const [, items] = await checkThenRead(
+  const [viewer, items] = await checkThenRead(
     requirePermission("lists.manage"),
     listItems("job_title", { includeArchived: true }),
   );
@@ -39,6 +39,7 @@ export default async function JobTitlesSettingsPage() {
             name: item.name,
             archivedAt: item.archived_at,
           }))}
+          canDelete={viewer.role === "owner"}
         />
       </div>
     </>

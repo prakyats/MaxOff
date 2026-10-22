@@ -156,7 +156,7 @@ Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by
   Delete** (templates and stage presets, V5a 6b, owner 2026-10-22) is last: permanent, so red before
   its confirmation too (`destructive`: a red outline bin on a laptop, a red outline "Delete" row in
   the sheet); its confirmation (`TemplateDeleteDialog`) says exactly what happens and commits with
-  the red `danger` "Delete ‹name›", way out "Keep it". Admins and Crew never see it.
+  the red `danger` "Delete ‹name›", way out "Keep it". Admins and Crew never see it. **Delete of what was never used** (task types, job titles, expense categories, custom fields; a draft client's and a contact's ⋯, V5a 6c) uses the same red Delete; its confirmation (`UnusedDeleteDialog`) asks first and, for anything in use, shows only the plain reason "In use — archive it instead." and "Close", with no commit (`ConfirmDialog` `confirmHidden`).
 - **Confirmations name the action** ("Deactivate Ravi", "Approve 3", "Discard changes"), never
   "OK", "Yes" or "Confirm". `ConfirmDialog` and `ReasonDialog` take `destructive` for a destructive
   act: their commit is then `danger`, otherwise `primary`.

@@ -9,9 +9,17 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
 
-import { addListItem, moveListItemBy, renameListItem, setListItemArchived } from "../actions/lists";
+import {
+  addListItem,
+  deleteListItem,
+  listItemUsage,
+  moveListItemBy,
+  renameListItem,
+  setListItemArchived,
+} from "../actions/lists";
 import { ListItemDialog } from "./list-item-dialog";
 
 export type ManagedListItem = {
@@ -27,6 +35,9 @@ export type ManagedListItem = {
  * heading opens a one-field dialog. Order is changed one step at a time, which a phone (in the
  * row's ⋯ sheet) and a keyboard both handle. Archive (D6; named Archive again, owner 2026-10-21): a member
  * who carries one keeps it; Undo in its toast brings it back, and no Archived list is shown.
+ * Delete (v1.8 V5a 6c) is the Owner's (`canDelete`): its confirm asks first whether anything ever
+ * used the entry, and only one nothing ever pointed at goes; otherwise it says "In use — archive it
+ * instead."
  */
 export function ListManager({
   listKey,
@@ -34,6 +45,7 @@ export function ListManager({
   items,
   title,
   headingId,
+  canDelete = false,
 }: {
   listKey: ListKey;
   labels: { singular: string; plural: string };
@@ -41,12 +53,15 @@ export function ListManager({
   /** The list's heading ("Categories"); the count of active entries ("7 job titles") by default. */
   title?: string;
   headingId?: string;
+  /** The Owner's Delete of an entry nothing ever used (V5a 6c). */
+  canDelete?: boolean;
 }) {
   const ownId = useId();
   const listId = headingId ?? ownId;
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<ManagedListItem | null>(null);
   const [archiving, setArchiving] = useState<ManagedListItem | null>(null);
+  const [deleting, setDeleting] = useState<ManagedListItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const active = items.filter((item) => !item.archivedAt);
@@ -105,6 +120,7 @@ export function ListManager({
                   }}
                   edit={{ label: "Rename", onSelect: () => setRenaming(item) }}
                   onArchive={() => setArchiving(item)}
+                  onDelete={canDelete ? () => setDeleting(item) : undefined}
                 />
               </li>
             ))}
@@ -150,6 +166,22 @@ export function ListManager({
                 ),
             });
             setArchiving(null);
+          }}
+        />
+      ) : null}
+
+      {deleting ? (
+        <UnusedDeleteDialog
+          key={deleting.id}
+          kind={listKey}
+          name={deleting.name}
+          loadUsage={() => listItemUsage({ listKey, id: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const { id, name } = deleting;
+            toastResult(await deleteListItem({ listKey, id }), { success: `${name} deleted` });
           }}
         />
       ) : null}

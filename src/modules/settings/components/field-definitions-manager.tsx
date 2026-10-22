@@ -18,10 +18,15 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { Badge } from "@/core/ui/primitives/badge";
 import { toastResult } from "@/core/ui/toast";
 
-import { setFieldDefinitionArchived } from "../actions/custom-fields";
+import {
+  deleteFieldDefinition,
+  fieldDefinitionUsage,
+  setFieldDefinitionArchived,
+} from "../actions/custom-fields";
 import { FieldDefinitionDialog, type ScopeOption } from "./field-definition-dialog";
 
 /**
@@ -35,21 +40,26 @@ import { FieldDefinitionDialog, type ScopeOption } from "./field-definition-dial
  * Rows follow the list-manager shape (1.4): `ListRowActions` (a ⋯ sheet with Edit and Archive on a
  * phone; both icons on the row from `md` up). Adding follows the Settings Add pattern (C4): "Add
  * field" on each group's heading, preset to that group's scope; with no fields yet, one heading.
+ * Delete (v1.8 V5a 6c) is the Owner's (`canDelete`): only a field nothing ever held a value for goes.
  */
 export function FieldDefinitionsManager({
   entity,
   definitions,
   scopes,
   canGlobal,
+  canDelete = false,
 }: {
   entity: SettingsEntity;
   definitions: readonly FieldDefinition[];
   scopes: readonly ScopeOption[];
   canGlobal: boolean;
+  /** The Owner's Delete of a field nothing ever used (V5a 6c). */
+  canDelete?: boolean;
 }) {
   const [adding, setAdding] = useState<{ scope: string | null } | null>(null);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
   const [archiving, setArchiving] = useState<FieldDefinition | null>(null);
+  const [deleting, setDeleting] = useState<FieldDefinition | null>(null);
 
   const kind = scopeKindOf(entity);
   const scoped = kind !== null;
@@ -193,6 +203,7 @@ export function FieldDefinitionsManager({
                         slot="list-item-actions"
                         edit={{ label: "Edit", onSelect: () => setEditing(definition) }}
                         onArchive={() => setArchiving(definition)}
+                        onDelete={canDelete ? () => setDeleting(definition) : undefined}
                       />
                     ) : null}
                   </li>
@@ -240,6 +251,23 @@ export function FieldDefinitionsManager({
               { success: `${definition.label} archived`, undo: () => void restore(definition) },
             );
             setArchiving(null);
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <UnusedDeleteDialog
+          key={deleting.id}
+          kind="field"
+          name={deleting.label}
+          loadUsage={() => fieldDefinitionUsage({ definitionId: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const definition = deleting;
+            toastResult(await deleteFieldDefinition({ definitionId: definition.id }), {
+              success: `${definition.label} deleted`,
+            });
           }}
         />
       ) : null}

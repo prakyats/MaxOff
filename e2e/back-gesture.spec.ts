@@ -385,6 +385,49 @@ test.describe("installed: overlays and view controls", () => {
         method: "DELETE",
       });
     });
+
+    test("/settings/job-titles: the Owner's Delete of an unused entry, handed off from a row's ⋯ sheet, closes on back (V5a 6c)", async ({
+      page,
+    }, info) => {
+      const name = `Back unused (${info.project.name})`;
+      await serviceRest(`list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y9",
+      });
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/job-titles");
+      await hydrated(page);
+      const row = page.locator('[data-slot="list-item"]', { hasText: name });
+      await row.getByRole("button", { name: `Actions for ${name}` }).click();
+      const sheet = page.getByRole("dialog", { name, exact: true });
+      await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete job title “${name}”?` });
+      await expect(confirm).toBeVisible();
+      await expect(sheet).toBeHidden();
+      // The check has answered: nothing ever used it.
+      await expect(confirm.getByRole("button", { name: `Delete ${name}` })).toBeEnabled();
+
+      await expectBackStack(page, [
+        { closes: confirm, url: /\/settings\/job-titles$/ },
+        { url: /\/settings$/ },
+      ]);
+      // Back changed nothing: the entry is still there.
+      expect(
+        await serviceSelect(
+          `list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}&select=id`,
+        ),
+      ).toHaveLength(1);
+      await serviceRest(`list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+    });
   });
 
   test.describe("as Staff", () => {

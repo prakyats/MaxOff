@@ -74,6 +74,7 @@ export default async function CustomFieldsSettingsPage({
           definitions={definitions}
           scopes={scopes}
           canGlobal={canGlobal}
+          canDelete={isOwner}
         />
       </div>
     </>

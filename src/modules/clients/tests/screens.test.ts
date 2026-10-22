@@ -60,6 +60,31 @@ describe("describeClientActivity (3.4)", () => {
     ).toMatchObject({ actor: "Ravi", text: "created the client, Active from the start" });
   });
 
+  it("says the Owner deleted a contact, by the name the history kept (V5a 6c)", () => {
+    expect(
+      describeClientActivity(
+        entry({
+          entity: "client_contacts",
+          entityId: "gone",
+          action: "deleted",
+          meta: { name: "Priya" },
+        }),
+        context,
+      )?.text,
+    ).toBe("deleted the contact Priya");
+    expect(
+      describeClientActivity(
+        entry({
+          entity: "client_contacts",
+          entityId: "gone",
+          action: "delete",
+          old: { name: "Priya" },
+        }),
+        context,
+      ),
+    ).toBeNull();
+  });
+
   it("keeps the close reason for the Owner only", () => {
     const closed = entry({ action: "closed", meta: { reason: "Moved to another studio" } });
     expect(describeClientActivity(closed, context)).toMatchObject({

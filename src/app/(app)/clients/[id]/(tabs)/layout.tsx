@@ -61,7 +61,7 @@ export default async function ClientLayout({
 }
 
 async function ClientHeader({ id }: { id: string }) {
-  const [{ client, canManage, canEdit }, { admins }] = await checkThenRead(
+  const [{ viewer, client, canManage, canEdit }, { admins }] = await checkThenRead(
     loadClient(id),
     loadPeople(),
   );
@@ -86,6 +86,7 @@ async function ClientHeader({ id }: { id: string }) {
                 adminId: client.adminId,
               }}
               canManage={canManage}
+              canDelete={viewer.role === "owner"}
               admins={admins}
             />
           ) : null}

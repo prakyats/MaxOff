@@ -11,6 +11,7 @@ import {
   rpcAs,
   runInstalled,
   serviceInsert,
+  serviceRest,
   serviceSelect,
   storageStateFor,
   USERS,
@@ -173,6 +174,41 @@ test.describe("the Owner", () => {
     const history = page.locator('[data-slot="history-sheet"] [data-slot="client-activity"]');
     await expect(history).toContainText("changed the GSTIN, website and Drive link");
     await expect(history).toContainText("changed the Owner's notes");
+  });
+
+  test("deletes a draft nothing was added to; an edited draft says it stays (V5a 6c)", async ({
+    page,
+  }, info) => {
+    const spare = nameOf(info, "Spare draft");
+    const kept = nameOf(info, "Kept draft");
+    const spareId = await seedClient(spare);
+    const keptId = await seedClient(kept);
+    // One edit is history pointing at it: in use (owner 2026-10-22, "any reference counts").
+    await serviceRest(`clients?id=eq.${keptId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ city: "Udupi" }),
+    });
+
+    await openClient(page, keptId, kept);
+    await menu(page, kept).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    const used = page.getByRole("alertdialog", { name: `“${kept}” is in use` });
+    await expect(used).toContainText("In use — it stays.");
+    await expect(used.getByRole("button", { name: `Delete ${kept}` })).toHaveCount(0);
+    await used.getByRole("button", { name: "Close" }).click();
+    await expect(used).toBeHidden();
+    await expect(pageHeader(page)).toContainText(kept);
+
+    await openClient(page, spareId, spare);
+    await menu(page, spare).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    const confirm = page.getByRole("alertdialog", { name: `Delete client “${spare}”?` });
+    await expect(confirm).toContainText("Nothing has been added to this draft or changed on it");
+    await confirm.getByRole("button", { name: `Delete ${spare}` }).click();
+    // The page is gone: the Clients list takes its place.
+    await expect(page).toHaveURL(/\/clients$/);
+    expect(await serviceSelect(`clients?id=eq.${spareId}&select=id`)).toEqual([]);
+    await removeClientFixture(kept);
   });
 
   test("assigns an Admin and moves the client through its life, each confirmed by name", async ({
@@ -386,7 +422,10 @@ test.describe("an Admin", () => {
     await expect(page.getByText("Owner's notes")).toHaveCount(0);
     await menu(page, mine).click();
     await expect(page.getByRole("menuitem", { name: "Edit details" })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: /Admin|Pause|Close|Activate/ })).toHaveCount(0);
+    // Nor the Owner's Delete of a draft (V5a 6c).
+    await expect(
+      page.getByRole("menuitem", { name: /Admin|Pause|Close|Activate|Delete/ }),
+    ).toHaveCount(0);
     // Edit details from the ⋯ starts the edit pattern.
     await page.getByRole("menuitem", { name: "Edit details" }).click();
     await page.getByLabel("City").fill("Mangaluru");

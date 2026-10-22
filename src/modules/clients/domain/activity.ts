@@ -141,6 +141,8 @@ function describeContact(entry: ActivityEntry, context: ActivityContext): string
       return `archived the contact ${name}`;
     case "restored":
       return `restored the contact ${name}`;
+    case "deleted":
+      return `deleted the contact ${text(entry.meta.name) ?? name}`;
     default:
       return null;
   }
