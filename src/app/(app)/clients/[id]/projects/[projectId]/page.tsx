@@ -359,7 +359,8 @@ export default async function ProjectPage({
                 className={cn(CYCLE_TAB, "bg-background text-foreground shadow-raised")}
                 data-slot="cycle-tab"
               >
-                <span className="max-w-full truncate" data-slot="cycle-label">
+                {/* The chosen tab opens nothing: its label wraps (the truncation rule). */}
+                <span className="max-w-full text-center break-words" data-slot="cycle-label">
                   {chosen.label ?? "The project's deliverables"}
                 </span>
               </span>

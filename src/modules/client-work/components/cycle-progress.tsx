@@ -102,7 +102,7 @@ export function CycleProgress({
                   data-slot="project-needs-you-pill"
                   data-tone={pill.tone}
                   className={cn(
-                    "border-border flex min-h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-xs",
+                    "border-border flex min-h-7 max-w-full min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs",
                     // A phone keeps one line: the first pill, the rest counted beside it.
                     index > 0 && "max-sm:hidden",
                   )}
@@ -114,9 +114,8 @@ export function CycleProgress({
                       pill.tone === "danger" ? "bg-danger" : "bg-attention",
                     )}
                   />
-                  <span className="min-w-0 truncate" title={pill.text}>
-                    {pill.text}
-                  </span>
+                  {/* The pill opens nothing: its words wrap in full (the truncation rule). */}
+                  <span className="min-w-0 break-words">{pill.text}</span>
                 </li>
               ))}
               {needsYou.pills.length - 1 + needsYou.more > 0 ? (
