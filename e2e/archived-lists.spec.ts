@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  memberIdOf,
+  insertAs,
   serviceInsert,
   serviceRest,
   serviceSelect,
@@ -27,9 +27,11 @@ type ListCase = {
   /** The column the row is named by. */
   nameColumn: string;
   /** The rest of the fixture row (the org, its author). */
-  row: (context: { orgId: string; ownerId: string }) => Promise<Record<string, unknown>>;
+  row: (context: { orgId: string }) => Promise<Record<string, unknown>>;
   /** The archive confirmation asks for a reason (a deliverable template's, invariant 9). */
   reason?: boolean;
+  /** Written by the Owner's own session: a template is its author's (the tables' guards). */
+  asOwner?: boolean;
 };
 
 const LISTS: ListCase[] = [
@@ -71,42 +73,34 @@ const LISTS: ListCase[] = [
     kind: "a stage preset",
     path: "/settings/templates",
     table: "stage_presets",
+    asOwner: true,
     nameColumn: "name",
-    row: async ({ orgId, ownerId }) => ({
-      org_id: orgId,
-      created_by: ownerId,
-      stages: ["Shoot", "Edit"],
-    }),
+    row: async () => ({ stages: ["Shoot", "Edit"] }),
   },
   {
     kind: "a deliverable template",
     path: "/settings/templates",
     table: "deliverable_templates",
+    asOwner: true,
     nameColumn: "name",
-    row: async ({ orgId, ownerId }) => ({ org_id: orgId, created_by: ownerId }),
+    row: async () => ({}),
     reason: true,
   },
   {
     kind: "a project template",
     path: "/settings/templates",
     table: "project_templates",
+    asOwner: true,
     nameColumn: "name",
-    row: async ({ orgId, ownerId }) => ({
-      org_id: orgId,
-      created_by: ownerId,
-      recurrence: "one_time",
-    }),
+    row: async () => ({ recurrence: "one_time" }),
   },
   {
     kind: "a task template",
     path: "/settings/templates",
     table: "task_templates",
+    asOwner: true,
     nameColumn: "name",
-    row: async ({ orgId, ownerId }) => ({
-      org_id: orgId,
-      created_by: ownerId,
-      task_type_id: await taskTypeId("Normal"),
-    }),
+    row: async () => ({ task_type_id: await taskTypeId("Normal") }),
   },
 ];
 
@@ -134,11 +128,15 @@ test.describe("every list with Archive keeps what it archived (V5b-0 item 9)", (
       const name = `Archived list ${list.kind.split(" ").slice(1).join(" ")} ${info.project.name}`;
       await removeFixture(list, name);
       const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
-      const row = await list.row({
-        orgId: org!.id,
-        ownerId: await memberIdOf(USERS.owner.email),
-      });
-      await serviceInsert(list.table, { ...row, [list.nameColumn]: name });
+      const row = await list.row({ orgId: org!.id });
+      if (list.asOwner) {
+        await insertAs(USERS.owner.email, USERS.owner.password, list.table, {
+          ...row,
+          [list.nameColumn]: name,
+        });
+      } else {
+        await serviceInsert(list.table, { ...row, [list.nameColumn]: name });
+      }
       try {
         await page.goto(list.path);
         const archive = page.getByRole("button", { name: `Archive ${name}`, exact: true });
