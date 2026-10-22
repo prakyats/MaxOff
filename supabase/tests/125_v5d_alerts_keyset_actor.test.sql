@@ -8,7 +8,7 @@
 -- entry has none. Every role reads only their own entries; a signed-out caller is refused.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(25);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -184,6 +184,13 @@ select is(pg_temp.page(false, 'g', 3), '{}'::text[], 'and nothing after the last
 select is((select run_size from pg_temp.entry('c')), 4, 'the run c, b, a, h is one entry');
 select is(pg_temp.page(false, 'c', 20), array['g'],
   'after a run, its older rows (b, a, h) are never shown again: a run never splits across pages');
+
+-- An email-only kind (the Owner's digest, in_app false) is never an entry (the notifications RLS).
+select pg_temp.as_system();
+insert into public.notifications (org_id, recipient_id, kind, title, created_at)
+values (pg_temp.fx('org'), pg_temp.fx('staff'), 'owner_digest', 'Morning summary', pg_temp.ist('00:42'));
+select pg_temp.as_member('staff');
+select is(pg_temp.page(false, null, 3), array['x', 'f', 'e'], 'an email-only row is never an entry');
 
 -- 2. New alerts never shift a page ----------------------------------------------------------------
 select pg_temp.as_system();

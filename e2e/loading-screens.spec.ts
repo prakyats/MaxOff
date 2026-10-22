@@ -617,7 +617,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role,
     path: "/notifications",
     marker: 'data-slot="loading-notifications"',
-    hold: "/rest/v1/rpc/notifications_inbox",
+    hold: "/rest/v1/rpc/notifications_inbox_page",
     fixture: "notification",
     trace: ALERTS,
   })),
