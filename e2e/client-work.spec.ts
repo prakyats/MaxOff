@@ -4,6 +4,7 @@ import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 import {
+  animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
   expectSheetAboveKeyboard,
@@ -1086,7 +1087,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       "Last month",
     );
     await expect(page.locator('[data-slot="detail-contact"] dd')).toHaveText("Not added");
-    await expect(page.locator('[data-slot="detail-template"] dd')).toHaveText("None");
+    await expect(page.locator('[data-slot="detail-template"] dd')).toHaveText("Not added");
     await page.getByRole("link", { name: `Next: ${current!.label}` }).click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}\\?cycle=${current!.id}$`));
     await expect(page.locator('[data-slot="cycle-label"]')).toHaveText(current!.label);
@@ -1323,6 +1324,9 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     const row = sheet.locator('[data-slot="item-last-change"]');
     const history = row.getByRole("button", { name: "History" });
     await expect(row.locator("p")).not.toContainText("History");
+    // Measured once the sheet has finished opening: mid-slide its transform leaves the clock a
+    // hair under 44 px (43.99997 at 430).
+    await animationsSettled(page);
     const rowBox = (await row.boundingBox())!;
     const historyBox = (await history.boundingBox())!;
     const textBox = (await row.locator("p").boundingBox())!;
