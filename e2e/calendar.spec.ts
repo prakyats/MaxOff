@@ -9,7 +9,9 @@ import {
   memberIdOf,
   pageHeader,
   removeClientFixture,
+  removeFreelancersNamed,
   removeTasksTitled,
+  resetAttendanceAndLeave,
   rpcAs,
   runInstalled,
   serviceInsert,
@@ -116,6 +118,28 @@ const eventOf = (scope: Locator, task: { id: string }) =>
 /** A day's box in the month on screen (the phone's or the laptop's). */
 const dayBox = (page: Page, date: string) =>
   page.locator(`[data-slot="calendar-day"][data-date="${date}"]:visible`);
+
+/**
+ * All · Tasks · Client work as the device shows it (SCOPE §6): the phone's switch, or the laptop's
+ * `All ▾` menu button (v1.8 calendar toolbar, owner 23 Oct); either carries `data-current`.
+ */
+const showControl = (page: Page, info: TestInfo) =>
+  page.locator(
+    isPhone(info)
+      ? '[data-slot="calendar-show"]:visible'
+      : '[data-slot="calendar-show-menu"]:visible',
+  );
+
+/** Chooses All, Tasks or Client work: a tap on the phone's switch, or the laptop's menu. */
+async function chooseShow(page: Page, info: TestInfo, show: "all" | "tasks" | "client") {
+  if (isPhone(info)) {
+    await showControl(page, info).locator(`[data-show="${show}"]`).click();
+    return;
+  }
+  await showControl(page, info).click();
+  await page.getByRole("menu").locator(`[role="menuitemradio"][data-show="${show}"]`).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+}
 
 /** "8 Oct", as the New-task pill says it. */
 const shortDay = (date: string) => formatIST(istDayStart(date), "d MMM");
@@ -1577,7 +1601,7 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await page.goto(`/calendar?date=${fixture.day}`);
     await hydrated(page);
     // Every device starts on All (a fresh context's storage).
-    const shows = page.locator('[data-slot="calendar-show"]:visible');
+    const shows = showControl(page, info);
     await expect(shows).toHaveAttribute("data-current", "all");
     if (isPhone(info)) {
       // The phone's full month draws the chips (the compact month only bars).
@@ -1604,22 +1628,23 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
 
     // The switch is a view control: no history, remembered on this device; leave and holidays
     // always show (none on this day: the strips alone are checked).
+    // The laptop's menu is a layer (its open adds an entry that its close spends), so there the
+    // proof is the address and one back leaving the calendar (the toolbar's own test).
     const before = await page.evaluate(() => window.history.length);
-    await shows.locator('[data-show="tasks"]').click();
+    const address = page.url();
+    await chooseShow(page, info, "tasks");
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(0);
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toHaveCount(1);
-    await shows.locator('[data-show="client"]').click();
+    await chooseShow(page, info, "client");
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(1);
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toHaveCount(0);
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="due"]')).toHaveCount(0);
-    expect(await page.evaluate(() => window.history.length)).toBe(before);
+    expect(page.url()).toBe(address);
+    if (isPhone(info)) expect(await page.evaluate(() => window.history.length)).toBe(before);
     await page.reload();
     await hydrated(page);
-    await expect(page.locator('[data-slot="calendar-show"]:visible')).toHaveAttribute(
-      "data-current",
-      "client",
-    );
-    await page.locator('[data-slot="calendar-show"]:visible [data-show="all"]').click();
+    await expect(showControl(page, info)).toHaveAttribute("data-current", "client");
+    await chooseShow(page, info, "all");
     if (isPhone(info)) {
       await page.locator('button[data-slot="calendar-handle"]').click();
       await expect(phone(page)).toHaveAttribute("data-size", "3");
@@ -1793,3 +1818,292 @@ test.describe("today's mark", () => {
     }
   });
 });
+
+/**
+ * The laptop's calendar toolbar (v1.8, owner 23 Oct): All · Tasks · Client work is one `All ▾`
+ * menu beside Filters, the toolbar one row at every laptop width (Day/Week/Month · ‹ month › ·
+ * Today · All ▾ · Filters), and a leave bar never truncates: "Name · On leave" where it fits, else
+ * "Name · Leave", never "Name · On l…". The phone is unchanged: its switch under the header, its
+ * leave bars as they were.
+ */
+test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  const WIDTHS = [1024, 1280] as const;
+  /** A long first name: the bar shows the first name only. */
+  const FIRST = "Jayalakshmi";
+  const surname = (info: TestInfo) => `Calv18 ${info.project.name}`;
+
+  /** A freelancer with a long first name, on approved leave on a day of their own. */
+  async function longNameOnLeave(info: TestInfo): Promise<{ day: string; id: string }> {
+    const prefix = `${FIRST} ${surname(info)}`;
+    const earlier = await serviceSelect<{ id: string }>(
+      `members?full_name=like.${encodeURIComponent(`${prefix}*`)}&select=id`,
+    );
+    for (const { id } of earlier) await resetAttendanceAndLeave(id);
+    await removeFreelancersNamed(prefix);
+    const id = await rpcAs<string>(
+      USERS.owner.email,
+      USERS.owner.password,
+      "member_add_freelancer",
+      {
+        full_name: prefix,
+        coordinator_id: await memberIdOf(USERS.admin.email),
+      },
+    );
+    // A day of each project's own, apart from the other describes' fixture days.
+    const day = workingDay(72 + 7 * ["desktop", "mobile", "mobile-lg"].indexOf(info.project.name));
+    const [owner] = await serviceSelect<{ id: string }>("members?role=eq.owner&select=id");
+    await serviceInsert("leave_requests", {
+      member_id: id,
+      type: "leave",
+      start_date: day,
+      end_date: day,
+      state: "approved",
+      source: "owner",
+      decided_by: owner?.id,
+      decided_at: `${todayIST()}T00:00:00+05:30`,
+    });
+    return { day, id };
+  }
+
+  async function removeLongName(info: TestInfo, id: string) {
+    await resetAttendanceAndLeave(id);
+    await removeFreelancersNamed(`${FIRST} ${surname(info)}`);
+  }
+
+  /** The toolbar's parts on one row, inside its width (nothing wrapped, nothing pushed out). */
+  async function expectOneRow(page: Page, label: string) {
+    const bar = await page
+      .locator('[data-slot="calendar-controls"]:visible')
+      .evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          overflows: element.scrollWidth > element.clientWidth,
+          right: box.right,
+          parts: [...element.children].map((child) => {
+            const part = child.getBoundingClientRect();
+            return { middle: part.top + part.height / 2, right: part.right };
+          }),
+        };
+      });
+    expect(bar.overflows, `${label}: the toolbar's parts fit its width`).toBe(false);
+    const middle = bar.parts[0]?.middle ?? 0;
+    for (const part of bar.parts) {
+      expect(Math.abs(part.middle - middle), `${label}: one row`).toBeLessThan(2);
+      expect(part.right, `${label}: inside the toolbar`).toBeLessThanOrEqual(bar.right + 0.5);
+    }
+  }
+
+  /**
+   * A leave label as drawn: its visible words, whether it is cut (an overflow or an ellipsis) and
+   * whether the long wording would have fitted where it is.
+   */
+  async function leaveLabel(label: Locator) {
+    return label.evaluate((element) => {
+      const shown = element.getAttribute("data-leave-fit");
+      element.setAttribute("data-leave-fit", "long");
+      const longFits = element.scrollWidth <= element.clientWidth;
+      if (shown !== null) element.setAttribute("data-leave-fit", shown);
+      return {
+        text: (element as HTMLElement).innerText.trim(),
+        cut: element.scrollWidth > element.clientWidth,
+        ellipsis: getComputedStyle(element).textOverflow === "ellipsis",
+        longFits,
+      };
+    });
+  }
+
+  test("All ▾ beside Filters: one row at 1024 and 1280 in every view; the menu ticks the choice; a view control, remembered", async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), "the laptop's toolbar (the phone keeps its switch)");
+    const day = workingDay(2);
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const view of ["month", "week", "day"] as const) {
+        await page.goto(`/calendar?view=${view}&date=${day}`);
+        await hydrated(page);
+        const trigger = page.locator('[data-slot="calendar-show-menu"]:visible');
+        await expect(trigger).toHaveText("All");
+        await expect(page.locator('[data-slot="calendar-show"]:visible')).toHaveCount(0);
+        // Beside Filters, just before it.
+        const [menuBox, filtersBox] = [
+          await trigger.boundingBox(),
+          await page.locator('[data-slot="calendar-filters-button"]:visible').boundingBox(),
+        ];
+        expect((menuBox?.x ?? 0) + (menuBox?.width ?? 0)).toBeLessThan(filtersBox?.x ?? 0);
+        expect((filtersBox?.x ?? 0) - ((menuBox?.x ?? 0) + (menuBox?.width ?? 0))).toBeLessThan(12);
+        await expectOneRow(page, `${view} at ${width}`);
+      }
+    }
+
+    // The menu at the narrowest laptop: All · Tasks · Client work, the tick on the choice.
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto("/today");
+    await hydrated(page);
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    const address = page.url();
+    const trigger = page.locator('[data-slot="calendar-show-menu"]:visible');
+    await trigger.click();
+    const menu = page.getByRole("menu");
+    const items = menu.getByRole("menuitemradio");
+    await expect(items).toHaveText(["All", "Tasks", "Client work"]);
+    await expect(items.nth(0)).toHaveAttribute("aria-checked", "true");
+    await expect(items.nth(0).locator("svg")).toBeVisible();
+    await expect(items.nth(2).locator("svg")).toHaveCount(0);
+    // The open menu is a layer: back closes it and stays on the calendar (§14.2 a).
+    await expectBackStack(page, [{ closes: menu, url: /\/calendar\?date=/ }]);
+    await trigger.click();
+    await items.nth(2).click();
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toHaveText("Client work");
+    await expect(trigger).toHaveAttribute("data-current", "client");
+    // A subtle neutral selected state, never red: the Filters button's own active look.
+    const look = await trigger.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, border: style.borderTopColor, ink: style.color };
+    });
+    expect(look.background, "a neutral fill").not.toBe("rgba(0, 0, 0, 0)");
+    for (const colour of Object.values(look)) {
+      const [r = 0, g = 0, b = 0] = (colour.match(/[\d.]+/g) ?? []).map(Number);
+      expect(Math.max(r, g, b) - Math.min(r, g, b), `${colour} is neutral`).toBeLessThan(24);
+    }
+    await expectOneRow(page, "Client work ▾ at 1024");
+    // A view control: the address is the same, and one back still leaves the calendar.
+    expect(page.url()).toBe(address);
+    await trigger.click();
+    await expect(items.nth(2)).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    // Remembered on this device, as the switch was.
+    await page.reload();
+    await hydrated(page);
+    await expect(trigger).toHaveText("Client work");
+    for (const view of ["week", "day"] as const) {
+      await page
+        .locator(`[data-slot="calendar-view"] a:has-text("${view === "week" ? "Week" : "Day"}")`)
+        .click();
+      await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute(
+        "data-view",
+        view,
+      );
+      await expectOneRow(page, `Client work ▾, ${view} at 1024`);
+    }
+    await expectBackStack(page, [{ url: /\/today$/ }]);
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    await chooseShow(page, info, "all");
+    await expect(trigger).toHaveText("All");
+  });
+
+  test("a leave bar never truncates: a long name at 1024 and 1280, in the month and the week; with room it says On leave", async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), "the laptop's bars (the phone's are unchanged)");
+    const { day, id } = await longNameOnLeave(info);
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(`/calendar?date=${day}`);
+      await hydrated(page);
+      const bar = dayBox(page, day).locator('[data-slot="calendar-leave-bar"]');
+      await expect(bar).toBeVisible();
+      const month = await leaveLabel(bar);
+      expect(month.text, `month at ${width}`).toMatch(new RegExp(`^${FIRST} · (On leave|Leave)$`));
+      expect(month.cut, `month at ${width}: nothing cut`).toBe(false);
+      expect(month.ellipsis, `month at ${width}: no ellipsis`).toBe(false);
+      expect(month.text, `month at ${width}: the long wording wherever it fits`).toBe(
+        `${FIRST} · ${month.longFits ? "On leave" : "Leave"}`,
+      );
+      if (width === 1024) expect(month.text, "1024: the short wording").toBe(`${FIRST} · Leave`);
+
+      await page.goto(`/calendar?view=week&date=${day}`);
+      await hydrated(page);
+      const chip = page
+        .locator('[data-slot="calendar-laptop"] [data-slot="calendar-leave"]')
+        .filter({ hasText: FIRST })
+        .locator("[data-leave-fit]");
+      await expect(chip).toBeVisible();
+      const week = await leaveLabel(chip);
+      expect(week.text, `week at ${width}`).toMatch(new RegExp(`^${FIRST} · (On leave|Leave)$`));
+      expect(week.cut, `week at ${width}: nothing cut`).toBe(false);
+      expect(week.ellipsis, `week at ${width}: no ellipsis`).toBe(false);
+      expect(week.text).toBe(`${FIRST} · ${week.longFits ? "On leave" : "Leave"}`);
+
+      // The Day view's all-day line has the room: "On leave", in full.
+      await page.goto(`/calendar?view=day&date=${day}`);
+      await hydrated(page);
+      const roomy = page
+        .locator('[data-slot="calendar-laptop"] [data-slot="calendar-hours"]')
+        .locator('xpath=ancestor::*[@data-slot="calendar-day-view"]')
+        .locator('[data-slot="calendar-leave"] [data-leave-fit]')
+        .filter({ hasText: FIRST })
+        .first();
+      await expect(roomy).toHaveText(`${FIRST} · On leave`);
+    }
+    await removeLongName(info, id);
+  });
+
+  test("phone unchanged at 375 and 430: the switch under the header, no menu, the leave bar as it was", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the phone");
+    const { day, id } = await longNameOnLeave(info);
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    const header = phone(page).locator('[data-slot="calendar-header"]');
+    const shows = header.locator('[data-slot="calendar-show"]');
+    await expect(shows).toBeVisible();
+    await expect(shows.locator("button")).toHaveText(["All", "Tasks", "Client work"]);
+    await expect(shows).toHaveAttribute("data-current", "all");
+    // A full-width row of its own under the header's buttons, 44 px targets.
+    const [row, switcher] = [await header.boundingBox(), await shows.boundingBox()];
+    expect(Math.abs((switcher?.width ?? 0) - (row?.width ?? 0))).toBeLessThan(1);
+    expect(
+      (await shows.locator("button").first().boundingBox())?.height ?? 0,
+    ).toBeGreaterThanOrEqual(44);
+    await expect(page.locator('[data-slot="calendar-show-menu"]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-slot="calendar-controls"]:visible')).toHaveCount(0);
+    // The leave bar keeps its words and its one-line rule; no laptop fitting on a phone.
+    await page.locator('button[data-slot="calendar-handle"]').click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    const bar = dayBox(page, day).locator('[data-slot="calendar-leave-bar"]');
+    await expect(bar).toContainText(`${FIRST} · On leave`);
+    await expect(phone(page).locator("[data-leave-fit]")).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+    await removeLongName(info, id);
+  });
+});
+
+/** Crew never see All · Tasks · Client work (no client work on their calendar), on any device. */
+test.describe("the calendar's All ▾, as Crew", () => {
+  test.use({ storageState: storageStateFor("staff") });
+
+  test("no All ▾ and no switch for Crew; the toolbar is one row at 1024 and 1280", async ({
+    page,
+  }, info) => {
+    if (!isPhone(info)) {
+      for (const width of WIDTHS_CREW) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.goto("/calendar");
+        await hydrated(page);
+        await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toBeVisible();
+        const tops = await page
+          .locator('[data-slot="calendar-controls"]:visible')
+          .evaluate((element) =>
+            [...element.children].map((child) => Math.round(child.getBoundingClientRect().top)),
+          );
+        expect(new Set(tops).size, `one row at ${width}`).toBe(1);
+      }
+    } else {
+      await page.goto("/calendar");
+      await hydrated(page);
+      await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toBeVisible();
+    }
+    await expect(page.locator('[data-slot="calendar-show-menu"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="calendar-show"]')).toHaveCount(0);
+  });
+});
+
+const WIDTHS_CREW = [1024, 1280] as const;

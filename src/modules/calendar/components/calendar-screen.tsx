@@ -66,6 +66,7 @@ import { AllDayChips, DayDetail, eventLink } from "./day-detail";
 import type { FilterChoices } from "./filters-sheet";
 import { useLeaveFit } from "./leave-fit";
 import { MonthGrid } from "./month-grid";
+import { ShowControl } from "./show-control";
 import { Timeline, weekdayHeading } from "./timeline";
 
 /** The sheets load after the page, on their first opening (ARCHITECTURE §19). */
@@ -191,7 +192,8 @@ export function CalendarScreen({
   // The laptop's leave labels never truncate (v1.8, owner 23 Oct): each picks its wording.
   const laptopRef = useRef<HTMLDivElement>(null);
   useLeaveFit(laptopRef);
-  const desktop = useIsDesktop() === true;
+  const isDesktop = useIsDesktop();
+  const desktop = isDesktop === true;
 
   /**
    * Moves the selected day: in the month read, at once; another month through the router. While
@@ -628,7 +630,8 @@ export function CalendarScreen({
       >
         <div
           data-slot="calendar-controls"
-          className="flex min-w-0 shrink-0 flex-wrap items-center gap-3"
+          // One row at every laptop width (v1.8 calendar toolbar, owner 23 Oct).
+          className="flex min-w-0 shrink-0 flex-nowrap items-center gap-3"
         >
           <nav
             aria-label="Calendar view"
@@ -690,8 +693,12 @@ export function CalendarScreen({
               Today
             </button>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            {showSwitch}
+          {/* The laptop's All ▾ (v1.8 calendar toolbar, owner 23 Oct) beside Filters; a phone keeps
+              its switch, so once the page knows it is on a phone the menu is not drawn. */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {switchable && isDesktop !== false ? (
+              <ShowControl show={show} onShow={chooseShow} />
+            ) : null}
             {filtersButton}
           </div>
         </div>

@@ -658,7 +658,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Beside Filters, All · Tasks · Client work shows both kinds or only one. This phone or laptop remembers your choice, and leave and holidays always show.",
+              text: "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone, All · Tasks · Client work sits under the header. This phone or laptop remembers your choice, and leave and holidays always show.",
             },
             {
               kind: "steps",
