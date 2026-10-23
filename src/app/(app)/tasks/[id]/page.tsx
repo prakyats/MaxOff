@@ -316,7 +316,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             <div
               data-slot="task-next-box"
               className={cn(
-                "md:border-border md:bg-muted/50 max-md:contents md:flex md:min-h-11 md:min-w-0 md:items-center md:gap-2.5 md:rounded-lg md:border md:py-0.5 md:pl-3",
+                "md:border-border md:bg-muted/50 max-md:contents md:flex md:min-h-[2.875rem] md:min-w-0 md:items-center md:gap-2.5 md:rounded-lg md:border md:py-0 md:pl-3",
                 actions.remind ? "md:pr-1" : "md:pr-3",
               )}
             >

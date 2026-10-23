@@ -69,7 +69,7 @@ export function TaskRemind({
         type="button"
         variant="secondary"
         commits
-        className="h-auto min-h-11 whitespace-normal md:min-h-9"
+        className="h-auto min-h-11 whitespace-normal"
         pending={action.pending}
         pendingLabel="Sending…"
         disabled={wait !== null}

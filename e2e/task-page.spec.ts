@@ -1565,6 +1565,8 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
         ).toBeInViewport();
       }
       const composer = panel(page, "chat").getByRole("textbox", { name: "Message" });
+      // Measured at the page's top, where it opens.
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
       const opening = await box(chatPanel(page));
 
       // Scrolled as far as it goes: the header has gone, the bar is stuck under the top bar with

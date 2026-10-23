@@ -74,11 +74,11 @@ export default async function Loading() {
               <Skeleton className="h-4 w-44 max-w-full md:h-3" />
             </div>
           </div>
-          {/* The callout; on a laptop 44px with Remind at its right end for whoever usually has it
+          {/* The callout; on a laptop 46px with Remind at its right end for whoever usually has it
               (the Owner and Admins; a phone shows Remind under the callout, untraced as before). */}
           <div
             className={cn(
-              "border-border bg-muted/50 flex min-w-0 items-center rounded-lg border px-3 py-2.5 md:min-h-11 md:gap-2.5 md:py-0.5",
+              "border-border bg-muted/50 flex min-w-0 items-center rounded-lg border px-3 py-2.5 md:min-h-[2.875rem] md:gap-2.5 md:py-0",
               manages && "md:pr-1",
             )}
           >
@@ -88,7 +88,7 @@ export default async function Loading() {
             {manages ? (
               <Skeleton
                 data-slot="loading-task-remind"
-                className="hidden h-9 w-36 shrink-0 rounded-lg md:block"
+                className="hidden h-11 w-36 shrink-0 rounded-lg md:block"
               />
             ) : null}
           </div>
