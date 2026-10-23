@@ -8,7 +8,7 @@
 export type NavBadgePlace = "bar" | "bell" | "topbar" | "list" | "sheet";
 
 const BELL_PILL =
-  "bg-brand text-brand-foreground ring-background absolute top-0 left-full flex h-4 min-w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full px-1 text-count font-semibold ring-2";
+  "bg-brand text-brand-foreground ring-background absolute top-0 left-[calc(100%-6px)] flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-[3px] text-count font-semibold ring-2";
 
 const CLASSES: Record<NavBadgePlace, string> = {
   // The ring punches the badge out of the icon so it stays readable over either.
@@ -16,9 +16,10 @@ const CLASSES: Record<NavBadgePlace, string> = {
   // The bell's count, on the phone's title bar (`bell`) and the laptop's top bar (`topbar`): owner
   // screenshot, #89 comment 6338991185 (the 18 px disc crowded the theme icon). A 16 px pill with
   // 11 px semibold text (`text-count`, DESIGN §2), at least 16 px wide so one digit makes a
-  // circle, capped at "99+". Its centre sits on the 20 px glyph's top-right corner (placed against
-  // the glyph's own box, not the 44 px button's): about a quarter of it over the glyph, the rest
-  // outside. The 2 px ring is the bar's background, so it reads punched out in either theme.
+  // circle, capped at "99+". Offset to the top-right, outside the glyph (the design gate, 23 Oct:
+  // centred on the corner, two digits covered most of the bell): its left edge 6 px inside the 20 px
+  // glyph's right edge and its middle on the glyph's top, so a longer count grows outward, never
+  // over the bell. The 2 px ring is the bar's background, so it reads punched out in either theme.
   bell: BELL_PILL,
   topbar: BELL_PILL,
   list: "bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-none font-semibold tabular-nums",

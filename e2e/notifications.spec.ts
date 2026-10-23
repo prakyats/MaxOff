@@ -480,7 +480,7 @@ test.describe("the bell and Alerts", () => {
     }
   });
 
-  test("the bell's count: a 16 px pill on the glyph's corner that never touches the next control, one digit or 99+", async ({
+  test("the bell's count: a 16 px pill offset to the glyph's top-right that never touches the next control, one digit or 99+", async ({
     page,
     isMobile,
   }, info) => {
@@ -528,8 +528,10 @@ test.describe("the bell and Alerts", () => {
       if (!pill || !glyph || !link || !near) return;
       expect(pill.height, `${label}: 16 px tall`).toBeCloseTo(16, 0);
       expect(pill.width, `${label}: at least 16 px wide`).toBeGreaterThanOrEqual(15.5);
-      // Its centre on the glyph's top-right corner.
-      expect(Math.abs(pill.x + pill.width / 2 - (glyph.x + glyph.width)), label).toBeLessThan(2);
+      // Offset to the top-right, outside the glyph (the design gate, 23 Oct): its left edge 6 px
+      // inside the glyph's right edge whatever the count, so two digits or 99+ grow outward and
+      // never cover more of the bell; its middle on the glyph's top.
+      expect(Math.abs(pill.x - (glyph.x + glyph.width - 6)), label).toBeLessThan(1);
       expect(Math.abs(pill.y + pill.height / 2 - glyph.y), label).toBeLessThan(2);
       expect(link.width, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);
       expect(link.height, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);

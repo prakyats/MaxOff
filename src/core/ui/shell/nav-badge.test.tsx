@@ -11,14 +11,13 @@ describe("NavBadgeMark on the top bar's bell", () => {
     expect(renderToStaticMarkup(<NavBadgeMark count={250} place="topbar" />)).toContain(">99+<");
   });
 
-  it("is a 16 px pill centred on the glyph's top-right corner, ringed in the bar's background", () => {
+  it("is a 16 px pill offset to the glyph's top-right, growing outward, ringed in the bar's background", () => {
     const out = renderToStaticMarkup(<NavBadgeMark count={3} place="topbar" />);
     expect(renderToStaticMarkup(<NavBadgeMark count={3} place="bell" />)).toBe(out);
     for (const token of [
       "absolute",
       "top-0",
-      "left-full",
-      "-translate-x-1/2",
+      "left-[calc(100%-6px)]",
       "-translate-y-1/2",
       "h-4",
       "min-w-4",
