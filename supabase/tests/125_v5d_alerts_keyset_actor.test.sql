@@ -96,9 +96,12 @@ begin
 end;
 $$;
 
--- An instant at an IST clock time, `days` before today.
+-- An instant at an IST clock time, `days` before the fixtures' day. The fixtures' day is yesterday
+-- (IST), not today: every fixture row then lies before now() whatever the time of day the suite
+-- runs (rows at today's 00:05-00:50 would be in the future just after IST midnight, and a row made
+-- at now() would no longer be the newest), while g still falls on the IST day before the others.
 create function pg_temp.ist(t time, days integer default 0) returns timestamptz language sql stable as $$
-  select ((app.today_ist() - days) + t) at time zone 'Asia/Kolkata';
+  select ((app.today_ist() - 1 - days) + t) at time zone 'Asia/Kolkata';
 $$;
 
 create function pg_temp.note(k text, who text, kind text, task uuid, has_link boolean, at timestamptz,
@@ -156,7 +159,7 @@ from public.task_types tt where tt.org_id = pg_temp.fx('org') and tt.archived_at
 insert into public.task_assignees (task_id, member_id, is_primary)
 values (pg_temp.fx('t1'), pg_temp.fx('staff'), true);
 
--- The Crew member's rows, newest first: x, f, e, d, c, b, a, h (today), then g (yesterday): the
+-- The Crew member's rows, newest first: x, f, e, d, c, b, a, h (one day), then g (the day before): the
 -- entries x, f, e, d, c (c+b+a+h), g, as notifications_inbox makes them.
 select pg_temp.note('g', 'staff', 'task_comment', pg_temp.fx('t1'), true, pg_temp.ist('23:50', 1), false);
 select pg_temp.note('h', 'staff', 'task_comment', pg_temp.fx('t1'), true, pg_temp.ist('00:05'), false);
