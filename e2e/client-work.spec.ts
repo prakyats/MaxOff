@@ -932,6 +932,24 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
     return [...stroke("next"), ...stroke("rest")].filter((value) => value === done).length;
   });
   expect(greens, "only the done segments are green").toBe(0);
+  // The deliverables' bars too: a not-done segment is the ring's neutral next or rest, never green.
+  const neutral = await ring
+    .locator("circle")
+    .evaluateAll((circles) =>
+      circles
+        .filter((circle) => circle.getAttribute("data-tone") !== "done")
+        .map((circle) => getComputedStyle(circle).stroke),
+    );
+  const barTints = await page
+    .locator('[data-slot="item-progress-bar"]:visible > span:not([data-tone="done"])')
+    .evaluateAll((segments) =>
+      segments.map((segment) => getComputedStyle(segment).backgroundColor),
+    );
+  expect(barTints.length, "the bars have open segments").toBeGreaterThan(0);
+  expect(
+    barTints.filter((tint) => !neutral.includes(tint)),
+    "the bars' open segments",
+  ).toEqual([]);
 
   // A tick moves it at once, and after a reload.
   await itemRow(page, "Soon item").locator('[data-slot="item-open"]').click();

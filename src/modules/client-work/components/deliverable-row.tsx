@@ -446,7 +446,10 @@ function ProgressToggle({
   );
 }
 
-/** A group's segmented bar: a segment a stage, ticked ones green, the next one lighter. */
+/**
+ * A group's segmented bar: a segment a stage, ticked ones green, the next one a neutral step
+ * darker than the quiet track (green is progress only, the design gate, 23 Oct; as the meter).
+ */
 function SegmentBar({ done, next, total }: { done: number; next: number; total: number }) {
   return (
     <span
@@ -460,9 +463,10 @@ function SegmentBar({ done, next, total }: { done: number; next: number; total: 
       {Array.from({ length: total }, (_, index) => (
         <span
           key={index}
+          data-tone={index < done ? "done" : index < done + next ? "next" : "rest"}
           className={cn(
             "min-w-0 flex-1 rounded-full",
-            index < done ? "bg-success" : index < done + next ? "bg-success/40" : "bg-muted",
+            index < done ? "bg-success" : index < done + next ? "bg-neutral/30" : "bg-neutral-soft",
           )}
         />
       ))}
