@@ -559,7 +559,8 @@ export function CalendarScreen({
                         className={cn(
                           "flex size-5 items-center justify-center rounded-full text-sm leading-5 font-semibold tabular-nums",
                           day.weeklyOff && "text-muted-foreground",
-                          day.date === today && "bg-brand text-brand-foreground",
+                          day.date === today &&
+                            "bg-destructive-solid text-destructive-solid-foreground",
                         )}
                       >
                         {formatIST(istDayStart(day.date), "d")}
@@ -731,7 +732,8 @@ export function CalendarScreen({
                     className={cn(
                       "flex size-7 items-center justify-center rounded-full text-sm tabular-nums",
                       day.weeklyOff && "text-muted-foreground",
-                      day.date === today && "bg-brand text-brand-foreground",
+                      day.date === today &&
+                        "bg-destructive-solid text-destructive-solid-foreground",
                     )}
                   >
                     {heading.day}

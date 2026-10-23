@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "@/core/lib/utils";
-import { ListRow } from "@/core/ui/composites/list-row";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
+import { ListRow, ListRowSkeleton } from "@/core/ui/composites/list-row";
 import { type StatusTone, StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
@@ -96,8 +94,8 @@ export function TaskRowList({
 
 /**
  * The skeleton of a `TaskRowList` (ARCHITECTURE §14.1: a skeleton traces its screen): each row the
- * height, padding and lines of a `TaskRow` (`ListRow`: the title and meta lines on the left, a
- * chip and › on the right), `min-w-0` on the columns so the rem-wide bars survive 200% text.
+ * height, padding and lines of a `TaskRow` (`ListRowSkeleton`: the title with a chip and › on its
+ * line, the meta line under both), `max-w-full` on the bars so they survive 200% text.
  */
 export function TaskRowsSkeleton({
   rows,
@@ -117,28 +115,7 @@ export function TaskRowsSkeleton({
       className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, index) => (
-        <li
-          key={index}
-          className="flex min-h-16 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3"
-        >
-          <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
-            <span className="flex h-5 min-w-0 items-center">
-              <Skeleton className="h-4 w-44 max-w-full" />
-            </span>
-            <span className="flex h-4 min-w-0 items-center">
-              <Skeleton className="h-3 w-56 max-w-full" />
-            </span>
-            {index < notes ? (
-              <span className="flex h-4 min-w-0 items-center">
-                <Skeleton className="h-3 w-40 max-w-full" />
-              </span>
-            ) : null}
-          </span>
-          <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
-            <Skeleton className="h-5 w-20 rounded-full" />
-            <Skeleton className="size-4" />
-          </span>
-        </li>
+        <ListRowSkeleton key={index} note={index < notes} />
       ))}
     </ul>
   );

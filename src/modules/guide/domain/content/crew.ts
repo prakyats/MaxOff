@@ -417,7 +417,7 @@ export const CREW_GUIDE: Guide = {
                   shot: "staff/my-tasks",
                 },
                 'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
-                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right such as "Overdue" and the task\'s state. Tap a task to open it.',
+                "Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title such as \"Overdue\" and the task's state, then ›. On a small phone a long chip is shortened with “…”; the task's page shows it in full. Tap a task to open it.",
               ],
             },
             {

@@ -30,7 +30,7 @@ describe("the thresholds", () => {
     expect(SLOWER_THAN_STAGING_PCT).toBe(10);
     expect(SLOWER_THAN_STAGING_MS).toBe(100);
     expect(SLOWER_PCT_FLOOR_MS).toBe(50);
-    expect(NOT_GATED.has("/api/warm")).toBe(true);
+    expect([...NOT_GATED]).toEqual(["/api/warm", "static (no Worker)", "404 (Worker, no data)"]);
   });
 });
 
@@ -76,9 +76,18 @@ describe("judgeRoute", () => {
     expect(j.reasons).toEqual(["+31 ms (+10 %) vs staging"]);
   });
 
-  it("shows the warm-up ping but never judges it", () => {
-    const j = judgeRoute({ ...ok, name: "/api/warm", warmP50: 900 }, { ...ok, warmP50: 5 });
-    expect(j.verdict).toBe("INFO");
+  it("shows the hosting rows' timing but never judges it", () => {
+    for (const name of NOT_GATED) {
+      const j = judgeRoute({ ...ok, name, warmP50: 900 }, { ...ok, warmP50: 5 });
+      expect(j.verdict).toBe("INFO");
+      expect(j.reasons.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("still fails a hosting row on its status", () => {
+    const j = judgeRoute({ ...ok, name: "static (no Worker)", statusOk: false, statuses: "502" });
+    expect(j.verdict).toBe("FAIL");
+    expect(j.reasons).toEqual(["status 502"]);
   });
 
   it("lists every reason", () => {
