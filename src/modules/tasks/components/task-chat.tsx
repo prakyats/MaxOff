@@ -250,7 +250,8 @@ export function TaskChat({
           {phone ? feed : null}
           <div
             data-slot="task-chat-composer-row"
-            className="border-t px-3 pt-2.5 pb-[calc(0.625rem+var(--app-safe-bottom))] data-[typing=true]:pb-2.5"
+            // The sample's raised bar: the card's surface over the feed, a hairline above it.
+            className="bg-card border-border border-t px-3 pt-2.5 pb-[calc(0.625rem+var(--app-safe-bottom))] data-[typing=true]:pb-2.5"
             data-typing={typing ? "true" : "false"}
           >
             {phone ? composer : null}

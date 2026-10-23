@@ -538,7 +538,9 @@ async function chatData({
       };
     });
   const others = people.filter((person) => person.id !== viewerId).map((person) => person.name);
-  const placeholder = others.length === 1 ? `Message ${others[0]}…` : "Message…";
+  // One line, the first name only (the design gate, 23 Oct): "Message Asha…".
+  const placeholder =
+    others.length === 1 ? `Message ${others[0]?.split(/\s+/)[0] ?? ""}…` : "Message…";
   return { messages, events, firstUnread, unread, people, placeholder };
 }
 

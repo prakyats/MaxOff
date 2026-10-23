@@ -577,6 +577,16 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     const own = chat.locator('[data-slot="task-comment"][data-own="true"]');
     const hint = chat.locator('[data-slot="composer-hint"]');
     await expect(box).toBeVisible();
+    // The design gate (23 Oct): "Message <first name>…" on one line, in the sample's raised bar.
+    await expect(box).toHaveAttribute("placeholder", /^Message [^\s…]+…$/);
+    expect((await box.boundingBox())?.height ?? 0, "one line").toBeLessThanOrEqual(48);
+    const surfaces = await chat
+      .locator('[data-slot="task-chat-composer-row"]')
+      .evaluate((row) => [
+        getComputedStyle(row).backgroundColor,
+        getComputedStyle(row.querySelector("textarea") as HTMLElement).backgroundColor,
+      ]);
+    expect(surfaces[0], "the bar is raised above the field").not.toBe(surfaces[1]);
 
     if (phone(page)) {
       // Touch: Enter is a new line and never sends; Send sends. No hint.
