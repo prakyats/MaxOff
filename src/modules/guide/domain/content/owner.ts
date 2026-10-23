@@ -640,10 +640,10 @@ export const OWNER_GUIDE: Guide = {
           summary: "Month, week and day views, with filters.",
           blocks: [
             text(
-              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
+              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month. The full month lists the month’s days in two columns, so every line reads; scroll it to see the rest of the month.",
             ),
             text(
-              "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             ),
             text(
               "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
@@ -666,7 +666,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in the middle of the screen, with "Open day" and "+ New task on" the date at the bottom.',
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". Under the week strip and the compact month the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens as a list in a sheet, and on a laptop in the middle of the screen, with "Open day" and "+ New task on" the date side by side at the bottom; on a phone, "Open day" shows that day under the week strip.',
             ),
             steps(
               "Open Calendar and tap a day.",

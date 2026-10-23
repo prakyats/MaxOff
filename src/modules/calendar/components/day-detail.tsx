@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
+import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -38,12 +39,25 @@ import { Timeline, type TimelineEventLink } from "./timeline";
  * A day's detail (6.4b; Kickoff 6 decision 25 D): the phone's panel under the week strip or the
  * compact month, the day sheet (the full month, and the laptop's day dialog), and the laptop Day's
  * side column. In order: the day's heading; the all-day line (the holiday, the weekly off, leave,
- * all-day events, "Due · N"); the timed events on an hour timeline (the phone and the sheet), each
+ * all-day events, "Due · N"); the timed events on an hour timeline (the phone's in-page day; the
+ * phone's sheet and the laptop list them as rows, the sheet since the design gate of 23 Oct), each
  * with its time, place and people and opening its task; "Due · N" and its tasks; "Who's free" for
  * the Owner and Admins; then the day's action, the route's ("+ New task on 8 Oct" for whoever may
  * create a task, "Suggest a task" for Crew). An empty day says "Nothing on this day." and nothing
  * else (a day with only a due task is not empty, 08 Oct bug (c)).
  */
+
+/**
+ * A due task's chip in the day's rows (the approved sample's "Due today"): red "Overdue" on a past
+ * day, amber "Due today" today, amber "Due" on a later day.
+ */
+function dueChip(
+  date: ISODate,
+  today: ISODate,
+): { status: string; tone: "danger" | "attention"; label: string } {
+  if (date < today) return { status: "overdue", tone: "danger", label: "Overdue" };
+  return { status: "due", tone: "attention", label: date === today ? "Due today" : "Due" };
+}
 
 /** An event or a due task as a link to its task, backing out of a sheet first (`OverlayLink`). */
 export const eventLink: TimelineEventLink = (event, children, className, style) => (
@@ -295,8 +309,8 @@ export function DayDetail({
   /** The day's action (the route's: New task, or Suggest a task); null for none. */
   action: ReactNode;
   /**
-   * The timed events on an hour timeline (the phone, the sheet); the laptop Day's side column has
-   * the timeline beside it and lists them instead.
+   * The timed events on an hour timeline (the phone's in-page day); the phone's day sheet and the
+   * laptop Day's side column list them as rows instead.
    */
   timeline: boolean;
   /**
@@ -327,10 +341,54 @@ export function DayDetail({
     day.weeklyOff ||
     day.leave.length > 0 ||
     (!rowsForAllDay && day.events.some((event) => event.startAt === null));
-  // What follows the events: an Admin's others' busy times (beside the laptop Day's timeline),
-  // "Due · N" and its tasks, "Who's free" and the day's buttons.
+  // What follows the events: "Due · N" and its tasks, the client work, then who is away: an
+  // Admin's others' busy times (without a timeline to show them) and "Who's free"; the buttons.
   const rest = (
     <>
+      {day.due.length > 0 ? (
+        <section
+          aria-labelledby={split ? `${headingId}-tasks` : `${headingId}-due`}
+          data-slot="calendar-due-list"
+          className="flex flex-col gap-2"
+        >
+          {split ? null : (
+            <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
+              <ClockIcon className="text-muted-foreground size-4" aria-hidden />
+              Due · {day.due.length}
+            </h3>
+          )}
+          <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
+            {day.due.map((item) => (
+              <li key={item.id}>
+                {/* The approved sample's row: the title, "Asha · due 6:00 pm", the chip, then ›. */}
+                <OverlayLink
+                  href={`/tasks/${item.id}`}
+                  data-slot="calendar-due"
+                  data-task={item.id}
+                  className="focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="font-medium break-words">{item.title}</span>
+                    <span className="text-muted-foreground text-xs break-words">
+                      {item.owner} ·{" "}
+                      <span className="tabular-nums">due {formatTime(item.dueAt)}</span>
+                    </span>
+                  </span>
+                  <StatusBadge {...dueChip(day.date, today)} />
+                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                </OverlayLink>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {day.items.length > 0 ? (
+        <ClientItemsList
+          items={day.items}
+          headingId={`${headingId}-items`}
+          late={day.date < today}
+        />
+      ) : null}
       {!timeline && day.busy.length > 0 ? (
         <ul aria-label="Busy" className="text-muted-foreground flex flex-col gap-1 text-xs">
           {day.busy.map((block) => (
@@ -355,56 +413,6 @@ export function DayDetail({
             </li>
           ))}
         </ul>
-      ) : null}
-      {day.due.length > 0 ? (
-        <section
-          aria-labelledby={split ? `${headingId}-tasks` : `${headingId}-due`}
-          data-slot="calendar-due-list"
-          className="flex flex-col gap-2"
-        >
-          {split ? null : (
-            <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
-              <ClockIcon className="text-muted-foreground size-4" aria-hidden />
-              Due · {day.due.length}
-            </h3>
-          )}
-          <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
-            {day.due.map((item) => (
-              <li key={item.id}>
-                <OverlayLink
-                  href={`/tasks/${item.id}`}
-                  data-slot="calendar-due"
-                  data-task={item.id}
-                  className="focus-visible:ring-ring flex min-h-14 items-start gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
-                >
-                  <span
-                    className={cn(
-                      "w-16 shrink-0 pt-px text-xs tabular-nums",
-                      day.date < today ? "text-danger" : "text-muted-foreground",
-                    )}
-                  >
-                    {formatTime(item.dueAt)}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="font-medium break-words">{item.title}</span>
-                    <span className="text-muted-foreground text-xs break-words">{item.owner}</span>
-                  </span>
-                  <ChevronRightIcon
-                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                    aria-hidden
-                  />
-                </OverlayLink>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {day.items.length > 0 ? (
-        <ClientItemsList
-          items={day.items}
-          headingId={`${headingId}-items`}
-          late={day.date < today}
-        />
       ) : null}
       {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
@@ -527,9 +535,10 @@ export function ClientItemsList({
                 <span className="text-muted-foreground text-xs break-words">
                   {item.title} · {item.project}
                   {item.done ? " · done" : ""}
-                  {late && !item.done ? <span className="text-danger"> · late</span> : null}
                 </span>
               </span>
+              {/* Lateness is a chip, never red text alone (the design gate, 23 Oct). */}
+              {late && !item.done ? <StatusBadge status="late" tone="danger" label="Late" /> : null}
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </OverlayLink>
           </li>

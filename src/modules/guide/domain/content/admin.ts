@@ -646,11 +646,11 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month. The full month lists the month’s days in two columns, so every line reads; scroll it to see the rest of the month.",
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              text: "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "text",
@@ -688,7 +688,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in a dialog; on a phone, in a sheet.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. Under the week strip and the compact month the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens as a list in a sheet (a dialog on a laptop), with “Open day” and “+ New task on ‹day›” side by side at the bottom; on a phone, Open day shows that day under the week strip.",
             },
             {
               kind: "steps",

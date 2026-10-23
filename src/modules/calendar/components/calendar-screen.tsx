@@ -231,9 +231,24 @@ export function CalendarScreen({
     replaceOnPageEntry(href);
   }
 
-  /** "Open day" (the laptop's day dialog): the dialog backs out, then the Day view replaces. */
+  /**
+   * "Open day" in the day's popup: the popup backs out, then the laptop's Day view replaces; the
+   * phone shows the day under the week strip (size 1, its timeline in the page), as view state.
+   */
   function openDay(date: ISODate) {
-    replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
+    if (desktop) {
+      replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
+      return;
+    }
+    closeOverlaysThen(() =>
+      whenOnPageEntry(() => {
+        // Out of the popstate's own dispatch, as `replaceOnPageEntry`.
+        window.setTimeout(() => {
+          setSize(1);
+          go(date);
+        }, 0);
+      }),
+    );
   }
 
   // The laptop's step follows its view: a day, a week or a month.
@@ -773,7 +788,7 @@ export function CalendarScreen({
             <button
               type="button"
               data-slot="calendar-open-day"
-              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted hidden min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:inline-flex"
+              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted inline-flex min-h-11 items-center justify-center rounded-full border px-4 text-sm font-medium outline-none focus-visible:ring-2 md:min-h-8 md:rounded-lg md:px-3"
               onClick={() => openDay(sheetDate)}
             >
               Open day
