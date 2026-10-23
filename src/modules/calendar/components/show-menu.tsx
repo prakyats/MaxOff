@@ -29,21 +29,22 @@ export function ShowMenu({
   className?: string;
 }) {
   return (
-    <DropdownMenu defaultOpen={defaultOpen}>
+    <DropdownMenu
+      defaultOpen={defaultOpen}
+      onOpenChange={(open) => {
+        if (open) return;
+        // Closed by hand (a choice, Escape, a tap outside) the menu leaves its entry spent
+        // (overlay-history); backed out once it has closed, so the menu adds no step at all and
+        // the next back leaves the calendar (§14.2 d), even after a view's replace. Closed by
+        // back, its entry is already gone and this does nothing.
+        window.setTimeout(() => whenOnPageEntry(() => undefined), 0);
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <ShowTrigger show={show} className={className} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-auto min-w-40" data-menu="calendar-show">
-        <DropdownMenuRadioGroup
-          value={show}
-          onValueChange={(value) => {
-            onShow(parseShow(value));
-            // A choice closes the menu by hand, which leaves its entry spent (overlay-history);
-            // backed out once the menu has closed, so a choice adds no step at all and the next
-            // back leaves the calendar (§14.2 d), even after a view's replace.
-            window.setTimeout(() => whenOnPageEntry(() => undefined), 0);
-          }}
-        >
+        <DropdownMenuRadioGroup value={show} onValueChange={(value) => onShow(parseShow(value))}>
           {CALENDAR_SHOWS.map((option) => (
             <DropdownMenuRadioItem key={option} value={option} data-show={option}>
               {SHOW_LABELS[option]}

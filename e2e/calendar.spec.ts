@@ -2139,12 +2139,22 @@ test.describe("the calendar's All ▾, as Crew", () => {
         await page.goto("/calendar");
         await hydrated(page);
         await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toBeVisible();
-        const tops = await page
+        // The parts are centred and of different heights (the view switch is taller), so one
+        // row is the same middle for every part, as the Owner's check reads it.
+        const bar = await page
           .locator('[data-slot="calendar-controls"]:visible')
-          .evaluate((element) =>
-            [...element.children].map((child) => Math.round(child.getBoundingClientRect().top)),
-          );
-        expect(new Set(tops).size, `one row at ${width}`).toBe(1);
+          .evaluate((element) => ({
+            overflows: element.scrollWidth > element.clientWidth,
+            middles: [...element.children].map((child) => {
+              const part = child.getBoundingClientRect();
+              return part.top + part.height / 2;
+            }),
+          }));
+        expect(bar.overflows, `nothing pushed out at ${width}`).toBe(false);
+        const middle = bar.middles[0] ?? 0;
+        for (const part of bar.middles) {
+          expect(Math.abs(part - middle), `one row at ${width}`).toBeLessThan(2);
+        }
       }
     } else {
       await page.goto("/calendar");
