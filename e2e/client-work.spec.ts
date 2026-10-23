@@ -629,11 +629,21 @@ test("the deliverable sheet from Today: the footer fits inside the sheet at ever
     );
     const edit = heading.getByRole("button", { name: "Edit stages" });
     await expect(edit).toBeVisible();
-    const editBox = await edit.boundingBox();
-    if (width < 768) expect(editBox?.height ?? 0).toBeGreaterThanOrEqual(44);
-    const headingBox = await heading.boundingBox();
-    expect(editBox!.y).toBeGreaterThanOrEqual(headingBox!.y);
-    expect(editBox!.y + editBox!.height).toBeLessThanOrEqual(headingBox!.y + headingBox!.height);
+    // Both boxes from one frame: the sheet is still sliding up (slide-in-from-bottom), so two
+    // separate `boundingBox()` reads land a frame apart and differ by the sheet's own movement.
+    const boxes = await heading.evaluate((row) => {
+      const button = row.querySelector('[data-slot="item-stages-edit"]');
+      const own = row.getBoundingClientRect();
+      const edit = button?.getBoundingClientRect();
+      return {
+        row: { top: own.top, bottom: own.bottom },
+        edit: edit ? { top: edit.top, bottom: edit.bottom, height: edit.height } : null,
+      };
+    });
+    expect(boxes.edit).not.toBeNull();
+    if (width < 768) expect(boxes.edit!.height).toBeGreaterThanOrEqual(44);
+    expect(boxes.edit!.top).toBeGreaterThanOrEqual(boxes.row.top);
+    expect(boxes.edit!.bottom).toBeLessThanOrEqual(boxes.row.bottom);
     await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveCount(1);
 
     // (1) Every footer action whole and inside the sheet: never cut (the truncation rule).

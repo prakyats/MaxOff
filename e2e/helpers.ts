@@ -799,9 +799,13 @@ export async function expectNoHorizontalScroll(page: Page): Promise<void> {
     return {
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
-      // Whatever is actually sticking out, so a failure names the culprit.
+      // Whatever is actually sticking out, so a failure names the culprit: the outermost of each
+      // (an element inside one already named is left out), so a wide band's own children cannot
+      // fill the list ahead of the element that widened the page (CI 40034086893: the push band
+      // and four of its spans, and nothing else named).
       wide: [...document.querySelectorAll<HTMLElement>("body *")]
         .filter((el) => el.getBoundingClientRect().right > edge && !insideFittingScroller(el))
+        .filter((el, _, all) => !all.some((other) => other !== el && other.contains(el)))
         .slice(0, 5)
         .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
     };

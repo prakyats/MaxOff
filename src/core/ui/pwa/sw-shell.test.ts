@@ -180,6 +180,9 @@ describe("which requests the skeleton cache may answer", () => {
     ).toBe(true);
     // A task's page: no layout, a static title, the skeleton and its own id only.
     expect(handled(prefetch("/tasks/10000000-0000-4000-8000-000000000001?_rsc=abc"))).toBe(true);
+    // Tasks' foot links (v13, ADR-0014 amendment 2026-10-24): the bare address only.
+    expect(handled(prefetch("/tasks/all?_rsc=abc"))).toBe(true);
+    expect(handled(prefetch("/tasks/requests?_rsc=abc"))).toBe(true);
 
     // A navigation's or a refresh's request (no prefetch header) carries the page's data.
     const notPrefetch = new Request(`${ORIGIN}/tasks?_rsc=abc`, {
@@ -191,7 +194,7 @@ describe("which requests the skeleton cache may answer", () => {
       prefetch("/clients/10000000-0000-4000-8000-000000000001?_rsc=abc"),
       prefetch("/people/10000000-0000-4000-8000-000000000001?_rsc=abc"),
       prefetch("/tasks/10000000-0000-4000-8000-000000000001/x?_rsc=abc"),
-      prefetch("/tasks/all?_rsc=abc"),
+      prefetch("/tasks/all?state=review&_rsc=abc"),
       prefetch("/leave?_rsc=abc"),
       prefetch("/today/people?group=present&_rsc=abc"),
       // Home and Reports: their skeletons show the viewer's name or a date.
@@ -290,7 +293,7 @@ describe("stale-while-revalidate for the viewer's role", () => {
       worker.network[index]!.resolve(answers[index]!);
       await worker.settle();
     }
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v12")?.keys() ?? [])];
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v13")?.keys() ?? [])];
     expect(kept.filter((key) => !key.includes("__maxoff"))).toEqual([]);
   });
 });
@@ -402,7 +405,7 @@ describe("one kept copy whichever page asked", () => {
     response.headers.set("vary", "rsc, next-router-state-tree, next-url");
     worker.network[0]!.resolve(response);
     await worker.settle();
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v12")?.keys() ?? [])];
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v13")?.keys() ?? [])];
     expect(kept.filter((key) => !key.includes("__maxoff"))).toEqual([]);
   });
 });
@@ -444,7 +447,7 @@ describe("one viewer, one deployment: everything else is dropped", () => {
     const worker = await withKeptSkeleton("owner");
     await worker.tell(null);
     expect(await answeredAtOnce(worker)).toBe(false);
-    expect(worker.caches.stores.has("maxoff-shell-v12")).toBe(false);
+    expect(worker.caches.stores.has("maxoff-shell-v13")).toBe(false);
   });
 
   it("an unknown viewer counts as none", async () => {
@@ -486,7 +489,7 @@ describe("one viewer, one deployment: everything else is dropped", () => {
     expect(await answeredAtOnce(worker, next)).toBe(false);
     worker.network[1]!.resolve(payload("new build", `${ORIGIN}/tasks?_rsc=abc`));
     await worker.settle();
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v12")?.keys() ?? [])].filter(
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v13")?.keys() ?? [])].filter(
       (key) => !key.includes("__maxoff"),
     );
     expect(kept).toEqual([`${ORIGIN}/tasks?segment=&tree=&dpl=def456-2-1`]);
@@ -514,7 +517,7 @@ describe("one viewer, one deployment: everything else is dropped", () => {
     await worker.settle();
     expect(await (await answer).text()).toBe(`0:["id","${other}","d"] loading ${other}`);
     expect(worker.network).toHaveLength(1);
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v12")?.keys() ?? [])].filter((key) =>
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v13")?.keys() ?? [])].filter((key) =>
       key.includes("/tasks/"),
     );
     expect(kept).toHaveLength(1);
@@ -536,7 +539,7 @@ describe("one viewer, one deployment: everything else is dropped", () => {
       worker.network.at(-1)!.resolve(payload("task skeleton", `${ORIGIN}/tasks/${id(n)}?_rsc=abc`));
       await worker.settle();
     }
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v12")?.keys() ?? [])];
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v13")?.keys() ?? [])];
     const tasks = kept.filter((key) => key.includes("/tasks/:id"));
     expect(tasks).toHaveLength(60);
     expect(tasks[0]).toContain("seg-5");

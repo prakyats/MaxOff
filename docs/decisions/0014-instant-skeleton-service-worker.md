@@ -114,3 +114,20 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
 - **The evidence.** `e2e/instant-skeleton.spec.ts` on the database the full run left (5 of 5 red
   before): 74 of 74 green at 375 and 430 px, tap to skeleton 185–235 ms. The 300 ms limit is
   unchanged. Unit tests cover the one copy, the id swap and the 60-copy limit.
+
+## Amendment (2026-10-24)
+
+- **The change.** Two more addresses admitted under decision 1, by its own rule (the e2e proof
+  first): Tasks' foot links, `/tasks/all` and `/tasks/requests` (`public/sw.js` v13). Neither has
+  a layout of its own, and each loading screen reads the viewer's role only (the title and the
+  filters for the role, "Suggest a task" for whoever suggests). Only the bare address is kept:
+  `/tasks/all?state=review` carries a query and stays network-only. Nothing else in the decision
+  changes.
+- **Why.** On a cold Worker at 430 px, where Tasks' foot shows on the first screen, the two
+  unkept links held two of the router's four prefetch slots for ~3 s each beside the shell's
+  unkept `/today`, so the tapped row's prefetch could still leave only with the touch and land
+  after it (CI 39978207656 and 40034086893: "task row: the traced skeleton after the tap" null).
+  Answered from the worker's copy, they free their slots at once.
+- **The evidence.** `e2e/instant-skeleton.spec.ts` reads both prefetches for every role (Tasks'
+  foot scrolled into view) and finds no member data; the first check of that file now counts
+  them among the addresses the worker may keep.
