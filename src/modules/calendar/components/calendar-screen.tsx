@@ -53,10 +53,8 @@ import {
   swipeOf,
 } from "../domain/size";
 import {
-  CALENDAR_SHOWS,
   type CalendarShow,
   parseShow,
-  SHOW_LABELS,
   SHOW_STORAGE_KEY,
   shownDay,
   showsSwitch,
@@ -64,7 +62,9 @@ import {
 import { dayLabel } from "../domain/strips";
 import { AllDayChips, DayDetail, eventLink } from "./day-detail";
 import type { FilterChoices } from "./filters-sheet";
+import { useHeaderFit, useLeaveFit } from "./leave-fit";
 import { MonthGrid } from "./month-grid";
+import { ShowControl } from "./show-control";
 import { Timeline, weekdayHeading } from "./timeline";
 
 /** The sheets load after the page, on their first opening (ARCHITECTURE §19). */
@@ -107,8 +107,9 @@ const ICON_BUTTON =
  * today selected; the full month with labelled strips), changed by a vertical swipe on the
  * calendar or on the 44px handle under it, or by tapping the handle. Left and right swipes (and
  * the header's arrows) move a week or a month; a tap selects a day, or in the full month opens the
- * day sheet. The header: the month's name, Today (a calendar icon with today's number) and
- * Filters. The full month fits the screen above the bottom bar (the owner's phone walk,
+ * day sheet. The header, one row at every phone width (option A, owner 23 Oct): ‹, the month's
+ * name, ›, Today (a calendar icon with today's number), the Owner's and Admins' `All ▾` and
+ * Filters as a 44 px icon (a dot while a filter is on). The full month fits the screen above the bottom bar (the owner's phone walk,
  * 2026-10-08; `data-fit-viewport="phone"`, globals.css); in the week and the compact month the
  * day under the calendar is part of the page, which scrolls (PP-light-4, V5b): its timeline draws
  * only the hours around the day's events and has no scroll of its own.
@@ -187,7 +188,13 @@ export function CalendarScreen({
   // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). On the phone only
   // the full month fits it (`data-fit-viewport="phone"` below; PP-light-4).
   const fit = view !== "month";
-  const desktop = useIsDesktop() === true;
+  // The laptop's leave labels never truncate (v1.8, owner 23 Oct): each picks its wording.
+  const laptopRef = useRef<HTMLDivElement>(null);
+  useLeaveFit(laptopRef);
+  const phoneHeaderRef = useRef<HTMLDivElement>(null);
+  useHeaderFit(phoneHeaderRef);
+  const isDesktop = useIsDesktop();
+  const desktop = isDesktop === true;
 
   /**
    * Moves the selected day: in the month read, at once; another month through the router. While
@@ -231,24 +238,9 @@ export function CalendarScreen({
     replaceOnPageEntry(href);
   }
 
-  /**
-   * "Open day" in the day's popup: the popup backs out, then the laptop's Day view replaces; the
-   * phone shows the day under the week strip (size 1, its timeline in the page), as view state.
-   */
+  /** "Open day" (the laptop's day dialog): the dialog backs out, then the Day view replaces. */
   function openDay(date: ISODate) {
-    if (desktop) {
-      replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
-      return;
-    }
-    closeOverlaysThen(() =>
-      whenOnPageEntry(() => {
-        // Out of the popstate's own dispatch, as `replaceOnPageEntry`.
-        window.setTimeout(() => {
-          setSize(1);
-          go(date);
-        }, 0);
-      }),
-    );
+    replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
   }
 
   // The laptop's step follows its view: a day, a week or a month.
@@ -378,33 +370,27 @@ export function CalendarScreen({
       {count > 0 ? `Filters · ${count}` : "Filters"}
     </button>
   );
-  const showSwitch = switchable ? (
-    <div
-      role="group"
-      aria-label="Show"
-      data-slot="calendar-show"
-      data-current={show}
-      className="bg-muted grid shrink-0 grid-cols-[auto_auto_auto] gap-0.5 rounded-lg p-0.5 max-md:w-full max-md:grid-cols-3 md:gap-1 md:p-1"
+  // The phone header's Filters (option A, owner 23 Oct): a 44 px icon button, a neutral dot while
+  // a filter is on; its name says how many.
+  const phoneFilters = (
+    <button
+      type="button"
+      onClick={() => setFiltersOpen(true)}
+      data-slot="calendar-filters-button"
+      data-count={count}
+      aria-label={count > 0 ? `Filters · ${count} on` : "Filters"}
+      className={cn("pressable relative", ICON_BUTTON)}
     >
-      {CALENDAR_SHOWS.map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => chooseShow(option)}
-          aria-pressed={show === option}
-          data-show={option}
-          className={cn(
-            "pressable focus-visible:ring-ring flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 md:min-h-6",
-            show === option
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {SHOW_LABELS[option]}
-        </button>
-      ))}
-    </div>
-  ) : null;
+      <SlidersHorizontalIcon className="size-4" aria-hidden />
+      {count > 0 ? (
+        <span
+          aria-hidden
+          data-slot="calendar-filters-dot"
+          className="bg-foreground absolute top-2.5 right-2.5 size-2 rounded-full"
+        />
+      ) : null}
+    </button>
+  );
   // Today is inactive while the period on screen already holds today (the owner, 22 Oct): the
   // phone's week or month, the laptop's day, week or month. Dimmed, `aria-disabled` and out of
   // the tab order; it wakes as soon as another period is shown.
@@ -474,7 +460,14 @@ export function CalendarScreen({
         data-fit-viewport={size === 3 ? "phone" : undefined}
         className="flex min-w-0 grow basis-0 flex-col gap-1 md:hidden"
       >
-        <div data-slot="calendar-header" className="flex min-w-0 flex-wrap items-center gap-1">
+        {/* One row at every phone width (option A, owner 23 Oct): ‹ · the month · › · Today ·
+            All ▾ · Filters; where "Client work ▾" would not fit, it says "Client ▾". */}
+        <div
+          ref={phoneHeaderRef}
+          data-slot="calendar-header"
+          // Wraps only at very large system text (a second line beats anything cut).
+          className="group/header flex min-w-0 flex-wrap items-center gap-1 data-[fit=snug]:gap-0 data-[fit=tight]:gap-0"
+        >
           <button
             type="button"
             onClick={() => go(stepDate(selected, size, -1, today))}
@@ -491,7 +484,10 @@ export function CalendarScreen({
             // One line, the short month ("Oct 2026"), so the header stays one compact row.
             className="flex-1 text-base font-semibold whitespace-nowrap"
           >
-            {formatIST(istDayStart(monthOf(selected)), "MMM yyyy")}
+            {formatIST(istDayStart(monthOf(selected)), "MMM")}
+            <span className="group-data-[fit=tight]/header:hidden">
+              {formatIST(istDayStart(monthOf(selected)), " yyyy")}
+            </span>
           </h2>
           <button
             type="button"
@@ -503,8 +499,10 @@ export function CalendarScreen({
             <ChevronRightIcon className="size-4" aria-hidden />
           </button>
           {todayButton}
-          {filtersButton}
-          {showSwitch}
+          {switchable && isDesktop !== true ? (
+            <ShowControl show={show} onShow={chooseShow} className="min-h-11 pr-1 pl-2" />
+          ) : null}
+          {phoneFilters}
         </div>
         <div
           data-slot="calendar-area"
@@ -546,7 +544,8 @@ export function CalendarScreen({
                         // today the red circle on its date and its box one surface step up with
                         // no shadow (PP-calendar-15, FINAL 4); PP-calendar-4: the weekly off muted
                         // and tinted.
-                        // Today is never also outlined (the design gate, 23 Oct).
+                        // Today is never also outlined (the design gate, 23 Oct; kept on the
+                        // phone by the owner's correction of 23 Oct).
                         chosen && day.date !== today
                           ? "border-foreground"
                           : "border-border/60 active:bg-muted/60",
@@ -617,6 +616,7 @@ export function CalendarScreen({
 
       {/* Laptop ----------------------------------------------------------------------------- */}
       <div
+        ref={laptopRef}
         data-slot="calendar-laptop"
         data-view={view}
         data-fit-viewport={fit ? "laptop" : undefined}
@@ -624,7 +624,8 @@ export function CalendarScreen({
       >
         <div
           data-slot="calendar-controls"
-          className="flex min-w-0 shrink-0 flex-wrap items-center gap-3"
+          // One row at every laptop width (v1.8 calendar toolbar, owner 23 Oct).
+          className="flex min-w-0 shrink-0 flex-nowrap items-center gap-3"
         >
           <nav
             aria-label="Calendar view"
@@ -686,8 +687,12 @@ export function CalendarScreen({
               Today
             </button>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            {showSwitch}
+          {/* The laptop's All ▾ (v1.8 calendar toolbar, owner 23 Oct) beside Filters; once the page
+              knows which it is, only that layout's menu is drawn. */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {switchable && isDesktop !== false ? (
+              <ShowControl show={show} onShow={chooseShow} />
+            ) : null}
             {filtersButton}
           </div>
         </div>
@@ -737,7 +742,13 @@ export function CalendarScreen({
               );
             }}
             allDay={(day) => (
-              <AllDayChips day={day} today={today} dueAsChip onDue={() => setSheetDate(day.date)} />
+              <AllDayChips
+                day={day}
+                today={today}
+                dueAsChip
+                fitLeave
+                onDue={() => setSheetDate(day.date)}
+              />
             )}
             eventLink={eventLink}
             laptop
@@ -756,6 +767,7 @@ export function CalendarScreen({
                   day={day}
                   today={today}
                   dueAsChip
+                  fitLeave
                   onDue={() => setSheetDate(day.date)}
                 />
               )}
@@ -790,7 +802,7 @@ export function CalendarScreen({
             <button
               type="button"
               data-slot="calendar-open-day"
-              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted inline-flex min-h-11 items-center justify-center rounded-full border px-4 text-sm font-medium outline-none focus-visible:ring-2 md:min-h-8 md:rounded-lg md:px-3"
+              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted hidden min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:inline-flex"
               onClick={() => openDay(sheetDate)}
             >
               Open day

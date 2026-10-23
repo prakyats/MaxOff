@@ -144,6 +144,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
           kind: "leave",
           key: "leave",
           label: "Asha · On leave",
+          short: "Asha · Leave",
           spoken: "Asha off",
           pending: false,
         },
@@ -159,6 +160,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         kind: "leave",
         key: "leave",
         label: "Asha · On leave",
+        short: "Asha · Leave",
         spoken: "Asha off, half day",
         pending: false,
       },
@@ -169,12 +171,26 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         TODAY,
       ),
     ).toEqual([
-      { kind: "leave", key: "leave", label: "2 on leave", spoken: "2 off", pending: false },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "2 on leave",
+        short: "2 on leave",
+        spoken: "2 off",
+        pending: false,
+      },
     ]);
     expect(
       allStrips(day({ leave: [off("m", "Me", { own: true, pending: true })] }), TODAY),
     ).toEqual([
-      { kind: "leave", key: "leave", label: "You · On leave", spoken: "You off", pending: true },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "You · On leave",
+        short: "You · Leave",
+        spoken: "You off",
+        pending: true,
+      },
     ]);
   });
 
@@ -223,14 +239,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     // PP-calendar-5: each task a named chip; SCOPE §6: then the client work, the client first,
     // late on a past day; a done one is not due.
     expect(allStrips(past, TODAY)).toEqual([
-      {
-        kind: "due",
-        key: "due-t-2026-10-07",
-        label: "Edit",
-        long: "Edit · due 6:00 pm",
-        tone: "overdue",
-        color: VIOLET,
-      },
+      { kind: "due", key: "due-t-2026-10-07", label: "Edit", tone: "overdue", color: VIOLET },
       {
         kind: "item",
         key: "item-i",

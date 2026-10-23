@@ -243,7 +243,10 @@ export function Timeline({
         )}
         style={laptop || span ? undefined : { height: `calc(var(--hour) * ${WINDOW_HOURS})` }}
       >
-        <div>
+        {/* In the page (span), room under the last hour for the "now" dot and the last hour's
+            label, which sit across the line: the day never overflows its own box, so nothing
+            in it scrolls (PP-light-4; "now" at 11:57 on a day drawn to 12:00 stuck out 4 px). */}
+        <div className={cn(span && "pb-2")}>
           <div
             ref={hoursGrid}
             className="relative grid"

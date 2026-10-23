@@ -17,6 +17,16 @@ export const SHOW_LABELS: Record<CalendarShow, string> = {
   client: "Client work",
 };
 
+/**
+ * The phone header's shorter words for the `All ▾` button (option A, owner 23 Oct): used only where
+ * the one-row header would not fit "Client work ▾"; never an ellipsis.
+ */
+export const SHOW_SHORT_LABELS: Record<CalendarShow, string> = {
+  all: "All",
+  tasks: "Tasks",
+  client: "Client",
+};
+
 /** The device's remembered choice (`localStorage`). */
 export const SHOW_STORAGE_KEY = "maxoff.calendar.show";
 

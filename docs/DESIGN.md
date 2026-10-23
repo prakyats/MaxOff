@@ -256,8 +256,8 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 - **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled solid red (`destructive-solid`, white digit 5.85:1 in both themes; the gate follow-up, 23 Oct)
   red circle on its date number and its whole box the neutral `bg-today` tint, never outlined (PP-calendar-15; the design
-  gate, 23 Oct), any other selected day the outlined box; the phone's full month is the month's days in two columns
-  (`PhoneMonth`, the calendar sample's phone layout), so its chips read ("Edit · 11:45 am", "Test 4 · due 6:00 pm"); the weekly off's date number is `muted-foreground` and its box tinted
+  gate, 23 Oct), any other selected day the outlined box; the phone's full month is the live v1.7.1 seven-column
+  month (the owner's correction, 23 Oct: the two-column `PhoneMonth` is gone); the weekly off's date number is `muted-foreground` and its box tinted
   `bg-muted/50` (blue means in progress); weekdays read "Mon Tue …" on a laptop, single letters on a phone. One chip look for the month and the day's
   dialog (`calendar-chip`): an event in its type's colour (tint and left edge), the title before
   the time; what is due by name in `attention` (amber) or `danger` (red, overdue) with its clock or

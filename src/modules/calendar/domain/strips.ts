@@ -46,8 +46,6 @@ export type Strip =
       key: string;
       /** The task's or the deliverable's title. */
       label: string;
-      /** "Test 4 · due 6:00 pm": the phone's two-column month, where a box has the room. */
-      long: string;
       tone: "due" | "overdue";
       /** The task type's colour; null for a deliverable (no type: the tone's colour). */
       color: string | null;
@@ -73,6 +71,11 @@ export type Strip =
       key: string;
       /** "Asha · On leave" or "2 on leave": the bar's text. */
       label: string;
+      /**
+       * "Asha · Leave": the laptop bar's wording where "On leave" has no room (v1.8, owner 23 Oct:
+       * a leave bar never truncates); "2 on leave" stays as it is.
+       */
+      short: string;
       /** "Asha off", "Asha off, half day", "2 off": what a screen reader hears. */
       spoken: string;
       pending: boolean;
@@ -146,6 +149,7 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
       kind: "leave",
       key: "leave",
       label: `${who} · On leave`,
+      short: `${who} · Leave`,
       spoken: only.half ? `${who} off, half day` : `${who} off`,
       pending: only.pending,
     };
@@ -154,6 +158,7 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
     kind: "leave",
     key: "leave",
     label: `${people.length} on leave`,
+    short: `${people.length} on leave`,
     spoken: `${people.length} off`,
     pending: people.every((item) => item.pending),
   };
@@ -175,14 +180,7 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
   }
   const tone = day.date < today ? "overdue" : "due";
   for (const due of day.due) {
-    strips.push({
-      kind: "due",
-      key: `due-${due.id}`,
-      label: due.title,
-      long: `${due.title} · due ${formatTime(due.dueAt)}`,
-      tone,
-      color: due.color,
-    });
+    strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
   }
   // Client work after the tasks (SCOPE §6: timed tasks, due tasks, client work, "+N more").
   for (const item of day.items) {
