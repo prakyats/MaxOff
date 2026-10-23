@@ -286,7 +286,10 @@ export type LeaveItem = {
   kind: "leave";
   memberId: string;
   name: string;
-  /** Their photo (V5b-D): the day popup only, never a month box. */
+  /**
+   * Their photo (V5b-D): the day popup, and the laptop's leave bar where even "Name · Leave" has
+   * no room ("[photo] Leave", owner 23 Oct).
+   */
   avatarFileId?: string | null;
   date: ISODate;
   /** "Leave", "Half day", "Comp leave" in full detail; "On leave" / "Half day" for an Admin's others. */

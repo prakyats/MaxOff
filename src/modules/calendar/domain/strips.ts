@@ -76,7 +76,15 @@ export type Strip =
        * a leave bar never truncates); "2 on leave" stays as it is.
        */
       short: string;
-      /** "Asha off", "Asha off, half day", "2 off": what a screen reader hears. */
+      /**
+       * One person's photo for the laptop bar's last wording, `[photo] Leave`, where even "Asha ·
+       * Leave" has no room (owner 23 Oct); null for several people ("2 on leave" stays).
+       */
+      person: { id: string; name: string; avatarFileId: string | null } | null;
+      /**
+       * "Asha, on leave", "Asha, on leave, half day", "2 on leave": what a screen reader hears,
+       * the first name always in full, whichever wording the bar shows.
+       */
       spoken: string;
       pending: boolean;
     };
@@ -150,7 +158,8 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
       key: "leave",
       label: `${who} · On leave`,
       short: `${who} · Leave`,
-      spoken: only.half ? `${who} off, half day` : `${who} off`,
+      person: { id: only.memberId, name: only.name, avatarFileId: only.avatarFileId ?? null },
+      spoken: only.half ? `${who}, on leave, half day` : `${who}, on leave`,
       pending: only.pending,
     };
   }
@@ -159,7 +168,8 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
     key: "leave",
     label: `${people.length} on leave`,
     short: `${people.length} on leave`,
-    spoken: `${people.length} off`,
+    person: null,
+    spoken: `${people.length} on leave`,
     pending: people.every((item) => item.pending),
   };
 }

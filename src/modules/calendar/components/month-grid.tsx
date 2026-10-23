@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 
 import type { CalendarDay, MonthGrid as Grid } from "../domain/calendar";
 import {
@@ -338,8 +339,9 @@ export function MonthGrid({
                           // stripes (PP-calendar-3, 10), so a leave run reads at a glance.
                           LEAVE_TONE,
                           "mt-auto block px-1 font-medium",
-                          // The laptop's bar never truncates: "Name · On leave", or "Name ·
-                          // Leave" where that has no room (v1.8, owner 23 Oct; `useLeaveFit`).
+                          // The laptop's bar never truncates: "Name · On leave", "Name · Leave"
+                          // where that has no room, else "[photo] Leave" (v1.8, owner 23 Oct;
+                          // `useLeaveFit` measures).
                           density === "laptop" ? LEAVE_FIT_LABEL : "truncate",
                           "text-xs leading-4",
                           before
@@ -360,14 +362,30 @@ export function MonthGrid({
                           "\u00a0"
                         ) : (
                           <>
-                            <LeaveIcon className="mr-0.5 size-2.5" />
                             {density === "laptop" ? (
                               <>
-                                <span data-leave-word="long">{leave.label}</span>
-                                <span data-leave-word="short">{leave.short}</span>
+                                <span data-leave-word="long">
+                                  <LeaveIcon className="mr-0.5 size-2.5" />
+                                  {leave.label}
+                                </span>
+                                <span data-leave-word="short">
+                                  <LeaveIcon className="mr-0.5 size-2.5" />
+                                  {leave.short}
+                                </span>
+                                {/* Where even "Name · Leave" has no room: their photo, "Leave"
+                                    (owner 23 Oct); never an ellipsis. */}
+                                {leave.person ? (
+                                  <span data-leave-word="photo">
+                                    <PersonAvatar person={leave.person} size={20} />
+                                    Leave
+                                  </span>
+                                ) : null}
                               </>
                             ) : (
-                              leave.label
+                              <>
+                                <LeaveIcon className="mr-0.5 size-2.5" />
+                                {leave.label}
+                              </>
                             )}
                           </>
                         )}

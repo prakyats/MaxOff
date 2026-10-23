@@ -1,28 +1,40 @@
 import { type RefObject, useEffect, useLayoutEffect } from "react";
 
-/** A leave label's two wordings, chosen by `fitLeaveLabels`. */
+/** A leave label's three wordings, chosen by `fitLeaveLabels`. */
 export const LEAVE_FIT = "data-leave-fit";
 
 /**
  * On a leave label (`data-leave-fit`): one line, clipped (never an ellipsis), and only the
- * wording its `data-leave-fit` names shown (long until measured).
+ * wording its `data-leave-fit` names shown (long until measured): `long`, `short` or `photo`.
  */
 export const LEAVE_FIT_LABEL =
-  "overflow-hidden whitespace-nowrap [&[data-leave-fit=short]_[data-leave-word=long]]:hidden [&:not([data-leave-fit=short])_[data-leave-word=short]]:hidden";
+  "overflow-hidden whitespace-nowrap [&[data-leave-fit=short]_[data-leave-word=long]]:hidden [&[data-leave-fit=photo]_[data-leave-word=long]]:hidden [&:not([data-leave-fit=short])_[data-leave-word=short]]:hidden [&:not([data-leave-fit=photo])_[data-leave-word=photo]]:hidden";
+
+/** The wordings in the order they are tried: the first that fits on its one line wins. */
+const RUNGS = ["long", "short", "photo"] as const;
 
 /**
- * Picks each leave label's wording under `root` (v1.8 calendar toolbar item 2, owner 23 Oct: a
- * leave bar never truncates to "Prakyat · On l…"): "Prakyat · On leave" where it fits on its one
- * line, else the short "Prakyat · Leave". A label is an element with `data-leave-fit` holding a
- * `data-leave-word="long"` and a `data-leave-word="short"` span; CSS shows the one its
- * `data-leave-fit` names. All are set long first, then read, then the ones that overflow set
- * short: one layout read for the lot.
+ * Picks each leave label's wording under `root` (v1.8, owner 23 Oct: a leave bar never truncates
+ * to "Prakyat · On l…", and never shows an ellipsis): "Prakyat · On leave" where it fits on its
+ * one line, else the short "Prakyat · Leave", else the person's photo and "Leave" (`[photo]
+ * Leave`; the box's name still says "Prakyat, on leave"). A label is an element with
+ * `data-leave-fit` holding a `data-leave-word="long"`, a `"short"` and, for one person, a
+ * `"photo"` span; CSS shows the one its `data-leave-fit` names. All are set long first, then
+ * read, then the ones that overflow move one rung down and are read again: the fit is measured,
+ * never guessed from a name's length, and happens before paint, so nothing moves.
  */
 export function fitLeaveLabels(root: HTMLElement): void {
-  const labels = [...root.querySelectorAll<HTMLElement>(`[${LEAVE_FIT}]`)];
-  for (const label of labels) label.setAttribute(LEAVE_FIT, "long");
-  const short = labels.filter((label) => label.scrollWidth > label.clientWidth);
-  for (const label of short) label.setAttribute(LEAVE_FIT, "short");
+  let open = [...root.querySelectorAll<HTMLElement>(`[${LEAVE_FIT}]`)];
+  for (const label of open) label.setAttribute(LEAVE_FIT, RUNGS[0]);
+  for (const rung of RUNGS.slice(1)) {
+    open = open.filter(
+      (label) =>
+        label.scrollWidth > label.clientWidth &&
+        label.querySelector(`[data-leave-word="${rung}"]`) !== null,
+    );
+    if (open.length === 0) return;
+    for (const label of open) label.setAttribute(LEAVE_FIT, rung);
+  }
 }
 
 /** Server-safe layout effect: the label is chosen before the browser paints. */
