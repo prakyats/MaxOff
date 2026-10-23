@@ -1,4 +1,4 @@
-import { formatDateTime, formatIST, formatTime } from "@/core/time";
+import { formatDateTime, formatIST, formatTime, lateWords } from "@/core/time";
 
 import type {
   MemberRole,
@@ -30,6 +30,14 @@ export function isLocked(state: TaskState): boolean {
 /** Overdue is derived, never a state: past the deadline and not completed or cancelled. */
 export function isOverdue(task: Pick<Task, "dueAt" | "state">, now: Date): boolean {
   return !isFinal(task.state) && now.getTime() > Date.parse(task.dueAt);
+}
+
+/**
+ * A late task's chip, "3 h late" / "2 days late" (PP-tasks-2: the words of the Owner's Today
+ * risks, never a bare "Overdue"), or null when it is not overdue.
+ */
+export function lateLabel(task: Pick<Task, "dueAt" | "state">, now: Date): string | null {
+  return isOverdue(task, now) ? lateWords(now.getTime() - Date.parse(task.dueAt)) : null;
 }
 
 /**

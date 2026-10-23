@@ -270,7 +270,11 @@ function request(url, { agent, headers }) {
     const req = transport.request(url, { method: "GET", agent, headers }, (res) => {
       const ttfb = performance.now() - start;
       let bytes = 0;
+      // The body's first bytes, kept only for a sample that did not answer as it should
+      // (`diagnose`): what the Worker said, for the error page's Ray ID and message.
+      const head = [];
       res.on("data", (chunk) => {
+        if (bytes < BODY_HEAD_BYTES) head.push(chunk.subarray(0, BODY_HEAD_BYTES - bytes));
         bytes += chunk.length;
       });
       res.on("end", () => {
@@ -286,6 +290,7 @@ function request(url, { agent, headers }) {
           colo: String(res.headers["cf-ray"] ?? "").split("-")[1] ?? "",
           timing: parseServerTiming(serverTiming),
           location: res.headers.location ?? null,
+          head: Buffer.concat(head).toString("utf8"),
         });
       });
     });
@@ -308,6 +313,8 @@ function request(url, { agent, headers }) {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
+/** How much of a failing sample's body `diagnose` keeps. */
+const BODY_HEAD_BYTES = 300;
 /** `http` for this machine's `pnpm start`, `https` everywhere else. */
 const transport = new URL(base).protocol === "http:" ? http : https;
 
@@ -337,8 +344,8 @@ function parseServerTiming(value) {
 
 /** A sample that failed or timed out: status 0, the timeout as its time, so the table shows it. */
 function failed(error) {
-  process.stderr.write(`sample failed: ${error instanceof Error ? error.message : error}\n`);
   return {
+    error: error instanceof Error ? error.message : String(error),
     status: 0,
     ttfb: REQUEST_TIMEOUT_MS,
     total: REQUEST_TIMEOUT_MS,
@@ -349,7 +356,31 @@ function failed(error) {
     colo: "",
     timing: {},
     location: null,
+    head: "",
   };
+}
+
+/** Whether a sample answered with its route's own status: the route's `expect`, or a 2xx. */
+function statusOk(route, status) {
+  return route.expect !== undefined ? route.expect.includes(status) : status >= 200 && status < 300;
+}
+
+/**
+ * Diagnostics only (2026-10-23, the intermittent 500): a sample that failed, or answered with
+ * another status than its route's own, keeps its `cf-ray` and the body's first bytes in the
+ * `--out` JSON (`failure`) and prints one line to stderr; every other sample drops its body head.
+ * The gate's judgement never reads either.
+ */
+function diagnose(sample, route, at, kind) {
+  const { head, ...rest } = sample;
+  if (sample.status !== 0 && statusOk(route, sample.status)) return rest;
+  const failure = { ray: sample.ray, body: head, ...(sample.error ? { error: sample.error } : {}) };
+  process.stderr.write(
+    `sample ${sample.status === 0 ? "failed" : `HTTP ${sample.status}`}: ${route.name} (${kind}) ${at}${
+      route.path ?? ""
+    } cf-ray=${sample.ray || "none"}${sample.error ? ` error=${sample.error}` : ""} body=${JSON.stringify(head)}\n`,
+  );
+  return { ...rest, failure };
 }
 
 async function json(url, headers) {
@@ -444,7 +475,12 @@ async function main() {
           failed,
         );
         agent.destroy();
-        results.push({ ...r, route: route.name, kind: "fresh", base: at });
+        results.push({
+          ...diagnose(r, route, at, "fresh"),
+          route: route.name,
+          kind: "fresh",
+          base: at,
+        });
       }
     }
   }
@@ -463,7 +499,12 @@ async function main() {
           agent: keep.get(at),
           headers: headersFor(route),
         }).catch(failed);
-        results.push({ ...r, route: route.name, kind: "reused", base: at });
+        results.push({
+          ...diagnose(r, route, at, "warm"),
+          route: route.name,
+          kind: "reused",
+          base: at,
+        });
       }
     }
   }
@@ -519,8 +560,6 @@ async function main() {
  */
 function report({ plan, who, base, label, results, chain }, { compare, out, gateLine = true }) {
   // Per route: did every sample answer with the route's own status, and the warm TTFB p50.
-  const statusOk = (route, status) =>
-    route.expect !== undefined ? route.expect.includes(status) : status >= 200 && status < 300;
   const summary = plan.map((route) => {
     if (route.skip !== undefined) return { name: route.name, skip: route.skip };
     const rows = results.filter((r) => r.route === route.name);

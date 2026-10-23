@@ -49,6 +49,7 @@ import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 import {
   activeAssignees,
   countTasks,
+  lateLabel,
   listUnreadCounts,
   MY_GROUP_TITLES,
   myTaskGroups,
@@ -333,7 +334,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                           statusLabel={stateLabel(item.row)}
                           flag={
                             item.reason === "overdue"
-                              ? { label: "Overdue", tone: "danger" }
+                              ? { label: lateLabel(item.row, now) ?? "Overdue", tone: "danger" }
                               : { label: "Not noted", tone: "attention" }
                           }
                           note={needsNote(item, context.nameOf)}

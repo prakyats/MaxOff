@@ -39,6 +39,8 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
  */
 
 const PASSWORD = "day-local-password";
+/** A late task's chip, in Today's words (PP-tasks-2): "3 h late", "2 days late". */
+const LATE_CHIP = /\d+ (min|h|days?) late/;
 
 function crew(info: TestInfo): string {
   return `day-staff-${info.project.name}@maxoff.local`;
@@ -1070,7 +1072,7 @@ test.describe("the Admin's Today (6.3)", () => {
     const needs = section(page, "today-needs-you");
     await expect(
       needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}admin overdue` }),
-    ).toContainText("Overdue");
+    ).toContainText(LATE_CHIP);
     await expect(
       needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}admin not noted` }),
     ).toContainText("hasn't noted it");
@@ -1302,7 +1304,7 @@ test.describe("the Owner's Today: My tasks (6b.2, decision 24)", () => {
     await expect(
       mine.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}late` }),
     ).toHaveCount(1);
-    await expect(row).toContainText("Overdue");
+    await expect(row).toContainText(LATE_CHIP);
     await expect(row.getByRole("link")).toHaveAttribute("href", `/tasks/${late}`);
     await expect(mine).not.toContainText(`${prefix}ahead`);
     // Never listed twice: the Owner's own overdue task is not a risk row too. The risks card is

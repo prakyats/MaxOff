@@ -382,7 +382,7 @@ export const CREW_GUIDE: Guide = {
                   text: 'Open Leave and tap the "Attendance" tab (highlighted).',
                   shot: "staff/attendance-tab",
                 },
-                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times ("Not recorded" when a time never came), and notes.',
+                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times ("Not recorded" for a start or end that never came; today\'s end shows "—" until you end the day), and notes.',
                 "Open a day to read the Owner's reason and its history.",
               ],
             },
@@ -417,7 +417,7 @@ export const CREW_GUIDE: Guide = {
                   shot: "staff/my-tasks",
                 },
                 'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
-                "Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title such as \"Overdue\" and the task's state, then ›. On a small phone a long chip is shortened with “…”; the task's page shows it in full. Tap a task to open it.",
+                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title, such as a red "2 days late" or "3 h late" on a late task, and the task\'s state, then ›. On a small phone a long chip is shortened with “…”; the task\'s page shows it in full. Tap a task to open it.',
               ],
             },
             {

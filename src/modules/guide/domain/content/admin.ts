@@ -123,7 +123,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you lists tasks waiting for your check, suggested tasks to decide, unfinished deliverables to decide and tasks flagged Overdue or Not noted.",
+              text: "Needs you lists tasks waiting for your check, suggested tasks to decide, unfinished deliverables to decide and tasks flagged late (a red chip saying how late, such as “2 days late” or “3 h late”) or Not noted.",
             },
             {
               kind: "steps",
@@ -310,7 +310,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged Overdue, Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
+              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged late (a red chip saying how late, such as “2 days late”), Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -408,7 +408,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Approvals shows one group for you: Tasks to check. Each row has Review and Approve; with one task waiting its Approve is the green one, with two or more “Approve all” is. With nothing to check, Approvals offers Open Tasks.",
+              text: "Approvals shows one group for you: Tasks to check. Each row has Review and Approve; with one task waiting its Approve is the green one, with two or more “Approve all” is. With nothing to check, Approvals offers “Tasks to check”, which opens All tasks on its “With the reviewers” filter.",
             },
             {
               kind: "steps",

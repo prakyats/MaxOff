@@ -23,7 +23,7 @@ const inputSchema = z.object({ memberId: z.uuid() });
 export async function readPersonHistory(input: unknown): Promise<PersonHistoryData> {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) throw new AppError("VALIDATION");
-  await assertPermission("activity.view_all");
+  const reader = await assertPermission("activity.view_all");
   const [entries, members] = await Promise.all([
     listActivity([{ entity: "members", ids: [parsed.data.memberId] }]),
     listDirectory(),
@@ -31,7 +31,7 @@ export async function readPersonHistory(input: unknown): Promise<PersonHistoryDa
   const names = Object.fromEntries(members.map((member) => [member.id, member.fullName]));
   return {
     lines: entries.flatMap((entry) => {
-      const line = describeMemberActivity(entry, names);
+      const line = describeMemberActivity(entry, names, reader.id);
       return line ? [line] : [];
     }),
     limitedTo: entries.length >= ACTIVITY_LIMIT ? ACTIVITY_LIMIT : null,

@@ -36,6 +36,8 @@ import {
 test.describe.configure({ mode: "serial" });
 
 const PASSWORD = "list-local-password";
+/** A late task's chip, in Today's words (PP-tasks-2): "3 h late", "2 days late". */
+const LATE_CHIP = /\d+ (min|h|days?) late/;
 
 const FREELANCER_IDS: Record<string, string> = {
   desktop: "40000000-0000-4000-8000-000000000004",
@@ -196,7 +198,7 @@ test.describe("the task lists, the flows", () => {
     await expect(section(page, "tasks-group-changes_requested")).toContainText(`${prefix}to fix`);
     await expect(section(page, "tasks-group-upcoming")).toContainText(`${prefix}upcoming`);
     await expect(section(page, "tasks-group-overdue")).toContainText(`${prefix}late`);
-    await expect(rowOf(page, `${prefix}late`)).toContainText("Overdue");
+    await expect(rowOf(page, `${prefix}late`)).toContainText(LATE_CHIP);
     if (dueToday) {
       await expect(section(page, "tasks-group-due_today")).toContainText(`${prefix}today`);
     }
@@ -340,7 +342,7 @@ test.describe("the task lists, the flows", () => {
     const needs = section(page, "tasks-needs-you");
     await expect(needs).toContainText(`${prefix}overdue`);
     // W5 (V3): the Overdue chip alone says it; the row no longer repeats "Past its deadline".
-    await expect(rowOf(page, `${prefix}overdue`)).toContainText("Overdue");
+    await expect(rowOf(page, `${prefix}overdue`)).toContainText(LATE_CHIP);
     await expect(rowOf(page, `${prefix}overdue`)).not.toContainText("Past its deadline");
     await expect(rowOf(page, `${prefix}quiet`)).toContainText(
       `${who.staff.name} hasn't noted it · 5 h`,
@@ -465,6 +467,11 @@ test.describe("the task lists, the flows", () => {
     await expect.poll(() => stateOf(ids["all a"])).toBe("admin_approved");
     await expect.poll(() => stateOf(ids["all b"])).toBe("admin_approved");
     await expect(page.getByText("Nothing waiting. You're clear.")).toBeVisible();
+    // PP-admin-2: the Admin's empty state opens the tasks with the reviewers.
+    const toCheck = page.getByRole("link", { name: "Tasks to check" });
+    await expect(toCheck).toHaveAttribute("href", "/tasks/all?state=review");
+    await toCheck.click();
+    await expect(page).toHaveURL(/\/tasks\/all\?state=review$/);
   });
 });
 

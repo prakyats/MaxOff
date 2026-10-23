@@ -15,7 +15,6 @@ import {
   OWNER_TODAY_EMPTY,
   parsePeopleGroup,
   RISKS_EMPTY,
-  lateWords,
   riskWords,
   sortRisks,
   spanWords,
@@ -296,7 +295,6 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
         context,
       ).detail,
     ).toBe("Ravi is on a half day tomorrow, the day it's due");
-    expect(lateWords(2 * 86_400_000)).toBe("2 days late");
     expect(
       riskWords(
         {

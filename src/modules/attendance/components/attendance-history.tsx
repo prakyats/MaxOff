@@ -184,7 +184,7 @@ export function AttendanceHistory({
           )}
           data-slot="history-times"
         >
-          {dayTimesLine(row.original)}
+          {dayTimesLine(row.original, today)}
         </span>
       ),
     },
@@ -244,7 +244,7 @@ export function AttendanceHistory({
     },
     detail: (day) => (
       <div className="flex flex-col gap-4">
-        <DayTimeline day={day} viewpoint={viewpoint} />
+        <DayTimeline day={day} viewpoint={viewpoint} today={today} />
         {owner && day.state === "pending_review" ? (
           <DayReviewContext dayId={day.id} workDate={day.workDate} />
         ) : null}
@@ -294,7 +294,7 @@ export function AttendanceHistory({
                 <SheetDescription>{describeHistoryDay(open, viewpoint).standing}</SheetDescription>
               </SheetHeader>
               <div className="flex flex-col gap-4 px-4 text-sm">
-                <DayTimeline day={open} viewpoint={viewpoint} />
+                <DayTimeline day={open} viewpoint={viewpoint} today={today} />
                 {owner && open.state === "pending_review" ? (
                   <DayReviewContext dayId={open.id} workDate={open.workDate} />
                 ) : null}
@@ -331,7 +331,16 @@ function leaveStatusOf(day: HistoryDay): CorrectTarget["leaveType"] {
 }
 
 /** What a day came to, then how: every event in order, with the reason that came with it. */
-function DayTimeline({ day, viewpoint }: { day: HistoryDay; viewpoint: Viewpoint }) {
+function DayTimeline({
+  day,
+  viewpoint,
+  today,
+}: {
+  day: HistoryDay;
+  viewpoint: Viewpoint;
+  /** The IST date: today's open day has no end yet, not a missing one. */
+  today: string;
+}) {
   const summary = describeHistoryDay(day, viewpoint);
   return (
     <div className="flex flex-col gap-4">
@@ -344,7 +353,7 @@ function DayTimeline({ day, viewpoint }: { day: HistoryDay; viewpoint: Viewpoint
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Start · end</dt>
-          <dd className="text-right">{dayTimesLine(day)}</dd>
+          <dd className="text-right">{dayTimesLine(day, today)}</dd>
         </div>
         {summary.flags.length > 0 ? (
           <div className="flex justify-between gap-4">
