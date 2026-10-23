@@ -999,3 +999,150 @@ for (const role of ["owner", "admin", "staff"] as const) {
     }
   });
 }
+
+/**
+ * "This week" as the laptop's right column (major change 1, FINAL 8, PP-crew-7; owner 23 Oct,
+ * #89 comment 6370526089): from an **896 px content width** (the owner asked for 1024 px; a 1280 px laptop’s content is about 960 px wide), so a 1280 px laptop shows it, at no
+ * more than 30% of the width. Held at 1280 and 1440 px, the skeleton's column (`ThisWeekSkeleton`)
+ * is where the page's is, on Today (the Owner), My Day and My tasks (Crew): the same left edge,
+ * width and top, and its first day and first row at the page's. On a phone My tasks shows no
+ * column at all (as live); My Day's and Today's sit under the rest (their own specs).
+ */
+const WEEK_COLUMN: Record<string, Point> = {
+  column: { held: '[data-slot="day-week"]', settled: '[data-slot="day-week"]' },
+  "first day": {
+    held: '[data-slot="loading-this-week"] ul > li:first-child',
+    settled: '[data-slot="week-blocks"] > ul > li:first-child',
+  },
+  "first row": {
+    held: '[data-slot="loading-this-week"] ul > li:first-child > :nth-child(2)',
+    settled: '[data-slot="week-blocks"] > ul > li:first-child [data-slot="week-row"]',
+  },
+};
+
+const WEEK_SCREENS = [
+  {
+    role: "owner",
+    path: "/today",
+    marker: 'data-slot="loading-today"',
+    hold: "/rest/v1/rpc/emails_held_today",
+  },
+  {
+    role: "staff",
+    path: "/my-day",
+    marker: 'data-slot="loading-my-day"',
+    hold: "/rest/v1/holidays",
+  },
+  { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"', hold: "/rest/v1/tasks" },
+] as const;
+
+/** Each point's box (document coordinates) on its first visible match, or null. */
+async function boxesOf(page: Page, selectors: Record<string, string>) {
+  return page.evaluate((points) => {
+    const boxes: Record<string, { x: number; y: number; width: number } | null> = {};
+    for (const [name, selector] of Object.entries(points)) {
+      const element = [...document.querySelectorAll<HTMLElement>(selector)].find((candidate) => {
+        const box = candidate.getBoundingClientRect();
+        return box.height > 0 && candidate.checkVisibility();
+      });
+      const box = element?.getBoundingClientRect();
+      boxes[name] = box ? { x: box.left, y: box.top + window.scrollY, width: box.width } : null;
+    }
+    return boxes;
+  }, selectors);
+}
+
+for (const width of [1280, 1440] as const) {
+  test.describe(`This week's column at ${width} px, held`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    for (const screen of WEEK_SCREENS) {
+      test.describe(screen.role, () => {
+        test.use({ storageState: storageStateFor(screen.role) });
+
+        test(`${screen.path}: the right column, at most 30%, traced by its skeleton`, async ({
+          page,
+        }, info) => {
+          test.skip(info.project.name !== "desktop", "a laptop's column");
+          const user = USERS[screen.role];
+          // A deadline of the Crew member's in three days: a row in every reader's week.
+          const prefix = `Week ${width} ${screen.role} ${screen.path} `;
+          const made = await makeFixture(prefix, "staff task", screen.role);
+          const session = await ownSession(page, user.email, user.password);
+          const held = await holdReads(screen.hold, session);
+          try {
+            await page.goto(screen.path, { waitUntil: "commit" });
+            const loading = page.locator(`[${screen.marker}]`);
+            await expect(loading).toBeVisible();
+            await expect.poll(() => held.caught()).toBe(true);
+            const skeleton = await boxesOf(page, pick(WEEK_COLUMN, "held"));
+            held.release();
+            await expect(loading).toHaveCount(0);
+            await expectSettled(page);
+            await hydrated(page);
+            await expect(page.locator('[data-slot="week-day"]').first()).toBeVisible();
+            const settled = await boxesOf(page, pick(WEEK_COLUMN, "settled"));
+            const moves = Object.keys(WEEK_COLUMN).flatMap((name) => {
+              const from = skeleton[name];
+              const to = settled[name];
+              if (!from) return [`${name}: not in the skeleton`];
+              if (!to) return [`${name}: not on the page`];
+              return (["x", "y", "width"] as const).flatMap((side) =>
+                Math.abs(to[side] - from[side]) > TRACE_TOLERANCE
+                  ? [`${name} ${side}: ${from[side].toFixed(1)} → ${to[side].toFixed(1)}`]
+                  : [],
+              );
+            });
+            expect(moves, "nothing moves when the data arrives").toEqual([]);
+
+            // Beside the main column, at its top, and no wider than 30% of the content.
+            const columns = await page.locator('[data-slot="day-columns"]').boundingBox();
+            const main = await page
+              .locator('[data-slot="day-columns"] > div > :first-child')
+              .boundingBox();
+            const week = await page.locator('[data-slot="day-week"]').boundingBox();
+            expect(columns!.width, "a content width of 896 px or more").toBeGreaterThanOrEqual(896);
+            expect(week!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
+            expect(Math.abs(week!.y - main!.y)).toBeLessThanOrEqual(TRACE_TOLERANCE);
+            expect(week!.width).toBeLessThanOrEqual(columns!.width * 0.3 + TRACE_TOLERANCE);
+            // Its days and rows: the fixture's deadline, by name, opening the task.
+            const due = page
+              .locator('[data-slot="day-week"] [data-slot="week-row"][data-kind="due"]')
+              .filter({ hasText: `${prefix}task` });
+            if ((await due.count()) > 0) {
+              await expect(due.getByRole("link")).toHaveAttribute("href", `/tasks/${made.task}`);
+            } else {
+              // The week is past its cap with other specs' work: "See the week".
+              await expect(page.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+            }
+          } finally {
+            held.release();
+            await made.remove();
+          }
+        });
+      });
+    }
+  });
+}
+
+test.describe("staff: My tasks on a phone has no This week", () => {
+  test.use({ storageState: storageStateFor("staff") });
+
+  test("the list alone, as live", async ({ page }, info) => {
+    test.skip(info.project.name === "desktop", "a phone's layout");
+    const prefix = `Week phone ${info.project.name} `;
+    const made = await makeFixture(prefix, "staff task", "staff");
+    try {
+      await page.goto("/tasks");
+      await hydrated(page);
+      await expect(
+        page.locator('[data-slot="tasks-mine"] [data-slot="task-row"]').first(),
+      ).toBeVisible();
+      await expect(page.locator('[data-slot="day-week"]')).toBeHidden();
+      await expect(page.locator('[data-slot="week-row"]:visible')).toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+    } finally {
+      await made.remove();
+    }
+  });
+});

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 
-import { withSessionUserId } from "@/core/auth/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { addISTDays, systemClock, todayIST } from "@/core/time";
+import { systemClock, todayIST } from "@/core/time";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getOwnToday, TodayAttendanceStrip } from "@/modules/attendance";
@@ -13,22 +12,15 @@ import {
   DashSection,
   DayColumns,
   dayContext,
-  MY_DAY_AHEAD_DAYS,
   MY_DAY_EMPTY,
   MY_DAY_GROUPS,
-  ownLeaveDays,
-  ownWeekDays,
   PhoneDateLine,
   ThisWeek,
-  weekBlocks,
 } from "@/modules/dashboards";
 import { getClaimSetup } from "@/modules/expenses";
 import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
-import { listApprovedLeaveBetween } from "@/modules/leave";
-import { listHolidays } from "@/modules/settings";
 import {
   forLabel,
-  listEventTasks,
   listUnreadCounts,
   MY_GROUP_TITLES,
   myTaskGroups,
@@ -39,6 +31,7 @@ import {
 } from "@/modules/tasks";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 
+import { ownWeek, readOwnWeek } from "../tasks/own-week";
 import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../tasks/reads";
 
 import { rowFlag } from "./words";
@@ -51,7 +44,7 @@ export const metadata: Metadata = { title: "My Day" };
  * rows** in the Tasks tab's order (Not noted · Changes requested · Overdue · Due today, a
  * coordinator's freelancers' tasks mixed in "for Asha"; never counts), then **This week** (V5b
  * major change 1, FINAL 8, PP-crew-7: the holidays, their events with the place, each of their
- * own deadlines by name and their own leave, a laptop column from a 1200 px content width,
+ * own deadlines by name and their own leave, a laptop column from an 896 px content width,
  * `DayColumns`; it replaces the Upcoming line and the Events section), and **Suggest a task** as
  * a quiet link at the foot (PP-crew-2). No sign-out row (decision 3): End day is in the strip and "Sign
  * out of this device" on Me. Whoever marks attendance opens it (`attendance.self`); the Owner has
@@ -62,23 +55,19 @@ export default async function MyDayPage() {
   // The strip's day and End day's claim setup start with the session read, not after it (§19).
   startEarly(getOwnToday(), getClaimSetup());
   const today = todayIST();
-  const last = addISTDays(today, MY_DAY_AHEAD_DAYS - 1);
   const openRows = readOpenTasks();
-  const [viewer, [rows, directory, labels, own, unread, events, holidays, leave]] =
-    await checkThenRead(
-      requirePermission("attendance.self"),
-      Promise.all([
-        openRows,
-        readDirectory(),
-        readClientLabels(),
-        readOwnFreelancers(),
-        // Each row's unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
-        openRows.then((open) => listUnreadCounts(open.map((row) => row.id))),
-        listEventTasks(today, last),
-        listHolidays(),
-        withSessionUserId((id) => listApprovedLeaveBetween(id, today, last)),
-      ]),
-    );
+  const [viewer, [rows, directory, labels, own, unread, weekRead]] = await checkThenRead(
+    requirePermission("attendance.self"),
+    Promise.all([
+      openRows,
+      readDirectory(),
+      readClientLabels(),
+      readOwnFreelancers(),
+      // Each row's unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
+      openRows.then((open) => listUnreadCounts(open.map((row) => row.id))),
+      readOwnWeek(today),
+    ]),
+  );
   const now = systemClock();
   const names = new Map(directory.map((member) => [member.id, member]));
   const clients = new Map(labels.map((label) => [label.id, label.name]));
@@ -92,37 +81,14 @@ export default async function MyDayPage() {
   const groups = myTaskGroups(rows, listViewer, now, today);
   const nothing = MY_DAY_GROUPS.every((group) => groups[group].length === 0);
 
-  // Their own event tasks, and their freelancers' ("for Asha"); never anyone else's (decision 2).
-  const mine = new Set([viewer.id, ...own]);
-  const forWhom = (event: { assigneeIds: readonly string[] }) => {
-    if (event.assigneeIds.includes(viewer.id)) return null;
-    const theirs = event.assigneeIds.filter((id) => own.includes(id));
-    return theirs.length > 0 ? capitalise(forLabel(theirs, context.nameOf)) : null;
-  };
-  // This week (FINAL 8, major change 1, PP-crew-7): the holidays, their events (the place, and
-  // whose when it is a freelancer's), each of their own deadlines by name, and their own leave.
-  const ownRows = new Map(
-    (["not_noted", "changes_requested", "overdue", "due_today", "upcoming"] as const)
-      .flatMap((group) => groups[group])
-      .map((item) => [item.row.id, item.row] as const),
-  );
-  const week = weekBlocks({
-    days: ownWeekDays({
-      from: today,
-      to: last,
-      holidays,
-      events: events
-        .filter((event) => event.assigneeIds.some((id) => mine.has(id)))
-        .map((event) => ({
-          ...event,
-          detail: [event.location, forWhom(event)].filter(Boolean).join(" · ") || null,
-        })),
-      due: [...ownRows.values()],
-    }),
-    leave: ownLeaveDays(viewer.id, leave, { from: today, to: last }),
-    nameOf: () => "You",
+  // This week (FINAL 8, major change 1, PP-crew-7), the same read and blocks as My tasks'.
+  const week = ownWeek({
+    read: weekRead,
+    viewerId: viewer.id,
+    own,
+    groups,
+    nameOf: context.nameOf,
     today,
-    selfId: viewer.id,
   });
   // "Suggest a task" (4.6): a client label the suggester sees, Active or Paused (decision 22).
   const choices = labels

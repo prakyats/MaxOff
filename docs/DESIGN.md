@@ -98,7 +98,7 @@ a Dark/Light toggle).
 1. **Today and My Day:** the date line under the title; empty sections collapsed to one quiet line;
    larger attendance figures with the tiles keeping their current width (bigger numbers only, not
    a wider bar); risk chips; a laptop **"This week"** column of **at most 25–30% of the content
-   width** (e.g. `minmax(260px, 28%)`), two columns **only at a content width of 1200 px or more**;
+   width** (`minmax(260px, 30%)`), two columns **from a content width of 896 px** (owner 23 Oct, #89 comment 6370526089: a 1280 px laptop shows it; its content is about 960 px wide; was 1200 px);
    below that "This week" moves **under** "Overdue and risks" as a full-width section, never a
    squeezed third column and never hidden.
 2. **New project in 3 steps** (PP-forms-7): 1 Basics (start from a template, name, repeats), 2
@@ -175,7 +175,7 @@ scale inside a frame; the app keeps the approved scale of FINAL 3 (12/14/16/18/2
 | The top bar's bell (change 9) | `TopBar` + `NavBadgeMark` place `topbar` |
 | Dates and times (change 6) | `DateInput` / `TimeInput` / `DateTimeInput` (`core/ui/primitives/date-time-input.tsx`), labels from `core/time/field.ts` |
 | An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState`, with its one action inside it (`action`) and no heading row above it (Expenses' Add expense, Extra work's Add note; V5b C) |
-| Today / My Day's columns (change 1) | `DayColumns` + `ThisWeek` (`modules/dashboards`, `day-blocks.tsx`): a container query, two columns only from a 75rem (1200 px) content width, "This week" `minmax(260px, 28%)`; `PhoneDateLine` for the phone's date |
+| Today / My Day's columns (change 1) | `DayColumns` + `ThisWeek` (`modules/dashboards`, `day-blocks.tsx`): a container query, two columns from a 56rem (896 px) content width, "This week" `minmax(260px, 30%)`; `laptopOnly` hides it below `md` (My tasks); `PhoneDateLine` for the phone's date |
 | A page's primary in the header (FINAL 6, PP-crew-8) | `DetailHeader`'s `primary`; with `primaryOwnBar` the same element is the phone's sticky bar (`StickyActions`), so its dialogs mount once |
 | A stepped form (change 2) | New project: each later step a `useOverlayHistory` layer over the one before, Back via `closeOverlaysThen`; one primary a step (Next, then the commit) |
 | Waiting words (FINAL 4) | from a day a dot plus the word (amber, red from three), never colour alone (`ApprovalGroup`, `ApprovalPersonRow`) |

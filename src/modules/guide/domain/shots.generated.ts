@@ -49,7 +49,7 @@ export const GUIDE_SHOTS: Readonly<
   },
   "staff/my-tasks": {
     src: "/guide/staff/my-tasks.webp",
-    width: 1222,
+    width: 1216,
     height: 524,
     alt: "Tasks with the Not noted group highlighted at the top.",
   },
