@@ -269,6 +269,9 @@ export function ItemSheet({
       return strip ? [{ strip, group }] : [];
     });
   const canEditStages = permissions.manage && current.rules.editAll;
+  // An untitled first group ("Stages") heads the Stages row itself, with its count.
+  const lead = stageGroups[0];
+  const leadStrip = lead?.group.label === null ? lead.strip : null;
   const reopenWord = permissions.owner ? "Send back" : "Reopen";
   // PP-sheet-2: until every stage is ticked the sheet's action is "Next: ‹stage›" (it ticks that
   // stage); Mark done is the solid Forest commit only once it is ready (or has no stages), and
@@ -408,7 +411,13 @@ export function ItemSheet({
                 facts={[
                   {
                     label: "Planned",
-                    value: current.planned ? <PlannedWords planned={current.planned} /> : "No date",
+                    // The label already says "Planned": the value is the date alone (owner walk
+                    // 23 Oct), as the project page's Planned column reads.
+                    value: current.planned ? (
+                      <PlannedWords planned={current.planned} short />
+                    ) : (
+                      "Not planned"
+                    ),
                   },
                   ...(current.carriedFrom ? [{ label: "From", value: current.carriedFrom }] : []),
                   ...current.history.map((line, index) => ({
@@ -528,20 +537,32 @@ export function ItemSheet({
           )}
           {current.stages.length > 0 || canEditStages ? (
             <section aria-label="Stages" className="flex flex-col gap-1" data-slot="item-stages">
-              <div className="flex min-h-11 items-center justify-between gap-2">
-                {/* The untitled group's own heading reads "Stages" right under it. */}
-                <p
-                  className={cn(
-                    "text-muted-foreground text-xs",
-                    stageGroups[0]?.group.label === null && "sr-only",
-                  )}
-                >
-                  Stages
-                </p>
+              {/* One row (owner walk 23 Oct, as on the project page): the heading left, the
+                  first group's "n/m" and Edit stages right. An untitled first group's own heading
+                  is this row, so it reads "Stages 3/4" once. */}
+              <div
+                className="flex min-h-11 items-center justify-between gap-2"
+                data-slot="item-stages-heading"
+              >
+                {leadStrip ? (
+                  <p
+                    className="text-muted-foreground flex min-w-0 flex-1 items-baseline justify-between gap-2 text-xs font-medium"
+                    data-slot="item-stage-group-heading"
+                  >
+                    <span className="min-w-0 break-words">{leadStrip.label}</span>
+                    <span className="tabular-nums">
+                      {leadStrip.done}/{leadStrip.total}
+                      <span className="sr-only"> stages ticked</span>
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground min-w-0 text-xs font-medium break-words">
+                    Stages
+                  </p>
+                )}
                 {canEditStages && !editing ? (
                   <Button
                     variant="ghost"
-                    className="ml-auto"
                     data-slot="item-stages-edit"
                     onClick={() => {
                       setStagesUsed(true);
@@ -557,20 +578,23 @@ export function ItemSheet({
                   No stages: this deliverable is simply open or done.
                 </p>
               ) : (
-                stageGroups.map(({ strip, group }) => (
+                stageGroups.map(({ strip, group }, index) => (
                   <div key={strip.key} className="flex flex-col gap-1" data-slot="item-stage-group">
                     {/* The list's own heading and "n/m" for each group (unit U, `groupStrips`):
-                        the untitled group reads "Stages". */}
-                    <p
-                      className="text-muted-foreground flex items-baseline justify-between gap-2 pt-1 text-xs font-medium"
-                      data-slot="item-stage-group-heading"
-                    >
-                      <span className="min-w-0 break-words">{strip.label}</span>
-                      <span className="tabular-nums">
-                        {strip.done}/{strip.total}
-                        <span className="sr-only"> stages ticked</span>
-                      </span>
-                    </p>
+                        the untitled group reads "Stages". The first untitled one's is the row
+                        above. */}
+                    {index === 0 && leadStrip ? null : (
+                      <p
+                        className="text-muted-foreground flex items-baseline justify-between gap-2 pt-1 text-xs font-medium"
+                        data-slot="item-stage-group-heading"
+                      >
+                        <span className="min-w-0 break-words">{strip.label}</span>
+                        <span className="tabular-nums">
+                          {strip.done}/{strip.total}
+                          <span className="sr-only"> stages ticked</span>
+                        </span>
+                      </p>
+                    )}
                     <ul className="border-border divide-border divide-y rounded-lg border">
                       {group.stages.map((stage) => (
                         <li key={stage.id}>

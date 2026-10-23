@@ -1087,7 +1087,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Tick stages, edit, move, mark done, send back or close.",
           blocks: [
             text(
-              'The sheet shows Planned, From and History, and the stages under group headings with their count, as on the list ("Stages 1/1", "Edit 2/3").',
+              'The sheet shows Planned (the date alone, "24 Oct", or Not planned), From and History, and the stages under group headings with their count, as on the list ("Stages 1/1", "Edit 2/3"). "Edit stages" sits at the right of the Stages heading.',
             ),
             steps(
               "Tap anywhere on a deliverable (or its ›) to open its sheet.",

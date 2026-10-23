@@ -1140,7 +1140,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date (“24 Oct”, or Not planned), its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”). Edit stages sits at the right of the Stages heading. The actions at the foot (Open the project, Close deliverable…, Next: ‹stage› or Mark done) move onto a second row when the sheet is narrow, never cut off.",
             },
             {
               kind: "steps",
