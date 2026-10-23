@@ -115,7 +115,7 @@ export function DaySheet({
           {action || footer ? (
             <div
               data-slot="calendar-day-footer"
-              className="border-border -mx-4 flex min-w-0 items-center gap-2 border-t px-4 pt-3 *:min-w-0 *:flex-1"
+              className="border-border -mx-4 flex min-w-0 flex-wrap items-center gap-2 border-t px-4 pt-3 *:min-w-0 *:flex-auto"
             >
               {/* The sample's order: "Open day", then the day's one solid action. */}
               {footer}
