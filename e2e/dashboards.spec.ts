@@ -364,8 +364,9 @@ test.describe("the Owner's Today (6.2)", () => {
     // Needs you (the approvals; with none waiting, V5b's one quiet line in its place), the card
     // and the risks (the overdue task) are always there; the other sections only when they have
     // something (decision 24), so the order is checked over whichever are drawn. Since the Today
-    // refresh (owner 2026-10-09) Needs you comes first, then the card; at a laptop's 1280 px the
-    // content is under 1200 px wide, so This week is one column, under the risks (major change 1).
+    // refresh (owner 2026-10-09) Needs you comes first, then the card; This week is under the
+    // risks on a phone, and from an 896 px content width (a 1280 px laptop, owner 23 Oct) the
+    // right column beside them (major change 1), checked after the order.
     const order = [
       ':is([data-slot="today-approvals"], [data-slot="today-approvals-empty"])',
       '[data-slot="today-attendance-card"]',
@@ -373,7 +374,7 @@ test.describe("the Owner's Today (6.2)", () => {
       // Phase 7's Client work line, after Today's tasks (owner 2026-10-09), when anything is overdue.
       '[data-slot="today-client-work"]',
       '[data-slot="today-risks"]',
-      '[data-slot="today-events"]',
+      ...(isPhone(info) ? ['[data-slot="today-events"]'] : []),
     ];
     const always = [order[0], '[data-slot="today-attendance-card"]', '[data-slot="today-risks"]'];
     await expect(page.locator('[data-slot="today-risks"]:visible').first()).toBeVisible();
@@ -388,6 +389,15 @@ test.describe("the Owner's Today (6.2)", () => {
       expect(box, selector).not.toBeNull();
       expect(box!.y, `${selector} comes after the one before`).toBeGreaterThan(previous);
       previous = box!.y;
+    }
+    if (!isPhone(info)) {
+      // The laptop's right column: This week starts at the main column's top, right of it.
+      const main = await page.locator('[data-slot="owner-today"]').boundingBox();
+      const week = await page.locator('[data-slot="day-week"]').boundingBox();
+      expect(main).not.toBeNull();
+      expect(week).not.toBeNull();
+      expect(week!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
+      expect(Math.abs(week!.y - main!.y)).toBeLessThanOrEqual(1);
     }
     // No "Needs you" list of people: the card's counts carry them (decision 24).
     await expect(page.locator('[data-slot="today-needs-you"]')).toHaveCount(0);

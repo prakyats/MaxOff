@@ -81,7 +81,7 @@ import {
  * The Owner's Today (6.2; PRODUCT §2 principle 11, its first application; Kickoff 6 decisions 4–8,
  * 12, 22, 23 and 24; **the Today refresh, owner 2026-10-09, ROADMAP 6b.7**; **v1.8 V5b major
  * change 1**: the date line under the title, empty sections as one quiet line, bigger attendance
- * figures, risk chips and "This week" as a laptop column from a 1200 px content width,
+ * figures, risk chips and "This week" as a laptop column from an 896 px content width,
  * `DayColumns`). In order:
  *
  * 1. **Needs you**: the approvals, first. One list of compact rows, no heading per kind: the
@@ -107,7 +107,7 @@ import {
  *    something in it, its rows a time on the left and the words on the right (a holiday, a
  *    person's consecutive leave as one row, each event opening its task, each deadline by name
  *    with a "Due" chip, PP-today-4), at most five days and eight rows, then "See the week";
- *    "Calendar ›" in the header. The right column from a 1200 px content width; under 5 below.
+ *    "Calendar ›" in the header. The right column from an 896 px content width; under 5 below.
  *
  * Sections 3–6 (and My tasks) are drawn only with something in them (decision 24: exceptions only); when none
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists

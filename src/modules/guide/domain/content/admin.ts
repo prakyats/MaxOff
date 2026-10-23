@@ -90,7 +90,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Today updates by itself. Today’s date is under the title. The order is: your attendance strip, Needs you, Client work, My tasks, My clients and Issues, then This week (a column on the right on a wide laptop screen). A section with nothing in it is not shown: an empty Needs you is one quiet line, “Nothing needs you right now”, and with no client work due you see “No client work due this week.” under My clients.",
+              text: "Today updates by itself. Today’s date is under the title. The order is: your attendance strip, Needs you, Client work, My tasks, My clients and Issues, then This week (a column on the right on a laptop). A section with nothing in it is not shown: an empty Needs you is one quiet line, “Nothing needs you right now”, and with no client work due you see “No client work due this week.” under My clients.",
             },
             {
               kind: "steps",

@@ -290,8 +290,10 @@ export function ThisWeek({
 
 /**
  * Today's and My Day's two columns (major change 1, FINAL 8): the main column, then "This week".
- * A container query on the content width: **two columns only from 1200 px (75rem)**, "This week"
- * at most 28% (`minmax(260px, 28%)`); below that one column, "This week" under the rest (under
+ * A container query on the content width: **two columns from 896 px (56rem)** (owner 23 Oct, #89
+ * comment 6370526089: a 1280 px laptop, whose content is about 960 px wide, shows the column;
+ * the 1024 px asked for is wider than that), "This week" at most 30%
+ * (`minmax(260px, 30%)`); below that one column, "This week" under the rest (under
  * "Overdue and risks"), full width, never squeezed and never hidden.
  */
 export function DayColumns({
@@ -299,6 +301,7 @@ export function DayColumns({
   week,
   slot = "day-main",
   loading,
+  laptopOnly = false,
 }: {
   main: ReactNode;
   week: ReactNode;
@@ -306,10 +309,15 @@ export function DayColumns({
   slot?: string;
   /** A loading screen's name ("Loading Today"): the main column is its busy status. */
   loading?: string;
+  /**
+   * "This week" only from the `md` breakpoint (the Tasks tab's "My tasks", PP-crew-7): the phone
+   * keeps its one list, with nothing under it; My Day and Today show it on every width.
+   */
+  laptopOnly?: boolean;
 }) {
   return (
     <div className="@container min-w-0" data-slot="day-columns">
-      <div className="flex min-w-0 flex-col gap-6 @min-[75rem]:grid @min-[75rem]:grid-cols-[minmax(0,1fr)_minmax(260px,28%)] @min-[75rem]:items-start @min-[75rem]:gap-8">
+      <div className="flex min-w-0 flex-col gap-6 @min-[56rem]:grid @min-[56rem]:grid-cols-[minmax(0,1fr)_minmax(260px,30%)] @min-[56rem]:items-start @min-[56rem]:gap-8">
         <div
           className="flex min-w-0 flex-col gap-6"
           data-slot={slot}
@@ -318,7 +326,11 @@ export function DayColumns({
           {main}
         </div>
         {week ? (
-          <aside aria-label="This week" className="min-w-0" data-slot="day-week">
+          <aside
+            aria-label="This week"
+            className={cn("min-w-0", laptopOnly && "hidden md:block")}
+            data-slot="day-week"
+          >
             {week}
           </aside>
         ) : null}

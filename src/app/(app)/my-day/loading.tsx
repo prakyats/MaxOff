@@ -17,7 +17,7 @@ import { TaskRowsSkeleton } from "@/modules/tasks";
  * My Day as it renders (6.1), traced (ARCHITECTURE §14.1): the one-line attendance strip first
  * (`TodayAttendanceStripSkeleton`, ROADMAP 6.1), then the first exception section: its heading
  * and two `TaskRow`s (`TaskRowsSkeleton`), the shape every section under the strip shares; the
- * date line, and "This week" as the right column from a 1200 px content width (`DayColumns`, V5b
+ * date line, and "This week" as the right column from an 896 px content width (`DayColumns`, V5b
  * major change 1). The `(app)` layout already read the member for this request (`cache()`), so
  * asking costs no query.
  */

@@ -117,7 +117,7 @@ export const OWNER_GUIDE: Guide = {
               'Read "Today\'s tasks": one line, "N due today · M handed in".',
               'Read "Client work": one red line when client items are overdue.',
               'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task.',
-              'Read "This week": up to seven days, each deadline by name and time with a "Due" chip, holidays, events and who is on leave, then "See the week". On a wide laptop screen it is a column on the right.',
+              'Read "This week": up to seven days, each deadline by name and time with a "Due" chip, holidays, events and who is on leave, then "See the week". On a laptop it is a column on the right; in a narrow window or on a phone it sits below.',
             ),
             note(
               'With nothing waiting, "Needs you" is one quiet line: "Nothing needs you right now." If everything below it is empty too, the screen says "Nothing else needs you today."',

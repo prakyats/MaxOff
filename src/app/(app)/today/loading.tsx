@@ -27,7 +27,7 @@ import { TaskRowsSkeleton } from "@/modules/tasks";
  * you": its heading and two `TaskRow`s, then Client work (7.3): its heading and two rows. A Crew
  * member who types the address is taken to My Day, whose shape this is too (the strip and a
  * section). **V5b major change 1:** the header's date line (and the phone's), and the two
- * columns (`DayColumns`): from a 1200 px content width "This week" is the right column, traced
+ * columns (`DayColumns`): from an 896 px content width "This week" is the right column, traced
  * (`ThisWeekSkeleton`); below that it sits under the rest, out of the first screen. The `(app)`
  * layout already read the member for this request (`cache()`), so asking costs no query.
  */

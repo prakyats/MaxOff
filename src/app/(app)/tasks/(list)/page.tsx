@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { withSessionUserId } from "@/core/auth/server";
-import { checkThenRead } from "@/core/lib/start-early";
+import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
@@ -12,6 +12,7 @@ import { systemClock, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyRow, EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { DayColumns, ThisWeek } from "@/modules/dashboards";
 import { getSettings } from "@/modules/settings";
 import {
   countRequestsToDecide,
@@ -38,6 +39,7 @@ import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 
+import { ownWeek, readOwnWeek } from "../own-week";
 import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../reads";
 
@@ -59,7 +61,12 @@ const OPEN_ON_FIRST_SCREEN = 15;
  */
 export default async function TasksPage() {
   // Every read starts with the session read (ARCHITECTURE §19); RLS decides what each returns,
-  // and the ones only managers use are cheap for Staff (their own rows, a count).
+  // and the ones only managers use are cheap for Staff (their own rows, a count). "My tasks'"
+  // This week starts in the same wave (startEarly) and is awaited only for the list that shows
+  // it, so the Owner's and Admins' page never waits on it.
+  const today = todayIST();
+  const weekRead = readOwnWeek(today);
+  startEarly(weekRead);
   const [viewer, [rows, directory, labels, own, counts, requests, settings, unread]] =
     await checkThenRead(
       requirePermission("tasks.work"),
@@ -94,11 +101,21 @@ export default async function TasksPage() {
     const choices = labels
       .filter((label) => label.state === "active" || label.state === "paused")
       .map((label) => ({ id: label.id, name: label.name }));
+    const groups = myTaskGroups(rows, listViewer, now, today);
+    const week = ownWeek({
+      read: await weekRead,
+      viewerId: viewer.id,
+      own,
+      groups,
+      nameOf: context.nameOf,
+      today,
+    });
     return (
       <>
         <TasksFreshOnReturn renderId={crypto.randomUUID()} />
         <MyTasks
-          rows={rows}
+          groups={groups}
+          week={week}
           viewer={listViewer}
           context={context}
           now={now}
@@ -224,21 +241,22 @@ export default async function TasksPage() {
 
 /** Staff "My tasks" (decision 17), a coordinator's freelancers mixed in "for Asha". */
 function MyTasks({
-  rows,
+  groups,
+  week,
   viewer,
   context,
   now,
   clients,
   unread,
 }: {
-  rows: TaskListRow[];
+  groups: ReturnType<typeof myTaskGroups>;
+  week: ReturnType<typeof ownWeek>;
   viewer: { id: string; role: "owner" | "admin" | "staff"; coordinates: string[] };
   context: Parameters<typeof rowMeta>[1];
   now: Date;
   clients: { id: string; name: string }[];
   unread: Readonly<Record<string, number>>;
 }) {
-  const groups = myTaskGroups(rows, viewer, now, todayIST());
   const empty = MY_LIST_GROUPS.every((group) => groups[group].length === 0);
   const reviewing = groups.with_reviewers.length;
 
@@ -249,68 +267,77 @@ function MyTasks({
         description="The work given to you, and what's due next."
         actions={<SuggestTaskButton clients={clients} />}
       />
-      <div className="flex min-w-0 flex-col gap-6" data-slot="tasks-mine">
-        {empty ? (
-          <EmptyState
-            title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}
-            description="Tasks given to you appear here. Note each one when you see it."
-            size="compact"
-          />
-        ) : (
-          MY_LIST_GROUPS.map((group) =>
-            groups[group].length > 0 ? (
-              <Section
-                key={group}
-                title={MY_GROUP_TITLES[group]}
-                slot={`tasks-group-${group}`}
-                count={groups[group].length}
-              >
-                <TaskRowList label={MY_GROUP_TITLES[group]}>
-                  {groups[group].map(({ row, part }) => {
-                    const note =
-                      group === "not_noted"
-                        ? forNote(part.notNoted, viewer.id, context.nameOf)
-                        : forNote(
-                            [...(part.self ? [viewer.id] : []), ...part.forIds],
-                            viewer.id,
-                            context.nameOf,
-                          );
-                    return (
-                      <TaskRow
-                        key={row.id}
-                        id={row.id}
-                        title={row.title}
-                        meta={rowMeta(row, context)}
-                        status={row.state}
-                        statusLabel={stateLabel(row)}
-                        flag={rowFlag(row, now)}
-                        note={note}
-                        unread={unread[row.id] ?? 0}
-                      />
-                    );
-                  })}
-                </TaskRowList>
-              </Section>
-            ) : null,
-          )
-        )}
-        <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
-          {reviewing > 0 ? (
-            // view-link: navigation (the full list is another page, opened on this filter)
-            <MoreLink href="/tasks/all?state=review" slot="tasks-with-reviewers">
-              {reviewing === 1
-                ? "1 task with the reviewers"
-                : `${reviewing} tasks with the reviewers`}
-            </MoreLink>
-          ) : null}
-          <MoreLink href="/tasks/all" slot="tasks-see-all">
-            All my tasks
-          </MoreLink>
-          <MoreLink href="/tasks/requests" slot="tasks-requests">
-            Your suggestions
-          </MoreLink>
-        </nav>
-      </div>
+      {/* PP-crew-7 (FINAL 8): "This week" beside the list on a laptop, under it below an 896 px
+          content width; the phone keeps its one list (laptopOnly). */}
+      <DayColumns
+        slot="tasks-mine"
+        laptopOnly
+        week={<ThisWeek blocks={week.blocks} hidden={week.hidden} slot="tasks-week" />}
+        main={
+          <>
+            {empty ? (
+              <EmptyState
+                title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}
+                description="Tasks given to you appear here. Note each one when you see it."
+                size="compact"
+              />
+            ) : (
+              MY_LIST_GROUPS.map((group) =>
+                groups[group].length > 0 ? (
+                  <Section
+                    key={group}
+                    title={MY_GROUP_TITLES[group]}
+                    slot={`tasks-group-${group}`}
+                    count={groups[group].length}
+                  >
+                    <TaskRowList label={MY_GROUP_TITLES[group]}>
+                      {groups[group].map(({ row, part }) => {
+                        const note =
+                          group === "not_noted"
+                            ? forNote(part.notNoted, viewer.id, context.nameOf)
+                            : forNote(
+                                [...(part.self ? [viewer.id] : []), ...part.forIds],
+                                viewer.id,
+                                context.nameOf,
+                              );
+                        return (
+                          <TaskRow
+                            key={row.id}
+                            id={row.id}
+                            title={row.title}
+                            meta={rowMeta(row, context)}
+                            status={row.state}
+                            statusLabel={stateLabel(row)}
+                            flag={rowFlag(row, now)}
+                            note={note}
+                            unread={unread[row.id] ?? 0}
+                          />
+                        );
+                      })}
+                    </TaskRowList>
+                  </Section>
+                ) : null,
+              )
+            )}
+            <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
+              {reviewing > 0 ? (
+                // view-link: navigation (the full list is another page, opened on this filter)
+                <MoreLink href="/tasks/all?state=review" slot="tasks-with-reviewers">
+                  {reviewing === 1
+                    ? "1 task with the reviewers"
+                    : `${reviewing} tasks with the reviewers`}
+                </MoreLink>
+              ) : null}
+              <MoreLink href="/tasks/all" slot="tasks-see-all">
+                All my tasks
+              </MoreLink>
+              <MoreLink href="/tasks/requests" slot="tasks-requests">
+                Your suggestions
+              </MoreLink>
+            </nav>
+          </>
+        }
+      />
     </>
   );
 }
