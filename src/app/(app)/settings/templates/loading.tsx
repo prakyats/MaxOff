@@ -5,7 +5,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { SETTINGS_HEADERS } from "../headers";
 
-import { TEMPLATE_SECTIONS, TEMPLATE_TABS_CLASS } from "./sections";
+import { TEMPLATE_SECTIONS, TEMPLATE_TAB_ITEM_CLASS, TEMPLATE_TABS_CLASS } from "./sections";
 
 /** Each section's heading and Add widths, and whether its rows have Preview. */
 const SHAPES = {
@@ -40,8 +40,15 @@ export default function Loading() {
         <Skeleton aria-hidden className="h-11 w-full rounded-lg md:h-8" />
         <div aria-hidden className={TEMPLATE_TABS_CLASS}>
           {TEMPLATE_SECTIONS.map((section) => (
-            <span key={section.key} className="flex min-h-11 items-center justify-center">
-              <Skeleton className="h-3 w-12" />
+            <span
+              key={section.key}
+              className={cn(
+                TEMPLATE_TAB_ITEM_CLASS,
+                "flex items-center justify-center px-2 text-xs",
+              )}
+            >
+              {/* As wide as the name, so each segment keeps its width when the names arrive. */}
+              <Skeleton className="h-3" style={{ width: `${section.tab.length}ch` }} />
             </span>
           ))}
         </div>

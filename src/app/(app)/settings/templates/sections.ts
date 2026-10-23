@@ -12,8 +12,12 @@ export const TEMPLATE_SECTIONS: readonly { key: TemplateSectionKey; tab: string 
 ];
 
 /**
- * The phone's segmented control track: four segments in a row at normal text, wrapping to two
- * rows at large system text instead of cutting the names short.
+ * The phone's segmented control track: four segments in a row, each as wide as its name needs
+ * and sharing what is left, so "Deliverables" reads whole at 375 px (the design gate, 23 Oct:
+ * equal columns cut it to "Deliverabl…"); at large system text they wrap to two rows instead of
+ * cutting the names short.
  */
-export const TEMPLATE_TABS_CLASS =
-  "bg-muted rounded-control grid grid-cols-[repeat(auto-fit,minmax(4.5rem,1fr))] gap-1 p-1 md:hidden";
+export const TEMPLATE_TABS_CLASS = "bg-muted rounded-control flex flex-wrap gap-1 p-1 md:hidden";
+
+/** One segment of that track: grows from its name's width (the skeleton's segments too). */
+export const TEMPLATE_TAB_ITEM_CLASS = "min-h-11 min-w-0 flex-[1_1_auto]";
