@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
@@ -28,14 +28,15 @@ import {
 /**
  * The month (6.4b; Kickoff 6 decision 25 A, B, C, C amended 2026-10-08): Monday to Sunday, the
  * neighbouring months' days dimmed. Three densities: `compact` (the phone's opening size: the date,
- * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month) and `laptop`
- * (the same lines, an event with its title then its time and client). In a box, at most three
+ * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month: the month's
+ * days in two columns, `PhoneMonth`, so its chips read) and `laptop` (the lines, an event with its
+ * title then its time and client). In a box, at most three
  * lines, the last "+N more" when there are more (PP-calendar-14): the events, what is due by name
  * (amber, red overdue with its icon), the holiday (cut for space, the date number turns green),
  * others' busy, then leave as a soft neutral striped bar along the bottom, "Asha · On leave" with the palm icon, continuous across consecutive leave days
  * of the week row (`calendar-chip`: the day's dialog draws the same chips). V5b's polish
- * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle and the selected day the
- * outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
+ * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle on a neutral tint, never
+ * outlined, and any other selected day the outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
  * weekdays read "Mon Tue …" on a laptop, single letters on a phone; done is dimmed with a ✓. Every
  * line is one line at a fixed height, ellipsised when it does not fit, never wrapped, clipped
  * mid-word or past its box (the owner's preview review; SCOPE §6). Client deliverables are outlined
@@ -49,8 +50,14 @@ const WEEKDAYS_LAPTOP = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as con
 export type GridDensity = "compact" | "full" | "laptop";
 
 const LINE = {
-  full: "text-xs leading-4",
+  full: "text-xs leading-5",
   laptop: "text-xs leading-5",
+} as const;
+
+/** A chip's shape: the phone's two-column boxes have the room for the sample's rounder chips. */
+const CHIP = {
+  full: "rounded-md px-1.5",
+  laptop: "rounded-sm px-1",
 } as const;
 
 /**
@@ -75,7 +82,8 @@ function StripLine({
         data-kind="item"
         data-late={strip.late ? "" : undefined}
         className={cn(
-          "block rounded-sm border px-1",
+          "block border",
+          CHIP[density],
           LINE[density],
           fit,
           strip.late ? "border-danger text-danger" : "border-border text-foreground",
@@ -101,20 +109,17 @@ function StripLine({
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
-        className={cn(
-          "block rounded-sm px-1 font-medium",
-          LINE[density],
-          fit,
-          DUE_TONE[strip.tone],
-        )}
+        className={cn("block font-medium", CHIP[density], LINE[density], fit, DUE_TONE[strip.tone])}
       >
         {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
         {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
-        {strip.label}
+        {density === "full" ? strip.long : strip.label}
       </span>
     );
   }
-  const text = density === "laptop" && strip.kind === "event" ? strip.long : strip.label;
+  // The title, then its time (and client): the sample's "Edit · 11:45 am", read whole on a laptop
+  // and in the phone's two-column boxes.
+  const text = strip.kind === "event" ? strip.long : strip.label;
   const color =
     strip.kind === "event" ? strip.color : strip.kind === "holiday" ? HOLIDAY_COLOR : null;
   const done = strip.kind === "event" && strip.completed;
@@ -125,7 +130,8 @@ function StripLine({
       data-completed={done ? "" : undefined}
       className={cn(
         // One line, ellipsised when it does not fit (decision 25 C; the owner's review).
-        "block rounded-sm px-1",
+        "block",
+        CHIP[density],
         LINE[density],
         fit,
         // A task (and the holiday) is a filled soft chip with its dot (the approved sample, no
@@ -174,6 +180,18 @@ export function MonthGrid({
   className?: string;
 }) {
   const inMonth = (date: ISODate) => date.slice(0, 7) === grid.month.slice(0, 7);
+  if (density === "full") {
+    return (
+      <PhoneMonth
+        dates={grid.weeks.flat().filter(inMonth)}
+        days={days}
+        today={today}
+        selected={selected}
+        onDay={onDay}
+        className={className}
+      />
+    );
+  }
   const linesOf = (date: ISODate | undefined) => {
     const day = date ? days.get(date) : undefined;
     return day && density !== "compact" ? dayStrips(day, today) : null;
@@ -236,17 +254,15 @@ export function MonthGrid({
                     }
                     className={cn(
                       "pressable focus-visible:ring-ring relative flex w-full min-w-0 flex-col items-stretch gap-px rounded-md border p-0.5 text-left outline-none select-none focus-visible:ring-2",
-                      density === "compact"
-                        ? "min-h-11 overflow-hidden"
-                        : density === "full"
-                          ? "min-h-0"
-                          : "min-h-28 p-1",
+                      density === "compact" ? "min-h-11 overflow-hidden" : "min-h-28 p-1",
                       // Each day its own faint tile (the owner's review): a hairline at low
                       // contrast; only the selected day outlined (PP-calendar-1, PP-phone-3: the
                       // outline follows the tapped day); the weekly off lightly tinted
                       // (PP-calendar-4); today's box a neutral tint, one surface step up, with no
                       // shadow that could read as a second outline (PP-calendar-15, FINAL 4).
-                      isSelected ? "border-foreground" : "border-border/60",
+                      // Today is marked by its red circle and its tint alone: never also the
+                      // selection's outline (the design gate, 23 Oct).
+                      isSelected && !isToday ? "border-foreground" : "border-border/60",
                       isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
@@ -334,16 +350,8 @@ export function MonthGrid({
                           LEAVE_TONE,
                           "mt-auto block truncate px-1 font-medium",
                           "text-xs leading-4",
-                          before
-                            ? density === "laptop"
-                              ? "-ml-[5px]"
-                              : "-ml-[3px]"
-                            : "rounded-l-sm",
-                          after
-                            ? density === "laptop"
-                              ? "-mr-[7px]"
-                              : "-mr-[5px]"
-                            : "rounded-r-sm",
+                          before ? "-ml-[5px]" : "rounded-l-sm",
+                          after ? "-mr-[7px]" : "rounded-r-sm",
                           leave.pending && "border-leave/60 border-t border-dashed",
                         )}
                       >
@@ -370,6 +378,134 @@ export function MonthGrid({
           </ol>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The phone's full month (the approved calendar sample's phone layout, the design gate of 23 Oct):
+ * the month's days as two columns of boxes, each its weekday and date, then its chips at a width
+ * that reads ("Edit · 11:45 am", "Test 4 · due 6:00 pm", "Shetty · Reel 1"), "+N more" and the
+ * leave bar. A tap opens the day's popup, where every line is in full. The boxes scroll inside the
+ * calendar (a vertical pan; a sideways swipe still moves the month), opening on the selected day.
+ * Today: the red circle and the neutral tint, never an outline; the selected day the outlined box.
+ */
+function PhoneMonth({
+  dates,
+  days,
+  today,
+  selected,
+  onDay,
+  className,
+}: {
+  dates: readonly ISODate[];
+  days: ReadonlyMap<ISODate, CalendarDay>;
+  today: ISODate;
+  selected: ISODate | null;
+  onDay: (date: ISODate) => void;
+  className?: string | undefined;
+}) {
+  const list = useRef<HTMLOListElement>(null);
+  const first = dates[0];
+  // The selected day (else today) in view: on opening, and when another month is shown.
+  useEffect(() => {
+    const target = selected ?? today;
+    list.current
+      ?.querySelector(`[data-date="${target}"]`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [first, selected, today]);
+  return (
+    <div
+      data-slot="calendar-month"
+      data-density="full"
+      className={cn("flex min-h-0 min-w-0 flex-col", className)}
+    >
+      <ol
+        ref={list}
+        aria-label="Days"
+        data-slot="calendar-month-days"
+        className="grid min-h-0 flex-1 touch-pan-y grid-cols-2 content-start gap-1.5 overflow-y-auto overscroll-contain"
+      >
+        {dates.map((date) => {
+          const day = days.get(date);
+          const isToday = date === today;
+          const isSelected = date === selected;
+          const lines = day ? dayStrips(day, today) : null;
+          const leave = lines?.strips.find((strip) => strip.kind === "leave") ?? null;
+          const others = (lines?.strips ?? []).filter(
+            (strip): strip is Exclude<Strip, { kind: "leave" }> => strip.kind !== "leave",
+          );
+          return (
+            <li key={date} data-slot="calendar-cell" className="flex min-w-0">
+              <button
+                type="button"
+                onClick={() => onDay(date)}
+                data-slot="calendar-day"
+                data-date={date}
+                data-selected={isSelected ? "" : undefined}
+                aria-current={isToday ? "date" : undefined}
+                aria-pressed={selected !== null ? isSelected : undefined}
+                aria-label={
+                  day ? dayLabel(day, today) : formatIST(istDayStart(date), "EEEE d MMMM")
+                }
+                className={cn(
+                  "pressable focus-visible:ring-ring flex min-h-23 w-full min-w-0 flex-col items-stretch gap-1 rounded-lg border p-1.5 text-left outline-none select-none focus-visible:ring-2",
+                  isSelected && !isToday ? "border-foreground" : "border-border",
+                  isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card",
+                  "active:bg-muted/60",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span
+                    data-slot="calendar-date"
+                    data-weekly-off={day?.weeklyOff ? "" : undefined}
+                    data-holiday={lines?.holidayHidden ? "" : undefined}
+                    className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
+                      day?.weeklyOff && "text-muted-foreground",
+                      lines?.holidayHidden && "text-holiday",
+                      isToday && "bg-brand text-brand-foreground",
+                    )}
+                  >
+                    {formatIST(istDayStart(date), "d")}
+                  </span>
+                  <span aria-hidden className="text-muted-foreground text-xs">
+                    {formatIST(istDayStart(date), "EEE")}
+                  </span>
+                </span>
+                <span aria-hidden className="flex min-h-0 min-w-0 flex-col gap-1">
+                  {others.map((strip) => (
+                    <StripLine key={strip.key} strip={strip} density="full" />
+                  ))}
+                  {lines?.more ? (
+                    <span
+                      data-slot="calendar-more"
+                      className="text-muted-foreground block truncate px-1.5 text-xs leading-5 font-medium tabular-nums"
+                    >
+                      +{lines.more} more
+                    </span>
+                  ) : null}
+                </span>
+                {leave && leave.kind === "leave" ? (
+                  <span
+                    aria-hidden
+                    data-slot="calendar-leave-bar"
+                    data-pending={leave.pending ? "" : undefined}
+                    className={cn(
+                      LEAVE_TONE,
+                      "mt-auto block truncate rounded-md px-1.5 text-xs leading-5 font-medium",
+                      leave.pending && "border-leave/60 border border-dashed",
+                    )}
+                  >
+                    <LeaveIcon className="mr-1 size-3" />
+                    {leave.label}
+                  </span>
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

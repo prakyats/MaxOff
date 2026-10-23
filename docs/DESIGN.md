@@ -239,7 +239,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Grey | `neutral` | `#62626A` on `#EFEFEF` | `#9D9DA5` on `#232327` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
 | Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#62626A` on `#F8F8F9`, stripes `#DFDFE1` (PP-light-2: stronger stripes, 1.25:1 on the bar, with the text still 4.5:1 on a stripe; the sample's `#EFEFEF` stripes on a clear bar were too faint for PP-light-2) | `#9D9DA5` on `#27272A`, stripes `#232327` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
-| Today lift | `today` (= `surface-3`) | `#FFFFFF` + `shadow-raised` | `#222226` | today's whole box on the calendar, under the red circle on its date: a faint neutral lift one surface step above the other days, never a red wash and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
+| Today tint | `today` | `#F3F3F3` | `#222226` (= `surface-3`) | today's whole box on the calendar, under the red circle on its date: a neutral tint (light: one grey step under the white boxes; dark: one surface step up), never a red wash, never an outline (the selection's outline skips today, the design gate of 23 Oct) and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 
 - Each tone has a `*-soft` background (the samples' chip tints) whose text reads at ≥ 4.5:1, and
@@ -255,8 +255,9 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   first.
 
 - **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled `brand`
-  red circle on its date number and its whole box one surface step up, `bg-today shadow-raised` (PP-calendar-15), the selected
-  day the outlined box; the weekly off's date number is `muted-foreground` and its box tinted
+  red circle on its date number and its whole box the neutral `bg-today` tint, never outlined (PP-calendar-15; the design
+  gate, 23 Oct), any other selected day the outlined box; the phone's full month is the month's days in two columns
+  (`PhoneMonth`, the calendar sample's phone layout), so its chips read ("Edit · 11:45 am", "Test 4 · due 6:00 pm"); the weekly off's date number is `muted-foreground` and its box tinted
   `bg-muted/50` (blue means in progress); weekdays read "Mon Tue …" on a laptop, single letters on a phone. One chip look for the month and the day's
   dialog (`calendar-chip`): an event in its type's colour (tint and left edge), the title before
   the time; what is due by name in `attention` (amber) or `danger` (red, overdue) with its clock or

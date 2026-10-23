@@ -208,10 +208,11 @@
   --brand-soft: #fdecec;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
-  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15): a faint neutral lift, one surface
-   * step above the other days (= surface-3; light adds the raised shadow), never a red wash: the
-   * red circle on the date is the marker. Every text on it reads at 4.5:1. */
-  --today: #ffffff;
+  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15; the design gate, 23 Oct): a neutral
+   * tint under the red circle on its date, never a red wash and never an outline. Light: one grey
+   * step under the white boxes (white on white was no tint at all); dark: one surface step up
+   * (surface-3). Every text on it reads at 4.5:1 (holiday green 4.5:1, the floor). */
+  --today: #f3f3f3;
   /* An unread alert's row (PP-alerts-2, V5b): one quiet warm step off the white card in light, one
    * surface step lighter in dark; its text reads at 4.5:1. */
   --row-unread: #f3f2ec;

@@ -531,7 +531,10 @@ export function CalendarScreen({
                         // today the red circle on its date and its box one surface step up with
                         // no shadow (PP-calendar-15, FINAL 4); PP-calendar-4: the weekly off muted
                         // and tinted.
-                        chosen ? "border-foreground" : "border-border/60 active:bg-muted/60",
+                        // Today is never also outlined (the design gate, 23 Oct).
+                        chosen && day.date !== today
+                          ? "border-foreground"
+                          : "border-border/60 active:bg-muted/60",
                         day.date === today ? "bg-today" : day.weeklyOff ? "bg-muted/50" : "bg-card",
                       )}
                     >

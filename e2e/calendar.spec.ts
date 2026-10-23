@@ -1695,3 +1695,40 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await removeClientFixture(fixture.client);
   });
 });
+
+/**
+ * Today on the calendar (the design gate, 23 Oct): the red circle on its date and a neutral tint
+ * on its box, never also the selection's outline (the phone opens with today selected), in the
+ * phone's compact and full months and the laptop's month.
+ */
+test.describe("today's mark", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  async function look(box: Locator) {
+    return box.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const date = element.querySelector('[data-slot="calendar-date"]') as HTMLElement;
+      return {
+        border: style.borderTopColor,
+        background: style.backgroundColor,
+        circle: getComputedStyle(date).backgroundColor,
+      };
+    });
+  }
+
+  test("a red circle and a neutral tint, no outline, in every month", async ({ page }, info) => {
+    const today = todayIST();
+    const other = addISTDays(today, today.endsWith("-01") ? 1 : -1);
+    await page.goto("/calendar");
+    await hydrated(page);
+    const sizes = isPhone(info) ? (["2", "3"] as const) : (["laptop"] as const);
+    for (const size of sizes) {
+      if (size !== "laptop") await phoneSize(page, size);
+      const mine = await look(dayBox(page, today));
+      const theirs = await look(dayBox(page, other));
+      expect(mine.border, `${size}: today has no outline of its own`).toBe(theirs.border);
+      expect(mine.background, `${size}: today's box is tinted`).not.toBe(theirs.background);
+      expect(mine.circle, `${size}: the red circle`).not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+});

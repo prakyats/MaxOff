@@ -46,6 +46,8 @@ export type Strip =
       key: string;
       /** The task's or the deliverable's title. */
       label: string;
+      /** "Test 4 · due 6:00 pm": the phone's two-column month, where a box has the room. */
+      long: string;
       tone: "due" | "overdue";
       /** The task type's colour; null for a deliverable (no type: the tone's colour). */
       color: string | null;
@@ -173,7 +175,14 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
   }
   const tone = day.date < today ? "overdue" : "due";
   for (const due of day.due) {
-    strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
+    strips.push({
+      kind: "due",
+      key: `due-${due.id}`,
+      label: due.title,
+      long: `${due.title} · due ${formatTime(due.dueAt)}`,
+      tone,
+      color: due.color,
+    });
   }
   // Client work after the tasks (SCOPE §6: timed tasks, due tasks, client work, "+N more").
   for (const item of day.items) {
