@@ -466,7 +466,7 @@ export function CalendarScreen({
           ref={phoneHeaderRef}
           data-slot="calendar-header"
           // Wraps only at very large system text (a second line beats anything cut).
-          className="group/header flex min-w-0 flex-wrap items-center gap-1 data-[fit=tight]:gap-0"
+          className="group/header flex min-w-0 flex-wrap items-center gap-1 data-[fit=snug]:gap-0 data-[fit=tight]:gap-0"
         >
           <button
             type="button"

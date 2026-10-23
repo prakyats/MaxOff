@@ -2103,6 +2103,13 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
         /^[A-Z][a-z]+ \d{4}$/,
       );
       expect(label.cut, `${width}: the label is whole`).toBe(false);
+      // From 375 px the year stays in sight too ("Oct 2026"): only the narrower phones drop it.
+      if (width >= 375) {
+        const shown = await header
+          .locator('[data-slot="calendar-month-label"]')
+          .evaluate((heading) => (heading as HTMLElement).innerText.trim());
+        expect(shown, `${width}: the month and its year`).toMatch(/^[A-Z][a-z]{2} \d{4}$/);
+      }
       await expectNoHorizontalScroll(page);
     }
     await page.setViewportSize({ width: 430, height: 932 });

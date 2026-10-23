@@ -36,13 +36,13 @@ export function ShowTrigger({
     >
       <span
         data-show-word="long"
-        className="group-data-[fit=short]/header:hidden group-data-[fit=tight]/header:hidden"
+        className="group-data-[fit=short]/header:hidden group-data-[fit=snug]/header:hidden group-data-[fit=tight]/header:hidden"
       >
         {SHOW_LABELS[show]}
       </span>
       <span
         data-show-word="short"
-        className="hidden group-data-[fit=short]/header:inline group-data-[fit=tight]/header:inline"
+        className="hidden group-data-[fit=short]/header:inline group-data-[fit=snug]/header:inline group-data-[fit=tight]/header:inline"
       >
         {SHOW_SHORT_LABELS[show]}
       </span>

@@ -47,11 +47,12 @@ export function useLeaveFit(ref: RefObject<HTMLElement | null>): void {
 }
 
 /**
- * Keeps the phone header on its one row (option A, owner 23 Oct): `data-fit="long"` first, and
- * `data-fit="short"` when the row would wrap, which turns "Client work ▾" into "Client ▾"
- * (`ShowTrigger`), never an ellipsis; at the narrowest phones (320 px) `data-fit="tight"` also
- * drops the gaps and the month's year from sight ("Oct"; its name still says "October 2026"). The row may still wrap at very large system text, where a
- * second line beats anything cut. After every render and on resize.
+ * Keeps the phone header on its one row (option A, owner 23 Oct), trying in turn: `long`; `short`,
+ * which turns "Client work ▾" into "Client ▾" (`ShowTrigger`), never an ellipsis; `snug`, the same
+ * with no gaps between the 44 px targets; and only where even that would wrap (the narrowest
+ * phones, 320 px, or "Client ▾" at 360) `tight`, which also takes the year out of sight ("Oct";
+ * the heading's name still says "October 2026"). The row may still wrap at very large system
+ * text, where a second line beats anything cut. After every render and on resize.
  */
 export function useHeaderFit(ref: RefObject<HTMLElement | null>): void {
   useBeforePaint(() => {
@@ -76,9 +77,9 @@ function wraps(row: HTMLElement): boolean {
   return row.scrollWidth > row.clientWidth || parts.some((part) => part.offsetTop >= lineEnd);
 }
 
-/** Long, then short ("Client ▾"), then tight (also "Oct" for "Oct 2026", no gaps): the first that fits. */
+/** Long, short ("Client ▾"), snug (no gaps), then tight (also "Oct" for "Oct 2026"): the first that fits. */
 function fitRow(row: HTMLElement): void {
-  for (const fit of ["long", "short", "tight"]) {
+  for (const fit of ["long", "short", "snug", "tight"]) {
     row.setAttribute("data-fit", fit);
     if (!wraps(row)) return;
   }
