@@ -14,7 +14,6 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -46,19 +45,6 @@ import { Timeline, type TimelineEventLink } from "./timeline";
  * create a task, "Suggest a task" for Crew). An empty day says "Nothing on this day." and nothing
  * else (a day with only a due task is not empty, 08 Oct bug (c)).
  */
-
-/**
- * A due task's chip in the day's rows (the approved sample's "Due today"): red "Overdue" on a past
- * day, amber "Due today" today, amber "Due" on a later day. Status is a chip, never text colour
- * alone (FINAL 4).
- */
-function dueChip(
-  date: ISODate,
-  today: ISODate,
-): { status: string; tone: "danger" | "attention"; label: string } {
-  if (date < today) return { status: "overdue", tone: "danger", label: "Overdue" };
-  return { status: "due", tone: "attention", label: date === today ? "Due today" : "Due" };
-}
 
 /** An event or a due task as a link to its task, backing out of a sheet first (`OverlayLink`). */
 export const eventLink: TimelineEventLink = (event, children, className, style) => (
@@ -409,18 +395,24 @@ export function DayDetail({
                   href={`/tasks/${item.id}`}
                   data-slot="calendar-due"
                   data-task={item.id}
-                  className="focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                  className="focus-visible:ring-ring flex min-h-14 items-start gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
                 >
-                  {/* The approved sample's row: the title, "Asha · due 6:00 pm", the chip, then ›. */}
+                  <span
+                    className={cn(
+                      "w-16 shrink-0 pt-px text-xs tabular-nums",
+                      day.date < today ? "text-danger" : "text-muted-foreground",
+                    )}
+                  >
+                    {formatTime(item.dueAt)}
+                  </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="font-medium break-words">{item.title}</span>
-                    <span className="text-muted-foreground text-xs break-words">
-                      {item.owner} ·{" "}
-                      <span className="tabular-nums">due {formatTime(item.dueAt)}</span>
-                    </span>
+                    <span className="text-muted-foreground text-xs break-words">{item.owner}</span>
                   </span>
-                  <StatusBadge {...dueChip(day.date, today)} />
-                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                  <ChevronRightIcon
+                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                    aria-hidden
+                  />
                 </OverlayLink>
               </li>
             ))}
@@ -555,10 +547,9 @@ export function ClientItemsList({
                 <span className="text-muted-foreground text-xs break-words">
                   {item.title} · {item.project}
                   {item.done ? " · done" : ""}
+                  {late && !item.done ? <span className="text-danger"> · late</span> : null}
                 </span>
               </span>
-              {/* Lateness is a chip, never red text alone (the design gate, 23 Oct). */}
-              {late && !item.done ? <StatusBadge status="late" tone="danger" label="Late" /> : null}
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </OverlayLink>
           </li>

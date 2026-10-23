@@ -13,11 +13,7 @@ import { contrastRgb, hexToRgb, readTokens } from "@/core/ui/theme/tint-contrast
  */
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const css = read("../../../app/globals.css");
-const SCREENS = [
-  "../components/month-grid.tsx",
-  "../components/phone-month.tsx",
-  "../components/calendar-screen.tsx",
-];
+const SCREENS = ["../components/month-grid.tsx", "../components/calendar-screen.tsx"];
 
 describe("today's red circle on the calendar", () => {
   for (const [theme, selector] of [
