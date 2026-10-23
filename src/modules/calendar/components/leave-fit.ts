@@ -63,6 +63,33 @@ export function useLeaveFit(ref: RefObject<HTMLElement | null>): void {
     observer.observe(root);
     return () => observer.disconnect();
   }, [ref]);
+  useRefitOnFonts(ref, fitLeaveLabels);
+}
+
+/**
+ * Fits again once the web fonts have loaded: a label measured in the fallback face (a first open,
+ * fonts still on their way) is narrower than the same words in the real one, so "Name · Leave"
+ * that fitted before the swap would be cut after it, and a font swap resizes no box for the
+ * `ResizeObserver` to see (CI run 40022780948: the week's chip at 1280).
+ */
+function useRefitOnFonts(
+  ref: RefObject<HTMLElement | null>,
+  fit: (element: HTMLElement) => void,
+): void {
+  useEffect(() => {
+    const fonts = typeof document === "undefined" ? undefined : document.fonts;
+    if (!fonts) return;
+    let live = true;
+    const refit = () => {
+      if (live && ref.current) fit(ref.current);
+    };
+    void fonts.ready.then(refit);
+    fonts.addEventListener("loadingdone", refit);
+    return () => {
+      live = false;
+      fonts.removeEventListener("loadingdone", refit);
+    };
+  }, [ref, fit]);
 }
 
 /**
@@ -84,6 +111,7 @@ export function useHeaderFit(ref: RefObject<HTMLElement | null>): void {
     observer.observe(row);
     return () => observer.disconnect();
   }, [ref]);
+  useRefitOnFonts(ref, fitRow);
 }
 
 /** Whether a wrapping row's parts sit on more than one line (or push past its edge). */
