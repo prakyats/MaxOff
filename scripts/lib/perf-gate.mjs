@@ -14,7 +14,10 @@
 //      not failing;
 //   3. a sample that answered with another status than the route's (a 500, a redirect to /login,
 //      a timeout) fails it: a fast error page is not a fast route.
-// Routes in NOT_GATED (the warm-up ping: no body, a few ms) are shown but never judged.
+// Routes in NOT_GATED (the warm-up ping, the static file the CDN serves and the Worker's bare 404:
+// hosting, not MaxOff code; advisor 2026-10-23, owner to confirm) keep their timing out of the
+// verdict: shown as INFO. Their status is still judged, so a 5xx, a redirect to /login or a
+// timeout on them still fails.
 
 /** A route whose warm TTFB p50 is above this, in ms, fails. */
 export const WARM_TTFB_P50_LIMIT_MS = 600;
@@ -25,7 +28,7 @@ export const SLOWER_THAN_STAGING_MS = 100;
 /** The percentage rule fails a route only when it is also at least this many ms slower. */
 export const SLOWER_PCT_FLOOR_MS = 50;
 /** Shown in the table, left out of the verdict. */
-export const NOT_GATED = new Set(["/api/warm"]);
+export const NOT_GATED = new Set(["/api/warm", "static (no Worker)", "404 (Worker, no data)"]);
 
 /** @typedef {"owner" | "admin" | "staff"} Role */
 /** @typedef {"task" | "client" | "project" | "projectClient" | "person"} IdKey */
@@ -185,8 +188,18 @@ export function judgeRoute(route, baseline) {
       `+${Math.round(delta)} ms (+${pct} %) vs staging`,
     );
   }
-  const verdict = NOT_GATED.has(route.name)
-    ? "INFO"
+  const timingOnly = NOT_GATED.has(route.name);
+  if (timingOnly) {
+    // Only the status counts: the timing reasons move to the shown, unjudged ones.
+    const status = reasons.filter((r) => r.startsWith("status "));
+    warnings.unshift(...reasons.filter((r) => !r.startsWith("status ")));
+    reasons.length = 0;
+    reasons.push(...status);
+  }
+  const verdict = timingOnly
+    ? reasons.length > 0
+      ? "FAIL"
+      : "INFO"
     : reasons.length > 0
       ? "FAIL"
       : warnings.length > 0
