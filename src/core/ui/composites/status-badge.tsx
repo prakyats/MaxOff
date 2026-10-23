@@ -72,6 +72,13 @@ export function StatusBadge({
       data-tone={resolved}
       className={cn("border-transparent", TONE_CLASSES[resolved], className)}
     >
+      {/* The leading dot every sample chip has (the design gate, 23 Oct): the tone's own colour,
+          so the word and the dot say the same thing. */}
+      <span
+        aria-hidden
+        data-slot="status-badge-dot"
+        className="size-1.5 shrink-0 rounded-full bg-current"
+      />
       {label ?? statusLabel(status)}
     </Badge>
   );
