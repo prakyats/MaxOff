@@ -11,7 +11,8 @@ import { fileUrl } from "@/core/storage";
 /**
  * A person's photo beside their name (v1.8 V5b-D, the approved pull-in sample): task chat, the
  * task's people, Approvals rows, People, a person's page, the calendar day popup and Alerts;
- * **never** inside calendar month boxes or long tables. Four fixed sizes (20 list rows, 28 chat
+ * **never** inside calendar month boxes or long tables, with one exception: the laptop calendar's
+ * leave bar, as "[photo] Leave" where even "Name · Leave" has no room (owner 23 Oct). Four fixed sizes (20 list rows, 28 chat
  * and Alerts, 40 People and headers, 64 a person's page and Me) and a fine ring in both themes
  * (`globals.css`). The initials on the person's own calm colour are drawn first and the photo
  * over them once it arrives, so nothing moves; lists load only the 96 px thumbnail, below the

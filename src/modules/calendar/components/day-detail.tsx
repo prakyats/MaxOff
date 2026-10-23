@@ -31,7 +31,7 @@ import { agendaEvents } from "../domain/laptop";
 import { clientWorkRows } from "../domain/show";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
-import { DoneTick, LEAVE_TONE, TypeDot, typeTint } from "./calendar-chip";
+import { DoneTick, LEAVE_TONE, LeaveIcon, TypeDot, typeTint } from "./calendar-chip";
 import { LEAVE_FIT_LABEL } from "./leave-fit";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
@@ -122,7 +122,8 @@ export function AllDayChips({
   avatars?: boolean;
   /**
    * The laptop's Week and Day: a leave chip never truncates; "Name · Leave" where "Name · On
-   * leave" has no room (v1.8, owner 23 Oct; the screen's `useLeaveFit` picks).
+   * leave" has no room, else "[photo] Leave" (v1.8, owner 23 Oct; the screen's `useLeaveFit`
+   * measures).
    */
   fitLeave?: boolean;
 }) {
@@ -151,23 +152,42 @@ export function AllDayChips({
               item.pending && "border-leave/60 border border-dashed",
             )}
           >
-            <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
             {fitLeave && item.label === "Leave" ? (
               <span
                 data-member={item.memberId}
                 data-leave-fit="long"
                 className={cn("min-w-0", LEAVE_FIT_LABEL)}
               >
-                {item.own ? "You" : firstName(item.name)} ·{" "}
-                <span data-leave-word="long">On leave</span>
-                <span data-leave-word="short">Leave</span>
+                <span data-leave-word="long">
+                  <LeaveIcon className="mr-1" />
+                  {item.own ? "You" : firstName(item.name)} · On leave
+                </span>
+                <span data-leave-word="short">
+                  <LeaveIcon className="mr-1" />
+                  {item.own ? "You" : firstName(item.name)} · Leave
+                </span>
+                {/* Where even "Name · Leave" has no room: their photo, "Leave" (owner 23 Oct). */}
+                <span data-leave-word="photo">
+                  <PersonAvatar
+                    person={{
+                      id: item.memberId,
+                      name: item.name,
+                      avatarFileId: item.avatarFileId ?? null,
+                    }}
+                    size={20}
+                  />
+                  Leave
+                </span>
                 {item.pending ? " · requested" : ""}
               </span>
             ) : (
-              <span data-member={item.memberId} className="min-w-0 truncate">
-                {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
-                {item.pending ? " · requested" : ""}
-              </span>
+              <>
+                <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
+                <span data-member={item.memberId} className="min-w-0 truncate">
+                  {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
+                  {item.pending ? " · requested" : ""}
+                </span>
+              </>
             )}
           </Chip>
         );

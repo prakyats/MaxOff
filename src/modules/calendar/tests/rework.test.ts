@@ -145,7 +145,8 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
           key: "leave",
           label: "Asha · On leave",
           short: "Asha · Leave",
-          spoken: "Asha off",
+          person: { id: "a", name: "Asha", avatarFileId: null },
+          spoken: "Asha, on leave",
           pending: false,
         },
       ],
@@ -161,7 +162,8 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         key: "leave",
         label: "Asha · On leave",
         short: "Asha · Leave",
-        spoken: "Asha off, half day",
+        person: { id: "a", name: "Asha Rao", avatarFileId: null },
+        spoken: "Asha, on leave, half day",
         pending: false,
       },
     ]);
@@ -176,7 +178,8 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         key: "leave",
         label: "2 on leave",
         short: "2 on leave",
-        spoken: "2 off",
+        person: null,
+        spoken: "2 on leave",
         pending: false,
       },
     ]);
@@ -188,10 +191,24 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         key: "leave",
         label: "You · On leave",
         short: "You · Leave",
-        spoken: "You off",
+        person: { id: "m", name: "Me", avatarFileId: null },
+        spoken: "You, on leave",
         pending: true,
       },
     ]);
+  });
+
+  it("carries one person's photo for the laptop bar's last wording, [photo] Leave", () => {
+    const [line] = allStrips(
+      day({ leave: [off("j", "Jayalakshmi Rao", { avatarFileId: "file-1" })] }),
+      TODAY,
+    );
+    expect(line).toMatchObject({
+      kind: "leave",
+      short: "Jayalakshmi · Leave",
+      person: { id: "j", name: "Jayalakshmi Rao", avatarFileId: "file-1" },
+      spoken: "Jayalakshmi, on leave",
+    });
   });
 
   it("puts the title, then the time and the client on a laptop's strip; never a red colour of its own", () => {
@@ -273,7 +290,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
   it("tells a screen reader what the box holds", () => {
     expect(
       dayLabel(day({ weeklyOff: true, leave: [off("a", "Asha", { pending: true })] }), TODAY),
-    ).toBe("Thursday 8 October, today, weekly off, Asha off, requested");
+    ).toBe("Thursday 8 October, today, weekly off, Asha, on leave, requested");
   });
 });
 

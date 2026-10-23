@@ -1869,23 +1869,50 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
   }
 
   /**
-   * A leave label as drawn: its visible words, whether it is cut (an overflow or an ellipsis) and
-   * whether the long wording would have fitted where it is.
+   * A leave label as drawn: its visible words, whether it is cut (an overflow or an ellipsis),
+   * whether the long and the short wordings would have fitted where it is, and whether the
+   * person's photo is showing (the last wording, `[photo] Leave`, owner 23 Oct).
    */
   async function leaveLabel(label: Locator) {
     return label.evaluate((element) => {
       const shown = element.getAttribute("data-leave-fit");
-      element.setAttribute("data-leave-fit", "long");
-      const longFits = element.scrollWidth <= element.clientWidth;
+      const fits = (fit: string) => {
+        element.setAttribute("data-leave-fit", fit);
+        return element.scrollWidth <= element.clientWidth;
+      };
+      const longFits = fits("long");
+      const shortFits = fits("short");
       if (shown !== null) element.setAttribute("data-leave-fit", shown);
+      const photo = element.querySelector<HTMLElement>(
+        '[data-leave-word="photo"] [data-slot="person-avatar"]',
+      );
+      const photoBox = photo?.getBoundingClientRect();
+      const labelBox = element.getBoundingClientRect();
+      // The words, without the photo's initials (a decorative face beside "Leave").
+      const display = photo?.style.display ?? "";
+      if (photo) photo.style.display = "none";
+      const text = (element as HTMLElement).innerText.trim();
+      if (photo) photo.style.display = display;
       return {
-        text: (element as HTMLElement).innerText.trim(),
+        text,
         cut: element.scrollWidth > element.clientWidth,
         ellipsis: getComputedStyle(element).textOverflow === "ellipsis",
         longFits,
+        shortFits,
+        photoShown: Boolean(photo && photo.checkVisibility() && (photoBox?.width ?? 0) > 0),
+        photoInside: Boolean(
+          photoBox &&
+          photoBox.top >= labelBox.top - 0.5 &&
+          photoBox.bottom <= labelBox.bottom + 0.5 &&
+          photoBox.right <= labelBox.right + 0.5,
+        ),
       };
     });
   }
+
+  /** The wording a leave label should show: the first of the three that fits. */
+  const fitted = (label: { longFits: boolean; shortFits: boolean }) =>
+    label.longFits ? `${FIRST} · On leave` : label.shortFits ? `${FIRST} · Leave` : "Leave";
 
   test("All ▾ beside Filters: one row at 1024 and 1280 in every view; the menu ticks the choice; a view control, remembered", async ({
     page,
@@ -1977,7 +2004,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await expect.poll(() => shownLabel(trigger)).toBe("All");
   });
 
-  test("a leave bar never truncates: a long name at 1024 and 1280, in the month and the week; with room it says On leave", async ({
+  test("a leave bar never truncates: a long name at 1024 and 1280, in the month and the week; with room it says On leave; with none, the photo and Leave", async ({
     page,
   }, info) => {
     test.skip(isPhone(info), "the laptop's bars (the phone's are unchanged)");
@@ -1986,16 +2013,40 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
       await page.setViewportSize({ width, height: 800 });
       await page.goto(`/calendar?date=${day}`);
       await hydrated(page);
-      const bar = dayBox(page, day).locator('[data-slot="calendar-leave-bar"]');
+      const box = dayBox(page, day);
+      const bar = box.locator('[data-slot="calendar-leave-bar"]');
       await expect(bar).toBeVisible();
+      const barHeight = (await bar.boundingBox())?.height;
       const month = await leaveLabel(bar);
-      expect(month.text, `month at ${width}`).toMatch(new RegExp(`^${FIRST} · (On leave|Leave)$`));
+      expect(month.text, `month at ${width}`).toMatch(
+        new RegExp(`^(${FIRST} · (On leave|Leave)|Leave)$`),
+      );
       expect(month.cut, `month at ${width}: nothing cut`).toBe(false);
       expect(month.ellipsis, `month at ${width}: no ellipsis`).toBe(false);
       expect(month.text, `month at ${width}: the long wording wherever it fits`).toBe(
-        `${FIRST} · ${month.longFits ? "On leave" : "Leave"}`,
+        fitted(month),
       );
-      if (width === 1024) expect(month.text, "1024: the short wording").toBe(`${FIRST} · Leave`);
+      // The photo is the last wording only: shown exactly when neither name wording fits.
+      expect(month.photoShown, `month at ${width}: the photo only where no name fits`).toBe(
+        month.text === "Leave",
+      );
+      // The box's name says the first name in full, whichever wording the bar shows.
+      await expect(box).toHaveAccessibleName(new RegExp(`, ${FIRST}, on leave(,|$)`));
+      if (width === 1024) {
+        // Owner 23 Oct: "Jayalakshmi · Leave" has no room in a 1024 box: [photo] Leave.
+        expect(month.shortFits, "1024: the short wording has no room").toBe(false);
+        expect(month.text, "1024: Leave beside the photo").toBe("Leave");
+        expect(month.photoShown, "1024: the photo").toBe(true);
+        expect(month.photoInside, "1024: the photo inside the bar's line").toBe(true);
+        await expect(bar).toHaveAttribute("data-leave-fit", "photo");
+        // The bar keeps its height with the photo: nothing moves.
+        await bar.evaluate((element) => element.setAttribute("data-leave-fit", "long"));
+        expect((await bar.boundingBox())?.height, "1024: the bar's height, any wording").toBe(
+          barHeight,
+        );
+        await bar.evaluate((element) => element.setAttribute("data-leave-fit", "photo"));
+      }
+      await box.screenshot({ path: info.outputPath(`leave-bar-month-${width}.png`) });
 
       await page.goto(`/calendar?view=week&date=${day}`);
       await hydrated(page);
@@ -2005,10 +2056,15 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
         .locator("[data-leave-fit]");
       await expect(chip).toBeVisible();
       const week = await leaveLabel(chip);
-      expect(week.text, `week at ${width}`).toMatch(new RegExp(`^${FIRST} · (On leave|Leave)$`));
+      expect(week.text, `week at ${width}`).toMatch(
+        new RegExp(`^(${FIRST} · (On leave|Leave)|Leave)$`),
+      );
       expect(week.cut, `week at ${width}: nothing cut`).toBe(false);
       expect(week.ellipsis, `week at ${width}: no ellipsis`).toBe(false);
-      expect(week.text).toBe(`${FIRST} · ${week.longFits ? "On leave" : "Leave"}`);
+      expect(week.text).toBe(fitted(week));
+      expect(week.photoShown, `week at ${width}: the photo only where no name fits`).toBe(
+        week.text === "Leave",
+      );
 
       // The Day view's all-day line has the room: "On leave", in full.
       await page.goto(`/calendar?view=day&date=${day}`);
@@ -2019,7 +2075,8 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
         .locator('[data-slot="calendar-leave"] [data-leave-fit]')
         .filter({ hasText: FIRST })
         .first();
-      await expect(roomy).toHaveText(`${FIRST} · On leave`);
+      // The words shown (the other wordings sit hidden beside them).
+      await expect(roomy).toHaveText(`${FIRST} · On leave`, { useInnerText: true });
     }
     await removeLongName(info, id);
   });
