@@ -80,7 +80,8 @@ export function StatusBadge({
         data-slot="status-badge-dot"
         className="absolute top-1/2 left-2 size-1.5 -translate-y-1/2 rounded-full bg-current"
       />
-      {label ?? statusLabel(status)}
+      {/* Its own box, so a row that opens can cut it with an ellipsis (`ListRow`'s chips). */}
+      <span data-slot="status-badge-label">{label ?? statusLabel(status)}</span>
     </Badge>
   );
 }
