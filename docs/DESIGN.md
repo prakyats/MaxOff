@@ -90,6 +90,17 @@ a Dark/Light toggle).
   line so its height never changes) and "Leave". The day's accessible name always says the first
   name in full ("Asha, on leave"), and a tap opens the day popup with every name whole. This is the
   one place a photo sits inside a month box. "2 on leave" stays as it is.
+- **Leave on the phone's full month (owner, #89 comment 6370526089; the last rung owner 23 Oct,
+  asked directly in the v1.8 fix round): the same rungs, never an ellipsis.** "Asha · On leave",
+  "Asha · Leave", the photo and "Leave", then, only where even that overflows (a seventh of a 375
+  or 430 phone has about 41 to 49 px), **the photo alone** on the striped leave-tone bar. The
+  accessible name stays the full first name ("Jayalakshmi, on leave"); a tap opens the day sheet.
+- **The phone's full month counts what is due (v1.7.1's day cells, restored in the v1.8 fix
+  round; advisor audit #89 comment 6370400281, item 1).** The events by title (done struck
+  through), then one count for the tasks and the open deliverables, "3 due" in amber (tight letters, so
+  "12 due" reads whole at 375), a past day's open work a red soft pill with the alert icon and the
+  count. Per-item chips there were never v1.7.1's nor owner-approved; the laptop month keeps
+  naming each one (PP-calendar-5, SCOPE §6).
 - **Audit:** every ellipsis in the app sits on something that opens to the full text. An ellipsis
   on an element that opens nothing is a bug. (This replaces "two lines, then an ellipsis" in §2 and
   §6 where they disagree.)

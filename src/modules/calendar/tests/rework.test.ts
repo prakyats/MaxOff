@@ -270,6 +270,46 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     expect(dueBadge(day(), TODAY)).toBeNull();
   });
 
+  it("counts what is due on the phone's full month, as v1.7.1: one line, the tasks and the open deliverables", () => {
+    const deliverable = (id: string, done = false) => ({
+      kind: "item" as const,
+      id,
+      title: `Reel ${id}`,
+      project: "October",
+      client: "Acme",
+      href: "/clients/c/projects/p",
+      done,
+    });
+    const busyDay = day({
+      holiday: "Dussehra",
+      events: [event("shoot", { title: "Brand reel" })],
+      due: [...dueOn(TODAY), { ...dueOn(TODAY)[0]!, id: "t-2", title: "Poster" }],
+      items: [deliverable("1"), deliverable("2", true)],
+      leave: [off("a", "Asha")],
+    });
+    // The event by title, then one count ("3 due": two tasks and the open deliverable), then the
+    // rest in the same priority; never a chip per task.
+    expect(
+      allStrips(busyDay, TODAY, "counts").map((strip) => `${strip.kind}:${strip.label}`),
+    ).toEqual(["event:Brand reel", "tasks:3 due", "holiday:Dussehra", "leave:Asha · On leave"]);
+    const shown = dayStrips(busyDay, TODAY, "counts");
+    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "tasks"]);
+    expect(shown.more).toBe(2);
+    // A past day's open work is overdue (the red pill); five tasks are still one line.
+    const past = day({
+      date: "2026-10-07",
+      due: [1, 2, 3, 4, 5].map((n) => ({ ...dueOn("2026-10-07")[0]!, id: `t-${n}` })),
+    });
+    expect(dayStrips(past, TODAY, "counts")).toEqual({
+      strips: [{ kind: "tasks", key: "tasks", tone: "overdue", count: 5, label: "5 overdue" }],
+      more: 0,
+      holidayHidden: false,
+    });
+    // The laptop's month keeps naming each one; the screen reader hears the count either way.
+    expect(allStrips(past, TODAY).filter((strip) => strip.kind === "due")).toHaveLength(5);
+    expect(dayLabel(past, TODAY)).toBe("Wednesday 7 October, 5 overdue");
+  });
+
   it("draws the compact month as one bar per kind present, no text, in the strips' order", () => {
     expect(
       compactBars(

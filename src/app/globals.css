@@ -613,10 +613,12 @@
   height: 64px;
   font-size: 22px;
 }
-/* The laptop calendar's leave bar, where even "Name · Leave" has no room (owner 23 Oct): the
- * person's photo and "Leave". The 20 px face drawn at 14 px with its 1 px line ring only, so it
+/* The calendar's leave bar, where even "Name · Leave" has no room (owner 23 Oct): the
+ * person's photo and "Leave" (on the phone's full month, where that too has no room, the photo
+ * alone). The 20 px face drawn at 14 px with its 1 px line ring only, so it
  * sits inside the bar's 16 px line and the bar keeps its height whichever wording it shows. */
-[data-leave-word="photo"] > [data-slot="person-avatar"][data-size] {
+[data-leave-word="photo"] > [data-slot="person-avatar"][data-size],
+[data-leave-word="face"] > [data-slot="person-avatar"][data-size] {
   width: 14px;
   height: 14px;
   margin-right: 3px;

@@ -19,7 +19,10 @@ import { dueCount, type CalendarDay, type EventItem } from "./calendar";
  *    continuous across consecutive leave days of a week row, "Asha · On leave" for one person and
  *    "2 on leave" for several (PP-calendar-3, V5b). It is the first thing cut when the box is full,
  *    and "+N" counts it. Who, which type and a half day are in the day's detail only.
- * Only an overdue chip is red. On a phone's compact month
+ * Only an overdue chip is red. **The phone's full month counts instead** (v1.7.1's day cells, restored
+ * in the v1.8 fix round: the owner never approved named chips there, a seventh of a phone cuts them
+ * to a letter): 2 and 2b are one compact count, "3 due" in amber, a past day's open work a red pill
+ * with the count (`StripMode` "counts"). On a phone's compact month
  * each kind present is one thin bar with no text (`compactBars`). Every label is one line,
  * ellipsised by the view. Pure (ADR-0011): the views draw what this says.
  */
@@ -63,6 +66,17 @@ export type Strip =
       client: string;
       title: string;
       late: boolean;
+    }
+  | {
+      /**
+       * The phone's full month (v1.7.1): what is due, the tasks and the open deliverables, as one
+       * count, "3 due" in amber, "1 overdue" (a red pill with the count) on a past day.
+       */
+      kind: "tasks";
+      key: string;
+      tone: "due" | "overdue";
+      count: number;
+      label: string;
     }
   | { kind: "holiday"; key: string; label: string }
   | { kind: "busy"; key: string; label: string }
@@ -174,8 +188,14 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
   };
 }
 
+/**
+ * How a box tells what is due: "named", a chip each (the laptop's month), or "counts", one count
+ * (the phone's full month, v1.7.1).
+ */
+export type StripMode = "named" | "counts";
+
 /** Every line a day could show, in priority order (before the cut). */
-export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
+export function allStrips(day: CalendarDay, today: ISODate, mode: StripMode = "named"): Strip[] {
   const strips: Strip[] = [];
   for (const event of [...day.events].sort(eventOrder)) {
     strips.push({
@@ -189,11 +209,13 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
     });
   }
   const tone = day.date < today ? "overdue" : "due";
-  for (const due of day.due) {
+  const badge = mode === "counts" ? dueBadge(day, today) : null;
+  if (badge) strips.push({ kind: "tasks", key: "tasks", ...badge });
+  for (const due of mode === "counts" ? [] : day.due) {
     strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
   }
   // Client work after the tasks (SCOPE §6: timed tasks, due tasks, client work, "+N more").
-  for (const item of day.items) {
+  for (const item of mode === "counts" ? [] : day.items) {
     if (item.done) continue;
     strips.push({
       kind: "item",
@@ -219,8 +241,13 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
  * The lines a day's box shows: all of them when they fit in `max`, else `max - 1` and a "+N more"
  * line for the rest, the line counted in `max` (PP-calendar-14; leave cut first).
  */
-export function dayStrips(day: CalendarDay, today: ISODate, max = MAX_STRIPS): DayStrips {
-  const strips = allStrips(day, today);
+export function dayStrips(
+  day: CalendarDay,
+  today: ISODate,
+  mode: StripMode = "named",
+  max = MAX_STRIPS,
+): DayStrips {
+  const strips = allStrips(day, today, mode);
   const shown = strips.length <= max ? strips : strips.slice(0, max - 1);
   return {
     strips: shown,
@@ -255,7 +282,7 @@ export function dayLabel(day: CalendarDay, today: ISODate): string {
   const badge = dueBadge(day, today);
   let dueSaid = false;
   for (const strip of allStrips(day, today)) {
-    if (strip.kind === "due" || strip.kind === "item") {
+    if (strip.kind === "due" || strip.kind === "item" || strip.kind === "tasks") {
       if (!dueSaid && badge) parts.push(badge.label);
       dueSaid = true;
     } else if (strip.kind === "leave")

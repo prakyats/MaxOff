@@ -657,7 +657,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a laptop’s day is narrow, and where even that has no room, their photo and “Leave”; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              text: "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due, on a laptop each by name, amber (red with an alert when overdue), and on a phone’s full month as one count, “3 due” in amber, or a red alert with the count when overdue (tap the day to see them); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a day is narrow, on a laptop or a phone’s full month; where even that has no room, their photo and “Leave”, and on a phone, where that has no room either, their photo alone; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "text",

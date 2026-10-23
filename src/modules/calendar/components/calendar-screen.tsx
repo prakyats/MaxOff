@@ -188,9 +188,12 @@ export function CalendarScreen({
   // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). On the phone only
   // the full month fits it (`data-fit-viewport="phone"` below; PP-light-4).
   const fit = view !== "month";
-  // The laptop's leave labels never truncate (v1.8, owner 23 Oct): each picks its wording.
+  // The leave labels never truncate (v1.8, owner 23 Oct; the phone's full month too, owner #89
+  // comment 6370526089): each picks its wording.
   const laptopRef = useRef<HTMLDivElement>(null);
   useLeaveFit(laptopRef);
+  const phoneRef = useRef<HTMLDivElement>(null);
+  useLeaveFit(phoneRef);
   const phoneHeaderRef = useRef<HTMLDivElement>(null);
   useHeaderFit(phoneHeaderRef);
   const isDesktop = useIsDesktop();
@@ -451,6 +454,7 @@ export function CalendarScreen({
     >
       {/* Phone ------------------------------------------------------------------------------ */}
       <div
+        ref={phoneRef}
         data-slot="calendar-phone"
         data-size={size}
         // The full month fits the screen above the bottom bar (the owner's phone walk,

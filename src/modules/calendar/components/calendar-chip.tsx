@@ -15,7 +15,7 @@ import { cn } from "@/core/lib/utils";
  *   never a task type's colour (PP-calendar-10).
  * - A client deliverable (the approved calendar sample, SCOPE §6): outlined, the box icon, the
  *   client first ("Shetty · Reel 1"); a late one red outlined and saying "late".
- * - Done: dimmed with a small ✓, never struck through.
+ * - Done: dimmed with a small ✓ (the phone's full month, a seventh of the screen: struck through, as v1.7.1).
  * Tokens only (DESIGN.md §4): a type's colour is data, mixed here like the holiday strip's.
  */
 

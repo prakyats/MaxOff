@@ -1,17 +1,23 @@
 import { type RefObject, useEffect, useLayoutEffect } from "react";
 
-/** A leave label's three wordings, chosen by `fitLeaveLabels`. */
+/** A leave label's wordings, chosen by `fitLeaveLabels`. */
 export const LEAVE_FIT = "data-leave-fit";
 
 /**
  * On a leave label (`data-leave-fit`): one line, clipped (never an ellipsis), and only the
- * wording its `data-leave-fit` names shown (long until measured): `long`, `short` or `photo`.
+ * wording its `data-leave-fit` names shown (long until measured): `long`, `short`, `photo` or
+ * `face`.
  */
 export const LEAVE_FIT_LABEL =
-  "overflow-hidden whitespace-nowrap [&[data-leave-fit=short]_[data-leave-word=long]]:hidden [&[data-leave-fit=photo]_[data-leave-word=long]]:hidden [&:not([data-leave-fit=short])_[data-leave-word=short]]:hidden [&:not([data-leave-fit=photo])_[data-leave-word=photo]]:hidden";
+  "overflow-hidden whitespace-nowrap [&[data-leave-fit=short]_[data-leave-word=long]]:hidden [&[data-leave-fit=photo]_[data-leave-word=long]]:hidden [&[data-leave-fit=face]_[data-leave-word=long]]:hidden [&:not([data-leave-fit=short])_[data-leave-word=short]]:hidden [&:not([data-leave-fit=photo])_[data-leave-word=photo]]:hidden [&:not([data-leave-fit=face])_[data-leave-word=face]]:hidden";
 
-/** The wordings in the order they are tried: the first that fits on its one line wins. */
-const RUNGS = ["long", "short", "photo"] as const;
+/**
+ * The wordings in the order they are tried: the first that fits on its one line wins. `face`, the
+ * photo alone, is the phone's full month's last rung, where a seventh of the screen has no room
+ * even for "[photo] Leave" (the bar's striped leave tone says leave; the box's name says it in
+ * words). A label without a rung's span skips it.
+ */
+const RUNGS = ["long", "short", "photo", "face"] as const;
 
 /**
  * Picks each leave label's wording under `root` (v1.8, owner 23 Oct: a leave bar never truncates
@@ -43,7 +49,8 @@ const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffe
 /**
  * Keeps the leave labels under `ref` fitted (`fitLeaveLabels`): after every render (new days, a
  * new view) and whenever the area changes size (the window, the sidebar). The laptop's month bars
- * and its Week and Day all-day chips; the phone is unchanged.
+ * and its Week and Day all-day chips, and the phone's full-month bars (owner, #89 comment
+ * 6370526089).
  */
 export function useLeaveFit(ref: RefObject<HTMLElement | null>): void {
   useBeforePaint(() => {
