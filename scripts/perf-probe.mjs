@@ -28,6 +28,8 @@
 // staging compare, when it is slower than staging by more than 10 % or more than 100 ms. The
 // table's Gate column says PASS / FAIL / SKIP with the reason, a summary line follows, each
 // failing route is a `::error::` annotation, and the process exits 1. The compare:
+//   (the workflow's branch step, when the dispatch asked for the compare, leaves the failing exit to
+//   its staging step, which judges the branch run; otherwise the compare would never run)
 //   --compare-to <file>  this run is the candidate; the file is staging's `--out`;
 //   --candidate <file>   this run is staging; the file is the candidate's `--out`, and the gate
 //                        judges the candidate (staging's own rows are printed, not gated).
@@ -576,7 +578,27 @@ async function main() {
   for (const j of failing) {
     process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
   }
-  if (failing.length > 0) process.exitCode = 1;
+  if (failing.length > 0 && !judgedByStagingStep(args.out)) process.exitCode = 1;
+}
+
+/**
+ * The workflow's branch step runs before its staging step; failing here would skip the compare.
+ * When the dispatch asked for the compare, the staging step judges this run (it reads this
+ * `probe-branch.json` as its candidate) and is the one that fails the job.
+ */
+function judgedByStagingStep(out) {
+  if (!out || basename(out) !== "probe-branch.json") return false;
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath || !existsSync(eventPath)) return false;
+  try {
+    const event = JSON.parse(readFileSync(eventPath, "utf8"));
+    const inputs = event?.inputs ?? {};
+    // A `base_url` may point at staging itself, and then the staging step is skipped.
+    if (inputs.base_url) return false;
+    return inputs.compare === true || inputs.compare === "true";
+  } catch {
+    return false;
+  }
 }
 
 main().catch((error) => {
