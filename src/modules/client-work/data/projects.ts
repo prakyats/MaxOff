@@ -17,6 +17,7 @@ import { deletedTemplateLabel } from "@/core/lib/owner-delete";
 import type {
   Blueprint,
   CarryDecision,
+  ClientWorkSummary,
   Cycle,
   Item,
   ItemStage,
@@ -398,6 +399,27 @@ export async function listCurrentCycles(
     clientId: row.project.client_id,
     states: row.items.map((item) => item.state as ItemState),
     plannedDates: row.items.map((item) => item.planned_date),
+  }));
+}
+
+/**
+ * **Each client's running deliverables, added up in SQL** (v1.8 speed fix 3, DATA-MODEL §5
+ * `client_work_summary()`): the Clients list's work column and Due, one row per client with items
+ * in its current cycles (as `listCurrentCycles` picks them). Security invoker: RLS decides every
+ * row (the Owner every client, an Admin their own, Crew none). Counts and dates, never money.
+ */
+export async function listClientWorkSummaries(today: ISODate): Promise<ClientWorkSummary[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("client_work_summary", { on_date: today });
+  if (error) throw error;
+  return data.map((row) => ({
+    clientId: row.client_id,
+    total: row.total,
+    done: row.done,
+    closed: row.closed,
+    late: row.late,
+    // The generated type says string; the function returns null when nothing open is dated.
+    next: (row.next_planned as string | null) ?? null,
   }));
 }
 

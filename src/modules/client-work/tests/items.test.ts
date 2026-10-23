@@ -25,6 +25,7 @@ import {
   periodStart,
 } from "../domain/periods";
 import {
+  clientDueOf,
   clientWorkLine,
   dueByClient,
   progressByClient,
@@ -869,6 +870,17 @@ describe("readyToComplete (PP-client-2)", () => {
   });
   it("is never a repeating project: its next cycle comes on its own", () => {
     expect(readyToComplete("monthly", ["approved", "approved"])).toBe(false);
+  });
+});
+
+describe("clientDueOf (v1.8 speed fix 3)", () => {
+  it("is the late count and the next date from the summed row", () => {
+    expect(clientDueOf({ late: 2, next: "2026-10-25" })).toEqual({ late: 2, next: "2026-10-25" });
+    expect(clientDueOf({ late: 0, next: "2026-10-25" })).toEqual({ late: 0, next: "2026-10-25" });
+    expect(clientDueOf({ late: 1, next: null })).toEqual({ late: 1, next: null });
+  });
+  it("is null when nothing open is dated, as dueByClient leaves the client out", () => {
+    expect(clientDueOf({ late: 0, next: null })).toBeNull();
   });
 });
 
