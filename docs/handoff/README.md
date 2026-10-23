@@ -9,3 +9,4 @@ Every MaxOff handoff lives here (owner, 22 Oct 2026: "I need all the files relat
 | advisor-handoff-2026-10-08.md | Phase 7 kickoff and build |
 | advisor-handoff-2026-10-09.md | v1.6.0 release, note-only mode |
 | advisor-handoff-2026-10-22.md | v1.8 build: state, owner decisions, remaining steps, the #89 loop |
+| advisor-handoff-2026-10-23.md | v1.8 morning checkpoint: chat height, phone revert, calendar dropdown, speed thresholds, next steps |
