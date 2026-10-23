@@ -1027,7 +1027,7 @@ test.describe("the calendar, as the Owner", () => {
     await removeTasksTitled(prefixOf(info));
   });
 
-  test('a day with more than its box holds ends in "+N more", which opens the day (PP-calendar-14)', async ({
+  test('a day with more than its box holds ends in "+N more" on a laptop (PP-calendar-14); the phone counts it in one line (v1.7.1)', async ({
     page,
   }, info) => {
     const prefix = `${prefixOf(info)}crowd `;
@@ -1072,10 +1072,39 @@ test.describe("the calendar, as the Owner", () => {
       await expect(phone(page)).toHaveAttribute("data-size", "3");
     }
     const box = dayBox(page, day);
+    if (isPhone(info)) {
+      // The phone's full month counts what is due (v1.7.1's day cells, the v1.8 fix round): five
+      // deadlines are one "5 due" line, so the box never overflows and has no "+N more"; a tap
+      // opens the day, which lists all five.
+      const count = box.locator('[data-slot="calendar-strip"]');
+      await expect(count).toHaveCount(1);
+      await expect(count).toHaveAttribute("data-kind", "tasks");
+      await expect(count).toHaveText("5 due");
+      await expect(box.locator('[data-slot="calendar-more"]')).toHaveCount(0);
+      expect(await count.evaluate((line) => line.scrollWidth <= line.clientWidth)).toBe(true);
+      // A two-digit count reads whole too.
+      expect(
+        await count.evaluate((line) => {
+          const words = line.textContent;
+          line.textContent = "12 due";
+          const fits = line.scrollWidth <= line.clientWidth;
+          line.textContent = words;
+          return fits;
+        }),
+        '"12 due" reads whole',
+      ).toBe(true);
+      await box.click();
+      await expect(daySheet(page)).toBeVisible();
+      await expect(daySheet(page)).toHaveAttribute("data-date", day);
+      for (const n of [1, 2, 3, 4, 5]) {
+        await expect(daySheet(page)).toContainText(`${prefix}${n}`);
+      }
+      await removeTasksTitled(prefix);
+      return;
+    }
     const more = box.locator('[data-slot="calendar-more"]');
     await expect(more).toBeVisible();
-    // The laptop's box has room for the word; the phone's narrow one says "+3".
-    await expect(more).toHaveText(isPhone(info) ? /^\+3( more)?$/ : "+3 more");
+    await expect(more).toHaveText("+3 more");
     await expect(box.locator('[data-slot="calendar-strip"]')).toHaveCount(2);
     // Neither grown nor clipped: the line is whole inside its box, nothing hidden under it, and
     // the laptop's box keeps its 112 px.
@@ -1092,7 +1121,7 @@ test.describe("the calendar, as the Owner", () => {
     });
     expect(fit.inside).toBe(true);
     expect(fit.clipped).toBeLessThanOrEqual(0);
-    if (!isPhone(info)) expect(fit.height).toBeCloseTo(112, 0);
+    expect(fit.height).toBeCloseTo(112, 0);
     // "+3 more" is part of the box: it opens the day, which lists all five.
     await more.click();
     await expect(daySheet(page)).toBeVisible();
@@ -1624,21 +1653,43 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
       await expect(phone(page)).toHaveAttribute("data-size", "3");
     }
     const box = dayBox(page, fixture.day);
-    await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toBeVisible();
-    const lines = await chipLines(box);
-    // The fixed order: the timed task, the due task, then the client work.
-    expect(lines.map((line) => line.kind)).toEqual(["event", "due", "item"]);
-    for (const line of lines) {
-      expect(line, `${line.kind} is one line`).toMatchObject({ oneLine: true, wraps: false });
-      expect(line.cut, `${line.kind}'s long words end in "…"`).toBe(true);
+    const count = box.locator('[data-slot="calendar-strip"][data-kind="tasks"]');
+    if (isPhone(info)) {
+      // The phone's full month is v1.7.1's day cells (the v1.8 fix round): the timed task by its
+      // title, then what is due as one count, the due task and the deliverable "2 due" in amber;
+      // never a chip a task cut to its first letters.
+      await expect(count).toHaveText("2 due");
+      await expect(count).toHaveAttribute("data-tone", "due");
+      const lines = await chipLines(box);
+      expect(lines.map((line) => line.kind)).toEqual(["event", "tasks"]);
+      for (const line of lines) {
+        expect(line, `${line.kind} is one line`).toMatchObject({ oneLine: true, wraps: false });
+      }
+      expect(lines[0]?.cut, `the event's long title ends in "…"`).toBe(true);
+      expect(lines[1]?.cut, "the count reads whole").toBe(false);
+      await expect(
+        box.locator(
+          '[data-slot="calendar-strip"][data-kind="due"], [data-slot="calendar-strip"][data-kind="item"]',
+        ),
+      ).toHaveCount(0);
+    } else {
+      await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toBeVisible();
+      const lines = await chipLines(box);
+      // The fixed order: the timed task, the due task, then the client work.
+      expect(lines.map((line) => line.kind)).toEqual(["event", "due", "item"]);
+      for (const line of lines) {
+        expect(line, `${line.kind} is one line`).toMatchObject({ oneLine: true, wraps: false });
+        expect(line.cut, `${line.kind}'s long words end in "…"`).toBe(true);
+      }
+      // The client first, outlined (not filled).
+      const item = box.locator('[data-slot="calendar-strip"][data-kind="item"]');
+      expect(lines[2]?.text.startsWith(fixture.client.trim().slice(0, 20))).toBe(true);
+      await expect(item.locator('[data-slot="calendar-item-icon"]')).toHaveCount(1);
+      expect(await item.evaluate((chip) => getComputedStyle(chip).backgroundColor)).toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+      await expect(count).toHaveCount(0);
     }
-    // The client first, outlined (not filled).
-    const item = box.locator('[data-slot="calendar-strip"][data-kind="item"]');
-    expect(lines[2]?.text.startsWith(fixture.client.trim().slice(0, 20))).toBe(true);
-    await expect(item.locator('[data-slot="calendar-item-icon"]')).toHaveCount(1);
-    expect(await item.evaluate((chip) => getComputedStyle(chip).backgroundColor)).toBe(
-      "rgba(0, 0, 0, 0)",
-    );
     await expectNoHorizontalScroll(page);
 
     // The switch is a view control: no history, remembered on this device; leave and holidays
@@ -1649,10 +1700,16 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await chooseShow(page, "tasks");
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(0);
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toHaveCount(1);
+    // The phone counts the due task alone.
+    if (isPhone(info)) await expect(count).toHaveText("1 due");
     await chooseShow(page, "client");
-    await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(1);
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="item"]')).toHaveCount(
+      isPhone(info) ? 0 : 1,
+    );
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toHaveCount(0);
     await expect(box.locator('[data-slot="calendar-strip"][data-kind="due"]')).toHaveCount(0);
+    // The phone counts the deliverable alone.
+    if (isPhone(info)) await expect(count).toHaveText("1 due");
     expect(page.url()).toBe(address);
     await page.reload();
     await hydrated(page);
@@ -1816,13 +1873,14 @@ test.describe("today's mark", () => {
  * The laptop's calendar toolbar (v1.8, owner 23 Oct): All · Tasks · Client work is one `All ▾`
  * menu beside Filters, the toolbar one row at every laptop width (Day/Week/Month · ‹ month › ·
  * Today · All ▾ · Filters), and a leave bar never truncates: "Name · On leave" where it fits, else
- * "Name · Leave", never "Name · On l…". The phone is unchanged: its switch under the header, its
- * leave bars as they were.
+ * "Name · Leave", never "Name · On l…", else the photo and "Leave"; the phone's full-month bars the
+ * same (owner, #89 comment 6370526089).
  */
 test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
   const WIDTHS = [1024, 1280] as const;
+  const PHONE_WIDTHS = [375, 430] as const;
   /** A long first name: the bar shows the first name only. */
   const FIRST = "Jayalakshmi";
   const surname = (info: TestInfo) => `Calv18 ${info.project.name}`;
@@ -1902,10 +1960,17 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
       };
       const longFits = fits("long");
       const shortFits = fits("short");
+      // "[photo] Leave"; a label without it (several people) has no photo wording.
+      const photoFits =
+        element.querySelector('[data-leave-word="photo"]') !== null && fits("photo");
       if (shown !== null) element.setAttribute("data-leave-fit", shown);
-      const photo = element.querySelector<HTMLElement>(
-        '[data-leave-word="photo"] [data-slot="person-avatar"]',
-      );
+      // The face shown: "[photo] Leave"'s, or the phone's photo alone (`face`).
+      const photo =
+        [
+          ...element.querySelectorAll<HTMLElement>(
+            '[data-leave-word="photo"] [data-slot="person-avatar"], [data-leave-word="face"] [data-slot="person-avatar"]',
+          ),
+        ].find((face) => face.checkVisibility()) ?? null;
       const photoBox = photo?.getBoundingClientRect();
       const labelBox = element.getBoundingClientRect();
       // The words, without the photo's initials (a decorative face beside "Leave").
@@ -1919,6 +1984,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
         ellipsis: getComputedStyle(element).textOverflow === "ellipsis",
         longFits,
         shortFits,
+        photoFits,
         photoShown: Boolean(photo && photo.checkVisibility() && (photoBox?.width ?? 0) > 0),
         photoInside: Boolean(
           photoBox &&
@@ -1930,9 +1996,18 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     });
   }
 
-  /** The wording a leave label should show: the first of the three that fits. */
-  const fitted = (label: { longFits: boolean; shortFits: boolean }) =>
-    label.longFits ? `${FIRST} · On leave` : label.shortFits ? `${FIRST} · Leave` : "Leave";
+  /**
+   * The words a leave label should show: the first wording that fits; "" for the phone's last,
+   * the photo alone, where even "[photo] Leave" has no room.
+   */
+  const fitted = (label: { longFits: boolean; shortFits: boolean; photoFits: boolean }) =>
+    label.longFits
+      ? `${FIRST} · On leave`
+      : label.shortFits
+        ? `${FIRST} · Leave`
+        : label.photoFits
+          ? "Leave"
+          : "";
 
   test("All ▾ beside Filters: one row at 1024 and 1280 in every view; the menu ticks the choice; a view control, remembered", async ({
     page,
@@ -2024,49 +2099,62 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await expect.poll(() => shownLabel(trigger)).toBe("All");
   });
 
-  test("a leave bar never truncates: a long name at 1024 and 1280, in the month and the week; with room it says On leave; with none, the photo and Leave", async ({
+  test("a leave bar never truncates: a long name at 1024 and 1280 (the month and the week) and on a phone's full month at 375 and 430; with room it says On leave; with none, the photo and Leave", async ({
     page,
   }, info) => {
-    test.skip(isPhone(info), "the laptop's bars (the phone's are unchanged)");
     const { day, id } = await longNameOnLeave(info);
-    for (const width of WIDTHS) {
-      await page.setViewportSize({ width, height: 800 });
+    // The phone's full-month bars fit the same way (owner, #89 comment 6370526089).
+    const phoneRun = isPhone(info);
+    for (const width of phoneRun ? PHONE_WIDTHS : WIDTHS) {
+      await page.setViewportSize({ width, height: phoneRun ? 900 : 800 });
       await page.goto(`/calendar?date=${day}`);
       await hydrated(page);
+      if (phoneRun) {
+        await page.locator('button[data-slot="calendar-handle"]').click();
+        await expect(phone(page)).toHaveAttribute("data-size", "3");
+      }
       const box = dayBox(page, day);
       const bar = box.locator('[data-slot="calendar-leave-bar"]');
       await expect(bar).toBeVisible();
       const barHeight = (await bar.boundingBox())?.height;
       const month = await leaveLabel(bar);
       expect(month.text, `month at ${width}`).toMatch(
-        new RegExp(`^(${FIRST} · (On leave|Leave)|Leave)$`),
+        new RegExp(`^(${FIRST} · (On leave|Leave)|Leave${phoneRun ? "|" : ""})$`),
       );
       expect(month.cut, `month at ${width}: nothing cut`).toBe(false);
       expect(month.ellipsis, `month at ${width}: no ellipsis`).toBe(false);
       expect(month.text, `month at ${width}: the long wording wherever it fits`).toBe(
         fitted(month),
       );
-      // The photo is the last wording only: shown exactly when neither name wording fits.
+      // The photo is the last wordings only: shown exactly when neither name wording fits.
       expect(month.photoShown, `month at ${width}: the photo only where no name fits`).toBe(
-        month.text === "Leave",
+        month.text === "Leave" || month.text === "",
       );
       // The box's name says the first name in full, whichever wording the bar shows.
       await expect(box).toHaveAccessibleName(new RegExp(`, ${FIRST}, on leave(,|$)`));
-      if (width === 1024) {
-        // Owner 23 Oct: "Jayalakshmi · Leave" has no room in a 1024 box: [photo] Leave.
-        expect(month.shortFits, "1024: the short wording has no room").toBe(false);
-        expect(month.text, "1024: Leave beside the photo").toBe("Leave");
-        expect(month.photoShown, "1024: the photo").toBe(true);
-        expect(month.photoInside, "1024: the photo inside the bar's line").toBe(true);
-        await expect(bar).toHaveAttribute("data-leave-fit", "photo");
+      if (width === 1024 || phoneRun) {
+        // Owner 23 Oct: "Jayalakshmi · Leave" has no room in a 1024 box, nor in a seventh of a
+        // phone: [photo] Leave; on the phone, where even that has no room, the photo alone.
+        expect(month.shortFits, `${width}: the short wording has no room`).toBe(false);
+        expect(month.text, `${width}: Leave beside the photo`).toBe(
+          phoneRun && !month.photoFits ? "" : "Leave",
+        );
+        expect(month.photoShown, `${width}: the photo`).toBe(true);
+        expect(month.photoInside, `${width}: the photo inside the bar's line`).toBe(true);
+        const rung = phoneRun && !month.photoFits ? "face" : "photo";
+        await expect(bar).toHaveAttribute("data-leave-fit", rung);
         // The bar keeps its height with the photo: nothing moves.
         await bar.evaluate((element) => element.setAttribute("data-leave-fit", "long"));
-        expect((await bar.boundingBox())?.height, "1024: the bar's height, any wording").toBe(
+        expect((await bar.boundingBox())?.height, `${width}: the bar's height, any wording`).toBe(
           barHeight,
         );
-        await bar.evaluate((element) => element.setAttribute("data-leave-fit", "photo"));
+        await bar.evaluate((element, last) => element.setAttribute("data-leave-fit", last), rung);
       }
       await box.screenshot({ path: info.outputPath(`leave-bar-month-${width}.png`) });
+      if (phoneRun) {
+        await expectNoHorizontalScroll(page);
+        continue;
+      }
 
       await page.goto(`/calendar?view=week&date=${day}`);
       await hydrated(page);
@@ -2101,7 +2189,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await removeLongName(info, id);
   });
 
-  test("phone, option A (owner 23 Oct): one header row at 320, 360, 375 and 430 with Client work ▾ and a two-digit Today; 44 px targets; the leave bar as live", async ({
+  test("phone, option A (owner 23 Oct): one header row at 320, 360, 375 and 430 with Client work ▾ and a two-digit Today; 44 px targets; the leave bar fitted", async ({
     page,
   }, info) => {
     test.skip(!isPhone(info), "the phone");
@@ -2197,15 +2285,15 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await hydrated(page);
     await expect(filters).toHaveAccessibleName("Filters · 1 on");
     await expect(filters.locator('[data-slot="calendar-filters-dot"]')).toBeVisible();
-    // The phone's leave bar keeps its words and its one-line rule; no laptop fitting on a phone.
+    // The phone's full-month leave bar picks its wording as the laptop's does (owner, #89 comment
+    // 6370526089; "a leave bar never truncates" checks each wording).
     await page.goto(`/calendar?date=${day}`);
     await hydrated(page);
     await page.locator('button[data-slot="calendar-handle"]').click();
     await expect(phone(page)).toHaveAttribute("data-size", "3");
-    await expect(dayBox(page, day).locator('[data-slot="calendar-leave-bar"]')).toContainText(
-      `${FIRST} · On leave`,
-    );
-    await expect(phone(page).locator("[data-leave-fit]")).toHaveCount(0);
+    await expect(
+      dayBox(page, day).locator('[data-slot="calendar-leave-bar"][data-leave-fit]'),
+    ).toHaveCount(1);
     await removeLongName(info, id);
   });
 });
