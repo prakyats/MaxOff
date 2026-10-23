@@ -549,6 +549,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.job == 'perf-probe'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # One probe at a time (2026-10-23): three role dispatches running at once loaded the same
+    # Workers and database unevenly, and the longest one's compare failed on it. Later ones queue.
+    concurrency:
+      group: perf-probe
+      cancel-in-progress: false
     environment:
       name: staging
     steps:
@@ -618,7 +623,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Probe the branch preview
+      # With the compare, staging is probed in the same run, request by request after the branch
+      # (`--pair`), so both share the same minutes of load; the gate judges the branch against it.
+      - name: Probe the branch preview (and staging, alternating, for the comparison)
         env:
           SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -627,24 +634,15 @@ jobs:
           LABEL: ${{ steps.names.outputs.label }}
           SAMPLES: ${{ inputs.samples }}
           ROLE: ${{ inputs.role }}
+          PAIR: ${{ inputs.compare && steps.names.outputs.target != steps.names.outputs.staging_url && steps.names.outputs.staging_url || '' }}
         run: |
           set -euo pipefail
+          pair=()
+          if [ -n "$PAIR" ]; then
+            pair=(--pair "$PAIR" --pair-out "$RUNNER_TEMP/probe-staging.json")
+          fi
           node scripts/perf-probe.mjs --base "$TARGET" --samples "$SAMPLES" --role "$ROLE" \
-            --label "$LABEL" --out "$RUNNER_TEMP/probe-branch.json"
-
-      - name: Probe staging (main) for the comparison
-        if: inputs.compare && steps.names.outputs.target != steps.names.outputs.staging_url
-        env:
-          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          TARGET: ${{ steps.names.outputs.staging_url }}
-          SAMPLES: ${{ inputs.samples }}
-          ROLE: ${{ inputs.role }}
-        run: |
-          set -euo pipefail
-          node scripts/perf-probe.mjs --base "$TARGET" --samples "$SAMPLES" --role "$ROLE" \
-            --label "staging (main)" --out "$RUNNER_TEMP/probe-staging.json"
+            --label "$LABEL" --out "$RUNNER_TEMP/probe-branch.json" "${pair[@]}"
 
       # Production, signed out only (advisor, 2026-10-15): the public routes the way UptimeRobot
       # sees them (a static asset, /api/health, /login), a few samples, nothing written, no key

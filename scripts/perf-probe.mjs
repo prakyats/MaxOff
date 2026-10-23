@@ -10,6 +10,7 @@
 //                               [--project <id>] [--client <id>] [--task <id>] [--person <id>]
 //                               [--out probe.json] [--no-signin]
 //                               [--compare-to staging.json] [--candidate branch.json]
+//                               [--pair https://maxoff-staging.<sub>.workers.dev --pair-out staging.json]
 //
 // Environment: SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (the project the Worker talks to) and
 // one way to sign in: PROBE_EMAIL + PROBE_PASSWORD (GoTrue's password grant, no secret), or
@@ -30,13 +31,12 @@
 // and never judged; see scripts/lib/perf-gate.mjs). The
 // table's Gate column says PASS / FAIL / SKIP with the reason, a summary line follows, each
 // failing route is a `::error::` annotation, and the process exits 1. The compare:
-//   (the workflow's branch step, when the dispatch asked for the compare, leaves the failing exit to
-//   its staging step, which judges the branch run; otherwise the compare would never run)
+//   --pair <base>        (the workflow's way) staging is probed in the same run, request by
+//                        request after this base, and the gate judges this base against it
+//                        (staging's own rows are printed for reference, not gated);
 //   --compare-to <file>  this run is the candidate; the file is staging's `--out`;
 //   --candidate <file>   this run is staging; the file is the candidate's `--out`, and the gate
 //                        judges the candidate (staging's own rows are printed, not gated).
-// Without either, a run whose `--out` is `…/probe-staging.json` with a `probe-branch.json` beside
-// it (the workflow's two steps) takes that file as `--candidate`.
 //
 // For every route it makes `--samples` requests on a **fresh** connection (DNS + TLS each time,
 // the way a first open or the advisor's curl lands: often on an isolate that has not run the
@@ -58,11 +58,10 @@
 // round trip costs ~200 ms there against a few tens from India. That exaggerates a waterfall
 // (good: it shows) and says nothing about the owner's absolute numbers; the `colo` column says
 // where the Worker ran, and the same script from India gives the real ones.
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { createRequire } from "node:module";
-import { basename, dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { judgeRun, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
@@ -89,6 +88,14 @@ const samples = Number(args.samples ?? 5);
 const role = args.role ?? "owner";
 const label = args.label ?? base;
 const signIn = args["no-signin"] !== "true";
+// `--pair <staging>` (2026-10-23): probe staging in the same run, each request right after the
+// candidate's (branch, staging, branch, …), so both sides share the same minutes of Worker and
+// database load. Probing them one after the other let a slow spell land on one side only: the
+// Admin compare failed by a flat ~140 ms on routes that changed from run to run, while the
+// Worker's own chain (`/diagnostics/timing`) timed the same on both. `--pair-out` keeps staging's rows.
+const pairBase = args.pair ? args.pair.replace(/\/$/, "") : null;
+const pairLabel = args["pair-label"] ?? "staging (main)";
+const bases = pairBase ? [base, pairBase] : [base];
 
 const env = {
   url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -100,7 +107,7 @@ const env = {
 };
 // Production is probed signed out only (`--no-signin`: the static asset, the 404, health, /login),
 // never with a session and never with a key in the environment.
-if (signIn && /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base)) {
+if (signIn && bases.some((at) => /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(at))) {
   throw new Error("Never probe production with a signed-in session: use --no-signin.");
 }
 /** Production's Supabase project (`maxoff-production`, Mumbai; README → "Deploying"). */
@@ -115,13 +122,15 @@ if (signIn) {
   ) {
     throw new Error("Never sign in on production's Supabase project: use --no-signin.");
   }
-  const { protocol, hostname } = new URL(base);
-  const local = hostname === "localhost" || hostname === "127.0.0.1";
-  const workers = protocol === "https:" && hostname.endsWith(".workers.dev");
-  if (!local && !workers) {
-    throw new Error(
-      `A signed-in probe goes only to a *.workers.dev address over https or to localhost, not ${hostname}: use --no-signin.`,
-    );
+  for (const at of bases) {
+    const { protocol, hostname } = new URL(at);
+    const local = hostname === "localhost" || hostname === "127.0.0.1";
+    const workers = protocol === "https:" && hostname.endsWith(".workers.dev");
+    if (!local && !workers) {
+      throw new Error(
+        `A signed-in probe goes only to a *.workers.dev address over https or to localhost, not ${hostname}: use --no-signin.`,
+      );
+    }
   }
 }
 
@@ -365,14 +374,10 @@ function readRun(file) {
   return run;
 }
 
-/** The staging compare's other run, explicit or the workflow's two `--out` files. */
+/** The staging compare's other run, from an earlier run's `--out` (`--pair` probes it live). */
 function compareFiles() {
   if (args["compare-to"]) return { baseline: readRun(args["compare-to"]) };
   if (args.candidate) return { candidate: readRun(args.candidate) };
-  if (args.out && basename(args.out) === "probe-staging.json") {
-    const branch = join(dirname(args.out), "probe-branch.json");
-    if (existsSync(branch)) return { candidate: readRun(branch) };
-  }
   return {};
 }
 
@@ -394,7 +399,7 @@ async function main() {
     })`;
   }
   // Read before probing, so a bad file stops the run before minutes of requests.
-  const compare = compareFiles();
+  const compare = pairBase ? {} : compareFiles();
 
   // Production (advisor, 2026-10-15): the public routes UptimeRobot-style only, read-only.
   const production = /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base);
@@ -429,43 +434,90 @@ async function main() {
   const Agent = transport.Agent;
 
   const results = [];
-  // Fresh connections, routes interleaved so no route gets every warm isolate or every cold one.
+  // Fresh connections, routes interleaved so no route gets every warm isolate or every cold one;
+  // with `--pair`, each request goes to every base in turn.
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      const agent = new Agent({ keepAlive: false });
-      const r = await request(base + route.path, { agent, headers: headersFor(route) }).catch(
-        failed,
-      );
-      agent.destroy();
-      results.push({ ...r, route: route.name, kind: "fresh" });
+      for (const at of bases) {
+        const agent = new Agent({ keepAlive: false });
+        const r = await request(at + route.path, { agent, headers: headersFor(route) }).catch(
+          failed,
+        );
+        agent.destroy();
+        results.push({ ...r, route: route.name, kind: "fresh", base: at });
+      }
     }
   }
-  // One kept-alive connection for everything: a warm Worker, the way a phone taps around.
-  const keep = new Agent({ keepAlive: true, maxSockets: 1 });
-  await request(base + "/manifest.webmanifest", {
-    agent: keep,
-    headers: headersFor(routes[0]),
-  }).catch(failed);
+  // One kept-alive connection per base for everything: a warm Worker, the way a phone taps around.
+  const keep = new Map(bases.map((at) => [at, new Agent({ keepAlive: true, maxSockets: 1 })]));
+  for (const at of bases) {
+    await request(at + "/manifest.webmanifest", {
+      agent: keep.get(at),
+      headers: headersFor(routes[0]),
+    }).catch(failed);
+  }
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      const r = await request(base + route.path, { agent: keep, headers: headersFor(route) }).catch(
-        failed,
-      );
-      results.push({ ...r, route: route.name, kind: "reused" });
+      for (const at of bases) {
+        const r = await request(at + route.path, {
+          agent: keep.get(at),
+          headers: headersFor(route),
+        }).catch(failed);
+        results.push({ ...r, route: route.name, kind: "reused", base: at });
+      }
     }
   }
-  keep.destroy();
+  for (const agent of keep.values()) agent.destroy();
 
   // The layout's chain as the Worker itself timed it.
-  let chain = null;
+  const chains = new Map(bases.map((at) => [at, null]));
   if (cookie) {
-    const reads = [];
+    const reads = new Map(bases.map((at) => [at, []]));
     for (let i = 0; i < samples; i++) {
-      reads.push(await json(base + "/diagnostics/timing", headersFor({ auth: true })));
+      for (const at of bases) {
+        reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
+      }
     }
-    chain = reads.filter((r) => r && typeof r.total === "number");
+    for (const at of bases) {
+      chains.set(
+        at,
+        reads.get(at).filter((r) => r && typeof r.total === "number"),
+      );
+    }
   }
 
+  const ofBase = (at) => results.filter((r) => r.base === at);
+  const own = report(
+    { plan, who, base, label, results: ofBase(base), chain: chains.get(base) },
+    { compare, out: args.out, gateLine: !pairBase },
+  );
+  // With `--pair`, staging's run prints its own rows for reference and judges this one.
+  const { judgements } = pairBase
+    ? report(
+        {
+          plan,
+          who,
+          base: pairBase,
+          label: pairLabel,
+          results: ofBase(pairBase),
+          chain: chains.get(pairBase),
+        },
+        { compare: { candidate: { label, summary: own.summary } }, out: args["pair-out"] },
+      )
+    : own;
+
+  const failing = judgements.filter((j) => j.verdict === "FAIL");
+  for (const j of failing) {
+    process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
+  }
+  if (failing.length > 0) process.exitCode = 1;
+}
+
+/**
+ * One base's table (and, with a compare, the gate's): printed, added to the job summary and
+ * written to `out`. Returns the run's route summary and the gate's judgements.
+ */
+function report({ plan, who, base, label, results, chain }, { compare, out, gateLine = true }) {
   // Per route: did every sample answer with the route's own status, and the warm TTFB p50.
   const statusOk = (route, status) =>
     route.expect !== undefined ? route.expect.includes(status) : status >= 200 && status < 300;
@@ -554,8 +606,10 @@ async function main() {
       );
     }
   }
-  lines.push("");
-  lines.push(summaryLine(judgements, { compared: baseline !== null }));
+  if (gateLine) {
+    lines.push("");
+    lines.push(summaryLine(judgements, { compared: baseline !== null }));
+  }
   if (chain && chain.length > 0) {
     lines.push("");
     lines.push(
@@ -573,38 +627,14 @@ async function main() {
   const text = lines.join("\n");
   process.stdout.write(text + "\n");
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text + "\n");
-  if (args.out) {
+  if (out) {
     writeFileSync(
-      args.out,
+      out,
       JSON.stringify({ label, base, samples, who, summary, results, chain }, null, 2),
     );
   }
 
-  const failing = judgements.filter((j) => j.verdict === "FAIL");
-  for (const j of failing) {
-    process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
-  }
-  if (failing.length > 0 && !judgedByStagingStep(args.out)) process.exitCode = 1;
-}
-
-/**
- * The workflow's branch step runs before its staging step; failing here would skip the compare.
- * When the dispatch asked for the compare, the staging step judges this run (it reads this
- * `probe-branch.json` as its candidate) and is the one that fails the job.
- */
-function judgedByStagingStep(out) {
-  if (!out || basename(out) !== "probe-branch.json") return false;
-  const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!eventPath || !existsSync(eventPath)) return false;
-  try {
-    const event = JSON.parse(readFileSync(eventPath, "utf8"));
-    const inputs = event?.inputs ?? {};
-    // A `base_url` may point at staging itself, and then the staging step is skipped.
-    if (inputs.base_url) return false;
-    return inputs.compare === true || inputs.compare === "true";
-  } catch {
-    return false;
-  }
+  return { summary, judgements };
 }
 
 main().catch((error) => {
