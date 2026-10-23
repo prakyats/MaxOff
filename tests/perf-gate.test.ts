@@ -9,6 +9,8 @@ import {
   MEMBER_ROUTES,
   median,
   planMemberRoutes,
+  NOT_GATED,
+  SLOWER_PCT_FLOOR_MS,
   SLOWER_THAN_STAGING_MS,
   SLOWER_THAN_STAGING_PCT,
   slowerThanStaging,
@@ -27,21 +29,27 @@ describe("the thresholds", () => {
     expect(WARM_TTFB_P50_LIMIT_MS).toBe(600);
     expect(SLOWER_THAN_STAGING_PCT).toBe(10);
     expect(SLOWER_THAN_STAGING_MS).toBe(100);
+    expect(SLOWER_PCT_FLOOR_MS).toBe(50);
+    expect(NOT_GATED.has("/api/warm")).toBe(true);
   });
 });
 
-describe("slowerThanStaging (> 10 % or > 100 ms)", () => {
-  it("fails on more than 10 % even under 100 ms", () => {
-    expect(slowerThanStaging(331, 300)).toBe(true); // +31 ms, +10.3 %
-    expect(slowerThanStaging(330, 300)).toBe(false); // exactly +10 %
+describe("slowerThanStaging (> 100 ms, or > 10 % and ≥ 50 ms; > 10 % under 50 ms warns)", () => {
+  it("fails on more than 10 % when it is also at least 50 ms", () => {
+    expect(slowerThanStaging(551, 500)).toBe("fail"); // +51 ms, +10.2 %
+    expect(slowerThanStaging(550, 500)).toBe("ok"); // exactly +10 %
+  });
+  it("warns on more than 10 % under 50 ms: noise on a fast route", () => {
+    expect(slowerThanStaging(331, 300)).toBe("warn"); // +31 ms, +10.3 %
+    expect(slowerThanStaging(8, 7)).toBe("warn"); // +1 ms, +14 %
   });
   it("fails on more than 100 ms even under 10 %", () => {
-    expect(slowerThanStaging(2101, 2000)).toBe(true); // +101 ms, +5 %
-    expect(slowerThanStaging(2100, 2000)).toBe(false); // exactly +100 ms, +5 %
+    expect(slowerThanStaging(2101, 2000)).toBe("fail"); // +101 ms, +5 %
+    expect(slowerThanStaging(2100, 2000)).toBe("ok"); // exactly +100 ms, +5 %
   });
   it("passes a faster or equal route", () => {
-    expect(slowerThanStaging(250, 300)).toBe(false);
-    expect(slowerThanStaging(300, 300)).toBe(false);
+    expect(slowerThanStaging(250, 300)).toBe("ok");
+    expect(slowerThanStaging(300, 300)).toBe("ok");
   });
 });
 
@@ -60,6 +68,17 @@ describe("judgeRoute", () => {
     expect(j.verdict).toBe("FAIL");
     expect(j.baselineP50).toBe(300);
     expect(j.reasons).toEqual(["+150 ms (+50 %) vs staging"]);
+  });
+
+  it("warns, without failing, on a small slow-down past 10 %", () => {
+    const j = judgeRoute({ ...ok, warmP50: 331 }, { ...ok, warmP50: 300 });
+    expect(j.verdict).toBe("WARN");
+    expect(j.reasons).toEqual(["+31 ms (+10 %) vs staging"]);
+  });
+
+  it("shows the warm-up ping but never judges it", () => {
+    const j = judgeRoute({ ...ok, name: "/api/warm", warmP50: 900 }, { ...ok, warmP50: 5 });
+    expect(j.verdict).toBe("INFO");
   });
 
   it("lists every reason", () => {
@@ -103,8 +122,17 @@ describe("judgeRun and summaryLine", () => {
     expect(line).toMatch(/^\*\*Speed gate: FAIL\*\*: 1 of 2 probed routes fail, 1 skipped/);
     expect(line).toContain("/tasks (warm p50 700 > 600 ms)");
     expect(summaryLine(judgeRun(run.slice(0, 1), null), { compared: true })).toMatch(
-      /^\*\*Speed gate: PASS\*\*: all 1 probed routes pass .*> 10 % or > 100 ms/,
+      /^\*\*Speed gate: PASS\*\*: no probed route fails, of 1 .*> 100 ms, or by > 10 % and ≥ 50 ms/,
     );
+    const warned = summaryLine(
+      judgeRun(
+        [{ name: "/today", statusOk: true, warmP50: 331 }],
+        [{ name: "/today", statusOk: true, warmP50: 300 }],
+      ),
+      { compared: true },
+    );
+    expect(warned).toMatch(/^\*\*Speed gate: PASS\*\*/);
+    expect(warned).toContain("WARN (> 10 % but < 50 ms): /today (+31 ms (+10 %) vs staging)");
   });
 });
 

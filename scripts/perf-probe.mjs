@@ -25,7 +25,9 @@
 //
 // The speed gate (`scripts/lib/perf-gate.mjs` holds the thresholds): a route fails when its
 // warm TTFB p50 is above 600 ms, when it answered with another status than its own, or, with a
-// staging compare, when it is slower than staging by more than 10 % or more than 100 ms. The
+// staging compare, when it is slower than staging by more than 100 ms, or by more than 10 % and at
+// least 50 ms (more than 10 % under 50 ms is a WARN, shown but not failing; /api/warm is shown
+// and never judged; see scripts/lib/perf-gate.mjs). The
 // table's Gate column says PASS / FAIL / SKIP with the reason, a summary line follows, each
 // failing route is a `::error::` annotation, and the process exits 1. The compare:
 //   (the workflow's branch step, when the dispatch asked for the compare, leaves the failing exit to
@@ -487,7 +489,11 @@ async function main() {
   const own = compare.candidate ? judgeRun(summary, null) : judgements;
   const ownByName = new Map(own.map((j) => [j.name, j]));
   const gateCell = (j) =>
-    j.verdict === "FAIL" ? `**FAIL**: ${j.reasons.join("; ")}` : `${j.verdict}`;
+    j.verdict === "FAIL"
+      ? `**FAIL**: ${j.reasons.join("; ")}`
+      : j.reasons.length > 0
+        ? `${j.verdict}: ${j.reasons.join("; ")}`
+        : `${j.verdict}`;
 
   // ------------------------------------------------------------------------------------------
   const lines = [];
