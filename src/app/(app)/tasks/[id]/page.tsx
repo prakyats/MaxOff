@@ -25,6 +25,7 @@ import {
   eventLabel,
   earlierHandInLabel,
   firstUnreadId,
+  getTaskTitle,
   handInFirst,
   HISTORY_ARRIVAL,
   reopenAfterHandIn,
@@ -63,16 +64,18 @@ import { loadTaskFormSetup } from "../task-form-setup";
 
 import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
-/** The tab names the task ("Test 4 · MaxOff"), from the page's own cached read (`loadTask`). */
+/**
+ * The tab names the task ("Test 4 · MaxOff") from its title alone (`getTaskTitle`, one column under
+ * RLS): Next resolves metadata on a row's prefetch too, which must stay the loading boundary, never
+ * the page's reads (P2 item 6). A task the reader may not see is "Task".
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  if (!UUID.test(id)) return { title: "Task" };
-  const { task } = await loadTask(id);
-  return { title: task?.title ?? "Task" };
+  return { title: (await getTaskTitle(id)) ?? "Task" };
 }
 
 /**

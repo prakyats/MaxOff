@@ -41,7 +41,11 @@ import { AddClientFieldButton } from "@/modules/settings/components/add-client-f
 import { assertClientId, loadClient, loadPeople } from "../client";
 import { ProjectList } from "../project-list";
 
-/** The tab names the client ("Shetty · MaxOff"), from the page's own cached read (`loadClient`). */
+/**
+ * The tab names the client ("Shetty · MaxOff") from `loadClient`, the layout's own read.
+ * Next resolves metadata on a prefetch too; the layout's header makes this same `cache()`d read
+ * on it (it always has), so the title adds no read to a prefetch (P2 item 6).
+ */
 export async function generateMetadata({
   params,
 }: {

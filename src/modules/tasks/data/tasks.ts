@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { listActivity } from "@/core/activity/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import type { ActivityEntry } from "@/core/activity";
@@ -106,6 +108,23 @@ export async function getTask(id: string): Promise<Task | null> {
   if (error) throw error;
   return data ? toTask(data) : null;
 }
+
+const TITLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A task's title alone, for the browser tab (`generateMetadata`): one column under the same RLS
+ * as `getTask` (`app.task_visible()`), so a task the reader may not see is null and the tab
+ * stays neutral. Next resolves a route's metadata on every prefetch of it, so this is all a task
+ * row's prefetch reads, never the page's set (P2 item 6). Not an id: null, with no read.
+ * `cache()`d per request.
+ */
+export const getTaskTitle = cache(async (id: string): Promise<string | null> => {
+  if (!TITLE_ID.test(id)) return null;
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.from("tasks").select("title").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data?.title ?? null;
+});
 
 /** Everyone ever on the task, removed people included (the history names them). */
 export async function listAssignees(taskId: string): Promise<TaskAssignee[]> {

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { listDefinitions } from "@/core/custom-fields/server";
@@ -7,24 +6,24 @@ import { checkThenRead } from "@/core/lib/start-early";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
-import { listContacts } from "@/modules/clients";
+import { getContactName, listContacts } from "@/modules/clients";
 import { ContactMenu, ContactRecord } from "@/modules/clients/components/contact-record";
 
 import { assertClientId, loadClient, loadPeople } from "../../client";
 
-/** The page's contacts read, shared with its tab title in one request. */
-const readContacts = cache(listContacts);
-
-/** The tab names the contact ("Asha Rao · MaxOff"), from the page's own reads (cached). */
+/**
+ * The tab names the contact ("Asha Rao · MaxOff") from its name alone (`getContactName`, one
+ * column under RLS, this client's only): Next resolves metadata on a prefetch too, which must
+ * stay the loading boundary, never the page's reads (P2 item 6). One the reader may not see is
+ * "Contact".
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string; contactId: string }>;
 }): Promise<Metadata> {
   const { id, contactId } = await params;
-  await loadClient(id);
-  const contact = (await readContacts(id)).find((candidate) => candidate.id === contactId);
-  return { title: contact?.name ?? "Contact" };
+  return { title: (await getContactName(id, contactId)) ?? "Contact" };
 }
 
 /**
@@ -42,7 +41,7 @@ export default async function ContactPage({
   assertClientId(id);
   const [{ viewer, client, canEdit }, [contacts, definitions, people]] = await checkThenRead(
     loadClient(id),
-    Promise.all([readContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
+    Promise.all([listContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
   );
   const contact = contacts.find((candidate) => candidate.id === contactId);
   if (!contact) notFound();

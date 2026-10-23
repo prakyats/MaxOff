@@ -18,7 +18,12 @@ import { LeavePager } from "../../../leave/leave-nav";
 
 import { assertMemberId, loadHistoryPerson } from "../person";
 
-/** The tab names the person, then this view ("Prishit Shetty · Attendance & leave · MaxOff"; cached read). */
+/**
+ * The tab names the person, then this view ("Prishit Shetty · Attendance & leave · MaxOff"), from
+ * `loadHistoryPerson` (`loadPerson` and the session's member row).
+ * Next resolves metadata on a prefetch too; the layout's header makes the same `cache()`d
+ * `loadPerson` on it, so the title adds no read to a prefetch (P2 item 6).
+ */
 export async function generateMetadata({
   params,
 }: {
