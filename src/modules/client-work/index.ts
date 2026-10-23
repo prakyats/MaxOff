@@ -116,7 +116,6 @@ export {
 } from "./domain/types";
 export {
   getProject,
-  getProjectTemplateName,
   listBlueprints,
   listClientProjects,
   listCurrentCycles,

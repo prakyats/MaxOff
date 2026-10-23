@@ -257,36 +257,49 @@ export async function listStagesOf(projectIds: readonly string[]): Promise<Stage
   }));
 }
 
-/** One project (null: none, or not one the viewer may see). */
-export async function getProject(projectId: string): Promise<Project | null> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase
-    .from("projects")
-    .select(PROJECT_COLUMNS)
-    .eq("id", projectId)
-    .maybeSingle();
-  if (error) throw error;
-  return data ? toProject(data) : null;
-}
-
 /**
- * The name of the template a project was started from (its Details' Template cell, the v1.8
- * sample): null when it was started blank, or when RLS hides the template from the viewer
- * (`project_templates` is read with `templates.manage`); "‹name› (deleted)" once the Owner deleted
- * it (V5a 6b: the project keeps everything it has). Keyed by the project alone, so the page reads
- * it in its first wave. Never money.
+ * A project's page read: the project, with its Details' Template and Client contact cells (the
+ * v1.8 sample) embedded in the same request, so the page's first wave has no read of its own for
+ * either (v1.8 speed fix 2). RLS decides each embed as it decided the separate reads: a template
+ * the viewer may not read (`project_templates` is read with `templates.manage`) embeds as null,
+ * and the contacts are the client's under `client_contacts`' own policies. Never money.
  */
-export async function getProjectTemplateName(projectId: string): Promise<string | null> {
+export type ProjectDetails = Project & {
+  /**
+   * The template it was started from: null when started blank or hidden by RLS; "‹name›
+   * (deleted)" once the Owner deleted it (V5a 6b: the project keeps everything it has).
+   */
+  templateName: string | null;
+  /** The client's primary live contact, else its first live one (the Contacts order). */
+  contactName: string | null;
+};
+
+/** One project (null: none, or not one the viewer may see), with its Details' embeds. */
+export async function getProject(projectId: string): Promise<ProjectDetails | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("projects")
-    .select("template:project_templates(name, deleted_at)")
+    .select(
+      `${PROJECT_COLUMNS}, template:project_templates(name, deleted_at), client:clients(contacts:client_contacts(name, is_primary, created_at))`,
+    )
     .eq("id", projectId)
+    .is("client.contacts.archived_at", null)
+    .order("is_primary", { referencedTable: "client.contacts", ascending: false })
+    .order("created_at", { referencedTable: "client.contacts", ascending: true })
+    .limit(1, { referencedTable: "client.contacts" })
     .maybeSingle();
   if (error) throw error;
-  const template = data?.template;
-  if (!template) return null;
-  return template.deleted_at === null ? template.name : deletedTemplateLabel(template.name);
+  if (!data) return null;
+  const { template, client, ...row } = data;
+  return {
+    ...toProject(row),
+    templateName: !template
+      ? null
+      : template.deleted_at === null
+        ? template.name
+        : deletedTemplateLabel(template.name),
+    contactName: client?.contacts[0]?.name ?? null,
+  };
 }
 
 export async function listStages(projectId: string): Promise<Stage[]> {
