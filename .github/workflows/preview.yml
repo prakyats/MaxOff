@@ -71,6 +71,10 @@ on:
         description: "perf-probe: probe this address instead of the branch preview (staging or one of its previews only)"
         type: string
         default: ""
+      baseline_url:
+        description: "perf-probe: compare against this address instead of staging (staging or one of its previews only), e.g. a preview of main"
+        type: string
+        default: ""
       production:
         description: "perf-probe: also probe production signed out (public routes only, read-only)"
         type: boolean
@@ -565,6 +569,7 @@ jobs:
         env:
           STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
           BASE_URL: ${{ inputs.base_url }}
+          BASELINE_URL: ${{ inputs.baseline_url }}
         run: |
           set -euo pipefail
           if [ -z "${STAGING_URL:-}" ]; then
@@ -582,14 +587,15 @@ jobs:
             suffix="$(printf '%s' "$branch" | sha1sum | cut -c1-6)"
             alias="$(printf '%s' "$alias" | cut -c1-"$(( max - 7 ))" | sed 's/-*$//')-$suffix"
           fi
-          if [ -n "${BASE_URL:-}" ]; then
-            # The probe signs in with a session minted for staging, so it goes only to staging or
-            # one of its previews (<alias>-<worker>.<subdomain>, the staging workers.dev
-            # subdomain), over https: never to any other host (security review, Release 2).
-            base="${BASE_URL%/}"
+          # The probe signs in with a session minted for staging, so it goes only to staging or one
+          # of its previews (<alias>-<worker>.<subdomain>, the staging workers.dev subdomain), over
+          # https: never to any other host (security review, Release 2). Checks one input's address.
+          staging_or_preview() {
+            local input="$1" base base_host label
+            base="${2%/}"
             case "$base" in
               https://*) ;;
-              *) echo "::error::base_url must be an https:// address of staging or one of its previews."; exit 1 ;;
+              *) echo "::error::$input must be an https:// address of staging or one of its previews." >&2; return 1 ;;
             esac
             base_host="${base#https://}"; base_host="${base_host%%/*}"
             base_host="$(printf '%s' "$base_host" | tr 'A-Z' 'a-z')"
@@ -600,10 +606,22 @@ jobs:
               && printf '%s' "$label" | grep -Eqx "[a-z0-9]([a-z0-9-]*[a-z0-9])?-${worker}"; then
               :
             else
-              echo "::error::base_url's host '$base_host' is neither staging ($host) nor a preview of it (<alias>-${worker}.${subdomain}). The probe signs in with a staging session, so it goes nowhere else."
-              exit 1
+              echo "::error::$input's host '$base_host' is neither staging ($host) nor a preview of it (<alias>-${worker}.${subdomain}). The probe signs in with a staging session, so it goes nowhere else." >&2
+              return 1
             fi
-            target="https://${base_host}"
+            printf 'https://%s' "$base_host"
+          }
+          # The compare's other side: staging by default, or (owner, 2026-10-23, after the A/A
+          # test: a preview of main against staging failed 21 of 25 routes) a preview of main,
+          # since a preview version and the deployed Worker are not served alike.
+          baseline="$STAGING_URL"
+          baseline_label="staging (main)"
+          if [ -n "${BASELINE_URL:-}" ]; then
+            baseline="$(staging_or_preview baseline_url "$BASELINE_URL")"
+            baseline_label="baseline ${baseline#https://}"
+          fi
+          if [ -n "${BASE_URL:-}" ]; then
+            target="$(staging_or_preview base_url "$BASE_URL")"
           elif [ "$branch" = "main" ]; then
             target="$STAGING_URL"
           else
@@ -612,6 +630,8 @@ jobs:
           {
             echo "target=$target"
             echo "staging_url=$STAGING_URL"
+            echo "baseline_url=$baseline"
+            echo "baseline_label=$baseline_label"
             echo "label=$branch @ ${GITHUB_SHA:0:8}"
           } >>"$GITHUB_OUTPUT"
           echo "target=$target"
@@ -623,9 +643,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # With the compare, staging is probed in the same run, request by request after the branch
-      # (`--pair`), so both share the same minutes of load; the gate judges the branch against it.
-      - name: Probe the branch preview (and staging, alternating, for the comparison)
+      # With the compare, the baseline (staging, or `baseline_url`) is probed in the same run,
+      # request by request after the branch (`--pair`), so both share the same minutes of load;
+      # the gate judges the branch against it.
+      - name: Probe the branch preview (and the baseline, alternating, for the comparison)
         env:
           SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -634,12 +655,13 @@ jobs:
           LABEL: ${{ steps.names.outputs.label }}
           SAMPLES: ${{ inputs.samples }}
           ROLE: ${{ inputs.role }}
-          PAIR: ${{ inputs.compare && steps.names.outputs.target != steps.names.outputs.staging_url && steps.names.outputs.staging_url || '' }}
+          PAIR: ${{ inputs.compare && steps.names.outputs.target != steps.names.outputs.baseline_url && steps.names.outputs.baseline_url || '' }}
+          PAIR_LABEL: ${{ steps.names.outputs.baseline_label }}
         run: |
           set -euo pipefail
           pair=()
           if [ -n "$PAIR" ]; then
-            pair=(--pair "$PAIR" --pair-out "$RUNNER_TEMP/probe-staging.json")
+            pair=(--pair "$PAIR" --pair-label "$PAIR_LABEL" --pair-out "$RUNNER_TEMP/probe-staging.json")
           fi
           node scripts/perf-probe.mjs --base "$TARGET" --samples "$SAMPLES" --role "$ROLE" \
             --label "$LABEL" --out "$RUNNER_TEMP/probe-branch.json" "${pair[@]}"
