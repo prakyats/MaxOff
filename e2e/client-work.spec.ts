@@ -582,6 +582,94 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
   await removeClientFixture(client);
 });
 
+test("the deliverable sheet from Today: the footer fits inside the sheet at every width, Planned reads once, Edit stages sits on the Stages row (owner walk 23 Oct)", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "fit");
+  const clientId = await workClient(client);
+  const projectId = await makeProject(clientId, "Fit reels", {
+    recurrence: "one_time",
+    delivery: addDays(today(), 10),
+    items: [nameOf(info, "fit reel")],
+    stages: ["Posted"],
+  });
+  await rpcAs(admin.email, admin.password, "item_update", {
+    item_id: await itemId(projectId, nameOf(info, "fit reel")),
+    changes: { planned_date: today() },
+  });
+  // Laptop sheet widths on the desktop project; each phone project at its own width.
+  const own = page.viewportSize() ?? { width: 1280, height: 800 };
+  const widths = own.width >= 768 ? [1024, 1280, 1920] : [own.width];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: own.height });
+    await page.goto("/today");
+    await hydrated(page);
+    await expect(page.locator('[data-slot="today-client-work-rows"]')).toHaveAttribute(
+      "data-ready",
+      "",
+    );
+    await page
+      .locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "fit reel") })
+      .getByRole("button")
+      .first()
+      .click();
+    const sheet = page.locator('[data-slot="review-sheet"]', {
+      has: page.locator('[data-slot="item-sheet"]'),
+    });
+    await expect(sheet).toBeVisible();
+
+    // (2) The label says Planned; the value is the date alone.
+    await expect(sheet.locator("dl > div").first()).toHaveText("PlannedToday");
+
+    // (3) Edit stages on the Stages heading row, beside the count; a 44 px target on a phone
+    // (a laptop's pointer keeps the system's button height, as before).
+    const heading = sheet.locator('[data-slot="item-stages-heading"]');
+    await expect(heading.locator('[data-slot="item-stage-group-heading"]')).toHaveText(
+      "Stages0/1 stages ticked",
+    );
+    const edit = heading.getByRole("button", { name: "Edit stages" });
+    await expect(edit).toBeVisible();
+    const editBox = await edit.boundingBox();
+    if (width < 768) expect(editBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const headingBox = await heading.boundingBox();
+    expect(editBox!.y).toBeGreaterThanOrEqual(headingBox!.y);
+    expect(editBox!.y + editBox!.height).toBeLessThanOrEqual(headingBox!.y + headingBox!.height);
+    await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveCount(1);
+
+    // (1) Every footer action whole and inside the sheet: never cut (the truncation rule).
+    const footer = sheet.locator('[data-slot="review-sheet-actions"]');
+    await expect(footer.getByRole("link", { name: "Open the project" })).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Close deliverable…" })).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Next: Posted" })).toBeVisible();
+    const fit = await footer.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return {
+        overflow: node.scrollWidth - node.clientWidth,
+        actions: [...node.querySelectorAll<HTMLElement>("a, button")].map((action) => {
+          const own = action.getBoundingClientRect();
+          return {
+            label: action.textContent ?? "",
+            inside: own.left >= box.left - 0.5 && own.right <= box.right + 0.5,
+            clipped: action.scrollWidth > action.clientWidth + 1,
+          };
+        }),
+      };
+    });
+    expect(fit.overflow, `the footer at ${width}px`).toBeLessThanOrEqual(0);
+    expect(fit.actions).toHaveLength(3);
+    for (const action of fit.actions) {
+      expect(action.inside, `${action.label} inside the sheet at ${width}px`).toBe(true);
+      expect(action.clipped, `${action.label} whole at ${width}px`).toBe(false);
+    }
+    // Next stays the last, rightmost action (the commit).
+    const last = await footer.locator("a, button").last().textContent();
+    expect(last).toContain("Next: Posted");
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+  }
+  await removeClientFixture(client);
+});
+
 test("the carry screen: carry forward in bulk, close one with a reason", async ({ page }, info) => {
   const client = nameOf(info, "carry");
   const clientId = await workClient(client);
