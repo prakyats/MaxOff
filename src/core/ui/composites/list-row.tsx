@@ -34,6 +34,11 @@ export type ListRowProps = {
   note?: ReactNode;
   /** Beside the title: `<ChatCount count={n} />`. */
   titleBadge?: ReactNode;
+  /**
+   * Before the title, on its line: the person's 20 px photo (`PersonAvatar`, decorative: the meta
+   * line names them; #89). The title line keeps its height.
+   */
+  lead?: ReactNode;
   /** The status chips, in order (`StatusBadge`). */
   chips?: ReactNode;
   /** The row's ⋯ (a menu trigger), drawn before ›. */
@@ -84,6 +89,7 @@ export function ListRow({
   meta,
   note,
   titleBadge,
+  lead,
   chips,
   actions,
   href,
@@ -104,6 +110,7 @@ export function ListRow({
   const text = (
     <>
       <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5">
+        {lead}
         <span data-slot="list-row-title" className={cn("min-w-0 text-sm font-medium", cut)}>
           {title}
         </span>
@@ -276,15 +283,19 @@ export function ListRowSkeleton({
   chips = true,
   chevron = true,
   note = false,
+  lead = false,
 }: {
   chips?: boolean;
   chevron?: boolean;
   note?: boolean;
+  /** The row's `lead`: a 20 px photo before the title. */
+  lead?: boolean;
 }) {
   return (
     <li className="@container/row relative flex min-h-16 min-w-0 flex-col px-4 py-3">
       <div className={cn(ROW_GRID, "flex-1")}>
-        <span className="col-start-1 row-start-1 flex h-5 min-w-0 items-center">
+        <span className="col-start-1 row-start-1 flex h-5 min-w-0 items-center gap-1.5">
+          {lead ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
           <Skeleton className="h-4 w-44 max-w-full" />
         </span>
         {chips || chevron ? (

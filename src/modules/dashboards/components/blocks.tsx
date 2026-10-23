@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
+import { type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
 import {
   APPROVAL_ROW_MIN_H,
   CARD_ROW_TITLE,
@@ -155,12 +156,15 @@ export function ApprovalPersonRow({
   href,
   kind,
   name,
+  person,
   detail,
   waiting,
 }: {
   href: string;
   kind: string;
   name: string;
+  /** Their photo before the name, as the compact approval row beside it (#89). */
+  person?: AvatarPerson;
   detail: string;
   waiting: { label: string; tone: "muted" | "attention" | "danger" } | null;
 }) {
@@ -176,11 +180,11 @@ export function ApprovalPersonRow({
         <span className="flex min-w-0 flex-[1_1_10rem] flex-col justify-center gap-0.5 py-2 pl-4">
           <span className="flex min-h-5 min-w-0 flex-wrap items-center gap-x-2">
             <span className="text-muted-foreground shrink-0 text-xs">{kind}</span>
-            <span
-              data-slot="approval-title"
-              className="min-w-0 flex-[1_1_6rem] truncate text-sm font-medium"
-            >
-              {name}
+            <span className="flex min-w-0 flex-[1_1_6rem] items-center gap-1.5">
+              {person ? <PersonAvatar person={person} size={20} /> : null}
+              <span data-slot="approval-title" className="min-w-0 truncate text-sm font-medium">
+                {name}
+              </span>
             </span>
           </span>
           <span data-slot="approval-detail" className="text-muted-foreground text-xs break-words">

@@ -10,7 +10,8 @@ import { TaskRowsSkeleton, TaskSectionHeadingSkeleton } from "@/modules/tasks";
  * reason line, the open tasks, then the two links deeper. Staff, "My tasks" with "Suggest a task"
  * (the FAB on a phone, 4.6): two groups of rows (Not noted first, then a later one: the groups go
  * Not noted · Changes requested · Overdue · Due today · Upcoming, Kickoff 4 decision 25) and the
- * links. Every row is a `TaskRow`'s height and lines (`TaskRowsSkeleton`). In the `(list)`
+ * links. Every row is a `TaskRow`'s height and lines (`TaskRowsSkeleton`; a team row led by the
+ * primary owner's photo, #89). In the `(list)`
  * group so it never wraps a task's page (the 2.9 rule). The `(app)` layout already read the member
  * for this request (`cache()`), so asking costs no query.
  */
@@ -43,11 +44,11 @@ export default async function Loading() {
           <>
             <section className="flex min-w-0 flex-col gap-2">
               <TaskSectionHeadingSkeleton />
-              <TaskRowsSkeleton rows={2} notes={2} label="Needs you" />
+              <TaskRowsSkeleton rows={2} notes={2} label="Needs you" avatars />
             </section>
             <section className="flex min-w-0 flex-col gap-2">
               <TaskSectionHeadingSkeleton />
-              <TaskRowsSkeleton rows={4} label="Open tasks" />
+              <TaskRowsSkeleton rows={4} label="Open tasks" avatars />
             </section>
           </>
         ) : (

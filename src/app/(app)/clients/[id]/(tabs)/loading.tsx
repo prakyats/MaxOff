@@ -64,7 +64,9 @@ export default async function Loading() {
               <span className="flex h-4 items-center">
                 <Skeleton className="h-3 w-16" />
               </span>
-              <span className="flex h-5 items-center">
+              <span className="flex h-5 items-center gap-1.5">
+                {/* The Admin's photo beside their name (#89). */}
+                {cell === 0 ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
                 <Skeleton className="h-3.5 w-28 max-w-full" />
               </span>
             </div>

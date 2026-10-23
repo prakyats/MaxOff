@@ -22,16 +22,16 @@ export default async function Loading() {
       <div className="flex flex-col gap-6" data-slot="loading-approvals">
         {decides ? (
           <>
-            {/* Attendance, Leave, Extra work and Expenses lead each row with the person's
-                photo (V5b-D); the tasks' rows are titled by the task. */}
+            {/* Every group leads each row with the person's photo (V5b-D): the tasks' rows
+                with whoever handed it in (#89). */}
             <ApprovalGroupSkeleton rows={3} avatars />
             <ApprovalGroupSkeleton rows={2} avatars />
             <ApprovalGroupSkeleton rows={1} avatars />
             <ApprovalGroupSkeleton rows={1} avatars />
-            <ApprovalGroupSkeleton rows={2} />
+            <ApprovalGroupSkeleton rows={2} avatars />
           </>
         ) : (
-          <ApprovalGroupSkeleton rows={3} />
+          <ApprovalGroupSkeleton rows={3} avatars />
         )}
         <span className="sr-only">Loading approvals</span>
       </div>

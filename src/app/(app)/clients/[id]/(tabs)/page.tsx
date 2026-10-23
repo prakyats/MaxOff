@@ -19,6 +19,7 @@ import {
   CARD_ROW_TRAILING,
 } from "@/core/ui/composites/row-metrics";
 import { DrillLink } from "@/core/ui/composites/drill-link";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import { Card, CardContent } from "@/core/ui/primitives/card";
@@ -93,6 +94,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   const archived = contacts.filter((contact) => contact.archivedAt !== null);
   const primary = live.find((contact) => contact.isPrimary) ?? null;
   const adminName = client.adminId ? (people.names[client.adminId] ?? "An Admin") : null;
+  const adminFace = client.adminId ? people.faces[client.adminId] : undefined;
 
   return (
     <div className="flex flex-col gap-4" data-slot="client-overview">
@@ -110,8 +112,15 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div className="flex min-w-0 flex-col gap-0.5" data-slot="key-admin">
             <dt className="text-muted-foreground text-xs">Admin</dt>
-            <dd className={cn("break-words", adminName ? "font-medium" : "text-muted-foreground")}>
-              {adminName ?? "No Admin yet"}
+            <dd
+              className={cn(
+                "flex min-w-0 items-center gap-1.5",
+                adminName ? "font-medium" : "text-muted-foreground",
+              )}
+            >
+              {/* Their photo beside the name (#89); the name says who it is. */}
+              {adminFace ? <PersonAvatar person={adminFace} size={20} /> : null}
+              <span className="min-w-0 break-words">{adminName ?? "No Admin yet"}</span>
             </dd>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5" data-slot="key-contact">

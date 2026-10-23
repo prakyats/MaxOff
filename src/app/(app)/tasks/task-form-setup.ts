@@ -56,6 +56,7 @@ export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskForm
           role: member.role,
           engagement: member.engagement,
           jobTitle: member.jobTitle,
+          avatarFileId: member.avatarFileId,
           coordinatorName:
             member.engagement === "freelance" && coordinatorId
               ? (names.get(coordinatorId) ?? null)

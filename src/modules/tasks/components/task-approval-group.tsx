@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
+import type { AvatarPerson } from "@/core/ui/composites/person-avatar";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -38,6 +39,8 @@ export type TaskApprovalItem = {
   approvedLabel: string;
   /** The viewer's unread comments on it (Kickoff 4 decision 28). */
   unread: number;
+  /** Whoever handed it in (else the primary owner): their 20 px photo leads the row (#89). */
+  avatar?: AvatarPerson;
 };
 
 /**
@@ -88,6 +91,7 @@ export function TaskApprovalGroup({
           approvedLabel: task.approvedLabel,
           marker: <UnreadMarker count={task.unread} />,
           waiting: waiting?.[task.id],
+          avatar: task.avatar,
         }))}
         approve={(taskId) => postKeepalive<null>(APPROVE_URL, { kind: "task", id: taskId })}
         approveAll={preview ? undefined : (taskIds) => approveTasks({ taskIds })}

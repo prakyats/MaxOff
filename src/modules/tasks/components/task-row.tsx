@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { ListRow, ListRowSkeleton } from "@/core/ui/composites/list-row";
+import { type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { type StatusTone, StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
@@ -26,6 +27,7 @@ export function TaskRow({
   flag,
   note,
   unread = 0,
+  person,
 }: {
   id: string;
   title: string;
@@ -41,6 +43,8 @@ export function TaskRow({
   note?: ReactNode;
   /** The viewer's unread comments on it (`task_unread_counts()`). */
   unread?: number;
+  /** The primary owner, from the directory the page already read: their photo leads (#89). */
+  person?: AvatarPerson | undefined;
 }) {
   return (
     <ListRow
@@ -55,6 +59,7 @@ export function TaskRow({
         </span>
       }
       titleBadge={<UnreadMarker count={unread} />}
+      lead={person ? <PersonAvatar person={person} size={20} /> : undefined}
       meta={
         <span data-slot="task-row-meta" className="block truncate">
           {meta}
@@ -101,11 +106,14 @@ export function TaskRowsSkeleton({
   rows,
   label,
   notes = 0,
+  avatars = false,
 }: {
   rows: number;
   label: string;
   /** How many rows (the first ones) carry the third line ("Asha hasn't noted it · 9 h"). */
   notes?: number;
+  /** Rows led by the primary owner's photo (`TaskRow`'s `person`). */
+  avatars?: boolean;
 }) {
   return (
     <ul
@@ -115,7 +123,7 @@ export function TaskRowsSkeleton({
       className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, index) => (
-        <ListRowSkeleton key={index} note={index < notes} />
+        <ListRowSkeleton key={index} note={index < notes} lead={avatars} />
       ))}
     </ul>
   );

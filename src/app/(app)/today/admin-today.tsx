@@ -138,6 +138,13 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   ]);
   const now = systemClock();
   const names = new Map(directory.map((member) => [member.id, member]));
+  // Each person's photo, from the directory already read (#89): no read of its own.
+  const faceOf = (id: string) => {
+    const member = names.get(id);
+    return member
+      ? { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId }
+      : undefined;
+  };
   const clientNames = new Map(labels.map((label) => [label.id, label.name]));
   const context = {
     viewerId: viewer.id,
@@ -338,6 +345,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                           }
                           note={needsNote(item, context.nameOf)}
                           unread={unread[item.row.id] ?? 0}
+                          person={faceOf(item.row.primaryOwnerId)}
                         />
                       ))}
                     </TaskRowList>
@@ -448,6 +456,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                   label="Issues"
                   slot="today-issue-rows"
                   nameOf={(id) => names.get(id)?.fullName ?? "Someone"}
+                  faceOf={faceOf}
                   today={today}
                   now={now}
                 />

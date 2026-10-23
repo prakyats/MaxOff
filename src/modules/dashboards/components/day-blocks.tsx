@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { ListRow } from "@/core/ui/composites/list-row";
+import { type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
@@ -93,13 +94,21 @@ export function EventRows<T extends DayEvent>({
 /**
  * One risk as a row (decisions 6, 10; PP-today-5): the one row anatomy (`ListRow`), the task or
  * person as the title, the plain-words reason on the muted meta line ("Asha hasn't noted it"),
- * and the reason as a chip on the right ("3 h late" red, "Not noted · 24 h" amber), then ›.
+ * and the reason as a chip on the right ("3 h late" red, "Not noted · 24 h" amber), then ›. The
+ * person it is about (the overdue task's primary owner, the first not to note it, the one on leave
+ * or unreachable) leads with their photo, from the directory the page already read (#89).
  */
 function riskRow(
   risk: Risk,
-  context: { nameOf: (id: string) => string; today: ISODate; now: Date },
+  context: {
+    nameOf: (id: string) => string;
+    faceOf?: ((id: string) => AvatarPerson | undefined) | undefined;
+    today: ISODate;
+    now: Date;
+  },
 ): ReactNode {
   const words = riskWords(risk, context);
+  const face = context.faceOf?.(riskPersonId(risk) ?? "");
   const key =
     "taskId" in risk
       ? `${risk.kind}-${risk.taskId}-${"memberId" in risk ? risk.memberId : ""}`
@@ -111,6 +120,7 @@ function riskRow(
       data={{ "data-kind": words.icon }}
       href={words.href}
       title={words.title}
+      lead={face ? <PersonAvatar person={face} size={20} /> : undefined}
       meta={<span data-slot="risk-detail">{words.detail}</span>}
       chips={
         <StatusBadge
@@ -124,6 +134,19 @@ function riskRow(
   );
 }
 
+/** Whom a risk is about: the person whose photo leads its row. */
+function riskPersonId(risk: Risk): string | null {
+  switch (risk.kind) {
+    case "overdue":
+      return risk.ownerId;
+    case "not_noted":
+      return risk.waiting[0]?.memberId ?? null;
+    case "on_leave":
+    case "unreachable":
+      return risk.memberId;
+  }
+}
+
 /**
  * Overdue and risks (the Owner, decision 6) or Issues (an Admin, decision 10): rows, the first
  * five, then "See all". The emails-held row (the Owner, decision 23) follows, outside the five.
@@ -135,6 +158,7 @@ export function RiskRows({
   label,
   slot,
   nameOf,
+  faceOf,
   today,
   now,
 }: {
@@ -146,12 +170,14 @@ export function RiskRows({
   label: string;
   slot: string;
   nameOf: (id: string) => string;
+  /** Each person's photo, from the directory the page already read (#89). */
+  faceOf?: (id: string) => AvatarPerson | undefined;
   today: ISODate;
   now: Date;
 }) {
   const line = held ? heldEmailsLine(held) : null;
   if (risks.length === 0 && !line) return <>{empty}</>;
-  const context = { nameOf, today, now };
+  const context = { nameOf, faceOf, today, now };
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {risks.length > 0 ? (

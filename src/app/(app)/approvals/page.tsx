@@ -70,8 +70,14 @@ export default async function ApprovalsPage() {
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const faces = Object.fromEntries(
+    directory.map((member) => [
+      member.id,
+      { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId },
+    ]),
+  );
   const tasks = toDecide.map((item) => ({
-    ...taskItem(item, names, viewer.role === "owner"),
+    ...taskItem(item, names, viewer.role === "owner", faces),
     unread: unread[item.row.id] ?? 0,
   }));
   const claims = decidesExpenses ? pendingClaims : [];
