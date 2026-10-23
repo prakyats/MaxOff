@@ -1870,11 +1870,153 @@ test.describe("today's mark", () => {
 });
 
 /**
+ * The laptop toolbar as drawn (v1.8, owner #89): one row where it fits, else two (row 1 Day ·
+ * Week · Month, "‹ month ›" and Today; row 2 All ▾ and Filters). Every control is fully visible
+ * at its own width (nothing shrinks: the view control keeps its 288 px and each segment its word,
+ * never "DWMonth"), no two controls' boxes overlap, nothing reaches past the toolbar or is
+ * clipped inside its own box, the laptop's 32 px controls keep their height, and the controls are
+ * neutral (the colour rule: no red in the toolbar). The rows are read by measurement: a row break
+ * is allowed only where the parts on either side of it would not have fitted the toolbar's width
+ * together. Returns how many rows it found.
+ */
+async function expectToolbar(page: Page, label: string): Promise<number> {
+  const bar = await page.locator('[data-slot="calendar-controls"]:visible').evaluate((element) => {
+    const box = (node: Element) => {
+      const rect = node.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
+    const one = (selector: string) => element.querySelector(selector);
+    const main = one('[data-slot="calendar-controls-main"]');
+    const side = one('[data-slot="calendar-controls-side"]');
+    const view = one('[data-slot="calendar-view"]');
+    const pager = one('[data-slot="calendar-pager"]');
+    const named: [string, Element | null][] = [
+      ["view", view],
+      ...[...element.querySelectorAll('[data-slot="calendar-view"] > *')].map(
+        (segment, index) => [`segment ${index + 1}`, segment] as [string, Element],
+      ),
+      ["previous", one('[data-slot="calendar-pager"] button[aria-label^="Previous"]')],
+      ["label", one('[data-slot="calendar-pager-label"]')],
+      ["next", one('[data-slot="calendar-pager"] button[aria-label^="Next"]')],
+      ["today", one('[data-slot="calendar-today-laptop"]')],
+      ["show", one('[data-slot="calendar-show-menu"]')],
+      ["filters", one('[data-slot="calendar-filters-button"]')],
+    ];
+    const controls = named
+      .filter((entry): entry is [string, HTMLElement] => entry[1] instanceof HTMLElement)
+      .map(([name, node]) => {
+        const style = getComputedStyle(node);
+        return {
+          name,
+          ...box(node),
+          visible: node.checkVisibility({ opacityProperty: false }),
+          clipped: node.scrollWidth > node.clientWidth + 0.5,
+          colours: [style.backgroundColor, style.borderTopColor, style.color],
+        };
+      });
+    const gap = parseFloat(getComputedStyle(element).columnGap) || 0;
+    const width = (node: Element | null) => (node ? node.getBoundingClientRect().width : 0);
+    return {
+      ...box(element),
+      width: element.clientWidth,
+      overflows: element.scrollWidth > element.clientWidth,
+      gap,
+      mainGap: main ? parseFloat(getComputedStyle(main).columnGap) || 0 : 0,
+      main: main ? box(main) : null,
+      side: side ? box(side) : null,
+      view: view ? box(view) : null,
+      pager: pager ? box(pager) : null,
+      widths: { view: width(view), pager: width(pager), side: width(side) },
+      controls,
+    };
+  });
+  expect(bar.main, `${label}: row 1's group`).not.toBeNull();
+  expect(bar.side, `${label}: row 2's group`).not.toBeNull();
+  expect(bar.overflows, `${label}: nothing pushed out of the toolbar`).toBe(false);
+  const names = bar.controls.map((control) => control.name);
+  expect(names, `${label}: every control drawn`).toEqual(
+    expect.arrayContaining(["view", "previous", "label", "next", "today", "filters"]),
+  );
+  for (const control of bar.controls) {
+    const what = `${label}: ${control.name}`;
+    expect(control.visible, `${what} visible`).toBe(true);
+    expect(control.right - control.left, `${what} has a width`).toBeGreaterThan(0);
+    expect(control.clipped, `${what} not clipped inside its box`).toBe(false);
+    expect(control.left, `${what} inside the toolbar`).toBeGreaterThanOrEqual(bar.left - 0.5);
+    expect(control.right, `${what} inside the toolbar`).toBeLessThanOrEqual(bar.right + 0.5);
+    expect(control.top, `${what} inside the toolbar`).toBeGreaterThanOrEqual(bar.top - 0.5);
+    expect(control.bottom, `${what} inside the toolbar`).toBeLessThanOrEqual(bar.bottom + 0.5);
+    if (control.name !== "label" && !control.name.startsWith("segment")) {
+      expect(control.bottom - control.top, `${what} keeps its height`).toBeGreaterThanOrEqual(31.5);
+    }
+    for (const colour of control.colours) {
+      const [r = 0, g = 0, b = 0] = (colour.match(/[\d.]+/g) ?? []).map(Number);
+      expect(Math.max(r, g, b) - Math.min(r, g, b), `${what}: ${colour} is neutral`).toBeLessThan(
+        24,
+      );
+    }
+  }
+  // The view control at its own width, never squeezed.
+  expect(bar.widths.view, `${label}: the view control keeps its width`).toBeGreaterThanOrEqual(
+    287.5,
+  );
+  // No two controls overlap (a segment sits inside the view control; the label between the arrows).
+  const flat = bar.controls.filter((control) => !control.name.startsWith("segment"));
+  for (const [index, a] of flat.entries()) {
+    for (const b of flat.slice(index + 1)) {
+      const overlaps =
+        a.left < b.right - 0.5 &&
+        b.left < a.right - 0.5 &&
+        a.top < b.bottom - 0.5 &&
+        b.top < a.bottom - 0.5;
+      expect(overlaps, `${label}: ${a.name} and ${b.name} do not overlap`).toBe(false);
+    }
+  }
+  const middle = (box: { top: number; bottom: number }) => (box.top + box.bottom) / 2;
+  const view = bar.view!;
+  const pager = bar.pager!;
+  const main = bar.main!;
+  const side = bar.side!;
+  // Row 1: the pager beside the view control, unless the two would not fit side by side.
+  const pagerBeside = Math.abs(middle(pager) - middle(view)) < 2;
+  if (!pagerBeside) {
+    expect(pager.top, `${label}: the pager under the view control`).toBeGreaterThanOrEqual(
+      view.bottom - 0.5,
+    );
+    expect(
+      bar.widths.view + bar.mainGap + bar.widths.pager,
+      `${label}: the pager wraps only when it would not fit beside the view control`,
+    ).toBeGreaterThan(bar.width);
+  }
+  // All ▾ and Filters: on row 1 at its right, or on a row of their own under it.
+  const sideBeside = Math.abs(middle(side) - middle(main)) < 2 && pagerBeside;
+  if (sideBeside) {
+    expect(side.left, `${label}: All ▾ and Filters after the pager`).toBeGreaterThanOrEqual(
+      pager.right,
+    );
+  } else {
+    expect(side.top, `${label}: All ▾ and Filters on a row under row 1`).toBeGreaterThanOrEqual(
+      main.bottom - 0.5,
+    );
+    if (pagerBeside) {
+      expect(
+        main.right - main.left + bar.gap + bar.widths.side,
+        `${label}: a second row only when one row would not fit`,
+      ).toBeGreaterThan(bar.width);
+    }
+    // At the right of their row, as on one row.
+    expect(Math.abs(side.right - bar.right), `${label}: Filters at the right`).toBeLessThan(1);
+  }
+  return sideBeside ? 1 : pagerBeside ? 2 : 3;
+}
+
+/**
  * The laptop's calendar toolbar (v1.8, owner 23 Oct): All · Tasks · Client work is one `All ▾`
- * menu beside Filters, the toolbar one row at every laptop width (Day/Week/Month · ‹ month › ·
- * Today · All ▾ · Filters), and a leave bar never truncates: "Name · On leave" where it fits, else
- * "Name · Leave", never "Name · On l…", else the photo and "Leave"; the phone's full-month bars the
- * same (owner, #89 comment 6370526089).
+ * menu beside Filters, the toolbar one row where it fits (Day/Week/Month · ‹ month › · Today ·
+ * All ▾ · Filters), else All ▾ and Filters on a second row (owner #89, `expectToolbar`), and a
+ * leave bar never truncates: "Name · On leave" where it fits, else "Name · Leave", never
+ * "Name · On l…", else the photo and "Leave"; the phone's full-month bars the same, down to the
+ * photo alone (owner, #89 comment 6370526089).
  */
 test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)", () => {
   test.use({ storageState: storageStateFor("owner") });
@@ -1921,29 +2063,6 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
   async function removeLongName(info: TestInfo, id: string) {
     await resetAttendanceAndLeave(id);
     await removeFreelancersNamed(`${FIRST} ${surname(info)}`);
-  }
-
-  /** The toolbar's parts on one row, inside its width (nothing wrapped, nothing pushed out). */
-  async function expectOneRow(page: Page, label: string) {
-    const bar = await page
-      .locator('[data-slot="calendar-controls"]:visible')
-      .evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        return {
-          overflows: element.scrollWidth > element.clientWidth,
-          right: box.right,
-          parts: [...element.children].map((child) => {
-            const part = child.getBoundingClientRect();
-            return { middle: part.top + part.height / 2, right: part.right };
-          }),
-        };
-      });
-    expect(bar.overflows, `${label}: the toolbar's parts fit its width`).toBe(false);
-    const middle = bar.parts[0]?.middle ?? 0;
-    for (const part of bar.parts) {
-      expect(Math.abs(part.middle - middle), `${label}: one row`).toBeLessThan(2);
-      expect(part.right, `${label}: inside the toolbar`).toBeLessThanOrEqual(bar.right + 0.5);
-    }
   }
 
   /**
@@ -2009,7 +2128,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
           ? "Leave"
           : "";
 
-  test("All ▾ beside Filters: one row at 1024 and 1280 in every view; the menu ticks the choice; a view control, remembered", async ({
+  test("All ▾ beside Filters: whole at 1024 and 1280 in every view (one row, or two where one does not fit); the menu ticks the choice; a view control, remembered", async ({
     page,
   }, info) => {
     test.skip(isPhone(info), "the laptop's toolbar (the phone keeps its switch)");
@@ -2036,7 +2155,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
         expect(gap, "just before Filters").not.toBeNull();
         expect(gap ?? -1).toBeGreaterThan(0);
         expect(gap ?? 99).toBeLessThan(12);
-        await expectOneRow(page, `${view} at ${width}`);
+        await expectToolbar(page, `${view} at ${width}`);
       }
     }
 
@@ -2072,7 +2191,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
       const [r = 0, g = 0, b = 0] = (colour.match(/[\d.]+/g) ?? []).map(Number);
       expect(Math.max(r, g, b) - Math.min(r, g, b), `${colour} is neutral`).toBeLessThan(24);
     }
-    await expectOneRow(page, "Client work ▾ at 1024");
+    await expectToolbar(page, "Client work ▾ at 1024");
     // A view control: the address is the same, and one back still leaves the calendar.
     expect(page.url()).toBe(address);
     await trigger.click();
@@ -2088,7 +2207,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
         "data-view",
         view,
       );
-      await expectOneRow(page, `Client work ▾, ${view} at 1024`);
+      await expectToolbar(page, `Client work ▾, ${view} at 1024`);
     }
     await expectBackStack(page, [{ url: /\/today$/ }]);
     // Remembered on this device, as the switch was.
@@ -2298,11 +2417,68 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
   });
 });
 
+/**
+ * The laptop toolbar where one row does not fit (v1.8, owner on #89: it overlapped, "DWMonth", at
+ * a window of about 1180 px): from 768 to 1440 px, in both themes and every view, the toolbar
+ * wraps instead of squeezing. Where one row fits it is one row; where it does not, row 1 is
+ * Day · Week · Month, "‹ month ›" and Today and row 2 is All ▾ and Filters (at the narrowest, where
+ * even row 1 is wider than the content, the pager under the view control). Nothing shrinks,
+ * overlaps or is clipped (`expectToolbar`). The phone is unchanged (its own header specs).
+ */
+test.describe("the laptop calendar toolbar wraps, never squeezes (v1.8, owner #89)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  const WRAP_WIDTHS = [768, 900, 1024, 1180, 1280, 1440] as const;
+
+  for (const theme of ["light", "dark"] as const) {
+    for (const width of WRAP_WIDTHS) {
+      test(`${theme} at ${width}: every control whole in every view`, async ({ page }, info) => {
+        test.skip(isPhone(info), "the laptop's toolbar (the phone's header is unchanged)");
+        await page.setViewportSize({ width, height: 800 });
+        await page.goto("/calendar");
+        await page.evaluate((value) => {
+          window.localStorage.setItem("theme", value);
+          window.localStorage.removeItem("maxoff.calendar.show");
+        }, theme);
+        const today = todayIST();
+        for (const view of ["month", "week", "day"] as const) {
+          await page.goto(`/calendar?view=${view}&date=${today}`);
+          await hydrated(page);
+          if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+          else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+          await expect.poll(() => shownLabel(showControl(page))).toBe("All");
+          const rows = await expectToolbar(page, `${theme} ${view} at ${width}`);
+          // The widest laptop's month keeps one row; the narrowest wraps; 1180 (the owner's
+          // window) is whole either way (`expectToolbar`).
+          if (view === "month" && width === 1440) expect(rows, "one row at 1440").toBe(1);
+          if (width === 768) expect(rows, "wrapped at 768").toBeGreaterThan(1);
+        }
+      });
+    }
+  }
+
+  test("Client work ▾, the longest choice, wraps the same way at every laptop width", async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), "the laptop's toolbar");
+    await page.goto("/calendar");
+    // This test's own browser context: the choice is gone with it.
+    await page.evaluate(() => window.localStorage.setItem("maxoff.calendar.show", "client"));
+    for (const width of WRAP_WIDTHS) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(`/calendar?view=day&date=${todayIST()}`);
+      await hydrated(page);
+      await expect.poll(() => shownLabel(showControl(page))).toBe("Client work");
+      await expectToolbar(page, `Client work, day at ${width}`);
+    }
+  });
+});
+
 /** Crew never see All · Tasks · Client work (no client work on their calendar), on any device. */
 test.describe("the calendar's All ▾, as Crew", () => {
   test.use({ storageState: storageStateFor("staff") });
 
-  test("no All ▾ and no switch for Crew; the toolbar is one row at 1024 and 1280", async ({
+  test("no All ▾ and no switch for Crew; the toolbar whole from 768 to 1440", async ({
     page,
   }, info) => {
     if (!isPhone(info)) {
@@ -2311,22 +2487,7 @@ test.describe("the calendar's All ▾, as Crew", () => {
         await page.goto("/calendar");
         await hydrated(page);
         await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toBeVisible();
-        // The parts are centred and of different heights (the view switch is taller), so one
-        // row is the same middle for every part, as the Owner's check reads it.
-        const bar = await page
-          .locator('[data-slot="calendar-controls"]:visible')
-          .evaluate((element) => ({
-            overflows: element.scrollWidth > element.clientWidth,
-            middles: [...element.children].map((child) => {
-              const part = child.getBoundingClientRect();
-              return part.top + part.height / 2;
-            }),
-          }));
-        expect(bar.overflows, `nothing pushed out at ${width}`).toBe(false);
-        const middle = bar.middles[0] ?? 0;
-        for (const part of bar.middles) {
-          expect(Math.abs(part - middle), `one row at ${width}`).toBeLessThan(2);
-        }
+        await expectToolbar(page, `Crew at ${width}`);
       }
     } else {
       await page.goto("/calendar");
@@ -2338,4 +2499,4 @@ test.describe("the calendar's All ▾, as Crew", () => {
   });
 });
 
-const WIDTHS_CREW = [1024, 1280] as const;
+const WIDTHS_CREW = [768, 900, 1024, 1180, 1280, 1440] as const;
