@@ -174,7 +174,7 @@ scale inside a frame; the app keeps the approved scale of FINAL 3 (12/14/16/18/2
 | Waiting words (FINAL 4) | from a day a dot plus the word (amber, red from three), never colour alone (`ApprovalGroup`, `ApprovalPersonRow`) |
 | A calendar item (change 5) | `TypeDot` + `typeTint` (`modules/calendar/components/calendar-chip.tsx`); secondary words on a tint are `text-foreground/80`, never muted (PP-light-3) |
 | Light tint contrast (PP-light-3) | `core/ui/theme/tint-contrast.ts`: a tint composited over its surface, checked at 4.5:1 (`tint-contrast.test.ts`, `type-tint-contrast.test.ts`) |
-| An unread row (PP-alerts-2) | `bg-row-unread` (`--row-unread`: a warm step off the card in light, one surface step up in dark, `surface-2`) |
+| An alert's row (PP-alerts-2; the design gate, 23 Oct) | unread `bg-row-unread`, read `bg-row-read`: unread one shade lighter, never dimmer (light: unread the white card `#FFFFFF`, read `#F9F8F5` one warm step under it; dark: read the card `#131315`, unread `surface-2` `#1A1A1D`); text AA on both |
 | A person's photo (pull-in sample, V5b-D) | `PersonAvatar` / `AvatarStack` (`core/ui/composites/person-avatar.tsx`): 20 list rows, 28 chat and Alerts, 40 People and headers, 64 a person's page and Me; initials on `--avatar-1…4` (stable per member id, `core/lib/avatar.ts`); the ring and sizes in `globals.css`; lists load the 96 px thumbnail (`fileUrl(id, "thumb")`); never in calendar month boxes or long tables |
 | No access (FINAL 7, V5b-D) | `/forbidden?for=<keys>`; `blockedLine` (`core/permissions/blocked.ts`) names the area and who it is for from the permission table |
 

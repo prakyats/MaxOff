@@ -164,6 +164,41 @@ test.describe("the bell and Alerts", () => {
     await expect.poll(() => unreadOf(staff)).toBe(0);
   });
 
+  test("an unread row sits one shade lighter than a read one, in light and in dark (the design gate, 23 Oct)", async ({
+    page,
+  }, info) => {
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await notify(staff, { title: "Shade, read", read: true, minutesAgo: 9 });
+    await notify(staff, { title: "Shade, unread", minutesAgo: 8 });
+    await signIn(page, staff, PASSWORD);
+    const lightness = (title: string) =>
+      rowOf(page, title).evaluate((row) => {
+        const [r, g, b] = (getComputedStyle(row).backgroundColor.match(/[\d.]+/g) ?? []).map(
+          Number,
+        );
+        const linear = (value = 0) => {
+          const c = value / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+      });
+    for (const theme of ["light", "dark"] as const) {
+      await page.goto("/notifications");
+      await page.evaluate((value) => window.localStorage.setItem("theme", value), theme);
+      await page.reload();
+      await hydrated(page);
+      if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+      else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+      await expect(rowOf(page, "Shade, unread")).toHaveAttribute("data-unread", "true");
+      await expect(rowOf(page, "Shade, read")).not.toHaveAttribute("data-unread");
+      expect(
+        await lightness("Shade, unread"),
+        `${theme}: unread is lighter than read`,
+      ).toBeGreaterThan(await lightness("Shade, read"));
+    }
+  });
+
   test("Mark all read reads every row and clears the count", async ({ page }, info) => {
     const staff = person(info, "staff");
     await clearAlerts(staff);

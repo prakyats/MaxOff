@@ -36,7 +36,7 @@ describe("light chip tints at AA (PP-light-3)", () => {
   });
 
   it("the quiet chips: muted text on the muted fill and on an unread alert row", () => {
-    for (const fill of ["muted", "row-unread", "neutral-soft", "sidebar-accent"]) {
+    for (const fill of ["muted", "row-unread", "row-read", "neutral-soft", "sidebar-accent"]) {
       const ratio = contrastRgb(token("muted-foreground"), token(fill));
       expect(ratio, `muted text on ${fill}`).toBeGreaterThanOrEqual(4.5);
     }

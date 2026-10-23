@@ -216,16 +216,20 @@ describe("badge contrast (globals.css)", () => {
       });
     }
 
-    it(`${theme}: an unread alert's row is a step off the card and its text reads (PP-alerts-2)`, () => {
-      const bg = tokens["row-unread"] as string;
-      expect(bg, `--row-unread missing in ${selector}`).toBeDefined();
-      expect(bg).not.toBe(tokens["card"]);
-      for (const text of ["foreground", "muted-foreground"]) {
-        const ratio = contrast(tokens[text] as string, bg);
-        expect(
-          ratio,
-          `${theme} ${text} on row-unread = ${ratio.toFixed(2)}`,
-        ).toBeGreaterThanOrEqual(4.5);
+    it(`${theme}: an unread alert's row is one shade lighter than a read one and both read (PP-alerts-2)`, () => {
+      const unread = tokens["row-unread"] as string;
+      const read = tokens["row-read"] as string;
+      expect(unread, `--row-unread missing in ${selector}`).toBeDefined();
+      expect(read, `--row-read missing in ${selector}`).toBeDefined();
+      // The design gate (23 Oct): unread is lighter, never dimmer, in both themes.
+      expect(luminance(hexToRgb(unread))).toBeGreaterThan(luminance(hexToRgb(read)));
+      for (const bg of [unread, read]) {
+        for (const text of ["foreground", "muted-foreground"]) {
+          const ratio = contrast(tokens[text] as string, bg);
+          expect(ratio, `${theme} ${text} on ${bg} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
+            4.5,
+          );
+        }
       }
     });
 
