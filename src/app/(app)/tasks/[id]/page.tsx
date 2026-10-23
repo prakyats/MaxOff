@@ -21,6 +21,7 @@ import {
   chatMessages,
   collapseTicks,
   describeTaskActivity,
+  enlargedLine,
   eventLabel,
   earlierHandInLabel,
   firstUnreadId,
@@ -174,12 +175,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     remindNames.every((one) => one !== undefined) ? (remindNames as string[]) : [],
   );
 
-  const state = (
-    <StatusBadge
-      status={task.state}
-      label={stateLabel(task, { finalApprover: can(viewer.role, "tasks.approve_final") })}
-    />
-  );
+  const stateWords = stateLabel(task, { finalApprover: can(viewer.role, "tasks.approve_final") });
+  const state = <StatusBadge status={task.state} label={stateWords} />;
   // PP-crew-8: the one next step is the header's primary action on a laptop and the sticky bar
   // at a phone's foot: one element (`primaryOwnBar`), so its dialogs mount once.
   const stepBar = (
@@ -271,53 +268,73 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               className="text-lg leading-7 font-semibold tracking-tight break-words before:content-[attr(data-title)] md:hidden"
             />
             {/* PP-task-1: the state as a chip (in the header on a laptop), the priority a quiet
-                label, and the deadline on a line of its own, red once it has passed. */}
-            <p
-              data-slot="task-glance"
-              className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+                label, and the deadline on a line of its own, red once it has passed. On a laptop
+                the priority and the deadline share one line (task chat height, owner 23 Oct);
+                a phone keeps its two lines (`max-md:contents`). */}
+            <div
+              data-slot="task-meta"
+              className="max-md:contents md:flex md:min-w-0 md:flex-wrap md:items-center md:gap-x-3.5 md:gap-y-1"
             >
-              <span className="md:hidden">{state}</span>
-              <span
-                data-slot="task-priority"
-                className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+              <p
+                data-slot="task-glance"
+                className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
               >
-                <FlagIcon aria-hidden className="size-3.5 shrink-0" />
-                {PRIORITY_LABELS[task.priority]} priority
-              </span>
-            </p>
-            <p
-              data-slot="task-deadline"
-              data-overdue={deadline.overdue ? "true" : "false"}
+                <span className="md:hidden">{state}</span>
+                <span
+                  data-slot="task-priority"
+                  className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+                >
+                  <FlagIcon aria-hidden className="size-3.5 shrink-0" />
+                  {PRIORITY_LABELS[task.priority]} priority
+                </span>
+              </p>
+              <p
+                data-slot="task-deadline"
+                data-overdue={deadline.overdue ? "true" : "false"}
+                className={cn(
+                  "flex min-w-0 items-center gap-1.5 text-sm break-words md:gap-1 md:text-xs",
+                  deadline.overdue ? "text-destructive font-medium" : "text-foreground",
+                )}
+              >
+                {deadline.overdue ? (
+                  <CircleAlertIcon aria-hidden className="size-4 shrink-0 md:size-3.5" />
+                ) : (
+                  <CalendarClockIcon
+                    aria-hidden
+                    className="text-muted-foreground size-4 shrink-0 md:size-3.5"
+                  />
+                )}
+                <span className="min-w-0">
+                  {deadline.label}
+                  {deadline.relative ? ` · ${deadline.relative}` : ""}
+                </span>
+              </p>
+            </div>
+            {/* PP-task-2: what is needed now, as a calm callout above the actions. On a laptop
+                Remind sits inside it, at its right end (task chat height); a phone keeps Remind
+                on its own row under it (`max-md:contents`). One Remind either way. */}
+            <div
+              data-slot="task-next-box"
               className={cn(
-                "flex min-w-0 items-center gap-1.5 text-sm break-words",
-                deadline.overdue ? "text-destructive font-medium" : "text-foreground",
+                "md:border-border md:bg-muted/50 max-md:contents md:flex md:min-h-11 md:min-w-0 md:items-center md:gap-2.5 md:rounded-lg md:border md:py-0.5 md:pl-3",
+                actions.remind ? "md:pr-1" : "md:pr-3",
               )}
             >
-              {deadline.overdue ? (
-                <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
-              ) : (
-                <CalendarClockIcon aria-hidden className="text-muted-foreground size-4 shrink-0" />
-              )}
-              <span className="min-w-0">
-                {deadline.label}
-                {deadline.relative ? ` · ${deadline.relative}` : ""}
-              </span>
-            </p>
-            {/* PP-task-2: what is needed now, as a calm callout above the actions. */}
-            <p
-              data-slot="task-needed"
-              className="border-border bg-muted/50 rounded-lg border px-3 py-2.5 text-sm font-medium break-words"
-            >
-              {needed}
-            </p>
-            {actions.remind ? (
-              <TaskRemind
-                taskId={task.id}
-                againAt={remindAt}
-                againLabel={remindAt ? remindAgainLabel(remindAt) : null}
-                who={remindTo}
-              />
-            ) : null}
+              <p
+                data-slot="task-needed"
+                className="border-border bg-muted/50 rounded-lg border px-3 py-2.5 text-sm font-medium break-words md:min-w-0 md:flex-1 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5"
+              >
+                {needed}
+              </p>
+              {actions.remind ? (
+                <TaskRemind
+                  taskId={task.id}
+                  againAt={remindAt}
+                  againLabel={remindAt ? remindAgainLabel(remindAt) : null}
+                  who={remindTo}
+                />
+              ) : null}
+            </div>
             {changeRequest?.reason ? (
               <div
                 data-slot="task-change-request"
@@ -338,7 +355,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               </p>
             ) : null}
           </section>
-          <TaskTabs />
+          <TaskTabs
+            context={{
+              title: task.title,
+              relative: deadline.relative,
+              overdue: deadline.overdue,
+            }}
+          />
           <TaskViewPanel name="work">{work}</TaskViewPanel>
           <TaskChat
             taskId={task.id}
@@ -354,11 +377,16 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             placeholder={chat.placeholder}
             forOptions={commentFor}
             defaultFor={selfOnTask ? null : (commentFor[0]?.id ?? null)}
+            // The enlarged chat's head (⤢, a laptop's): "Edit · chat with Asha", the state and
+            // the deadline ("In progress · Overdue 4 days").
+            enlargedLine={enlargedLine(stateWords, deadline.relative)}
           />
         </div>
         <TaskViewPanel
           name="details"
-          className="md:sticky md:top-6 md:w-64 md:shrink-0 md:self-start lg:w-80"
+          // Beside Chat it scrolls away with the header (task chat height, owner 23 Oct): the chat
+          // head keeps its key line ("Asha · Noted").
+          className="md:sticky md:top-6 md:w-64 md:shrink-0 md:self-start md:data-[view=chat]:static lg:w-80"
         >
           {details}
         </TaskViewPanel>
@@ -527,7 +555,7 @@ async function chatData({
   names: Record<string, string>;
   /** Each person's photo, from the same directory read as the names (V5b-D). */
   faces: Record<string, AvatarPerson>;
-  active: { memberId: string }[];
+  active: { memberId: string; acknowledgedAt: string | null }[];
 }) {
   const today = todayIST();
   const messages = chatMessages(data.comments, { viewerId, names, faces, today });
@@ -546,6 +574,8 @@ async function chatData({
         id: assignee.memberId,
         name,
         face: faces[assignee.memberId] ?? { id: assignee.memberId, name, avatarFileId: null },
+        noted: assignee.acknowledgedAt !== null,
+        self: assignee.memberId === viewerId,
       };
     });
   const others = people.filter((person) => person.id !== viewerId).map((person) => person.name);

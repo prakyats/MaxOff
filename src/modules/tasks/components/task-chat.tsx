@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronLeftIcon } from "lucide-react";
+import { ChevronLeftIcon, XIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
   type CSSProperties,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -26,6 +27,7 @@ import { isKeyboardOpen } from "@/core/ui/viewport/keyboard";
 import { useKeyboard } from "@/core/ui/viewport/use-keyboard";
 
 import { type ChatEvent, type ChatFace, type ChatMessage, mergeMessages } from "../domain/chat";
+import { chatSpace, enlargedTitle, notedLine } from "../domain/chat-space";
 import { WRITING_AS_SELF } from "../domain/page";
 
 import { ChatFeed } from "./task-chat-feed";
@@ -54,13 +56,20 @@ export type ChatPerson = {
   name: string;
   /** Their photo or initials, from the directory read that names them (V5b-D). */
   face: ChatFace;
+  /** Their Task Noted, for the head's key line once the People card has scrolled away. */
+  noted: boolean;
+  /** The reader. */
+  self: boolean;
 };
 
 /**
  * A task's Chat as a conversation (Kickoff 4 decisions 27, 28, 32; v1.8 V5b E, the approved
- * sample `docs/design/v18-task-chat-sample.html`). **Laptop:** a dedicated panel under the views'
- * bar that fills the screen to its foot and scrolls inside itself (the task's header, state and
- * views never scroll away), with the composer pinned at its foot. **Phone:** a full-height view
+ * sample `docs/design/v18-task-chat-sample.html`). **Laptop** (and the task chat height sample,
+ * `docs/design/v18-task-chat-height-sample.html`, owner 23 Oct): a dedicated panel under the
+ * views' bar that fills the screen to its foot and scrolls inside itself, with the composer
+ * pinned at its foot; as the page scrolls the header goes, the bar sticks and the panel grows to
+ * fill the screen under it (`useChatSpace`); ⤢ on the bar enlarges it over the dimmed page (an
+ * overlay layer: back, Esc and ✕ close it, the page is where it was). **Phone:** a full-height view
  * (a layer: back returns to the task, ARCHITECTURE §14.2 a) with the composer above the on-screen
  * keyboard (`visualViewport`). The feed (`ChatFeed`) is drawn in one place at a time.
  *
@@ -88,6 +97,7 @@ export function TaskChat({
   placeholder,
   forOptions,
   defaultFor,
+  enlargedLine,
 }: {
   taskId: string;
   taskTitle: string;
@@ -108,8 +118,20 @@ export function TaskChat({
   forOptions: { id: string; name: string }[];
   /** Who a comment is for by default: null = the viewer themselves. */
   defaultFor: string | null;
+  /** The enlarged chat's second line: "In progress · Overdue 4 days". */
+  enlargedLine: string;
 }) {
-  const { desktop, chatOpen, setChatOpen, chatVisible, unread, markSeen } = useTaskView();
+  const {
+    desktop,
+    chatOpen,
+    setChatOpen,
+    enlarged,
+    setEnlarged,
+    stuck,
+    chatVisible,
+    unread,
+    markSeen,
+  } = useTaskView();
   const keyboard = useKeyboard();
   // The draft lives here, outside the sheet and the lazy composer: a back keeps what was typed.
   const [body, setBody] = useState("");
@@ -174,6 +196,9 @@ export function TaskChat({
   }
 
   const phone = desktop === false;
+  // The laptop's ⤢: the feed and the composer move into the large panel while it is open (the
+  // feed is drawn in one place at a time).
+  const big = desktop === true && enlarged;
   const feed = (
     <ChatFeed
       messages={held}
@@ -194,33 +219,87 @@ export function TaskChat({
       writingFor={writingFor}
       onWritingForChange={setWritingFor}
       forOptions={forOptions}
-      solid={phone || solidSend}
+      solid={phone || big || solidSend}
       placeholder={placeholder}
     />
   );
   const typing = isKeyboardOpen(keyboard);
-  const [setPanel, panelHeight] = usePanelHeight(desktop === true && chatVisible);
+  const [spaceRef, panelRef] = useChatSpace(desktop === true && chatVisible && !big);
 
   return (
     <>
       <TaskViewPanel name="chat" className="gap-0">
-        <div
-          ref={setPanel}
-          data-slot="task-chat-panel"
-          style={panelHeight === null ? undefined : { height: panelHeight }}
-          className="bg-card border-border shadow-raised rounded-sheet flex h-[max(20rem,calc(100dvh-22rem))] min-h-0 min-w-0 flex-col overflow-hidden border"
-        >
-          {phone ? null : (
-            <>
-              <ChatHead people={people} />
-              {feed}
-              <div data-slot="task-chat-composer-row" className="bg-card border-t px-3 pt-2.5 pb-2">
-                {composer}
-              </div>
-            </>
-          )}
+        {/* The room the page keeps for the panel once the bar is stuck (`useChatSpace`). */}
+        <div ref={spaceRef} data-slot="task-chat-space" className="flex min-w-0 flex-col">
+          <div
+            ref={panelRef}
+            data-slot="task-chat-panel"
+            className="bg-card border-border shadow-raised rounded-sheet flex h-[max(20rem,calc(100dvh-22rem))] min-h-0 min-w-0 flex-col overflow-hidden border"
+          >
+            {phone ? null : (
+              <>
+                <ChatHead people={people} stuck={stuck} />
+                {big ? (
+                  <div className="min-h-0 flex-1" />
+                ) : (
+                  <>
+                    {feed}
+                    <div
+                      data-slot="task-chat-composer-row"
+                      className="bg-card border-t px-3 pt-2.5 pb-2"
+                    >
+                      {composer}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </TaskViewPanel>
+
+      {/* ⤢ on a laptop: the chat as a large panel over the dimmed page (the sample's "Enlarged
+          chat"). An overlay layer: back, Esc and ✕ close it, and the page is where it was. */}
+      <Sheet open={big} onOpenChange={setEnlarged}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          followKeyboard={false}
+          data-slot="task-chat-enlarged"
+          aria-describedby="task-chat-enlarged-description"
+          className="bg-card border-border rounded-sheet mx-auto max-w-6xl gap-0 overflow-hidden border p-0 shadow-lg data-[side=bottom]:inset-x-15 data-[side=bottom]:top-6 data-[side=bottom]:bottom-6 data-[side=bottom]:h-auto"
+        >
+          <SheetHeader className="border-border flex-row items-center gap-2.5 border-b py-1.5 pr-1.5 pl-4">
+            <ChatFaces people={people} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SheetTitle className="truncate text-sm font-semibold">
+                {enlargedTitle(taskTitle, people)}
+              </SheetTitle>
+              <SheetDescription
+                id="task-chat-enlarged-description"
+                className="text-muted-foreground truncate text-xs"
+              >
+                {enlargedLine}
+              </SheetDescription>
+            </div>
+            <SheetClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                data-slot="task-chat-enlarged-close"
+                className="size-11"
+                aria-label="Close the large chat"
+              >
+                <XIcon aria-hidden className="size-5" />
+              </Button>
+            </SheetClose>
+          </SheetHeader>
+          {big ? feed : null}
+          <div data-slot="task-chat-composer-row" className="bg-card border-t px-3 pt-2.5 pb-2">
+            {big ? composer : null}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={phone && chatOpen} onOpenChange={setChatOpen}>
         <SheetContent
@@ -262,26 +341,38 @@ export function TaskChat({
   );
 }
 
-/** The laptop panel's head (the sample): the people's photos, their names, who sees the chat. */
-function ChatHead({ people }: { people: ChatPerson[] }) {
+/** The people's photos, up to three, overlapping (the sample's chat head). */
+function ChatFaces({ people }: { people: ChatPerson[] }) {
+  if (people.length === 0) return null;
+  return (
+    <div aria-hidden className="flex shrink-0 -space-x-1.5">
+      {people.slice(0, 3).map((person) => (
+        <span key={person.id} className="ring-card rounded-full ring-2">
+          <PersonAvatar person={person.face} size={28} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The laptop panel's head (the sample): the people's photos, their names, who sees the chat.
+ * Once the bar is stuck and the People card has scrolled away with the header, the names carry
+ * its key line ("Asha · Noted"; task chat height).
+ */
+function ChatHead({ people, stuck }: { people: ChatPerson[]; stuck: boolean }) {
+  const noted = stuck ? notedLine(people) : null;
   return (
     <div
       data-slot="task-chat-head"
       className="border-border flex min-w-0 items-center gap-2.5 border-b px-4 py-2.5"
     >
-      {people.length > 0 ? (
-        <div aria-hidden className="flex shrink-0 -space-x-1.5">
-          {people.slice(0, 3).map((person) => (
-            <span key={person.id} className="ring-card rounded-full ring-2">
-              <PersonAvatar person={person.face} size={28} />
-            </span>
-          ))}
-        </div>
-      ) : null}
+      <ChatFaces people={people} />
       <div className="flex min-w-0 flex-col">
         {people.length > 0 ? (
           <p className="text-sm font-semibold break-words">
             {people.map((person) => person.name).join(", ")}
+            {noted ? <span data-slot="task-chat-head-noted">{` · ${noted}`}</span> : null}
           </p>
         ) : null}
         <p className="text-muted-foreground text-xs">Everyone on the task sees this chat</p>
@@ -291,37 +382,75 @@ function ChatHead({ people }: { people: ChatPerson[] }) {
 }
 
 /**
- * The laptop panel fills the screen from where it starts to the page's foot, so the page itself
- * does not scroll and the task's header stays in view; CSS gives a close first guess before this
- * runs.
+ * The laptop's chat space (task chat height, owner 23 Oct): the panel runs from where it starts
+ * to the screen's foot, so the composer is always pinned in view, and grows as the page scrolls
+ * and the header goes, until the Work | Chat bar is stuck; the space under it keeps the stuck
+ * height, so the page scrolls exactly that far (`chatSpace`). Written straight to the two
+ * elements once a frame (no render per scroll); CSS gives a close first guess before this runs.
  */
-function usePanelHeight(active: boolean): [(node: HTMLDivElement | null) => void, number | null] {
-  const [node, setNode] = useState<HTMLDivElement | null>(null);
-  const [height, setHeight] = useState<number | null>(null);
+function useChatSpace(
+  active: boolean,
+): [RefObject<HTMLDivElement | null>, RefObject<HTMLDivElement | null>] {
+  const spaceRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    if (!active || !node) return;
+    const space = spaceRef.current;
+    const panel = panelRef.current;
+    if (!active || !space || !panel) return;
     const root = document.documentElement;
+    const band = document.querySelector<HTMLElement>('[data-slot="task-tabs-band"]');
+    let frame = 0;
     const measure = () => {
-      const top = node.getBoundingClientRect().top + window.scrollY;
-      // The bands fixed at the screen's foot (offline, notifications off) cover the page's end.
+      frame = 0;
       const style = getComputedStyle(root);
+      // The bands fixed at the screen's foot (offline, notifications off) cover the page's end.
       const bands =
         (Number.parseFloat(style.getPropertyValue("--app-offline-h")) || 0) +
         (Number.parseFloat(style.getPropertyValue("--app-push-h")) || 0);
-      setHeight(
-        Math.max(PANEL_MIN_PX, Math.floor(window.innerHeight - top - bands - PANEL_FOOT_PX)),
-      );
+      const column = band?.parentElement;
+      const gap = column ? Number.parseFloat(getComputedStyle(column).rowGap) || 0 : 0;
+      const stuckTop = band
+        ? (Number.parseFloat(getComputedStyle(band).top) || 0) + band.offsetHeight + gap
+        : 0;
+      const { panel: height, reserve } = chatSpace({
+        viewport: window.innerHeight,
+        panelTop: space.getBoundingClientRect().top,
+        stuckTop,
+        bands,
+        foot: PANEL_FOOT_PX,
+        min: PANEL_MIN_PX,
+      });
+      space.style.height = `${reserve}px`;
+      panel.style.height = `${height}px`;
+    };
+    const soon = () => {
+      if (frame === 0) frame = requestAnimationFrame(measure);
     };
     measure();
-    window.addEventListener("resize", measure);
-    const bandsChange = new MutationObserver(measure);
+    window.addEventListener("resize", soon);
+    window.addEventListener("scroll", soon, { passive: true });
+    const bandsChange = new MutationObserver(soon);
     bandsChange.observe(root, { attributes: true, attributeFilter: ["style"] });
+    // Whatever above the panel changes height (a Remind that starts waiting, a callout that
+    // wraps, the next step answering) moves where it starts; a band arriving at the foot pads
+    // the page's main (`--app-bands-h`), which resizes it.
+    const above = new ResizeObserver(soon);
+    for (const node of document.querySelectorAll(
+      '#main, [data-slot="page-header"], [data-slot="task-summary"], [data-slot="task-tabs-band"]',
+    )) {
+      above.observe(node);
+    }
     return () => {
-      window.removeEventListener("resize", measure);
+      if (frame !== 0) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", soon);
+      window.removeEventListener("scroll", soon);
       bandsChange.disconnect();
+      above.disconnect();
+      space.style.removeProperty("height");
+      panel.style.removeProperty("height");
     };
-  }, [active, node]);
-  return [setNode, height];
+  }, [active]);
+  return [spaceRef, panelRef];
 }
 
 /** The sheet ends where the keyboard begins and is as tall as what is still visible. */

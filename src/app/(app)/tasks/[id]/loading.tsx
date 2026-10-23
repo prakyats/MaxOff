@@ -1,4 +1,5 @@
 import { getCurrentMember } from "@/core/auth/server";
+import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { DetailHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
@@ -60,19 +61,36 @@ export default async function Loading() {
           <div className="flex h-7 min-w-0 items-center md:hidden">
             <Skeleton className="h-5 w-56 max-w-full" />
           </div>
-          {/* 20px with the phone's chip; 16px on a laptop, where only the 12px priority shows. */}
-          <div className="flex h-5 min-w-0 flex-wrap items-center gap-2 md:h-4">
-            <Skeleton className="h-5 w-20 rounded-full md:hidden" />
-            <Skeleton className="h-3 w-24" />
+          {/* The priority and the deadline: two lines on a phone; one 16px line on a laptop
+              (task chat height, owner 23 Oct), both 12px there. */}
+          <div className="max-md:contents md:flex md:h-4 md:min-w-0 md:items-center md:gap-x-3.5">
+            {/* 20px with the phone's chip; 16px on a laptop, where only the 12px priority shows. */}
+            <div className="flex h-5 min-w-0 flex-wrap items-center gap-2 md:h-4">
+              <Skeleton className="h-5 w-20 rounded-full md:hidden" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="flex h-5 min-w-0 items-center gap-1.5 md:h-4 md:gap-1">
+              <Skeleton className="size-4 shrink-0 rounded-sm md:size-3.5" />
+              <Skeleton className="h-4 w-44 max-w-full md:h-3" />
+            </div>
           </div>
-          <div className="flex h-5 min-w-0 items-center gap-1.5">
-            <Skeleton className="size-4 shrink-0 rounded-sm" />
-            <Skeleton className="h-4 w-44 max-w-full" />
-          </div>
-          <div className="border-border bg-muted/50 flex min-w-0 items-center rounded-lg border px-3 py-2.5">
-            <div className="flex h-5 min-w-0 items-center">
+          {/* The callout; on a laptop 44px with Remind at its right end for whoever usually has it
+              (the Owner and Admins; a phone shows Remind under the callout, untraced as before). */}
+          <div
+            className={cn(
+              "border-border bg-muted/50 flex min-w-0 items-center rounded-lg border px-3 py-2.5 md:min-h-11 md:gap-2.5 md:py-0.5",
+              manages && "md:pr-1",
+            )}
+          >
+            <div className="flex h-5 min-w-0 items-center md:flex-1">
               <Skeleton className="h-4 w-64 max-w-full" />
             </div>
+            {manages ? (
+              <Skeleton
+                data-slot="loading-task-remind"
+                className="hidden h-9 w-36 shrink-0 rounded-lg md:block"
+              />
+            ) : null}
           </div>
         </div>
         {manages ? null : (
