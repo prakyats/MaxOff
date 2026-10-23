@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeftIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, Maximize2Icon, XIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
   type CSSProperties,
@@ -68,7 +68,7 @@ export type ChatPerson = {
  * `docs/design/v18-task-chat-height-sample.html`, owner 23 Oct): a dedicated panel under the
  * views' bar that fills the screen to its foot and scrolls inside itself, with the composer
  * pinned at its foot; as the page scrolls the header goes, the bar sticks and the panel grows to
- * fill the screen under it (`useChatSpace`); ⤢ on the bar enlarges it over the dimmed page (an
+ * fill the screen under it (`useChatSpace`); ⤢ at its head's right end enlarges it over the dimmed page (an
  * overlay layer: back, Esc and ✕ close it, the page is where it was). **Phone:** a full-height view
  * (a layer: back returns to the task, ARCHITECTURE §14.2 a) with the composer above the on-screen
  * keyboard (`visualViewport`). The feed (`ChatFeed`) is drawn in one place at a time.
@@ -223,6 +223,8 @@ export function TaskChat({
       placeholder={placeholder}
     />
   );
+  // The large chat has no Radix trigger, so focus is handed back to ⤢ by hand on closing.
+  const enlargeRef = useRef<HTMLButtonElement>(null);
   const typing = isKeyboardOpen(keyboard);
   const [spaceRef, panelRef] = useChatSpace(desktop === true && chatVisible && !big);
 
@@ -238,7 +240,12 @@ export function TaskChat({
           >
             {phone ? null : (
               <>
-                <ChatHead people={people} stuck={stuck} />
+                <ChatHead
+                  people={people}
+                  stuck={stuck}
+                  enlargeRef={enlargeRef}
+                  onEnlarge={() => setEnlarged(true)}
+                />
                 {big ? (
                   <div className="min-h-0 flex-1" />
                 ) : (
@@ -266,6 +273,10 @@ export function TaskChat({
           showCloseButton={false}
           followKeyboard={false}
           data-slot="task-chat-enlarged"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            enlargeRef.current?.focus();
+          }}
           aria-describedby="task-chat-enlarged-description"
           className="bg-card border-border rounded-sheet mx-auto max-w-6xl gap-0 overflow-hidden border p-0 shadow-lg data-[side=bottom]:inset-x-15 data-[side=bottom]:top-6 data-[side=bottom]:bottom-6 data-[side=bottom]:h-auto"
         >
@@ -356,19 +367,32 @@ function ChatFaces({ people }: { people: ChatPerson[] }) {
 }
 
 /**
- * The laptop panel's head (the sample): the people's photos, their names, who sees the chat.
- * Once the bar is stuck and the People card has scrolled away with the header, the names carry
- * its key line ("Asha · Noted"; task chat height).
+ * The laptop panel's head (the sample): the people's photos, their names, who sees the chat, and
+ * at its right end ⤢ (44 px, neutral), which enlarges the chat over the dimmed page; it lives here,
+ * not on the Work | Chat bar, so it shows only while Chat is open (issue #89). The large chat
+ * returns focus to it on closing. Once the bar is stuck and the People card has scrolled away with
+ * the header, the names carry its key line ("Asha · Noted"; task chat height).
  */
-function ChatHead({ people, stuck }: { people: ChatPerson[]; stuck: boolean }) {
+function ChatHead({
+  people,
+  stuck,
+  enlargeRef,
+  onEnlarge,
+}: {
+  people: ChatPerson[];
+  stuck: boolean;
+  enlargeRef: RefObject<HTMLButtonElement | null>;
+  onEnlarge: () => void;
+}) {
   const noted = stuck ? notedLine(people) : null;
   return (
     <div
       data-slot="task-chat-head"
-      className="border-border flex min-w-0 items-center gap-2.5 border-b px-4 py-2.5"
+      // The 44 px ⤢ sets the head's height (56 px, as the two lines with their padding did).
+      className="border-border flex min-w-0 items-center gap-2.5 border-b py-1.5 pr-1.5 pl-4"
     >
       <ChatFaces people={people} />
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {people.length > 0 ? (
           <p className="text-sm font-semibold break-words">
             {people.map((person) => person.name).join(", ")}
@@ -377,6 +401,20 @@ function ChatHead({ people, stuck }: { people: ChatPerson[]; stuck: boolean }) {
         ) : null}
         <p className="text-muted-foreground text-xs">Everyone on the task sees this chat</p>
       </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        ref={enlargeRef}
+        data-slot="task-chat-enlarge"
+        aria-label="Enlarge the chat"
+        title="Enlarge the chat"
+        aria-haspopup="dialog"
+        className="text-muted-foreground size-11 shrink-0"
+        onClick={onEnlarge}
+      >
+        <Maximize2Icon aria-hidden />
+      </Button>
     </div>
   );
 }

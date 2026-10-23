@@ -66,21 +66,30 @@ export function ChatFeedSkeleton() {
   );
 }
 
-/** The laptop panel's head: the photos, the names line and "Everyone on the task sees this chat". */
+/**
+ * The laptop panel's head: the photos, the names line and "Everyone on the task sees this chat",
+ * then ⤢ at its right end (44 px).
+ */
 export function ChatHeadSkeleton() {
   return (
-    <div className="border-border flex min-w-0 items-center gap-2.5 border-b px-4 py-2.5">
+    <div className="border-border flex min-w-0 items-center gap-2.5 border-b py-1.5 pr-1.5 pl-4">
       <div className="flex shrink-0 -space-x-1.5">
         <Skeleton className="ring-card size-7 rounded-full ring-2" />
         <Skeleton className="ring-card size-7 rounded-full ring-2" />
       </div>
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-5 items-center">
           <Skeleton className="h-3.5 w-28" />
         </div>
         <div className="flex h-4 items-center">
           <Skeleton className="h-3 w-48 max-w-full" />
         </div>
+      </div>
+      <div
+        data-slot="loading-task-enlarge"
+        className="flex size-11 shrink-0 items-center justify-center"
+      >
+        <Skeleton className="size-4 rounded-sm" />
       </div>
     </div>
   );

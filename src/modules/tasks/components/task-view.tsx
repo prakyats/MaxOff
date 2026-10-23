@@ -1,6 +1,5 @@
 "use client";
 
-import { Maximize2Icon } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   createContext,
@@ -15,7 +14,6 @@ import {
 
 import { cn } from "@/core/lib/utils";
 import { markLive } from "@/core/ui/navigation/attributes";
-import { Button } from "@/core/ui/primitives/button";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { useIsDesktop } from "@/core/ui/viewport/use-desktop";
@@ -215,12 +213,12 @@ export type TaskTabsContext = {
  * **On a laptop (task chat height, owner 23 Oct; the sample
  * `docs/design/v18-task-chat-height-sample.html`):** the bar sticks under the top bar as the page
  * scrolls (the header scrolls away), in the same place and look, and once stuck it names the task
- * beside the tabs ("Edit · overdue 4 days"); **⤢** at its right end (44 px) enlarges the chat over
- * the dimmed page (an overlay layer, never a view). Nothing switches by itself. A phone's bar is
- * unchanged: no ⤢, no name, its own sticky place under the title bar.
+ * beside the tabs ("Edit · overdue 4 days"). The bar holds only the views: ⤢ (enlarge the chat)
+ * is the chat panel's own, at its head's right end (issue #89), so Work never shows it. Nothing
+ * switches by itself. A phone's bar is unchanged: no name, its own sticky place under the title bar.
  */
 export function TaskTabs({ context }: { context: TaskTabsContext }) {
-  const { view, choose, desktop, openChat, unread, setEnlarged, stuck, setBand } = useTaskView();
+  const { view, choose, desktop, openChat, unread, stuck, setBand } = useTaskView();
   const bar = useRef<HTMLDivElement>(null);
   const shown = shownView(view, desktop === true);
   usePublishedHeaderHeight();
@@ -311,19 +309,6 @@ export function TaskTabs({ context }: { context: TaskTabsContext }) {
           </>
         ) : null}
       </p>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        data-slot="task-chat-enlarge"
-        aria-label="Enlarge the chat"
-        title="Enlarge the chat"
-        aria-haspopup="dialog"
-        className="text-muted-foreground hidden size-11 md:ml-auto md:inline-flex"
-        onClick={() => setEnlarged(true)}
-      >
-        <Maximize2Icon aria-hidden />
-      </Button>
     </div>
   );
 }
