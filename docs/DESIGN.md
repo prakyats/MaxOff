@@ -83,6 +83,13 @@ a Dark/Light toggle).
   sheet's content): **never truncate**; wrap as needed.
 - Withdrawn: PP-phone-5 and the min-width part of PP-project-3. Instead, expanded rows, checklists
   and the deliverable sheet show every group and stage name in full.
+- **Leave in the laptop calendar (owner 23 Oct, #89 comment 6367337528): never an ellipsis.** A
+  month bar or a Week/Day leave chip shows the first wording that fits on its one line, measured
+  before paint (never guessed from a name's length): "Asha · On leave", then "Asha · Leave", then
+  the person's photo (`PersonAvatar`, initials when there is none, drawn at 14 px inside the bar's
+  line so its height never changes) and "Leave". The day's accessible name always says the first
+  name in full ("Asha, on leave"), and a tap opens the day popup with every name whole. This is the
+  one place a photo sits inside a month box. "2 on leave" stays as it is.
 - **Audit:** every ellipsis in the app sits on something that opens to the full text. An ellipsis
   on an element that opens nothing is a bug. (This replaces "two lines, then an ellipsis" in §2 and
   §6 where they disagree.)
