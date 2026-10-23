@@ -1033,8 +1033,8 @@ test.describe("the calendar, as the Owner", () => {
     const prefix = `${prefixOf(info)}crowd `;
     await removeTasksTitled(prefix);
     // Its own day per project, so the count is exactly this test's: five deadlines, two shown,
-    // "+3 more". The offsets are reserved for this test (nine to eleven weeks on): every other
-    // spec dates its rows 46 days out or nearer. It used 35/42/49 until CI shard 2 (runs
+    // "+3 more". The offsets are reserved for this test (nine to eleven weeks on): the task
+    // specs date their rows 52 days out or nearer, SCOPE §6's test 91 to 105. It used 35/42/49 until CI shard 2 (runs
     // 39720856747, 39730557999) put task-page's "Reorder … reel" (its day 42) on the phone's
     // 2026-12-03 first, and the box said "+4 more"; task-page and task-lists also use day 35.
     const offset = { desktop: 63, mobile: 70, "mobile-lg": 77 }[info.project.name] ?? 84;
@@ -1507,8 +1507,30 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
   async function longDay(info: TestInfo) {
     const prefix = `${prefixOf(info)}scope6 `;
     await removeTasksTitled(prefix);
-    // A day of each project's own: the projects' fixtures never share a box.
-    const day = workingDay(44 + 7 * ["desktop", "mobile", "mobile-lg"].indexOf(info.project.name));
+    const client = sixty(`Scope6 client ${info.project.name}`);
+    await removeClientFixture(client);
+    // A day of each project's own that no other spec dates a row on: a box holds three lines, so
+    // one more task there puts the deliverable behind "+N more". The offsets are reserved for this
+    // test (thirteen to fifteen weeks on). It used 44/51/58 until CI shard 2 (run 39978207656, a
+    // Friday): the phone's day 51 fell on a Sunday and moved to day 52's Monday, where
+    // task-page's "Chat view … promo" and "Phone same … reel" are due, and the item was gone.
+    const offset = { desktop: 91, mobile: 98, "mobile-lg": 105 }[info.project.name] ?? 112;
+    const day = workingDay(offset);
+    // A collision names itself rather than hiding a chip: nothing else is on that day.
+    const dayStart = encodeURIComponent(istInstant(day, "00:00"));
+    const dayEnd = encodeURIComponent(istInstant(addISTDays(day, 1), "00:00"));
+    const others = [
+      ...(await serviceSelect<{ title: string }>(
+        `tasks?select=title&or=(and(due_at.gte.${dayStart},due_at.lt.${dayEnd}),event_date.eq.${day})`,
+      )),
+      ...(await serviceSelect<{ title: string }>(
+        `project_items?select=title&planned_date=eq.${day}`,
+      )),
+    ];
+    expect(
+      others.map((row) => row.title),
+      `${day} is this test's alone`,
+    ).toEqual([]);
     const staffId = await memberIdOf(USERS.staff.email);
     const shootTitle = sixty(`${prefix}shoot`);
     const dueTitle = sixty(`${prefix}due`);
@@ -1536,8 +1558,6 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
       title: dueTitle,
       task_type_id: await taskTypeId("Normal"),
     });
-    const client = sixty(`Scope6 client ${info.project.name}`);
-    await removeClientFixture(client);
     const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
     const row = await serviceInsert<{ id: string }>("clients", {
       org_id: org?.id,
