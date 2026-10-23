@@ -44,11 +44,7 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
    router state tree), never by `_rsc` itself, which also hashes `Next-Url`, the page the
    prefetch was made from; an answer whose `Vary` names `Next-Url` (an interception route) is
    never kept (clarified 2026-10-16: keyed by `_rsc`, a copy kept on Today never answered the
-   same prefetch made on Tasks). In the tree, the router's `inside-shared-layout` mark reads as
-   no mark (clarified 2026-10-22, V5b integration, sw.js v11): the router sets it when the
-   destination leaves the page it is asked from, and the server uses it only to start looking
-   for a loading boundary, which every kept address has below it, so a task prefetched from Today
-   and from Tasks get the same skeleton and now share one copy. A task's page keeps **one copy for every task** (clarified 2026-10-22, sw.js v12): its prefetch is the loading screen and its own id only (the spec's no-member-data check), so the copy is kept with the id out of its key and answered for any task with that task's id in place of the one it was fetched for; on a cold Worker a row the router prefetches for the first time no longer waits seconds for the Worker, nor holds up the row tapped next (the router runs four prefetches at a time, and a touch's own prefetch lands after the tap).
+   same prefetch made on Tasks).
 2. **Keyed to the build.** Next's `deploymentId` (`core/lib/deployment-id.ts`, one per build) is
    sent by every router request as `x-deployment-id`; a copy is kept under the deployment that
    asked for it and is never answered to a page of another, and a new deployment's first copy
@@ -93,3 +89,28 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
   tab, a task row and a More-sheet destination show their traced skeleton 154–212 ms after the
   finger goes down (an 80 ms rest included), where they took ~3.2 s; a reload, a client's page and
   the first open of a new install (nothing kept yet) still wait for the Worker, by design.
+
+## Amendment (2026-10-23)
+
+- **The change.** Two refinements of decision 1's key, shipped in the v1.8 V5b integration
+  (`public/sw.js` v11 and v12):
+  1. **One shared task skeleton.** A task's page keeps one copy for every task: its prefetch
+     carries the loading screen and its own id only (the spec's no-member-data check proves it),
+     so the copy is kept with the task id out of its key, and a prefetch of any task is answered
+     from it with that task's id swapped back into the same bytes (`withId`). The newest-60 limit
+     is unchanged.
+  2. **The router's `inside-shared-layout` mark is ignored in the key.** In the router state tree
+     the mark reads as no mark: the router sets it when the destination leaves the page it is
+     asked from, and the server uses it only to start looking for a loading boundary, which every
+     kept address has below it. A task prefetched from Today and from Tasks gets the same skeleton
+     and now shares one copy.
+- **Why.** On a cold Worker in a full e2e run, the rows the warm visit had never prefetched (a
+  full run's other tasks, the task made since) each went to the Worker for about 3 s and filled
+  the router's four prefetch slots; the tapped row's prefetch then left only with the touch, and
+  its answer (1 ms from the worker's copy) landed after the tap, because the browser holds the
+  page's network tasks while a finger is down, so the router navigated without a loading state.
+  With one copy for every task no row's prefetch waits for the Worker, and the tapped row's
+  leaves the moment it scrolls in.
+- **The evidence.** `e2e/instant-skeleton.spec.ts` on the database the full run left (5 of 5 red
+  before): 74 of 74 green at 375 and 430 px, tap to skeleton 185–235 ms. The 300 ms limit is
+  unchanged. Unit tests cover the one copy, the id swap and the 60-copy limit.
