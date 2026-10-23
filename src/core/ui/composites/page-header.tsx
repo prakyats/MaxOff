@@ -41,6 +41,7 @@ export function PageHeader({
   history,
   primary,
   primaryOwnBar = false,
+  titleLines = 2,
   className,
 }: {
   title: ReactNode;
@@ -75,6 +76,12 @@ export function PageHeader({
    * action area.
    */
   primaryOwnBar?: boolean;
+  /**
+   * The phone bar's title lines: two (the default), or one with an ellipsis where the page's body
+   * shows the full title (the task page, the design gate of 23 Oct: the truncation rule). A laptop
+   * always allows two.
+   */
+  titleLines?: 1 | 2;
   className?: string;
 }) {
   return (
@@ -118,7 +125,12 @@ export function PageHeader({
 
         <div className="flex min-w-0 flex-1 items-center gap-0.5 md:block">
           <div className="flex min-w-0 items-center gap-3">
-            <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
+            <h1
+              className={cn(
+                "min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl",
+                titleLines === 1 ? "line-clamp-1 md:line-clamp-2" : "line-clamp-2",
+              )}
+            >
               {title}
             </h1>
             {status ? (
