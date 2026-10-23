@@ -310,7 +310,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged Overdue, Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right (the reason, then the state). Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
+              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged Overdue, Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
