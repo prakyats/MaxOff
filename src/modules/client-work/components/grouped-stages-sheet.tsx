@@ -374,7 +374,7 @@ export function GroupedStagesSheet({
                           <MoreHorizontalIcon aria-hidden />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="min-w-48">
+                      <DropdownMenuContent align="end" className="min-w-48" title={group.label}>
                         <ReorderMenuItems reorder={groupReorder} index={index} />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -673,7 +673,7 @@ function StageRows({
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuContent align="end" className="min-w-48" title={row.name}>
               <ReorderMenuItems reorder={reorder} index={index} />
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => onRemove(row)}>

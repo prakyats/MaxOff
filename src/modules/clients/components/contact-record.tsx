@@ -170,7 +170,7 @@ export function ContactMenu({
             <MoreHorizontalIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuContent align="end" className="min-w-48" title={contact.name}>
           {archived ? (
             <DropdownMenuItem onSelect={restore}>Restore</DropdownMenuItem>
           ) : (

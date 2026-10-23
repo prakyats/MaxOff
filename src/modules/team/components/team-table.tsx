@@ -219,7 +219,7 @@ export function TeamTable({
                     <MoreHorizontalIcon aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" title={member.fullName}>
                   {actions.edit ? (
                     <DropdownMenuItem asChild>
                       {/* The menu's entry is backed out first, then the page is pushed (§14.2 a). */}

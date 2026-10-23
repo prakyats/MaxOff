@@ -2,7 +2,10 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  hydrated,
   insertAs,
+  removeClientFixture,
+  rpcAs,
   serviceInsert,
   serviceRest,
   serviceSelect,
@@ -164,4 +167,77 @@ test.describe("every list with Archive keeps what it archived (V5b-0 item 9)", (
       }
     });
   }
+});
+
+/**
+ * A client's contacts (advisor audit, v1.8): an archived contact leaves the Overview's list for
+ * the same collapsed "Archived (n)", where Restore brings it back and the Owner's Delete (its
+ * confirmation checks that nothing ever pointed at it) removes it for good. Archived through
+ * `client_contact_archive`, as the contact's own ⋯ does.
+ */
+test.describe("a client's archived contacts", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the laptop's row controls");
+
+  test("a contact: archived → under Archived → Restore → back; archived again → Delete", async ({
+    page,
+  }, info) => {
+    const client = `Archived list contacts client (${info.project.name})`;
+    const name = `Archived list contact ${info.project.name}`;
+    await removeClientFixture(client);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const { id: clientId } = await serviceInsert<{ id: string }>("clients", {
+      org_id: org!.id,
+      name: client,
+    });
+    const contact = async (person: string) =>
+      (
+        await serviceInsert<{ id: string }>("client_contacts", {
+          org_id: org!.id,
+          client_id: clientId,
+          name: person,
+        })
+      ).id;
+    // The first live contact is the primary one (by trigger); the second is the one archived.
+    await contact("Kept Primary");
+    const contactId = await contact(name);
+    const archiveIt = () =>
+      rpcAs(USERS.owner.email, USERS.owner.password, "client_contact_archive", {
+        contact_id: contactId,
+      });
+    try {
+      await archiveIt();
+      await page.goto(`/clients/${clientId}`);
+      await hydrated(page);
+      const live = page.locator('[data-slot="contact-row"]', { hasText: name });
+      await expect(live).toHaveCount(0);
+
+      const section = archivedSectionOf(page, name);
+      await expect(section).toHaveCount(1);
+      const item = section.locator('[data-slot="archived-item"]', { hasText: name });
+      await expect(item).toBeHidden();
+      await section.locator('[data-slot="archived-toggle"]').click();
+      await expect(item).toBeVisible();
+      await item.getByRole("button", { name: `Restore ${name}`, exact: true }).click();
+      await expect(page.getByText(`${name} restored`)).toBeVisible();
+      await expect(live).toBeVisible();
+      await expect(page.locator('[data-slot="archived-item"]', { hasText: name })).toHaveCount(0);
+
+      // Archived again, the Owner deletes it: its own archive history is not use.
+      await archiveIt();
+      await page.reload();
+      await hydrated(page);
+      await archivedSectionOf(page, name).locator('[data-slot="archived-toggle"]').click();
+      await archivedSectionOf(page, name)
+        .getByRole("button", { name: `Delete ${name}`, exact: true })
+        .click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete contact “${name}”?` });
+      await confirm.getByRole("button", { name: `Delete ${name}`, exact: true }).click();
+      await expect(page.getByText(`${name} deleted`)).toBeVisible();
+      await expect(page.locator('[data-slot="archived-item"]', { hasText: name })).toHaveCount(0);
+      expect(await serviceSelect(`client_contacts?id=eq.${contactId}&select=id`)).toHaveLength(0);
+    } finally {
+      await removeClientFixture(client);
+    }
+  });
 });

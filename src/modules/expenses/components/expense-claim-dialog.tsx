@@ -456,7 +456,13 @@ function ClaimForm({
       </div>
       <ActionStatus action={action} />
       <DialogFooter>
-        <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onClose}
+          disabled={pending}
+          data-dismiss=""
+        >
           {several && added.length > 0 ? "Done" : "Cancel"}
         </Button>
         <Button

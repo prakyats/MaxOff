@@ -196,6 +196,10 @@ export const ADMIN_GUIDE: Guide = {
               text: "Your day is recorded. The Owner decides attendance.",
             },
             {
+              kind: "text",
+              text: "Your days are on Me, under Attendance & leave, on the Attendance tab, a month at a time. Each row has the start and end times; on a working day, a start or end time that was never recorded reads “Not recorded”.",
+            },
+            {
               kind: "note",
               text: "Only the Owner decides attendance. You never decide anyone else’s day, and your own is never overwritten: a correction sits beside the original.",
             },
@@ -218,7 +222,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Me, then Attendance & leave.",
                 "On the Leave requests tab, tap Request leave.",
                 "Choose the Kind of leave: Leave, Half day or Comp leave.",
-                "If you have comp leave, the line above the dates says how much is left. Pick the Date, or the First day and Last day; MaxOff shows how long it is under them, such as “2 days”.",
+                "If you have comp leave, the line above the dates says how much is left. Pick the Date, or the First day and Last day (an empty one reads “Choose a date”; tap it to open the calendar); MaxOff shows how long it is under them, such as “2 days”.",
                 "Add a reason if you like (it is optional) and send it.",
               ],
             },
@@ -335,7 +339,7 @@ export const ADMIN_GUIDE: Guide = {
                   text: 'Add people under "Assign to" (highlighted) and choose the primary owner.',
                   shot: "admin/new-task",
                 },
-                "Set the Deadline and Time (IST).",
+                "Set the Deadline and Time (IST). An empty one reads “Choose a date” or “Choose a time”; times use the 12-hour clock, such as “6:00 pm”.",
                 `Add a Client label only if it helps. ${CREW} never see client records.`,
                 "Tap Create task.",
               ],
@@ -840,7 +844,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed “Archived (n)” at their foot, each with Restore), Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",

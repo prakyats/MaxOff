@@ -267,7 +267,7 @@ export const CREW_GUIDE: Guide = {
                   text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
                   shot: "staff/request-leave",
                 },
-                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day". A half day has a single "Date".',
+                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date".',
                 'Under the dates MaxOff shows how long it is, such as "2 days".',
                 "Add a reason if you like. It is optional.",
                 'Tap "Request leave".',
