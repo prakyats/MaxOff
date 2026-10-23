@@ -3,7 +3,6 @@
 import { ChevronRightIcon, ListChecksIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
@@ -21,6 +20,7 @@ import {
 
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemRowView } from "../domain/views";
+import { PlannedWords } from "./planned-words";
 
 /** Amendment D3: done is approved at once, so the list holds open items (overdue or not). */
 export type ItemListFilter = "live" | "overdue";
@@ -220,11 +220,8 @@ export function ItemList({
                       <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
                         <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
                         {row.planned ? (
-                          <span
-                            data-slot="item-list-planned"
-                            className={cn(row.planned.overdue && "text-danger")}
-                          >
-                            {row.planned.text}
+                          <span data-slot="item-list-planned">
+                            <PlannedWords planned={row.planned} />
                           </span>
                         ) : null}
                       </span>

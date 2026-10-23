@@ -1667,6 +1667,67 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await removeClientFixture(fixture.client);
   });
 
+  test("phone: the full month's boxes read; the day popup is the sample's list, Tasks · n and Client work · n, Open day beside the one solid New task (the design gate, 23 Oct)", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the phone's popup");
+    const fixture = await longDay(info);
+    await page.goto(`/calendar?date=${fixture.day}`);
+    await hydrated(page);
+    await page.locator('button[data-slot="calendar-handle"]').click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    // Two columns of boxes, wide enough for "Edit · 11:45 am" (a seven-column box was 45 px).
+    const box = dayBox(page, fixture.day);
+    const width = (await box.boundingBox())?.width ?? 0;
+    expect(width, "a box is about half the screen").toBeGreaterThan(
+      (page.viewportSize()?.width ?? 375) * 0.4,
+    );
+    await expect(box.locator('[data-slot="calendar-strip"][data-kind="event"]')).toContainText(
+      "10:00 am",
+    );
+    await expectNoHorizontalScroll(page);
+
+    await box.click();
+    const sheet = daySheet(page);
+    await expect(sheet).toBeVisible();
+    // A list, not an hour timeline; every task the count names is a row.
+    await expect(sheet.locator('[data-slot="calendar-hours"]')).toHaveCount(0);
+    await expect(sheet.locator('[data-slot="calendar-tasks-title"]')).toContainText("Tasks · 2");
+    const rows = sheet.locator('[data-slot="calendar-event"], [data-slot="calendar-due"]');
+    await expect(rows).toHaveCount(2);
+    for (const row of await rows.all()) {
+      await row.scrollIntoViewIfNeeded();
+      await expect(row).toBeVisible();
+    }
+    // The due task's row: its chip with the leading dot.
+    const due = sheet.locator('[data-slot="calendar-due"]');
+    await expect(due.locator('[data-slot="badge"]')).toHaveText("Due");
+    await expect(due.locator('[data-slot="status-badge-dot"]')).toHaveCount(1);
+    await expect(sheet.locator('[data-slot="calendar-items-list"] h3')).toContainText(
+      "Client work · 1",
+    );
+    await expect(sheet.locator('[data-slot="calendar-item"]')).toHaveCount(1);
+    // The buttons under the list, side by side, both on screen: Open day, then the one solid.
+    const openDay = sheet.locator('[data-slot="calendar-open-day"]');
+    const create = sheet.locator('[data-slot="new-task-on-day"]');
+    await expect(openDay).toBeInViewport();
+    await expect(create).toBeInViewport();
+    await expect(create).toContainText(`New task on ${shortDay(fixture.day)}`);
+    const [a, b] = [await openDay.boundingBox(), await create.boundingBox()];
+    expect(Math.abs((a?.y ?? 0) - (b?.y ?? 99)), "one row").toBeLessThan(2);
+    expect(a?.x ?? 0, "Open day first").toBeLessThan(b?.x ?? 0);
+    expect(a?.height ?? 0).toBeGreaterThanOrEqual(44);
+    // Open day: the popup backs out, the day under the week strip.
+    await openDay.click();
+    await expect(sheet).toHaveCount(0);
+    await expect(phone(page)).toHaveAttribute("data-size", "1");
+    await expect(
+      page.locator(`[data-slot="calendar-strip-day"][data-date="${fixture.day}"]`),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(detail(page)).toHaveAttribute("data-date", fixture.day);
+    await removeClientFixture(fixture.client);
+  });
+
   test("installed: the split day sheet closes on back, the switch adds no history, a deliverable is a drill-down", async ({
     page,
   }, info) => {
@@ -1693,5 +1754,42 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await expect(page).toHaveURL(/\/clients\/[^/]+\/projects\//);
     await expectBackStack(page, [{ url: /\/calendar\?date=/ }]);
     await removeClientFixture(fixture.client);
+  });
+});
+
+/**
+ * Today on the calendar (the design gate, 23 Oct): the red circle on its date and a neutral tint
+ * on its box, never also the selection's outline (the phone opens with today selected), in the
+ * phone's compact and full months and the laptop's month.
+ */
+test.describe("today's mark", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  async function look(box: Locator) {
+    return box.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const date = element.querySelector('[data-slot="calendar-date"]') as HTMLElement;
+      return {
+        border: style.borderTopColor,
+        background: style.backgroundColor,
+        circle: getComputedStyle(date).backgroundColor,
+      };
+    });
+  }
+
+  test("a red circle and a neutral tint, no outline, in every month", async ({ page }, info) => {
+    const today = todayIST();
+    const other = addISTDays(today, today.endsWith("-01") ? 1 : -1);
+    await page.goto("/calendar");
+    await hydrated(page);
+    const sizes = isPhone(info) ? (["2", "3"] as const) : (["laptop"] as const);
+    for (const size of sizes) {
+      if (size !== "laptop") await phoneSize(page, size);
+      const mine = await look(dayBox(page, today));
+      const theirs = await look(dayBox(page, other));
+      expect(mine.border, `${size}: today has no outline of its own`).toBe(theirs.border);
+      expect(mine.background, `${size}: today's box is tinted`).not.toBe(theirs.background);
+      expect(mine.circle, `${size}: the red circle`).not.toBe("rgba(0, 0, 0, 0)");
+    }
   });
 });

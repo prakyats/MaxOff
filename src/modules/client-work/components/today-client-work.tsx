@@ -14,6 +14,7 @@ import type { ItemView } from "../domain/views";
 import { ItemSheet, type ItemPermissions } from "./item-sheet";
 import { tickWithUndo } from "./tick-with-undo";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
+import { PlannedWords } from "./planned-words";
 
 /** Nothing to subscribe to: the value only changes from the server's HTML to the client's. */
 const noChanges = () => () => {};
@@ -96,11 +97,8 @@ export function TodayClientWork({
                   {item.view.planned ? (
                     <>
                       {" · "}
-                      <span
-                        data-slot="today-item-planned"
-                        className={cn(item.view.planned.overdue && "text-danger")}
-                      >
-                        {item.view.planned.text}
+                      <span data-slot="today-item-planned">
+                        <PlannedWords planned={item.view.planned} />
                       </span>
                     </>
                   ) : null}

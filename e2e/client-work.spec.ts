@@ -247,9 +247,27 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await expect(page.getByText("No projects yet.")).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
+  // The title names the client (the approved sample; the design gate, 23 Oct).
+  await expect(dialog.getByRole("heading", { name: `New project · ${client}` })).toBeVisible();
   await dialog.getByLabel("Project name").fill("Monthly reels");
   // Step 2: the default stages as one untitled group (a group without a name), then "Reel" × 3.
   await newProjectStep(dialog, 2);
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    // A phone: the steps on one line ("3 Preview"), Back and Next side by side.
+    const steps = dialog.locator('[data-slot="new-project-steps"]');
+    await expect(steps).toHaveText(/^1 Basics\s*2 Deliverables\s*3 Preview$/, {
+      useInnerText: true,
+    });
+    const line = await steps.evaluate(
+      (element) =>
+        element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight),
+    );
+    expect(Math.round(line), "the stepper is one line").toBe(1);
+    const back = await dialog.locator('[data-slot="new-project-back"]').boundingBox();
+    const next = await dialog.locator('[data-slot="new-project-next"]').boundingBox();
+    expect(Math.abs((back?.y ?? 0) - (next?.y ?? 99)), "Back and Next on one row").toBeLessThan(2);
+    expect(back?.x ?? 0, "Back first").toBeLessThan(next?.x ?? 0);
+  }
   await dialog.getByRole("button", { name: "Add a group" }).click();
   await dialog.getByLabel("Stages of the new group").fill("Script\nEdit");
   await dialog.getByRole("button", { name: "Add group" }).click();
@@ -844,6 +862,10 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
     `${word}${shortOf(addDays(today(), -2))} · 2 days late`,
   );
   await expect(planned("Late item")).toHaveAttribute("data-tone", "danger");
+  // The lateness is a red chip, never red text alone (the design gate, 23 Oct).
+  await expect(planned("Late item").locator('[data-slot="badge"][data-tone="danger"]')).toHaveText(
+    "2 days late",
+  );
   await expect(planned("Soon item")).toHaveText(`${word}${shortOf(addDays(today(), 3))}`);
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
@@ -896,6 +918,38 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   await expect(ring).toHaveAttribute("data-total", "12");
   await expect(page.locator('[data-slot="cycle-pace"]')).toHaveText("1 behind plan");
   await expect(page.locator('[data-slot="cycle-pace"]')).toHaveAttribute("data-tone", "danger");
+  // A chip (the design gate, 23 Oct); and green is progress only: the ring's other segments, the
+  // open deliverables' next stages and the rest, are grey.
+  await expect(
+    page.locator('[data-slot="cycle-pace"] [data-slot="badge"][data-tone="danger"]'),
+  ).toHaveText("1 behind plan");
+  const greens = await ring.locator("circle").evaluateAll((circles) => {
+    const stroke = (tone: string) =>
+      circles
+        .filter((circle) => circle.getAttribute("data-tone") === tone)
+        .map((circle) => getComputedStyle(circle).stroke);
+    const [done] = stroke("done");
+    return [...stroke("next"), ...stroke("rest")].filter((value) => value === done).length;
+  });
+  expect(greens, "only the done segments are green").toBe(0);
+  // The deliverables' bars too: a not-done segment is the ring's neutral next or rest, never green.
+  const neutral = await ring
+    .locator("circle")
+    .evaluateAll((circles) =>
+      circles
+        .filter((circle) => circle.getAttribute("data-tone") !== "done")
+        .map((circle) => getComputedStyle(circle).stroke),
+    );
+  const barTints = await page
+    .locator('[data-slot="item-progress-bar"]:visible > span:not([data-tone="done"])')
+    .evaluateAll((segments) =>
+      segments.map((segment) => getComputedStyle(segment).backgroundColor),
+    );
+  expect(barTints.length, "the bars have open segments").toBeGreaterThan(0);
+  expect(
+    barTints.filter((tint) => !neutral.includes(tint)),
+    "the bars' open segments",
+  ).toEqual([]);
 
   // A tick moves it at once, and after a reload.
   await itemRow(page, "Soon item").locator('[data-slot="item-open"]').click();

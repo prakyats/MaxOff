@@ -30,6 +30,7 @@ import { PROGRESS_GRID } from "./deliverable-columns";
 import type { ItemRowMenuProps } from "./item-row-menu";
 import { ItemRowMenuTrigger } from "./item-row-menu-trigger";
 import { SentBackNote } from "./sent-back-note";
+import { PlannedWords } from "./planned-words";
 
 /** Above the row's stretched open target (`ROW_OPEN`): the row's own controls keep their taps. */
 const OVER_ROW = "relative z-10";
@@ -72,7 +73,7 @@ function RowMenu(props: Omit<ItemRowMenuProps, "defaultOpen">) {
   );
 }
 
-/** "Planned 21 Oct", "Planned 18 Oct · 2 days late" (the overdue tone), "Not planned" (muted). */
+/** "Planned 21 Oct", "Planned 18 Oct" and a red "2 days late" chip, "Not planned" (muted). */
 function PlannedText({
   item,
   className,
@@ -99,9 +100,10 @@ function PlannedText({
       data-slot="item-planned"
       data-planned={item.planned.overdue ? "late" : "planned"}
       data-tone={item.planned.overdue ? "danger" : undefined}
-      className={cn(item.planned.overdue ? "text-danger" : "text-muted-foreground", className)}
+      className={cn("text-muted-foreground", className)}
     >
-      {short ? item.planned.text.replace(/^Planned /, "") : item.planned.text}
+      {/* The date, then the lateness as a red chip (the design gate, 23 Oct). */}
+      <PlannedWords planned={item.planned} short={short} />
     </span>
   );
 }
@@ -444,7 +446,10 @@ function ProgressToggle({
   );
 }
 
-/** A group's segmented bar: a segment a stage, ticked ones green, the next one lighter. */
+/**
+ * A group's segmented bar: a segment a stage, ticked ones green, the next one a neutral step
+ * darker than the quiet track (green is progress only, the design gate, 23 Oct; as the meter).
+ */
 function SegmentBar({ done, next, total }: { done: number; next: number; total: number }) {
   return (
     <span
@@ -458,9 +463,10 @@ function SegmentBar({ done, next, total }: { done: number; next: number; total: 
       {Array.from({ length: total }, (_, index) => (
         <span
           key={index}
+          data-tone={index < done ? "done" : index < done + next ? "next" : "rest"}
           className={cn(
             "min-w-0 flex-1 rounded-full",
-            index < done ? "bg-success" : index < done + next ? "bg-success/40" : "bg-muted",
+            index < done ? "bg-success" : index < done + next ? "bg-neutral/30" : "bg-neutral-soft",
           )}
         />
       ))}

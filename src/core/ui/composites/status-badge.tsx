@@ -70,8 +70,16 @@ export function StatusBadge({
       variant="outline"
       data-status={status}
       data-tone={resolved}
-      className={cn("border-transparent", TONE_CLASSES[resolved], className)}
+      className={cn("relative border-transparent pl-[18px]", TONE_CLASSES[resolved], className)}
     >
+      {/* The leading dot every sample chip has (the design gate, 23 Oct): the tone's own colour,
+          so the word and the dot say the same thing. Placed, not a flex item, so the chip's
+          baseline stays its word's and a line holding it keeps its height. */}
+      <span
+        aria-hidden
+        data-slot="status-badge-dot"
+        className="absolute top-1/2 left-2 size-1.5 -translate-y-1/2 rounded-full bg-current"
+      />
       {label ?? statusLabel(status)}
     </Badge>
   );

@@ -8,6 +8,26 @@
 ## Current state
 
 - **v1.8 speed gate in the perf probe (2026-10-23, probe builder; branch `r3-v5b-probe` from `phase-6b-r3` 4a6213d; not pushed).** Advisor #89 comment 6349679713. `scripts/perf-probe.mjs` now probes every main signed-in route (each role's tabs and More items, Me, the bell, and one task, client, project and person picked through the member's own session; `scripts/lib/perf-gate.mjs` `MEMBER_ROUTES`, kept equal to `nav.ts` by `tests/perf-gate.test.ts`); a route the role can't open, or a record it has none of, is a SKIP row. The gate (named constants): warm TTFB p50 > 600 ms, a wrong status, or with the staging compare slower than staging by > 10 % **or** > 100 ms (the owner's literal "or", #89 comment 6332543899) fails the route: a Gate column, a summary line, `::error::` per route and exit 1. The compare: `--compare-to staging.json` or `--candidate branch.json`; with no flag, the staging step's `--out …/probe-staging.json` takes the `probe-branch.json` beside it (the workflow is unchanged). Still GET only. `docs/reviews/v18-polish/budget-all.txt` is `pnpm budget --all`. **For the integrator:** the "or" reading fails a tiny route on a few ms of noise (a local dry run failed `/api/warm` on +1 ms, +15 %); and the branch step exits 1 on a 600 ms fail, which skips the staging step and so the compare.
+- **v1.8 design gate fixes, done (2026-10-23, gate-fix builder; branch `r3-v5b-gate` on `phase-6b-r3` 4a6213d; not pushed).** The advisor's 10 phone fixes (`/home/user/wt/gate-fixes.md`), one round:
+  - **1 day popup:** `1436758` (the sample's list: `Tasks · n` / `Client work · n`, chips, Open day, one solid "+ New task on <date>") and `8a58a2d` (its buttons wrap at 200% text).
+  - **2 month:** `f9b42e4` (two readable columns; today is a red circle on a neutral tint, no outline) and `d47e21d` (the two-column month loads apart, so `/calendar` stays in budget).
+  - **3** `6808cba`: an unread alert is a shade lighter than a read one in light too.
+  - **4** `59ce4de` and `195fe8f`: lateness and pace are red chips; the ring track and the open bar segments are neutral, including the phone card's own bar, found while re-shooting.
+  - **5** `1442434`: "Message <first name>…" on one line, on the raised bar. **6** `a4bb499`: a long title is one line in the phone bar.
+  - **7** `28d4184`: a one-line stepper, "New project · <Client>", Back beside Next.
+  - **8** `fe65881` and `c392c5d`: the bell count sits off the bell's top-right.
+  - **9** `9b5b422`, `f3d9fa2` and `9b27a5e`: Templates' phone segments read whole at 375 ("Deliverables"), and the Templates + Archived pair is shot.
+  - **10** `3aef7e1` and `78d943c`: every status chip leads with its dot.
+  - **ADR-0014** `42984ba`: the accepted text is restored, with "Amendment (2026-10-23)".
+  - **Phone pairs:** `docs/reviews/v18-polish/gate/` (12 pairs, 375 and 430, dark and light, sample beside built; `compare.md`). **Guide:** the text was updated in gates 1, 4 and 7; the pictures were re-shot in `98b2de8`.
+  - **Deliberate spec changes:**
+    - status-badge.test: unread is lighter than read; light today is a tint;
+    - nav-badge.test and notifications.spec: the bell count is pinned by its left edge;
+    - the new or extended calendar, notifications, client-work and task-page specs listed in each commit.
+  - **Verify:** `pnpm check` is green: 2,357 unit tests and 5,771 pgTAP tests. Budgets: `/calendar` 710.2 of 712 KB, `/tasks/[id]` 811.6 of 835 KB, the project page 726.6 of 771 KB. None were raised.
+  - **Touched specs at 1 worker after a db reset:** 762 passed and 2 failed. The two reds were loading-screens `/settings/templates` on mobile (Owner, Admin), where the skeleton's segments wrapped. They were fixed at the root: the skeleton is now sized by the unseen names. Re-run green with archived-lists, project-templates, task-settings, task-requests and back-link: 291 passed.
+  - **Next:** the advisor's guide check and speed gate #1. No push, no tag.
+
 - **v1.8 V5b integration, done: E merged and the suite green (2026-10-23, final integration builder; branch `r3-v5b-fin` on `phase-6b-r3` e1f1b9f; not pushed).**
   - **E merged** (the task chat redesign). E's temporary `ChatAvatar` is gone: chat draws D's `PersonAvatar` at 28 px, in the feed and the laptop panel's head, fed from the directory read that names the people (`ChatFace`), so real photos show. `/tasks/[id]` is 811.6 KB of its 835 KB budget.
   - **Reds fixed at their root:**
@@ -710,6 +730,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **Design gate (2026-10-23):** on Tasks at 375, a row with two long chips ("To approve", "Admin approved · needs you") pushes its › onto a line of its own (`docs/reviews/v18-polish/gate/10-status-chips-375-*-built.png`).
 - **(Resolved 2026-10-23, V5b integration: the logo is the card's `leading`.)** **V5b integration (2026-10-22): the Owner's client card at 375 / 200% text.** With late-count chips beside the state (PP-clients-1, PP-admin-10) a client name is cut to about 37 px (mobile.spec "/clients: fits at 130% and 200%" fails when clients.spec's clients are in the DB). Let the trailing chips wrap under the title before the name drops below 64 px.
 - **V5b E leftovers (2026-10-22, builder E; (1), (2) and (3) resolved 2026-10-23 by the integration, see Current state):** (1) `instant-skeleton.spec:153` (staff) is red when its proof task falls due within the hour: My Day then links it twice (the row and the time line) and `getByRole('link', { name: /Instant Skeleton Proof/ })` is ambiguous; the spec wants `.first()` or the row's opener (not chat). (2) `instant-skeleton.spec:379` [mobile-lg] took 3.2 s once for the task row under a shared machine's load, green on the re-run; watch it on CI. (3) `guide:screenshots` for the three "Chat on a task" topics once photos land. (4) The laptop panel's floor is 320 px: on a 720 px-high screen with the notifications band the page scrolls a little to reach the composer.
 - **V5b A leftovers (2026-10-22, builder A):** (1) the draft client's Delete confirm still says "Nothing has been added to this draft or changed on it", but since V5b-0 item 8 its own edits never block Delete, so an edited draft deletes with that sentence (`core/lib/owner-delete.ts`); the wording wants the owner's pick. (2) The item sheet's "Last change … by ‹name›" still names the reader (it reads `lastChangeOf` without `viewerId`, since "by You" would need its own wording). (3) `guide:screenshots` for Today, Tasks, the task page, Approvals, History and New project after the integrator's merge.

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/core/lib/utils";
+import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { ProgressRing } from "@/core/ui/progress/segmented-meter";
 
 import {
@@ -18,7 +19,7 @@ import { CycleCompleteMoment } from "./cycle-complete";
  * motivate by showing the work moving): the segmented ring of every stage across the cycle's
  * deliverables (ticked solid, each open one's next stage lighter; closed ones left out) with the
  * large figure inside, the calm line ("12 of 18 stages · 3 of 7 deliverables done") and the quiet
- * pace ("On track", "2 behind plan" in the overdue tone), or the 100% moment. The pace line keeps
+ * pace as a chip ("On track" green, "2 behind plan" red), or the 100% moment. The pace line keeps
  * its height whatever it says, so nothing moves when the numbers change.
  */
 export function CycleProgress({
@@ -74,12 +75,10 @@ export function CycleProgress({
             {complete ? (
               <CycleCompleteMoment cycleId={cycleId} words={completeWords(label)} />
             ) : pace ? (
-              <span
-                data-slot="cycle-pace"
-                data-tone={pace.tone}
-                className={cn(pace.tone === "danger" ? "text-danger" : "text-success")}
-              >
-                {pace.text}
+              // A chip, never coloured text alone (the design gate, 23 Oct): "1 behind plan" red,
+              // "On track" green.
+              <span data-slot="cycle-pace" data-tone={pace.tone} className="inline-flex">
+                <StatusBadge status="pace" tone={pace.tone} label={pace.text} />
               </span>
             ) : null}
           </p>

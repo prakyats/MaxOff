@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { type ReactNode, useEffect } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
@@ -28,14 +29,15 @@ import {
 /**
  * The month (6.4b; Kickoff 6 decision 25 A, B, C, C amended 2026-10-08): Monday to Sunday, the
  * neighbouring months' days dimmed. Three densities: `compact` (the phone's opening size: the date,
- * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month) and `laptop`
- * (the same lines, an event with its title then its time and client). In a box, at most three
+ * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month: the month's
+ * days in two columns, `PhoneMonth`, so its chips read) and `laptop` (the lines, an event with its
+ * title then its time and client). In a box, at most three
  * lines, the last "+N more" when there are more (PP-calendar-14): the events, what is due by name
  * (amber, red overdue with its icon), the holiday (cut for space, the date number turns green),
  * others' busy, then leave as a soft neutral striped bar along the bottom, "Asha · On leave" with the palm icon, continuous across consecutive leave days
  * of the week row (`calendar-chip`: the day's dialog draws the same chips). V5b's polish
- * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle and the selected day the
- * outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
+ * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle on a neutral tint, never
+ * outlined, and any other selected day the outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
  * weekdays read "Mon Tue …" on a laptop, single letters on a phone; done is dimmed with a ✓. Every
  * line is one line at a fixed height, ellipsised when it does not fit, never wrapped, clipped
  * mid-word or past its box (the owner's preview review; SCOPE §6). Client deliverables are outlined
@@ -43,14 +45,29 @@ import {
  * open the day).
  */
 
+/**
+ * The phone's full month loads apart from the page (ARCHITECTURE §19: only after a tap opens
+ * that size; the screen asks for it once it has hydrated, so the size opens at once).
+ */
+const PhoneMonth = dynamic(() => import("./phone-month").then((module) => module.PhoneMonth), {
+  ssr: false,
+  loading: () => <div aria-hidden className="min-h-0 flex-1" />,
+});
+
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 const WEEKDAYS_LAPTOP = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 export type GridDensity = "compact" | "full" | "laptop";
 
 const LINE = {
-  full: "text-xs leading-4",
+  full: "text-xs leading-5",
   laptop: "text-xs leading-5",
+} as const;
+
+/** A chip's shape: the phone's two-column boxes have the room for the sample's rounder chips. */
+const CHIP = {
+  full: "rounded-md px-1.5",
+  laptop: "rounded-sm px-1",
 } as const;
 
 /**
@@ -58,7 +75,7 @@ const LINE = {
  * One line at a fixed height, ellipsised, everywhere (SCOPE §6, "One line, always"): the day's
  * popup or sheet shows the full text.
  */
-function StripLine({
+export function StripLine({
   strip,
   density,
 }: {
@@ -75,7 +92,8 @@ function StripLine({
         data-kind="item"
         data-late={strip.late ? "" : undefined}
         className={cn(
-          "block rounded-sm border px-1",
+          "block border",
+          CHIP[density],
           LINE[density],
           fit,
           strip.late ? "border-danger text-danger" : "border-border text-foreground",
@@ -101,20 +119,17 @@ function StripLine({
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
-        className={cn(
-          "block rounded-sm px-1 font-medium",
-          LINE[density],
-          fit,
-          DUE_TONE[strip.tone],
-        )}
+        className={cn("block font-medium", CHIP[density], LINE[density], fit, DUE_TONE[strip.tone])}
       >
         {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
         {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
-        {strip.label}
+        {density === "full" ? strip.long : strip.label}
       </span>
     );
   }
-  const text = density === "laptop" && strip.kind === "event" ? strip.long : strip.label;
+  // The title, then its time (and client): the sample's "Edit · 11:45 am", read whole on a laptop
+  // and in the phone's two-column boxes.
+  const text = strip.kind === "event" ? strip.long : strip.label;
   const color =
     strip.kind === "event" ? strip.color : strip.kind === "holiday" ? HOLIDAY_COLOR : null;
   const done = strip.kind === "event" && strip.completed;
@@ -125,7 +140,8 @@ function StripLine({
       data-completed={done ? "" : undefined}
       className={cn(
         // One line, ellipsised when it does not fit (decision 25 C; the owner's review).
-        "block rounded-sm px-1",
+        "block",
+        CHIP[density],
         LINE[density],
         fit,
         // A task (and the holiday) is a filled soft chip with its dot (the approved sample, no
@@ -174,6 +190,23 @@ export function MonthGrid({
   className?: string;
 }) {
   const inMonth = (date: ISODate) => date.slice(0, 7) === grid.month.slice(0, 7);
+  // The phone's compact month asks for the full month's code once it is on screen, so a swipe or
+  // the handle opens that size at once.
+  useEffect(() => {
+    if (density === "compact") void import("./phone-month");
+  }, [density]);
+  if (density === "full") {
+    return (
+      <PhoneMonth
+        dates={grid.weeks.flat().filter(inMonth)}
+        days={days}
+        today={today}
+        selected={selected}
+        onDay={onDay}
+        className={className}
+      />
+    );
+  }
   const linesOf = (date: ISODate | undefined) => {
     const day = date ? days.get(date) : undefined;
     return day && density !== "compact" ? dayStrips(day, today) : null;
@@ -236,17 +269,15 @@ export function MonthGrid({
                     }
                     className={cn(
                       "pressable focus-visible:ring-ring relative flex w-full min-w-0 flex-col items-stretch gap-px rounded-md border p-0.5 text-left outline-none select-none focus-visible:ring-2",
-                      density === "compact"
-                        ? "min-h-11 overflow-hidden"
-                        : density === "full"
-                          ? "min-h-0"
-                          : "min-h-28 p-1",
+                      density === "compact" ? "min-h-11 overflow-hidden" : "min-h-28 p-1",
                       // Each day its own faint tile (the owner's review): a hairline at low
                       // contrast; only the selected day outlined (PP-calendar-1, PP-phone-3: the
                       // outline follows the tapped day); the weekly off lightly tinted
                       // (PP-calendar-4); today's box a neutral tint, one surface step up, with no
                       // shadow that could read as a second outline (PP-calendar-15, FINAL 4).
-                      isSelected ? "border-foreground" : "border-border/60",
+                      // Today is marked by its red circle and its tint alone: never also the
+                      // selection's outline (the design gate, 23 Oct).
+                      isSelected && !isToday ? "border-foreground" : "border-border/60",
                       isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
@@ -334,16 +365,8 @@ export function MonthGrid({
                           LEAVE_TONE,
                           "mt-auto block truncate px-1 font-medium",
                           "text-xs leading-4",
-                          before
-                            ? density === "laptop"
-                              ? "-ml-[5px]"
-                              : "-ml-[3px]"
-                            : "rounded-l-sm",
-                          after
-                            ? density === "laptop"
-                              ? "-mr-[7px]"
-                              : "-mr-[5px]"
-                            : "rounded-r-sm",
+                          before ? "-ml-[5px]" : "rounded-l-sm",
+                          after ? "-mr-[7px]" : "rounded-r-sm",
                           leave.pending && "border-leave/60 border-t border-dashed",
                         )}
                       >

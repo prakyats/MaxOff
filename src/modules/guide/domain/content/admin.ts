@@ -646,11 +646,11 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month. The full month lists the month’s days in two columns, so every line reads; scroll it to see the rest of the month.",
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              text: "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "text",
@@ -688,7 +688,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in a dialog; on a phone, in a sheet.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. Under the week strip and the compact month the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens as a list in a sheet (a dialog on a laptop), with “Open day” and “+ New task on ‹day›” side by side at the bottom; on a phone, Open day shows that day under the week strip.",
             },
             {
               kind: "steps",
@@ -891,7 +891,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create.",
+              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Shetty”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
             },
             {
               kind: "steps",
@@ -1029,7 +1029,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A repeating project has one cycle per period; the months sit as tabs (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A project with only one cycle shows just its month, with no tabs. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track or “N behind plan”. At 100% it says the period is complete.",
+              text: "A repeating project has one cycle per period; the months sit as tabs (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A project with only one cycle shows just its month, with no tabs. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track (a green chip) or “N behind plan” (a red chip). At 100% it says the period is complete.",
             },
             {
               kind: "steps",
@@ -1042,11 +1042,11 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (late ones in red), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.",
+              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (a late one with a red chip saying how late), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.",
             },
             {
               kind: "example",
-              text: "A row reads “Reel 1 · Planned 18 Oct · 2 days late”. Planned today, Planned 21 Oct and Not planned are the other forms.",
+              text: "A row reads “Reel 1 · Planned 18 Oct”, with a red “2 days late” chip. Planned today, Planned 21 Oct and Not planned are the other forms.",
             },
             {
               kind: "next",

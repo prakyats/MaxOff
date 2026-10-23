@@ -14,7 +14,12 @@ import type { DeliverableTemplate, ProjectTemplate } from "@/modules/templates";
 import { DeliverableTemplateManager } from "@/modules/templates/components/deliverable-template-manager";
 import { ProjectTemplateManager } from "@/modules/templates/components/project-template-manager";
 
-import { TEMPLATE_SECTIONS, TEMPLATE_TABS_CLASS, type TemplateSectionKey } from "./sections";
+import {
+  TEMPLATE_SECTIONS,
+  TEMPLATE_TAB_ITEM_CLASS,
+  TEMPLATE_TABS_CLASS,
+  type TemplateSectionKey,
+} from "./sections";
 
 function subscribeHash(onChange: () => void): () => void {
   window.addEventListener("hashchange", onChange);
@@ -133,7 +138,8 @@ export function TemplatesLibrary({
             aria-controls={section.key}
             onClick={() => setTab(section.key)}
             className={cn(
-              "pressable text-muted-foreground focus-visible:ring-ring rounded-control flex min-h-11 min-w-0 flex-col items-center justify-center px-1 text-xs font-medium outline-none focus-visible:ring-2",
+              TEMPLATE_TAB_ITEM_CLASS,
+              "pressable text-muted-foreground focus-visible:ring-ring rounded-control flex flex-col items-center justify-center px-2 text-xs font-medium outline-none focus-visible:ring-2",
               tab === section.key && "bg-background text-foreground shadow-raised",
             )}
           >

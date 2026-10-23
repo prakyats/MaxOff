@@ -94,6 +94,8 @@ describe("overdue and due this week (decision 10, 19)", () => {
     expect(plannedLine({ state: "open", plannedDate: "2026-10-06" }, TODAY)).toEqual({
       text: "Planned 6 Oct · 2 days late",
       overdue: true,
+      date: "Planned 6 Oct",
+      late: "2 days late",
     });
     expect(plannedLine({ state: "open", plannedDate: "2026-10-07" }, TODAY)?.text).toBe(
       "Planned 7 Oct · 1 day late",
@@ -102,6 +104,8 @@ describe("overdue and due this week (decision 10, 19)", () => {
     expect(plannedLine({ state: "approved", plannedDate: "2026-10-06" }, TODAY)).toEqual({
       text: "Planned 6 Oct",
       overdue: false,
+      date: "Planned 6 Oct",
+      late: null,
     });
     expect(plannedLine({ state: "open", plannedDate: TODAY }, TODAY)?.text).toBe("Planned today");
     expect(plannedLine({ state: "open", plannedDate: "2026-10-10" }, TODAY)?.text).toBe(

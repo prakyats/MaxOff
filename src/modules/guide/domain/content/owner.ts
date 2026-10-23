@@ -640,10 +640,10 @@ export const OWNER_GUIDE: Guide = {
           summary: "Month, week and day views, with filters.",
           blocks: [
             text(
-              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
+              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month. The full month lists the month’s days in two columns, so every line reads; scroll it to see the rest of the month.",
             ),
             text(
-              "Today’s date is a red circle on a slightly lighter box, and only the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             ),
             text(
               "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
@@ -666,7 +666,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. On a laptop it opens in the middle of the screen, with "Open day" and "+ New task on" the date at the bottom.',
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". Under the week strip and the compact month the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens as a list in a sheet, and on a laptop in the middle of the screen, with "Open day" and "+ New task on" the date side by side at the bottom; on a phone, "Open day" shows that day under the week strip.',
             ),
             steps(
               "Open Calendar and tap a day.",
@@ -909,7 +909,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Name it, choose how often it repeats, list the deliverables.",
           blocks: [
             text(
-              "New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create.",
+              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Shetty"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
             ),
             steps(
               'Open the client, tap the Projects tab, then tap "New project".',
@@ -1022,14 +1022,14 @@ export const OWNER_GUIDE: Guide = {
               'The header shows the name, its state chip, the repeat and delivery date, with a History button (the clock) and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch; a project with only one cycle shows just its month, with no tabs. A one-time project shows "The project\'s deliverables".',
             ),
             steps({
-              text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace reads "On track", or "N behind plan" in red. At 100% it says the cycle is complete.',
+              text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace is a chip: "On track" in green, or "N behind plan" in red. At 100% it says the cycle is complete.',
               shot: "owner/project-page",
             }),
             text(
               'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done"). When nothing is late or nearly done, nothing is shown there.',
             ),
             text(
-              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct · 2 days late" in red, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.',
+              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct" with a red "2 days late" chip, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.',
             ),
             text(
               'Finished ones read "Done", "Closed" or "Carried" and sit in the collapsed "Done and closed (N)". An empty cycle says "No deliverables yet: add one or start from a template." with an Add deliverable button.',

@@ -231,6 +231,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             status={state}
             primary={stepBar}
             primaryOwnBar
+            titleLines={1}
             menu={
               <>
                 {/* History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep). */}
@@ -259,6 +260,16 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             data-slot="task-summary"
             className="flex min-w-0 flex-col gap-2"
           >
+            {/* A phone's bar keeps the title to one line with an ellipsis; the full title is here,
+                wrapped (the truncation rule; the design gate, 23 Oct). Drawn from its data
+                attribute, so the page's text and its accessible name hold the title once (the
+                bar's heading). */}
+            <p
+              aria-hidden
+              data-slot="task-title-full"
+              data-title={task.title}
+              className="text-lg leading-7 font-semibold tracking-tight break-words before:content-[attr(data-title)] md:hidden"
+            />
             {/* PP-task-1: the state as a chip (in the header on a laptop), the priority a quiet
                 label, and the deadline on a line of its own, red once it has passed. */}
             <p
@@ -538,7 +549,9 @@ async function chatData({
       };
     });
   const others = people.filter((person) => person.id !== viewerId).map((person) => person.name);
-  const placeholder = others.length === 1 ? `Message ${others[0]}…` : "Message…";
+  // One line, the first name only (the design gate, 23 Oct): "Message Asha…".
+  const placeholder =
+    others.length === 1 ? `Message ${others[0]?.split(/\s+/)[0] ?? ""}…` : "Message…";
   return { messages, events, firstUnread, unread, people, placeholder };
 }
 

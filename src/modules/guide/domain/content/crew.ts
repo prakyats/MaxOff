@@ -681,7 +681,7 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Open Calendar. Today’s date is a red circle on a slightly lighter box.",
+                  text: "Open Calendar. Today’s date is a red circle on a lightly shaded box.",
                   shot: "staff/calendar",
                 },
                 "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓. A day with more than fits ends in “+N more”; tap it to see the whole day.",
@@ -704,7 +704,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a phone there is one calendar in three sizes: a week strip, a compact month and a full month.",
+              text: "On a phone there is one calendar in three sizes: a week strip, a compact month and a full month. The full month lists the month’s days in two columns, so every line reads; scroll it for the rest of the month.",
             },
             {
               kind: "steps",
@@ -712,7 +712,7 @@ export const CREW_GUIDE: Guide = {
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters".',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right.',
-                'The day popup has "Open day".',
+                'A day of the full month opens as a list, with "Open day" and "Suggest a task" side by side at the bottom. On a phone, "Open day" shows that day under the week strip.',
               ],
             },
             {

@@ -74,6 +74,7 @@
   /* Today's whole box on the calendar (PP-calendar-15): a faint neutral lift under the red circle. */
   --color-today: var(--today);
   --color-row-unread: var(--row-unread);
+  --color-row-read: var(--row-read);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
@@ -208,13 +209,17 @@
   --brand-soft: #fdecec;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
-  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15): a faint neutral lift, one surface
-   * step above the other days (= surface-3; light adds the raised shadow), never a red wash: the
-   * red circle on the date is the marker. Every text on it reads at 4.5:1. */
-  --today: #ffffff;
-  /* An unread alert's row (PP-alerts-2, V5b): one quiet warm step off the white card in light, one
-   * surface step lighter in dark; its text reads at 4.5:1. */
-  --row-unread: #f3f2ec;
+  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15; the design gate, 23 Oct): a neutral
+   * tint under the red circle on its date, never a red wash and never an outline. Light: one grey
+   * step under the white boxes (white on white was no tint at all); dark: one surface step up
+   * (surface-3). Every text on it reads at 4.5:1 (holiday green 4.5:1, the floor). */
+  --today: #f3f3f3;
+  /* An alert's row (PP-alerts-2, V5b; the design gate, 23 Oct): unread sits one shade lighter than
+   * read, as in the sample. Light: unread is the white card, read one quiet warm step under it (a
+   * grey unread row looked dimmer than the read ones); dark: read is the card, unread one surface
+   * step lighter. Text on both reads at 4.5:1. */
+  --row-unread: #ffffff;
+  --row-read: #f9f8f5;
   /* Leave on the calendar (DESIGN.md §4, PP-calendar-10): a soft neutral bar with faint stripes,
    * apart from every task type's colour; its text reads at 4.5:1 on the bar and on a stripe. */
   --leave: #62626a;
@@ -310,8 +315,9 @@
   --brand-soft: #3a1517;
   --holiday: #4ade80;
   --today: #222226;
-  /* One surface step lighter than the card (= surface-2). */
+  /* One surface step lighter than the card (= surface-2); a read row is the card. */
   --row-unread: #1a1a1d;
+  --row-read: #131315;
   --leave: #9d9da5;
   --leave-soft: #27272a;
   --leave-stripe: #232327;
@@ -628,7 +634,10 @@
 [data-slot="avatar-stack"] > [data-slot="person-avatar"] + [data-slot="person-avatar"] {
   margin-left: -6px;
 }
-/* An unread alert's row is one surface lighter: its avatar's ring follows it. */
+/* An alert's row is its own shade (read, or one lighter unread): its avatar's ring follows it. */
+[data-slot="notification-row"] {
+  --avatar-ring: var(--row-read);
+}
 [data-unread] {
   --avatar-ring: var(--row-unread);
 }

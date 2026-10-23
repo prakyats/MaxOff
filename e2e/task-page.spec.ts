@@ -456,6 +456,41 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
   });
 });
 
+test.describe("a long title (the design gate, 23 Oct)", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("a phone's bar holds it on one line with an ellipsis; the body shows it in full", async ({
+    page,
+  }, info) => {
+    test.skip(!phone(page), "the phone's title bar");
+    const prefix = `Long title ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staffId = await memberIdOf(person("staff", info).email);
+    const title = `${prefix}the brand film's second cut with the client's notes on colour and the music`;
+    const taskId = await ownerCreates({ title, assignees: [staffId], primary: staffId, day: 34 });
+    await as(page, "staff", info);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await live(page);
+    const heading = page.locator('[data-slot="page-header"] h1');
+    await expect(heading).toHaveText(title);
+    const bar = await heading.evaluate((element) => ({
+      lines:
+        element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight),
+      cut: element.scrollHeight > element.clientHeight,
+    }));
+    expect(Math.round(bar.lines), "one line").toBe(1);
+    expect(bar.cut, "the title ends in an ellipsis").toBe(true);
+    const full = page.locator('[data-slot="task-title-full"]');
+    await expect(full).toBeVisible();
+    expect(await full.evaluate((element) => getComputedStyle(element, "::before").content)).toBe(
+      JSON.stringify(title),
+    );
+    expect((await full.boundingBox())?.height ?? 0, "wrapped, in full").toBeGreaterThan(40);
+    await removeTasksTitled(prefix);
+  });
+});
+
 test.describe("Chat and the unread comments (decision 28)", () => {
   test.skip(({ viewport }) => viewport?.width === 430, "the flows run at 375px and desktop");
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -577,6 +612,16 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     const own = chat.locator('[data-slot="task-comment"][data-own="true"]');
     const hint = chat.locator('[data-slot="composer-hint"]');
     await expect(box).toBeVisible();
+    // The design gate (23 Oct): "Message <first name>…" on one line, in the sample's raised bar.
+    await expect(box).toHaveAttribute("placeholder", /^Message [^\s…]+…$/);
+    expect((await box.boundingBox())?.height ?? 0, "one line").toBeLessThanOrEqual(48);
+    const surfaces = await chat
+      .locator('[data-slot="task-chat-composer-row"]')
+      .evaluate((row) => [
+        getComputedStyle(row).backgroundColor,
+        getComputedStyle(row.querySelector("textarea") as HTMLElement).backgroundColor,
+      ]);
+    expect(surfaces[0], "the bar is raised above the field").not.toBe(surfaces[1]);
 
     if (phone(page)) {
       // Touch: Enter is a new line and never sends; Send sends. No hint.
