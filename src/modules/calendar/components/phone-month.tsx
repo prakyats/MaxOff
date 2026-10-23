@@ -92,7 +92,7 @@ export function PhoneMonth({
                       "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
                       day?.weeklyOff && "text-muted-foreground",
                       lines?.holidayHidden && "text-holiday",
-                      isToday && "bg-brand text-brand-foreground",
+                      isToday && "bg-destructive-solid text-destructive-solid-foreground",
                     )}
                   >
                     {formatIST(istDayStart(date), "d")}

@@ -117,14 +117,17 @@ export function TeamTable({
         header: "Name",
         cell: ({ row }) => (
           // PP-people-2: the name carries the weight; the line under it is muted. The person's
-          // photo leads the row (V5b-D).
-          <div className="flex min-w-0 items-center gap-3">
+          // photo leads the row (V5b-D). The name and its line wrap (`whitespace-normal`): the
+          // cells are `nowrap`, so a long name, a coordinator's line and the status chip's dot
+          // made the laptop table wider than its card, which clips it, and the row's ⋯ sat past
+          // the card's edge, out of reach (CI run 39889591399, team.spec).
+          <div className="flex min-w-0 items-center gap-3 whitespace-normal">
             <PersonAvatar person={faceOf(row.original)} size={40} />
             <div className="min-w-0">
               {opensPersonPage(viewer, row.original) ? (
                 <DrillLink
                   href={`/people/${row.original.id}`}
-                  className="block truncate font-semibold underline-offset-4 hover:underline"
+                  className="block font-semibold break-words underline-offset-4 hover:underline"
                 >
                   {row.original.fullName}
                 </DrillLink>

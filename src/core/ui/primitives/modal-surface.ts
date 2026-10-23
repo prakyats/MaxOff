@@ -18,9 +18,12 @@ export const MODAL_SURFACE = [
   // so the footer stuck out past the screen meanwhile (6B2, mobile.spec "the calendar's sizes
   // fit"). The surface animates, it never transitions.
   "transition-none duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-8",
-  // Tablet and desktop: the centred dialog, as it was before 1.5.
+  // Tablet and desktop: the centred dialog, as it was before 1.5. It fades in and out without a
+  // zoom: a dialog that grows from 95% draws every control in it smaller while it opens, so a
+  // 44 px target measured or tapped in that first 100 ms was 43 px (CI run 39889591399,
+  // task-settings.spec's drag handle). Its size is its size from the first frame.
   "md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[calc(100dvh-4rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-4 md:pb-4 md:duration-100",
-  "md:data-open:zoom-in-95 md:data-open:slide-in-from-bottom-0 md:data-closed:zoom-out-95 md:data-closed:slide-out-to-bottom-0",
+  "md:data-open:slide-in-from-bottom-0 md:data-closed:slide-out-to-bottom-0",
 ].join(" ");
 
 /**

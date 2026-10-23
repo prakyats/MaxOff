@@ -309,7 +309,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "What needs you first, then every open task by deadline.",
           blocks: [
             text(
-              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue, have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right: the reason, then the state.',
+              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue, have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full.',
             ),
             text(
               'Use "All tasks, with filters" for the full list, and "Suggested tasks" for ideas from your team.',
