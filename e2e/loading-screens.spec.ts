@@ -1125,6 +1125,79 @@ for (const width of [1280, 1440] as const) {
   });
 }
 
+/**
+ * The laptop calendar's toolbar on two rows (v1.8, owner #89): where one row does not fit, All ▾
+ * and Filters wrap under Day · Week · Month, "‹ month ›" and Today, and the skeleton wraps the
+ * same way (the same parts at the same widths, the month's name written under its bar). Held at
+ * 900 and 1024 px for the Owner (All ▾ beside Filters), each row, the pager, Filters and the
+ * month's last row are where the page's are: the same left edge, top and width.
+ */
+const TOOLBAR_ROWS: Record<string, Point> = {
+  "row 1": {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-main"]',
+    settled: '[data-slot="calendar-controls-main"]',
+  },
+  "row 2": {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-side"]',
+    settled: '[data-slot="calendar-controls-side"]',
+  },
+  pager: {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-main"] > :last-child',
+    settled: '[data-slot="calendar-pager"]',
+  },
+  Filters: {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-side"] > :last-child',
+    settled: '[data-slot="calendar-filters-button"]',
+  },
+  "last week": {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-month"] > div > ol:last-child',
+    settled: '[data-slot="calendar-month"] > div > ol:last-child',
+  },
+};
+
+for (const width of [900, 1024] as const) {
+  test.describe(`The calendar's toolbar on two rows at ${width} px, held`, () => {
+    test.use({ viewport: { width, height: 900 }, storageState: storageStateFor("owner") });
+
+    test("owner: /calendar's two rows, traced by its skeleton", async ({ page }, info) => {
+      test.skip(info.project.name !== "desktop", "a laptop's toolbar");
+      const session = await ownSession(page, USERS.owner.email, USERS.owner.password);
+      const held = await holdReads("/rest/v1/holidays", session);
+      try {
+        await page.goto("/calendar", { waitUntil: "commit" });
+        const loading = page.locator('[data-slot="loading-calendar"]');
+        await expect(loading).toBeVisible();
+        await expect.poll(() => held.caught()).toBe(true);
+        const skeleton = await boxesOf(page, pick(TOOLBAR_ROWS, "held"));
+        held.release();
+        await expect(loading).toHaveCount(0);
+        await expectSettled(page);
+        await hydrated(page);
+        await expect(page.locator('[data-slot="calendar-show-menu"]:visible')).toBeVisible();
+        const settled = await boxesOf(page, pick(TOOLBAR_ROWS, "settled"));
+        const moves = Object.keys(TOOLBAR_ROWS).flatMap((name) => {
+          const from = skeleton[name];
+          const to = settled[name];
+          if (!from) return [`${name}: not in the skeleton`];
+          if (!to) return [`${name}: not on the page`];
+          return (["x", "y", "width"] as const).flatMap((side) =>
+            Math.abs(to[side] - from[side]) > TRACE_TOLERANCE
+              ? [`${name} ${side}: ${from[side].toFixed(1)} → ${to[side].toFixed(1)}`]
+              : [],
+          );
+        });
+        expect(moves, "nothing moves when the data arrives").toEqual([]);
+        // Two rows indeed: All ▾ and Filters under the pager.
+        const rowOne = settled["row 1"];
+        const rowTwo = settled["row 2"];
+        expect(rowTwo!.y, "All ▾ and Filters on the second row").toBeGreaterThan(rowOne!.y + 20);
+      } finally {
+        held.release();
+      }
+    });
+  });
+}
+
 test.describe("staff: My tasks on a phone has no This week", () => {
   test.use({ storageState: storageStateFor("staff") });
 

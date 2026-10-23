@@ -624,72 +624,87 @@ export function CalendarScreen({
       >
         <div
           data-slot="calendar-controls"
-          // One row at every laptop width (v1.8 calendar toolbar, owner 23 Oct).
-          className="flex min-w-0 shrink-0 flex-nowrap items-center gap-3"
+          // One row where it fits, else two (v1.8 calendar toolbar, owner #89): Day · Week · Month,
+          // "‹ month ›" and Today, then All ▾ and Filters under them. The browser wraps by the
+          // parts' own widths (nothing shrinks); only below that, the pager under the view control.
+          className="flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
         >
-          <nav
-            aria-label="Calendar view"
-            data-slot="calendar-view"
-            data-current={view}
-            className="bg-muted grid w-72 grid-cols-3 gap-1 rounded-lg p-1"
+          <div
+            data-slot="calendar-controls-main"
+            className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2"
           >
-            {CALENDAR_VIEWS.map((option) => (
-              <ViewLink
-                key={option}
-                href={calendarHref({ ...query, view: option, date: selected }, today)}
-                scroll={false}
-                aria-current={view === option ? "page" : undefined}
-                className={cn(
-                  "focus-visible:ring-ring flex min-h-8 items-center justify-center rounded-md px-2 text-sm font-medium outline-none select-none focus-visible:ring-2",
-                  view === option
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {VIEW_LABELS[option]}
-              </ViewLink>
-            ))}
-          </nav>
-          {/* PP-calendar-15: the arrows around the period's name, "‹ October 2026 ›", then Today;
+            <nav
+              aria-label="Calendar view"
+              data-slot="calendar-view"
+              data-current={view}
+              className="bg-muted grid w-72 shrink-0 grid-cols-3 gap-1 rounded-lg p-1"
+            >
+              {CALENDAR_VIEWS.map((option) => (
+                <ViewLink
+                  key={option}
+                  href={calendarHref({ ...query, view: option, date: selected }, today)}
+                  scroll={false}
+                  aria-current={view === option ? "page" : undefined}
+                  className={cn(
+                    "focus-visible:ring-ring flex min-h-8 items-center justify-center rounded-md px-2 text-sm font-medium outline-none select-none focus-visible:ring-2",
+                    view === option
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {VIEW_LABELS[option]}
+                </ViewLink>
+              ))}
+            </nav>
+            {/* PP-calendar-15: the arrows around the period's name, "‹ October 2026 ›", then Today;
               Filters alone at the right. */}
-          <div data-slot="calendar-pager" className="flex items-center gap-2">
-            <div role="group" aria-label={`Move by ${unit}`} className="flex items-center gap-0.5">
+            <div data-slot="calendar-pager" className="flex shrink-0 items-center gap-2">
+              <div
+                role="group"
+                aria-label={`Move by ${unit}`}
+                className="flex items-center gap-0.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => go(laptopStep(-1))}
+                  aria-label={`Previous ${unit}`}
+                  className={cn("pressable", ICON_BUTTON, "size-8")}
+                >
+                  <ChevronLeftIcon className="size-4" aria-hidden />
+                </button>
+                <h2
+                  data-slot="calendar-pager-label"
+                  aria-live="polite"
+                  className="px-1 text-base font-semibold whitespace-nowrap"
+                >
+                  {laptopLabel}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => go(laptopStep(1))}
+                  aria-label={`Next ${unit}`}
+                  className={cn("pressable", ICON_BUTTON, "size-8")}
+                >
+                  <ChevronRightIcon className="size-4" aria-hidden />
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={() => go(laptopStep(-1))}
-                aria-label={`Previous ${unit}`}
-                className={cn("pressable", ICON_BUTTON, "size-8")}
+                {...inactive(laptopHasToday)}
+                data-slot="calendar-today-laptop"
+                className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 aria-disabled:pointer-events-none aria-disabled:opacity-40"
               >
-                <ChevronLeftIcon className="size-4" aria-hidden />
-              </button>
-              <h2
-                data-slot="calendar-pager-label"
-                aria-live="polite"
-                className="px-1 text-base font-semibold whitespace-nowrap"
-              >
-                {laptopLabel}
-              </h2>
-              <button
-                type="button"
-                onClick={() => go(laptopStep(1))}
-                aria-label={`Next ${unit}`}
-                className={cn("pressable", ICON_BUTTON, "size-8")}
-              >
-                <ChevronRightIcon className="size-4" aria-hidden />
+                Today
               </button>
             </div>
-            <button
-              type="button"
-              {...inactive(laptopHasToday)}
-              data-slot="calendar-today-laptop"
-              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 aria-disabled:pointer-events-none aria-disabled:opacity-40"
-            >
-              Today
-            </button>
           </div>
-          {/* The laptop's All ▾ (v1.8 calendar toolbar, owner 23 Oct) beside Filters; once the page
-              knows which it is, only that layout's menu is drawn. */}
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          {/* The laptop's All ▾ (v1.8 calendar toolbar, owner 23 Oct) beside Filters, at the right of
+              the row, or of a second row of their own; once the page knows which layout it is, only
+              that layout's menu is drawn. */}
+          <div
+            data-slot="calendar-controls-side"
+            className="ml-auto flex shrink-0 items-center gap-2"
+          >
             {switchable && isDesktop !== false ? (
               <ShowControl show={show} onShow={chooseShow} />
             ) : null}

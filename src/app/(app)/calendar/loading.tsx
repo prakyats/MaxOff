@@ -14,7 +14,7 @@ import { CALENDAR_HELP } from "./copy";
  * calendar opens on it), so the grid has the page's height.
  */
 export default async function Loading() {
-  const weeks = monthGrid(todayIST()).weeks.length;
+  const opening = monthGrid(todayIST());
   // The `(app)` layout already read the member (`cache()`), so asking costs no query. The switch
   // is the Owner's and Admins' (`scopeFor`: whoever sees others' availability).
   const member = await getCurrentMember();
@@ -31,7 +31,7 @@ export default async function Loading() {
         data-slot="loading-calendar"
         className="min-w-0"
       >
-        <CalendarSkeleton weeks={weeks} switcher={switcher} />
+        <CalendarSkeleton weeks={opening.weeks.length} month={opening.month} switcher={switcher} />
         <span className="sr-only">Loading Calendar</span>
       </div>
     </>
