@@ -312,7 +312,13 @@ test.describe("the Owner", () => {
     // client is opened directly rather than by a back press that would land here first.
     await page.goto(`/clients/${id}`);
     await expect(rows.filter({ hasText: "Arjun Das" })).toContainText("Primary");
-    await expect(rows.filter({ hasText: "Meera Rao" })).toContainText("Archived");
+    // An archived contact leaves the list for the collapsed "Archived (1)" at its foot.
+    await expect(rows.filter({ hasText: "Meera Rao" })).toHaveCount(0);
+    const archived = page.locator('[data-slot="archived-section"]');
+    const meera = archived.locator('[data-slot="archived-item"]', { hasText: "Meera Rao" });
+    await expect(meera).toBeHidden();
+    await archived.locator('[data-slot="archived-toggle"]').click();
+    await expect(meera).toBeVisible();
   });
 
   test("the brand: a swatch list and a font list, and a logo the list shows", async ({
@@ -654,6 +660,20 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await page.goto(`/clients/${id}`);
     await hydrated(page);
 
+    // The archived contact waits under "Archived (1)": opening it adds no history (a view
+    // control, §14.2 d); its row's ⋯ (the Owner's Delete) is a sheet that back closes.
+    const overview = new RegExp(`/clients/${id}$`);
+    const archived = page.locator('[data-slot="archived-section"]');
+    await archived.locator('[data-slot="archived-toggle"]').click();
+    const oldRow = archived.locator('[data-slot="archived-item"]', { hasText: "Old Contact" });
+    await expect(oldRow).toBeVisible();
+    await expect(oldRow.getByRole("button", { name: "Restore Old Contact" })).toBeVisible();
+    await oldRow.getByRole("button", { name: "Actions for Old Contact" }).click();
+    const rowSheet = page.locator('[data-slot="archived-item-actions"]');
+    await expect(rowSheet).toBeVisible();
+    await expect(rowSheet.getByRole("button", { name: "Delete" })).toBeVisible();
+    await expectBackStack(page, [{ closes: rowSheet, url: overview }]);
+
     // A contact that is not the primary: ⋯, Make primary, Archive.
     await page.locator('[data-slot="contact-row"]', { hasText: "Arjun Das" }).click();
     const otherPage = new RegExp(`/contacts/${other}$`);
@@ -662,6 +682,9 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await menu(page, "Arjun Das").click();
     const items = page.getByRole("menu");
     await expect(items).toBeVisible();
+    // The phone's ⋯ sheet names the contact on its title line (PP-sheet-4).
+    await expect(items.locator('[data-slot="menu-sheet-title"]')).toHaveText("Arjun Das");
+    await expect(items.locator('[data-slot="menu-sheet-title"]')).toBeVisible();
     await expectBackStack(page, [{ closes: items, url: otherPage }]);
     await menu(page, "Arjun Das").click();
     await page.getByRole("menuitem", { name: "Make primary" }).click();

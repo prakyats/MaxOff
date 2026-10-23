@@ -31,6 +31,7 @@ import {
 import { getOwnerNotes, listContacts } from "@/modules/clients";
 import { countOpenTasksForClient } from "@/modules/tasks";
 import { AddContactDialog } from "@/modules/clients/components/add-contact-dialog";
+import { ArchivedContacts } from "@/modules/clients/components/archived-contacts";
 import {
   ClientDetails,
   ClientNotes,
@@ -179,9 +180,11 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             />
           ) : null}
         </div>
-        {contacts.length === 0 ? (
+        {live.length === 0 ? (
           <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-6 text-center text-sm">
-            No contacts yet. The first one added becomes the primary contact.
+            {archived.length === 0
+              ? "No contacts yet. The first one added becomes the primary contact."
+              : "No active contacts. The next one added becomes the primary contact."}
           </p>
         ) : (
           <ul
@@ -189,7 +192,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             aria-label="Contacts"
             className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
           >
-            {[...live, ...archived].map((contact) => (
+            {live.map((contact) => (
               <li key={contact.id}>
                 <DrillLink
                   href={`/clients/${client.id}/contacts/${contact.id}`}
@@ -210,11 +213,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
                     </span>
                   </span>
                   <span className={cn("flex items-center gap-3", CARD_ROW_TRAILING)}>
-                    {contact.archivedAt ? (
-                      <StatusDot status="inactive" label="Archived" />
-                    ) : contact.isPrimary ? (
-                      <StatusDot status="active" label="Primary" />
-                    ) : null}
+                    {contact.isPrimary ? <StatusDot status="active" label="Primary" /> : null}
                     <ChevronRightIcon
                       className="text-muted-foreground size-4 shrink-0"
                       aria-hidden
@@ -225,6 +224,13 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             ))}
           </ul>
         )}
+        {/* Archived contacts wait under the shared collapsed "Archived (n)", as on every list
+            with Archive: Restore for whoever edits the client, Delete for the Owner. */}
+        <ArchivedContacts
+          contacts={archived}
+          canRestore={canEdit}
+          canDelete={canEdit && viewer.role === "owner"}
+        />
       </section>
 
       <Card>

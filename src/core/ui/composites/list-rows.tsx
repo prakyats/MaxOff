@@ -102,9 +102,9 @@ export type ListRowMove = {
  * labelled button at every width, since anyone who may open the list may preview.
  *
  * **Delete** (v1.8 V5a 6b, owner 2026-10-22) is the Owner's only, so a caller passes `onDelete` for
- * the Owner alone: the row keeps Edit · Archive · Delete. Delete is permanent, so it is red before
- * its confirmation too (`destructive`: a red outline icon on a laptop, a red outline row in the
- * phone sheet); the confirmation's named "Delete ‹name›" is the red `danger` commit.
+ * the Owner alone: the row keeps Edit · Archive · Delete. Delete is permanent, yet it stays grey
+ * before its confirmation (a quiet grey bin on a laptop, a plain `secondary` row in the phone
+ * sheet): red belongs to the confirmation's named "Delete ‹name›", the red `danger` commit, only.
  */
 export function ListRowActions({
   name,

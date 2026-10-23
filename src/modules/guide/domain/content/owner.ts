@@ -286,11 +286,11 @@ export const OWNER_GUIDE: Guide = {
               "Open People, tap the person, then the Attendance tab. It lists the month's days.",
               "Tap the day that is wrong. Its day opens, with what happened and when.",
               'Tap "Correct this day…".',
-              "Enter the right details and save.",
+              'Enter the right details and save. Times use the 12-hour clock, such as "9:30 am"; an empty time reads "Choose a time".',
             ),
             next("The original stays in the history. A correction sits alongside it."),
             text(
-              'A day still waiting for you has a green "Approve" on its row, and "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. A time that was never recorded reads "Not recorded".',
+              'A day still waiting for you has an outlined "Approve" on its row, and the green "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. On a working day, a start or end time that was never recorded reads "Not recorded".',
             ),
             note("Only you can correct a recorded day."),
           ],
@@ -326,7 +326,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               'Tap "New task" (the round button on a phone).',
               'Fill in "Title". In "Assign to", tap "Add a person" for each and pick one as the primary owner. You can assign yourself too.',
-              '"Deadline" and "Time (IST)" are required. That is enough: tap "Create task".',
+              '"Deadline" and "Time (IST)" are required: an empty one reads "Choose a date" or "Choose a time"; tap it to open the picker. Times use the 12-hour clock, such as "6:00 pm". That is enough: tap "Create task".',
               'For the rest, tap "More options": "Start from" (if task templates exist), "Type" (the first one by default; an event type asks for the event date and opens this by itself), "Priority" (Medium by default), "Reminders" (the default unless you change them).',
               {
                 text: 'Also under More options: "Client label" or "No client", "Checked first by" (highlighted): "Nobody: you approve it" or an Admin, a "Description", optional "Stages" and any custom fields.',
@@ -875,7 +875,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed "Archived (n)" at their foot, each with Restore and Delete), details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',

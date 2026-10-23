@@ -498,6 +498,12 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     // Measured inside the layer: the toast that says so is the toaster's, sliding in.
     await animationsSettled(page);
     await expectLayerFits(page, defaults);
+    // The group's ⋯ names the group on its title line (PP-sheet-4); back closes only the menu.
+    await defaults.getByRole("button", { name: `Actions for the group ${presetName}` }).click();
+    const groupMenu = page.getByRole("menu");
+    await expect(groupMenu.locator('[data-slot="menu-sheet-title"]')).toHaveText(presetName);
+    await expectBackStack(page, [{ closes: groupMenu, url: here }]);
+    await expect(defaults).toBeVisible();
     await defaults.getByRole("button", { name: `Actions for the group ${presetName}` }).click();
     await page.getByRole("menuitem", { name: "Remove group" }).click();
     const remove = page.getByRole("alertdialog", { name: `Remove the group ${presetName}?` });

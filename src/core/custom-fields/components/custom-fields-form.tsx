@@ -330,7 +330,7 @@ function CustomFieldControl({
                   name={name}
                   value={textOf(value)}
                   onChange={(event) => onChange(event.target.value)}
-                  placeholder="#E11D48"
+                  placeholder="e.g. #E11D48"
                   maxLength={7}
                   disabled={disabled}
                 />

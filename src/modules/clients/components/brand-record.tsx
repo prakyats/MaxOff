@@ -273,7 +273,7 @@ function BrandListsEditor({
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
                       aria-label={`Colour ${index + 1} hex`}
-                      placeholder="#E11D48"
+                      placeholder="e.g. #E11D48"
                       value={row.hex}
                       autoComplete="off"
                       spellCheck={false}
