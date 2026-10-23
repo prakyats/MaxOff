@@ -146,6 +146,7 @@ export {
   type ChatRow,
 } from "./domain/chat";
 export { chatDayLabel, chatEvents, chatMessages, type ChatPeople } from "./domain/chat-feed";
+export { enlargedLine } from "./domain/chat-space";
 export { linkSegments, type TextSegment } from "./domain/links";
 export {
   activeAssignees,

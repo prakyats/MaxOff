@@ -25,9 +25,10 @@ export function TaskViewsSkeleton() {
       <div
         aria-hidden
         data-slot="loading-task-tabs"
-        className="bg-background sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
+        // A laptop's bar (task chat height): its own 8px band, the tabs, then ⤢ at its right end.
+        className="bg-background sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:top-(--app-top-bar-h) md:mx-0 md:flex md:min-w-0 md:items-center md:gap-2 md:border-transparent md:px-0 md:py-2"
       >
-        <div className="bg-muted flex gap-1 rounded-lg p-1 md:inline-flex">
+        <div className="bg-muted flex gap-1 rounded-lg p-1 md:inline-flex md:shrink-0">
           {["w-10", "w-9", "w-12"].map((width, index) => (
             <div
               key={width}
@@ -39,6 +40,12 @@ export function TaskViewsSkeleton() {
               <Skeleton className={`h-3.5 ${width}`} />
             </div>
           ))}
+        </div>
+        <div
+          data-slot="loading-task-enlarge"
+          className="hidden size-11 shrink-0 items-center justify-center md:ml-auto md:flex"
+        >
+          <Skeleton className="size-4 rounded-sm" />
         </div>
       </div>
 
@@ -115,7 +122,7 @@ export function TaskDetailsSkeleton() {
       aria-hidden
       data-slot="loading-task-details"
       data-view={view}
-      className="min-w-0 flex-col gap-6 max-md:hidden max-md:data-[view=details]:flex md:sticky md:top-6 md:flex md:w-64 md:shrink-0 md:self-start lg:w-80"
+      className="min-w-0 flex-col gap-6 max-md:hidden max-md:data-[view=details]:flex md:sticky md:top-6 md:flex md:w-64 md:shrink-0 md:self-start md:data-[view=chat]:static lg:w-80"
     >
       {/* PP-task-3: People and About the task on one card, the people as divided rows, the
           facts as aligned label and value pairs. */}
