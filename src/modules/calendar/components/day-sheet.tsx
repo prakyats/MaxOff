@@ -23,14 +23,10 @@ import { DayDetail } from "./day-detail";
  * backed out first (`OverlayLink`), so back from the task lands on the calendar. Loaded after the
  * page, on its first opening (§19).
  *
- * **The phone's sheet** (the approved calendar sample, the design gate of 23 Oct) is the day as a
- * list, no timeline: "Tasks · n" (every event and what is due, each a row with its chip), then
- * "Client work · n" by client, then who is away; its body scrolls when the day is full, and the
- * day's buttons sit under it side by side, "Open day" (the day under the week strip) and the one
- * solid "+ New task on 8 Oct" (or "Suggest a task"). **The laptop's dialog** (the owner's
- * 2026-10-08 changes) has no timeline either: a compact agenda (`DayAgenda`) whose body is the
+ * **The phone's sheet** is the day's detail with its timeline. **The laptop's dialog** (the
+ * owner's 2026-10-08 changes) has no timeline: a compact agenda (`DayAgenda`) whose body is the
  * dialog's one scroll, used only when the day is very full, and a footer pinned under it with the
- * same buttons.
+ * day's buttons ("+ New task on 8 Oct" or "Suggest a task", and "Open day").
  */
 export function DaySheet({
   day,
@@ -100,28 +96,19 @@ export function DaySheet({
               What is on this day, and what you can do on it.
             </DialogDescription>
           </DialogHeader>
-          <div data-slot="calendar-day-body" className="max-h-[60svh] min-w-0 overflow-y-auto">
+          <div className="max-h-[70svh] min-w-0 overflow-y-auto">
             <DayDetail
               day={day}
               today={today}
               scope={scope}
               free={free}
-              action={null}
-              timeline={false}
+              action={action}
+              footer={footer}
+              timeline
               heading={false}
               headingId={`sheet-${day.date}`}
             />
           </div>
-          {action || footer ? (
-            <div
-              data-slot="calendar-day-footer"
-              className="border-border -mx-4 flex min-w-0 flex-wrap items-center gap-2 border-t px-4 pt-3 *:min-w-0 *:flex-auto"
-            >
-              {/* The sample's order: "Open day", then the day's one solid action. */}
-              {footer}
-              {action}
-            </div>
-          ) : null}
         </DialogContent>
       )}
     </Dialog>

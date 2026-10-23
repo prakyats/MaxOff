@@ -239,14 +239,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     // PP-calendar-5: each task a named chip; SCOPE §6: then the client work, the client first,
     // late on a past day; a done one is not due.
     expect(allStrips(past, TODAY)).toEqual([
-      {
-        kind: "due",
-        key: "due-t-2026-10-07",
-        label: "Edit",
-        long: "Edit · due 6:00 pm",
-        tone: "overdue",
-        color: VIOLET,
-      },
+      { kind: "due", key: "due-t-2026-10-07", label: "Edit", tone: "overdue", color: VIOLET },
       {
         kind: "item",
         key: "item-i",

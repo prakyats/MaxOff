@@ -704,15 +704,15 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a phone there is one calendar in three sizes: a week strip, a compact month and a full month. The full month lists the month’s days in two columns, so every line reads; scroll it for the rest of the month.",
+              text: "On a phone there is one calendar in three sizes: a week strip, a compact month and a full month.",
             },
             {
               kind: "steps",
               steps: [
                 "On a phone, swipe, or tap the handle, to change size.",
-                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters".',
+                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters" (an icon, with a dot while a filter is on).',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right.',
-                'A day of the full month opens as a list, with "Open day" and "Suggest a task" side by side at the bottom. On a phone, "Open day" shows that day under the week strip.',
+                'On a phone, a day of the full month opens in a sheet with its timeline and "Suggest a task". On a laptop a day opens in a dialog with "Open day".',
               ],
             },
             {

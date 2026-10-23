@@ -45,3 +45,41 @@ export function useLeaveFit(ref: RefObject<HTMLElement | null>): void {
     return () => observer.disconnect();
   }, [ref]);
 }
+
+/**
+ * Keeps the phone header on its one row (option A, owner 23 Oct): `data-fit="long"` first, and
+ * `data-fit="short"` when the row would wrap, which turns "Client work ▾" into "Client ▾"
+ * (`ShowTrigger`), never an ellipsis; at the narrowest phones (320 px) `data-fit="tight"` also
+ * drops the gaps and the month's year from sight ("Oct"; its name still says "October 2026"). The row may still wrap at very large system text, where a
+ * second line beats anything cut. After every render and on resize.
+ */
+export function useHeaderFit(ref: RefObject<HTMLElement | null>): void {
+  useBeforePaint(() => {
+    if (ref.current) fitRow(ref.current);
+  });
+  useEffect(() => {
+    const row = ref.current;
+    if (!row || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => fitRow(row));
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [ref]);
+}
+
+/** Whether a wrapping row's parts sit on more than one line (or push past its edge). */
+function wraps(row: HTMLElement): boolean {
+  const parts = [...row.children] as HTMLElement[];
+  // The first line ends at its tallest part's bottom (the parts are centred, so their tops differ).
+  const first = parts[0];
+  if (!first) return false;
+  const lineEnd = first.offsetTop + first.offsetHeight;
+  return row.scrollWidth > row.clientWidth || parts.some((part) => part.offsetTop >= lineEnd);
+}
+
+/** Long, then short ("Client ▾"), then tight (also "Oct" for "Oct 2026", no gaps): the first that fits. */
+function fitRow(row: HTMLElement): void {
+  for (const fit of ["long", "short", "tight"]) {
+    row.setAttribute("data-fit", fit);
+    if (!wraps(row)) return;
+  }
+}
