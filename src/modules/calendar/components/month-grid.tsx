@@ -294,7 +294,7 @@ export function MonthGrid({
                           day?.weeklyOff && "text-muted-foreground",
                           lines?.holidayHidden && "text-holiday",
                           // PP-calendar-1: today is the filled red circle.
-                          isToday && "bg-brand text-brand-foreground",
+                          isToday && "bg-destructive-solid text-destructive-solid-foreground",
                         )}
                       >
                         {formatIST(istDayStart(date), "d")}

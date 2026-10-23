@@ -254,7 +254,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   palette colours (`bg-red-500`, `text-white`), no `bg-[#…]` (lint). A new colour is a token here
   first.
 
-- **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled `brand`
+- **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled solid red (`destructive-solid`, white digit 5.85:1 in both themes; the gate follow-up, 23 Oct)
   red circle on its date number and its whole box the neutral `bg-today` tint, never outlined (PP-calendar-15; the design
   gate, 23 Oct), any other selected day the outlined box; the phone's full month is the month's days in two columns
   (`PhoneMonth`, the calendar sample's phone layout), so its chips read ("Edit · 11:45 am", "Test 4 · due 6:00 pm"); the weekly off's date number is `muted-foreground` and its box tinted
