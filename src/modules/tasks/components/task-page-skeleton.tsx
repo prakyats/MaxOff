@@ -25,7 +25,7 @@ export function TaskViewsSkeleton() {
       <div
         aria-hidden
         data-slot="loading-task-tabs"
-        // A laptop's bar (task chat height): its own 8px band, the tabs, then ⤢ at its right end.
+        // A laptop's bar (task chat height): its own 8px band and the tabs (⤢ is the chat head's).
         className="bg-background sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:top-(--app-top-bar-h) md:mx-0 md:flex md:min-w-0 md:items-center md:gap-2 md:border-transparent md:px-0 md:py-2"
       >
         <div className="bg-muted flex gap-1 rounded-lg p-1 md:inline-flex md:shrink-0">
@@ -40,12 +40,6 @@ export function TaskViewsSkeleton() {
               <Skeleton className={`h-3.5 ${width}`} />
             </div>
           ))}
-        </div>
-        <div
-          data-slot="loading-task-enlarge"
-          className="hidden size-11 shrink-0 items-center justify-center md:ml-auto md:flex"
-        >
-          <Skeleton className="size-4 rounded-sm" />
         </div>
       </div>
 

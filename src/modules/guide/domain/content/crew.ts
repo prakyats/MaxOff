@@ -579,7 +579,7 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open the task and tap "Chat". On a phone it opens full screen; ‹ takes you back to the task. On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right of the tabs opens it large (Esc, ✕ or back closes it).',
+                'Open the task and tap "Chat". On a phone it opens full screen; ‹ takes you back to the task. On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right end of the chat’s header, beside the names, opens it large (Esc, ✕ or back closes it).',
                 'Tap "Message…" at the bottom and type. The box grows as you write.',
                 "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
               ],

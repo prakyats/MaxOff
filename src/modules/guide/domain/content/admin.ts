@@ -529,7 +529,7 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the task and choose “Chat”. On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right of the tabs opens it large (Esc, ✕ or back closes it). On a phone it opens full screen and ‹ takes you back to the task.",
+                "Open the task and choose “Chat”. On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right end of the chat’s header, beside the names, opens it large (Esc, ✕ or back closes it). On a phone it opens full screen and ‹ takes you back to the task.",
                 "Type in “Message…” at the bottom. The box grows as you write.",
                 "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
               ],

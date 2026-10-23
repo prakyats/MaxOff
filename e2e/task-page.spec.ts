@@ -1529,18 +1529,29 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
         tabsOnWork.x + tabsOnWork.width,
       );
 
+      // On Work the bar holds only the views: no ⤢ (it is the chat head's, issue #89).
+      const enlarge = page.locator('[data-slot="task-chat-enlarge"]');
+      await expect(enlarge).toBeHidden();
+      await expect(band(page).locator('[data-slot="task-chat-enlarge"]')).toHaveCount(0);
+
       // Chat: the tabs do not move; the panel runs to the screen's foot, the composer in view.
       await tab(page, "chat").click();
       await expect(panel(page, "chat")).toBeVisible();
       await receiptsSettled(page);
       expect(await box(page.locator('[data-slot="task-tabs"]'))).toEqual(tabsOnWork);
-      const enlarge = page.locator('[data-slot="task-chat-enlarge"]');
-      await expect(enlarge).toBeVisible();
+      // ⤢ sits in the chat panel's own head, at its right end beside the people (44 px, neutral).
+      const head = chatPanel(page).locator('[data-slot="task-chat-head"]');
+      await expect(head.locator('[data-slot="task-chat-enlarge"]')).toBeVisible();
+      await expect(enlarge).toHaveCount(1);
       const enlargeBox = await box(enlarge);
       expect(enlargeBox.width).toBeGreaterThanOrEqual(44);
       expect(enlargeBox.height).toBeGreaterThanOrEqual(44);
+      await expect(enlarge).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      const headBox = await box(head);
+      expect(Math.round(headBox.x + headBox.width - (enlargeBox.x + enlargeBox.width))).toBe(6);
+      expect(enlargeBox.y).toBeGreaterThanOrEqual(headBox.y);
+      expect(enlargeBox.y + enlargeBox.height).toBeLessThanOrEqual(headBox.y + headBox.height);
       const bandBox = await box(band(page));
-      expect(Math.round(bandBox.x + bandBox.width - (enlargeBox.x + enlargeBox.width))).toBe(0);
       // Whole pixels, rounded down (`chatSpace`): the foot is within a pixel of the page's own.
       // The bands fixed at the screen's foot (notifications off, offline) cover the page's end.
       const foot = async () => {
@@ -1606,8 +1617,9 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
         .poll(async () => Math.round((await box(chatPanel(page))).height))
         .toBe(Math.round(opening.height));
 
-      // On Work the bar sticks too, and nothing switches by itself.
+      // On Work the bar sticks too, and nothing switches by itself; ⤢ goes with the chat.
       await tab(page, "work").click();
+      await expect(enlarge).toBeHidden();
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
       await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
@@ -1672,6 +1684,8 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
     await page.keyboard.press("Escape");
     await expect(enlarged).toBeHidden();
     await scrollIs(40);
+    // Focus returns to ⤢ in the chat head.
+    await expect(enlarge).toBeFocused();
 
     // ✕ closes it.
     await enlarge.click();
@@ -1679,6 +1693,7 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
     await enlarged.locator('[data-slot="task-chat-enlarged-close"]').click();
     await expect(enlarged).toBeHidden();
     await scrollIs(40);
+    await expect(enlarge).toBeFocused();
 
     // A draft typed in the large chat is still there in the panel.
     await enlarge.click();
