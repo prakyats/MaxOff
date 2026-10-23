@@ -470,7 +470,7 @@ export const OWNER_GUIDE: Guide = {
               'The button names whom it reaches, such as "Remind Sam and Ria" or "Remind Sam and 2 others". When the names are not known it reads "Remind everyone on the task".',
             ),
             steps("Open the task page while the task is still with its people.", {
-              text: "Tap Remind ‹names› (highlighted).",
+              text: "Tap Remind ‹names› (highlighted): on a laptop it sits at the right end of the box that says what is needed now; on a phone, just under it.",
               shot: "owner/remind",
             }),
             next(
@@ -488,7 +488,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Talk with the people on a task, on the task itself.",
           blocks: [
             steps(
-              'Open the task and choose "Chat". On a laptop it fills the space under the tabs; on a phone it opens full screen and ‹ takes you back to the task.',
+              'Open the task and choose "Chat". On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right of the tabs opens it large (Esc, ✕ or back closes it). On a phone it opens full screen and ‹ takes you back to the task.',
               'Type in "Message…" at the bottom. The box grows as you write.',
               "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
             ),
