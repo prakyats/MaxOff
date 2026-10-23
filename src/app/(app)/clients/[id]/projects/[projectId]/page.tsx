@@ -1,7 +1,7 @@
 import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache, Suspense } from "react";
+import { Suspense } from "react";
 
 import { cn } from "@/core/lib/utils";
 import {
@@ -24,6 +24,7 @@ import {
   extrasCycles,
   extrasQuestion,
   getProject,
+  getProjectTitle,
   itemListPeriods,
   itemView,
   lastChangeOf,
@@ -58,20 +59,19 @@ import { listStagePresets } from "@/modules/settings";
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
 import { PROJECT_ORIGINS } from "./back";
 
-/** The page's project read, shared with its tab title in one request. */
-const readProject = cache(getProject);
-
-/** The tab names the project ("Monthly reels · MaxOff"), from the page's own reads (cached). */
+/**
+ * The tab names the project ("Monthly reels · MaxOff") from its name alone (`getProjectTitle`, one
+ * column under RLS, this client's only): Next resolves metadata on a prefetch too, which must
+ * stay the loading boundary, never the page's reads (P2 item 6). One the reader may not see is
+ * "Project".
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string; projectId: string }>;
 }): Promise<Metadata> {
   const { id, projectId } = await params;
-  if (!ID.test(projectId)) return { title: "Project" };
-  const { client } = await loadClientWork(id);
-  const project = await readProject(projectId);
-  return { title: project && project.clientId === client.id ? project.name : "Project" };
+  return { title: (await getProjectTitle(id, projectId)) ?? "Project" };
 }
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -119,7 +119,7 @@ export default async function ProjectPage({
     await checkThenRead(
       loadClientWork(id),
       Promise.all([
-        readProject(projectId),
+        getProject(projectId),
         listCycles([projectId]),
         listStages(projectId),
         listBlueprints(projectId),

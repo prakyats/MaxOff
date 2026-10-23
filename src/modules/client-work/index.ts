@@ -118,6 +118,7 @@ export {
 } from "./domain/types";
 export {
   getProject,
+  getProjectTitle,
   listBlueprints,
   listClientProjects,
   listClientWorkSummaries,

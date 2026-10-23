@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
 import type { Json, Tables } from "@/core/db";
@@ -302,6 +304,30 @@ export async function getProject(projectId: string): Promise<ProjectDetails | nu
     contactName: client?.contacts[0]?.name ?? null,
   };
 }
+
+const TITLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A project's name alone, for the browser tab (`generateMetadata`): one column, under the same
+ * RLS as `getProject`, and only when it belongs to the client in the address, so a project the
+ * reader may not see (or another client's) is null and the tab stays neutral. Next resolves a
+ * route's metadata on every prefetch of it, so this is all the title adds to a prefetch, never
+ * the page's reads (P2 item 6). Not ids: null, with no read. `cache()`d per request.
+ */
+export const getProjectTitle = cache(
+  async (clientId: string, projectId: string): Promise<string | null> => {
+    if (!TITLE_ID.test(clientId) || !TITLE_ID.test(projectId)) return null;
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("name")
+      .eq("id", projectId)
+      .eq("client_id", clientId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.name ?? null;
+  },
+);
 
 export async function listStages(projectId: string): Promise<Stage[]> {
   return listStagesOf([projectId]);

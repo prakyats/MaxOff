@@ -26,7 +26,11 @@ import { MemberProfile } from "@/modules/team/components/member-profile";
 import { loadPerson, showsHistory } from "./person";
 import { PersonSummary } from "./person-summary";
 
-/** The tab names the person ("Prishit Shetty · MaxOff"), from the page's cached read (`loadPerson`). */
+/**
+ * The tab names the person ("Prishit Shetty · MaxOff") from `loadPerson`, the layout's own read.
+ * Next resolves metadata on a prefetch too; the layout's header makes the same `cache()`d
+ * `loadPerson` on it, so the title adds no read to a prefetch (P2 item 6).
+ */
 export async function generateMetadata({
   params,
 }: {

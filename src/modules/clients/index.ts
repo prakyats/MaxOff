@@ -38,6 +38,7 @@ export { type BrandColor, type BrandFont } from "./domain/schemas";
 export {
   getBrand,
   getClient,
+  getContactName,
   getOwnerNotes,
   handOverClients,
   listAdminAssignments,
