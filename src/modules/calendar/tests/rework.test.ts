@@ -144,6 +144,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
           kind: "leave",
           key: "leave",
           label: "Asha · On leave",
+          short: "Asha · Leave",
           spoken: "Asha off",
           pending: false,
         },
@@ -159,6 +160,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         kind: "leave",
         key: "leave",
         label: "Asha · On leave",
+        short: "Asha · Leave",
         spoken: "Asha off, half day",
         pending: false,
       },
@@ -169,12 +171,26 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         TODAY,
       ),
     ).toEqual([
-      { kind: "leave", key: "leave", label: "2 on leave", spoken: "2 off", pending: false },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "2 on leave",
+        short: "2 on leave",
+        spoken: "2 off",
+        pending: false,
+      },
     ]);
     expect(
       allStrips(day({ leave: [off("m", "Me", { own: true, pending: true })] }), TODAY),
     ).toEqual([
-      { kind: "leave", key: "leave", label: "You · On leave", spoken: "You off", pending: true },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "You · On leave",
+        short: "You · Leave",
+        spoken: "You off",
+        pending: true,
+      },
     ]);
   });
 

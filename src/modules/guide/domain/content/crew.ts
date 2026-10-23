@@ -717,7 +717,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day." A day you are on leave shows "You · On leave".',
+              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day." A day you are on leave shows "You · On leave" ("You · Leave" where a laptop’s day is narrow; it is never cut short).',
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },

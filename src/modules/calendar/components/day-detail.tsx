@@ -33,6 +33,7 @@ import { clientWorkRows } from "../domain/show";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
 import { DoneTick, LEAVE_TONE, TypeDot, typeTint } from "./calendar-chip";
+import { LEAVE_FIT_LABEL } from "./leave-fit";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
@@ -120,6 +121,7 @@ export function AllDayChips({
   onDue,
   events = true,
   avatars = false,
+  fitLeave = false,
 }: {
   day: CalendarDay;
   /** A past day's open tasks are overdue: their "Due · N" reads red (decision 25 C). */
@@ -132,6 +134,11 @@ export function AllDayChips({
   events?: boolean;
   /** Each person's photo beside their leave (the day popup only, V5b-D; never a month box). */
   avatars?: boolean;
+  /**
+   * The laptop's Week and Day: a leave chip never truncates; "Name · Leave" where "Name · On
+   * leave" has no room (v1.8, owner 23 Oct; the screen's `useLeaveFit` picks).
+   */
+  fitLeave?: boolean;
 }) {
   const overdue = day.date < today;
   return (
@@ -159,10 +166,23 @@ export function AllDayChips({
             )}
           >
             <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
-            <span data-member={item.memberId} className="min-w-0 truncate">
-              {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
-              {item.pending ? " · requested" : ""}
-            </span>
+            {fitLeave && item.label === "Leave" ? (
+              <span
+                data-member={item.memberId}
+                data-leave-fit="long"
+                className={cn("min-w-0", LEAVE_FIT_LABEL)}
+              >
+                {item.own ? "You" : firstName(item.name)} ·{" "}
+                <span data-leave-word="long">On leave</span>
+                <span data-leave-word="short">Leave</span>
+                {item.pending ? " · requested" : ""}
+              </span>
+            ) : (
+              <span data-member={item.memberId} className="min-w-0 truncate">
+                {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
+                {item.pending ? " · requested" : ""}
+              </span>
+            )}
           </Chip>
         );
         return avatars ? (

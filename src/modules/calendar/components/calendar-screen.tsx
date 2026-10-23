@@ -64,6 +64,7 @@ import {
 import { dayLabel } from "../domain/strips";
 import { AllDayChips, DayDetail, eventLink } from "./day-detail";
 import type { FilterChoices } from "./filters-sheet";
+import { useLeaveFit } from "./leave-fit";
 import { MonthGrid } from "./month-grid";
 import { Timeline, weekdayHeading } from "./timeline";
 
@@ -187,6 +188,9 @@ export function CalendarScreen({
   // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). On the phone only
   // the full month fits it (`data-fit-viewport="phone"` below; PP-light-4).
   const fit = view !== "month";
+  // The laptop's leave labels never truncate (v1.8, owner 23 Oct): each picks its wording.
+  const laptopRef = useRef<HTMLDivElement>(null);
+  useLeaveFit(laptopRef);
   const desktop = useIsDesktop() === true;
 
   /**
@@ -616,6 +620,7 @@ export function CalendarScreen({
 
       {/* Laptop ----------------------------------------------------------------------------- */}
       <div
+        ref={laptopRef}
         data-slot="calendar-laptop"
         data-view={view}
         data-fit-viewport={fit ? "laptop" : undefined}
@@ -735,7 +740,13 @@ export function CalendarScreen({
               );
             }}
             allDay={(day) => (
-              <AllDayChips day={day} today={today} dueAsChip onDue={() => setSheetDate(day.date)} />
+              <AllDayChips
+                day={day}
+                today={today}
+                dueAsChip
+                fitLeave
+                onDue={() => setSheetDate(day.date)}
+              />
             )}
             eventLink={eventLink}
             laptop
@@ -754,6 +765,7 @@ export function CalendarScreen({
                   day={day}
                   today={today}
                   dueAsChip
+                  fitLeave
                   onDue={() => setSheetDate(day.date)}
                 />
               )}

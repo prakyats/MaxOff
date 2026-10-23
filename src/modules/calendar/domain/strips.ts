@@ -73,6 +73,11 @@ export type Strip =
       key: string;
       /** "Asha · On leave" or "2 on leave": the bar's text. */
       label: string;
+      /**
+       * "Asha · Leave": the laptop bar's wording where "On leave" has no room (v1.8, owner 23 Oct:
+       * a leave bar never truncates); "2 on leave" stays as it is.
+       */
+      short: string;
       /** "Asha off", "Asha off, half day", "2 off": what a screen reader hears. */
       spoken: string;
       pending: boolean;
@@ -146,6 +151,7 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
       kind: "leave",
       key: "leave",
       label: `${who} · On leave`,
+      short: `${who} · Leave`,
       spoken: only.half ? `${who} off, half day` : `${who} off`,
       pending: only.pending,
     };
@@ -154,6 +160,7 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
     kind: "leave",
     key: "leave",
     label: `${people.length} on leave`,
+    short: `${people.length} on leave`,
     spoken: `${people.length} off`,
     pending: people.every((item) => item.pending),
   };

@@ -25,6 +25,7 @@ import {
   TypeDot,
   typeTint,
 } from "./calendar-chip";
+import { LEAVE_FIT_LABEL } from "./leave-fit";
 
 /**
  * The month (6.4b; Kickoff 6 decision 25 A, B, C, C amended 2026-10-08): Monday to Sunday, the
@@ -358,12 +359,16 @@ export function MonthGrid({
                       <span
                         aria-hidden
                         data-slot="calendar-leave-bar"
+                        data-leave-fit={density === "laptop" ? "long" : undefined}
                         data-pending={leave.pending ? "" : undefined}
                         className={cn(
                           // Along the bottom, joined to its neighbours' bars, soft neutral with faint
                           // stripes (PP-calendar-3, 10), so a leave run reads at a glance.
                           LEAVE_TONE,
-                          "mt-auto block truncate px-1 font-medium",
+                          "mt-auto block px-1 font-medium",
+                          // The laptop's bar never truncates: "Name · On leave", or "Name ·
+                          // Leave" where that has no room (v1.8, owner 23 Oct; `useLeaveFit`).
+                          density === "laptop" ? LEAVE_FIT_LABEL : "truncate",
                           "text-xs leading-4",
                           before ? "-ml-[5px]" : "rounded-l-sm",
                           after ? "-mr-[7px]" : "rounded-r-sm",
@@ -376,7 +381,14 @@ export function MonthGrid({
                         ) : (
                           <>
                             <LeaveIcon className="mr-0.5 size-2.5" />
-                            {leave.label}
+                            {density === "laptop" ? (
+                              <>
+                                <span data-leave-word="long">{leave.label}</span>
+                                <span data-leave-word="short">{leave.short}</span>
+                              </>
+                            ) : (
+                              leave.label
+                            )}
                           </>
                         )}
                       </span>
