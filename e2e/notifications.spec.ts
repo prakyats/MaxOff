@@ -529,9 +529,17 @@ test.describe("the bell and Alerts", () => {
       expect(pill.height, `${label}: 16 px tall`).toBeCloseTo(16, 0);
       expect(pill.width, `${label}: at least 16 px wide`).toBeGreaterThanOrEqual(15.5);
       // Offset to the top-right, outside the glyph (the design gate, 23 Oct): its left edge 6 px
-      // inside the glyph's right edge whatever the count, so two digits or 99+ grow outward and
-      // never cover more of the bell; its middle on the glyph's top.
-      expect(Math.abs(pill.x - (glyph.x + glyph.width - 6)), label).toBeLessThan(1);
+      // inside the glyph's right edge, so a longer count grows outward (99+ reaches at most 16 px
+      // past the glyph, its last pixels back over the corner); its middle on the glyph's top.
+      const right = glyph.x + glyph.width;
+      if (label === "99+") {
+        expect(pill.x, `${label}: at most 12 px over the glyph`).toBeGreaterThanOrEqual(right - 12);
+        expect(pill.x + pill.width, `${label}: at most 16 px past it`).toBeLessThanOrEqual(
+          right + 16.5,
+        );
+      } else {
+        expect(Math.abs(pill.x - (right - 6)), label).toBeLessThan(1);
+      }
       expect(Math.abs(pill.y + pill.height / 2 - glyph.y), label).toBeLessThan(2);
       expect(link.width, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);
       expect(link.height, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);

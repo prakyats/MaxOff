@@ -18,6 +18,7 @@ describe("NavBadgeMark on the top bar's bell", () => {
       "absolute",
       "top-0",
       "left-[calc(100%-6px)]",
+      "translate-x-[min(0px,calc(22px-100%))]",
       "-translate-y-1/2",
       "h-4",
       "min-w-4",

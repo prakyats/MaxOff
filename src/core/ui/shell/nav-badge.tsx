@@ -8,7 +8,7 @@
 export type NavBadgePlace = "bar" | "bell" | "topbar" | "list" | "sheet";
 
 const BELL_PILL =
-  "bg-brand text-brand-foreground ring-background absolute top-0 left-[calc(100%-6px)] flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-[3px] text-count font-semibold ring-2";
+  "bg-brand text-brand-foreground ring-background absolute top-0 left-[calc(100%-6px)] flex h-4 min-w-4 translate-x-[min(0px,calc(22px-100%))] -translate-y-1/2 items-center justify-center rounded-full px-[3px] text-count font-semibold ring-2";
 
 const CLASSES: Record<NavBadgePlace, string> = {
   // The ring punches the badge out of the icon so it stays readable over either.
@@ -19,7 +19,9 @@ const CLASSES: Record<NavBadgePlace, string> = {
   // circle, capped at "99+". Offset to the top-right, outside the glyph (the design gate, 23 Oct:
   // centred on the corner, two digits covered most of the bell): its left edge 6 px inside the 20 px
   // glyph's right edge and its middle on the glyph's top, so a longer count grows outward, never
-  // over the bell. The 2 px ring is the bar's background, so it reads punched out in either theme.
+  // over the bell; past 22 px wide ("99+", or large system text) it reaches at most 16 px beyond the
+  // glyph and shifts its last pixels back over the corner, so it never touches the next control
+  // or the screen's edge. The 2 px ring is the bar's background, so it reads punched out in either theme.
   bell: BELL_PILL,
   topbar: BELL_PILL,
   list: "bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-none font-semibold tabular-nums",
