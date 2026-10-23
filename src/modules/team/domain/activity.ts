@@ -44,13 +44,20 @@ function listWords(parts: readonly string[]): string {
 /**
  * One entry about a member row (`activity_log`, entity `members`, read under RLS: the Owner's
  * `activity.view_all`) in one sentence, or null when it says nothing a reader needs (a sign-in's
- * bookkeeping). Pure (`tests/activity.test.ts`).
+ * bookkeeping). The reader's own changes say "You" (v1.8 pull-in item 5), as every other History.
+ * Pure (`tests/activity.test.ts`).
  */
 export function describeMemberActivity(
   entry: ActivityEntry,
   names: Readonly<Record<string, string>>,
+  readerId: string | null = null,
 ): MemberHistoryLine | null {
-  const actor = entry.actorId ? (names[entry.actorId] ?? "Someone") : "MaxOff";
+  const actor =
+    entry.actorId === null
+      ? "MaxOff"
+      : entry.actorId === readerId
+        ? "You"
+        : (names[entry.actorId] ?? "Someone");
   const line = (text: string) => ({ id: entry.id, at: entry.at, actor, text });
   switch (entry.action) {
     case "invited":

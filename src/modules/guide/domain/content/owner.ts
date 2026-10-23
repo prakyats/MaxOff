@@ -290,7 +290,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("The original stays in the history. A correction sits alongside it."),
             text(
-              'A day still waiting for you has an outlined "Approve" on its row, and the green "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. On a working day, a start or end time that was never recorded reads "Not recorded".',
+              'A day still waiting for you has an outlined "Approve" on its row, and the green "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
             ),
             note("Only you can correct a recorded day."),
           ],
@@ -309,7 +309,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "What needs you first, then every open task by deadline.",
           blocks: [
             text(
-              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue, have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full.',
+              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue (a red chip saying how late, such as "2 days late" or "3 h late"), have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full.',
             ),
             text(
               'Use "All tasks, with filters" for the full list, and "Suggested tasks" for ideas from your team.',
@@ -716,7 +716,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "A summary, then Profile, Leave, Attendance and Month tabs.",
           blocks: [
             text(
-              'Open a person to see their status beside their name, a "today" line and four tabs: Profile, Leave, Attendance and Month. The header\'s clock opens their History (invited, joined, role and job title changes, deactivated). The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+              'Open a person to see their status beside their name, a "today" line and four tabs: Profile, Leave, Attendance and Month. The header\'s clock opens their History (invited, joined, role and job title changes, deactivated); your own changes read "You". The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
             ),
             text(
               "Profile opens with a summary: the days waiting for your review (with Review), their leave this month and the comp leave they have left; each opens its tab. Under it one card holds their phone, sign-in email and joining date, then Profile (name, role, job title).",

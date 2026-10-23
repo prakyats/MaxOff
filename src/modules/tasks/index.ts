@@ -157,6 +157,7 @@ export {
   isFinal,
   isLocked,
   isOverdue,
+  lateLabel,
   latestChangeRequest,
   pairName,
   remindAgainAt,

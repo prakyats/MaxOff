@@ -30,7 +30,6 @@ export {
   clientCountsLine,
   eventsStrip,
   heldEmailsLine,
-  lateWords,
   leaveRisks,
   leaveWindow,
   notNotedRisks,

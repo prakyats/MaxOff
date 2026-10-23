@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
 import { getRealtimeAuth, requireMember } from "@/core/auth/server";
 import { getSessionBundle, type SessionBundle } from "@/core/auth/session-bundle";
+import { orNone } from "@/core/lib/or-none";
 import { startEarly } from "@/core/lib/start-early";
 import { captureException } from "@/core/observability/capture";
 import { SentryUser } from "@/core/observability/sentry-user";
@@ -55,13 +56,20 @@ function navBadges(role: Parameters<typeof can>[0], bundle: SessionBundle): NavB
  * chosen. Reading, never writing: the day exists only once they start it or choose leave. The
  * prompt itself decides when to open (at most every 30 minutes). The Owner has no day.
  */
-async function startDayPrompt(viewer: Awaited<ReturnType<typeof requireMember>>) {
+async function startDayPrompt(
+  viewer: Awaited<ReturnType<typeof requireMember>>,
+  report: (error: unknown) => void,
+) {
   if (!can(viewer.role, "attendance.self")) return null;
-  const today = await getOwnToday();
-  return promptDue(today) ? (
+  // A day that cannot be read is reported and shows no prompt, never the error page (v1.8).
+  const today = await orNone(getOwnToday(), null, report);
+  return today !== null && promptDue(today) ? (
     <StartDayPromptLazy memberId={viewer.id} workDate={today.workDate} />
   ) : null;
 }
+
+/** No band and no endpoints of this member's: what a push status that cannot be read shows. */
+const NO_PUSH_STATUS = { endpoints: [] as string[], band: null };
 
 /**
  * The signed-in area. `requireMember()` is the auth decision (ADR-0011 rule 3): signed out →
@@ -96,17 +104,22 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     (read) => read.unread,
     () => null,
   );
-  const prompt = await startDayPrompt(viewer);
+  const prompt = await startDayPrompt(viewer, report);
   // The notifications band is judged per member (kickoff 5 decision 9; since 5.5 until a device
   // of theirs has received a push, and whenever they are not reachable): one call gives its
   // reason with the member's own active endpoints, which tell this device whether it is one of
   // them (PushSync). Awaited, never streamed with the counts: the band and PushSync are lazy parts,
   // and §19 keeps a lazy part out of a `<Suspense>` in the shell ("What draws nothing at first").
   // Started with the member row above, so waiting for it costs no hop. The public key is read at
-  // runtime and handed to the browser (decision 26); null = push off.
+  // runtime and handed to the browser (decision 26); null = push off. A status that cannot be read
+  // is reported and shows no band, never the error page (v1.8: a transient Supabase failure here
+  // turned a full load into an HTTP 500).
   const pushEnv = readPushEnv();
   // The live bell's token (5.1) is read with it: the session is the one just verified.
-  const [{ endpoints, band }, live] = await Promise.all([readOwnPushStatus(), getRealtimeAuth()]);
+  const [{ endpoints, band }, live] = await Promise.all([
+    orNone(readOwnPushStatus(), NO_PUSH_STATUS, report),
+    getRealtimeAuth(),
+  ]);
   const publicKey = pushEnv.mode === "on" ? pushEnv.publicKey : null;
 
   return (

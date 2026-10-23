@@ -122,13 +122,14 @@ export default async function ApprovalsPage() {
               ? "Attendance, leave, extra work, expense claims and tasks that need you appear here."
               : "The tasks you check appear here. Attendance, leave and expenses are the Owner's to decide."
           }
-          // PP-admin-2: an Admin with nothing to check is pointed at what they can do instead.
+          // PP-admin-2: an Admin with nothing to check is pointed at the tasks with the reviewers
+          // (the full list on its "With the reviewers" filter).
           action={
             decidesAttendance ? undefined : (
               // The Button (asChild) carries the variant and size the phone's 44 px rule keys on.
-              <Button variant="secondary" asChild>
-                <Link href="/tasks" data-slot="approvals-open-tasks">
-                  Open Tasks
+              <Button variant="secondary" asChild /* view-link: navigation (another page) */>
+                <Link href="/tasks/all?state=review" data-slot="approvals-open-tasks">
+                  Tasks to check
                 </Link>
               </Button>
             )

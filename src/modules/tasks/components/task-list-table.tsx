@@ -35,6 +35,8 @@ export type TaskListItem = FilterableTask & {
   /** "Due Thu 1 Oct, 6:00 pm". */
   dueLabel: string;
   dueAt: string;
+  /** "3 h late", "2 days late" when overdue, at render (PP-tasks-2); else null. */
+  lateLabel: string | null;
   /** The primary owner, "Asha (freelancer)" for a freelancer; "You" for the viewer. */
   owner: string;
   clientName: string | null;
@@ -179,7 +181,7 @@ export function TaskListTable({
   ];
 
   // A card's trailing part is one marker (it never wraps beside the title): an overdue task shows
-  // "Overdue" there and its state in the second line.
+  // how late it is there ("2 days late") and its state in the second line.
   const mobile: MobileCard<TaskListItem> = {
     // The unread bubble leads the title, so the title's ellipsis never cuts it.
     title: (task) =>
@@ -197,7 +199,7 @@ export function TaskListTable({
         .join(" · "),
     trailing: (task) =>
       task.overdue ? (
-        <StatusDot status="overdue" tone="danger" label="Overdue" />
+        <StatusDot status="overdue" tone="danger" label={task.lateLabel ?? "Overdue"} />
       ) : (
         <StatusDot status={task.state} label={task.stateLabel} />
       ),
@@ -234,7 +236,9 @@ export function TaskListTable({
 function TaskState({ task }: { task: TaskListItem }) {
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {task.overdue ? <StatusDot status="overdue" tone="danger" label="Overdue" /> : null}
+      {task.overdue ? (
+        <StatusDot status="overdue" tone="danger" label={task.lateLabel ?? "Overdue"} />
+      ) : null}
       <StatusDot status={task.state} label={task.stateLabel} />
     </span>
   );

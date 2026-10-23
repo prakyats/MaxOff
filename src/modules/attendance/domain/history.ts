@@ -73,19 +73,27 @@ export function dayTimes(day: Pick<HistoryDay, "startedAt" | "endedAt" | "endNot
 }
 
 /**
- * The table's "Start · end" (the approved pull-in sample, V5b-D): both taps ("10:04 am · 6:40 pm"),
- * one of them ("Not recorded · 6:40 pm", "10:04 am · —"), **"Not recorded"** when neither came on
- * a working day, and "—" on a day away (leave, comp leave or a day off) where none was expected.
+ * The table's "Start · end" (the approved pull-in sample, V5b-D): both taps ("10:04 am · 6:40 pm");
+ * **"Not recorded"** for whichever side is missing on a working day ("Not recorded · 6:40 pm",
+ * "10:04 am · Not recorded", v1.8 pull-in item 2), or alone when neither came; and "—" on a day
+ * away (leave, comp leave or a day off) where none was expected. Today's end, while the day is
+ * still open, is "—": it is not missing yet (the nightly flag, `endNotRecorded`, says so once it is).
  */
 export function dayTimesLine(
-  day: Pick<HistoryDay, "startedAt" | "endedAt" | "endNotRecorded" | "finalStatus" | "isDayOff">,
+  day: Pick<
+    HistoryDay,
+    "workDate" | "startedAt" | "endedAt" | "endNotRecorded" | "finalStatus" | "isDayOff"
+  >,
+  today: string,
 ): string {
   if (!day.startedAt && !day.endedAt) {
     const away = day.finalStatus === "leave" || day.finalStatus === "comp_leave" || day.isDayOff;
     return away && !day.endNotRecorded ? "—" : "Not recorded";
   }
   const { start, end } = dayTimes(day);
-  return `${day.startedAt ? start : "Not recorded"} · ${end}`;
+  const stillOpen = day.workDate >= today && !day.endNotRecorded;
+  const endText = day.endedAt ? end : stillOpen ? "—" : "Not recorded";
+  return `${day.startedAt ? start : "Not recorded"} · ${endText}`;
 }
 
 /**

@@ -41,6 +41,15 @@ describe("describeMemberActivity (PP-person-1)", () => {
       "MaxOff",
     );
   });
+  it("says You for the reader's own changes (v1.8 pull-in item 5)", () => {
+    expect(describeMemberActivity(entry({ action: "invited" }), names, "owner")?.actor).toBe("You");
+    expect(
+      describeMemberActivity(entry({ action: "invited", actorId: "admin" }), names, "owner")?.actor,
+    ).toBe("Someone");
+    expect(
+      describeMemberActivity(entry({ action: "invited", actorId: null }), names, "owner")?.actor,
+    ).toBe("MaxOff");
+  });
   it("drops what a reader does not need", () => {
     expect(text({ new: { last_seen_at: "x" } })).toBeUndefined();
     expect(text({ action: "delete" })).toBeUndefined();

@@ -63,20 +63,41 @@ describe("approveDayLabel (V5b-D)", () => {
 });
 
 describe("dayTimesLine (V5b-D, the approved pull-in sample)", () => {
-  it("reads both taps, one of them, or Not recorded on a working day", () => {
+  // DAY is 2026-09-24; a later "today" makes it a past day.
+  const LATER = "2026-09-30";
+  it("reads both taps, or Not recorded for whichever side is missing on a working day (pull-in 2)", () => {
     expect(
-      dayTimesLine(day({ startedAt: "2026-09-24T03:42:00Z", endedAt: "2026-09-24T13:00:00Z" })),
+      dayTimesLine(
+        day({ startedAt: "2026-09-24T03:42:00Z", endedAt: "2026-09-24T13:00:00Z" }),
+        LATER,
+      ),
     ).toBe("9:12 am · 6:30 pm");
-    expect(dayTimesLine(day({ startedAt: "2026-09-24T03:40:00Z" }))).toBe("9:10 am · —");
-    expect(dayTimesLine(day({ endedAt: "2026-09-24T13:00:00Z" }))).toBe("Not recorded · 6:30 pm");
-    expect(dayTimesLine(day({}))).toBe("Not recorded");
-    expect(dayTimesLine(day({ endNotRecorded: true, isDayOff: true }))).toBe("Not recorded");
+    expect(dayTimesLine(day({ startedAt: "2026-09-24T03:40:00Z" }), LATER)).toBe(
+      "9:10 am · Not recorded",
+    );
+    expect(
+      dayTimesLine(day({ startedAt: "2026-09-24T03:40:00Z", endNotRecorded: true }), LATER),
+    ).toBe("9:10 am · Not recorded");
+    expect(dayTimesLine(day({ endedAt: "2026-09-24T13:00:00Z" }), LATER)).toBe(
+      "Not recorded · 6:30 pm",
+    );
+    expect(dayTimesLine(day({}), LATER)).toBe("Not recorded");
+    expect(dayTimesLine(day({ endNotRecorded: true, isDayOff: true }), LATER)).toBe("Not recorded");
+  });
+
+  it("leaves today's end as a dash while the day is still open", () => {
+    expect(dayTimesLine(day({ startedAt: "2026-09-24T03:40:00Z" }), "2026-09-24")).toBe(
+      "9:10 am · —",
+    );
+    expect(
+      dayTimesLine(day({ startedAt: "2026-09-24T03:40:00Z", endNotRecorded: true }), "2026-09-24"),
+    ).toBe("9:10 am · Not recorded");
   });
 
   it("is a dash on a day away, where no time was expected", () => {
-    expect(dayTimesLine(day({ finalStatus: "leave" }))).toBe("—");
-    expect(dayTimesLine(day({ finalStatus: "comp_leave" }))).toBe("—");
-    expect(dayTimesLine(day({ isDayOff: true }))).toBe("—");
+    expect(dayTimesLine(day({ finalStatus: "leave" }), LATER)).toBe("—");
+    expect(dayTimesLine(day({ finalStatus: "comp_leave" }), LATER)).toBe("—");
+    expect(dayTimesLine(day({ isDayOff: true }), LATER)).toBe("—");
   });
 });
 

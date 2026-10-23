@@ -1,4 +1,4 @@
-import { addISTDays, spanWords as spanWordsMs, toISTDate, type ISODate } from "@/core/time";
+import { addISTDays, lateWords, toISTDate, type ISODate } from "@/core/time";
 
 import { inlineDay } from "./days";
 import { byStart, type DayEvent } from "./my-day";
@@ -487,11 +487,6 @@ export function spanWords(hours: number): string {
   const whole = Math.max(0, Math.floor(hours));
   if (whole < 48) return `${whole} h`;
   return `${Math.floor(whole / 24)} days`;
-}
-
-/** "3 h late", "2 days late": how late a task is, `ms` past its deadline, as a chip says it. */
-export function lateWords(ms: number): string {
-  return `${spanWordsMs(ms)} late`;
 }
 
 /** What a risk row says and where it goes (decisions 6, 10). */

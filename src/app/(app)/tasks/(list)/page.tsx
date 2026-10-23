@@ -17,7 +17,7 @@ import {
   countRequestsToDecide,
   countTasks,
   forLabel,
-  isOverdue,
+  lateLabel,
   listUnreadCounts,
   MY_GROUP_TITLES,
   MY_LIST_GROUPS,
@@ -170,7 +170,7 @@ export default async function TasksPage() {
                       meta={rowMeta(item.row, context)}
                       status={item.row.state}
                       statusLabel={stateLabel(item.row, labelViewer)}
-                      flag={reasonFlag(item)}
+                      flag={reasonFlag(item, now)}
                       note={needsNote(item, viewer.id, context.nameOf)}
                       unread={unread[item.row.id] ?? 0}
                     />
@@ -339,7 +339,8 @@ function rowFlag(
   row: TaskListRow,
   now: Date,
 ): { label: string; tone: "danger" | "attention" } | null {
-  if (isOverdue(row, now)) return { label: "Overdue", tone: "danger" };
+  const late = lateLabel(row, now);
+  if (late) return { label: late, tone: "danger" };
   if (row.priority === "urgent" || row.priority === "high") {
     return {
       label: PRIORITY_LABELS[row.priority],
@@ -349,10 +350,13 @@ function rowFlag(
   return null;
 }
 
-function reasonFlag(item: NeedsYouItem): { label: string; tone: "danger" | "attention" } {
+function reasonFlag(
+  item: NeedsYouItem,
+  now: Date,
+): { label: string; tone: "danger" | "attention" } {
   switch (item.reason) {
     case "overdue":
-      return { label: "Overdue", tone: "danger" };
+      return { label: lateLabel(item.row, now) ?? "Overdue", tone: "danger" };
     case "changes_requested":
       return { label: "Changes requested", tone: "attention" };
     case "to_approve":
