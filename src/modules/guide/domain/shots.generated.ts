@@ -56,13 +56,13 @@ export const GUIDE_SHOTS: Readonly<
   "staff/task-noted": {
     src: "/guide/staff/task-noted.webp",
     width: 1184,
-    height: 514,
+    height: 507,
     alt: "A new task's page with the Task Noted button highlighted.",
   },
   "staff/task-stages": {
     src: "/guide/staff/task-stages.webp",
     width: 1216,
-    height: 524,
+    height: 517,
     alt: "A started task with its list of stages highlighted, the first one ticked.",
   },
   "staff/mark-done": {
@@ -128,7 +128,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/task-review": {
     src: "/guide/admin/task-review.webp",
     width: 1184,
-    height: 724,
+    height: 717,
     alt: "A handed-in task with the Request changes and Approve buttons highlighted.",
   },
   "admin/task-stages": {
@@ -302,19 +302,19 @@ export const GUIDE_SHOTS: Readonly<
   "owner/task-approve": {
     src: "/guide/owner/task-approve.webp",
     width: 1184,
-    height: 724,
+    height: 717,
     alt: "A task the Admin has checked, with the Owner's Approve button highlighted.",
   },
   "owner/task-menu": {
     src: "/guide/owner/task-menu.webp",
     width: 1184,
-    height: 724,
+    height: 717,
     alt: "A task's menu open with Decide it yourself highlighted.",
   },
   "owner/remind": {
     src: "/guide/owner/remind.webp",
-    width: 1216,
-    height: 642,
+    width: 1184,
+    height: 583,
     alt: "A task not noted yet, with the Remind button highlighted.",
   },
   "owner/calendar": {
