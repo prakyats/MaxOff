@@ -844,7 +844,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed “Archived (n)” at their foot, each with Restore), Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed “Archived (n)” at their foot, each with Restore), Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",

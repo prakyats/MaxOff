@@ -18,13 +18,13 @@ import { TaskRowsSkeleton } from "@/modules/tasks";
 /**
  * Today as it renders (6.2, 6.3), traced per role (ARCHITECTURE §14.1). **The Owner's** (the Today
  * refresh, owner 2026-10-09): "Needs you", its heading and two compact approval rows (the same
- * row height, the kind label and title, the two meta lines, the one outlined button), then the
+ * row height, the kind label, the person's photo and title, the two meta lines, the one outlined button), then the
  * attendance section, its heading and the strip of four counts. Needs you always stands ("Nothing
  * needs you." when empty) and the card always follows it, so the first screen keeps this shape;
  * the sections after the card (My tasks, 6b.2; Today's tasks, Client work, Overdue and risks,
  * This week) are hidden when empty (decision 24), so they are drawn below the card only once their
  * data says they exist and nothing traced here moves. **An Admin's:** the one-line attendance strip, then "Needs
- * you": its heading and two `TaskRow`s, then Client work (7.3): its heading and two rows. A Crew
+ * you": its heading and two `TaskRow`s (led by the primary owner's photo), then Client work (7.3): its heading and two rows. A Crew
  * member who types the address is taken to My Day, whose shape this is too (the strip and a
  * section). **V5b major change 1:** the header's date line (and the phone's), and the two
  * columns (`DayColumns`): from an 896 px content width "This week" is the right column, traced
@@ -50,9 +50,9 @@ export default async function Loading() {
             <section className="flex min-w-0 flex-col gap-2">
               <DashSectionHeadingSkeleton />
               {owner ? (
-                <ApprovalRowsSkeleton rows={2} />
+                <ApprovalRowsSkeleton rows={2} avatars />
               ) : (
-                <TaskRowsSkeleton rows={2} notes={2} label="Needs you" />
+                <TaskRowsSkeleton rows={2} notes={2} label="Needs you" avatars />
               )}
             </section>
             {owner ? (

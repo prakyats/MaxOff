@@ -44,11 +44,11 @@ export default async function Loading() {
         >
           <section className="flex min-w-0 flex-col gap-2">
             <TaskSectionHeadingSkeleton />
-            <TaskRowsSkeleton rows={2} notes={2} label="Needs you" />
+            <TaskRowsSkeleton rows={2} notes={2} label="Needs you" avatars />
           </section>
           <section className="flex min-w-0 flex-col gap-2">
             <TaskSectionHeadingSkeleton />
-            <TaskRowsSkeleton rows={4} label="Open tasks" />
+            <TaskRowsSkeleton rows={4} label="Open tasks" avatars />
           </section>
           <LinksSkeleton />
           <span className="sr-only">Loading tasks</span>

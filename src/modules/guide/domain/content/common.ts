@@ -103,7 +103,7 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
     blocks: [
       {
         kind: "text",
-        text: "Everyone on the team sees everyone's photo beside their name: in task chat, on a task's people, in the calendar's day, in Alerts and on the screens that list people. Without a photo, your initials show on a colour that is always yours. A photo never appears inside the calendar's month boxes or long tables.",
+        text: "Everyone on the team sees everyone's photo beside their name: in task chat, on a task's people, in the calendar's day, in Alerts and on the screens that list people. The Owner and Admins also see it on the rows waiting for their decision (on a task, whoever handed it in), on Today, on the Tasks tab's rows (whose task it is) and when picking people for a task. Without a photo, your initials show on a colour that is always yours. A photo never appears inside the calendar's month boxes or long tables.",
       },
       {
         kind: "steps",

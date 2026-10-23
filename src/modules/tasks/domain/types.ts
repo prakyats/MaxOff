@@ -57,6 +57,8 @@ export type AssignablePerson = {
   jobTitle: string | null;
   /** The freelancer's current coordinator's name (null for an employee, or when unknown). */
   coordinatorName: string | null;
+  /** Their photo (`members.avatar_file_id`, from the directory already read; #89). */
+  avatarFileId?: string | null;
 };
 
 /** A client a task may be labelled with: the Owner's any, an Admin's own (kickoff 4 decision 2). */

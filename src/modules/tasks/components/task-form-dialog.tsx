@@ -16,6 +16,7 @@ import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
 import { nameSlide } from "@/core/ui/motion/slide";
@@ -660,6 +661,10 @@ function TaskForm({
                         onChange={() => update({ primaryOwnerId: id })}
                         aria-label={`${name} is the primary owner`}
                       />
+                      <PersonAvatar
+                        person={{ id, name, avatarFileId: person?.avatarFileId ?? null }}
+                        size={20}
+                      />
                       <span className="flex min-w-0 flex-col">
                         <span className="truncate text-sm font-medium">{name}</span>
                         <span className="text-muted-foreground text-xs break-words">
@@ -721,9 +726,20 @@ function TaskForm({
             <SelectContent>
               {available.map((person) => (
                 <SelectItem key={person.id} value={person.id}>
-                  <span className="flex min-w-0 flex-col">
-                    <span>{person.name}</span>
-                    <span className="text-muted-foreground text-xs"> · {personMeta(person)}</span>
+                  {/* Their photo beside the name, in the menu and the phone's sheet alike (#89). */}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <PersonAvatar
+                      person={{
+                        id: person.id,
+                        name: person.name,
+                        avatarFileId: person.avatarFileId ?? null,
+                      }}
+                      size={20}
+                    />
+                    <span className="flex min-w-0 flex-col">
+                      <span>{person.name}</span>
+                      <span className="text-muted-foreground text-xs"> · {personMeta(person)}</span>
+                    </span>
                   </span>
                 </SelectItem>
               ))}

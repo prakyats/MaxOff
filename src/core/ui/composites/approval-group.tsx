@@ -46,10 +46,11 @@ export type ApprovalRow = {
   /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
   marker?: ReactNode;
   /**
-   * The person the row is about, when its title is their name (attendance, leave, extra work,
-   * expenses): their photo leads the row (20 px, V5b-D). Read with the name, never per row.
+   * The person the row is about (attendance, leave, extra work, expenses; a task's hand-in, #89):
+   * their photo leads the row, or sits before the name in a compact row (20 px, V5b-D). Read with
+   * the name or from the directory the page already holds, never per row.
    */
-  avatar?: AvatarPerson;
+  avatar?: AvatarPerson | undefined;
   /**
    * How long it has waited for the decision ("Waiting 4 days") and its colour: muted, amber from a
    * day, red from three (the Owner's Today rows, `layout="rows"`; the words carry the meaning).
@@ -461,11 +462,12 @@ function CompactRow({
           <span data-slot="approval-kind" className="text-muted-foreground shrink-0 text-xs">
             {kind}
           </span>
-          <span
-            data-slot="approval-title"
-            className="min-w-0 flex-[1_1_6rem] truncate text-sm font-medium"
-          >
-            {row.title}
+          {/* The photo stays with the name when the name drops under the kind (§14.2 i; #89). */}
+          <span className="flex min-w-0 flex-[1_1_6rem] items-center gap-1.5">
+            {row.avatar ? <PersonAvatar person={row.avatar} size={20} /> : null}
+            <span data-slot="approval-title" className="min-w-0 truncate text-sm font-medium">
+              {row.title}
+            </span>
           </span>
           {row.marker}
         </span>

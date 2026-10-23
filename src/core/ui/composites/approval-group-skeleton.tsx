@@ -9,7 +9,14 @@ import { APPROVAL_ROW_MIN_H, LIST_ROW_MIN_H } from "./row-metrics";
  * two meta lines (what and when; how long it has waited) under it, and the one outlined button
  * beside them (44px on a phone, 32px from `md`).
  */
-export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
+export function ApprovalRowsSkeleton({
+  rows = 2,
+  avatars = false,
+}: {
+  rows?: number;
+  /** The person's 20 px photo before the name (#89). */
+  avatars?: boolean;
+}) {
   return (
     <ul
       aria-hidden
@@ -21,6 +28,7 @@ export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 pl-4">
             <div className="flex h-5 min-w-0 items-center gap-2">
               <Skeleton className="h-3 w-12 shrink-0" />
+              {avatars ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
               <Skeleton className="h-3.5 w-32 max-w-full" />
             </div>
             <div className="flex h-4 min-w-0 items-center">

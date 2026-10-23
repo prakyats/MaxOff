@@ -54,7 +54,8 @@ export function DayAgenda({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} events={false} />
+          {/* Each person's photo beside their leave, as the day sheet's (V5b-D, #89). */}
+          <AllDayChips day={day} today={today} dueAsChip={false} events={false} avatars />
         </div>
       ) : null}
       {split && tasks > 0 ? (

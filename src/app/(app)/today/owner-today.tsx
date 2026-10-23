@@ -157,6 +157,13 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const names = new Map(directory.map((member) => [member.id, member]));
   const nameOf = (id: string) => names.get(id)?.fullName ?? "Someone";
   const nameRecord = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  // Each person's photo, from the directory already read (#89): no read of its own.
+  const faces = Object.fromEntries(
+    directory.map((member) => [
+      member.id,
+      { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId },
+    ]),
+  );
   const rowContext = {
     viewerId: viewer.id,
     nameOf: (id: string) => (id === viewer.id ? "you" : nameOf(id)),
@@ -194,7 +201,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     ...mine.rows.map((row) => row.id),
   ]);
   const tasks = shown.toDecide.map((item) => ({
-    ...taskItem(item, nameRecord, true),
+    ...taskItem(item, nameRecord, true, faces),
     unread: unread[item.row.id] ?? 0,
   }));
   // How long each has waited for the Owner: from the hand-in, or the approving Admin's approval
@@ -286,6 +293,11 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                         href="/approvals"
                         kind="Attendance"
                         name={person.memberName}
+                        person={{
+                          id: person.memberId,
+                          name: person.memberName,
+                          avatarFileId: person.days[0]?.memberAvatarFileId ?? null,
+                        }}
                         detail={person.label}
                         waiting={waiting.folded[person.memberId] ?? null}
                       />
@@ -414,6 +426,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                   label="Overdue and risks"
                   slot="today-risk-rows"
                   nameOf={nameOf}
+                  faceOf={(id) => faces[id]}
                   today={today}
                   now={now}
                 />

@@ -84,6 +84,13 @@ export default async function TasksPage() {
       ]),
     );
   const names = new Map(directory.map((member) => [member.id, member]));
+  // The primary owner's photo on a team row, from the directory already read (#89).
+  const faceOf = (id: string) => {
+    const member = names.get(id);
+    return member
+      ? { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId }
+      : undefined;
+  };
   const clients = new Map(labels.map((label) => [label.id, label.name]));
   const context = {
     viewerId: viewer.id,
@@ -190,6 +197,7 @@ export default async function TasksPage() {
                       flag={reasonFlag(item, now)}
                       note={needsNote(item, viewer.id, context.nameOf)}
                       unread={unread[item.row.id] ?? 0}
+                      person={faceOf(item.row.primaryOwnerId)}
                     />
                   ))}
                 </TaskRowList>
@@ -218,6 +226,7 @@ export default async function TasksPage() {
                   statusLabel={stateLabel(row, labelViewer)}
                   flag={rowFlag(row, now)}
                   unread={unread[row.id] ?? 0}
+                  person={faceOf(row.primaryOwnerId)}
                 />
               ))}
             </TaskRowList>

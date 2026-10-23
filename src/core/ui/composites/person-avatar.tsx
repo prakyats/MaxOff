@@ -10,7 +10,10 @@ import { fileUrl } from "@/core/storage";
 
 /**
  * A person's photo beside their name (v1.8 V5b-D, the approved pull-in sample): task chat, the
- * task's people, Approvals rows, People, a person's page, the calendar day popup and Alerts;
+ * task's people, Approvals rows (a task's by whoever handed it in), People, a person's page, the
+ * calendar day popup and sheet, Alerts, and since #89 (owner: "wherever a person is shown") the
+ * Today Needs you and risk rows, the Tasks tab's team rows (the primary owner), New task and
+ * Edit's people, and a client's Admin, each from a read the page already makes;
  * **never** inside calendar month boxes or long tables, with one exception: the laptop calendar's
  * leave bar, as "[photo] Leave" where even "Name · Leave" has no room (owner 23 Oct). Four fixed sizes (20 list rows, 28 chat
  * and Alerts, 40 People and headers, 64 a person's page and Me) and a fine ring in both themes

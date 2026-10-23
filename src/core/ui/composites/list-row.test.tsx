@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ChatCount, chatCountLabel, ListRow, rowParts } from "./list-row";
+import { PersonAvatar } from "./person-avatar";
 
 /** The one row anatomy (FINAL 5) and the truncation rule (owner, comment 6322342277). */
 describe("rowParts", () => {
@@ -62,6 +63,27 @@ describe("ListRow", () => {
     const chips = out.indexOf('data-slot="list-row-chips"');
     expect(badge).toBeGreaterThan(title);
     expect(badge).toBeLessThan(chips);
+  });
+
+  it("puts a person's photo before the title, on the title's line (#89)", () => {
+    const out = html({
+      title: "Reel edit",
+      href: "/tasks/1",
+      meta: "Due today · Asha",
+      lead: <PersonAvatar person={{ id: "a", name: "Asha Rao", avatarFileId: "f1" }} size={20} />,
+    });
+    const photo = out.indexOf('data-slot="person-avatar"');
+    const title = out.indexOf('data-slot="list-row-title"');
+    const meta = out.indexOf('data-slot="list-row-meta"');
+    expect(photo).toBeGreaterThan(-1);
+    expect(photo).toBeLessThan(title);
+    expect(meta).toBeGreaterThan(title);
+    expect(out).toContain('alt=""');
+    expect(out).toContain('aria-hidden="true"');
+  });
+
+  it("draws no photo when the row has none", () => {
+    expect(html({ title: "Reel edit" })).not.toContain("person-avatar");
   });
 });
 

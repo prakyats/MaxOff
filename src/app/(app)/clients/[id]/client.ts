@@ -61,6 +61,13 @@ export const loadClientWork = cache(async (id: string) => {
 export const loadPeople = cache(async () => {
   const members = await listDirectory();
   const names = Object.fromEntries(members.map((member) => [member.id, member.fullName]));
+  // Each member's photo, from the same read (#89): the client's Admin on its page.
+  const faces = Object.fromEntries(
+    members.map((member) => [
+      member.id,
+      { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId },
+    ]),
+  );
   const admins = members
     .filter((member) => member.role === "admin" && member.status === "active")
     .map((member) => ({ id: member.id, name: member.fullName }))
@@ -70,5 +77,5 @@ export const loadPeople = cache(async () => {
     .map((member) => ({ id: member.id, name: member.fullName }));
   // The Owner's id: his send-back of a done item reads "Sent back", an Admin's "Reopened" (D3).
   const ownerId = members.find((member) => member.role === "owner")?.id ?? null;
-  return { names, admins, options, ownerId };
+  return { names, faces, admins, options, ownerId };
 });
