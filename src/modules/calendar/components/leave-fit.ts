@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useLayoutEffect } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 
 /** A leave label's wordings, chosen by `fitLeaveLabels`. */
 export const LEAVE_FIT = "data-leave-fit";
@@ -53,15 +53,32 @@ const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffe
  * 6370526089).
  */
 export function useLeaveFit(ref: RefObject<HTMLElement | null>): void {
+  const observer = useRef<ResizeObserver | null>(null);
   useBeforePaint(() => {
-    if (ref.current) fitLeaveLabels(ref.current);
+    const root = ref.current;
+    if (!root) return;
+    fitLeaveLabels(root);
+    // Each label too, not only the area: a day's box can change width while the area keeps its
+    // own (the grid sharing its columns out again, a scrollbar arriving), and a label fitted in
+    // the old width would be cut in the new one (CI run 40027602606: the month at 1280).
+    // Observing an element twice is a no-op; a label that leaves the page drops out on its own.
+    for (const label of root.querySelectorAll<HTMLElement>(`[${LEAVE_FIT}]`)) {
+      observer.current?.observe(label);
+    }
   });
   useEffect(() => {
     const root = ref.current;
     if (!root || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => fitLeaveLabels(root));
-    observer.observe(root);
-    return () => observer.disconnect();
+    const watching = new ResizeObserver(() => fitLeaveLabels(root));
+    watching.observe(root);
+    for (const label of root.querySelectorAll<HTMLElement>(`[${LEAVE_FIT}]`)) {
+      watching.observe(label);
+    }
+    observer.current = watching;
+    return () => {
+      watching.disconnect();
+      observer.current = null;
+    };
   }, [ref]);
   useRefitOnFonts(ref, fitLeaveLabels);
 }
