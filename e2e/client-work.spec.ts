@@ -844,6 +844,10 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
     `${word}${shortOf(addDays(today(), -2))} · 2 days late`,
   );
   await expect(planned("Late item")).toHaveAttribute("data-tone", "danger");
+  // The lateness is a red chip, never red text alone (the design gate, 23 Oct).
+  await expect(planned("Late item").locator('[data-slot="badge"][data-tone="danger"]')).toHaveText(
+    "2 days late",
+  );
   await expect(planned("Soon item")).toHaveText(`${word}${shortOf(addDays(today(), 3))}`);
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
@@ -896,6 +900,20 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   await expect(ring).toHaveAttribute("data-total", "12");
   await expect(page.locator('[data-slot="cycle-pace"]')).toHaveText("1 behind plan");
   await expect(page.locator('[data-slot="cycle-pace"]')).toHaveAttribute("data-tone", "danger");
+  // A chip (the design gate, 23 Oct); and green is progress only: the ring's other segments, the
+  // open deliverables' next stages and the rest, are grey.
+  await expect(
+    page.locator('[data-slot="cycle-pace"] [data-slot="badge"][data-tone="danger"]'),
+  ).toHaveText("1 behind plan");
+  const greens = await ring.locator("circle").evaluateAll((circles) => {
+    const stroke = (tone: string) =>
+      circles
+        .filter((circle) => circle.getAttribute("data-tone") === tone)
+        .map((circle) => getComputedStyle(circle).stroke);
+    const [done] = stroke("done");
+    return [...stroke("next"), ...stroke("rest")].filter((value) => value === done).length;
+  });
+  expect(greens, "only the done segments are green").toBe(0);
 
   // A tick moves it at once, and after a reload.
   await itemRow(page, "Soon item").locator('[data-slot="item-open"]').click();

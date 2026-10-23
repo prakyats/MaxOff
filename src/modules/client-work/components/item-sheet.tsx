@@ -49,6 +49,7 @@ import type { ItemView } from "../domain/views";
 
 import { SentBackNote } from "./sent-back-note";
 import { tickWithUndo } from "./tick-with-undo";
+import { PlannedWords } from "./planned-words";
 
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 
@@ -407,13 +408,7 @@ export function ItemSheet({
                 facts={[
                   {
                     label: "Planned",
-                    value: current.planned ? (
-                      <span className={cn(current.planned.overdue && "text-destructive")}>
-                        {current.planned.text}
-                      </span>
-                    ) : (
-                      "No date"
-                    ),
+                    value: current.planned ? <PlannedWords planned={current.planned} /> : "No date",
                   },
                   ...(current.carriedFrom ? [{ label: "From", value: current.carriedFrom }] : []),
                   ...current.history.map((line, index) => ({

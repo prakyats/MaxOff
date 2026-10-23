@@ -30,6 +30,7 @@ import { PROGRESS_GRID } from "./deliverable-columns";
 import type { ItemRowMenuProps } from "./item-row-menu";
 import { ItemRowMenuTrigger } from "./item-row-menu-trigger";
 import { SentBackNote } from "./sent-back-note";
+import { PlannedWords } from "./planned-words";
 
 /** Above the row's stretched open target (`ROW_OPEN`): the row's own controls keep their taps. */
 const OVER_ROW = "relative z-10";
@@ -72,7 +73,7 @@ function RowMenu(props: Omit<ItemRowMenuProps, "defaultOpen">) {
   );
 }
 
-/** "Planned 21 Oct", "Planned 18 Oct · 2 days late" (the overdue tone), "Not planned" (muted). */
+/** "Planned 21 Oct", "Planned 18 Oct" and a red "2 days late" chip, "Not planned" (muted). */
 function PlannedText({
   item,
   className,
@@ -99,9 +100,10 @@ function PlannedText({
       data-slot="item-planned"
       data-planned={item.planned.overdue ? "late" : "planned"}
       data-tone={item.planned.overdue ? "danger" : undefined}
-      className={cn(item.planned.overdue ? "text-danger" : "text-muted-foreground", className)}
+      className={cn("text-muted-foreground", className)}
     >
-      {short ? item.planned.text.replace(/^Planned /, "") : item.planned.text}
+      {/* The date, then the lateness as a red chip (the design gate, 23 Oct). */}
+      <PlannedWords planned={item.planned} short={short} />
     </span>
   );
 }

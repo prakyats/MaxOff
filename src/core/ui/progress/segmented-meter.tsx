@@ -2,8 +2,8 @@ import { cn } from "@/core/lib/utils";
 
 /**
  * The segmented progress meter (ROADMAP 6b.11 (5); owner 2026-10-10: "very premium, high
- * quality", to motivate by showing the work moving): one segment per step, the done ones solid,
- * the next ones lighter, the rest a quiet track. A **ring** for a cycle on its project page; the
+ * quality", to motivate by showing the work moving): one segment per step, the done ones solid
+ * green, the next ones a neutral step darker than the rest, the quiet neutral track. A **ring** for a cycle on its project page; the
  * one continuous **bar** (`ProgressBar`, P4) in miniature wherever a project, a cycle or a
  * deliverable is listed, and the same bar (nothing done yet) on the template preview's cards. Server-safe (no hooks), so a list pays no
  * JavaScript for it.
@@ -21,12 +21,14 @@ export const SEGMENTED_MAX = 48;
 
 const EASE =
   "transition-[stroke,background-color,stroke-dasharray,stroke-dashoffset,width] duration-700 ease-out motion-reduce:transition-none";
+// Green is progress only (the design gate, 23 Oct: a 0% ring and a 0/3 bar read green): the track
+// is neutral, and an open deliverable's next stage one neutral step darker, never a green tint.
 const TONE_STROKE = {
   done: "stroke-success",
-  next: "stroke-success/35",
+  next: "stroke-neutral/30",
   rest: "stroke-neutral-soft",
 };
-const TONE_FILL = { done: "bg-success", next: "bg-success/35", rest: "bg-neutral-soft" };
+const TONE_FILL = { done: "bg-success", next: "bg-neutral/30", rest: "bg-neutral-soft" };
 
 type Tone = keyof typeof TONE_STROKE;
 

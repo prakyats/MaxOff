@@ -1,7 +1,7 @@
 import { groupRows } from "@/core/lib/stage-groups";
 import { formatIST, type ISODate } from "@/core/time";
 
-import { activeStages, carriedFromLabel, ITEM_RULES, plannedLine } from "./items";
+import { activeStages, carriedFromLabel, ITEM_RULES, type PlannedLine, plannedLine } from "./items";
 import { itemMeter } from "./progress";
 import { ITEM_STATE_LABELS, type Item, type ItemStage, type ItemState, type Review } from "./types";
 
@@ -55,7 +55,7 @@ export type ItemView = {
   state: ItemState;
   stateLabel: string;
   /** "Overdue · 6 Oct", "Due today", "Planned 10 Oct". */
-  planned: { text: string; overdue: boolean } | null;
+  planned: PlannedLine | null;
   /** "Carried from September" on a carried-in item. */
   carriedFrom: string | null;
   /** The item's own active stages, in order, each ticked or not (amendment D2). */
@@ -197,7 +197,7 @@ export type ItemRowView = {
   cycleLabel: string | null;
   state: ItemState;
   stateLabel: string;
-  planned: { text: string; overdue: boolean } | null;
+  planned: PlannedLine | null;
   plannedDate: string | null;
   /** The deliverable's own stages as a miniature (6b.11 (5)); null when it has none. */
   meter: { done: number; next: number; total: number } | null;
