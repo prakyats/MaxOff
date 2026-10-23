@@ -247,9 +247,27 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await expect(page.getByText("No projects yet.")).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
+  // The title names the client (the approved sample; the design gate, 23 Oct).
+  await expect(dialog.getByRole("heading", { name: `New project · ${client}` })).toBeVisible();
   await dialog.getByLabel("Project name").fill("Monthly reels");
   // Step 2: the default stages as one untitled group (a group without a name), then "Reel" × 3.
   await newProjectStep(dialog, 2);
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    // A phone: the steps on one line ("3 Preview"), Back and Next side by side.
+    const steps = dialog.locator('[data-slot="new-project-steps"]');
+    await expect(steps).toHaveText(/^1 Basics\s*2 Deliverables\s*3 Preview$/, {
+      useInnerText: true,
+    });
+    const line = await steps.evaluate(
+      (element) =>
+        element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight),
+    );
+    expect(Math.round(line), "the stepper is one line").toBe(1);
+    const back = await dialog.locator('[data-slot="new-project-back"]').boundingBox();
+    const next = await dialog.locator('[data-slot="new-project-next"]').boundingBox();
+    expect(Math.abs((back?.y ?? 0) - (next?.y ?? 99)), "Back and Next on one row").toBeLessThan(2);
+    expect(back?.x ?? 0, "Back first").toBeLessThan(next?.x ?? 0);
+  }
   await dialog.getByRole("button", { name: "Add a group" }).click();
   await dialog.getByLabel("Stages of the new group").fill("Script\nEdit");
   await dialog.getByRole("button", { name: "Add group" }).click();

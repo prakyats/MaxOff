@@ -891,7 +891,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create.",
+              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Shetty”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
             },
             {
               kind: "steps",

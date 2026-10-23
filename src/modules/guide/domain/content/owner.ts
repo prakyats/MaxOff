@@ -909,7 +909,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Name it, choose how often it repeats, list the deliverables.",
           blocks: [
             text(
-              "New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create.",
+              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Shetty"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
             ),
             steps(
               'Open the client, tap the Projects tab, then tap "New project".',

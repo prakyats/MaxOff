@@ -63,6 +63,7 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
         {canCreate ? (
           <NewProjectButton
             clientId={client.id}
+            clientName={client.name}
             today={today}
             presets={presets
               .filter((preset) => !preset.archived)

@@ -70,10 +70,11 @@ type Step = (typeof STEPS)[number];
 /** What step 1 checks before step 2: a missing name, a one-time project's delivery date. */
 type BasicsErrors = { name?: string | undefined; deliveryDate?: string | undefined };
 
-const STEP_LABELS: Record<Step, string> = {
-  basics: "Basics",
-  deliverables: "Deliverables & stages",
-  preview: "Preview & create",
+/** Each step's name: the short word, then what a laptop adds ("Deliverables" + " & stages"). */
+const STEP_LABELS: Record<Step, { short: string; more: string }> = {
+  basics: { short: "Basics", more: "" },
+  deliverables: { short: "Deliverables", more: " & stages" },
+  preview: { short: "Preview", more: " & create" },
 };
 
 const STEP_WORDS: Record<Step, string> = {
@@ -91,20 +92,26 @@ function errorStep(error: ResultError): Step {
   return fields.length > 0 ? "basics" : "preview";
 }
 
-/** "1 Basics · 2 Deliverables & stages · 3 Preview & create", the current one marked. */
+/**
+ * "1 Basics · 2 Deliverables & stages · 3 Preview & create", the current one marked; one line on a
+ * phone with the short names ("1 Basics — 2 Deliverables — 3 Preview", the approved sample).
+ */
 function StepsLine({ step }: { step: Step }) {
   const at = STEPS.indexOf(step);
   return (
     <ol
       data-slot="new-project-steps"
       aria-label={`Step ${at + 1} of ${STEPS.length}`}
-      className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+      className="text-muted-foreground flex min-w-0 flex-nowrap items-center gap-x-2 gap-y-1 text-xs whitespace-nowrap md:flex-wrap"
     >
       {STEPS.map((one, index) => (
         <li
           key={one}
           aria-current={one === step ? "step" : undefined}
-          className={cn("flex items-center gap-2", one === step && "text-foreground font-semibold")}
+          className={cn(
+            "flex min-w-0 items-center gap-2",
+            one === step && "text-foreground font-semibold",
+          )}
         >
           {index > 0 ? (
             <span
@@ -112,7 +119,10 @@ function StepsLine({ step }: { step: Step }) {
               className={cn("h-px w-4", index <= at ? "bg-foreground/40" : "bg-border")}
             />
           ) : null}
-          {index + 1} {STEP_LABELS[one]}
+          <span>
+            {index + 1} {STEP_LABELS[one].short}
+            <span className="max-md:hidden">{STEP_LABELS[one].more}</span>
+          </span>
         </li>
       ))}
     </ol>
@@ -176,6 +186,8 @@ function templateShape(template: TemplateOption): {
  */
 export type NewProjectProps = {
   clientId: string;
+  /** The client's name: the title says "New project · Shetty" (the approved sample). */
+  clientName: string;
   presets: readonly PresetOption[];
   templates: readonly TemplateOption[];
   definitions: readonly FieldDefinition[];
@@ -184,6 +196,7 @@ export type NewProjectProps = {
 
 export function NewProjectDialog({
   clientId,
+  clientName,
   presets,
   templates,
   definitions,
@@ -350,7 +363,7 @@ export function NewProjectDialog({
         <DialogContent data-slot="new-project-dialog" className="md:max-w-4xl">
           <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>New project</DialogTitle>
+              <DialogTitle>New project · {clientName}</DialogTitle>
               <DialogDescription>{STEP_WORDS[step]}</DialogDescription>
             </DialogHeader>
             <StepsLine step={step} />
@@ -566,7 +579,8 @@ export function NewProjectDialog({
 
             <ActionStatus action={action} />
             {/* One primary a step: Next, then Create project; Back (or Cancel on step 1). */}
-            <DialogFooter>
+            {/* Back and Next side by side on a phone from step 2 (the approved sample). */}
+            <DialogFooter className={cn(step !== "basics" && "max-md:grid max-md:grid-cols-2")}>
               {step === "basics" ? (
                 <Button
                   type="button"
