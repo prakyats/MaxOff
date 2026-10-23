@@ -44,11 +44,14 @@ export default function Loading() {
               key={section.key}
               className={cn(
                 TEMPLATE_TAB_ITEM_CLASS,
-                "flex items-center justify-center px-2 text-xs",
+                "flex items-center justify-center px-2 text-xs font-medium",
               )}
             >
-              {/* As wide as the name, so each segment keeps its width when the names arrive. */}
-              <Skeleton className="h-3" style={{ width: `${section.tab.length}ch` }} />
+              {/* The name, unseen, sizes the segment as the loaded one; the bar is drawn over it. */}
+              <span className="grid items-center">
+                <span className="invisible col-start-1 row-start-1">{section.tab}</span>
+                <Skeleton className="col-start-1 row-start-1 h-3 w-full" />
+              </span>
             </span>
           ))}
         </div>
