@@ -24,7 +24,6 @@ import {
   extrasCycles,
   extrasQuestion,
   getProject,
-  getProjectTemplateName,
   itemListPeriods,
   itemView,
   lastChangeOf,
@@ -54,7 +53,6 @@ import { KeepExtrasPrompt } from "@/modules/client-work/components/keep-extras-p
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
-import { listContacts } from "@/modules/clients";
 import { listStagePresets } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
@@ -113,17 +111,10 @@ export default async function ProjectPage({
   const askedItems = cycleParam && ID.test(cycleParam) ? listItems(cycleParam) : null;
   const unfinishedRead = listItemRows({ states: ["open", "done"], projectId });
   const fieldsRead = listDefinitions("project");
-  // Details' Client contact and Template cells (the v1.8 sample), keyed by the URL alone, so they
-  // join the first wave; RLS decides what the viewer reads (no money in either).
-  const contactsRead = listContacts(id);
-  const templateRead = getProjectTemplateName(projectId);
-  startEarly(
-    ...(askedItems ? [askedItems] : []),
-    unfinishedRead,
-    fieldsRead,
-    contactsRead,
-    templateRead,
-  );
+  // Details' Client contact and Template cells (the v1.8 sample) come embedded in the project
+  // read (`getProject`), not as reads of their own: the first wave stays within a Worker's
+  // ~6 concurrent connections (v1.8 speed fix 2).
+  startEarly(...(askedItems ? [askedItems] : []), unfinishedRead, fieldsRead);
   const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
     await checkThenRead(
       loadClientWork(id),
@@ -172,22 +163,15 @@ export default async function ProjectPage({
       items.flatMap((item) => (item.originCycleId !== item.cycleId ? [item.originCycleId] : [])),
     ),
   ];
-  const [itemStages, reviews, origins, unfinished, projectFields, changes, contacts, templateName] =
-    await Promise.all([
-      listItemStages(itemIds),
-      listReviews(itemIds),
-      listCyclesById(originIds),
-      unfinishedRead,
-      fieldsRead,
-      listLastChanges(itemIds),
-      contactsRead,
-      templateRead,
-    ]);
-  // The primary contact, else the first active one (the client's Contacts order).
-  const contact =
-    contacts.find((row) => row.isPrimary && row.archivedAt === null) ??
-    contacts.find((row) => row.archivedAt === null) ??
-    null;
+  const [itemStages, reviews, origins, unfinished, projectFields, changes] = await Promise.all([
+    listItemStages(itemIds),
+    listReviews(itemIds),
+    listCyclesById(originIds),
+    unfinishedRead,
+    fieldsRead,
+    listLastChanges(itemIds),
+  ]);
+  const { contactName, templateName } = project;
 
   const permissions = {
     manage: canManage && working,
@@ -461,8 +445,8 @@ export default async function ProjectPage({
             >
               <div className={DETAIL_CELL} data-slot="detail-contact">
                 <dt className="text-muted-foreground text-xs">Client contact</dt>
-                <dd className={cn("break-words", !contact && "text-muted-foreground")}>
-                  {contact ? contact.name : "Not added"}
+                <dd className={cn("break-words", !contactName && "text-muted-foreground")}>
+                  {contactName ?? "Not added"}
                 </dd>
               </div>
               <div className={DETAIL_CELL}>

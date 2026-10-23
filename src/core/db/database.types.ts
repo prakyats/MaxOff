@@ -4520,6 +4520,17 @@ export type Database = {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
       };
+      client_work_summary: {
+        Args: { on_date?: string };
+        Returns: {
+          client_id: string;
+          closed: number;
+          done: number;
+          late: number;
+          next_planned: string;
+          total: number;
+        }[];
+      };
       comp_leave_balance: {
         Args: { member_id?: string };
         Returns: {

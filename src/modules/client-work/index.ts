@@ -47,6 +47,7 @@ export {
   type NeedsYouPill,
 } from "./domain/progress";
 export {
+  clientDueOf,
   clientProgressLine,
   clientWorkLine,
   dueByClient,
@@ -103,6 +104,7 @@ export {
   RECURRENCES,
   type Blueprint,
   type CarryDecision,
+  type ClientWorkSummary,
   type Cycle,
   type Item,
   type ItemRow,
@@ -116,9 +118,9 @@ export {
 } from "./domain/types";
 export {
   getProject,
-  getProjectTemplateName,
   listBlueprints,
   listClientProjects,
+  listClientWorkSummaries,
   listCurrentCycles,
   listCurrentCycleMeters,
   listCycles,

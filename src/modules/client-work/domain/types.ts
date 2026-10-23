@@ -175,5 +175,19 @@ export type ItemRow = Item & {
   cyclePeriodEnd: string | null;
 };
 
+/**
+ * A client's running deliverables, added up (`client_work_summary()`, v1.8 speed fix 3): across
+ * its current cycles, the items counted (`progressOf`: not cancelled or carried), done (done or
+ * approved), closed (cancelled), late (open, planned before today) and the next open planned date.
+ */
+export type ClientWorkSummary = {
+  clientId: string;
+  total: number;
+  done: number;
+  closed: number;
+  late: number;
+  next: string | null;
+};
+
 /** What the people a screen names are called. */
 export type Names = Readonly<Record<string, string>>;

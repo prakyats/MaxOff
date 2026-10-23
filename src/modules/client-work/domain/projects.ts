@@ -5,6 +5,7 @@ import { cycleMeter, type CycleMeter, type MeterItem } from "./progress";
 import {
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
+  type ClientWorkSummary,
   type Cycle,
   type ItemState,
   type Project,
@@ -176,4 +177,13 @@ export function dueByClient(
     });
   }
   return due;
+}
+
+/**
+ * A client's Due from its summed running deliverables (`client_work_summary()`, the Clients list):
+ * the same answer `dueByClient` gives from the cycles, null when nothing open is dated.
+ */
+export function clientDueOf(summary: Pick<ClientWorkSummary, "late" | "next">): ClientDue | null {
+  if (summary.late === 0 && summary.next === null) return null;
+  return { late: summary.late, next: summary.next };
 }
