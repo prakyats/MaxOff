@@ -6,6 +6,7 @@ import { addISTDays, todayIST } from "../src/core/time";
 
 import {
   expectBackStack,
+  hydrated,
   memberIdOf,
   resetAttendanceAndLeave,
   resetExpenseClaims,
@@ -174,6 +175,9 @@ test.describe("installed: the report and the person's month are drill-downs", ()
     await runInstalled(page);
     await signInOwner(page);
     await page.goto("/reports");
+    // A tap before hydration is a full document load (found by main's CI on 9a25f066, when the
+    // installed app's first open re-fetched its chunks): the walk is about client navigation.
+    await hydrated(page);
     await page.locator('[data-slot="report-link"]').filter({ hasText: "Month" }).click();
     await expect(page).toHaveURL(/\/reports\/month$/);
     await page.getByRole("link", { name: "Previous month" }).click();
