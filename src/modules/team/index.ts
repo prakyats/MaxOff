@@ -6,6 +6,7 @@
  * `components/` (ADR-0011 amendment, task 2.8), because a barrel is not tree-shaken per route.
  */
 export { offerableJobTitles, type JobTitleOption } from "./domain/job-titles";
+export { describeMemberActivity, type MemberHistoryLine } from "./domain/activity";
 export {
   getOwnMember,
   getPerson,

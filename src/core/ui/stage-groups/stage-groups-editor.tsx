@@ -56,6 +56,8 @@ export type StageGroupsEditorProps = {
   /** At most this many stages in all (`STAGES_MAX`). */
   maxStages?: number;
   disabled?: boolean;
+  /** L9: false where the form gives the section its one hint (New project): no empty line. */
+  hints?: boolean;
 };
 
 /**
@@ -73,6 +75,7 @@ export function StageGroupsEditor({
   label,
   maxStages = STAGES_MAX,
   disabled = false,
+  hints = true,
 }: StageGroupsEditorProps) {
   const groups = value;
   const offset = groups[0]?.label === null ? 1 : 0;
@@ -105,7 +108,7 @@ export function StageGroupsEditor({
       data-slot="stage-groups-editor"
       className="flex min-w-0 flex-col gap-3"
     >
-      {groups.length === 0 ? (
+      {groups.length === 0 && hints ? (
         <p className="text-muted-foreground text-sm" data-slot="stage-groups-empty">
           No stages yet. Add a group of your own, or one from your stage presets.
         </p>
@@ -170,11 +173,10 @@ export function StageGroupsEditor({
                         <MoreHorizontalIcon aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-48">
+                    <DropdownMenuContent align="end" className="min-w-48" title={name || "Group"}>
                       <ReorderMenuItems reorder={groupReorder} index={at} />
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        variant="destructive"
                         onSelect={() => {
                           if (group.stages.length === 0) change(index, null);
                           else setRemoving(index);
@@ -255,6 +257,7 @@ export function StageGroupsEditor({
         {total} of {maxStages} stages
       </p>
       <ConfirmDialog
+        destructive
         open={removingGroup !== undefined}
         onOpenChange={(open) => {
           if (!open) setRemoving(null);
@@ -339,11 +342,10 @@ function StageList({
                     <MoreHorizontalIcon aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-48">
+                <DropdownMenuContent align="end" className="min-w-48" title={stage || "Stage"}>
                   <ReorderMenuItems reorder={reorder} index={index} />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    variant="destructive"
                     onSelect={() => onChange({ ...group, stages: removeAt(group.stages, index) })}
                   >
                     <Trash2Icon aria-hidden />
@@ -451,7 +453,7 @@ function AddGroupForm({
       />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button type="button" variant="secondary" onClick={onCancel} data-dismiss="">
           Cancel
         </Button>
         <Button type="button" variant="secondary" data-slot="add-group-confirm" onClick={add}>

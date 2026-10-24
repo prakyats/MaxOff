@@ -28,14 +28,14 @@ export default async function Loading() {
         help={description}
         back={{ href: owner ? "/today" : "/clients", label: owner ? "Today" : "Clients" }}
       />
-      <div aria-hidden className="flex max-w-3xl flex-col gap-3">
+      <div aria-hidden className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:flex">
           {[0, 1, 2].map((index) => (
             <Skeleton key={index} className="h-11 w-full rounded-lg md:h-8 md:w-44" />
           ))}
         </div>
         {owner ? <Skeleton className="h-3 w-24" /> : null}
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {[0, 1, 2, 3, 4].map((row) => (
             <li key={row} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
               <span className="flex flex-1 flex-col gap-1.5">

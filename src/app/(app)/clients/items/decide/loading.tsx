@@ -15,15 +15,15 @@ export default function Loading() {
       data-slot="loading-decide"
     >
       <PageHeader title="Unfinished deliverables" back={{ href: "/today", label: "Today" }} />
-      <div aria-hidden className="flex max-w-3xl flex-col gap-2">
+      <div aria-hidden className="flex flex-col gap-2">
         <Skeleton className="h-4 w-48" />
         <Skeleton className="h-3 w-24" />
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {[0, 1, 2].map((row) => (
             <li key={row} className="flex min-h-15 items-center gap-3 px-3 py-2 sm:px-4">
               {/* The row's 44 px select target around its box (§14.1), as the row draws it. */}
               <span className="-ml-2 flex size-11 shrink-0 items-center justify-center">
-                <Skeleton className="size-4 rounded-[4px]" />
+                <Skeleton className="size-4 rounded-sm" />
               </span>
               <span className="flex flex-1 flex-col gap-1.5">
                 <Skeleton className="h-4 w-1/2" />
@@ -38,7 +38,7 @@ export default function Loading() {
           <Skeleton className="h-11 w-36 rounded-lg md:h-8" />
         </div>
       </div>
-      <span className="sr-only">Loading Unfinished items</span>
+      <span className="sr-only">Loading Unfinished deliverables</span>
     </div>
   );
 }

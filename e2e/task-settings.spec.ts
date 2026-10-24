@@ -13,6 +13,7 @@ import {
   removeTaskTypesNamed,
   removeTasksTitled,
   removeTemplatesNamed,
+  rowAction,
   rpcAs,
   runInstalled,
   serviceInsert,
@@ -22,6 +23,8 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
+  templatesTab,
 } from "./helpers";
 
 /**
@@ -160,29 +163,24 @@ test.describe("task types and per-type fields, the flows", () => {
       .getByRole("alertdialog")
       .getByRole("button", { name: `Archive ${name} visit` })
       .click();
-    await expect(page.getByText("Task type archived")).toBeVisible();
-    await expect(
-      page.locator('[data-slot="archived-task-type"]').filter({ hasText: `${name} visit` }),
-    ).toBeVisible();
+    // D6: Archive, Undo in its toast; no Archived list.
+    await expect(page.getByText(`${name} visit archived`)).toBeVisible();
+    await expect(rowOf(page, `${name} visit`)).toHaveCount(0);
+    await expect(page.locator('[data-slot="archived-task-type"]')).toHaveCount(0);
 
     await page.goto(`/tasks/${taskId}`);
     await expect(page.locator("main")).toContainText(`${name} visit`);
     await page.goto("/tasks");
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = page.locator('[data-slot="task-form-dialog"]');
+    await openMoreOptions(dialog);
     await dialog.getByLabel("Type").click();
     await expect(page.getByRole("option", { name: "Normal", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: `${name} visit` })).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/task-types");
-    await page
-      .locator('[data-slot="archived-task-type"]')
-      .filter({ hasText: `${name} visit` })
-      .getByRole("button", { name: "Restore" })
-      .click();
-    await expect(page.getByText("Task type restored")).toBeVisible();
-    await expect(rowOf(page, `${name} visit`)).toBeVisible();
+    await expect(rowOf(page, `${name} visit`)).toHaveCount(0);
     await removeTasksTitled(prefix);
   });
 
@@ -211,8 +209,10 @@ test.describe("task types and per-type fields, the flows", () => {
       const dialog = page.locator('[data-slot="task-form-dialog"]');
       await expect(dialog.getByLabel("Title")).toBeVisible();
       await expect(dialog.getByLabel(label)).toHaveCount(0);
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Meeting");
       await expect(dialog.getByLabel(label)).toBeVisible();
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Normal");
       await expect(dialog.getByLabel(label)).toHaveCount(0);
     } finally {
@@ -257,7 +257,9 @@ test.describe("task types and per-type fields, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = page.locator('[data-slot="task-form-dialog"]');
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), name);
+      await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="reminder-summary"]')).toHaveText(
         "Reminders: 5 days before, when due · Using the default",
       );
@@ -298,7 +300,7 @@ test.describe("task types, the Owner's only", () => {
     await expect(page.locator('[data-slot="settings-list"]')).toContainText("Templates");
     await expect(page.locator('[data-slot="settings-list"]')).not.toContainText("Task types");
     await page.goto("/settings/task-types");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 });
 
@@ -314,8 +316,9 @@ test.describe("task types, installed: back and large text", () => {
     const url = /\/settings\/task-types$/;
     await expect(page).toHaveURL(url);
 
+    // C4: "Add task type" sits on the list's heading (was the page's floating button).
     await page
-      .locator('[data-slot="page-actions"]')
+      .locator('[data-slot="list-heading"]')
       .getByRole("button", { name: "Add task type" })
       .click();
     const add = page.getByRole("dialog", { name: "Add a task type" });
@@ -339,9 +342,6 @@ test.describe("task types, installed: back and large text", () => {
     const archive = page.getByRole("alertdialog", { name: "Archive Meeting?" });
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url }, { url: /\/settings$/ }]);
-    await expect(
-      page.locator('[data-slot="archived-task-type"]').filter({ hasText: "Meeting" }),
-    ).toHaveCount(0);
   });
 
   test("Custom fields → Tasks: the Add dialog's Applies to sheet, then the dialog, close on back", async ({
@@ -378,8 +378,9 @@ test.describe("task types, installed: back and large text", () => {
       });
     }
     await page.goto("/settings/task-types");
+    // C4: "Add task type" sits on the list's heading (was the page's floating button).
     await page
-      .locator('[data-slot="page-actions"]')
+      .locator('[data-slot="list-heading"]')
       .getByRole("button", { name: "Add task type" })
       .click();
     await page
@@ -520,13 +521,13 @@ async function editTemplate(page: Page, name: string): Promise<Locator> {
   return dialog;
 }
 
-test.describe("task templates: archive is neutral (the colour rule)", () => {
-  test("the row's Archive (laptop) and the ⋯ sheet's Archive (phone) are never red; the question names it", async ({
+test.describe("task templates: Archive, grey on the row and neutral in its question (the colour rule)", () => {
+  test("the row's Archive (laptop) and the ⋯ sheet's Archive (phone) are grey; the question's named Archive is neutral", async ({
     page,
   }, info) => {
     const name = `Neutral archive (${info.project.name})`;
     await ownerTemplate(name, ["Stage 1"]);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
     const row = page.locator('[data-slot="task-template"]').filter({ hasText: name });
     const phone = (page.viewportSize()?.width ?? 1280) < 768;
@@ -541,7 +542,8 @@ test.describe("task templates: archive is neutral (the colour rule)", () => {
       await expect(archive).toHaveAttribute("data-variant", "ghost");
       await archive.click();
     }
-    // The destructive step stays confirmed by the question's one named red commit.
+    // The question confirms it with one named commit, the neutral primary: archive is never red
+    // (owner 2026-10-21, ADR-0015); the row's own Archive stays grey.
     const question = page.getByRole("alertdialog", { name: `Archive ${name}?` });
     await expect(question.getByRole("button", { name: `Archive ${name}` })).toHaveAttribute(
       "data-variant",
@@ -557,7 +559,7 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
   }, info) => {
     const name = `Reorder template (${info.project.name})`;
     await ownerTemplate(name, ["Stage 1", "Stage 2", "Stage 3"]);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
     const dialog = await editTemplate(page, name);
     const rows = dialog.locator('[data-slot="template-stage"]');
@@ -600,11 +602,12 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
   }, info) => {
     const name = `Reorder preset (${info.project.name})`;
     await ownerPreset(name, ["Stage 1", "Stage 2", "Stage 3"]);
-    await page.goto("/settings/stage-presets");
+    await page.goto("/settings/templates#presets");
     await hydrated(page);
     const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
     await expect(row).toContainText("Stage 1 → Stage 2 → Stage 3");
-    await row.getByRole("button", { name: `Edit ${name}` }).click();
+    // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
+    await rowAction(page, row, name, "Edit");
     const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
     const rows = dialog.locator('[data-slot="preset-stage"]');
     await expect(rows).toHaveCount(3);
@@ -636,9 +639,11 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
     const form = page.getByRole("dialog", { name: "New task" });
     await expect(form).toBeVisible();
     for (const stage of ["Stage 1", "Stage 2"]) {
+      await openMoreOptions(form);
       await form.getByRole("button", { name: "Add stage" }).click();
       await form.getByLabel(`Stage ${stage.slice(-1)}`, { exact: true }).fill(stage);
     }
+    await openMoreOptions(form);
     const rows = form.locator('[data-slot="task-stage-field"]');
     await dragRow(page, rows.nth(1), rows.nth(0), 0.2);
     await expect.poll(() => stageValues(rows)).toEqual(["Stage 2", "Stage 1"]);
@@ -655,9 +660,9 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     await ownerPreset(preset, ["Stage 1", "Stage 2"]);
     await runInstalled(page);
 
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
-    const templates = /\/settings\/templates$/;
+    const templates = /\/settings\/templates#tasks$/;
     const edit = await editTemplate(page, template);
     await edit.getByRole("button", { name: "Actions for Stage 1" }).click();
     const menu = page.getByRole("menu");
@@ -667,13 +672,16 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
       { closes: edit, url: templates },
     ]);
 
-    await page.goto("/settings/stage-presets");
-    await hydrated(page);
-    const presets = /\/settings\/stage-presets$/;
-    await page
-      .locator('[data-slot="stage-preset"]', { hasText: preset })
-      .getByRole("button", { name: `Edit ${preset}` })
-      .click();
+    // The same page's Stage presets section: on a phone its segment (a view control, no load).
+    await templatesTab(page, "presets");
+    const presets = templates;
+    // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
+    await rowAction(
+      page,
+      page.locator('[data-slot="stage-preset"]', { hasText: preset }),
+      preset,
+      "Edit",
+    );
     const dialog = page.getByRole("dialog", { name: `Edit ${preset}` });
     await dialog.getByRole("button", { name: "Actions for Stage 2" }).click();
     await expect(menu).toBeVisible();
@@ -683,5 +691,72 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     ]);
     await removeTemplatesNamed(template);
     await serviceRest(`stage_presets?name=eq.${encodeURIComponent(preset)}`, { method: "DELETE" });
+  });
+});
+
+test.describe("task templates: the Owner's Delete keeps every open task's reminders (V5a 6b)", () => {
+  test("deleting a followed template copies its reminders onto the open task; the confirm says so", async ({
+    page,
+  }, info) => {
+    const name = `Delete followed (${info.project.name})`;
+    const title = `${prefixOf(info)}follows a deleted template`;
+    await removeTasksTitled(title);
+    await removeTemplatesNamed(name);
+    const rules = [
+      { before: 1, unit: "days" },
+      { before: 0, unit: "minutes" },
+    ];
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const made = await serviceInsert<{ id: string }>("task_templates", {
+      org_id: org?.id,
+      name,
+      task_type_id: await taskTypeId("Normal"),
+      reminder_rules: rules,
+      created_by: await memberIdOf(USERS.owner.email),
+    });
+    const staffId = await memberIdOf(USERS.staff.email);
+    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(workingDay(5), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+      reminder_rules: [],
+      template_id: made.id,
+    });
+    const waiting = () =>
+      serviceSelect<{ kind: string; offset_minutes: number | null; fire_at: string }>(
+        `task_reminders?task_id=eq.${taskId}&member_id=is.null&sent_at=is.null&cancelled_at=is.null&select=kind,offset_minutes,fire_at&order=fire_at,kind`,
+      );
+    const before = await waiting();
+    expect(before.map((row) => row.kind)).toContain("before_due");
+
+    await page.goto("/settings/templates#tasks");
+    await hydrated(page);
+    const row = page.locator('[data-slot="task-template"]').filter({ hasText: name });
+    await rowAction(page, row, name, "Delete");
+    const confirm = page.getByRole("alertdialog", { name: `Delete template “${name}”?` });
+    await expect(confirm).toContainText(
+      "Used by 1 task (still open). It keeps everything exactly as it is. Its reminders stay the same. New tasks can't use it any more. This can't be undone.",
+    );
+    await confirm.getByRole("button", { name: `Delete ${name}` }).click();
+    await expect(confirm).toBeHidden();
+    await expect(row).toHaveCount(0);
+
+    // The open task now holds the template's reminders as its own; its schedule is unchanged.
+    const [task] = await serviceSelect<{ reminder_rules: unknown; template_id: string }>(
+      `tasks?id=eq.${taskId}&select=reminder_rules,template_id`,
+    );
+    expect(task?.reminder_rules).toEqual(rules);
+    expect(task?.template_id).toBe(made.id);
+    expect(await waiting()).toEqual(before);
+
+    await removeTasksTitled(title);
+    await removeTemplatesNamed(name);
   });
 });

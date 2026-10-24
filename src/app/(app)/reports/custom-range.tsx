@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/core/ui/primitives/button";
-import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import { Label } from "@/core/ui/primitives/label";
 
 /**
@@ -28,9 +28,8 @@ export function CustomRange({ from, to, today }: { from: string; to: string; tod
     >
       <div className="flex min-w-36 flex-1 flex-col gap-1.5">
         <Label htmlFor="range-from">From</Label>
-        <Input
+        <DateInput
           id="range-from"
-          type="date"
           value={start}
           max={today}
           onChange={(event) => setStart(event.target.value)}
@@ -38,9 +37,8 @@ export function CustomRange({ from, to, today }: { from: string; to: string; tod
       </div>
       <div className="flex min-w-36 flex-1 flex-col gap-1.5">
         <Label htmlFor="range-to">To</Label>
-        <Input
+        <DateInput
           id="range-to"
-          type="date"
           value={end}
           max={today}
           onChange={(event) => setEnd(event.target.value)}

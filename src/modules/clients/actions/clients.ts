@@ -1,10 +1,13 @@
 "use server";
 
+import { z } from "zod";
+
 import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
-import { assertPermission } from "@/core/permissions/server";
+import type { UnusedUsage } from "@/core/lib/owner-delete";
+import { assertOwner, assertPermission } from "@/core/permissions/server";
 
 import type { Client, ClientContact, ClientState } from "../domain/clients";
 import {
@@ -309,6 +312,48 @@ export const removeClientLogo = action(async (input: ClientIdInput): Promise<Res
   const { clientId } = clientIdSchema.parse(input);
   await assertPermission("clients.edit_assigned");
   await repo.setLogo(clientId, null);
+  revalidateClients();
+  return ok(null);
+});
+
+const clientIdOnlySchema = z.object({ clientId: z.uuid() });
+export type ClientIdOnlyInput = z.input<typeof clientIdOnlySchema>;
+const contactIdOnlySchema = z.object({ contactId: z.uuid() });
+export type ContactIdOnlyInput = z.input<typeof contactIdOnlySchema>;
+
+/**
+ * The Owner-only Delete of a draft client or a contact nothing has ever pointed at (v1.8 V5a 6c,
+ * owner 2026-10-22): the confirm reads the usage first; the database checks again with the row
+ * locked and refuses anything in use.
+ */
+export const draftClientUsage = action(
+  async (input: ClientIdOnlyInput): Promise<Result<UnusedUsage>> => {
+    const { clientId } = clientIdOnlySchema.parse(input);
+    await assertOwner();
+    return ok(await repo.unusedUsage("client", clientId));
+  },
+);
+
+export const deleteDraftClient = action(async (input: ClientIdOnlyInput): Promise<Result<null>> => {
+  const { clientId } = clientIdOnlySchema.parse(input);
+  await assertOwner();
+  await repo.deleteUnused("client", clientId);
+  revalidateClients();
+  return ok(null);
+});
+
+export const contactUsage = action(
+  async (input: ContactIdOnlyInput): Promise<Result<UnusedUsage>> => {
+    const { contactId } = contactIdOnlySchema.parse(input);
+    await assertOwner();
+    return ok(await repo.unusedUsage("contact", contactId));
+  },
+);
+
+export const deleteContact = action(async (input: ContactIdOnlyInput): Promise<Result<null>> => {
+  const { contactId } = contactIdOnlySchema.parse(input);
+  await assertOwner();
+  await repo.deleteUnused("contact", contactId);
   revalidateClients();
   return ok(null);
 });

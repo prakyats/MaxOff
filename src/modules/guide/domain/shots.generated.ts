@@ -14,7 +14,7 @@ export const GUIDE_SHOTS: Readonly<
   "staff/my-day": {
     src: "/guide/staff/my-day.webp",
     width: 1222,
-    height: 414,
+    height: 522,
     alt: "My Day with today's attendance strip highlighted at the top.",
   },
   "staff/alerts": {
@@ -32,19 +32,19 @@ export const GUIDE_SHOTS: Readonly<
   "staff/request-leave": {
     src: "/guide/staff/request-leave.webp",
     width: 448,
-    height: 450,
+    height: 478,
     alt: "The Request leave form with the Kind of leave field highlighted.",
   },
   "staff/leave-list": {
     src: "/guide/staff/leave-list.webp",
     width: 1184,
-    height: 283,
+    height: 389,
     alt: "Leave requests with a waiting request and its Withdraw button highlighted.",
   },
   "staff/attendance-tab": {
     src: "/guide/staff/attendance-tab.webp",
     width: 1184,
-    height: 349,
+    height: 377,
     alt: "Attendance and leave with the Attendance tab highlighted, showing this month's days.",
   },
   "staff/my-tasks": {
@@ -55,14 +55,14 @@ export const GUIDE_SHOTS: Readonly<
   },
   "staff/task-noted": {
     src: "/guide/staff/task-noted.webp",
-    width: 1216,
-    height: 516,
+    width: 1184,
+    height: 507,
     alt: "A new task's page with the Task Noted button highlighted.",
   },
   "staff/task-stages": {
     src: "/guide/staff/task-stages.webp",
     width: 1216,
-    height: 526,
+    height: 517,
     alt: "A started task with its list of stages highlighted, the first one ticked.",
   },
   "staff/mark-done": {
@@ -103,32 +103,32 @@ export const GUIDE_SHOTS: Readonly<
   },
   "staff/me-help": {
     src: "/guide/staff/me-help.webp",
-    width: 1208,
+    width: 1222,
     height: 800,
     alt: "Me, with the How MaxOff works row under Help and troubleshooting highlighted.",
   },
   "admin/today": {
     src: "/guide/admin/today.webp",
-    width: 1216,
-    height: 629,
+    width: 1222,
+    height: 521,
     alt: "Today with the Needs you card highlighted.",
   },
   "admin/approvals": {
     src: "/guide/admin/approvals.webp",
     width: 1184,
-    height: 252,
+    height: 270,
     alt: "Approvals with one handed-in task and its Approve button highlighted.",
   },
   "admin/new-task": {
     src: "/guide/admin/new-task.webp",
     width: 640,
-    height: 884,
+    height: 476,
     alt: "The New task form with the Assign to field highlighted.",
   },
   "admin/task-review": {
     src: "/guide/admin/task-review.webp",
-    width: 1216,
-    height: 726,
+    width: 1184,
+    height: 717,
     alt: "A handed-in task with the Request changes and Approve buttons highlighted.",
   },
   "admin/task-stages": {
@@ -140,7 +140,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/calendar-day": {
     src: "/guide/admin/calendar-day.webp",
     width: 560,
-    height: 365,
+    height: 385,
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
   },
   "admin/clients": {
@@ -159,12 +159,12 @@ export const GUIDE_SHOTS: Readonly<
     src: "/guide/admin/client-page.webp",
     width: 1216,
     height: 800,
-    alt: "A client's page with its tabs highlighted: Overview, Projects, Brand and Activity.",
+    alt: "A client's page with its tabs highlighted: Overview, Projects and Brand.",
   },
   "admin/new-project": {
     src: "/guide/admin/new-project.webp",
     width: 960,
-    height: 884,
+    height: 532,
     alt: "The New project form with the Repeats field highlighted.",
   },
   "admin/project-preview": {
@@ -175,15 +175,15 @@ export const GUIDE_SHOTS: Readonly<
   },
   "admin/project-page": {
     src: "/guide/admin/project-page.webp",
-    width: 1216,
-    height: 706,
+    width: 1222,
+    height: 800,
     alt: "A project's page with this month's progress ring highlighted.",
   },
   "admin/deliverable-sheet": {
     src: "/guide/admin/deliverable-sheet.webp",
     width: 408,
-    height: 669,
-    alt: "A deliverable's sheet with its stages and the Mark done button highlighted.",
+    height: 653,
+    alt: "A deliverable's sheet with its stages and its next step highlighted.",
   },
   "admin/edit-stages": {
     src: "/guide/admin/edit-stages.webp",
@@ -193,37 +193,37 @@ export const GUIDE_SHOTS: Readonly<
   },
   "admin/deliverable-rows": {
     src: "/guide/admin/deliverable-rows.webp",
-    width: 1072,
-    height: 343,
+    width: 1184,
+    height: 442,
     alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
   },
   "admin/revision-round": {
     src: "/guide/admin/revision-round.webp",
     width: 408,
-    height: 669,
+    height: 653,
     alt: "Reel 2's sheet with its ⋯ menu open and Another revision round highlighted.",
   },
   "admin/select-edit": {
     src: "/guide/admin/select-edit.webp",
     width: 1184,
-    height: 841,
+    height: 844,
     alt: "The deliverables in Select mode with Reel 3 and Reel 4 selected, and Edit 2 highlighted in the bar.",
   },
   "admin/copy-schedule": {
     src: "/guide/admin/copy-schedule.webp",
     width: 1186,
-    height: 706,
+    height: 800,
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   "admin/stage-presets": {
     src: "/guide/admin/stage-presets.webp",
     width: 1190,
-    height: 283,
+    height: 800,
     alt: "Stage presets with the Add preset button highlighted.",
   },
   "admin/templates": {
     src: "/guide/admin/templates.webp",
-    width: 1216,
+    width: 1222,
     height: 800,
     alt: "Templates with the search box highlighted.",
   },
@@ -236,7 +236,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/save-as-template": {
     src: "/guide/admin/save-as-template.webp",
     width: 448,
-    height: 280,
+    height: 320,
     alt: "The Save as template dialog with the Template name field highlighted.",
   },
   "admin/deliverables-list": {
@@ -254,18 +254,18 @@ export const GUIDE_SHOTS: Readonly<
   "admin/settings": {
     src: "/guide/admin/settings.webp",
     width: 1215,
-    height: 407,
+    height: 410,
     alt: "Settings with Help and troubleshooting highlighted.",
   },
   "owner/today": {
     src: "/guide/owner/today.webp",
-    width: 1216,
+    width: 1222,
     height: 800,
     alt: "Today with the Needs you card highlighted, listing what waits for a decision.",
   },
   "owner/attendance-board": {
     src: "/guide/owner/attendance-board.webp",
-    width: 1216,
+    width: 1222,
     height: 800,
     alt: "Today with the attendance counts highlighted.",
   },
@@ -295,26 +295,26 @@ export const GUIDE_SHOTS: Readonly<
   },
   "owner/new-task": {
     src: "/guide/owner/new-task.webp",
-    width: 640,
+    width: 627,
     height: 884,
     alt: "The New task form with the Checked first by field highlighted.",
   },
   "owner/task-approve": {
     src: "/guide/owner/task-approve.webp",
     width: 1184,
-    height: 726,
+    height: 717,
     alt: "A task the Admin has checked, with the Owner's Approve button highlighted.",
   },
   "owner/task-menu": {
     src: "/guide/owner/task-menu.webp",
     width: 1184,
-    height: 666,
+    height: 717,
     alt: "A task's menu open with Decide it yourself highlighted.",
   },
   "owner/remind": {
     src: "/guide/owner/remind.webp",
-    width: 1216,
-    height: 584,
+    width: 1184,
+    height: 583,
     alt: "A task not noted yet, with the Remind button highlighted.",
   },
   "owner/calendar": {
@@ -326,13 +326,13 @@ export const GUIDE_SHOTS: Readonly<
   "owner/people": {
     src: "/guide/owner/people.webp",
     width: 1141,
-    height: 298,
+    height: 310,
     alt: "People with the Add person button highlighted.",
   },
   "owner/person-leave": {
     src: "/guide/owner/person-leave.webp",
     width: 1184,
-    height: 421,
+    height: 434,
     alt: "A person's Leave tab with the Grant comp leave button highlighted.",
   },
   "owner/clients": {
@@ -350,8 +350,8 @@ export const GUIDE_SHOTS: Readonly<
   "owner/new-project": {
     src: "/guide/owner/new-project.webp",
     width: 960,
-    height: 884,
-    alt: "The New project form with the Start from field highlighted.",
+    height: 532,
+    alt: "The New project form with the Start from a template button highlighted.",
   },
   "owner/project-preview": {
     src: "/guide/owner/project-preview.webp",
@@ -361,26 +361,26 @@ export const GUIDE_SHOTS: Readonly<
   },
   "owner/project-page": {
     src: "/guide/owner/project-page.webp",
-    width: 1216,
-    height: 706,
+    width: 1222,
+    height: 800,
     alt: "A project's page with this month's progress ring highlighted.",
   },
   "owner/deliverable-rows": {
     src: "/guide/owner/deliverable-rows.webp",
-    width: 1072,
-    height: 343,
+    width: 1184,
+    height: 442,
     alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
   },
   "owner/revision-round": {
     src: "/guide/owner/revision-round.webp",
     width: 408,
-    height: 669,
+    height: 653,
     alt: "Reel 2's sheet with its ⋯ menu open and Another revision round highlighted.",
   },
   "owner/select-edit": {
     src: "/guide/owner/select-edit.webp",
     width: 1184,
-    height: 841,
+    height: 844,
     alt: "The deliverables in Select mode with Reel 3 and Reel 4 selected, and Edit 2 highlighted in the bar.",
   },
   "owner/bulk-rename": {
@@ -392,7 +392,7 @@ export const GUIDE_SHOTS: Readonly<
   "owner/copy-schedule": {
     src: "/guide/owner/copy-schedule.webp",
     width: 1186,
-    height: 706,
+    height: 800,
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   "owner/send-back": {
@@ -407,22 +407,28 @@ export const GUIDE_SHOTS: Readonly<
     height: 800,
     alt: "Templates with a project template's Preview button highlighted.",
   },
+  "owner/delete-unused": {
+    src: "/guide/owner/delete-unused.webp",
+    width: 1184,
+    height: 351,
+    alt: "Job titles with a row's red Delete highlighted.",
+  },
   "owner/settings": {
     src: "/guide/owner/settings.webp",
-    width: 1189,
-    height: 626,
+    width: 1215,
+    height: 800,
     alt: "Settings with Thresholds highlighted.",
   },
   "owner/thresholds": {
     src: "/guide/owner/thresholds.webp",
-    width: 1216,
+    width: 1199,
     height: 800,
     alt: "Thresholds with the Acknowledgement reminder (hours) field highlighted.",
   },
   "owner/reports": {
     src: "/guide/owner/reports.webp",
-    width: 1215,
-    height: 283,
+    width: 1220,
+    height: 441,
     alt: "Reports with the Month report highlighted.",
   },
 };

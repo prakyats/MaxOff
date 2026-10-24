@@ -369,9 +369,9 @@ test.describe("Owner", () => {
 });
 
 /**
- * A person without a job title shows their role alone (owner 2026-10-01): never "No job title"
- * and never a dangling " · ", in the People list (the desktop rows' second line, the phone's
- * cards), on their Profile (the record's own "Not added") and in the edit select ("None").
+ * A person without a job title shows their role alone (owner 2026-10-01) on a phone's card, and
+ * on a laptop no second line at all (PP-people-1: never the role again; the Role column says it):
+ * never "No job title" and never a dangling " · ", in the People list, on their Profile (the record's own "Not added") and in the edit select ("None").
  * Read-only: nothing is saved. Many seeded people have no title ("Test Review Bulk A" among them).
  */
 test.describe("no job title", () => {
@@ -394,8 +394,17 @@ test.describe("no job title", () => {
       expect(text, "no stray separator").not.toMatch(/(^·|·$|·\s*·)/);
       expect(text).not.toContain("No job title");
     }
-    // At least one person without a title, shown by their role alone.
-    expect(texts).toContain("Crew");
+    if (isMobile) {
+      // A card's line is the only place a phone names the role: alone, without a title.
+      expect(texts).toContain("Crew");
+    } else {
+      // PP-people-1: on a laptop the second line is the job title or nothing, never the role
+      // again (the Role column says it).
+      expect(texts).not.toContain("Crew");
+      const untitled = page.getByRole("row", { name: /Test Review Bulk A/ });
+      await expect(untitled.locator("td:first-child p.text-xs")).toHaveCount(0);
+      await expect(untitled.getByRole("cell", { name: "Crew", exact: true })).toBeVisible();
+    }
     await expect(page.getByText("No job title")).toHaveCount(0);
 
     const id = await memberIdOf("review-bulk-a@maxoff.local");
@@ -435,7 +444,7 @@ test.describe("Staff", () => {
 
   test("cannot open People, and sees their own profile read-only on Me", async ({ page }) => {
     await page.goto("/people");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
 
     // Editing it is the edit pattern's own spec (2.9, e2e/edit-pattern.spec.ts), on people of
     // its own: this account is shared by every project.

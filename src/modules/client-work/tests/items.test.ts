@@ -24,7 +24,14 @@ import {
   periodNext,
   periodStart,
 } from "../domain/periods";
-import { progressByClient, projectSummaries } from "../domain/projects";
+import {
+  clientDueOf,
+  clientWorkLine,
+  dueByClient,
+  progressByClient,
+  projectSummaries,
+  readyToComplete,
+} from "../domain/projects";
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
@@ -88,6 +95,8 @@ describe("overdue and due this week (decision 10, 19)", () => {
     expect(plannedLine({ state: "open", plannedDate: "2026-10-06" }, TODAY)).toEqual({
       text: "Planned 6 Oct · 2 days late",
       overdue: true,
+      date: "Planned 6 Oct",
+      late: "2 days late",
     });
     expect(plannedLine({ state: "open", plannedDate: "2026-10-07" }, TODAY)?.text).toBe(
       "Planned 7 Oct · 1 day late",
@@ -96,6 +105,8 @@ describe("overdue and due this week (decision 10, 19)", () => {
     expect(plannedLine({ state: "approved", plannedDate: "2026-10-06" }, TODAY)).toEqual({
       text: "Planned 6 Oct",
       overdue: false,
+      date: "Planned 6 Oct",
+      late: null,
     });
     expect(plannedLine({ state: "open", plannedDate: TODAY }, TODAY)?.text).toBe("Planned today");
     expect(plannedLine({ state: "open", plannedDate: "2026-10-10" }, TODAY)?.text).toBe(
@@ -294,6 +305,7 @@ describe("the Projects tab", () => {
     templateId: null,
     createdBy: "m",
     createdAt: "2026-10-01T00:00:00Z",
+    cancelledAt: null,
     cancelledReason: null,
     ...over,
   });
@@ -343,6 +355,11 @@ describe("the Projects tab", () => {
     ]);
     expect(sums.get("k")).toEqual({ total: 3, done: 2, closed: 1 });
     expect(sums.get("m")).toEqual({ total: 0, done: 0, closed: 0 });
+    // N4: the Admin's Clients list says what is open and done, never money.
+    expect(clientWorkLine(sums.get("k"))).toBe("0 open · 2/3 done");
+    expect(clientWorkLine({ total: 12, done: 9, closed: 1 })).toBe("2 open · 9/12 done");
+    expect(clientWorkLine(sums.get("m"))).toBeNull();
+    expect(clientWorkLine(undefined)).toBeNull();
   });
 });
 
@@ -521,7 +538,7 @@ describe("the item KPIs (7.4, PRODUCT §4.13)", () => {
 
   it("Cycle progress in words", () => {
     expect(cycleProgressWords({ total: 12, done: 9 })).toBe("9 of 12 done");
-    expect(cycleProgressWords({ total: 0, done: 0 })).toBe("No current items");
+    expect(cycleProgressWords({ total: 0, done: 0 })).toBe("No current deliverables");
   });
 
   it("where items sit longest: by each item's first unticked stage, the longest wait first", () => {
@@ -546,6 +563,10 @@ describe("the item KPIs (7.4, PRODUCT §4.13)", () => {
       ["Script", 1, 8],
       ["Edit", 1, 2],
     ]);
+    // W6: whole days, never "median 20.2 days".
+    expect(sitWords({ stage: "Edit", count: 2, medianDays: 20.2 })).toBe(
+      "2 waiting at Edit · median 20 days",
+    );
     expect(sitWords({ stage: "Edit", count: 8, medianDays: 3 })).toBe(
       "8 waiting at Edit · median 3 days",
     );
@@ -569,6 +590,15 @@ describe("the project's history (7A notes for 7B (a))", () => {
     meta: {},
     at: "2026-10-08T05:00:00Z",
     ...patch,
+  });
+
+  it('says "You" for the reader\'s own changes (v1.8 pull-in item 5)', () => {
+    expect(
+      describeProjectActivity(entry({ action: "done" }), { ...context, viewerId: "r" })?.actor,
+    ).toBe("You");
+    expect(
+      describeProjectActivity(entry({ action: "done" }), { ...context, viewerId: "x" })?.actor,
+    ).toBe("Ravi");
   });
 
   it("describes the client-work actions", () => {
@@ -827,5 +857,58 @@ describe("stage lists name each stage once (the 7B rework's review, S3)", () => 
     expect(
       updateBlueprintSchema.safeParse({ blueprintId: client, stages: ["Shoot", "Edit"] }).success,
     ).toBe(true);
+  });
+});
+
+describe("readyToComplete (PP-client-2)", () => {
+  it("is a one-time project with every deliverable done, none open or waiting", () => {
+    expect(readyToComplete("one_time", ["approved", "approved", "cancelled"])).toBe(true);
+    expect(readyToComplete("one_time", ["approved", "open"])).toBe(false);
+    expect(readyToComplete("one_time", ["approved", "done"])).toBe(false);
+    expect(readyToComplete("one_time", ["cancelled"])).toBe(false);
+    expect(readyToComplete("one_time", [])).toBe(false);
+  });
+  it("is never a repeating project: its next cycle comes on its own", () => {
+    expect(readyToComplete("monthly", ["approved", "approved"])).toBe(false);
+  });
+});
+
+describe("clientDueOf (v1.8 speed fix 3)", () => {
+  it("is the late count and the next date from the summed row", () => {
+    expect(clientDueOf({ late: 2, next: "2026-10-25" })).toEqual({ late: 2, next: "2026-10-25" });
+    expect(clientDueOf({ late: 0, next: "2026-10-25" })).toEqual({ late: 0, next: "2026-10-25" });
+    expect(clientDueOf({ late: 1, next: null })).toEqual({ late: 1, next: null });
+  });
+  it("is null when nothing open is dated, as dueByClient leaves the client out", () => {
+    expect(clientDueOf({ late: 0, next: null })).toBeNull();
+  });
+});
+
+describe("dueByClient (PP-admin-10)", () => {
+  const cycle = (clientId: string, states: ItemState[], plannedDates: (string | null)[]) => ({
+    id: `${clientId}-c`,
+    projectId: `${clientId}-p`,
+    label: null,
+    clientId,
+    states,
+    plannedDates,
+  });
+  it("counts the open late ones and finds the next date, across a client's cycles", () => {
+    const due = dueByClient(
+      [
+        cycle("a", ["open", "open", "approved"], ["2026-10-20", "2026-10-25", "2026-10-01"]),
+        cycle("a", ["open", "cancelled"], ["2026-10-23", "2026-10-10"]),
+        cycle("b", ["approved", "open"], ["2026-10-01", null]),
+      ],
+      "2026-10-22",
+    );
+    expect(due.get("a")).toEqual({ late: 1, next: "2026-10-23" });
+    expect(due.has("b")).toBe(false);
+  });
+  it("counts a deliverable planned today as due, not late", () => {
+    expect(dueByClient([cycle("a", ["open"], ["2026-10-22"])], "2026-10-22").get("a")).toEqual({
+      late: 0,
+      next: "2026-10-22",
+    });
   });
 });

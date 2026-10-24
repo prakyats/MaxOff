@@ -36,6 +36,8 @@ export type ActivityContext = {
   contacts: Readonly<Record<string, string>>;
   /** The close reason is the Owner's (Owner-only in the database too, phase 3 review). */
   showCloseReason: boolean;
+  /** The reader: their own changes say "You" (v1.8 pull-in item 5). */
+  viewerId?: string | null;
 };
 
 const CLIENT_FIELDS: Record<string, string> = {
@@ -141,6 +143,8 @@ function describeContact(entry: ActivityEntry, context: ActivityContext): string
       return `archived the contact ${name}`;
     case "restored":
       return `restored the contact ${name}`;
+    case "deleted":
+      return `deleted the contact ${text(entry.meta.name) ?? name}`;
     default:
       return null;
   }
@@ -168,7 +172,11 @@ export function describeClientActivity(
       sentence = null;
   }
   if (!sentence) return null;
-  const actor = entry.actorId ? (context.names[entry.actorId] ?? "Someone") : "MaxOff";
+  const actor = !entry.actorId
+    ? "MaxOff"
+    : entry.actorId === context.viewerId
+      ? "You"
+      : (context.names[entry.actorId] ?? "Someone");
   const reason =
     entry.entity === "clients" && entry.action === "closed" && context.showCloseReason
       ? text(entry.meta.reason)

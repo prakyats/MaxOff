@@ -39,20 +39,28 @@ export const OWNER_GUIDE: Guide = {
           title: "Find your way on a phone",
           summary: "The bottom bar has four screens and a More cell.",
           blocks: [
-            text("The bottom bar holds Today, Approvals, Tasks and Calendar."),
+            text(
+              "The bottom bar holds Today, Approvals, Tasks and Calendar. With very large text set on the phone, the bar shows its icons only; each still says its name to a screen reader.",
+            ),
             steps(
               "Tap a cell in the bottom bar to switch screen.",
               "Tap More for Reports, Clients, People and Settings.",
-              "Tap Me in the same sheet for your own page.",
+              "Tap Me in the same sheet for your own page, or Help under it for this guide.",
             ),
             next(
-              "The last cell, More, opens a sheet with Reports, Clients, People, Settings and a Me row.",
+              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me and Help.",
             ),
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
             ),
+            text(
+              "On a phone each screen has one bar at the top: the back arrow (or, on a main tab, the small MaxOff “M”, which takes you to your home screen), the title, the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+            ),
+            text(
+              "On a laptop, Help (this guide) is in the account menu under your name, beside Me, and at the foot of the sidebar.",
+            ),
           ],
-          keywords: ["more", "bottom bar", "menu", "phone", "navigation"],
+          keywords: ["more", "bottom bar", "menu", "phone", "navigation", "title bar", "sheet"],
         },
         {
           id: "owner-bell",
@@ -62,6 +70,9 @@ export const OWNER_GUIDE: Guide = {
             text(
               "On a phone the bell sits in the title bar of each screen. On a laptop it is in the top bar. Both open Alerts and show how many you have not read.",
             ),
+            text(
+              "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
+            ),
           ],
           link: { href: "/notifications", label: "Open Alerts" },
           keywords: ["bell", "notifications", "unread"],
@@ -69,14 +80,12 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-me",
           title: "Use Me",
-          summary: "Your own page: devices, notifications and troubleshooting.",
+          summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me is where you turn on notifications for this device, see Your devices, and find Help & troubleshooting. On a phone, open it from More.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More.",
             ),
-            text(
-              "You do not mark attendance or take leave, so Me has no attendance or leave rows for you.",
-            ),
+            text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],
           link: { href: "/me", label: "Open Me" },
           keywords: ["profile", "account", "settings"],
@@ -93,11 +102,11 @@ export const OWNER_GUIDE: Guide = {
           summary: "Needs you, attendance, your tasks, risks and the week ahead.",
           blocks: [
             text(
-              "Today answers one question: who is in, and what needs you. The sections come in this order.",
+              "Today answers one question: who is in, and what needs you. Today's date is under the title. The sections come in this order; a section with nothing in it is not shown.",
             ),
             steps(
               {
-                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting items, in this order: attendance days, leave requests, extra-work notes, expense claims, tasks. "See all N" opens Approvals.',
+                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting rows, in this order: attendance days, leave requests, extra-work notes, expense claims, tasks. A person with several days waiting is one row, such as "Asha · 5 days proposed absent · Review", which opens Approvals. The count beside "Needs you" is the number of rows. "See all N" opens Approvals.',
                 shot: "owner/today",
               },
               {
@@ -107,11 +116,11 @@ export const OWNER_GUIDE: Guide = {
               'Read "My tasks": your own tasks, overdue or due today. Tap one to open it (each row ends in a ›). When there are more than it shows, "See all N of my tasks" opens them all in All tasks.',
               'Read "Today\'s tasks": one line, "N due today · M handed in".',
               'Read "Client work": one red line when client items are overdue.',
-              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached.',
-              'Read "This week": up to seven days, then "See the week".',
+              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task.',
+              'Read "This week": up to seven days, each deadline by name and time with a "Due" chip, holidays, events and who is on leave, then "See the week". On a laptop it is a column on the right; in a narrow window or on a phone it sits below.',
             ),
             note(
-              'If everything below "Needs you" is empty, the screen says "Nothing else needs you today."',
+              'With nothing waiting, "Needs you" is one quiet line: "Nothing needs you right now." If everything below it is empty too, the screen says "Nothing else needs you today."',
             ),
           ],
           link: { href: "/today", label: "Open Today" },
@@ -168,14 +177,16 @@ export const OWNER_GUIDE: Guide = {
           title: "Decide an attendance day",
           summary: "Only you decide attendance. Approve it, or correct it.",
           blocks: [
-            text(`Attendance days sit under "Attendance" on Approvals.`),
+            text(
+              `Attendance days sit under "Attendance" on Approvals. With two or more waiting, "Approve all" is the green button. A single day's Approve is green only when nothing else waits on Approvals; beside other groups it is plain, so there is never more than one green button.`,
+            ),
             steps(
               "Open Approvals.",
               {
                 text: "Tap Approve (highlighted) on a day, or Review to see it first.",
                 shot: "owner/approvals",
               },
-              'In the review, tap "Correct…" if the recorded times are wrong.',
+              'The review shows the person\'s week (this day marked), their comp leave and any note, ready as it opens. Tap Approve there, or "Correct…" if the day was something else.',
             ),
             next(
               "Original records are never overwritten: a correction is kept beside the original.",
@@ -269,15 +280,18 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-person-attendance",
           title: "Correct a person's attendance",
-          summary: "Fix a recorded day from the Attendance tab.",
+          summary: "Fix a recorded day, or approve a waiting one, from the Attendance tab.",
           blocks: [
             steps(
               "Open People, tap the person, then the Attendance tab. It lists the month's days.",
-              "Find the day that is wrong.",
-              'Tap "Correct…" on that day.',
-              "Enter the right details and save.",
+              "Tap the day that is wrong. Its day opens, with what happened and when.",
+              'Tap "Correct this day…".',
+              'Enter the right details and save. Times use the 12-hour clock, such as "9:30 am"; an empty time reads "Choose a time".',
             ),
             next("The original stays in the history. A correction sits alongside it."),
+            text(
+              'A day still waiting for you has an outlined "Approve" on its row, and the green "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
+            ),
             note("Only you can correct a recorded day."),
           ],
           link: { href: "/people", label: "Open People" },
@@ -295,7 +309,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "What needs you first, then every open task by deadline.",
           blocks: [
             text(
-              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue, have changes requested, or have not been noted. Below it, "Open tasks" are listed by deadline.',
+              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue (a red chip saying how late, such as "2 days late" or "3 h late"), have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full.',
             ),
             text(
               'Use "All tasks, with filters" for the full list, and "Suggested tasks" for ideas from your team.',
@@ -311,16 +325,13 @@ export const OWNER_GUIDE: Guide = {
           blocks: [
             steps(
               'Tap "New task" (the round button on a phone).',
-              '"Start from" appears only if task templates exist. Pick one, or "No template".',
-              'Fill in "Title" and "Type". An event type also asks for the event date, optional start and end times, a location if the type has one, and the purpose.',
-              'Choose "Priority": Low, Medium, High or Urgent.',
-              'In "Assign to", tap "Add a person" for each. Pick one as the primary owner. You can assign yourself too.',
-              '"Deadline" and "Time (IST)" are required. "Reminders" use the default unless you change them.',
+              'Fill in "Title". In "Assign to", tap "Add a person" for each and pick one as the primary owner. You can assign yourself too.',
+              '"Deadline" and "Time (IST)" are required: an empty one reads "Choose a date" or "Choose a time"; tap it to open the picker. Times use the 12-hour clock, such as "6:00 pm". That is enough: tap "Create task".',
+              'For the rest, tap "More options": "Start from" (if task templates exist), "Type" (the first one by default; an event type asks for the event date and opens this by itself), "Priority" (Medium by default), "Reminders" (the default unless you change them).',
               {
-                text: 'Choose "Client label" or "No client", and "Checked first by" (highlighted): "Nobody: you approve it" or an Admin.',
+                text: 'Also under More options: "Client label" or "No client", "Checked first by" (highlighted): "Nobody: you approve it" or an Admin, a "Description", optional "Stages" and any custom fields.',
                 shot: "owner/new-task",
               },
-              'Add a "Description", optional "Stages", and any custom fields. Then tap "Create task".',
             ),
             next('Each person you assigned taps "Task Noted" to say they have seen it.'),
             note(
@@ -387,7 +398,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "Stages can be set when you create the task, and managed later on the task page by those who may.",
             ),
-            note("Ticks lock once the task is done."),
+            note(
+              'Ticks lock once the task is done. On the task page, a task with no stages says "No stages yet." with "Add stage" beside it.',
+            ),
           ],
           keywords: ["stages", "checklist", "reorder", "tick"],
         },
@@ -396,7 +409,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Follow a task from start to finish",
           summary: "Noted, worked on, marked done, checked, approved.",
           blocks: [
-            text("The task page shows one next-step button at a time."),
+            text(
+              "The task page shows one next-step button at a time: at the top beside the History clock on a laptop, in a bar at the bottom on a phone. Its state is a chip, the due time has its own line (red when late), and a box says what is needed now.",
+            ),
             steps(
               'Each assignee taps "Task Noted" once.',
               '"Start work" is optional.',
@@ -455,17 +470,40 @@ export const OWNER_GUIDE: Guide = {
               'The button names whom it reaches, such as "Remind Sam and Ria" or "Remind Sam and 2 others". When the names are not known it reads "Remind everyone on the task".',
             ),
             steps("Open the task page while the task is still with its people.", {
-              text: "Tap Remind ‹names› (highlighted).",
+              text: "Tap Remind ‹names› (highlighted): on a laptop it sits at the right end of the box that says what is needed now; on a phone, just under it.",
               shot: "owner/remind",
             }),
             next(
-              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›".',
+              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s History (the clock in its header) reads "sent ‹names› a reminder", and Chat shows only a quiet line that it went out.',
             ),
             note(
-              'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 PM"; it is ready again when that time passes.',
+              'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',
             ),
           ],
           keywords: ["remind", "nudge", "chase"],
+        },
+        {
+          id: "owner-task-chat",
+          title: "Chat on a task",
+          summary: "Talk with the people on a task, on the task itself.",
+          blocks: [
+            steps(
+              'Open the task and choose "Chat". On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right end of the chat’s header, beside the names, opens it large (Esc, ✕ or back closes it). On a phone it opens full screen and ‹ takes you back to the task.',
+              'Type in "Message…" at the bottom. The box grows as you write.',
+              "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
+            ),
+            next(
+              'Everyone on the task sees it. Yours sit on the right; others\' on the left with their photo and name. The tab shows "Chat · N new" when something is unread.',
+            ),
+            text(
+              'Chat opens at a red "New" line where unread messages start, otherwise at the latest. Days are divided ("Today", "Yesterday", "Mon 20 Oct"). Quiet lines in the middle show when someone noted the task, the deadline moved or a reminder went out; the full story stays in History (the clock in the header).',
+            ),
+            note(
+              'Scrolled up when a message arrives? Tap "Jump to latest". Older messages appear with "Load earlier" at the top.',
+            ),
+          ],
+          link: { href: "/tasks", label: "Open Tasks" },
+          keywords: ["comment", "message", "discussion", "reply", "new", "load earlier"],
         },
         {
           id: "owner-task-menu",
@@ -487,6 +525,9 @@ export const OWNER_GUIDE: Guide = {
             next('"Decide it yourself" removes the Admin and brings the task to you.'),
             note(
               '"Reopen task" is for finished tasks only. "Change approver" is for unfinished tasks.',
+            ),
+            note(
+              'A reopened task goes back to its people. Its old hand-in folds away under "Earlier hand-in · reopened ‹date›: ‹reason›" in Work.',
             ),
           ],
           keywords: ["edit", "cancel", "reopen", "change approver", "menu"],
@@ -549,7 +590,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Review or approve a row",
           summary: "Approve in one tap, with a 6-second Undo.",
           blocks: [
-            text("Each row has Review and Approve."),
+            text(
+              'Each row has Review and Approve (quiet outlines; the group\'s one green button is "Approve all N", or the row\'s own Approve when it is the only one waiting). Colours mean one thing everywhere: green approves or marks done, red ends or cancels something for good, and the plain solid button saves or creates. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": an amber dot from a day, red from three), as on Today. The state is a chip on the right.',
+            ),
             steps(
               "Open Approvals.",
               {
@@ -560,7 +603,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("A toast appears with Undo. You have 6 seconds to take it back."),
             note(
-              'Review offers "Correct…" for attendance, "Reject…" for leave and expenses, and "Open the task" and "Request changes…" for tasks.',
+              'Review offers Approve and "Correct…" for attendance (with the person\'s week and comp leave), "Reject…" for leave and expenses, and "Open the task" and "Request changes…" for tasks.',
             ),
           ],
           keywords: ["approve", "undo", "review", "reject"],
@@ -573,7 +616,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open Approvals and find a group with more than one row.",
               {
-                text: 'Tap "Approve all N" (highlighted).',
+                text: 'Tap the green "Approve all N".',
                 shot: "owner/approve-all",
               },
               "Confirm when asked.",
@@ -597,7 +640,16 @@ export const OWNER_GUIDE: Guide = {
           summary: "Month, week and day views, with filters.",
           blocks: [
             text(
-              "On a laptop the views are Day, Week and Month, opening on Month. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
+              "On a laptop the views are Day, Week and Month, opening on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
+            ),
+            text(
+              "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due, on a laptop each by name, amber (red with an alert when overdue), and on a phone’s full month as one count, “3 due” in amber, or a red alert with the count when overdue (tap the day to see them); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a day is narrow, on a laptop or a phone’s full month; where even that has no room, their photo and “Leave”, and on a phone, where that has no room either, their photo alone; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+            ),
+            text(
+              "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+            ),
+            text(
+              "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone the same “All ▾” sits in the header, just before Filters, which is an icon with a dot while a filter is on. This phone or laptop remembers your choice, and leave and holidays always show.",
             ),
             steps("Open Calendar.", {
               text: 'Tap "Filters" (highlighted) to narrow by Client, Person, Type or Status.',
@@ -611,9 +663,11 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-calendar-day",
           title: "Open a day and add a task to it",
-          summary: "See who is free and what is due, then add a task.",
+          summary: "See who is away and what is due, then add a task.",
           blocks: [
-            text('The day sheet shows "Who\'s free", what is due, events, and client items.'),
+            text(
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline and "+ New task on" the date; on a laptop a day opens in the middle of the screen, with "Open day".',
+            ),
             steps(
               "Open Calendar and tap a day.",
               'Tap "+ New task on" the date at the bottom.',
@@ -621,6 +675,9 @@ export const OWNER_GUIDE: Guide = {
             ),
             next(
               'After you create it, the task page opens. Tap "Calendar" to go back to the same view and day.',
+            ),
+            text(
+              "On a laptop with a mouse or trackpad, point at an empty part of a day in the month: a small + appears in its corner. Click it (or Tab to it and press Enter) for the same New task form on that day.",
             ),
             note("The New task form opens on the day you tapped."),
           ],
@@ -656,10 +713,16 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-person-page",
           title: "Use a person's page",
-          summary: "Profile, Leave, Attendance and Month tabs.",
+          summary: "A summary, then Profile, Leave, Attendance and Month tabs.",
           blocks: [
             text(
-              'Open a person to see a "today" line and four tabs: Profile, Leave, Attendance and Month. The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+              'Open a person to see their status beside their name, a "today" line and four tabs: Profile, Leave, Attendance and Month. The header\'s clock opens their History (invited, joined, role and job title changes, deactivated); your own changes read "You". The ⋯ menu has Edit, Change sign-in email, Change coordinator, Invite as employee, Copy invite link, Reactivate, and Deactivate or Revoke invite.',
+            ),
+            text(
+              "Profile opens with a summary: the days waiting for your review (with Review), their leave this month and the comp leave they have left; each opens its tab. Under it one card holds their phone, sign-in email and joining date, then Profile (name, role, job title).",
+            ),
+            text(
+              "In Attendance, a day waiting for you has Approve and Correct… on its row; open it to see the same as in Approvals (their week and comp leave) and approve it there with the green Approve.",
             ),
             note("Deactivating a person keeps all their history. Nothing is deleted."),
           ],
@@ -671,7 +734,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Read the Month report",
           summary: "Each person's month in IST, live.",
           blocks: [
-            text("Reports has two rows. Month shows each person's IST month, live."),
+            text(
+              'Reports opens with this month so far: Days worked (team, with leave and absence), Days waiting for you, Overtime notes and Expenses to pay, each tappable. One with nothing in it folds into one quiet line ("So far: no overtime notes and no expenses to pay."). Under it are two rows. Month shows each person\'s IST month, live.',
+            ),
             steps("Open Reports.", {
               text: 'Tap "Month" (highlighted).',
               shot: "owner/reports",
@@ -704,7 +769,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Find a client",
           summary: "Filter by state or Admin, or search by name.",
           blocks: [
-            text("The list shows each client with its state and Admin. It opens on Active."),
+            text(
+              'The list shows each client with its state, its Admin, what is running now ("3 open · 9/12 done") and when work is due: a red "2 late" chip when deliverables are past their planned date, otherwise "Due Thu 22 Oct". It opens on Active.',
+            ),
             steps(
               "Open Clients.",
               'Tap "State" and "Admin" to filter, or type in "Search clients".',
@@ -736,7 +803,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "The client starts as Draft. After you assign an Admin and activate it, it can start work.",
             ),
-            note("A Draft client cannot start work. Assign an Admin first, then activate."),
+            note(
+              'A Draft client cannot start work. Assign an Admin first, then activate. A draft made by mistake can be deleted from its ⋯ ("Delete") while nothing else uses it (no contact, project, task, file or note); editing its details does not count.',
+            ),
           ],
           link: { href: "/clients", label: "Open Clients" },
           keywords: ["draft", "add client", "onboard"],
@@ -794,17 +863,19 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Restore" on an archived contact to bring it back.',
             ),
             next("An archived contact stays on the list, marked Archived."),
-            note("Archiving the primary contact asks for the next primary contact."),
+            note(
+              'Archiving the primary contact asks for the next primary contact. A contact no other record uses can be deleted for good from its ⋯ ("Delete"): its own edits and archiving never count, and the primary contact can go only while no other live contact is left.',
+            ),
           ],
           keywords: ["contact", "primary contact", "archive"],
         },
         {
           id: "owner-client-page",
           title: "Read a client's page and your private notes",
-          summary: "Overview, Projects, Brand and Activity.",
+          summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects, Brand and Activity. Overview shows the Admin, the primary contact, details, and "Requirements and notes". Activity is the client\'s history, newest first.',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed "Archived (n)" at their foot, each with Restore and Delete), details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -837,21 +908,23 @@ export const OWNER_GUIDE: Guide = {
           title: "Create a project",
           summary: "Name it, choose how often it repeats, list the deliverables.",
           blocks: [
+            text(
+              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Shetty"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
+            ),
             steps(
               'Open the client, tap the Projects tab, then tap "New project".',
               {
-                text: '"Start from" (highlighted), if templates exist: pick a template, then change anything.',
+                text: '"Start from a template" (highlighted), if templates exist: pick one in the library. It shows as a chip; change anything after.',
                 shot: "owner/new-project",
               },
-              'Type the "Project name" (required). Choose "Repeats": One-time, Weekly or Monthly (Monthly is the default).',
+              'Type the "Project name" (required). Choose "Repeats": One-time, Weekly or Monthly (Monthly is the default). Add a "Description" and custom fields if you like, then tap "Next".',
               'For a one-time project, set a "Delivery date" that is not in the past.',
-              'Optionally set "Default stage groups". A deliverable without its own stages starts with these.',
-              'Fill in "Deliverables" (or "Deliverables list" for repeating projects), then "Description" and custom fields.',
-              'Check the preview, then tap "Create project".',
+              'On step 2, fill in "Deliverables" (or "Deliverables list" for repeating projects). Optionally set "Default stage groups": a deliverable without its own stages starts with these. Tap "Next".',
+              'Check the preview on step 3, then tap "Create project".',
             ),
             next("The project opens on its page, ready for work."),
             note(
-              'How often it repeats cannot change later. You cannot add a project to an Inactive client: the button is replaced by "No new projects on an Inactive client."',
+              'Back (the button or the back gesture) returns to the step before. How often it repeats cannot change later. You cannot add a project to an Inactive client: the button is replaced by "No new projects on an Inactive client."',
             ),
           ],
           link: { href: "/clients", label: "Open Clients" },
@@ -860,13 +933,13 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-start-from-template",
           title: "Start a project from a template",
-          summary: "Search and preview templates before you use one.",
+          summary: "Browse and preview templates before you use one.",
           blocks: [
             text(
               'The library lists templates with a summary like "Monthly · 6 deliverables · 72 stages".',
             ),
             steps(
-              'In New project, tap "Search and preview templates". "Start from a template" opens: "Preview one to see what it gives, then Use this template."',
+              'In New project, tap "Start from a template". The library opens: "Preview one to see what it gives, then Use this template."',
               'Type in "Search templates": a template\'s name or one of its deliverables.',
               {
                 text: "Tap Preview (highlighted) on a row to see what a project started from it gets.",
@@ -874,7 +947,9 @@ export const OWNER_GUIDE: Guide = {
               },
               'Tap "Use this template", or "Back to templates" to keep looking.',
             ),
-            next("The template's contents are copied into the new project form."),
+            next(
+              'The template\'s contents are copied into the new project form, and the template shows as a chip on Basics ("Change template" picks another; "Don\'t use a template" drops the chip).',
+            ),
             note(
               "Using a template replaces the repeat, the default stage groups and the deliverables. The description and custom fields fill only if they are empty.",
             ),
@@ -923,15 +998,15 @@ export const OWNER_GUIDE: Guide = {
           summary: "See what Create will make before anything is saved.",
           blocks: [
             text(
-              'On a laptop the preview sits beside the form. It says "What Create makes". The top shows three figures: deliverables, groups and stages.',
+              'On a laptop the preview sits beside the deliverables on step 2. Step 3, "Preview & create", shows it on every screen: "What Create makes". The top shows three figures: deliverables, groups and stages.',
             ),
             steps(
-              'On a phone, tap "Preview" to open it as a step.',
+              'Tap "Next" on step 2 to open it as step 3.',
               {
                 text: 'Read each card: it is tagged "Default stages" or "Own stages" (highlighted). Identical neighbours collapse, so "Reel 1–4" shows as one card with "×4"; tap it to see the names.',
                 shot: "owner/project-preview",
               },
-              'Tap "Back to edit" to return to the form.',
+              'Tap "Back" to return to the deliverables.',
             ),
             next("Nothing is saved until you create."),
             note('Closing after changes asks "Discard this project?".'),
@@ -941,36 +1016,39 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-project-page",
           title: "Read the project page",
-          summary: "Cycles, the progress ring and the deliverable rows.",
+          summary: "Cycles, the progress ring, Needs you and the deliverable rows.",
           blocks: [
             text(
-              'The header shows the name, repeat and delivery date, with an Activity button and a ⋯ menu. Use the arrows to move between cycles. A one-time project shows "The project\'s deliverables".',
+              'The header shows the name, its state chip, the repeat and delivery date, with a History button (the clock) and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch; a project with only one cycle shows just its month, with no tabs. A one-time project shows "The project\'s deliverables".',
             ),
             steps({
-              text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace reads "On track", or "N behind plan" in red. At 100% it says the cycle is complete.',
+              text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace is a chip: "On track" in green, or "N behind plan" in red. At 100% it says the cycle is complete.',
               shot: "owner/project-page",
             }),
             text(
-              'Under it, "Deliverables" has one row per deliverable. A row shows one line per stage group, such as "Edit ▮▮▯ 2/3" (a deliverable from before groups reads "Stages"), then "Next: ‹stage›" or "All stages ticked", and a planned date in words: "Planned 21 Oct", "Planned today", "Planned 18 Oct · 2 days late" or "Not planned". On a laptop these sit in columns; on a phone each deliverable is a card.',
+              'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done"). When nothing is late or nearly done, nothing is shown there.',
+            ),
+            text(
+              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct" with a red "2 days late" chip, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.',
             ),
             text(
               'Finished ones read "Done", "Closed" or "Carried" and sit in the collapsed "Done and closed (N)". An empty cycle says "No deliverables yet: add one or start from a template." with an Add deliverable button.',
             ),
             note("Closed and carried deliverables are not counted in the ring."),
           ],
-          keywords: ["progress", "ring", "pace", "planned", "overdue", "stage chips", "next"],
+          keywords: ["progress", "ring", "pace", "planned", "overdue", "needs you", "late", "next"],
         },
         {
           id: "owner-deliverable-rows",
           title: "Tick stages from the list",
-          summary: "Open a stage line and tap a stage, or tap Next.",
+          summary: "Open a row's bar and tick from its checklist, or tap Next.",
           blocks: [
             text(
               "You can tick stages without opening a deliverable. Tapping anywhere else on the row opens it.",
             ),
             steps(
               {
-                text: 'Tap a stage line, such as "Video steps 2/4" (highlighted), to show its stages. Ticked ones carry a ✓, the next one is outlined and later ones are dashed. Tap the line again to hide them.',
+                text: "Tap a row's progress bar, such as \"2/4\" (highlighted), to open its checklist: each stage with a tick box, under its group's name and count. Ticked ones are filled with a ✓, the next one is bold and outlined, later ones are grey. Long names wrap to two lines. On a laptop the checklist runs in three columns, on a phone in one. Tap the bar again to close it.",
                 shot: "owner/deliverable-rows",
               },
               'Tap a stage to tick it ("Tick Edit") or untick it ("Untick Edit").',
@@ -984,7 +1062,7 @@ export const OWNER_GUIDE: Guide = {
               "On a laptop you can also Tab to a deliverable and press Enter to open it. Stages tick only while the deliverable is open.",
             ),
           ],
-          keywords: ["tick", "untick", "next", "stage line", "chips", "undo", "quick"],
+          keywords: ["tick", "untick", "next", "checklist", "bar", "undo", "quick"],
         },
         {
           id: "owner-add-deliverable",
@@ -1009,7 +1087,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Tick stages, edit, move, mark done, send back or close.",
           blocks: [
             text(
-              'The sheet shows Planned, From and History, and the stages under group headings with their count, as on the list ("Stages 1/1", "Edit 2/3").',
+              'The sheet shows Planned (the date alone, "24 Oct", or Not planned), From and History, and the stages under group headings with their count, as on the list ("Stages 1/1", "Edit 2/3"). "Edit stages" sits at the right of the Stages heading.',
             ),
             steps(
               "Tap anywhere on a deliverable (or its ›) to open its sheet.",
@@ -1018,9 +1096,11 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Edit details" to change the title, notes, and the planned date while it is open.',
               'Open the ⋯ menu for "Another revision round", "Move up" or "Move down" (its place in the list, with a toast like "Moved Reel 2 down") and "Save as template".',
             ),
-            next('"Last change" has a History button that shows who changed what, and when.'),
+            next(
+              '"Last change · ‹who› ‹what› · ‹day›" sits on one line, with the History clock beside it: it shows who changed what, and when.',
+            ),
             note(
-              "You can tick or untick stages only while the deliverable is open. Ticked boxes are plain, never red: red is kept for Mark done.",
+              "You can tick or untick stages only while the deliverable is open. Ticked boxes are plain, never red: red is kept for what is late.",
             ),
           ],
           keywords: ["sheet", "tick", "history", "edit stages", "edit details", "move up", "order"],
@@ -1041,13 +1121,37 @@ export const OWNER_GUIDE: Guide = {
               'Read the toast, such as "Added Revision 3".',
             ),
             next(
-              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". Ticks already made stay.',
+              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". It goes right after the last revision stage, or right after "Edit" when there is none, so it comes before "Posted". With neither, it goes just before "Posted", "Published" or "Delivered", or at the end when there is none of those. Ticks already made stay.',
             ),
             note(
               "It works on open deliverables only. To add it to a done one, send it back first.",
             ),
+            note(
+              'Use it instead of typing numbered round stages ("Approval round 1", "Approval round 2"). When a deliverable has two or more stages like that, its open row shows this tip.',
+            ),
           ],
-          keywords: ["revision", "another round", "changes", "client feedback"],
+          keywords: ["revision", "another round", "changes", "client feedback", "tip"],
+        },
+        {
+          id: "owner-group-stages",
+          title: "Split a long stage list into groups",
+          summary: "You choose where each group starts; nothing is grouped by itself.",
+          blocks: [
+            text(
+              'A deliverable with 9 or more stages and no groups shows, when you open its row, "12 stages: split them into groups?" with a "Group stages" button. It is only a suggestion: nothing changes until you choose.',
+            ),
+            steps(
+              'Open the row\'s checklist and tap "Group stages".',
+              'Tap the stage where each new group starts ("Start a group here"). The first group always starts at the first stage. Tap it again to undo.',
+              'Name each group, such as "Concept", "Shoot" and "Post", then tap "Group stages".',
+              'Read the toast "Grouped the stages of ‹deliverable›".',
+            ),
+            next(
+              "The checklist shows each group's name and its own count. Ticks and the order stay as they were, and only that deliverable changes. The History lists each stage moved into its group.",
+            ),
+            note("A deliverable that already has groups is changed in Edit stages, as before."),
+          ],
+          keywords: ["group", "groups", "long", "stages", "split", "concept", "shoot"],
         },
         {
           id: "owner-mark-done",
@@ -1058,7 +1162,7 @@ export const OWNER_GUIDE: Guide = {
               "There is no separate approval step for client work: marking it done is the approval.",
             ),
             text(
-              "Mark done comes onto a row once every stage is ticked; the first such row's button is red. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
+              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open, as “Mark done…”, which asks first (“1 stage isn't ticked”). A deliverable with no stages always shows it. In the deliverable's sheet the action is “Next: ‹stage›” (it ticks that stage) until every stage is ticked, then the green Mark done; before that, Mark done… is in the sheet's ⋯. “Close deliverable…” is in red, and its confirmation's way out is “Keep it”.",
             ),
             steps(
               'Open the project and tap "Mark done" on the row (or in its ⋯), or in the sheet.',
@@ -1160,11 +1264,11 @@ export const OWNER_GUIDE: Guide = {
         },
         {
           id: "owner-project-activity",
-          title: "Read a project's Activity",
+          title: "Read a project's History",
           summary: "Every change to the project, newest first.",
           blocks: [
             steps(
-              "Open the project and tap Activity in the header.",
+              "Open the project and tap the clock (History) in the header.",
               "Filter by All, Deliverables, Stages or Project.",
               'Tap "Show older" to see more.',
             ),
@@ -1184,7 +1288,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open the project's ⋯ menu.",
               'Tap "Complete project" when the work is finished.',
-              'Tap "Cancel project…" to cancel it. It needs a reason.',
+              'Tap "Cancel project…" to cancel it. It needs a reason; "Keep project" closes the question without cancelling.',
               'Tap "Reopen project…" to bring a completed or cancelled project back.',
             ),
             next("A completed or cancelled project becomes read-only."),
@@ -1294,16 +1398,18 @@ export const OWNER_GUIDE: Guide = {
               "A preset is a flat list of stages with a name (up to 80 characters), and up to 100 stages.",
             ),
             steps(
-              "Open Settings, then Stage presets.",
-              'Tap to add one ("Add a stage preset").',
+              "Open Settings, then Templates: Stage presets is the first section (on a phone, the Presets tab).",
+              'Tap "Add preset" on the section\'s heading.',
               "Type the Name and the stages in order. Drag or use Move to reorder.",
               'Tap "Add preset" or "Save preset".',
             ),
-            next('Archiving a preset stops "New project" offering it. "Restore" brings it back.'),
+            next(
+              'Archive on a preset stops "New project" offering it; the message "‹name› archived" has Undo for a few seconds, and "Archived (n)" at the foot of the list has Restore later.',
+            ),
             note("Projects that used a preset keep their stages."),
           ],
-          link: { href: "/settings/stage-presets", label: "Open Stage presets" },
-          keywords: ["preset", "checklist", "archive", "restore"],
+          link: { href: "/settings/templates#presets", label: "Open Stage presets" },
+          keywords: ["preset", "checklist", "archive", "undo"],
         },
         {
           id: "owner-project-template",
@@ -1314,7 +1420,7 @@ export const OWNER_GUIDE: Guide = {
               'A project template has a Name, Repeats, "Default stage groups", "Deliverables" (with × N, and a deliverable-template picker), a Description and project field defaults.',
             ),
             steps(
-              'Open Settings, then Templates, and tap "Add" under Project templates.',
+              'Open Settings, then Templates, and tap "Add project template" beside Project templates.',
               'On a laptop a preview shows beside the form; tap "Add template" (or "Save template" when editing).',
               'On a phone, tap "Preview and save": the preview opens as its own step. Tap "Back to editing" to change something, or save from there.',
             ),
@@ -1337,7 +1443,7 @@ export const OWNER_GUIDE: Guide = {
               "Use one when you repeat a kind of deliverable, such as a reel with the same steps every time.",
             ),
             steps(
-              'Open Settings, then Templates, and tap "Add" under Deliverable templates.',
+              'Open Settings, then Templates, and tap "Add deliverable template" beside Deliverable templates.',
               'Give it a Name and its "Stage groups". A preview shows as you build.',
               'Tap "Add template" (on a phone, "Preview and save").',
             ),
@@ -1352,23 +1458,50 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-templates-list",
           title: "Preview, edit or archive a template",
-          summary: "Every project and deliverable template row has Preview, Edit and Archive.",
+          summary: "One Templates page: stage presets, deliverable, project and task templates.",
           blocks: [
             steps(
-              "Open Settings, then Templates.",
-              'Tap "Preview" on a project or deliverable template to see what work made from it gets.',
-              'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to archive it. Archive asks first.',
-              'Archived ones are listed below the others; tap "Restore" on one to bring it back.',
+              "Open Settings, then Templates. It lists Stage presets, Deliverable templates and Project templates, then, under a line, Task templates. On a phone each is a tab.",
+              "Type in the search box to find any of them by name, stage or deliverable.",
+              'Tap "Preview" on a stage preset, deliverable or project template to see what work made from it gets.',
+              'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Archive asks first.',
             ),
             next(
-              'The toasts say what changes: "Archived ‹name›: New project no longer offers it" and "Restored ‹name›: New project offers it again" (for a deliverable template, "+ Add deliverable" instead of New project).',
+              'The message "‹name› archived" has Undo for a few seconds; later, "Archived (n)" at the foot of the list has Restore. Work already made from it does not change.',
             ),
             note(
-              "A task template's Archive is a plain button, never red: the question it opens names the template on its own red button.",
+              "The question's Archive button is plain, not red: nothing is destroyed. The template is only no longer offered, and Undo brings it back.",
             ),
           ],
           link: { href: "/settings/templates", label: "Open Templates" },
-          keywords: ["archive", "restore", "edit template", "preview", "task template"],
+          keywords: [
+            "archive",
+            "undo",
+            "edit template",
+            "preview",
+            "task template",
+            "stage preset",
+          ],
+        },
+        {
+          id: "owner-templates-delete",
+          title: "Delete a template for good",
+          summary: "Only you can; work made from it keeps everything.",
+          blocks: [
+            steps(
+              "Open Settings, then Templates.",
+              'Tap the grey bin ("Delete ‹name›") on the template or preset; on a phone it is Delete in the row\'s ⋯. Only the Delete in the confirmation is red.',
+              'Read the question: it says what uses it, such as "Used by 3 projects (2 still open)", and exactly what happens. Tap the red "Delete ‹name›", or "Keep it".',
+            ),
+            next(
+              'It is gone from Templates and from every list that offered it, and it cannot be brought back. Projects, deliverables and tasks made from it keep all their stages, deliverables and months; a project\'s Details read "Template: ‹name› (deleted)".',
+            ),
+            note(
+              "Deleting a task template first gives its reminders to every open task that follows it, so nobody's reminders change. Admins can archive their own templates but never delete one. To stop offering a template you may want again, use Archive instead.",
+            ),
+          ],
+          link: { href: "/settings/templates", label: "Open Templates" },
+          keywords: ["delete", "delete template", "remove template", "deleted", "bin"],
         },
         {
           id: "owner-save-as-template",
@@ -1384,7 +1517,7 @@ export const OWNER_GUIDE: Guide = {
               'The toast "Saved as the template …" has an "Open templates" action. The original stays as it is.',
             ),
             note(
-              "A project template keeps its default stage groups and deliverables with their stages. A deliverable template keeps its stage groups, with no ticks or dates.",
+              "A project template keeps the structure only: the repeat, its default stage groups and deliverables with their stages, never the description or custom field values. A deliverable template keeps its stage groups, with no ticks or dates.",
             ),
           ],
           keywords: ["save as template", "copy from project"],
@@ -1418,11 +1551,11 @@ export const OWNER_GUIDE: Guide = {
               "This is the whole path for a client who gets the same work every month. You set it up once. After that, each month starts by itself.",
             ),
             steps(
-              'Open Settings, then Stage presets: add a preset for each kind of checklist, such as "Shoot prep".',
+              'Open Settings, then Templates, Stage presets: add a preset for each kind of checklist, such as "Shoot prep".',
               "Open Settings, then Templates: add a deliverable template for Reel and one for Post, using those presets.",
               'Add a project template called "Monthly retainer", with Repeats set to Monthly and the deliverables Reel × 4 and Post × 2.',
               {
-                text: 'Open the client, then Projects, then tap "New project". Under "Start from" (highlighted), pick "Monthly retainer". Check the preview, then tap "Create project".',
+                text: 'Open the client, then Projects, then tap "New project". Tap "Start from a template" (highlighted) and use "Monthly retainer". Name it, tap "Next" twice, check the preview, then tap "Create project".',
                 shot: "owner/new-project",
               },
               'To adjust this month, tap "Add deliverable" for a one-off, or "Edit stages" on a deliverable. This changes this month only.',
@@ -1434,7 +1567,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("Each month a new cycle appears, with the deliverables list copied in."),
             note(
-              "A project template's deliverables are built in the template builder. In New project you pick the template through Start from; New project itself has no deliverable-template picker.",
+              "A project template's deliverables are built in the template builder. In New project you pick the template through “Start from a template”; New project itself has no deliverable-template picker.",
             ),
           ],
           link: { href: "/clients", label: "Open Clients" },
@@ -1449,7 +1582,7 @@ export const OWNER_GUIDE: Guide = {
               "A monthly project gets a new cycle on the 1st, and a weekly one on Mondays, at 00:00 IST. Each new cycle is filled from the deliverables list, with each line's stages. It runs only for Active clients and projects that are open. A Paused client gets no new cycles.",
             ),
             text(
-              'You get a "cycle ready" notice at 8:00 AM. A repeating project also gets its current period\'s cycle as soon as you create it.',
+              'You get a "cycle ready" notice at 8:00 am. A repeating project also gets its current period\'s cycle as soon as you create it.',
             ),
           ],
           keywords: ["new cycle", "automatic", "paused", "00:00", "1st"],
@@ -1572,12 +1705,11 @@ export const OWNER_GUIDE: Guide = {
               "Expenses: expense categories and when a claim needs a receipt photo.",
               "Job titles: the titles people can be given.",
               "Task types: the kinds of task, their order and what each asks for.",
-              "Stage presets: reusable stage checklists.",
               "Custom fields: extra fields on clients and contacts.",
-              "Templates: project, deliverable and task templates for work that repeats.",
+              "Templates: stage presets, deliverable, project and task templates, on one page.",
             ),
             text(
-              "Admins can open Notifications, Job titles, Stage presets, Custom fields and Templates. The rest are yours alone.",
+              "The sections sit in groups named by what they hold: Company and working days; Team (Notifications, Job titles); Lists, templates and integrations. Each row says in one line what it holds, and Help, at the foot, opens How MaxOff works. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
             ),
           ],
           link: { href: "/settings", label: "Open Settings" },
@@ -1588,19 +1720,21 @@ export const OWNER_GUIDE: Guide = {
           title: "Set reminders and limits",
           summary: "How soon MaxOff nudges, escalates and goes quiet.",
           blocks: [
-            text("Thresholds holds the timings that drive reminders."),
+            text(
+              'Thresholds holds the timings that drive reminders, in four groups: Working day, Tasks, Client work and Notifications. Each group is one row with a line saying its current values, such as "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h".',
+            ),
             steps(
               "Open Settings, then Thresholds.",
+              'Tap "Tasks" to open it.',
               {
                 text: 'Set "Acknowledgement reminder (hours)" (highlighted).',
                 shot: "owner/thresholds",
               },
-              'Set "Escalate to the Admin after (hours)" and "Escalate to the Owner after (hours)".',
-              'Set "Overdue escalation (hours)" and "Workload warning (tasks due that day)".',
-              'Set "End-of-day reminder" and "Late End day until".',
-              'Set "Quiet from" and "Quiet until", and "Email cap per person per day".',
+              'Set "Escalate to the Admin after (hours)", "Escalate to the Owner after (hours)", "Overdue escalation (hours)", "Workload warning (tasks due that day)" and the Default reminders.',
+              'In "Working day": "End-of-day reminder" and "Late End day until". In "Client work": the two escalations to you. In "Notifications": quiet hours, the email cap and the weekly summary\'s day.',
+              'Tap "Save thresholds". It stays at the bottom of the screen and saves every group\'s changes at once.',
             ),
-            next("There are also thresholds for client work on the same screen."),
+            next("A group with a value to fix opens by itself, with the message under the field."),
             note("The timings drive the reminders and escalations people receive."),
           ],
           link: { href: "/settings/thresholds", label: "Open Thresholds" },
@@ -1640,9 +1774,44 @@ export const OWNER_GUIDE: Guide = {
                 CREW +
                 ".",
             ),
+            text(
+              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Archive; on a phone they are in the row\'s ⋯. Archive asks first, and its message has Undo for a few seconds; whoever already has the value keeps it. Later, open "Archived (n)" at the foot of the list: Restore brings a row back, and Delete removes one nothing else ever used.',
+            ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },
           keywords: ["job title", "designer", "editor", "role"],
+        },
+        {
+          id: "owner-delete-unused",
+          title: "Delete something nobody used",
+          summary: "Only what nothing ever pointed at goes; the rest you archive.",
+          blocks: [
+            steps(
+              {
+                text: 'In Settings, open Job titles, Expenses, Task types or Custom fields and tap the grey bin ("Delete ‹name›") on the row (highlighted); on a phone it is Delete in the row\'s ⋯. Only the Delete in the confirmation is red.',
+                shot: "owner/delete-unused",
+              },
+              'For a draft client or a contact, open its ⋯ menu and tap the red "Delete".',
+              'MaxOff checks first. If nothing ever used it, tap the red "Delete ‹name›", or "Keep it".',
+            ),
+            next("It is gone for good, from every list and picker. Its name stays in the history."),
+            note(
+              'Anything something else ever used stays: a title someone once held, a category on any claim (paid ones too), a type on any task or template, a field with a value now or in the past, a draft with a contact or a note. Its own history never stops a Delete: renaming, editing, reordering, archiving or restoring it is fine. The question then says "In use — archive it instead." and offers only Close. A draft client has no Archive; it simply stays a draft. Admins never see Delete.',
+            ),
+          ],
+          link: { href: "/settings/job-titles", label: "Open Job titles" },
+          keywords: [
+            "delete",
+            "unused",
+            "remove",
+            "in use",
+            "job title",
+            "expense category",
+            "task type",
+            "custom field",
+            "draft client",
+            "contact",
+          ],
         },
         {
           id: "owner-custom-fields",
@@ -1664,6 +1833,9 @@ export const OWNER_GUIDE: Guide = {
             text(
               'Days off & holidays holds the weekly off days and the list of holidays. On those days the Attendance heading on Today reads "Attendance · Day off".',
             ),
+            note(
+              'A holiday still ahead has a bin ("Remove ‹name›"). On its day and after it stays, with no bin: it already counted for attendance and leave.',
+            ),
           ],
           link: { href: "/settings/days-off", label: "Open Days off" },
           keywords: ["holiday", "weekly off", "sunday", "day off"],
@@ -1672,7 +1844,7 @@ export const OWNER_GUIDE: Guide = {
     },
     {
       id: "notifications",
-      title: "Notifications",
+      title: "Alerts and your phone",
       topics: [
         {
           id: "owner-alerts",

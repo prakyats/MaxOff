@@ -30,6 +30,14 @@ describe("describeClientActivity (3.4)", () => {
     expect(joinNouns(["name", "phone", "website"])).toBe("name, phone and website");
   });
 
+  it('says "You" for the reader\'s own changes (v1.8 pull-in item 5)', () => {
+    const edit = entry({ new: { phone: "1" } });
+    expect(describeClientActivity(edit, { ...context, viewerId: "owner" })?.actor).toBe("You");
+    expect(describeClientActivity(edit, { ...context, viewerId: "ravi" })?.actor).toBe(
+      "Prishit Shetty",
+    );
+  });
+
   it("names the fields a plain edit changed", () => {
     expect(
       describeClientActivity(entry({ new: { phone: "1", drive_url: "x" } }), context),
@@ -58,6 +66,31 @@ describe("describeClientActivity (3.4)", () => {
         context,
       ),
     ).toMatchObject({ actor: "Ravi", text: "created the client, Active from the start" });
+  });
+
+  it("says the Owner deleted a contact, by the name the history kept (V5a 6c)", () => {
+    expect(
+      describeClientActivity(
+        entry({
+          entity: "client_contacts",
+          entityId: "gone",
+          action: "deleted",
+          meta: { name: "Priya" },
+        }),
+        context,
+      )?.text,
+    ).toBe("deleted the contact Priya");
+    expect(
+      describeClientActivity(
+        entry({
+          entity: "client_contacts",
+          entityId: "gone",
+          action: "delete",
+          old: { name: "Priya" },
+        }),
+        context,
+      ),
+    ).toBeNull();
   });
 
   it("keeps the close reason for the Owner only", () => {

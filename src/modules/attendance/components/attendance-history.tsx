@@ -1,14 +1,17 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { CalendarCheckIcon } from "lucide-react";
+import { CalendarCheckIcon, ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
+import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
 import { displayName } from "@/core/lib/display-name";
+import { toastResult } from "@/core/ui/toast";
 import {
   Sheet,
   SheetContent,
@@ -17,9 +20,11 @@ import {
   SheetTitle,
 } from "@/core/ui/primitives/sheet";
 
+import { approveDay } from "../actions/review";
 import {
+  approveDayLabel,
   clockTime,
-  dayTimes,
+  dayTimesLine,
   describeEvent,
   describeHistoryDay,
   type HistoryDay,
@@ -31,6 +36,7 @@ import {
 import { canAddNote, type NoteDay } from "../domain/notes";
 
 import { CorrectDayDialog, type CorrectTarget } from "./correct-day-dialog";
+import { DayReviewContext } from "./day-review-context";
 import { ExtraWorkNoteDialog } from "./extra-work-note-dialog";
 
 /**
@@ -38,8 +44,13 @@ import { ExtraWorkNoteDialog } from "./extra-work-note-dialog";
  * day came to; opening it shows how, event by event: what they chose, what the Owner decided and
  * why, and what their leave changed. The member reads their own in their words (`SELF`, with
  * **Add note** on the last 7 days: an overtime note, or "I worked that day" on a day off, 3b.2);
- * the Owner reads someone else's in the same words turned around, with **Correct** on every day
- * (task 2.4, WORKFLOWS §1: any state, reason required).
+ * the Owner reads someone else's in the same words turned around. **Every row opens its day**
+ * (the approved pull-in sample, V5b-D): the Owner's actions are in the day's sheet, **Correct** on
+ * any day (task 2.4, WORKFLOWS §1: any state, reason required) and, on a day waiting for them,
+ * **Approve** (Forest) beside it, the same `attendance_decide()` Approvals uses, with Approvals'
+ * context (their week and comp leave, PP-person-4); the waiting row alone carries an outlined
+ * Approve too, so no row has a Correct button. Empty times read "Not recorded".
+ * One note under the table says how a day is put right.
  */
 export function AttendanceHistory({
   days,
@@ -65,34 +76,68 @@ export function AttendanceHistory({
   const [correct, setCorrect] = useState<CorrectTarget | null>(null);
   const owner = viewpoint.kind === "owner" ? viewpoint : null;
 
-  const dayAction = (day: HistoryDay, size: "sm" | "default") => {
-    if (owner) {
-      return (
-        <Button
-          variant="secondary"
-          size={size}
-          onClick={() =>
-            setCorrect({
-              dayId: day.id,
-              memberName: owner.name,
-              workDate: day.workDate,
-              current: day.finalStatus ?? day.submittedChoice,
-              leaveType: leaveStatusOf(day),
-              compDays: owner.compDays ?? null,
-            })
-          }
-        >
-          Correct
-        </Button>
-      );
-    }
+  const approve = useAction(async (day: HistoryDay) => {
+    const result = await approveDay({ dayId: day.id });
+    toastResult(result, {
+      success: `Approved ${owner ? `${displayName(owner.name)}'s` : "the"} ${historyDate(day.workDate)}`,
+    });
+    if (result.ok) setOpenId(null);
+  });
+
+  const correctDay = (day: HistoryDay) => {
+    if (!owner) return;
+    setCorrect({
+      dayId: day.id,
+      memberName: owner.name,
+      workDate: day.workDate,
+      current: day.finalStatus ?? day.submittedChoice,
+      leaveType: leaveStatusOf(day),
+      compDays: owner.compDays ?? null,
+    });
+  };
+
+  /** The member's own row action: Add note on the last 7 days (3b.2). */
+  const noteAction = (day: HistoryDay, size: "sm" | "default") => {
+    if (owner) return null;
     if (!canAddNote(day.workDate, today) || !noteDays.some((d) => d.date === day.workDate)) {
       return null;
     }
     return (
-      <Button variant="secondary" size={size} onClick={() => setNoteDate(day.workDate)}>
+      <Button
+        variant="secondary"
+        size={size}
+        onClick={(event) => {
+          // On the laptop row, which opens the day: the note's dialog alone.
+          event.stopPropagation();
+          setNoteDate(day.workDate);
+        }}
+      >
         {day.isDayOff ? "I worked that day" : "Add overtime note"}
       </Button>
+    );
+  };
+
+  /** The day sheet's actions: the Owner's Approve (a waiting day) and Correct; the member's note. */
+  const sheetActions = (day: HistoryDay) => {
+    if (!owner) return noteAction(day, "default");
+    const approveLabel = approveDayLabel(day);
+    return (
+      <>
+        {approveLabel ? (
+          <Button
+            variant="approve"
+            commits
+            data-slot="history-approve"
+            disabled={approve.pending}
+            onClick={() => approve.run(day)}
+          >
+            {approveLabel}
+          </Button>
+        ) : null}
+        <Button variant="secondary" data-slot="history-correct" onClick={() => correctDay(day)}>
+          Correct this day…
+        </Button>
+      </>
     );
   };
 
@@ -131,7 +176,17 @@ export function AttendanceHistory({
       id: "times",
       header: "Start · end",
       enableSorting: false,
-      cell: ({ row }) => <span className="text-muted-foreground">{times(row.original)}</span>,
+      cell: ({ row }) => (
+        <span
+          className={cn(
+            "whitespace-nowrap",
+            !row.original.startedAt && !row.original.endedAt && "text-muted-foreground",
+          )}
+          data-slot="history-times"
+        >
+          {dayTimesLine(row.original, today)}
+        </span>
+      ),
     },
     {
       id: "flags",
@@ -147,7 +202,33 @@ export function AttendanceHistory({
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       enableSorting: false,
-      cell: ({ row }) => <div className="flex justify-end">{dayAction(row.original, "sm")}</div>,
+      cell: ({ row }) => {
+        const day = row.original;
+        if (!owner) return <div className="flex justify-end">{noteAction(day, "sm")}</div>;
+        return (
+          <div className="flex items-center justify-end gap-2">
+            {/* Only a waiting day carries a button: Approve, as in Approvals (V5b-D). Outlined:
+                a list never repeats a solid button; the day's sheet holds the solid Forest one
+                (PP-person-4). */}
+            {approveDayLabel(day) ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                commits
+                data-slot="history-row-approve"
+                disabled={approve.pending}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  approve.run(day);
+                }}
+              >
+                Approve
+              </Button>
+            ) : null}
+            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </div>
+        );
+      },
     },
   ];
 
@@ -161,9 +242,16 @@ export function AttendanceHistory({
       const summary = describeHistoryDay(day, viewpoint);
       return <StatusDot status={summary.dotStatus} label={summary.status} />;
     },
-    detail: (day) => <DayTimeline day={day} viewpoint={viewpoint} />,
+    detail: (day) => (
+      <div className="flex flex-col gap-4">
+        <DayTimeline day={day} viewpoint={viewpoint} today={today} />
+        {owner && day.state === "pending_review" ? (
+          <DayReviewContext dayId={day.id} workDate={day.workDate} />
+        ) : null}
+      </div>
+    ),
     detailTitle: (day) => historyDate(day.workDate),
-    actions: (day) => dayAction(day, "default"),
+    actions: (day) => sheetActions(day),
   };
 
   return (
@@ -174,6 +262,7 @@ export function AttendanceHistory({
         getRowId={(day) => day.id}
         caption={owner ? `${owner.name}'s attendance` : "Your attendance"}
         pageSize={0}
+        onRowClick={(row) => setOpenId(row.original.id)}
         mobile={mobile}
         mobilePageSize={days.length || 1}
         emptyState={
@@ -188,6 +277,14 @@ export function AttendanceHistory({
           />
         }
       />
+      {days.length > 0 ? (
+        // Once, under the table (V5b-D): how a day is put right.
+        <p data-slot="history-note" className="text-muted-foreground mt-3 text-xs">
+          {owner
+            ? "Tap a day to correct it. Corrections sit beside the original; history is never overwritten."
+            : "Something wrong with a day? Ask the Owner to correct it. Corrections sit beside the original; history is never overwritten."}
+        </p>
+      ) : null}
       <Sheet open={open !== null} onOpenChange={(next) => (next ? null : setOpenId(null))}>
         <SheetContent side="right" data-slot="history-sheet" className="gap-4 overflow-y-auto">
           {open ? (
@@ -196,10 +293,17 @@ export function AttendanceHistory({
                 <SheetTitle>{historyDate(open.workDate)}</SheetTitle>
                 <SheetDescription>{describeHistoryDay(open, viewpoint).standing}</SheetDescription>
               </SheetHeader>
-              <div className="px-4 text-sm">
-                <DayTimeline day={open} viewpoint={viewpoint} />
+              <div className="flex flex-col gap-4 px-4 text-sm">
+                <DayTimeline day={open} viewpoint={viewpoint} today={today} />
+                {owner && open.state === "pending_review" ? (
+                  <DayReviewContext dayId={open.id} workDate={open.workDate} />
+                ) : null}
               </div>
-              {owner ? <div className="px-4">{dayAction(open, "default")}</div> : null}
+              {owner ? (
+                <div className="flex flex-col gap-2 px-4" data-slot="history-sheet-actions">
+                  {sheetActions(open)}
+                </div>
+              ) : null}
             </>
           ) : null}
         </SheetContent>
@@ -220,11 +324,6 @@ export function AttendanceHistory({
   );
 }
 
-function times(day: HistoryDay): string {
-  const { start, end } = dayTimes(day);
-  return `${start} · ${end}`;
-}
-
 /** The day's leave status, when it is one: correcting to another leave type keeps that leave. */
 function leaveStatusOf(day: HistoryDay): CorrectTarget["leaveType"] {
   const status = day.finalStatus;
@@ -232,7 +331,16 @@ function leaveStatusOf(day: HistoryDay): CorrectTarget["leaveType"] {
 }
 
 /** What a day came to, then how: every event in order, with the reason that came with it. */
-function DayTimeline({ day, viewpoint }: { day: HistoryDay; viewpoint: Viewpoint }) {
+function DayTimeline({
+  day,
+  viewpoint,
+  today,
+}: {
+  day: HistoryDay;
+  viewpoint: Viewpoint;
+  /** The IST date: today's open day has no end yet, not a missing one. */
+  today: string;
+}) {
   const summary = describeHistoryDay(day, viewpoint);
   return (
     <div className="flex flex-col gap-4">
@@ -245,7 +353,7 @@ function DayTimeline({ day, viewpoint }: { day: HistoryDay; viewpoint: Viewpoint
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Start · end</dt>
-          <dd className="text-right">{times(day)}</dd>
+          <dd className="text-right">{dayTimesLine(day, today)}</dd>
         </div>
         {summary.flags.length > 0 ? (
           <div className="flex justify-between gap-4">

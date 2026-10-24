@@ -126,7 +126,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
                 </p>
               ) : null}
             </div>
-            <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
               {group.rows.map((row) => (
                 <li
                   key={row.id}
@@ -195,6 +195,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
         description="It stays in its cycle as closed, not done. This can't be undone."
         label="Why close it"
         submitLabel="Close deliverable"
+        destructive
         onSubmit={async (reason) => {
           if (!closing) return;
           const result = await carryDecide({

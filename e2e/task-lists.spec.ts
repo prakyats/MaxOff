@@ -36,6 +36,8 @@ import {
 test.describe.configure({ mode: "serial" });
 
 const PASSWORD = "list-local-password";
+/** A late task's chip, in Today's words (PP-tasks-2): "3 h late", "2 days late". */
+const LATE_CHIP = /\d+ (min|h|days?) late/;
 
 const FREELANCER_IDS: Record<string, string> = {
   desktop: "40000000-0000-4000-8000-000000000004",
@@ -196,7 +198,7 @@ test.describe("the task lists, the flows", () => {
     await expect(section(page, "tasks-group-changes_requested")).toContainText(`${prefix}to fix`);
     await expect(section(page, "tasks-group-upcoming")).toContainText(`${prefix}upcoming`);
     await expect(section(page, "tasks-group-overdue")).toContainText(`${prefix}late`);
-    await expect(rowOf(page, `${prefix}late`)).toContainText("Overdue");
+    await expect(rowOf(page, `${prefix}late`)).toContainText(LATE_CHIP);
     if (dueToday) {
       await expect(section(page, "tasks-group-due_today")).toContainText(`${prefix}today`);
     }
@@ -339,7 +341,9 @@ test.describe("the task lists, the flows", () => {
     await expect(pageHeader(page)).toHaveText(/Tasks/);
     const needs = section(page, "tasks-needs-you");
     await expect(needs).toContainText(`${prefix}overdue`);
-    await expect(rowOf(page, `${prefix}overdue`)).toContainText("Past its deadline");
+    // W5 (V3): the Overdue chip alone says it; the row no longer repeats "Past its deadline".
+    await expect(rowOf(page, `${prefix}overdue`)).toContainText(LATE_CHIP);
+    await expect(rowOf(page, `${prefix}overdue`)).not.toContainText("Past its deadline");
     await expect(rowOf(page, `${prefix}quiet`)).toContainText(
       `${who.staff.name} hasn't noted it · 5 h`,
     );
@@ -463,6 +467,11 @@ test.describe("the task lists, the flows", () => {
     await expect.poll(() => stateOf(ids["all a"])).toBe("admin_approved");
     await expect.poll(() => stateOf(ids["all b"])).toBe("admin_approved");
     await expect(page.getByText("Nothing waiting. You're clear.")).toBeVisible();
+    // PP-admin-2: the Admin's empty state opens the tasks with the reviewers.
+    const toCheck = page.getByRole("link", { name: "Tasks to check" });
+    await expect(toCheck).toHaveAttribute("href", "/tasks/all?state=review");
+    await toCheck.click();
+    await expect(page).toHaveURL(/\/tasks\/all\?state=review$/);
   });
 });
 
@@ -571,6 +580,89 @@ test.describe("the task lists, installed: back and large text", () => {
     await expect(confirm).toBeVisible();
     await expectBackStack(page, [{ closes: confirm, url }]);
     await expect(group.locator('[data-slot="approval-count"]')).toHaveText("2");
+  });
+
+  test("a row with two long chips keeps › on its title line, its chips on one line and its due time whole", async ({
+    page,
+  }, info) => {
+    // The v1.8 design gate's follow-up (23 Oct): at 375 and 430 the chips cut the due time, a
+    // chip's word wrapped and › dropped to a line of its own. The one row anatomy (`ListRow`).
+    const prefix = prefixOf(info);
+    await removeTasksTitled(prefix);
+    const who = people(info);
+    const staffId = await memberIdOf(who.staff.email);
+    const title = `${prefix}handed in late, with a title long enough to be cut on a phone`;
+    const late = await adminCreates(who.admin.email, {
+      title,
+      assignees: [staffId],
+      due: istInstant(workingDay(30), "18:00"),
+    });
+    await rpcAs(who.staff.email, PASSWORD, "task_acknowledge", { task_id: late });
+    await rpcAs(who.admin.email, PASSWORD, "task_update_assignment", {
+      task_id: late,
+      changes: { due_at: istInstant(addISTDays(todayIST(), -1), "18:00") },
+    });
+    await rpcAs(who.staff.email, PASSWORD, "task_submit_done", {
+      task_id: late,
+      note: "Done",
+      late_reason: "Waited for the files",
+    });
+    await signIn(page, who.admin.email, PASSWORD);
+    await page.goto("/tasks");
+    const row = rowOf(page, title).first();
+    await expect(row).toBeVisible();
+    await expect(row.locator('[data-slot="badge"]')).toHaveCount(2);
+
+    const geometry = await row.evaluate((li) => {
+      const edges = (el: Element | null) => {
+        const rect = el?.getBoundingClientRect();
+        return rect ? { top: rect.top, bottom: rect.bottom } : null;
+      };
+      const meta = li.querySelector<HTMLElement>('[data-slot="task-row-meta"]');
+      const text = meta?.firstChild ?? null;
+      // The due time is the meta line's first part: "Due Mon 26 Oct, 6:00 pm".
+      const due = (text?.textContent ?? "").split(" · ")[0] ?? "";
+      const range = document.createRange();
+      if (text) {
+        range.setStart(text, 0);
+        range.setEnd(text, due.length);
+      }
+      return {
+        title: edges(li.querySelector('[data-slot="list-row-title"]')),
+        open: edges(li.querySelector('[data-slot="list-row-open"]')),
+        chips: [...li.querySelectorAll('[data-slot="badge"]')].map((el) => edges(el)),
+        labelLines: [...li.querySelectorAll('[data-slot="status-badge-label"]')].map(
+          (el) => new Set([...el.getClientRects()].map((rect) => Math.round(rect.top))).size,
+        ),
+        due,
+        dueRight: range.getBoundingClientRect().right,
+        metaRight: meta?.getBoundingClientRect().right ?? 0,
+        metaTop: meta?.getBoundingClientRect().top ?? 0,
+      };
+    });
+    const titleLine = geometry.title;
+    const open = geometry.open;
+    expect(titleLine, "the title").not.toBeNull();
+    expect(open, "the ›").not.toBeNull();
+    if (!titleLine || !open) return;
+    const centre = (open.top + open.bottom) / 2;
+    expect(centre, "› sits on the title's line").toBeGreaterThanOrEqual(titleLine.top);
+    expect(centre, "› sits on the title's line").toBeLessThanOrEqual(titleLine.bottom);
+    const [first, second] = geometry.chips;
+    expect(
+      Math.abs((first?.top ?? 0) - (second?.top ?? Number.NaN)),
+      "the chips share one line",
+    ).toBeLessThan(1);
+    expect(geometry.labelLines, "each chip's word is one line").toEqual([1, 1]);
+    for (const chip of geometry.chips) {
+      expect(chip?.bottom ?? Infinity, "the chips sit above the meta line").toBeLessThanOrEqual(
+        geometry.metaTop + 1,
+      );
+    }
+    expect(geometry.due).toMatch(/^Due .*\d:\d\d [ap]m$/);
+    expect(geometry.dueRight, `"${geometry.due}" is whole`).toBeLessThanOrEqual(
+      geometry.metaRight + 0.5,
+    );
   });
 
   test("Tasks, the full list and Approvals fit at 130% and 200% text", async ({ page }, info) => {

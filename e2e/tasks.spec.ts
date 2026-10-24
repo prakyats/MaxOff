@@ -23,6 +23,7 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
 } from "./helpers";
 
 /**
@@ -141,15 +142,17 @@ function step(page: Page): Locator {
 
 /** The ⋯: the viewer's other work and a manager's edits (decision 26). */
 async function fromMenu(page: Page, item: string | RegExp): Promise<void> {
+  await closeHistory(page);
   await page.getByRole("button", { name: "Task actions" }).click();
   await page.getByRole("menuitem", { name: item }).click();
 }
 
 /**
  * Shows a view (decisions 27, 32): taps its tab. Details has no tab on a desktop, where it is
- * the right panel, always there.
+ * the right panel, always there. An open History sheet is closed first.
  */
-async function openView(page: Page, view: "work" | "activity" | "details"): Promise<void> {
+async function openView(page: Page, view: "work" | "details"): Promise<void> {
+  await closeHistory(page);
   await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
   const tab = page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`);
   if (await tab.isVisible()) await tab.click();
@@ -157,6 +160,7 @@ async function openView(page: Page, view: "work" | "activity" | "details"): Prom
 
 /** Chat, whichever way the screen has it: the view on a desktop, the sheet on a phone. */
 async function openChat(page: Page): Promise<Locator> {
+  await closeHistory(page);
   await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
   await page.locator('[data-slot="task-tab"][data-view-tab="chat"]').click();
   const chat = page.locator(
@@ -166,12 +170,31 @@ async function openChat(page: Page): Promise<Locator> {
   return chat;
 }
 
-/** The history, every line of it (Activity, then Show all when there are more than five). */
+/** The header's History sheet (the one History pattern, v1.8 consistency sweep). */
+function historySheet(page: Page): Locator {
+  return page.locator('[data-slot="review-sheet"]:has([data-slot="history-sheet"])');
+}
+
+/**
+ * The history, every line of it: the header's History clock opens the sheet (once; the task's
+ * Activity view became this sheet in the v1.8 consistency sweep), then Show all when there are
+ * more than five. The sheet stays open until `closeHistory` (or `openView` / `openChat`).
+ */
 async function historyRows(page: Page): Promise<Locator> {
-  await openView(page, "activity");
-  const all = page.locator('[data-slot="task-history-show-all"]');
+  if (!(await historySheet(page).isVisible())) {
+    await page.locator('[data-slot="history-open"]:visible').click();
+    await expect(historySheet(page)).toBeVisible();
+  }
+  const all = historySheet(page).locator('[data-slot="task-history-show-all"]');
   if (await all.isVisible()) await all.click();
-  return page.locator('[data-slot="task-history-row"]');
+  return historySheet(page).locator('[data-slot="task-history-row"]');
+}
+
+/** Closes the History sheet when it is open (back closes the top layer, §14.2 a). */
+async function closeHistory(page: Page): Promise<void> {
+  if (!(await historySheet(page).isVisible())) return;
+  await page.keyboard.press("Escape");
+  await expect(historySheet(page)).toBeHidden();
 }
 
 function formDialog(page: Page): Locator {
@@ -243,7 +266,9 @@ test.describe("staff tasks, the flows", () => {
       await expect(dialog).toContainText("Pick the deadline's date.");
 
       await dialog.getByLabel("Title").fill(`${prefix}main`);
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Shoot / Site Visit");
+      await openMoreOptions(dialog);
       await dialog.getByLabel("Event date").fill(day);
       await dialog.getByLabel("Starts").fill("11:00");
       for (const one of [helper, staff, away]) {
@@ -261,7 +286,7 @@ test.describe("staff tasks, the flows", () => {
           `[data-slot="task-assignee"][data-member="${id}"] [data-slot="task-warning"][data-kind="${kind}"]`,
         );
       await expect(warning(helperId, "workload")).toContainText("4 tasks already due");
-      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 AM–12:00 PM");
+      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 am – 12:00 pm");
       await expect(warning(awayId, "on_leave")).toContainText("Leave requested");
       await expect(dialog.locator('[data-slot="task-warning-summary"]')).toContainText(
         "3 warnings",
@@ -323,6 +348,8 @@ test.describe("staff tasks, the flows", () => {
           new RegExp(`^${escape(person("staff", info).name)}`),
         );
         await dialog.getByLabel("Deadline").fill(workingDay(21));
+        // L9: custom fields sit under More options on New task.
+        await openMoreOptions(dialog);
         await dialog.getByLabel(label).fill("45");
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
@@ -400,18 +427,20 @@ test.describe("staff tasks, the flows", () => {
       await expect(dialog.getByRole("heading", { name: "Edit task" })).toBeVisible();
       // Nothing changed yet: nothing to save.
       await expect(dialog.getByRole("button", { name: "Save changes" })).toBeDisabled();
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Priority"), "High");
       await dialog.getByLabel("Time (IST)").fill("19:00");
       await dialog.getByRole("button", { name: "Save changes" }).click();
       await expect(dialog).toBeHidden();
       await expect(summary(page)).toContainText("High");
-      await expect(summary(page)).toContainText("7:00 PM");
+      await expect(summary(page)).toContainText("7:00 pm");
       await expect(
         (await historyRows(page)).filter({ hasText: "changed the priority from Medium to High" }),
       ).toHaveCount(1);
       await expect(
         (await historyRows(page)).filter({ hasText: "moved the deadline from" }),
       ).toHaveCount(1);
+      await closeHistory(page);
 
       await page.getByRole("button", { name: "Task actions" }).click();
       await page.getByRole("menuitem", { name: "Cancel task" }).click();
@@ -460,9 +489,12 @@ test.describe("staff tasks, the flows", () => {
           new RegExp(`^${escape(person("staff", info).name)}`),
         );
         await dialog.getByLabel("Deadline").fill(workingDay(24));
+        await openMoreOptions(dialog);
         await expect(dialog.getByLabel("Checked first by")).toContainText("Nobody");
         // Kickoff 4 decision 3: the label pre-selects that client's Admin.
+        await openMoreOptions(dialog);
         await pick(page, dialog.getByLabel("Client label"), own);
+        await openMoreOptions(dialog);
         await expect(dialog.getByLabel("Checked first by")).toContainText(admin.name);
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
@@ -573,6 +605,7 @@ test.describe("staff tasks, the flows", () => {
       await expect(
         (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
       ).toHaveCount(1);
+      await closeHistory(page);
 
       // Only the title: no date moved and nobody was added, so nothing is recorded again (S1).
       await page.getByRole("button", { name: "Task actions" }).click();
@@ -602,6 +635,7 @@ test.describe("staff tasks, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = formDialog(page);
+      await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
       const rows = dialog.locator('[data-slot="reminder-row"]');
       // One collapsed line, the launch schedule as the default (5.3); no rows until it is tapped.
@@ -754,19 +788,20 @@ test.describe("staff tasks, the flows", () => {
       await expect(page.getByRole("checkbox", { name: "Colour grade" })).toBeDisabled();
       await expect(page.locator('[data-slot="task-stages-locked"]')).toBeVisible();
       const history = await historyRows(page);
-      await expect(
-        history.filter({ hasText: `${coord.name} for ${asha.name} noted the task` }),
-      ).toHaveCount(1);
-      await expect(
-        history.filter({ hasText: `${coord.name} for ${asha.name} marked it done` }),
-      ).toHaveCount(1);
+      // The coordinator reads their own changes as "You for Asha" (v1.8 pull-in item 5).
+      await expect(history.filter({ hasText: `You for ${asha.name} noted the task` })).toHaveCount(
+        1,
+      );
+      await expect(history.filter({ hasText: `You for ${asha.name} marked it done` })).toHaveCount(
+        1,
+      );
 
       // A comment for the freelancer: the coordinator reads it as theirs, "You for Asha".
       const chat = await openChat(page);
       await expect(chat.getByLabel("Writing as")).toContainText(`For ${asha.name}`);
-      await chat.getByRole("textbox", { name: "Comment" }).fill("Uploaded the final cut.");
+      await chat.getByRole("textbox", { name: "Message" }).fill("Uploaded the final cut.");
       await chat.getByRole("button", { name: "Send" }).click();
-      await expect(chat.getByRole("textbox", { name: "Comment" })).toHaveValue("");
+      await expect(chat.getByRole("textbox", { name: "Message" })).toHaveValue("");
       await expect(chat.locator('[data-slot="task-comment"]')).toContainText(
         `You for ${asha.name}`,
       );
@@ -861,7 +896,7 @@ test.describe("staff tasks, the flows", () => {
         "data-overdue",
         "true",
       );
-      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue by");
+      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue ");
       await step(page).getByRole("button", { name: "Mark done again" }).click();
       const done = page.locator('[data-slot="task-done-dialog"]');
       await done.getByRole("button", { name: "Mark done" }).click();
@@ -888,9 +923,11 @@ test.describe("staff tasks, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = formDialog(page);
+      await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="task-route"]')).toContainText(
         "You check it when it's done",
       );
+      await openMoreOptions(dialog);
       await expect(dialog.getByLabel("Checked first by")).toHaveCount(0);
       await dialog.getByLabel("Title").fill(`${prefix}thumbnail`);
       await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
@@ -937,6 +974,7 @@ test.describe("staff tasks, the flows", () => {
         );
         await dialog.getByLabel("Deadline").fill(workingDay(25));
         // Kickoff 4 decision 2: their own clients only.
+        await openMoreOptions(dialog);
         await dialog.getByLabel("Client label").click();
         await expect(page.getByRole("option", { name: own })).toBeVisible();
         await expect(page.getByRole("option", { name: other })).toHaveCount(0);
@@ -985,12 +1023,10 @@ test.describe("staff tasks, the flows", () => {
       await expect(stage).toHaveAttribute("data-done", "false");
       await expect(stage).not.toContainText("Ticked by");
       await expect(page.locator('[data-slot="task-stages-count"]')).toContainText("0 of 2 done");
-      // A tick and an untick by the same person within ten minutes are one line (decision 29).
-      const by = escape(staff.name);
+      // A tick and an untick by the same person within ten minutes are one line (decision 29),
+      // and the reader's own line says "You" (v1.8 pull-in item 5).
       await expect(
-        (await historyRows(page)).filter({
-          hasText: new RegExp(`${by} ticked a stage, unticked a stage`),
-        }),
+        (await historyRows(page)).filter({ hasText: /You ticked a stage, unticked a stage/ }),
       ).toHaveCount(1);
     });
   });
@@ -1074,6 +1110,7 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       const dialog = formDialog(page);
       await page.getByRole("button", { name: "New task" }).click();
       await expect(dialog).toBeVisible();
+      await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
       const rows = dialog.locator('[data-slot="reminder-row"]');
       await expect(summary).toBeVisible();
@@ -1402,7 +1439,16 @@ async function expectTargets(page: Page): Promise<void> {
       const box = el.getBoundingClientRect();
       if (box.width <= 1 || box.height <= 1) continue;
       const label = el.closest("label")?.getBoundingClientRect();
-      const reach = label && label.width >= 44 && label.height >= 44;
+      // A row's stretched opener (`ListRow`): its absolute ::after covers the row, so the row's
+      // box is what a thumb hits, not the text's.
+      const after = getComputedStyle(el, "::after");
+      const host =
+        after.content !== "none" && after.position === "absolute"
+          ? (el.offsetParent?.getBoundingClientRect() ?? null)
+          : null;
+      const reach =
+        (label && label.width >= 44 && label.height >= 44) ||
+        (host && host.width >= 44 && host.height >= 44);
       if ((box.width < 44 || box.height < 44) && !reach) {
         found.push(
           `${el.tagName.toLowerCase()} "${el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 24)}" ${Math.round(box.width)}x${Math.round(box.height)}`,
@@ -1575,7 +1621,7 @@ test.describe("tasks for the Owner", () => {
       page.getByText(`Reminder sent to ${staff.name} and ${person("helper", info).name}`),
     ).toBeVisible();
     const waiting = page.locator('[data-slot="task-remind"] button[data-state="waiting"]');
-    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [AP]M/);
+    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [ap]m/);
     await expect(waiting).toBeDisabled();
     const asked = await serviceSelect<{ recipient_id: string; title: string }>(
       `notifications?kind=eq.task_asked_about&entity_id=eq.${taskId}&select=recipient_id,title&order=recipient_id`,
@@ -1583,11 +1629,14 @@ test.describe("tasks for the Owner", () => {
     expect(asked.map((row) => row.recipient_id).sort()).toEqual([staffId, helperId].sort());
     expect(asked[0]?.title).toBe(`${admin.name} is asking about ${prefix}edit`);
 
-    // Reloaded, it still waits, and the history names who was asked.
+    // Reloaded, it still waits, and the history names who was reminded and where it went (B6:
+    // a notification, never a chat message).
     await page.reload();
     await expect(waiting).toBeDisabled();
     const history = await historyRows(page);
-    await expect(history.filter({ hasText: "about the task" })).toHaveCount(1);
+    const reminded = history.filter({ hasText: "a reminder" });
+    await expect(reminded).toHaveCount(1);
+    await expect(reminded).toContainText("As a notification, not a chat message.");
 
     // A second one within the hour is refused, whoever sends it.
     const refused = await rpcRefusedAs(USERS.owner.email, USERS.owner.password, "task_remind", {

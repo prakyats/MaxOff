@@ -10,6 +10,7 @@ import {
   hydrated,
   memberIdOf,
   pageHeader,
+  removeClientFixture,
   removeTasksTitled,
   resetAttendanceAndLeave,
   rpcAs,
@@ -38,6 +39,8 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
  */
 
 const PASSWORD = "day-local-password";
+/** A late task's chip, in Today's words (PP-tasks-2): "3 h late", "2 days late". */
+const LATE_CHIP = /\d+ (min|h|days?) late/;
 
 function crew(info: TestInfo): string {
   return `day-staff-${info.project.name}@maxoff.local`;
@@ -119,7 +122,7 @@ async function setReachability(memberId: string, state: string, sinceHours: numb
 test.describe.configure({ mode: "serial" });
 
 test.describe("Crew: My Day (6.1)", () => {
-  test("the strip first, then the exception rows, Upcoming as one line, events, Suggest a task", async ({
+  test("the strip first, then the exception rows, This week, a quiet Suggest a task", async ({
     page,
   }, info) => {
     test.skip(info.project.name === "mobile-lg", "the flow runs at 1280 and 375px");
@@ -177,20 +180,31 @@ test.describe("Crew: My Day (6.1)", () => {
     const overdueBox = await overdueSection.boundingBox();
     expect(stripBox!.y).toBeLessThan(notNotedBox!.y);
     expect(notNotedBox!.y).toBeLessThan(overdueBox!.y);
-    // Upcoming is one line, never rows; it opens Tasks.
+    // Upcoming is never exception rows (decision 1): since V5b (major change 1, FINAL 8) it is
+    // named in This week, by its day and time, opening the task.
     await expect(taskRow(page, `${prefix}upcoming`)).toHaveCount(0);
-    const upcomingLine = section(page, "my-day-upcoming-line").getByRole("link");
-    await expect(upcomingLine).toHaveText(/\d+ more in the next 7 days/);
-    await expect(upcomingLine).toHaveAttribute("href", "/tasks");
-    // Tomorrow's shoot as an event row: the time, the title, the location.
-    const event = page.locator(`[data-slot="event-row"][data-task="${shoot}"]`);
-    await expect(event).toContainText("Tomorrow · 10:00 am");
-    await expect(event).toContainText("Studio 3");
-    // A neutral Suggest a task; no sign-out row (decision 3).
-    await expect(page.locator('[data-slot="suggest-task"]')).toHaveAttribute(
-      "data-variant",
-      "secondary",
-    );
+    const week = section(page, "my-day-events");
+    const upcomingRow = week
+      .locator('[data-slot="week-row"][data-kind="due"]')
+      .filter({ hasText: `${prefix}upcoming` });
+    if ((await upcomingRow.count()) === 0) {
+      // The week is past its cap (five days, eight rows) with other work: "See the week".
+      await expect(week.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+    } else {
+      await expect(upcomingRow.locator('[data-slot="week-row-when"]')).toHaveText("6:00 pm");
+      await expect(upcomingRow.getByRole("link")).toHaveAttribute("href", `/tasks/${upcoming}`);
+    }
+    // Tomorrow's shoot as an event row in Tomorrow's block: the time, the title, the location.
+    const event = week
+      .locator(`[data-slot="week-day"][data-date="${tomorrow}"] [data-slot="week-row"]`)
+      .filter({ hasText: `${prefix}shoot` });
+    await expect(event.locator('[data-slot="week-row-when"]')).toHaveText("10:00 am");
+    await expect(event.locator('[data-slot="week-row-detail"]')).toContainText("Studio 3");
+    await expect(event.getByRole("link")).toHaveAttribute("href", `/tasks/${shoot}`);
+    // PP-crew-2: Suggest a task is a quiet link at the foot; no sign-out row (decision 3).
+    const suggest = page.locator('[data-slot="suggest-task"]');
+    await expect(suggest).toHaveAttribute("data-variant", "ghost");
+    await expect(suggest).toHaveAttribute("data-quiet", "");
     await expect(page.locator("main")).not.toContainText(/Sign out/i);
 
     // A row opens the task.
@@ -213,7 +227,7 @@ test.describe("Crew: My Day (6.1)", () => {
     test.skip(info.project.name !== "desktop", "one check is enough");
     await signIn(page, USERS.owner.email, USERS.owner.password);
     await page.goto("/my-day");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 
   test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({
@@ -349,24 +363,22 @@ test.describe("the Owner's Today (6.2)", () => {
 
     await page.goto("/today");
     await hydrated(page);
-    // Needs you (the approvals, "Nothing needs you." when none wait), the card and the risks (the
-    // overdue task) are always there; the other sections only when they have something
-    // (decision 24), so the order is checked over whichever are drawn. Since the Today refresh
-    // (owner 2026-10-09) Needs you comes first, then the card.
+    // Needs you (the approvals; with none waiting, V5b's one quiet line in its place), the card
+    // and the risks (the overdue task) are always there; the other sections only when they have
+    // something (decision 24), so the order is checked over whichever are drawn. Since the Today
+    // refresh (owner 2026-10-09) Needs you comes first, then the card; This week is under the
+    // risks on a phone, and from an 896 px content width (a 1280 px laptop, owner 23 Oct) the
+    // right column beside them (major change 1), checked after the order.
     const order = [
-      '[data-slot="today-approvals"]',
+      ':is([data-slot="today-approvals"], [data-slot="today-approvals-empty"])',
       '[data-slot="today-attendance-card"]',
       '[data-slot="today-tasks"]',
       // Phase 7's Client work line, after Today's tasks (owner 2026-10-09), when anything is overdue.
       '[data-slot="today-client-work"]',
       '[data-slot="today-risks"]',
-      '[data-slot="today-events"]',
+      ...(isPhone(info) ? ['[data-slot="today-events"]'] : []),
     ];
-    const always = [
-      '[data-slot="today-approvals"]',
-      '[data-slot="today-attendance-card"]',
-      '[data-slot="today-risks"]',
-    ];
+    const always = [order[0], '[data-slot="today-attendance-card"]', '[data-slot="today-risks"]'];
     await expect(page.locator('[data-slot="today-risks"]:visible').first()).toBeVisible();
     let previous = -1;
     for (const selector of order) {
@@ -380,14 +392,28 @@ test.describe("the Owner's Today (6.2)", () => {
       expect(box!.y, `${selector} comes after the one before`).toBeGreaterThan(previous);
       previous = box!.y;
     }
+    if (!isPhone(info)) {
+      // The laptop's right column: This week starts at the main column's top, right of it.
+      const main = await page.locator('[data-slot="owner-today"]').boundingBox();
+      const week = await page.locator('[data-slot="day-week"]').boundingBox();
+      expect(main).not.toBeNull();
+      expect(week).not.toBeNull();
+      expect(week!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
+      expect(Math.abs(week!.y - main!.y)).toBeLessThanOrEqual(1);
+    }
     // No "Needs you" list of people: the card's counts carry them (decision 24).
     await expect(page.locator('[data-slot="today-needs-you"]')).toHaveCount(0);
     await expect(page.locator("main")).not.toContainText("Everyone's in.");
-    // A risk's "overdue by …" reads red with its red warning icon: one status signal per row (the
-    // owner's preview review and final note, 2026-10-09), no "Overdue" chip beside it.
+    // PP-today-1: the date line under the title ("Thursday, 22 October").
+    const dateWords = new RegExp(
+      `^${new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" }).format(Date.parse(`${todayIST()}T06:30:00Z`)).replace(/ /, ", ")}`,
+    );
+    if (isPhone(info)) await expect(page.locator('[data-slot="day-date"]')).toHaveText(dateWords);
+    else await expect(pageHeader(page).locator("p").first()).toHaveText(dateWords);
+    // PP-today-5: a risk's reason is a chip ("3 h late" red), its plain words the meta line.
     await expect(
-      page.locator('[data-slot="risk-row"] [data-slot="risk-signal"][data-tone="danger"]').first(),
-    ).toContainText("overdue by");
+      page.locator('[data-slot="risk-row"] [data-slot="badge"][data-tone="danger"]').first(),
+    ).toContainText(" late");
     // Nothing that has no data yet (decision 4): no item approvals, client progress or revenue.
     await expect(page.locator("main")).not.toContainText(/revenue|client progress|coming soon/i);
 
@@ -397,35 +423,28 @@ test.describe("the Owner's Today (6.2)", () => {
       .filter({ hasText: `${prefix}late for the Owner` });
     await expect(risk).toHaveCount(1);
     await expect(risk).toContainText(crewName(info));
-    await expect(risk).toContainText("overdue by");
-    // One signal, for every risk row alike: the kind's icon at the left and the meta line, both in
-    // the row's tone; no status chip, no dot, and no icon but it and the chevron.
+    // The one row anatomy for every risk row alike: the title, the plain meta line, one reason
+    // chip (red or amber, never colour alone), then ›; no dot and no icon but the chevron.
     const riskRows = page.locator('[data-slot="risk-row"]:visible');
     for (let index = 0; index < (await riskRows.count()); index++) {
       const row = riskRows.nth(index);
       await expect(row.locator('[data-slot="status-dot"]')).toHaveCount(0);
-      await expect(row.locator("svg")).toHaveCount(2);
-      const icon = row.locator('[data-slot="risk-icon"]');
-      const signal = row.locator('[data-slot="risk-signal"]');
-      await expect(icon).toHaveCount(1);
-      await expect(signal).toHaveCount(1);
-      const tone = await signal.getAttribute("data-tone");
-      expect(tone).toMatch(/^(danger|attention)$/);
-      await expect(icon, "the icon carries the meta line's tone").toHaveAttribute(
-        "data-tone",
-        tone ?? "",
-      );
+      await expect(row.locator("svg")).toHaveCount(1);
+      await expect(row.locator('[data-slot="risk-detail"]')).toHaveCount(1);
+      const chip = row.locator('[data-slot="badge"]');
+      await expect(chip).toHaveCount(1);
+      expect(await chip.getAttribute("data-tone")).toMatch(/^(danger|attention)$/);
     }
+    await expect(risk.locator('[data-slot="risk-detail"]')).toHaveText(crewName(info));
     await expect(
-      risk.locator('[data-slot="risk-signal"][data-tone="danger"]'),
-      "an overdue row is red",
-    ).toContainText(`${crewName(info)} · overdue by`);
-    await expect(risk.locator('[data-slot="risk-icon"][data-tone="danger"]')).toHaveCount(1);
+      risk.locator('[data-slot="badge"][data-tone="danger"]'),
+      "an overdue row's chip is red",
+    ).toHaveText(/^\d+ (min|h|days?) late$/);
 
     // This week in day blocks (the owner's final note, 2026-10-09): a block per day with something
-    // in it, its rows a time on the left and the words on the right; the task due today is today's
-    // deadline count; this project's Crew member's leave is one grouped row, never "1 on leave" a
-    // day; "Calendar ›" in the header and no separate calendar card.
+    // in it, its rows a time on the left and the words on the right; each deadline by name and
+    // time with a Due chip (PP-today-4); this project's Crew member's leave is one grouped row,
+    // never "1 on leave" a day, and never repeats its block's day; "Calendar ›" in the header.
     const week = section(page, "today-events");
     await expect(week.locator('[data-slot="week-day"]').first()).toBeVisible();
     const labels = await week.locator('[data-slot="week-day-label"]').allInnerTexts();
@@ -434,17 +453,20 @@ test.describe("the Owner's Today (6.2)", () => {
     }
     const todayBlock = week.locator(`[data-slot="week-day"][data-date="${todayIST()}"]`);
     await expect(todayBlock.locator('[data-slot="week-day-label"]')).toHaveText("Today");
-    const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]');
-    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("Due");
-    await expect(due.locator('[data-slot="week-row-title"]')).toHaveText(/^\d+ tasks? due$/);
+    const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]').first();
+    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText(/^\d{1,2}:\d{2} (am|pm)$/);
+    await expect(due.locator('[data-slot="week-row-title"]')).not.toHaveText(/^\d+ tasks? due$/);
+    await expect(due.locator('[data-slot="badge"]')).toHaveText("Due");
+    await expect(due.getByRole("link")).toHaveAttribute("href", /^\/tasks\//);
     const rows = week.locator('[data-slot="week-row"]');
     for (let index = 0; index < (await rows.count()); index++) {
       const row = rows.nth(index);
       await expect(row.locator('[data-slot="week-row-when"]')).toHaveText(
-        /^(All day|\d{1,2}:\d{2} (am|pm)|Due)$/,
+        /^(All day|\d{1,2}:\d{2} (am|pm))$/,
       );
       await expect(row.locator('[data-slot="week-row-title"]')).toHaveText(/\S/);
-      if ((await row.getAttribute("data-kind")) === "event") {
+      const kind = await row.getAttribute("data-kind");
+      if (kind === "event" || kind === "due") {
         await expect(row.getByRole("link")).toHaveAttribute("href", /^\/tasks\//);
       }
     }
@@ -462,7 +484,7 @@ test.describe("the Owner's Today (6.2)", () => {
     if (leaveShown) {
       await expect(leaveRows.locator('[data-slot="week-row-when"]')).toHaveText("All day");
       await expect(leaveRows.locator('[data-slot="week-row-title"]')).toHaveText(
-        new RegExp(`^${crewName(info).replace(/[()]/g, "\\$&")} on leave · \\S`),
+        new RegExp(`^${crewName(info).replace(/[()]/g, "\\$&")} on leave( · until \\S.*)?$`),
       );
     }
     await expect(week).not.toContainText(/\d+ on leave/);
@@ -543,9 +565,11 @@ test.describe("the Owner's Today (6.2)", () => {
         );
       }
       // One solid button per layer (§14.1): none in the list.
-      await expect(needs.locator('[data-variant="strong"], [data-variant="primary"]')).toHaveCount(
-        0,
-      );
+      await expect(
+        needs.locator(
+          '[data-variant="strong"], [data-variant="primary"], [data-variant="approve"]',
+        ),
+      ).toHaveCount(0);
       // "See all N" only when the list is cut.
       const total = Number(
         (await page.locator("#today-approvals-title").innerText()).match(/· (\d+)/)?.[1],
@@ -562,6 +586,57 @@ test.describe("the Owner's Today (6.2)", () => {
         await expect(sheet).toBeVisible();
         await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);
       }
+    } finally {
+      await resetAttendanceAndLeave(crewId);
+    }
+  });
+
+  test("Needs you folds a person's several waiting days into one row; the count is the rows (L8, B2)", async ({
+    page,
+  }, info) => {
+    const crewId = await memberIdOf(crew(info));
+    await resetAttendanceAndLeave(crewId);
+    // Three old working days the 23:59 job proposed as absent (the oldest waiting, so shown first).
+    const days = [workingDay(-200), workingDay(-197), workingDay(-194)].filter(
+      (day, index, all) => all.indexOf(day) === index,
+    );
+    for (const day of days) {
+      await serviceInsert("attendance_days", {
+        member_id: crewId,
+        work_date: day,
+        state: "pending_review",
+        final_status: "absent",
+        proposed_by_system: true,
+      });
+    }
+    try {
+      await page.goto("/today");
+      await hydrated(page);
+      const needs = section(page, "today-approvals");
+      const folded = needs.locator('[data-slot="approval-person-row"]', {
+        hasText: crewName(info),
+      });
+      await expect(folded).toHaveCount(1);
+      await expect(folded.locator('[data-slot="approval-detail"]')).toHaveText(
+        `${days.length} days proposed absent`,
+      );
+      await expect(folded).toContainText("Review");
+      // No single row for those days remains.
+      await expect(
+        needs.locator('[data-slot="approval-row"]', { hasText: crewName(info) }),
+      ).toHaveCount(0);
+      // B2: the heading counts rows, the folded one once.
+      const rowCount = await needs
+        .locator('[data-slot="approval-row"], [data-slot="approval-person-row"]')
+        .count();
+      const total = Number(
+        (await page.locator("#today-approvals-title").innerText()).match(/· (\d+)/)?.[1],
+      );
+      const seeAll = await page.locator('[data-slot="today-see-all-approvals"]').count();
+      if (seeAll === 0) expect(total).toBe(rowCount);
+      else expect(total).toBeGreaterThan(rowCount);
+      await folded.getByRole("link").click();
+      await expect(page).toHaveURL(/\/approvals$/);
     } finally {
       await resetAttendanceAndLeave(crewId);
     }
@@ -689,6 +764,26 @@ test.describe("the Owner's Today (6.2)", () => {
         .locator('[data-slot="data-card"]:visible, [data-slot="table-row"]:visible')
         .filter({ hasText: `${prefix}checked` });
       await expect(listed).toContainText("Admin approved · needs you");
+      // B3: on Tasks it sits under Needs you, never under Open tasks; B2: the heading counts
+      // exactly the rows the section shows (task rows and link rows).
+      await page.goto("/tasks");
+      const needs = section(page, "tasks-needs-you");
+      await expect(
+        needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}checked` }),
+      ).toContainText("Waiting for your approval");
+      await expect(section(page, "tasks-open")).not.toContainText(`${prefix}checked`);
+      await expect
+        .poll(async () => {
+          await page.reload();
+          const heading = (await needs.locator("h2").innerText()).match(/· (\d+)/)?.[1];
+          const rows = await needs
+            .locator(
+              '[data-slot="task-row"], [data-slot="tasks-to-approve"], [data-slot="tasks-requests-waiting"]',
+            )
+            .count();
+          return Number(heading ?? 0) === rows;
+        })
+        .toBe(true);
     } finally {
       await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
         task_id: id,
@@ -845,9 +940,11 @@ test.describe("the Owner's Today (6.2)", () => {
     await setReachability(crewId, "no_subscription", 72);
     try {
       await page.goto("/today");
-      const row = page.locator('[data-slot="risk-row"]').filter({
-        hasText: `${crewName(info)} can't be reached`,
-      });
+      // PP-today-5: the person as the title, "Can't be reached" as the row's chip.
+      const row = page
+        .locator('[data-slot="risk-row"]')
+        .filter({ hasText: crewName(info) })
+        .filter({ has: page.locator('[data-slot="badge"]', { hasText: "Can't be reached" }) });
       await expect(row).toHaveCount(1);
       await expect(row.getByRole("link")).toHaveAttribute("href", "/settings/notifications");
     } finally {
@@ -985,7 +1082,7 @@ test.describe("the Admin's Today (6.3)", () => {
     const needs = section(page, "today-needs-you");
     await expect(
       needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}admin overdue` }),
-    ).toContainText("Overdue");
+    ).toContainText(LATE_CHIP);
     await expect(
       needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}admin not noted` }),
     ).toContainText("hasn't noted it");
@@ -998,6 +1095,48 @@ test.describe("the Admin's Today (6.3)", () => {
     // Never money, never another person's attendance decision on this screen.
     await expect(page.locator("main")).not.toContainText(/₹|Revenue/);
     await resetAttendanceAndLeave(crewId);
+  });
+
+  test('My clients: a Paused client says "· Paused" beside its name, an Active one nothing (B9)', async ({
+    page,
+  }, info) => {
+    // A local fixture only (never staging or production): two clients this project's Admin runs,
+    // made Active by the Owner, one of them then Paused. Removed again at the end.
+    const paused = `Test Day Paused Client (${info.project.name})`;
+    const active = `Test Day Active Client (${info.project.name})`;
+    const adminId = await memberIdOf(admin(info));
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const ids: Record<string, string> = {};
+    for (const name of [paused, active]) {
+      await removeClientFixture(name);
+      const row = await serviceInsert<{ id: string }>("clients", {
+        org_id: org?.id,
+        name,
+        admin_id: adminId,
+      });
+      ids[name] = row.id;
+      await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+        client_id: row.id,
+      });
+    }
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_pause", {
+      client_id: ids[paused],
+    });
+
+    await signIn(page, admin(info), PASSWORD);
+    await expect(page).toHaveURL(/\/today$/);
+    await hydrated(page);
+    const rows = section(page, "today-my-clients").locator('[data-slot="today-client-row"]');
+    const pausedRow = rows.filter({ hasText: paused });
+    await expect(pausedRow).toHaveCount(1);
+    await expect(pausedRow.locator('[data-slot="today-client-state"]')).toHaveText("· Paused");
+    await expect(pausedRow).toContainText(`${paused} · Paused`);
+    const activeRow = rows.filter({ hasText: active });
+    await expect(activeRow).toHaveCount(1);
+    await expect(activeRow.locator('[data-slot="today-client-state"]')).toHaveCount(0);
+
+    await removeClientFixture(paused);
+    await removeClientFixture(active);
   });
 });
 
@@ -1175,7 +1314,7 @@ test.describe("the Owner's Today: My tasks (6b.2, decision 24)", () => {
     await expect(
       mine.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}late` }),
     ).toHaveCount(1);
-    await expect(row).toContainText("Overdue");
+    await expect(row).toContainText(LATE_CHIP);
     await expect(row.getByRole("link")).toHaveAttribute("href", `/tasks/${late}`);
     await expect(mine).not.toContainText(`${prefix}ahead`);
     // Never listed twice: the Owner's own overdue task is not a risk row too. The risks card is

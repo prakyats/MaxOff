@@ -1,5 +1,5 @@
 export const Variant = () => (
-  <button type="button" className="bg-primary text-white">
+  <button type="button" className="bg-primary text-primary-foreground">
     Save
   </button>
 );

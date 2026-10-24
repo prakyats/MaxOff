@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type BulkOutcome, bulkSummary } from "@/core/errors/bulk";
@@ -13,8 +13,21 @@ import { Button } from "@/core/ui/primitives/button";
 import { describeError } from "@/core/ui/toast";
 
 import { ConfirmDialog } from "./confirm-dialog";
+import { type AvatarPerson, PersonAvatar } from "./person-avatar";
 import { APPROVAL_ROW_MIN_H, CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
-import { StatusDot } from "./status-badge";
+import { StatusBadge, TONE_DOT_CLASSES } from "./status-badge";
+
+/**
+ * How many groups on the screen have something waiting (Approvals sets it; no provider is one).
+ * The colour rule is one solid commit per layer (ARCHITECTURE §14.1): a group's one waiting row
+ * carries the solid Approve only when it is the screen's only group with rows, so two one-row
+ * groups, or one beside another group's "Approve all", never show two solids side by side.
+ */
+const ApprovalGroupsShown = createContext(1);
+
+export function ApprovalScreen({ groups, children }: { groups: number; children: ReactNode }) {
+  return <ApprovalGroupsShown value={groups}>{children}</ApprovalGroupsShown>;
+}
 
 /** One row waiting for a decision: what it is, whose, and where it stands. */
 export type ApprovalRow = {
@@ -33,6 +46,12 @@ export type ApprovalRow = {
   /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
   marker?: ReactNode;
   /**
+   * The person the row is about (attendance, leave, extra work, expenses; a task's hand-in, #89):
+   * their photo leads the row, or sits before the name in a compact row (20 px, V5b-D). Read with
+   * the name or from the directory the page already holds, never per row.
+   */
+  avatar?: AvatarPerson | undefined;
+  /**
    * How long it has waited for the decision ("Waiting 4 days") and its colour: muted, amber from a
    * day, red from three (the Owner's Today rows, `layout="rows"`; the words carry the meaning).
    */
@@ -42,17 +61,37 @@ export type ApprovalRow = {
 /** "Waiting 4 days" and its colour (the dashboards' `waitingFor`, structurally). */
 export type ApprovalWaiting = { label: string; tone: "muted" | "attention" | "danger" };
 
-/** The waiting words' colours (§14.1: amber and red only where they mean something). */
-const WAITING_TONE = {
-  muted: "text-muted-foreground",
-  attention: "text-attention",
-  danger: "text-danger",
-} as const;
+/**
+ * How long a row has waited (B4): muted words under a day; from a day **a dot plus the word**,
+ * amber, and red from three (FINAL 4: text colour alone never carries a state).
+ */
+function WaitingWords({ waiting, className }: { waiting: ApprovalWaiting; className?: string }) {
+  return (
+    <span
+      data-slot="approval-waiting"
+      data-tone={waiting.tone}
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs break-words",
+        waiting.tone === "muted" ? "text-muted-foreground" : "text-foreground",
+        className,
+      )}
+    >
+      {waiting.tone === "muted" ? null : (
+        <span
+          aria-hidden
+          className={cn("size-2 shrink-0 rounded-full", TONE_DOT_CLASSES[waiting.tone])}
+        />
+      )}
+      {waiting.label}
+    </span>
+  );
+}
 
 /**
  * One group of the Approvals screen (PRODUCT "Approvals", WORKFLOWS §1 "Settled in 2.4"). Two
- * actions per row, never more: **Approve** (primary) and **Review** (everything that needs
- * thought opens the module's sheet). The header carries **Approve all N**. A group whose
+ * actions per row, never more, both quiet outlines: **Approve** and **Review** (everything that
+ * needs thought opens the module's sheet). The header carries **Approve all N**, the screen's one
+ * solid button (C2, ADR-0015: one solid per layer, never one repeated down a list). A group whose
  * decisions all need thought (Extra work, 3b.2: grant ½ or 1 day, or none) passes no `approve`
  * and offers Review alone, with no Approve all.
  *
@@ -83,6 +122,8 @@ export function ApprovalGroup<T>({
   onReview,
   layout = "group",
   kind,
+  approveHandle,
+  onIntent,
 }: {
   /** Stable id for tests and the heading's `aria-labelledby`. */
   id: string;
@@ -105,6 +146,16 @@ export function ApprovalGroup<T>({
   layout?: "group" | "rows";
   /** The rows' kind label in `layout="rows"`: "Leave", "Task", "Expense". */
   kind?: string;
+  /**
+   * Filled with "approve this row" while the group is on screen, so a Review sheet's Approve
+   * (B4) takes the row's own path: the same send, delayed with its 6-second Undo.
+   */
+  approveHandle?: { current: ((id: string) => void) | null };
+  /**
+   * A row is about to be opened (the pointer rests on it, presses it, or focus enters it): the
+   * group's Review reads its context now, so the panel opens complete (PP-approvals-2).
+   */
+  onIntent?: (id: string) => void;
 }) {
   // Faded rows: waiting to be sent, or sent and waiting for the refreshed list.
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
@@ -160,6 +211,17 @@ export function ApprovalGroup<T>({
   }, []);
 
   const waiting = rows.filter((row) => !held.has(row.id));
+
+  useEffect(() => {
+    if (!approveHandle) return;
+    approveHandle.current = (rowId) => {
+      const row = rows.find((candidate) => candidate.id === rowId);
+      if (row && approve && !held.has(rowId)) approveOne(row);
+    };
+    return () => {
+      approveHandle.current = null;
+    };
+  });
 
   function approveOne(row: ApprovalRow) {
     setErrors((current) => omit(current, row.id));
@@ -219,6 +281,7 @@ export function ApprovalGroup<T>({
             error={errors[row.id]}
             onReview={() => onReview(row.id)}
             onApprove={approve ? () => approveOne(row) : null}
+            onIntent={onIntent ? () => onIntent(row.id) : undefined}
           />
         ))}
       </>
@@ -226,6 +289,7 @@ export function ApprovalGroup<T>({
   }
   const headingId = `approvals-${id}-heading`;
   const count = waiting.length;
+  const groupsShown = use(ApprovalGroupsShown);
 
   return (
     <section aria-labelledby={headingId} data-slot="approval-group" data-group={id}>
@@ -240,9 +304,10 @@ export function ApprovalGroup<T>({
         </h2>
         {count > 1 && approve && approveAll ? (
           <Button
-            variant="strong"
+            variant="approve"
             size="sm"
             commits
+            opens
             className={CARD_ROW_TRAILING}
             onClick={() => setConfirmAll(true)}
           >
@@ -250,7 +315,7 @@ export function ApprovalGroup<T>({
           </Button>
         ) : null}
       </div>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
         {rows.map((row) => {
           const isHeld = held.has(row.id);
           const error = errors[row.id];
@@ -259,44 +324,63 @@ export function ApprovalGroup<T>({
               key={row.id}
               data-slot="approval-row"
               data-state={isHeld ? "approved" : "waiting"}
+              {...intentHandlers(onIntent ? () => onIntent(row.id) : undefined)}
               className={cn(
                 "flex flex-col gap-2 px-4 py-3 transition-opacity duration-300 md:flex-row md:items-center md:gap-4",
                 LIST_ROW_MIN_H,
                 isHeld && "opacity-50",
               )}
             >
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                {/* A name too long to share the line puts its status underneath instead of being
-                    squeezed to nothing (large system text, §14.2 i). */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="max-w-full min-w-0 truncate font-medium">{row.title}</span>
-                  {/* `max-w-full`: a long word ("Admin approved · needs you") wraps inside its
-                      own line at large text instead of reaching past the edge. */}
-                  <StatusDot
-                    status={isHeld ? "approved" : row.status}
-                    label={isHeld ? "Approved" : row.statusLabel}
-                    className="max-w-full shrink-0"
-                  />
-                  {row.marker}
-                </div>
-                <span className="text-muted-foreground truncate text-sm">{row.subtitle}</span>
-                {error ? (
+              {/* The one row anatomy (FINAL 5): the person's photo (V5b-D), the title with its
+                  chat count, the muted meta line and how long it has waited; on the right the
+                  state as a chip, then the row's two actions. */}
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                {row.avatar ? <PersonAvatar person={row.avatar} size={20} /> : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span data-slot="approval-title" className="min-w-0 truncate font-medium">
+                      {row.title}
+                    </span>
+                    {row.marker}
+                  </div>
                   <span
-                    data-slot="approval-error"
-                    role="status"
-                    className="text-destructive text-sm"
+                    data-slot="approval-detail"
+                    className="text-muted-foreground truncate text-sm"
                   >
-                    {error}
+                    {row.subtitle}
                   </span>
-                ) : null}
+                  {/* The same context as Today's compact row and the Review panel (B4, V3). */}
+                  {row.waiting && !isHeld ? <WaitingWords waiting={row.waiting} /> : null}
+                  {error ? (
+                    <span
+                      data-slot="approval-error"
+                      role="status"
+                      className="text-destructive text-sm"
+                    >
+                      {error}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-              <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 *:flex-1 md:*:flex-none">
+                <StatusBadge
+                  status={isHeld ? "approved" : row.status}
+                  label={isHeld ? "Approved" : row.statusLabel}
+                  className="max-w-full flex-none! self-center"
+                />
                 <Button variant="secondary" onClick={() => onReview(row.id)} disabled={isHeld}>
                   Review
                 </Button>
                 {approve ? (
+                  // PP-approvals-1: a group's one waiting row carries its solid Forest Approve;
+                  // with two or more, "Approve all n" above is the solid one. Only when it is
+                  // the screen's one group with rows (`ApprovalScreen`): one solid per layer.
                   <Button
-                    variant="strong"
+                    variant={
+                      count === 1 && rows.length === 1 && groupsShown === 1
+                        ? "approve"
+                        : "secondary"
+                    }
                     commits
                     onClick={() => approveOne(row)}
                     disabled={isHeld}
@@ -315,6 +399,7 @@ export function ApprovalGroup<T>({
         title={`Approve all ${count} ${count === 1 ? noun.one : noun.other}?`}
         description="Each is approved as it was sent. There is no undo for approving all at once."
         confirmLabel={`Approve ${count}`}
+        approve
         onConfirm={approveEveryone}
       />
     </section>
@@ -339,6 +424,7 @@ function CompactRow({
   error,
   onReview,
   onApprove,
+  onIntent,
 }: {
   row: ApprovalRow;
   group: string;
@@ -347,6 +433,7 @@ function CompactRow({
   error: string | undefined;
   onReview: () => void;
   onApprove: (() => void) | null;
+  onIntent: (() => void) | undefined;
 }) {
   const waiting = held ? { label: "Approved", tone: "muted" as const } : row.waiting;
   return (
@@ -354,6 +441,7 @@ function CompactRow({
       data-slot="approval-row"
       data-group={group}
       data-state={held ? "approved" : "waiting"}
+      {...intentHandlers(onIntent)}
       // Large system text (§14.2 i): the title keeps 6rem and drops under the kind label, the
       // meta lines wrap, and the button drops under the text. At the default size the three lines
       // sit beside the button.
@@ -374,11 +462,12 @@ function CompactRow({
           <span data-slot="approval-kind" className="text-muted-foreground shrink-0 text-xs">
             {kind}
           </span>
-          <span
-            data-slot="approval-title"
-            className="min-w-0 flex-[1_1_6rem] truncate text-sm font-medium"
-          >
-            {row.title}
+          {/* The photo stays with the name when the name drops under the kind (§14.2 i; #89). */}
+          <span className="flex min-w-0 flex-[1_1_6rem] items-center gap-1.5">
+            {row.avatar ? <PersonAvatar person={row.avatar} size={20} /> : null}
+            <span data-slot="approval-title" className="min-w-0 truncate text-sm font-medium">
+              {row.title}
+            </span>
           </span>
           {row.marker}
         </span>
@@ -388,15 +477,7 @@ function CompactRow({
         >
           {row.subtitle}
         </span>
-        {waiting ? (
-          <span
-            data-slot="approval-waiting"
-            data-tone={waiting.tone}
-            className={cn("min-h-4 text-xs break-words", WAITING_TONE[waiting.tone])}
-          >
-            {waiting.label}
-          </span>
-        ) : null}
+        {waiting ? <WaitingWords waiting={waiting} className="min-h-4" /> : null}
         {error ? (
           <span data-slot="approval-error" role="status" className="text-destructive text-xs">
             {error}
@@ -425,6 +506,12 @@ function CompactRow({
 }
 
 const toastId = (rowId: string) => `approve-${rowId}`;
+
+/** A row's "about to open" signals: the pointer resting on it or pressing it, focus entering. */
+function intentHandlers(onIntent: (() => void) | undefined) {
+  if (!onIntent) return {};
+  return { onPointerEnter: onIntent, onPointerDown: onIntent, onFocus: onIntent };
+}
 
 function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
   const next = new Set(set);

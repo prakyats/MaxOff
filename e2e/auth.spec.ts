@@ -85,7 +85,7 @@ test.describe("signed in", () => {
 
     // The account menu offers the profile, not a sign-out (kickoff 3b decision 1).
     await page.getByRole("button", { name: "Account menu" }).click();
-    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Me", exact: true })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: /Log out|Sign out/ })).toHaveCount(0);
     await page.keyboard.press("Escape");
 

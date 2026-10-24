@@ -274,6 +274,19 @@ export const updateItemStageSchema = z.object({
 });
 export type UpdateItemStageInput = z.input<typeof updateItemStageSchema>;
 
+/**
+ * "Group stages" (V3, the long-stage-list fix D): the groups in order, each named, each starting at
+ * the stage the Admin chose (the first at the first stage; the database checks the order).
+ */
+export const groupItemStagesSchema = z.object({
+  itemId: id,
+  groups: z
+    .array(z.object({ label: groupLabel, start: id }))
+    .min(2, "Split the stages into at least two groups.")
+    .max(20, "Split the stages into at most 20 groups."),
+});
+export type GroupItemStagesInput = z.input<typeof groupItemStagesSchema>;
+
 export const addItemStageGroupSchema = z.object({
   itemId: id,
   label: groupLabel,

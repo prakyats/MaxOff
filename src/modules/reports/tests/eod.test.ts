@@ -219,10 +219,10 @@ describe("live, saved or still to come (decision 17)", () => {
   });
 
   it("says when a live day saves, in the setting's words", () => {
-    expect(cutoffWords("05:00")).toBe("5:00 AM");
-    expect(cutoffWords("00:00")).toBe("12:00 AM");
-    expect(cutoffWords("11:45")).toBe("11:45 AM");
-    expect(liveNote("yesterday_live", "05:00")).toBe("Live until it saves at 5:00 AM.");
+    expect(cutoffWords("05:00")).toBe("5:00 am");
+    expect(cutoffWords("00:00")).toBe("12:00 am");
+    expect(cutoffWords("11:45")).toBe("11:45 am");
+    expect(liveNote("yesterday_live", "05:00")).toBe("Live until it saves at 5:00 am.");
     expect(liveNote("today", "05:00")).toBe("Live: today so far. It saves tomorrow morning.");
     expect(liveNote("saved", "05:00")).toBeNull();
     // A saved day says when, in IST, on the live note's line.
@@ -251,7 +251,7 @@ describe("live, saved or still to come (decision 17)", () => {
     });
     expect(entries.map((e) => [e.date, e.state, e.detail])).toEqual([
       [TODAY, "today", "Live, so far"],
-      ["2026-10-06", "yesterday_live", "Live · saves at 5:00 AM"],
+      ["2026-10-06", "yesterday_live", "Live · saves at 5:00 am"],
       ["2026-10-05", "saved", "Saved 6 Oct, 5:00 am"],
       ["2026-10-04", "saved", "Saved 5 Oct, 5:00 am"],
     ]);

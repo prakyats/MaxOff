@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures";
 
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { addISTDays, todayIST } from "../src/core/time";
+import { historyDate } from "../src/modules/attendance/domain/history";
 
 import {
   expectBackStack,
@@ -228,6 +229,12 @@ test("installed: back closes the correct dialog, then the review sheet, then the
     .click();
   const sheet = page.locator('[data-slot="review-sheet"]');
   await expect(sheet).toBeVisible();
+  // B4: both decisions in the panel, Approve its one solid action, with the person's week.
+  await expect(sheet.getByRole("button", { name: "Approve" })).toHaveAttribute(
+    "data-variant",
+    "approve",
+  );
+  await expect(sheet.locator('[data-slot="review-week-day"][data-current]')).toBeVisible();
   await sheet.getByRole("button", { name: "Correct…" }).click();
   const dialog = page.locator('[data-slot="dialog-content"]');
   await expect(dialog).toBeVisible();
@@ -377,7 +384,7 @@ test("Today: the card and the board, and a person's history with Edit and Cancel
   await expect(page).toHaveURL(new RegExp(`/people/${ids(info).leave}/attendance$`));
 });
 
-test("a proposed absence from the nightly job: reviewed, approved, and read on the history", async ({
+test("a proposed absence from the nightly job: reviewed and approved from the Review panel, and read on the history", async ({
   page,
 }, info) => {
   await page.goto("/approvals");
@@ -385,18 +392,29 @@ test("a proposed absence from the nightly job: reviewed, approved, and read on t
   await expect(row).toHaveAttribute("data-state", "waiting");
   await expect(row).toContainText("Absent (proposed)");
 
-  // The review sheet says what the system proposed and that nobody signed in.
+  // The review sheet says what the system proposed and that nobody signed in, with the context
+  // to decide on (B4): the person's week with the day marked, and their comp leave.
   await row.getByRole("button", { name: "Review" }).click();
   const sheet = page.locator('[data-slot="review-sheet"]');
   await expect(sheet).toContainText("Proposed");
   await expect(sheet).toContainText("Absent (proposed)");
   await expect(sheet).toContainText("Not recorded");
-  await page.keyboard.press("Escape");
-  await expect(sheet).toBeHidden();
+  const reviewed = sheet.locator('[data-slot="review-week-day"][data-current]');
+  await expect(reviewed).toContainText("Absent (proposed)");
+  // B13: a proposed absence is amber (undecided), the same as everywhere else.
+  await expect(reviewed.locator('[data-slot="status-dot"]')).toHaveAttribute(
+    "data-tone",
+    "attention",
+  );
+  await expect(sheet).toContainText("Comp leave");
+  await expect(sheet).toContainText("None");
 
-  // Approve through the existing path; the app goes to the background so the send goes at once.
-  await row.getByRole("button", { name: "Approve" }).click();
+  // B4: Approve from the panel takes the row's own path: the sheet closes, the row is approved
+  // with its Undo; the app goes to the background so the send goes at once.
+  await sheet.getByRole("button", { name: "Approve" }).click();
+  await expect(sheet).toBeHidden();
   await expect(row).toHaveAttribute("data-state", "approved");
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     document.dispatchEvent(new Event("visibilitychange"));
@@ -422,17 +440,18 @@ test("a proposed absence from the nightly job: reviewed, approved, and read on t
   await expect(day).toContainText("Approved");
 });
 
-/** The Owner's Correct dialog for a person's day: the row's button, or the card's sheet on a phone. */
+/**
+ * The Owner's Correct dialog for a person's day: a tap on the day opens it (the laptop's side
+ * sheet, the phone's card sheet), and its "Correct this day…" opens the dialog (V5b-D: no button
+ * on every row).
+ */
 async function openCorrect(page: Page, info: TestInfo, day: Locator): Promise<Locator> {
-  if (isPhone(info)) {
-    await day.click();
-    await page
-      .locator('[data-slot="detail-sheet"]')
-      .getByRole("button", { name: "Correct" })
-      .click();
-  } else {
-    await day.getByRole("button", { name: "Correct" }).click();
-  }
+  await day.click();
+  const sheet = page.locator(
+    isPhone(info) ? '[data-slot="detail-sheet"]' : '[data-slot="history-sheet"]',
+  );
+  await expect(day.getByRole("button", { name: "Correct" })).toHaveCount(0);
+  await sheet.getByRole("button", { name: "Correct this day…" }).click();
   const dialog = page.locator('[data-slot="dialog-content"]');
   await expect(dialog).toBeVisible();
   return dialog;
@@ -588,6 +607,86 @@ test("installed: opened directly, the on-screen back replaces it with People", a
   await expectBackStack(page, [{ url: /^(?!.*\/people\/)/ }]);
 });
 
+test("the person page: Approve on a waiting day, with Approvals' context; History in the header; back closes each layer (PP-person-1, PP-person-4)", async ({
+  page,
+}, info) => {
+  const memberId = ids(info).absent;
+  // A proposed absence two working days back, this test's own (the others use yesterday's).
+  let workDate = inDays(-2);
+  while ([0, 6].includes(new Date(`${workDate}T12:00:00Z`).getUTCDay())) {
+    workDate = addISTDays(workDate, -1);
+  }
+  const [taken] = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&work_date=eq.${workDate}&select=id`,
+  );
+  test.skip(taken !== undefined, "the day is already recorded on this database");
+  const dayId = (
+    await serviceInsert<{ id: string }>("attendance_days", {
+      member_id: memberId,
+      work_date: workDate,
+      state: "pending_review",
+      final_status: "absent",
+      proposed_by_system: true,
+      is_day_off: false,
+    })
+  ).id;
+  await serviceInsert("attendance_events", {
+    attendance_day_id: dayId,
+    action: "proposed_absent",
+    to_status: "absent",
+  });
+  const phone = isPhone(info);
+  if (phone) await runInstalled(page);
+  await page.goto("/people");
+  await page.goto(`/people/${memberId}`);
+  await hydrated(page);
+  const here = new RegExp(`/people/${memberId}$`);
+
+  // PP-person-1: the History clock opens the person's history; back closes it.
+  await page.locator('[data-slot="history-open"]:visible').click();
+  const history = page.locator('[data-slot="history-sheet"]');
+  await expect(history).toBeVisible();
+  if (phone) await expectBackStack(page, [{ closes: history, url: here }]);
+  else await page.keyboard.press("Escape");
+
+  // PP-person-3: the summary counts the waiting day and opens Attendance.
+  await expect(
+    page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]'),
+  ).toContainText("Review");
+  await page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]').click();
+  await expect(page).toHaveURL(new RegExp(`/people/${memberId}/attendance$`));
+  await hydrated(page);
+
+  // PP-person-4: the day's sheet has Approvals' context and the solid Forest Approve (V5b-D: it
+  // names what it records, "Approve as absent").
+  const label = historyDate(workDate);
+  const openDay = () =>
+    phone
+      ? page.locator('[data-slot="data-card"] button', { hasText: label }).click()
+      : page.locator('[data-slot="data-table"] tbody button', { hasText: label }).click();
+  await openDay();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.locator('[data-slot="review-week-day"][data-current]')).toBeVisible();
+  const approve = sheet.getByRole("button", { name: "Approve as absent", exact: true });
+  await expect(approve).toHaveAttribute("data-variant", "approve");
+  if (phone) {
+    await expectBackStack(page, [
+      { closes: sheet, url: new RegExp(`/people/${memberId}/attendance$`) },
+    ]);
+    await openDay();
+    await expect(approve).toBeVisible();
+  }
+  await approve.click();
+  await expect
+    .poll(async () => {
+      const [row] = await serviceSelect<{ state: string }>(
+        `attendance_days?id=eq.${dayId}&select=state`,
+      );
+      return row?.state;
+    })
+    .toBe("approved");
+});
+
 test.describe("who sees what", () => {
   test.describe("an Admin", () => {
     test.use({ storageState: storageStateFor("admin") });
@@ -613,4 +712,64 @@ test.describe("who sees what", () => {
       await expect(page).toHaveURL(/\/forbidden/);
     });
   });
+});
+
+test("V5b-D: a person's attendance table: rows open their day, a waiting day is approved there, empty times read Not recorded", async ({
+  page,
+}, info) => {
+  await resetAttendanceAndLeave(ids(info).day);
+  await submitDay("day", info);
+  const [waiting] = await serviceSelect<{ id: string; state: string }>(
+    `attendance_days?member_id=eq.${ids(info).day}&work_date=eq.${todayIST()}&select=id,state`,
+  );
+  expect(waiting?.state).toBe("pending_review");
+
+  // The proposed absence (no times): "Not recorded", and the one note under the table.
+  await page.goto(`/people/${ids(info).absent}/attendance?month=${inDays(-1).slice(0, 7)}`);
+  await expect(page.locator('[data-slot="history-note"]')).toContainText("Tap a day to correct it");
+  if (!isPhone(info)) {
+    await expect(
+      page.locator("tbody tr").first().locator('[data-slot="history-times"]'),
+    ).toHaveText("Not recorded");
+  }
+
+  await page.goto(`/people/${ids(info).day}/attendance`);
+  await hydrated(page);
+  const day = isPhone(info)
+    ? page.locator('[data-slot="data-card"]').first()
+    : page.locator("tbody tr").first();
+  await expect(day).toContainText("Waiting for you");
+  if (!isPhone(info)) {
+    // Only the waiting row carries a button: Approve, never Correct.
+    await expect(day.locator('[data-slot="history-row-approve"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Correct", exact: true })).toHaveCount(0);
+  }
+  await day.click();
+  const sheet = page.locator(
+    isPhone(info) ? '[data-slot="detail-sheet"]' : '[data-slot="history-sheet"]',
+  );
+  await expect(sheet.getByRole("button", { name: "Correct this day…" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Approve as present" }).click();
+  await expect
+    .poll(async () => (await dayOf(ids(info).day))?.state, { timeout: 6_000 })
+    .toBe("approved");
+  await expect(day).toContainText("Approved");
+});
+
+test("installed, V5b-D: back closes a person's attendance day, the next back leaves", async ({
+  page,
+}, info) => {
+  test.skip(!isPhone(info), "the installed app is a phone");
+  await runInstalled(page);
+  await page.goto(`/people/${ids(info).fix}`);
+  await page.goto(`/people/${ids(info).fix}/attendance`);
+  await hydrated(page);
+  await page.locator('[data-slot="data-card"]').first().click();
+  const sheet = page.locator('[data-slot="detail-sheet"]');
+  await expect(sheet.getByRole("button", { name: "Correct this day…" })).toBeVisible();
+
+  await expectBackStack(page, [
+    { closes: sheet, url: new RegExp(`/people/${ids(info).fix}/attendance$`) },
+    { url: new RegExp(`/people/${ids(info).fix}$`) },
+  ]);
 });

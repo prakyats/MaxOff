@@ -1,3 +1,5 @@
+import { formatIST } from "@/core/time";
+
 import type { ItemState } from "./types";
 
 /**
@@ -85,7 +87,7 @@ export function readyToMarkDone(item: Pick<RowItem, "state" | "stages">): boolea
 }
 
 /**
- * Which ready row carries the layer's one solid red Mark done (ARCHITECTURE §14.1: one commit
+ * Which ready row carries the layer's one solid Mark done (ARCHITECTURE §14.1: one commit
  * action per layer, a list never repeats a solid button): the first ready one in the list's order
  * that may be marked done; the other ready ones get the outlined look. None when `allowed` is false
  * (Select mode, or another solid control on the screen).
@@ -111,4 +113,90 @@ export function markDonePlace(
 ): "row" | "menu" | null {
   if (!allowed || selecting) return null;
   return readyToMarkDone(item) || item.stages.length === 0 ? "row" : "menu";
+}
+
+/**
+ * The collapsed row's one bar and "n/m" (V3, the long-stage-list fix A/C): every stage of the
+ * deliverable, however many groups, as one continuous bar; a done deliverable reads full, the open
+ * one's next stage lighter (as the strips counted it).
+ */
+export function itemProgress(item: RowItem): { done: number; next: number; total: number } {
+  return groupStrips(item).reduce(
+    (sum, strip) => ({
+      done: sum.done + strip.done,
+      next: sum.next + strip.next,
+      total: sum.total + strip.total,
+    }),
+    { done: 0, next: 0, total: 0 },
+  );
+}
+
+/** From how many stages an ungrouped list is "long" (the owner's 2026-10-17 note: above ~8). */
+export const LONG_STAGE_LIST = 9;
+
+/**
+ * Whether the expanded row offers "n stages: split them into groups?" (fix D): an open deliverable
+ * with a long list whose stages are all outside a group. Only ever a suggestion: nothing is grouped
+ * until the Admin chooses where each group starts.
+ */
+export function suggestsGrouping(item: Pick<RowItem, "state" | "stages" | "groups">): boolean {
+  return (
+    item.state === "open" &&
+    item.stages.length >= LONG_STAGE_LIST &&
+    item.groups.every((group) => group.label === null)
+  );
+}
+
+/** "Round 2", "round 1", "R3": a stage typed as a numbered round of changes. */
+const NUMBERED_ROUND = /\bround\s*\d+\b|\br\d+\b/i;
+
+/**
+ * Whether the expanded row shows the revision-round tip (fix E): two or more stages typed as
+ * numbered rounds ("… Round 1", "… Round 2"), where "+ Another revision round" adds the next one in
+ * its place when it is needed.
+ */
+export function typesNumberedRounds(item: Pick<RowItem, "state" | "stages">): boolean {
+  return (
+    item.state === "open" &&
+    item.stages.filter((stage) => NUMBERED_ROUND.test(stage.name)).length >= 2
+  );
+}
+
+/**
+ * The collapsed row's progress shape (owner 2026-10-21, the approved sample): one line per group
+ * (name · segmented bar · n/m) — an untitled short list is one "Stages" line — and the single
+ * continuous bar only for one long ungrouped list (fix C, 9+ stages).
+ */
+export function progressShape(item: Pick<RowItem, "stages" | "groups">): "bar" | "groups" {
+  return item.stages.length >= LONG_STAGE_LIST && item.groups.every((group) => group.label === null)
+    ? "bar"
+    : "groups";
+}
+
+/** The name's second line on a laptop row: "3 groups · 1 of 9 stages" (the approved sample). */
+export function groupsLine(item: RowItem): string {
+  const groups = item.groups.filter((group) => group.stages.length > 0).length;
+  const total = item.stages.length;
+  if (total === 0) return "No stages";
+  const done = isDone(item.state) ? total : item.stages.filter((stage) => stage.done).length;
+  return `${groups} ${groups === 1 ? "group" : "groups"} · ${done} of ${total} stages`;
+}
+
+/**
+ * The deliverable sheet's last-change line, short (PP-sheet-1): "Last change · Prishit ticked
+ * Shoot Planning · 21 Oct". The sheet is the deliverable's own, so a trailing "on ‹its title›" is
+ * dropped; the time is in its History.
+ */
+export function lastChangeLine(
+  change: { text: string; by: string; at: string },
+  title: string,
+): string {
+  const suffix = ` on ${title}`;
+  const text = change.text.endsWith(suffix) ? change.text.slice(0, -suffix.length) : change.text;
+  return `Last change · ${change.by} ${text} · ${formatIST(change.at, "d MMM")}`;
+}
+
+/** "1 stage isn't ticked.", "3 stages aren't ticked." (PP-sheet-2: Mark done before they are). */
+export function untickedWords(count: number): string {
+  return count === 1 ? "1 stage isn't ticked." : `${count} stages aren't ticked.`;
 }

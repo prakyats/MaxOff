@@ -1,39 +1,36 @@
-import { ArrowRightIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 
 import { getCurrentMember } from "@/core/auth/server";
-import { cn } from "@/core/lib/utils";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
-import { settingsSectionsFor } from "@/core/ui/shell/nav";
+import { Badge } from "@/core/ui/primitives/badge";
 
 import {
+  GROUP_HEADING_CLASS,
+  GROUP_LIST_CLASS,
+  HELP_GROUP_CLASS,
   HELP_LIST_CLASS,
-  HELP_ROW_CLASS,
-  SECTION_DESCRIPTION_CLASS,
+  SECTION_LABEL_CLASS,
   SECTION_LINE_CLASS,
-  SECTION_READY_LINE_CLASS,
-  SECTION_SHELL_CLASS,
-  SECTION_SOON_LINE_CLASS,
+  SECTION_ROW_CLASS,
   SETTINGS_LIST_CLASS,
   settingsDescription,
+  settingsGroupsFor,
 } from "./list";
 
-/** One `text-sm` line of the page (20px): a bar in a line box of the same height. */
-function Line({ width, className }: { width: string; className?: string }) {
+/** Text kept in the layout but not shown: a pulsing bar the size of the words. */
+function Unseen({ children }: { children: string }) {
   return (
-    <span className={cn("flex h-5 min-w-0 items-center", className)}>
-      <Skeleton className={cn("h-3.5", width)} />
+    <span className="bg-muted inline-block max-w-full truncate rounded-md align-top text-transparent select-none motion-safe:animate-pulse">
+      {children}
     </span>
   );
 }
 
 /**
  * Traces `page.tsx` row for row (ARCHITECTURE §14.1), from the classes the two share (`list.ts`):
- * the role's header line, then the role's sections (the same list as the page's, drawn for the
- * role as `me/loading.tsx` reads it), each a 56px row on a phone and a card from `md` up whose
- * description is its own words, unseen, each line a bar, so a card wraps to exactly the page's
- * lines and the grid's rows keep their heights; a section not built yet keeps its "Coming soon"
- * pill. Then Help and troubleshooting: the bordered row, `mt-6`, two lines beside a chevron.
+ * the role's header line, then the role's groups (N3: the heading in its own words, unseen, then
+ * the bordered list), each row two lines beside the chevron or the "Coming soon" pill, then the
+ * Help group (PP-settings-2): its heading and its one row, as a group's.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
@@ -49,39 +46,76 @@ export default async function Loading() {
         aria-label="Loading Settings"
         data-slot="loading-settings"
       >
-        <ul aria-hidden className={SETTINGS_LIST_CLASS}>
-          {settingsSectionsFor(role).map((section) => (
-            <li key={section.key} className={SECTION_SHELL_CLASS}>
-              {section.ready ? (
-                <div className={cn(SECTION_LINE_CLASS, SECTION_READY_LINE_CLASS)}>
-                  <Line width="w-28" className="flex-1" />
-                  <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                </div>
-              ) : (
-                <div className={cn(SECTION_LINE_CLASS, SECTION_SOON_LINE_CLASS)}>
-                  <Line width="w-28" className="flex-[1_1_8rem]" />
-                  <Skeleton className="h-5 w-[5.5rem] shrink-0 rounded-4xl" />
-                </div>
-              )}
-              <p className={SECTION_DESCRIPTION_CLASS}>
-                {/* The description's own words, unseen, each line a bar: it wraps to exactly the
-                    page's lines at every width and text size. */}
-                <span className="bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse">
-                  {section.description}
+        <div aria-hidden className={SETTINGS_LIST_CLASS}>
+          {settingsGroupsFor(role).map((group) => (
+            <section key={group.key}>
+              <h2 className={GROUP_HEADING_CLASS}>
+                <span className="bg-muted rounded-md text-transparent select-none motion-safe:animate-pulse">
+                  {group.label}
                 </span>
-              </p>
-            </li>
+              </h2>
+              <ul className={GROUP_LIST_CLASS}>
+                {group.sections.map((section) => (
+                  <li key={section.key}>
+                    {/* The row inside the list item, as the page's link is: the item's divider
+                        sits above the 64px row, not inside it. */}
+                    <div className={SECTION_ROW_CLASS}>
+                      {/* The row's own words, unseen, each a bar: the same lines as the page's at
+                        every width and text size. */}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        {section.ready ? (
+                          <span className={SECTION_LABEL_CLASS}>
+                            <Unseen>{section.label}</Unseen>
+                          </span>
+                        ) : (
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="flex-[1_1_8rem] text-sm leading-5 font-medium">
+                              <Unseen>{section.label}</Unseen>
+                            </span>
+                            <Badge variant="outline" className="shrink-0 font-normal">
+                              <Unseen>Coming soon</Unseen>
+                            </Badge>
+                          </span>
+                        )}
+                        <span className={SECTION_LINE_CLASS}>
+                          <Unseen>{section.description}</Unseen>
+                        </span>
+                      </span>
+                      {section.ready ? (
+                        <ChevronRightIcon
+                          className="text-muted-foreground size-4 shrink-0"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
-        <ul aria-hidden className={HELP_LIST_CLASS}>
-          <li className={HELP_ROW_CLASS}>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <Line width="w-44" />
-              <Line width="w-56" />
+        </div>
+        <section aria-hidden className={HELP_GROUP_CLASS}>
+          <h2 className={GROUP_HEADING_CLASS}>
+            <span className="bg-muted rounded-md text-transparent select-none motion-safe:animate-pulse">
+              Help
             </span>
-            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-          </li>
-        </ul>
+          </h2>
+          <ul className={HELP_LIST_CLASS}>
+            <li>
+              <div className={SECTION_ROW_CLASS}>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className={SECTION_LABEL_CLASS}>
+                    <Unseen>How MaxOff works</Unseen>
+                  </span>
+                  <span className={SECTION_LINE_CLASS}>
+                    <Unseen>Help and troubleshooting, for your role</Unseen>
+                  </span>
+                </span>
+                <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              </div>
+            </li>
+          </ul>
+        </section>
         <span className="sr-only">Loading Settings</span>
       </div>
     </>

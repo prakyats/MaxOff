@@ -41,13 +41,20 @@ export {
   itemMeter,
   meterLine,
   meterPace,
+  needsYouPills,
   type CycleMeter,
   type MeterItem,
+  type NeedsYouPill,
 } from "./domain/progress";
 export {
+  clientDueOf,
   clientProgressLine,
+  clientWorkLine,
+  dueByClient,
   progressByClient,
   projectSummaries,
+  readyToComplete,
+  type ClientDue,
   type CurrentCycleStates,
   type ProjectSummary,
 } from "./domain/projects";
@@ -97,6 +104,7 @@ export {
   RECURRENCES,
   type Blueprint,
   type CarryDecision,
+  type ClientWorkSummary,
   type Cycle,
   type Item,
   type ItemRow,
@@ -110,8 +118,10 @@ export {
 } from "./domain/types";
 export {
   getProject,
+  getProjectTitle,
   listBlueprints,
   listClientProjects,
+  listClientWorkSummaries,
   listCurrentCycles,
   listCurrentCycleMeters,
   listCycles,
@@ -184,4 +194,4 @@ export {
   readProjectActivity,
 } from "./actions/background";
 /** The project page's deliverable columns (6b.11 (6)), for its skeleton to trace. */
-export { DELIVERABLE_COLUMNS, STRIP_GRID } from "./components/deliverable-columns";
+export { DELIVERABLE_COLUMNS, PROGRESS_GRID } from "./components/deliverable-columns";

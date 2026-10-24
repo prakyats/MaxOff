@@ -252,6 +252,8 @@ describe("what a day holds", () => {
         title: "Edit the reel",
         dueAt: istInstant(TODAY, "18:00"),
         owner: "Asha (freelancer)",
+        // Its type's colour, the due chip's edge (PP-calendar-5).
+        color: "#0284c7",
       },
     ]);
     expect(days.find((day) => day.date === "2026-10-08")?.due.map((d) => d.id)).toEqual(["q"]);
@@ -284,6 +286,24 @@ describe("what a day holds", () => {
     expect(ids({ type: NORMAL })).toEqual({ events: [], due: ["n"] });
     expect(ids({ status: "open" })).toEqual({ events: ["a"], due: ["n"] });
     expect(ids({ status: "done" })).toEqual({ events: ["b"], due: [] });
+  });
+
+  it("carries a person's photo on their leave for the day popup, only when they have one (V5b-D)", () => {
+    const days = buildCalendar(
+      input({
+        people: [
+          { id: ME, name: "Me", engagement: "permanent" },
+          { id: RAVI, name: "Ravi", engagement: "permanent", avatarFileId: "photo-ravi" },
+        ],
+        leave: [
+          { memberId: RAVI, type: "leave", startDate: TODAY, endDate: TODAY, pending: false },
+          { memberId: ME, type: "leave", startDate: TODAY, endDate: TODAY, pending: false },
+        ],
+      }),
+    );
+    const leave = days.find((day) => day.date === TODAY)?.leave ?? [];
+    expect(leave.find((item) => item.memberId === RAVI)?.avatarFileId).toBe("photo-ravi");
+    expect(leave.find((item) => item.memberId === ME)).not.toHaveProperty("avatarFileId");
   });
 
   it("expands leave over its days with the type, pending marked, own flagged", () => {

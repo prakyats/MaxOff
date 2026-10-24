@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { formatIST, istDayStart } from "@/core/time";
+import { formatIST, formatTime, istDayStart } from "@/core/time";
 
 import {
   BRAND_RED,
@@ -214,7 +214,8 @@ export function weeklyDigestSections(payload: WeeklyDigestPayload): DigestSectio
       heading: "Client work",
       lines: payload.client_work.flatMap((admin) => {
         const parts: string[] = [];
-        if (admin.done > 0) parts.push(`${admin.done} ${admin.done === 1 ? "item" : "items"} done`);
+        if (admin.done > 0)
+          parts.push(`${admin.done} ${admin.done === 1 ? "deliverable" : "deliverables"} done`);
         if (admin.overdue > 0) parts.push(`${admin.overdue} overdue now`);
         if (admin.projects_completed > 0) {
           parts.push(
@@ -243,7 +244,7 @@ export function weeklyDigestSections(payload: WeeklyDigestPayload): DigestSectio
           link: `/calendar?view=day&date=${leave.from}`,
         })),
         ...payload.ahead.events.map((event) => ({
-          text: `${day(event.date)}${event.start_at ? `, ${formatIST(event.start_at, "h:mm aaa")}` : ""}: ${event.title}${event.location ? ` · ${event.location}` : ""}`,
+          text: `${day(event.date)}${event.start_at ? `, ${formatTime(event.start_at)}` : ""}: ${event.title}${event.location ? ` · ${event.location}` : ""}`,
           link: `/tasks/${event.id}`,
         })),
       ],

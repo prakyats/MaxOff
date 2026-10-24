@@ -9,7 +9,10 @@ import {
 import {
   describeWeeklyOff,
   holidaysByYear,
+  canRemoveHoliday,
   isUpcoming,
+  thresholdGroupSummaries,
+  type Thresholds,
   weeklyOffChoices,
 } from "../domain/settings";
 import { cleanStages, PRESET_STAGES_MAX, stagesLine } from "../domain/stage-presets";
@@ -325,6 +328,15 @@ describe("isUpcoming", () => {
   });
 });
 
+describe("canRemoveHoliday (V5a 6b)", () => {
+  it("lets the Owner remove a holiday only before its date", () => {
+    const holiday = { id: "1", date: "2026-10-02", name: "Gandhi Jayanti" } as const;
+    expect(canRemoveHoliday(holiday, "2026-10-01")).toBe(true);
+    expect(canRemoveHoliday(holiday, "2026-10-02")).toBe(false);
+    expect(canRemoveHoliday(holiday, "2026-10-03")).toBe(false);
+  });
+});
+
 describe("stage presets", () => {
   it("allow up to 100 stages (6b.12, was 12)", () => {
     expect(PRESET_STAGES_MAX).toBe(100);
@@ -337,5 +349,34 @@ describe("stage presets", () => {
     expect(cleaned[0]).toBe("Stage 1");
     expect(cleaned.at(-1)).toBe(`Stage ${PRESET_STAGES_MAX}`);
     expect(stagesLine(cleaned.slice(0, 3))).toBe("Stage 1 → Stage 2 → Stage 3");
+  });
+});
+
+describe("thresholdGroupSummaries (6b.6)", () => {
+  const thresholds: Thresholds = {
+    logoutReminderTime: "20:30",
+    endDayCutoffTime: "06:00",
+    ackRepeatHours: 2,
+    ackEscalateHours: 4,
+    ackEscalateOwnerHours: 8,
+    overdueEscalateHours: 24,
+    emailDailyCapPerMember: 10,
+    workloadWarningThreshold: 4,
+    quietHoursStart: "22:00",
+    quietHoursEnd: "07:00",
+    defaultTaskReminders: [],
+    weeklyDigestDay: 1,
+    itemOverdueEscalateHours: 24,
+    cycleDecideEscalateDays: 1,
+  };
+
+  it("says each group's saved values in one line, the escalation order as one line", () => {
+    expect(thresholdGroupSummaries(thresholds)).toEqual({
+      "working-day": "End-of-day reminder 8:30 pm · late End day until 6:00 am",
+      tasks:
+        "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h · overdue → 24 h · warn at 4 tasks a day",
+      "client-work": "Overdue deliverable → you after 24 h · undecided period → you after 1 day",
+      notifications: "Quiet 10:00 pm – 7:00 am · up to 10 emails a day · weekly summary on Monday",
+    });
   });
 });

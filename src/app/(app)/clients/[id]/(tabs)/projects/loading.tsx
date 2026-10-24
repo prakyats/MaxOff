@@ -3,7 +3,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 /**
  * A client's Projects (7.3) under the painted header and tabs, traced: the "Projects" heading with
  * the New project button, then project rows (the name, the repeat and cycle line, the cycle's meter
- * in miniature with its figure (6b.11), the progress line, the state chip and the chevron).
+ * in miniature with its figure, "50% of stages" (6b.11, PP-client-1), the progress line, the state chip and the chevron).
  */
 export default function Loading() {
   return (
@@ -12,13 +12,16 @@ export default function Loading() {
       aria-busy="true"
       aria-label="Loading the projects"
       data-slot="loading-client-projects"
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex flex-col gap-4"
     >
       <div aria-hidden className="flex min-h-11 items-center justify-between">
         <Skeleton className="h-4 w-16" />
         <Skeleton className="h-11 w-36 rounded-lg md:h-8" />
       </div>
-      <ul aria-hidden className="border-border divide-border bg-card divide-y rounded-lg border">
+      <ul
+        aria-hidden
+        className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
+      >
         {[0, 1, 2].map((row) => (
           <li key={row} className="flex min-h-16 items-center gap-3 px-4 py-3">
             <span className="flex flex-1 flex-col gap-1.5">
@@ -26,7 +29,7 @@ export default function Loading() {
               <Skeleton className="h-3 w-1/3" />
               <span className="mt-1 flex items-center gap-2">
                 <Skeleton className="h-1.5 w-24 rounded-full sm:w-32" />
-                <Skeleton className="h-3 w-8" />
+                <Skeleton className="h-3 w-20" />
               </span>
               <Skeleton className="h-3 w-2/5" />
             </span>

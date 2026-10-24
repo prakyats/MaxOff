@@ -39,7 +39,9 @@ describe("summaryLines (PRODUCT §4.18, in its order)", () => {
     expect(lines.map((line) => line.label)).toEqual([
       "Working days",
       "Days worked",
-      "Leave · Half days · Absent",
+      "Leave",
+      "Half days",
+      "Absent",
       "Comp leave used",
       "Additional leave",
       "Days off worked",
@@ -60,11 +62,17 @@ describe("summaryLines (PRODUCT §4.18, in its order)", () => {
     const value = (key: string) => lines.find((line) => line.key === key)?.value;
     expect(value("working")).toBe("24");
     expect(value("worked")).toBe("18½");
-    expect(value("leave")).toBe("2 · 1 · 1");
+    // W6: three labelled rows instead of "2 · 1 · 1".
+    expect(value("leave")).toBe("2");
+    expect(value("half")).toBe("1");
+    expect(value("absent")).toBe("1");
     expect(value("comp")).toBe("1½");
     expect(value("off")).toBe("1");
     expect(value("overtime")).toBe("3");
-    expect(value("credits")).toBe("2½ · 1½ · ½");
+    expect(value("credits")).toBe("2½");
+    expect(lines.find((line) => line.key === "credits")?.detail).toBe(
+      "2½ granted · 1½ used · ½ expired",
+    );
   });
 });
 

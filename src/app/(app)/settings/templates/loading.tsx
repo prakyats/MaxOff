@@ -1,16 +1,26 @@
 import { cn } from "@/core/lib/utils";
+import { ListHeadingSkeleton, ListRowsSkeleton } from "@/core/ui/composites/list-rows-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { SETTINGS_HEADERS } from "../headers";
 
+import { TEMPLATE_SECTIONS, TEMPLATE_TAB_ITEM_CLASS, TEMPLATE_TABS_CLASS } from "./sections";
+
+/** Each section's heading and Add widths, and whether its rows have Preview. */
+const SHAPES = {
+  presets: { title: "w-24", add: "w-32", preview: false },
+  deliverables: { title: "w-40", add: "w-52", preview: true },
+  projects: { title: "w-32", add: "w-48", preview: true },
+  tasks: { title: "w-28", add: "w-44", preview: false },
+} as const;
+
 /**
- * Traces `page.tsx` (ARCHITECTURE §14.1): the header with "Add template" (the FAB on a phone),
- * the Task templates heading and its bordered list of templates (below), then the client-work
- * part (6b Release 2): the 44px search box, the Project templates group (7.4: its heading and Add
- * button, two rows with Preview, Edit and Archive) and the Deliverable templates group (the same
- * shape); each a 56px row with the name over its line.
+ * Traces `page.tsx` (ARCHITECTURE §14.1), the one Templates page (6b.6 owner note): the 44 px
+ * search, the phone's segmented control (four 44 px segments in a muted track, `md:hidden`), then
+ * the four sections in build order, each its heading with "Add …" and a bordered list of 56 px rows
+ * (the name over its line; Preview where the row has one, then the actions), the divider before
+ * Task templates from `md` up. On a phone only the first section shows, as on the page.
  */
 export default function Loading() {
   return (
@@ -19,69 +29,46 @@ export default function Loading() {
         title="Templates"
         {...SETTINGS_HEADERS.templates}
         back={{ href: "/settings", label: "Settings" }}
-        actions={<Skeleton aria-hidden data-slot="loading-fab" className="w-36" />}
       />
       <div
         role="status"
         aria-busy="true"
         aria-label="Loading Templates"
         data-slot="loading-templates"
-        className="flex max-w-2xl flex-col gap-8"
+        className="flex flex-col gap-6"
       >
-        {/* Task templates (4.6), as the page's section: the heading, then the list. */}
-        <div className="flex flex-col gap-3">
-          <div aria-hidden className="flex min-h-11 items-center">
-            <Skeleton className="h-4 w-28" />
-          </div>
-          <ul aria-hidden className="border-border divide-border divide-y rounded-lg border">
-            {[0, 1, 2].map((row) => (
-              <li
-                key={row}
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <div className={cn("flex min-w-0 flex-col gap-1.5", CARD_ROW_TITLE)}>
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-56 max-w-full" />
-                </div>
-                <div className={cn("flex items-center gap-1", CARD_ROW_TRAILING)}>
-                  <Skeleton className="size-9 rounded-lg md:hidden" />
-                  <Skeleton className="hidden size-9 rounded-lg md:block" />
-                  <Skeleton className="hidden size-9 rounded-lg md:block" />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-        {/* The client-work part (6b Release 2): the search, then the two groups. */}
-        <div className="flex flex-col gap-8">
-          <Skeleton aria-hidden className="h-11 w-full rounded-lg md:h-8" />
-          {["w-32", "w-40"].map((heading) => (
-            <div key={heading} className="flex flex-col gap-3">
-              <div aria-hidden className="flex min-h-11 items-center justify-between">
-                <Skeleton className={cn("h-4", heading)} />
-                <Skeleton className="h-11 w-20 rounded-lg md:h-8" />
-              </div>
-              <ul aria-hidden className="border-border divide-border divide-y rounded-lg border">
-                {[0, 1].map((row) => (
-                  <li
-                    key={row}
-                    className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-                  >
-                    <div className={cn("flex min-w-0 flex-col gap-1.5", CARD_ROW_TITLE)}>
-                      <Skeleton className="h-4 w-40" />
-                      <Skeleton className="h-3 w-56 max-w-full" />
-                    </div>
-                    <div className={cn("flex items-center gap-1", CARD_ROW_TRAILING)}>
-                      <Skeleton className="size-11 rounded-lg md:size-8" />
-                      <Skeleton className="size-11 rounded-lg md:size-8" />
-                      <Skeleton className="size-11 rounded-lg md:size-8" />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <Skeleton aria-hidden className="h-11 w-full rounded-lg md:h-8" />
+        <div aria-hidden className={TEMPLATE_TABS_CLASS}>
+          {TEMPLATE_SECTIONS.map((section) => (
+            <span
+              key={section.key}
+              className={cn(
+                TEMPLATE_TAB_ITEM_CLASS,
+                "flex items-center justify-center px-2 text-xs font-medium",
+              )}
+            >
+              {/* The name, unseen, sizes the segment as the loaded one; the bar is drawn over it. */}
+              <span className="grid items-center">
+                <span className="invisible col-start-1 row-start-1">{section.tab}</span>
+                <Skeleton className="col-start-1 row-start-1 h-3 w-full" />
+              </span>
+            </span>
           ))}
         </div>
+        {TEMPLATE_SECTIONS.map((section, index) => {
+          const shape = SHAPES[section.key];
+          return (
+            <div key={section.key} className="contents">
+              {section.key === "tasks" ? (
+                <hr aria-hidden className="border-border hidden md:block" />
+              ) : null}
+              <div className={cn("flex-col gap-3", index === 0 ? "flex" : "hidden md:flex")}>
+                <ListHeadingSkeleton titleWidth={shape.title} addWidth={shape.add} />
+                <ListRowsSkeleton rows={2} icons={2} subtitle preview={shape.preview} />
+              </div>
+            </div>
+          );
+        })}
         <span className="sr-only">Loading Templates</span>
       </div>
     </>

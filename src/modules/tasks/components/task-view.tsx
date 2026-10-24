@@ -18,6 +18,7 @@ import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { useIsDesktop } from "@/core/ui/viewport/use-desktop";
 
+import { barStuck } from "../domain/chat-space";
 import { chatLabel, parseTaskView, shownView, type TaskView, viewQuery } from "../domain/page";
 
 /** The dialogs of the task's work, opened from the next-step bar or from ⋯. */
@@ -32,9 +33,19 @@ type TaskViewState = {
   /** The phone's Chat sheet (decision 28): a layer over the page, never a view. */
   chatOpen: boolean;
   setChatOpen: (open: boolean) => void;
+  /**
+   * The laptop's enlarged chat (⤢, task chat height, owner 23 Oct): a large panel over the dimmed
+   * page, an overlay layer (back, Esc and ✕ close it, §14.2 a), never a view.
+   */
+  enlarged: boolean;
+  setEnlarged: (open: boolean) => void;
+  /** A laptop's Work | Chat bar is stuck under the top bar (the header has scrolled away). */
+  stuck: boolean;
+  /** The views' bar registers its band here, so the stuck state is the page's. */
+  setBand: (node: HTMLDivElement | null) => void;
   /** Chat, whichever way this screen has it: the view on a desktop, the sheet on a phone. */
   openChat: () => void;
-  /** Whether the viewer has Chat in front of them now (the view, or the open sheet). */
+  /** Whether the viewer has Chat in front of them now (the view, the enlarged panel, the sheet). */
   chatVisible: boolean;
   /** The unread comments, gone as soon as Chat has been open (the server confirms on refresh). */
   unread: number;
@@ -53,7 +64,7 @@ export function useTaskView(): TaskViewState {
 }
 
 /**
- * The task page's view state (Kickoff 4 decisions 27, 28, 32). The views (Work, Chat, Activity,
+ * The task page's view state (Kickoff 4 decisions 27, 28, 32). The views (Work, Chat,
  * Details) are a **view control**: choosing one replaces the URL's `?tab=` (never a push, so one
  * back leaves the task whatever was chosen; ARCHITECTURE §14.2 d), and nothing ever switches it
  * but the viewer's tap: a refresh, an action's answer or a new comment leaves it where it is.
@@ -77,6 +88,18 @@ export function TaskViewProvider({
   const [view, setView] = useState<TaskView>(() => parseTaskView(params.get("tab")));
   const desktop = useIsDesktop();
   const [chatOpen, setChatOpen] = useState(false);
+  const [enlarged, setEnlargedState] = useState(false);
+  const [band, setBand] = useState<HTMLDivElement | null>(null);
+  const stuck = useStuckBar(band, desktop === true);
+  // The enlarged chat returns the reader to where they were on the page (task chat height).
+  const scrollAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (enlarged || scrollAt.current === null) return;
+    const top = scrollAt.current;
+    scrollAt.current = null;
+    const frame = requestAnimationFrame(() => window.scrollTo({ top, behavior: "instant" }));
+    return () => cancelAnimationFrame(frame);
+  }, [enlarged]);
   const [seenUpTo, setSeenUpTo] = useState<string | null>(null);
   const [dialog, setDialog] = useState<StepDialog | null>(null);
   // A phone arriving on the conversation: the sheet opens once, as soon as the layout is known.
@@ -104,17 +127,24 @@ export function TaskViewProvider({
       desktop,
       chatOpen,
       setChatOpen,
+      enlarged,
+      setEnlarged: (open: boolean) => {
+        if (open && scrollAt.current === null) scrollAt.current = window.scrollY;
+        setEnlargedState(open);
+      },
+      stuck,
+      setBand,
       openChat: () => {
         if (window.matchMedia("(min-width: 768px)").matches) choose("chat");
         else setChatOpen(true);
       },
-      chatVisible: desktop === true ? view === "chat" : desktop === false && chatOpen,
+      chatVisible: desktop === true ? view === "chat" || enlarged : desktop === false && chatOpen,
       unread: seen ? 0 : unread,
       markSeen: setSeenUpTo,
       dialog,
       setDialog,
     };
-  }, [view, desktop, chatOpen, seenUpTo, newestAt, unread, dialog, pathname]);
+  }, [view, desktop, chatOpen, enlarged, stuck, seenUpTo, newestAt, unread, dialog, pathname]);
 
   return <TaskViewContext.Provider value={value}>{children}</TaskViewContext.Provider>;
 }
@@ -128,7 +158,6 @@ export function TaskViewProvider({
 const PANEL: Record<TaskView, string> = {
   work: "hidden data-[view=work]:flex max-md:data-[view=chat]:flex md:data-[view=details]:flex",
   chat: "hidden md:data-[view=chat]:flex",
-  activity: "hidden data-[view=activity]:flex",
   details: "max-md:hidden max-md:data-[view=details]:flex md:flex",
 };
 
@@ -162,21 +191,34 @@ export function TaskViewPanel({
 const ACTIVE: Record<TaskView, string> = {
   work: "data-[view=work]:bg-background data-[view=work]:text-foreground data-[view=work]:shadow-sm max-md:data-[view=chat]:bg-background max-md:data-[view=chat]:text-foreground max-md:data-[view=chat]:shadow-sm md:data-[view=details]:bg-background md:data-[view=details]:text-foreground md:data-[view=details]:shadow-sm",
   chat: "md:data-[view=chat]:bg-background md:data-[view=chat]:text-foreground md:data-[view=chat]:shadow-sm",
-  activity:
-    "data-[view=activity]:bg-background data-[view=activity]:text-foreground data-[view=activity]:shadow-sm",
   details:
     "data-[view=details]:bg-background data-[view=details]:text-foreground data-[view=details]:shadow-sm",
 };
 
+/** What the stuck bar says beside the tabs (the sample's "Edit · overdue 4 days"). */
+export type TaskTabsContext = {
+  title: string;
+  /** The deadline relative to now ("overdue 4 days", "in 2 days"); null once the task is final. */
+  relative: string | null;
+  overdue: boolean;
+};
+
 /**
- * The views' bar (decisions 27, 32): **Work · Chat · Activity · Details** on a phone, sticky under
- * the title bar, **Work · Chat · Activity** on a desktop (Details is the right panel). Each is a
+ * The views' bar (decisions 27, 32): **Work · Chat · Details** on a phone, sticky under
+ * the title bar, **Work · Chat** on a desktop (Details is the right panel). Each is a
  * 44px target; the bar scrolls sideways at large text instead of squeezing its labels (§14.2 i),
  * and nothing swipes between views (a sideways swipe is the phone's back gesture). Chat carries
  * the unread count ("Chat · 2 new"); on a phone it opens the sheet.
+ *
+ * **On a laptop (task chat height, owner 23 Oct; the sample
+ * `docs/design/v18-task-chat-height-sample.html`):** the bar sticks under the top bar as the page
+ * scrolls (the header scrolls away), in the same place and look, and once stuck it names the task
+ * beside the tabs ("Edit · overdue 4 days"). The bar holds only the views: ⤢ (enlarge the chat)
+ * is the chat panel's own, at its head's right end (issue #89), so Work never shows it. Nothing
+ * switches by itself. A phone's bar is unchanged: no name, its own sticky place under the title bar.
  */
-export function TaskTabs() {
-  const { view, choose, desktop, openChat, unread } = useTaskView();
+export function TaskTabs({ context }: { context: TaskTabsContext }) {
+  const { view, choose, desktop, openChat, unread, stuck, setBand } = useTaskView();
   const bar = useRef<HTMLDivElement>(null);
   const shown = shownView(view, desktop === true);
   usePublishedHeaderHeight();
@@ -198,14 +240,17 @@ export function TaskTabs() {
   const tabs: { name: TaskView; label: string; className?: string }[] = [
     { name: "work", label: "Work" },
     { name: "chat", label: chatLabel(unread) },
-    { name: "activity", label: "Activity" },
     { name: "details", label: "Details", className: "md:hidden" },
   ];
 
   return (
     <div
+      ref={setBand}
       data-slot="task-tabs-band"
-      className="bg-background sticky top-[calc(var(--app-chrome-h)+var(--app-page-header-h,2.75rem))] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
+      data-stuck={stuck ? "true" : "false"}
+      // A laptop's bar sticks under the top bar with the same left edge; once stuck, a hairline
+      // under it (transparent until then, so nothing moves when it sticks).
+      className="bg-background md:data-[stuck=true]:border-border sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:top-(--app-top-bar-h) md:z-20 md:mx-0 md:flex md:min-w-0 md:items-center md:gap-2 md:border-transparent md:px-0 md:py-2"
     >
       <div
         ref={(element) => {
@@ -218,7 +263,7 @@ export function TaskTabs() {
         data-slot="task-tabs"
         // A designed sideways scroller (decision 32): at large text the views scroll, not squeeze.
         data-scroll-x=""
-        className="bg-muted flex gap-1 overflow-x-auto rounded-lg p-1 md:inline-flex md:max-w-full"
+        className="bg-muted flex gap-1 overflow-x-auto rounded-lg p-1 md:inline-flex md:max-w-full md:shrink-0"
       >
         {tabs.map((tab) => {
           const current = tab.name === shown && !(tab.name === "chat" && desktop !== true);
@@ -247,8 +292,54 @@ export function TaskTabs() {
           );
         })}
       </div>
+      {/* Stuck only: the task's name and its deadline, so the header can scroll away. */}
+      <p
+        data-slot="task-tabs-context"
+        aria-hidden={stuck ? undefined : true}
+        className={cn(
+          "text-muted-foreground hidden min-w-0 truncate text-sm",
+          stuck && "md:ml-1.5 md:block",
+        )}
+      >
+        {context.title}
+        {context.relative ? (
+          <>
+            {" · "}
+            <span className={cn(context.overdue && "text-destructive")}>{context.relative}</span>
+          </>
+        ) : null}
+      </p>
     </div>
   );
+}
+
+/**
+ * Whether the laptop's bar is stuck under the top bar (task chat height): read on scroll and
+ * resize, once a frame at most. A phone never asks (its bar is unchanged).
+ */
+function useStuckBar(node: HTMLDivElement | null, active: boolean): boolean {
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (!active || !node) return;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const stickAt = Number.parseFloat(getComputedStyle(node).top) || 0;
+      setStuck(barStuck(node.getBoundingClientRect().top, stickAt, window.scrollY));
+    };
+    const soon = () => {
+      if (frame === 0) frame = requestAnimationFrame(read);
+    };
+    soon();
+    window.addEventListener("scroll", soon, { passive: true });
+    window.addEventListener("resize", soon);
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", soon);
+      window.removeEventListener("resize", soon);
+    };
+  }, [node, active]);
+  return active && stuck;
 }
 
 /**

@@ -18,6 +18,7 @@ import { displayName } from "@/core/lib/display-name";
 import { requestLeaveCancellation, withdrawLeave } from "../actions/leave";
 import { ownerCancelLeave } from "../actions/review";
 import {
+  LEAVE_ENDED_HINT,
   LEAVE_ENDED_MESSAGE,
   leaveDates,
   leaveDecisionNote,
@@ -209,39 +210,42 @@ export function LeaveRequestList({
       id: "dates",
       header: "Dates",
       enableSorting: false,
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap">
-          {leaveDates(row.original.startDate, row.original.endDate)}
-        </span>
-      ),
-    },
-    {
-      id: "state",
-      header: "Status",
-      enableSorting: false,
-      size: 140,
       cell: ({ row }) => {
+        // PP-crew-9 (V5b): a decision's reason (a refusal, a cancellation) is its own muted line
+        // under the dates, not wrapped under the status chip.
         const note = leaveDecisionNote(row.original, owner !== undefined);
         return (
-          <div className="flex flex-col items-start gap-1">
-            <RequestState request={row.original} />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="whitespace-nowrap">
+              {leaveDates(row.original.startDate, row.original.endDate)}
+            </span>
             {note ? (
-              <p className="text-muted-foreground max-w-64 text-xs break-words">{note}</p>
+              <p
+                data-slot="leave-row-note"
+                className="text-muted-foreground max-w-80 text-xs break-words"
+              >
+                {note}
+              </p>
             ) : null}
           </div>
         );
       },
     },
     {
+      id: "state",
+      header: "Status",
+      enableSorting: false,
+      size: 140,
+      cell: ({ row }) => <RequestState request={row.original} />,
+    },
+    {
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       enableSorting: false,
-      cell: ({ row }) =>
-        !owner && leaveHasEnded(row.original, today) ? (
-          <p className="text-muted-foreground text-right text-xs">{LEAVE_ENDED_MESSAGE}</p>
-        ) : (
-          <div className="flex justify-end gap-2">{actionButtons(row.original, "row")}</div>
-        ),
+      // PP-crew-9 (V5b): ended leave has no actions; why is said once, under the table.
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-2">{actionButtons(row.original, "row")}</div>
+      ),
     },
   ];
 
@@ -280,6 +284,14 @@ export function LeaveRequestList({
           )
         }
       />
+      {!owner && requests.some((request) => leaveHasEnded(request, today)) ? (
+        <p
+          data-slot="leave-ended-hint"
+          className="text-muted-foreground mt-3 hidden text-sm md:block"
+        >
+          {LEAVE_ENDED_HINT}
+        </p>
+      ) : null}
 
       {dialog.kind === "change" ? (
         <LeaveFormDialog
@@ -326,6 +338,7 @@ export function LeaveRequestList({
       ) : null}
       {dialog.kind === "withdraw" ? (
         <ConfirmDialog
+          destructive
           open
           onOpenChange={(open) => (open ? undefined : close())}
           title="Withdraw this request?"
@@ -354,6 +367,7 @@ function CancelLeaveDialog({
   const reasonId = useId();
   return (
     <ConfirmDialog
+      destructive
       open
       onOpenChange={(open) => (open ? undefined : onClose())}
       title="Ask to cancel this leave?"

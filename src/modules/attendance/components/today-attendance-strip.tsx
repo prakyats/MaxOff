@@ -1,7 +1,8 @@
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, PalmtreeIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { addISTDays } from "@/core/time";
 
 import { FollowUpHost } from "@/core/ui/composites/follow-up";
@@ -43,18 +44,32 @@ export async function TodayAttendanceStrip({
   const endsOn = strip.kind === "end_yesterday" ? addISTDays(today.workDate, -1) : today.workDate;
   const noteTaken = strip.action?.kind === "end" ? await hasOvertimeNote(endsOn) : false;
 
+  // PP-admin-3: a day on leave reads as a calm callout (the leave icon, one sentence, the
+  // outline "I'm working today"), not a status line.
+  const leave = strip.kind === "on_leave";
   const content = (
     <div
       data-slot="attendance-strip"
       data-kind={strip.kind}
-      className="border-border bg-card mb-4 flex min-h-11 flex-wrap items-center gap-2 rounded-lg border pr-1"
+      className={cn(
+        "border-border mb-4 flex min-h-11 flex-wrap items-center gap-2 rounded-lg border pr-1",
+        leave ? "bg-muted/60" : "bg-card",
+      )}
     >
       <Link
         href={HISTORY_HREF}
         aria-label={`Today's attendance: ${strip.text}`}
         className="pressable-row focus-visible:ring-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 outline-none select-none focus-visible:ring-2"
       >
-        <StatusDot status={strip.dot} label="" className="shrink-0" />
+        {leave ? (
+          <PalmtreeIcon
+            aria-hidden
+            data-slot="attendance-leave-icon"
+            className="text-muted-foreground size-4 shrink-0"
+          />
+        ) : (
+          <StatusDot status={strip.dot} label="" className="shrink-0" />
+        )}
         <span data-slot="attendance-status" className="truncate text-sm font-medium">
           {strip.text}
         </span>
@@ -103,8 +118,8 @@ function StripActionButton({
 }) {
   switch (action.kind) {
     case "start":
-      // The one solid red commit action on the screen: the tap records the start (§14.1).
-      return <StartDayButton size="sm" statusClassName="basis-full px-3 pb-2" />;
+      // The one solid commit action on the screen: the tap records the start (§14.1).
+      return <StartDayButton size="sm" showTime statusClassName="basis-full px-3 pb-2" />;
     case "end":
       return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} endsOn={endsOn} />;
     case "working":

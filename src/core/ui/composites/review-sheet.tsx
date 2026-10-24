@@ -56,7 +56,7 @@ export function ReviewSheet({
         data-slot="review-sheet"
         className={cn(
           "gap-4 overflow-y-auto",
-          bottom && "max-h-[85dvh] rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]",
+          bottom && "rounded-t-sheet max-h-[85dvh] pb-[calc(1.5rem+var(--app-safe-bottom))]",
         )}
       >
         {bottom ? (
@@ -74,10 +74,12 @@ export function ReviewSheet({
         <div data-slot="review-sheet-body" className="px-4 text-sm">
           {children}
         </div>
+        {/* Wraps onto a second row rather than spilling past the sheet's edge (the truncation
+            rule: a long footer reflows, the last action stays rightmost). */}
         {actions ? (
           <div
             data-slot="review-sheet-actions"
-            className="border-border flex flex-col gap-2 border-t px-4 pt-4 md:flex-row md:justify-end"
+            className="border-border flex flex-col gap-2 border-t px-4 pt-4 md:flex-row md:flex-wrap md:justify-end"
           >
             {actions}
           </div>

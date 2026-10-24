@@ -158,7 +158,13 @@ export function SuggestTaskDialog({
             ) : null}
             <ActionStatus action={action} />
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button variant="primary" type="submit" pending={pending} pendingLabel="Sending…">
@@ -169,6 +175,7 @@ export function SuggestTaskDialog({
         </DialogContent>
       </Dialog>
       <ConfirmDialog
+        destructive
         open={phase === "discard"}
         onOpenChange={(open) => {
           if (!open) setPhase("form");

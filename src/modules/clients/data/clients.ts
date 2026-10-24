@@ -1,10 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { type ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
 import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError } from "@/core/errors";
+import { unusedUsageFromJson, type UnusedUsage } from "@/core/lib/owner-delete";
 
 import {
   type Client,
@@ -227,6 +230,30 @@ export async function listContacts(clientId: string): Promise<ClientContact[]> {
   return data.map(toContact);
 }
 
+const TITLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A contact's name alone, for the browser tab (`generateMetadata`): one column, under the same
+ * RLS as `listContacts`, and only when it belongs to the client in the address, so a contact the
+ * reader may not see (or another client's) is null and the tab stays neutral. Next resolves a
+ * route's metadata on every prefetch of it, so this is all the title adds to a prefetch, never
+ * the page's reads (P2 item 6). Not ids: null, with no read. `cache()`d per request.
+ */
+export const getContactName = cache(
+  async (clientId: string, contactId: string): Promise<string | null> => {
+    if (!TITLE_ID.test(clientId) || !TITLE_ID.test(contactId)) return null;
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase
+      .from("client_contacts")
+      .select("name")
+      .eq("id", contactId)
+      .eq("client_id", clientId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.name ?? null;
+  },
+);
+
 export async function getContact(contactId: string): Promise<ClientContact | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
@@ -314,21 +341,30 @@ export async function setLogo(clientId: string, logoFileId: string | null): Prom
  * A client's audit trail (3.4): the client row, its brand, its contacts and, for the Owner, its
  * private notes and close reasons (RLS answers the rest: an Admin never reads `client_private`
  * entries or `client_close_reasons`, so a closed entry reaches them without its reason).
+ * A contact the Owner deleted (V5a 6c) keeps its lines: its 'deleted' entry names the client
+ * (`meta.client_id`), and only the Owner reads a deleted contact's entries.
  */
 export async function listClientActivity(
   clientId: string,
   contactIds: readonly string[],
 ): Promise<ActivityEntry[]> {
+  const supabase = await createServerSupabase();
+  const { data: gone, error: goneError } = await supabase
+    .from("activity_log")
+    .select("entity_id")
+    .eq("entity", "client_contacts")
+    .eq("action", "deleted")
+    .eq("meta->>client_id", clientId);
+  if (goneError) throw goneError;
   const entries = await listActivity([
     { entity: "clients", ids: [clientId] },
     { entity: "client_brand", ids: [clientId] },
     { entity: "client_private", ids: [clientId] },
-    { entity: "client_contacts", ids: contactIds },
+    { entity: "client_contacts", ids: [...contactIds, ...gone.map((row) => row.entity_id)] },
   ]);
   const closed = entries.filter((entry) => entry.entity === "clients" && entry.action === "closed");
   if (closed.length === 0) return entries;
 
-  const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("client_close_reasons")
     .select("activity_id, reason")
@@ -479,5 +515,23 @@ export async function archiveContact(
 export async function restoreContact(contactId: string): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("client_contact_restore", { contact_id: contactId });
+  if (error) throw error;
+}
+
+/**
+ * The Owner-only Delete of a draft client or a contact nothing has ever pointed at (v1.8 V5a 6c):
+ * `unused_usage` says whether anything did; `unused_delete` checks again with the row locked, writes
+ * the history row first and deletes it (a draft with its empty brand and private rows).
+ */
+export async function unusedUsage(kind: "client" | "contact", id: string): Promise<UnusedUsage> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("unused_usage", { kind, target_id: id });
+  if (error) throw error;
+  return unusedUsageFromJson(data);
+}
+
+export async function deleteUnused(kind: "client" | "contact", id: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("unused_delete", { kind, target_id: id });
   if (error) throw error;
 }

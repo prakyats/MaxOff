@@ -96,6 +96,10 @@ export function leaveRequestActions(
 /** What `leave_request_change` answers for approved leave that has fully passed (2.3). */
 export const LEAVE_ENDED_MESSAGE = "This leave has ended. Ask the Owner to correct it.";
 
+/** The same, said once under the laptop's table of requests (PP-crew-9, V5b). */
+export const LEAVE_ENDED_HINT =
+  "Leave that has ended can't be changed here. Ask the Owner to correct it.";
+
 /** Approved leave whose last day is before today (IST): the member can no longer change it. */
 export function leaveHasEnded(
   request: Pick<OwnLeaveRequest, "state" | "endDate">,
@@ -159,7 +163,9 @@ export function leaveDecisionNote(
   forOwner = false,
 ): string | null {
   if (!request.decisionReason) return null;
-  const prefix = forOwner ? "Your reason" : "The Owner's reason";
+  // W4: on someone else's leave the Owner reads his own words as "You wrote", never "Your
+  // reason" (which reads as the person's).
+  const prefix = forOwner ? "You wrote" : "The Owner's reason";
   // Leave the Owner set (an edit or a correction, 2.4) carries the Owner's reason for setting
   // it; the edit dialog tells the Owner the person will read it.
   if (request.state === "approved" && request.source === "owner") {

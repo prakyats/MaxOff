@@ -61,9 +61,11 @@ export function BulkEditBar({
   return (
     <BulkBar count={count} onClear={onClear} noun="selected" onHeight={onHeight}>
       {markable > 0 ? (
-        // A trigger that opens a confirmation: neutral solid; the red commit names it (§14.1).
+        // A trigger that opens a confirmation: the Forest green of Mark done (colour plan); the
+        // commit names it (§14.1).
         <Button
-          variant="strong"
+          variant="approve"
+          opens
           size="sm"
           pending={marking}
           pendingLabel="Marking done…"

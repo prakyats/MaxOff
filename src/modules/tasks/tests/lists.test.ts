@@ -17,6 +17,7 @@ import {
   myGroupOf,
   myTaskGroups,
   needsYou,
+  needsYouSummary,
   openByDeadline,
   ownPart,
   type ListViewer,
@@ -188,6 +189,39 @@ describe("Owner and Admins: Needs you (Kickoff 4 decision 17)", () => {
     ]);
   });
 
+  it("puts a task waiting for the Owner's approval in the Owner's Needs you, never an Admin's (B3)", () => {
+    const checked = row("checked", { state: "admin_approved", approvingAdminId: "admin" });
+    expect(needsYou([checked], OWNER, NOW, ESC).map((i) => [i.row.id, i.reason])).toEqual([
+      ["checked", "to_approve"],
+    ]);
+    expect(needsYou([checked], ADMIN, NOW, ESC)).toEqual([]);
+    // Listed once: not among the open tasks too.
+    const shown = new Set(needsYou([checked], OWNER, NOW, ESC).map((i) => i.row.id));
+    expect(openByDeadline([checked], shown)).toEqual([]);
+  });
+
+  it("counts exactly the rows a Needs you section shows (B2)", () => {
+    const to = { reason: "to_approve" as const };
+    const late = { reason: "overdue" as const };
+    // The Owner: every task to decide is a row, so no approvals link.
+    expect(needsYouSummary({ needs: [to, late], toDecide: 1, links: [0] })).toEqual({
+      approvalsLink: 0,
+      count: 2,
+    });
+    // The link row counts as one row, whatever its number (the 21 Oct review: "· 2" over 3 rows).
+    expect(needsYouSummary({ needs: [late, late], toDecide: 1, links: [0] })).toEqual({
+      approvalsLink: 1,
+      count: 3,
+    });
+    expect(needsYouSummary({ needs: [late], toDecide: 4, links: [2] }).count).toBe(3);
+    // An Admin's Today: links for tasks, deliverables and suggestions, the sent-back rows.
+    expect(needsYouSummary({ needs: [late], toDecide: 2, links: [1, 0], otherRows: 2 })).toEqual({
+      approvalsLink: 2,
+      count: 5,
+    });
+    expect(needsYouSummary({ needs: [], toDecide: 0, links: [0, 0], otherRows: 0 }).count).toBe(0);
+  });
+
   it("leaves an Admin out of the tasks they neither created nor approve", () => {
     const other = row("other", {
       createdBy: "owner",
@@ -307,12 +341,12 @@ describe("a row's lines", () => {
 
   it("says the deadline, whose it is and the client label", () => {
     expect(rowMeta(row("a", { clientId: "sharma" }), context)).toBe(
-      "Due Fri 2 Oct, 6:00 PM · Meera · Sharma Weddings",
+      "Due Fri 2 Oct, 6:00 pm · Meera · Sharma Weddings",
     );
     expect(rowMeta(row("b", { primaryOwnerId: "asha" }), context)).toBe(
-      "Due Fri 2 Oct, 6:00 PM · Asha (freelancer)",
+      "Due Fri 2 Oct, 6:00 pm · Asha (freelancer)",
     );
-    expect(rowMeta(row("c", { primaryOwnerId: "ravi" }), context)).toBe("Due Fri 2 Oct, 6:00 PM");
+    expect(rowMeta(row("c", { primaryOwnerId: "ravi" }), context)).toBe("Due Fri 2 Oct, 6:00 pm");
   });
 
   it("names the freelancers a coordinator acts for", () => {

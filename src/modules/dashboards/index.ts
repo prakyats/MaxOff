@@ -7,7 +7,7 @@
  * 6.0): nothing here hydrates, so the barrel exports no client component.
  */
 export { countHeldEmails, listLeaveDays, listNotNoted, listUnreachable } from "./data/signals";
-export { clockWord, dayWord, inlineDay, nextDays } from "./domain/days";
+export { clockWord, dateLine, dayContext, dayWord, inlineDay, nextDays } from "./domain/days";
 export {
   byStart,
   MY_DAY_AHEAD_DAYS,
@@ -67,13 +67,17 @@ export {
   SEE_THE_WEEK_HREF,
   WEEK_DAYS_SHOWN,
   WEEK_ROWS_SHOWN,
+  ownLeaveDays,
+  ownWeekDays,
   weekBlocks,
   type WeekBlock,
   type WeekDay,
   type WeekRow,
 } from "./domain/week";
 export {
+  ApprovalPersonRow,
   DashSection,
+  PhoneDateLine,
   DashSectionHeadingSkeleton,
   LinkRow,
   LinkRowsSkeleton,
@@ -83,10 +87,10 @@ export {
 } from "./components/blocks";
 export {
   CalendarHeaderLink,
+  DayColumns,
   EventRows,
-  EventRowsSkeleton,
-  EventsStrip,
-  EventsStripSkeleton,
   RiskRows,
+  ThisWeek,
+  ThisWeekSkeleton,
   WeekBlocks,
 } from "./components/day-blocks";

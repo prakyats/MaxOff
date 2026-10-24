@@ -1,4 +1,4 @@
-import { formatIST, toISTDate, type ISODate } from "@/core/time";
+import { formatTime, toISTDate, type ISODate } from "@/core/time";
 
 import type { AvailabilitySource, CalendarScope, EventSource, LeaveSource } from "./calendar";
 
@@ -28,16 +28,11 @@ export type WhoFree = {
 
 type Block = { startAt: string | null; endAt: string | null };
 
-/** "10", "10:30": an hour, its minutes only when they are not on the hour (12-hour clock). */
-function clock(instant: string): string {
-  return formatIST(instant, "mm") === "00" ? formatIST(instant, "h") : formatIST(instant, "h:mm");
-}
-
-/** "10–1" for a block, "all day" with no start; an end defaults to an hour after the start. */
+/** "10:00 am – 1:00 pm" for a block (the one time format, B1), "all day" with no start; an end defaults to an hour after the start. */
 export function busyWindow(block: Block): string {
   if (!block.startAt) return "all day";
   const end = block.endAt ?? new Date(new Date(block.startAt).getTime() + 3_600_000).toISOString();
-  return `${clock(block.startAt)}–${clock(end)}`;
+  return `${formatTime(block.startAt)} – ${formatTime(end)}`;
 }
 
 function windows(blocks: readonly Block[]): string {
@@ -135,13 +130,15 @@ export function whoIsFree(input: {
 }
 
 /**
- * "Who's free: Asha, Ravi · Busy 10–1: Kiran · On leave: Meera (½)" (the owner's preview review,
- * 2026-10-08: no repeated "Free"); "Busy …" and "On leave …" only when there are any; "nobody"
- * when everyone is busy or away.
+ * The day's availability line (owner 2026-10-21, v1.8 V4; PP-phone-2 / PP-admin-1, V5b): only who
+ * is away, never who is free, and never leave: the day's own "‹Name› · On leave" chips say that
+ * (with "You" for the reader), so the line would only say it twice. "Busy all day: Kiran" when
+ * anyone is; a part-day busy block is left out (it shows on the timeline); "Everyone is
+ * available" when nobody is busy all day or away; and nothing ("") when someone is on leave and
+ * nobody is busy all day, so the chips stand alone.
  */
 export function whoFreeLine(who: WhoFree): string {
-  const parts = [`Who's free: ${who.free.length > 0 ? who.free.join(", ") : "nobody"}`];
-  for (const group of who.busy) parts.push(`Busy ${group.when}: ${group.names.join(", ")}`);
-  if (who.onLeave.length > 0) parts.push(`On leave: ${who.onLeave.join(", ")}`);
-  return parts.join(" · ");
+  const allDay = who.busy.filter((group) => group.when === "all day").flatMap((g) => g.names);
+  if (allDay.length > 0) return `Busy all day: ${allDay.join(", ")}`;
+  return who.onLeave.length > 0 ? "" : "Everyone is available";
 }

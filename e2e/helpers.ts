@@ -799,9 +799,13 @@ export async function expectNoHorizontalScroll(page: Page): Promise<void> {
     return {
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
-      // Whatever is actually sticking out, so a failure names the culprit.
+      // Whatever is actually sticking out, so a failure names the culprit: the outermost of each
+      // (an element inside one already named is left out), so a wide band's own children cannot
+      // fill the list ahead of the element that widened the page (CI 40034086893: the push band
+      // and four of its spans, and nothing else named).
       wide: [...document.querySelectorAll<HTMLElement>("body *")]
         .filter((el) => el.getBoundingClientRect().right > edge && !insideFittingScroller(el))
+        .filter((el, _, all) => !all.some((other) => other !== el && other.contains(el)))
         .slice(0, 5)
         .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
     };
@@ -1137,4 +1141,93 @@ export async function holdNextRefresh(page: Page, path: string) {
     page.on("requestfinished", onFinished);
   });
   return { held, release: () => let_go(), answered };
+}
+
+/**
+ * A Settings row's action (`ListRowActions`, C4/P2): an icon on the row from `md` up ("Edit
+ * Brief"), the same action in the row's ⋯ sheet on a phone ("Actions for Brief", then "Edit").
+ */
+export async function rowAction(
+  page: Page,
+  row: Locator,
+  name: string,
+  action: "Edit" | "Rename" | "Archive" | "Delete" | "Move up" | "Move down",
+): Promise<void> {
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await row.getByRole("button", { name: `Actions for ${name}` }).click();
+    // The sheet is titled with the row's name.
+    await page
+      .getByRole("dialog", { name, exact: true })
+      .getByRole("button", { name: action, exact: true })
+      .click();
+    return;
+  }
+  const label = action.startsWith("Move ")
+    ? `Move ${name} ${action.slice(5)}`
+    : `${action} ${name}`;
+  await row.getByRole("button", { name: label, exact: true }).click();
+}
+
+/** Opens Thresholds groups (6b.6: closed rows with a summary at first glance). */
+export async function openThresholdGroups(page: Page, ...titles: string[]): Promise<void> {
+  for (const title of titles) {
+    const group = page.locator('[data-slot="threshold-group"]', {
+      has: page.locator("summary").getByText(title, { exact: true }),
+    });
+    if ((await group.getAttribute("open")) === null) {
+      await group.locator("summary").click();
+    }
+    await expect(group).toHaveAttribute("open", "");
+  }
+}
+
+/**
+ * L9 (v1.8 V4): New task keeps its other fields under "More options" (a native `<details>`).
+ * Opens it when the form has one and it is closed; a no-op on Edit (every field shown).
+ */
+export async function openMoreOptions(scope: Page | Locator): Promise<void> {
+  const form = scope.locator('[data-slot="task-form"]:visible').first();
+  await expect(form).toBeVisible();
+  const more = form.locator('[data-slot="task-more-options"]');
+  if ((await more.count()) === 0) return;
+  if ((await more.getAttribute("open")) === null) await more.locator("summary").click();
+  await expect(more).toHaveAttribute("open", "");
+}
+
+/**
+ * The one Templates page (6b.6 owner note): on a phone its sections are a segmented control (one
+ * shown at a time); picks `key`'s segment there, a no-op on a laptop where every section shows.
+ */
+export async function templatesTab(
+  page: Page,
+  key: "presets" | "deliverables" | "projects" | "tasks",
+): Promise<void> {
+  // The page itself first (it streams in after its loading screen).
+  await expect(page.locator('[data-slot="templates-library"]')).toBeVisible();
+  const tabs = page.locator('[data-slot="template-tabs"]');
+  if (!(await tabs.isVisible())) return;
+  const tab = tabs.locator(`#tab-${key}`);
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
+/**
+ * New project's steps (V5b PP-forms-7: 1 Basics, 2 Deliverables & stages, 3 Preview & create):
+ * Next until the dialog is on step `to`, each step waited for.
+ */
+export async function newProjectStep(dialog: Locator, to: 1 | 2 | 3): Promise<void> {
+  const current = dialog.locator('[data-slot="new-project-steps"] [aria-current="step"]');
+  let at = Number((await current.innerText()).trim().charAt(0));
+  while (at < to) {
+    await dialog.locator('[data-slot="new-project-next"]').click();
+    at += 1;
+    await expect(current).toHaveText(new RegExp(`^${at} `));
+  }
+}
+
+/** Create in the New project dialog: Next to its last step, then Create project. */
+export async function createFromNewProject(dialog: Locator): Promise<void> {
+  await newProjectStep(dialog, 3);
+  await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
+  await dialog.getByRole("button", { name: "Create project" }).click();
 }

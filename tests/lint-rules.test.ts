@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Proves the architecture rules in `eslint.config.mjs` (ARCHITECTURE §3.1, ADR-0011,
- * CLAUDE.md rules 2 and 3, and the overlay rule of §14.1). Each fixture under `tests/lint-fixtures/src` mirrors a real path,
+ * CLAUDE.md rules 2 and 3, the overlay rule of §14.1 and the design tokens of docs/DESIGN.md §8). Each fixture under `tests/lint-fixtures/src` mirrors a real path,
  * so it is classified exactly like `src/`. `denied-*` files must trip the listed rules and
  * nothing else; every other fixture must lint clean. The folder is in ESLint's global ignores,
  * so `pnpm lint` never fails on it: only this test looks at it.
@@ -19,6 +19,7 @@ const IMPORTS = "@typescript-eslint/no-restricted-imports";
 const GLOBALS = "no-restricted-globals";
 const SYNTAX = "no-restricted-syntax";
 const BACKGROUND_ACTION = "maxoff/no-background-action";
+const DESIGN_TOKENS = "maxoff/design-tokens";
 
 const EXPECTED: Record<string, readonly string[]> = {
   // app (and files directly under src/) → core and module index.ts only
@@ -64,8 +65,18 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/tasks/data/denied-radix.ts": [IMPORTS],
   "modules/tasks/domain/denied-radix.ts": [IMPORTS],
   // the action colour rule: buttons get colour from a variant, not classes (outside primitives)
-  "modules/tasks/components/denied-button-colour.tsx": [SYNTAX],
-  "modules/tasks/components/denied-button-hex.tsx": [SYNTAX],
+  // (a colour class is also a raw colour: docs/DESIGN.md §8)
+  "modules/tasks/components/denied-button-colour.tsx": [SYNTAX, DESIGN_TOKENS],
+  "modules/tasks/components/denied-button-hex.tsx": [SYNTAX, DESIGN_TOKENS],
+  // the design tokens and nothing else (docs/DESIGN.md §8): colours, type, radii, shadows
+  "modules/tasks/components/denied-design-palette.tsx": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-hex.ts": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-colour-function.ts": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-font-size.tsx": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-font-step.tsx": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-radius.tsx": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-shadow.tsx": [DESIGN_TOKENS],
+  "modules/tasks/components/denied-design-inline-style.tsx": [DESIGN_TOKENS],
   // a view's address is written only through replaceViewAddress (ARCHITECTURE §14.2 d)
   "modules/tasks/components/denied-view-address.ts": [SYNTAX],
   // a server action only from a tap: never from an effect or a timer (ARCHITECTURE §4.4)

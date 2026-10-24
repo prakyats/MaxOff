@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
 import type { Json, Tables } from "@/core/db";
@@ -12,10 +14,12 @@ import {
   type StageGroup,
 } from "@/core/lib/stage-groups";
 import type { ISODate } from "@/core/time";
+import { deletedTemplateLabel } from "@/core/lib/owner-delete";
 
 import type {
   Blueprint,
   CarryDecision,
+  ClientWorkSummary,
   Cycle,
   Item,
   ItemStage,
@@ -82,7 +86,7 @@ export function asObject(value: Json | null | undefined): Record<string, unknown
 }
 
 export const PROJECT_COLUMNS =
-  "id, client_id, name, description, recurrence, state, delivery_date, custom_fields, template_id, created_by, created_at, cancelled_reason";
+  "id, client_id, name, description, recurrence, state, delivery_date, custom_fields, template_id, created_by, created_at, cancelled_at, cancelled_reason";
 
 export function toProject(
   row: Pick<
@@ -98,6 +102,7 @@ export function toProject(
     | "template_id"
     | "created_by"
     | "created_at"
+    | "cancelled_at"
     | "cancelled_reason"
   >,
 ): Project {
@@ -113,6 +118,7 @@ export function toProject(
     templateId: row.template_id,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    cancelledAt: row.cancelled_at,
     cancelledReason: row.cancelled_reason,
   };
 }
@@ -254,17 +260,74 @@ export async function listStagesOf(projectIds: readonly string[]): Promise<Stage
   }));
 }
 
-/** One project (null: none, or not one the viewer may see). */
-export async function getProject(projectId: string): Promise<Project | null> {
+/**
+ * A project's page read: the project, with its Details' Template and Client contact cells (the
+ * v1.8 sample) embedded in the same request, so the page's first wave has no read of its own for
+ * either (v1.8 speed fix 2). RLS decides each embed as it decided the separate reads: a template
+ * the viewer may not read (`project_templates` is read with `templates.manage`) embeds as null,
+ * and the contacts are the client's under `client_contacts`' own policies. Never money.
+ */
+export type ProjectDetails = Project & {
+  /**
+   * The template it was started from: null when started blank or hidden by RLS; "‹name›
+   * (deleted)" once the Owner deleted it (V5a 6b: the project keeps everything it has).
+   */
+  templateName: string | null;
+  /** The client's primary live contact, else its first live one (the Contacts order). */
+  contactName: string | null;
+};
+
+/** One project (null: none, or not one the viewer may see), with its Details' embeds. */
+export async function getProject(projectId: string): Promise<ProjectDetails | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("projects")
-    .select(PROJECT_COLUMNS)
+    .select(
+      `${PROJECT_COLUMNS}, template:project_templates(name, deleted_at), client:clients(contacts:client_contacts(name, is_primary, created_at))`,
+    )
     .eq("id", projectId)
+    .is("client.contacts.archived_at", null)
+    .order("is_primary", { referencedTable: "client.contacts", ascending: false })
+    .order("created_at", { referencedTable: "client.contacts", ascending: true })
+    .limit(1, { referencedTable: "client.contacts" })
     .maybeSingle();
   if (error) throw error;
-  return data ? toProject(data) : null;
+  if (!data) return null;
+  const { template, client, ...row } = data;
+  return {
+    ...toProject(row),
+    templateName: !template
+      ? null
+      : template.deleted_at === null
+        ? template.name
+        : deletedTemplateLabel(template.name),
+    contactName: client?.contacts[0]?.name ?? null,
+  };
 }
+
+const TITLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A project's name alone, for the browser tab (`generateMetadata`): one column, under the same
+ * RLS as `getProject`, and only when it belongs to the client in the address, so a project the
+ * reader may not see (or another client's) is null and the tab stays neutral. Next resolves a
+ * route's metadata on every prefetch of it, so this is all the title adds to a prefetch, never
+ * the page's reads (P2 item 6). Not ids: null, with no read. `cache()`d per request.
+ */
+export const getProjectTitle = cache(
+  async (clientId: string, projectId: string): Promise<string | null> => {
+    if (!TITLE_ID.test(clientId) || !TITLE_ID.test(projectId)) return null;
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("name")
+      .eq("id", projectId)
+      .eq("client_id", clientId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.name ?? null;
+  },
+);
 
 export async function listStages(projectId: string): Promise<Stage[]> {
   return listStagesOf([projectId]);
@@ -328,7 +391,12 @@ export async function listCyclesById(cycleIds: readonly string[]): Promise<Cycle
 }
 
 /** A working project's current cycle: its client and its items' states (each progress line). */
-export type CurrentCycle = Cycle & { clientId: string; states: ItemState[] };
+export type CurrentCycle = Cycle & {
+  clientId: string;
+  states: ItemState[];
+  /** Each item's planned date, in `states`' order (PP-admin-10: the Clients list's Due). */
+  plannedDates: (string | null)[];
+};
 
 /**
  * **The current cycles, in one request** (ARCHITECTURE §19, "one wave per screen"): the cycle of
@@ -345,7 +413,7 @@ export async function listCurrentCycles(
     let request = supabase
       .from("project_cycles")
       .select(
-        `${CYCLE_COLUMNS}, project:projects!project_cycles_project_id_fkey!inner(client_id, state), items:project_items!project_items_cycle_id_fkey(state)`,
+        `${CYCLE_COLUMNS}, project:projects!project_cycles_project_id_fkey!inner(client_id, state), items:project_items!project_items_cycle_id_fkey(state, planned_date)`,
       )
       .in("project.state", ["open", "in_progress"])
       .or(`period_start.is.null,and(period_start.lte.${today},period_end.gte.${today})`);
@@ -356,6 +424,28 @@ export async function listCurrentCycles(
     ...toCycle(row),
     clientId: row.project.client_id,
     states: row.items.map((item) => item.state as ItemState),
+    plannedDates: row.items.map((item) => item.planned_date),
+  }));
+}
+
+/**
+ * **Each client's running deliverables, added up in SQL** (v1.8 speed fix 3, DATA-MODEL §5
+ * `client_work_summary()`): the Clients list's work column and Due, one row per client with items
+ * in its current cycles (as `listCurrentCycles` picks them). Security invoker: RLS decides every
+ * row (the Owner every client, an Admin their own, Crew none). Counts and dates, never money.
+ */
+export async function listClientWorkSummaries(today: ISODate): Promise<ClientWorkSummary[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("client_work_summary", { on_date: today });
+  if (error) throw error;
+  return data.map((row) => ({
+    clientId: row.client_id,
+    total: row.total,
+    done: row.done,
+    closed: row.closed,
+    late: row.late,
+    // The generated type says string; the function returns null when nothing open is dated.
+    next: (row.next_planned as string | null) ?? null,
   }));
 }
 
@@ -784,6 +874,20 @@ export async function archiveItemStageGroup(itemId: string, label: string | null
   if (error) throw error;
 }
 
+/** A deliverable's ungrouped stages split into named groups at the chosen starts (V3, fix D). */
+export async function groupItemStages(
+  itemId: string,
+  groups: readonly { label: string; start: string }[],
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stages_group", {
+    item_id: itemId,
+    labels: groups.map((group) => group.label),
+    starts: groups.map((group) => group.start),
+  });
+  if (error) throw error;
+}
+
 export async function updateItemStage(stageId: string, changes: Record<string, unknown>) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("item_stage_update", {
@@ -881,6 +985,7 @@ export async function listCurrentCycleMeters(
       ...toCycle(row),
       clientId: row.project.client_id,
       states: items.map((item) => item.state),
+      plannedDates: items.map((item) => item.plannedDate),
       items,
     };
   });

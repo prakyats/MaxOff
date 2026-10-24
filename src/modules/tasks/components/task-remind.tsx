@@ -1,11 +1,11 @@
 "use client";
 
-import { BellRingIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { systemClock } from "@/core/time";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { ICONS } from "@/core/ui/icons";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
@@ -18,6 +18,8 @@ import { remindTask } from "../actions/tasks";
  * while the hour of anyone's last one runs, the button says when it can be used again and waits.
  * An outlined button (never a second solid action on the layer) naming whom it reaches ("Remind
  * Sam and Ria"); no confirmation, because the database refuses a second reminder within the hour.
+ * Where it sits: a phone's own row under the "needed" callout; a laptop's next-step box, at its
+ * right end (the task chat height sample, owner 23 Oct).
  */
 export function TaskRemind({
   taskId,
@@ -28,7 +30,7 @@ export function TaskRemind({
   taskId: string;
   /** When it can be used again (ISO), or null when it can be used now. */
   againAt: string | null;
-  /** "Reminded · again at 4:05 PM", the server's words for `againAt`. */
+  /** "Reminded · again at 4:05 pm", the server's words for `againAt`. */
   againLabel: string | null;
   /** Whom it reaches, from `remindWho`: "Sam", "Sam and Ria", "Sam and 2 others". */
   who: string;
@@ -57,7 +59,12 @@ export function TaskRemind({
   });
 
   return (
-    <div data-slot="task-remind" className="flex min-w-0 flex-col items-start gap-1">
+    // On a laptop it sits at the right end of the next-step box (task chat height, owner 23 Oct);
+    // a phone keeps it on its own row under the box, as before.
+    <div
+      data-slot="task-remind"
+      className="flex min-w-0 flex-col items-start gap-1 md:shrink-0 md:items-end"
+    >
       <Button
         type="button"
         variant="secondary"
@@ -70,7 +77,7 @@ export function TaskRemind({
         title="Sends them a push and a note in the app. Once an hour per task."
         onClick={() => action.run()}
       >
-        <BellRingIcon aria-hidden />
+        <ICONS.remind aria-hidden />
         {wait ? wait.label : `Remind ${who}`}
       </Button>
       <ActionStatus action={action} />

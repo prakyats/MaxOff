@@ -1,6 +1,10 @@
 import { cn } from "@/core/lib/utils";
 import { PageLoading } from "@/core/ui/composites/loading-state";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
+import {
+  ListHeadingSkeleton,
+  ListRowActionsSkeleton,
+} from "@/core/ui/composites/list-rows-skeleton";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { SETTINGS_HEADERS } from "../headers";
@@ -8,7 +12,7 @@ import { SETTINGS_HEADERS } from "../headers";
 /**
  * Traces `page.tsx` (ARCHITECTURE §14.1): the entity tabs (a 4-column pill bar, the Owner's
  * shape; an Admin's two-column bar is narrower but sits in the same band), then one scope group:
- * its heading row (a title and the small Add on the right) and three 56px rows, each a label
+ * its heading row (a title and "Add field" on the right, C4) and three 56px rows, each a label
  * line over a meta line (type badge, key), with the actions on the right.
  */
 export default function Loading() {
@@ -34,12 +38,9 @@ export default function Loading() {
             <Skeleton key={tab} className="h-11 rounded-md" />
           ))}
         </div>
-        <div aria-hidden className="flex max-w-2xl flex-col gap-2">
-          <div className="flex min-h-9 items-center justify-between">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-8 w-16 rounded-lg" />
-          </div>
-          <ul className="border-border divide-border divide-y rounded-lg border">
+        <div aria-hidden className="flex max-w-2xl flex-col gap-3">
+          <ListHeadingSkeleton titleWidth="w-28" addWidth="w-28" />
+          <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
             {[0, 1, 2].map((row) => (
               <li
                 key={row}
@@ -50,7 +51,7 @@ export default function Loading() {
                   <Skeleton className="h-4 w-40" />
                   <Skeleton className="h-3.5 w-28" />
                 </div>
-                <Skeleton className={cn("size-9 rounded-lg", CARD_ROW_TRAILING)} />
+                <ListRowActionsSkeleton icons={2} />
               </li>
             ))}
           </ul>

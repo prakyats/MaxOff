@@ -2,10 +2,13 @@ import { z } from "zod";
 
 import {
   addISTDays,
+  formatDateTime,
   formatIST,
+  formatTime,
+  formatWallTime,
   isISODate,
-  istDayStart,
   type ISODate,
+  istDayStart,
   toISTTime,
 } from "@/core/time";
 
@@ -220,14 +223,9 @@ export function eodDayState(input: {
   return "saved";
 }
 
-/** "5:00 AM": the cutoff as a clock time (12-hour, IST). */
+/** "5:00 am": the cutoff as a clock time (the one time format, B1). */
 export function cutoffWords(cutoff: string): string {
-  const [h = "0", m = "0"] = cutoff.split(":");
-  const hours = Number(h);
-  const minutes = Number(m);
-  const suffix = hours < 12 ? "AM" : "PM";
-  const twelve = hours % 12 === 0 ? 12 : hours % 12;
-  return `${twelve}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  return formatWallTime(cutoff.slice(0, 5));
 }
 
 /** The note under a live day: what it is and when it saves. */
@@ -242,7 +240,7 @@ export function liveNote(state: EodDayState, cutoff: string): string | null {
  * or saved and its loading screen traces both: "Saved 7 Oct, 5:00 am."
  */
 export function savedNote(generatedAt: string): string {
-  return `Saved ${formatIST(generatedAt, "d MMM, h:mm aaa")}.`;
+  return `Saved ${formatDateTime(generatedAt)}.`;
 }
 
 /** "Today · Tue 7 Oct 2026", "Yesterday · …", else "Mon 5 Oct 2026". */
@@ -308,7 +306,7 @@ export function eodListEntries(input: {
       return {
         date,
         heading: eodDateHeading(date, input.today),
-        detail: `Saved ${formatIST(at, "d MMM, h:mm aaa")}`,
+        detail: `Saved ${formatDateTime(at)}`,
         state: "saved",
       };
     }
@@ -349,8 +347,8 @@ export function personStatus(person: EodPerson): string {
 /** The day's start and end and its flags, for a person's second line. */
 export function personDetail(person: EodPerson): string {
   const parts: string[] = [];
-  if (person.started_at) parts.push(`Started ${formatIST(person.started_at, "h:mm aaa")}`);
-  if (person.ended_at) parts.push(`Ended ${formatIST(person.ended_at, "h:mm aaa")}`);
+  if (person.started_at) parts.push(`Started ${formatTime(person.started_at)}`);
+  if (person.ended_at) parts.push(`Ended ${formatTime(person.ended_at)}`);
   if (person.end_not_recorded) parts.push("End of day not recorded");
   if (person.overtime) {
     parts.push(person.overtime_reason ? `Overtime: ${person.overtime_reason}` : "Overtime");
@@ -409,12 +407,12 @@ export function taskDetail(
   const who = item.freelance ? `${item.owner} (freelancer)` : item.owner;
   switch (group) {
     case "overdue": {
-      const due = item.due_at ? `due ${formatIST(item.due_at, "d MMM, h:mm aaa")}` : "";
+      const due = item.due_at ? `due ${formatDateTime(item.due_at)}` : "";
       const reason = item.late_reason ? `Late: ${item.late_reason}` : "No late reason yet";
       return [who, due, reason].filter(Boolean).join(" · ");
     }
     case "handed_in":
-      return item.since ? `${who} · handed in ${formatIST(item.since, "d MMM, h:mm aaa")}` : who;
+      return item.since ? `${who} · handed in ${formatDateTime(item.since)}` : who;
     case "cancelled":
       return item.reason ? `${who} · ${item.reason}` : who;
     default:
@@ -434,8 +432,8 @@ export function approvalDetail(row: EodReport["approvals"][number]): string {
 export function eventDetail(event: EodReport["tomorrow"]["events"][number]): string {
   const time = event.start_at
     ? event.end_at
-      ? `${formatIST(event.start_at, "h:mm aaa")} – ${formatIST(event.end_at, "h:mm aaa")}`
-      : formatIST(event.start_at, "h:mm aaa")
+      ? `${formatTime(event.start_at)} – ${formatTime(event.end_at)}`
+      : formatTime(event.start_at)
     : "All day";
   return [time, event.location, event.people.join(", ")].filter(Boolean).join(" · ");
 }

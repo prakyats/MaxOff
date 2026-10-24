@@ -14,10 +14,11 @@ import {
   REPORT_ROW_CLASS,
   REPORTS_LIST_CLASS,
 } from "./list-row";
+import { MonthStripSkeleton } from "./month-strip-view";
 import { PeriodControls } from "./period-controls";
 
 /**
- * Reports: the Owner's list of reports (3b.4: Month first, rows like Settings), traced in the
+ * Reports: the Owner's month strip (major change 7) and list of reports (3b.4: Month first, rows like Settings), traced in the
  * page's own list and row geometry (`list-row.ts`): each a line for the label over the
  * description's lines (its own words, unseen, so it wraps as the page does), and the arrow;
  * an Admin's work report (6.3), traced: the period control (nothing chosen yet) and its pager row,
@@ -32,6 +33,8 @@ export default async function Loading() {
       <>
         <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
         <div role="status" aria-busy="true" aria-label="Loading reports">
+          {/* "‹Month› so far" (major change 7): the heading and its four tiles. */}
+          <MonthStripSkeleton />
           <ul aria-hidden data-slot="loading-reports-list" className={REPORTS_LIST_CLASS}>
             {OWNER_REPORTS.map((report) => (
               <li key={report.key} className={REPORT_ROW_CLASS}>
@@ -65,7 +68,7 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading your report"
         data-slot="loading-work-report"
-        className="flex max-w-3xl min-w-0 flex-col gap-6"
+        className="flex min-w-0 flex-col gap-6"
       >
         <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
           {[0, 1, 2, 3].map((card) => (

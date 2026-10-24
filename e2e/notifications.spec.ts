@@ -14,6 +14,7 @@ import {
   runInstalled,
   serviceDelete,
   serviceInsert,
+  serviceRest,
   serviceSelect,
   serviceUpdate,
   signIn,
@@ -59,6 +60,8 @@ type Row = {
   entityId?: string;
   read?: boolean;
   minutesAgo?: number;
+  /** Who caused it (V5b-D: their photo leads the row). */
+  actorId?: string;
 };
 
 /** One notification for that person, as `app.notify()` writes it (no push delivery). */
@@ -80,6 +83,7 @@ async function notify(email: string, row: Row): Promise<string> {
     entity_id: row.entityId ?? null,
     created_at: createdAt,
     read_at: row.read ? createdAt : null,
+    actor_id: row.actorId ?? null,
   });
   return inserted.id;
 }
@@ -158,6 +162,41 @@ test.describe("the bell and Alerts", () => {
     await expect.poll(() => bellCount(page)).toBe(0);
     // The screen shows the read at once; the write lands in the background (owner 2026-10-01).
     await expect.poll(() => unreadOf(staff)).toBe(0);
+  });
+
+  test("an unread row sits one shade lighter than a read one, in light and in dark (the design gate, 23 Oct)", async ({
+    page,
+  }, info) => {
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await notify(staff, { title: "Shade, read", read: true, minutesAgo: 9 });
+    await notify(staff, { title: "Shade, unread", minutesAgo: 8 });
+    await signIn(page, staff, PASSWORD);
+    const lightness = (title: string) =>
+      rowOf(page, title).evaluate((row) => {
+        const [r, g, b] = (getComputedStyle(row).backgroundColor.match(/[\d.]+/g) ?? []).map(
+          Number,
+        );
+        const linear = (value = 0) => {
+          const c = value / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+      });
+    for (const theme of ["light", "dark"] as const) {
+      await page.goto("/notifications");
+      await page.evaluate((value) => window.localStorage.setItem("theme", value), theme);
+      await page.reload();
+      await hydrated(page);
+      if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+      else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+      await expect(rowOf(page, "Shade, unread")).toHaveAttribute("data-unread", "true");
+      await expect(rowOf(page, "Shade, read")).not.toHaveAttribute("data-unread");
+      expect(
+        await lightness("Shade, unread"),
+        `${theme}: unread is lighter than read`,
+      ).toBeGreaterThan(await lightness("Shade, read"));
+    }
   });
 
   test("Mark all read reads every row and clears the count", async ({ page }, info) => {
@@ -281,8 +320,10 @@ test.describe("the bell and Alerts", () => {
       )
       .toBe(true);
     await expect.poll(() => bellCount(page)).toBe(total - about);
-    // Views tapped at once, while the receipt is still out.
-    for (const view of ["work", "activity"]) {
+    // Views tapped at once, while the receipt is still out (V5a: Activity is the header's
+    // History sheet now; Chat on a desktop, Details on a phone).
+    const other = (page.viewportSize()?.width ?? 1280) >= 768 ? "chat" : "details";
+    for (const view of ["work", other]) {
       await page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`).click();
       await expect(page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`)).toHaveAttribute(
         "aria-current",
@@ -305,8 +346,8 @@ test.describe("the bell and Alerts", () => {
     ).toBe(true);
     expect(loads, "no document load after the task opened").toBe(0);
     expect(revalidated, "no read answers with a revalidation").toEqual([]);
-    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
-    await expect(page.locator('[data-slot="task-tab"][data-view-tab="activity"]')).toHaveAttribute(
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=${other}$`));
+    await expect(page.locator(`[data-slot="task-tab"][data-view-tab="${other}"]`)).toHaveAttribute(
       "aria-current",
       "true",
     );
@@ -439,6 +480,108 @@ test.describe("the bell and Alerts", () => {
     }
   });
 
+  test("the bell's count: a 16 px pill offset to the glyph's top-right that never touches the next control, one digit or 99+", async ({
+    page,
+    isMobile,
+  }, info) => {
+    // Owner screenshot, #89 comment 6338991185: the count crowded the theme icon.
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await notify(staff, { title: "One waiting", minutesAgo: 1 });
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+    await expect.poll(() => bellCount(page)).toBe(1);
+
+    const bell = page.locator(
+      isMobile ? '[data-slot="header-bell"]' : '[data-slot="top-bar-bell"]',
+    );
+    type Box = { x: number; y: number; width: number; height: number };
+    const boxes = () =>
+      bell.evaluate((link, phone) => {
+        const rect = (el: Element | null) => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        };
+        // The control beside it: the theme toggle after it on a laptop; on a phone the bell is
+        // the title bar's last control, so the one before it.
+        let near = phone ? link.previousElementSibling : link.nextElementSibling;
+        while (near && near.getBoundingClientRect().width === 0) near = near.previousElementSibling;
+        return {
+          pill: rect(link.querySelector('[data-slot="nav-badge"]')),
+          glyph: rect(link.querySelector("svg")),
+          link: rect(link),
+          near: rect(near),
+          viewport: window.innerWidth,
+        };
+      }, Boolean(isMobile));
+    const apart = (a: Box, b: Box) =>
+      a.x + a.width <= b.x ||
+      b.x + b.width <= a.x ||
+      a.y + a.height <= b.y ||
+      b.y + b.height <= a.y;
+
+    async function check(label: string) {
+      const { pill, glyph, link, near, viewport } = await boxes();
+      expect(pill && glyph && link && near, label).toBeTruthy();
+      if (!pill || !glyph || !link || !near) return;
+      expect(pill.height, `${label}: 16 px tall`).toBeCloseTo(16, 0);
+      expect(pill.width, `${label}: at least 16 px wide`).toBeGreaterThanOrEqual(15.5);
+      // Offset to the top-right, outside the glyph (the design gate, 23 Oct): its left edge 6 px
+      // inside the glyph's right edge, so a longer count grows outward (99+ reaches at most 16 px
+      // past the glyph, its last pixels back over the corner); its middle on the glyph's top.
+      const right = glyph.x + glyph.width;
+      if (label === "99+") {
+        expect(pill.x, `${label}: at most 12 px over the glyph`).toBeGreaterThanOrEqual(right - 12);
+        expect(pill.x + pill.width, `${label}: at most 16 px past it`).toBeLessThanOrEqual(
+          right + 16.5,
+        );
+      } else {
+        expect(Math.abs(pill.x - (right - 6)), label).toBeLessThan(1);
+      }
+      expect(Math.abs(pill.y + pill.height / 2 - glyph.y), label).toBeLessThan(2);
+      expect(link.width, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);
+      expect(link.height, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);
+      expect(apart(pill, near), `${label}: the pill never touches the next control`).toBe(true);
+      const gap =
+        near.x >= link.x + link.width
+          ? near.x - (link.x + link.width)
+          : link.x - (near.x + near.width);
+      expect(gap, `${label}: 8 px or more between controls`).toBeGreaterThanOrEqual(7.5);
+      expect(pill.x + pill.width, `${label}: inside the screen`).toBeLessThanOrEqual(viewport);
+    }
+
+    await check("one digit");
+    const { width: one } = (await boxes()).pill ?? { width: 0 };
+    expect(one, "one digit makes a circle").toBeCloseTo(16, 0);
+
+    const [member] = await serviceSelect<{ id: string; org_id: string }>(
+      `members?email=eq.${encodeURIComponent(staff)}&select=id,org_id`,
+    );
+    if (!member) throw new Error(`no member ${staff}`);
+    const at = new Date(systemClock().getTime() - 120_000).toISOString();
+    const many = await serviceRest("notifications", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        Array.from({ length: 120 }, (_, n) => ({
+          org_id: member.org_id,
+          recipient_id: member.id,
+          kind: "leave_decided",
+          title: `Many ${n}`,
+          created_at: at,
+        })),
+      ),
+    });
+    expect(many.ok, await many.text()).toBe(true);
+    await page.reload();
+    await hydrated(page);
+    await expect(bell.locator('[data-slot="nav-badge"]')).toHaveText("99+");
+    await check("99+");
+    await clearAlerts(staff);
+  });
+
   test("an empty history says so", async ({ page }, info) => {
     const staff = person(info, "staff");
     await clearAlerts(staff);
@@ -518,6 +661,51 @@ test.describe("the bell and Alerts", () => {
     await page.goto("/notifications?show=unread");
     await expect(page.locator('[data-slot="empty-state"]')).toContainText("You're all caught up");
     await expect(page.locator('[data-slot="alerts-filter"]')).toBeVisible();
+  });
+
+  test("V5b-D: one continuous list; Show older adds the next ones under the same day groups; the actor's photo leads each row", async ({
+    page,
+  }, info) => {
+    const admin = person(info, "admin");
+    await clearAlerts(admin);
+    const today = todayIST();
+    const actor = await memberIdOf(person(info, "staff"));
+    // Today: one alert someone caused, one MaxOff sent itself; then 23 older ones, a minute apart.
+    await notify(admin, { title: "Leave asked by a person", actorId: actor, minutesAgo: 1 });
+    await notify(admin, { title: "A job's reminder", minutesAgo: 2 });
+    for (let index = 0; index < 23; index += 1) {
+      await notify(admin, {
+        title: `Older alert ${String(index + 1).padStart(2, "0")}`,
+        at: istInstant(addISTDays(today, -10), `12:${String(59 - index).padStart(2, "0")}`),
+      });
+    }
+    await signIn(page, admin, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+
+    const rows = page.locator('[data-slot="notification-row"]');
+    await expect(rows).toHaveCount(20);
+    await expect(page.locator('[data-slot="alerts-pager"]')).toHaveCount(0);
+    // The photo (or initials) of who caused it leads the row; MaxOff's own has a quiet bell.
+    const own = rowOf(page, "Leave asked by a person").locator('[data-slot="person-avatar"]');
+    await expect(own).toHaveAttribute("data-size", "28");
+    await expect(own).not.toHaveAttribute("data-tone", "none");
+    await expect(
+      rowOf(page, "A job's reminder").locator('[data-slot="person-avatar"]'),
+    ).toHaveAttribute("data-tone", "none");
+
+    // Show older adds the rest under them: the same groups run on, and it adds no history.
+    const before = await page.evaluate(() => history.length);
+    await page.locator('[data-slot="alerts-show-older"]').click();
+    await expect(rows).toHaveCount(25);
+    await expect(page.locator('[data-slot="notification-group"] > h2')).toHaveText([
+      "Today",
+      "Older",
+    ]);
+    await expect(rows.last()).toContainText("Older alert 23");
+    await expect(page.locator('[data-slot="alerts-show-older"]')).toHaveCount(0);
+    expect(await page.evaluate(() => history.length)).toBe(before);
+    await expect(page).toHaveURL(/\/notifications$/);
   });
 
   test("Realtime: a row written before the live channel first joins still reaches the bell and the list", async ({

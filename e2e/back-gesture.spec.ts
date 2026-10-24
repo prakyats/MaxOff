@@ -7,15 +7,21 @@ import {
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
+  openThresholdGroups,
   followAuthLink,
   hydrated,
+  memberIdOf,
   recoveryLinkFor,
   resetAttendanceAndLeave,
   runInstalled,
+  serviceInsert,
+  serviceRest,
+  serviceSelect,
   setPasswordFor,
   signIn,
   storageStateFor,
   startPrompt,
+  USERS,
 } from "./helpers";
 
 /**
@@ -239,6 +245,8 @@ test.describe("installed: overlays and view controls", () => {
       await page.goto("/settings");
       await page.getByRole("link", { name: "Thresholds", exact: true }).click();
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      // 6b.6: the group opens in place (a view control): no history either.
+      await openThresholdGroups(page, "Notifications");
       const from = page.getByLabel("Quiet from");
       const until = page.getByLabel("Quiet until");
       await expect(from).toHaveValue("22:00");
@@ -273,6 +281,7 @@ test.describe("installed: overlays and view controls", () => {
       await page.goto("/settings");
       await page.getByRole("link", { name: "Thresholds", exact: true }).click();
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      await openThresholdGroups(page, "Tasks");
       const summary = page.locator('[data-slot="reminder-summary"]');
       const rows = page.locator('[data-slot="reminder-row"]');
       expect((await summary.boundingBox())?.height).toBe(44);
@@ -334,6 +343,90 @@ test.describe("installed: overlays and view controls", () => {
       await expect(page.locator('[data-slot="detail-sheet"]')).toBeHidden();
 
       await expectBackStack(page, [{ closes: confirm, url: /\/people$/ }]);
+    });
+
+    test("/settings/templates: the Owner's Delete confirm, handed off from a row's ⋯ sheet, closes on back (V5a 6b)", async ({
+      page,
+    }, info) => {
+      const name = `Back delete (${info.project.name})`;
+      await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("project_templates", {
+        org_id: org?.id,
+        name,
+        recurrence: "one_time",
+        created_by: await memberIdOf(USERS.owner.email),
+      });
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/templates#projects");
+      await hydrated(page);
+      const row = page.locator('[data-slot="project-template"]', { hasText: name });
+      await row.getByRole("button", { name: `Actions for ${name}` }).click();
+      const sheet = page.locator('[data-slot="project-template-actions"]');
+      await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete template “${name}”?` });
+      await expect(confirm).toBeVisible();
+      await expect(sheet).toBeHidden();
+      await expect(confirm.getByRole("button", { name: `Delete ${name}` })).toBeEnabled();
+
+      await expectBackStack(page, [
+        { closes: confirm, url: /\/settings\/templates#projects$/ },
+        { url: /\/settings$/ },
+      ]);
+      // Back changed nothing: the template is still there.
+      const [kept] = await serviceSelect<{ deleted_at: string | null }>(
+        `project_templates?name=eq.${encodeURIComponent(name)}&select=deleted_at`,
+      );
+      expect(kept?.deleted_at).toBeNull();
+      await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+    });
+
+    test("/settings/job-titles: the Owner's Delete of an unused entry, handed off from a row's ⋯ sheet, closes on back (V5a 6c)", async ({
+      page,
+    }, info) => {
+      const name = `Back unused (${info.project.name})`;
+      await serviceRest(`list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y9",
+      });
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/job-titles");
+      await hydrated(page);
+      const row = page.locator('[data-slot="list-item"]', { hasText: name });
+      await row.getByRole("button", { name: `Actions for ${name}` }).click();
+      const sheet = page.getByRole("dialog", { name, exact: true });
+      await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete job title “${name}”?` });
+      await expect(confirm).toBeVisible();
+      await expect(sheet).toBeHidden();
+      // The check has answered: nothing ever used it.
+      await expect(confirm.getByRole("button", { name: `Delete ${name}` })).toBeEnabled();
+
+      await expectBackStack(page, [
+        { closes: confirm, url: /\/settings\/job-titles$/ },
+        { url: /\/settings$/ },
+      ]);
+      // Back changed nothing: the entry is still there.
+      expect(
+        await serviceSelect(
+          `list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}&select=id`,
+        ),
+      ).toHaveLength(1);
+      await serviceRest(`list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
     });
   });
 
@@ -408,6 +501,26 @@ test.describe("installed: overlays and view controls", () => {
       await view(page, "Extra work", /\/leave\/extra-work$/);
       await view(page, "Expenses", /\/leave\/expenses$/);
       await expectBackStack(page, [{ url: /\/me$/ }, { url: /\/my-day$/ }]);
+    });
+
+    test("Me (V5b restructure): Attendance & leave from My work pushes; the sign-out confirmation closes on back", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="me"]').click();
+      await expect(page).toHaveURL(/\/me$/);
+      await page.locator('[data-slot="me-leave-link"]').click();
+      await expect(page).toHaveURL(/\/leave$/);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/me$/);
+      await hydrated(page);
+      // Sign out, last on Me, asks first; back closes the question and stays signed in on Me.
+      await page.locator('[data-slot="me-sign-out"]').click();
+      const confirm = page.getByRole("alertdialog", { name: "Sign out of this device?" });
+      await expect(confirm).toBeVisible();
+      await expectNoHorizontalScroll(page);
+      await expectBackStack(page, [{ closes: confirm, url: /\/me$/ }, { url: /\/my-day$/ }]);
     });
   });
 });
@@ -564,6 +677,45 @@ test.describe("installed: menus and selects close on back", () => {
   });
 });
 
+/**
+ * L5 (UX review 2026-10-21): a record's ⋯ menu is a bottom sheet on a phone, full width at the
+ * bottom edge with the record's name on top and 44px rows; it is still the same layer, so back
+ * closes it before the page (§14.2 a). 375 and 430.
+ */
+test.describe("installed: a ⋯ menu is a bottom sheet on a phone", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("a person's ⋯: a full-width sheet at the bottom; back closes it, the next back leaves", async ({
+    page,
+  }) => {
+    const staffId = await memberIdOf(USERS.staff.email);
+    await runInstalled(page);
+    await page.goto("/people");
+    await page.goto(`/people/${staffId}`);
+    await hydrated(page);
+    await page.locator('[data-slot="person-menu"]').click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await animationsSettled(page);
+    const viewport = page.viewportSize()!;
+    const box = (await menu.boundingBox())!;
+    expect(Math.round(box.x)).toBe(0);
+    expect(Math.round(box.width)).toBe(viewport.width);
+    expect(Math.abs(box.y + box.height - viewport.height)).toBeLessThanOrEqual(1);
+    await expect(menu.locator('[data-slot="menu-sheet-title"]')).toBeVisible();
+    for (const item of await menu.getByRole("menuitem").all()) {
+      expect((await item.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await expectNoHorizontalScroll(page);
+
+    await expectBackStack(page, [
+      { closes: menu, url: new RegExp(`/people/${staffId}$`) },
+      { url: /\/people$/ },
+    ]);
+  });
+});
+
 /** §14.2 c: a page opened from More is a tab root: back goes to the home tab. */
 test.describe("installed: More destinations are tab roots", () => {
   test.skip(({ isMobile }) => !isMobile, "the bottom bar is a phone layout");
@@ -602,6 +754,22 @@ test.describe("installed: More destinations are tab roots", () => {
     await openFromMore(page, "Me");
     await expect(page).toHaveURL(/\/me$/);
     await expectBackStack(page, [{ url: /\/today$/ }]);
+  });
+
+  test("Help (V5b, PP-phone-1): More → Help opens the guide over the page; back returns to it", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const sheet = page.locator('[data-slot="more-sheet"]');
+    await sheet.locator('[data-slot="more-help"]').click();
+    await expect(page).toHaveURL(/\/me\/guide$/);
+    await expect(sheet).toBeHidden();
+    // A drill-down: back goes to the screen the sheet was over, never a second More.
+    await expectBackStack(page, [{ url: /\/calendar$/ }]);
+    await expect(sheet).toBeHidden();
   });
 
   test("a fast double tap lands once, with Today underneath", async ({ page }) => {

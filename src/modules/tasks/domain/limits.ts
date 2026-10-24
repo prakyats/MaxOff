@@ -14,7 +14,7 @@ export const NOTE_MAX = 5000;
 export const COMMENT_MAX = 5000;
 /** A late reason, a review's reason, a cancel or reopen reason. */
 export const REASON_MAX = 1000;
-/** Kickoff 4 decision 4: picking a date sets the deadline's time to 6:00 PM IST. */
+/** Kickoff 4 decision 4: picking a date sets the deadline's time to 6:00 pm IST. */
 export const DEFAULT_DUE_TIME = "18:00";
 /** Nobody assigns a task to more people than this. */
 export const ASSIGNEES_MAX = 20;

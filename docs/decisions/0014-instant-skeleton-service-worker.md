@@ -89,3 +89,45 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
   tab, a task row and a More-sheet destination show their traced skeleton 154–212 ms after the
   finger goes down (an 80 ms rest included), where they took ~3.2 s; a reload, a client's page and
   the first open of a new install (nothing kept yet) still wait for the Worker, by design.
+
+## Amendment (2026-10-23)
+
+- **The change.** Two refinements of decision 1's key, shipped in the v1.8 V5b integration
+  (`public/sw.js` v11 and v12):
+  1. **One shared task skeleton.** A task's page keeps one copy for every task: its prefetch
+     carries the loading screen and its own id only (the spec's no-member-data check proves it),
+     so the copy is kept with the task id out of its key, and a prefetch of any task is answered
+     from it with that task's id swapped back into the same bytes (`withId`). The newest-60 limit
+     is unchanged.
+  2. **The router's `inside-shared-layout` mark is ignored in the key.** In the router state tree
+     the mark reads as no mark: the router sets it when the destination leaves the page it is
+     asked from, and the server uses it only to start looking for a loading boundary, which every
+     kept address has below it. A task prefetched from Today and from Tasks gets the same skeleton
+     and now shares one copy.
+- **Why.** On a cold Worker in a full e2e run, the rows the warm visit had never prefetched (a
+  full run's other tasks, the task made since) each went to the Worker for about 3 s and filled
+  the router's four prefetch slots; the tapped row's prefetch then left only with the touch, and
+  its answer (1 ms from the worker's copy) landed after the tap, because the browser holds the
+  page's network tasks while a finger is down, so the router navigated without a loading state.
+  With one copy for every task no row's prefetch waits for the Worker, and the tapped row's
+  leaves the moment it scrolls in.
+- **The evidence.** `e2e/instant-skeleton.spec.ts` on the database the full run left (5 of 5 red
+  before): 74 of 74 green at 375 and 430 px, tap to skeleton 185–235 ms. The 300 ms limit is
+  unchanged. Unit tests cover the one copy, the id swap and the 60-copy limit.
+
+## Amendment (2026-10-24, approved by the owner)
+
+- **The change.** Two more addresses admitted under decision 1, by its own rule (the e2e proof
+  first): Tasks' foot links, `/tasks/all` and `/tasks/requests` (`public/sw.js` v13). Neither has
+  a layout of its own, and each loading screen reads the viewer's role only (the title and the
+  filters for the role, "Suggest a task" for whoever suggests). Only the bare address is kept:
+  `/tasks/all?state=review` carries a query and stays network-only. Nothing else in the decision
+  changes.
+- **Why.** On a cold Worker at 430 px, where Tasks' foot shows on the first screen, the two
+  unkept links held two of the router's four prefetch slots for ~3 s each beside the shell's
+  unkept `/today`, so the tapped row's prefetch could still leave only with the touch and land
+  after it (CI 39978207656 and 40034086893: "task row: the traced skeleton after the tap" null).
+  Answered from the worker's copy, they free their slots at once.
+- **The evidence.** `e2e/instant-skeleton.spec.ts` reads both prefetches for every role (Tasks'
+  foot scrolled into view) and finds no member data; the first check of that file now counts
+  them among the addresses the worker may keep.

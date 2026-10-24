@@ -103,14 +103,22 @@ export async function getFile(fileId: string): Promise<FileRecord | null> {
   return data ? toFileRecord(data) : null;
 }
 
-/** The newest ready preview of an original, when the caller may see the original. */
-export async function getPreviewOf(fileId: string): Promise<FileRecord | null> {
+/**
+ * A ready preview of an original, when the caller may see the original: the largest (the 512 px
+ * preview) or, `smallest`, a profile photo's 96 px list thumbnail (v1.8 V5b-D). An original with
+ * one preview answers it either way; none, null.
+ */
+export async function getPreviewOf(
+  fileId: string,
+  which: "largest" | "smallest" = "largest",
+): Promise<FileRecord | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("files")
     .select("*")
     .eq("preview_of", fileId)
     .eq("status", "ready")
+    .order("size_bytes", { ascending: which === "smallest" })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

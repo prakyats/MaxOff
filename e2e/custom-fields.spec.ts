@@ -49,8 +49,6 @@ const addedToast = (page: Page) => page.getByText("Field added", { exact: true }
 const tabs = (page: Page) => page.getByRole("navigation", { name: "Field entity" });
 const row = (page: Page, key: string) =>
   page.locator(`[data-slot="field-definition"][data-key="${key}"]`);
-const archivedRow = (page: Page, key: string) =>
-  page.locator(`[data-slot="archived-field-definition"][data-key="${key}"]`);
 
 async function openAdd(page: Page) {
   await page.getByRole("button", { name: "Add field" }).first().click();
@@ -75,7 +73,7 @@ test.describe("Owner", () => {
     const k = keys(info);
     await page.goto("/settings/custom-fields");
     await expect(pageHeader(page)).toContainText("Custom fields");
-    for (const tab of ["Clients", "Contacts", "Projects", "Items", "Tasks"]) {
+    for (const tab of ["Clients", "Contacts", "Projects", "Deliverables", "Tasks"]) {
       await expect(tabs(page).getByRole("link", { name: tab, exact: true })).toBeVisible();
     }
 
@@ -131,7 +129,7 @@ test.describe("Owner", () => {
     await expect(page.getByText("Field saved")).toBeVisible();
     await expect(row(page, k.industry)).toContainText("Industry / sector");
 
-    // Archive, then restore: never deleted.
+    // Archive (D6), then Undo from its toast: never destroyed.
     await row(page, k.tier)
       .getByRole("button", { name: `Archive Tier ${suffix(info)}` })
       .click();
@@ -139,11 +137,14 @@ test.describe("Owner", () => {
       .getByRole("button", { name: `Archive Tier ${suffix(info)}`, exact: true })
       .last()
       .click();
-    await expect(page.getByText("Field archived")).toBeVisible();
+    const archived = page.locator("[data-sonner-toast]", {
+      hasText: `Tier ${suffix(info)} archived`,
+    });
+    await expect(archived).toBeVisible();
     await expect(row(page, k.tier)).toHaveCount(0);
-    await expect(archivedRow(page, k.tier)).toBeVisible();
-    await archivedRow(page, k.tier).getByRole("button", { name: "Restore" }).click();
-    await expect(page.getByText("Field restored")).toBeVisible();
+    // No Archived list (D6).
+    await expect(page.locator('[data-slot="archived-field-definition"]')).toHaveCount(0);
+    await archived.getByRole("button", { name: "Undo" }).click();
     await expect(row(page, k.tier)).toBeVisible();
 
     // Projects: Owner-only, no scope picker.
@@ -204,7 +205,7 @@ test.describe("Owner", () => {
     await page.getByRole("link", { name: "Custom fields", exact: true }).click();
     await expect(page).toHaveURL(/\/settings\/custom-fields$/);
     await hydrated(page);
-    await tabs(page).getByRole("link", { name: "Items", exact: true }).click();
+    await tabs(page).getByRole("link", { name: "Deliverables", exact: true }).click();
     await expect(page).toHaveURL(/entity=item/);
     const actions = row(page, key).getByRole("button", { name: `Actions for ${label}` });
     const sheet = page.locator('[data-slot="list-item-actions"]');

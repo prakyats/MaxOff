@@ -11,6 +11,7 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openThresholdGroups,
 } from "./helpers";
 import { fakePushService, ownTheDispatchQueue, runDispatch } from "./push-shared";
 
@@ -179,6 +180,7 @@ test.describe("the Owner edits the quiet hours (Settings → Thresholds)", () =>
     };
     try {
       await page.goto("/settings/thresholds");
+      await openThresholdGroups(page, "Notifications");
       await expect(page.getByRole("heading", { name: "Quiet hours" })).toBeVisible();
       const from = page.getByLabel("Quiet from");
       const until = page.getByLabel("Quiet until");
@@ -239,6 +241,7 @@ test.describe("the Owner edits the default reminders (Settings → Thresholds)",
         default_task_reminders: [],
       });
       await page.goto("/settings/thresholds");
+      await openThresholdGroups(page, "Tasks");
       await expect(page.getByRole("heading", { name: "Default reminders" })).toBeVisible();
       const summary = page.locator('[data-slot="reminder-summary"]');
       await expect(summary).toHaveText(
@@ -268,6 +271,8 @@ test.describe("the Owner edits the default reminders (Settings → Thresholds)",
         { before: 2, unit: "hours" },
       ]);
       await page.reload();
+      // Thresholds open folded into their groups (V4): the Tasks group is opened again.
+      await openThresholdGroups(page, "Tasks");
       await expect(summary).toHaveText("Reminders: 2 days before, 1 day before, 2 hours before");
 
       await summary.click();

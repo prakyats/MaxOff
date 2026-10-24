@@ -852,6 +852,8 @@ export type Database = {
           archived_reason: string | null;
           created_at: string;
           created_by: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
           id: string;
           name: string;
           org_id: string;
@@ -863,6 +865,8 @@ export type Database = {
           archived_reason?: string | null;
           created_at?: string;
           created_by?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           id?: string;
           name: string;
           org_id?: string;
@@ -874,6 +878,8 @@ export type Database = {
           archived_reason?: string | null;
           created_at?: string;
           created_by?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           id?: string;
           name?: string;
           org_id?: string;
@@ -891,6 +897,20 @@ export type Database = {
           {
             foreignKeyName: "deliverable_templates_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deliverable_templates_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deliverable_templates_deleted_by_fkey";
+            columns: ["deleted_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -2677,6 +2697,8 @@ export type Database = {
           archived_at: string | null;
           created_at: string;
           created_by: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
           deliverables: Json | null;
           description: string | null;
           field_defaults: Json;
@@ -2693,6 +2715,8 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           created_by?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           deliverables?: Json | null;
           description?: string | null;
           field_defaults?: Json;
@@ -2709,6 +2733,8 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           created_by?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           deliverables?: Json | null;
           description?: string | null;
           field_defaults?: Json;
@@ -2732,6 +2758,20 @@ export type Database = {
           {
             foreignKeyName: "project_templates_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_templates_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_templates_deleted_by_fkey";
+            columns: ["deleted_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -3025,6 +3065,8 @@ export type Database = {
           archived_at: string | null;
           created_at: string;
           created_by: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
           id: string;
           name: string;
           org_id: string;
@@ -3035,6 +3077,8 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           created_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           id?: string;
           name: string;
           org_id?: string;
@@ -3045,6 +3089,8 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           created_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           id?: string;
           name?: string;
           org_id?: string;
@@ -3062,6 +3108,20 @@ export type Database = {
           {
             foreignKeyName: "stage_presets_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_presets_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_presets_deleted_by_fkey";
+            columns: ["deleted_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -3675,6 +3735,8 @@ export type Database = {
           created_at: string;
           created_by: string;
           default_priority: Database["public"]["Enums"]["priority"];
+          deleted_at: string | null;
+          deleted_by: string | null;
           description: string | null;
           field_defaults: Json;
           id: string;
@@ -3690,6 +3752,8 @@ export type Database = {
           created_at?: string;
           created_by?: string;
           default_priority?: Database["public"]["Enums"]["priority"];
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           description?: string | null;
           field_defaults?: Json;
           id?: string;
@@ -3705,6 +3769,8 @@ export type Database = {
           created_at?: string;
           created_by?: string;
           default_priority?: Database["public"]["Enums"]["priority"];
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           description?: string | null;
           field_defaults?: Json;
           id?: string;
@@ -3726,6 +3792,20 @@ export type Database = {
           {
             foreignKeyName: "task_templates_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_deleted_by_fkey";
+            columns: ["deleted_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -4440,6 +4520,17 @@ export type Database = {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
       };
+      client_work_summary: {
+        Args: { on_date?: string };
+        Returns: {
+          client_id: string;
+          closed: number;
+          done: number;
+          late: number;
+          next_planned: string;
+          total: number;
+        }[];
+      };
       comp_leave_balance: {
         Args: { member_id?: string };
         Returns: {
@@ -4643,6 +4734,7 @@ export type Database = {
       };
       file_fail: { Args: { file_id: string }; Returns: string };
       file_mark_deleted: { Args: { file_id: string }; Returns: string };
+      holiday_delete: { Args: { holiday_id: string }; Returns: undefined };
       item_add: {
         Args: {
           custom_fields?: Json;
@@ -4725,6 +4817,10 @@ export type Database = {
       item_stage_update: {
         Args: { changes: Json; stage_id: string };
         Returns: string[];
+      };
+      item_stages_group: {
+        Args: { item_id: string; labels: string[]; starts: string[] };
+        Returns: number;
       };
       item_tick_stage: {
         Args: { done?: boolean; item_id: string; stage_id: string };
@@ -4906,6 +5002,28 @@ export type Database = {
           run_unread: string[];
           title: string;
           total: number;
+        }[];
+      };
+      notifications_inbox_page: {
+        Args: {
+          p_before_at: string;
+          p_before_id: string;
+          p_limit: number;
+          p_unread_only: boolean;
+        };
+        Returns: {
+          actor_avatar_file_id: string;
+          actor_id: string;
+          actor_name: string;
+          body: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          link: string;
+          run_kinds: string[];
+          run_size: number;
+          run_unread: string[];
+          title: string;
         }[];
       };
       notifications_mark_all_read: { Args: never; Returns: number };
@@ -5278,6 +5396,19 @@ export type Database = {
         Args: { changes: Json; task_id: string; warnings?: Json };
         Returns: string[];
       };
+      template_delete: {
+        Args: { kind: string; template_id: string };
+        Returns: Json;
+      };
+      template_usage: {
+        Args: { kind: string; template_id: string };
+        Returns: Json;
+      };
+      unused_delete: {
+        Args: { kind: string; target_id: string };
+        Returns: undefined;
+      };
+      unused_usage: { Args: { kind: string; target_id: string }; Returns: Json };
     };
     Enums: {
       admin_step: "required" | "none" | "skipped";

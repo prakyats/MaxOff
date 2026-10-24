@@ -63,7 +63,6 @@ const STATIC_SCREENS: Screen[] = [
     "company",
     "thresholds",
     "custom-fields",
-    "stage-presets",
   ].map((section) => ({ path: `/settings/${section}`, parent: "/settings" })),
   { path: "/tasks/all", parent: "/tasks" },
   { path: "/tasks/requests", parent: "/tasks" },
@@ -128,8 +127,11 @@ async function recordScreen(kind: RecordKind, project: string): Promise<Screen> 
       fromToday: "/today",
       view: async (page) => {
         await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
-        await page.locator('[data-slot="task-tab"][data-view-tab="activity"]').click();
-        await expect(page.locator('[data-slot="task-panel-activity"]')).toBeVisible();
+        // A view (V5a: Activity is the header's History sheet now): Chat on a desktop, Details
+        // on a phone.
+        const other = (page.viewportSize()?.width ?? 1280) >= 768 ? "chat" : "details";
+        await page.locator(`[data-slot="task-tab"][data-view-tab="${other}"]`).click();
+        await expect(page.locator(`[data-slot="task-panel-${other}"]`)).toBeVisible();
       },
     };
   }
@@ -312,9 +314,9 @@ test.describe("without the Navigation API (an iPhone before Safari 26.2)", () =>
     });
     await open(page, "/settings");
     expect(await page.evaluate(() => "navigation" in window)).toBe(false);
-    await drillTo(page, "/settings/stage-presets");
+    await drillTo(page, "/settings/job-titles");
     await tapBack(page, "/settings", "no API: the parent");
-    await drillTo(page, "/settings/stage-presets");
+    await drillTo(page, "/settings/job-titles");
     await openAndDismissOverlay(page, phone);
     await tapBack(page, "/settings", "no API, after an overlay: still one tap");
     // The overlay's spent entry was backed out first: the parent replaced the screen's own entry.
@@ -324,13 +326,30 @@ test.describe("without the Navigation API (an iPhone before Safari 26.2)", () =>
 });
 
 test.describe("the owner's report (15 Oct 2026), as it happened", () => {
-  test("Settings → Stage presets → Add preset → Cancel → ‹ Settings: one tap", async ({
+  test("the old Stage presets path lands on Templates' presets by replace (6b.6 owner note)", async ({
     page,
   }, info) => {
     if (info.project.name !== "desktop") await runInstalled(page);
     await open(page, "/settings");
-    await page.getByRole("link", { name: /Stage presets/ }).click();
-    await expect(page).toHaveURL(exactly("/settings/stage-presets"));
+    await page.evaluate(() => {
+      (
+        window as unknown as { next: { router: { push: (href: string) => void } } }
+      ).next.router.push("/settings/stage-presets");
+    });
+    await expect(page).toHaveURL(exactly("/settings/templates#presets"));
+    await expect(page.getByRole("button", { name: "Add preset" })).toBeVisible();
+    // No extra entry: one back is Settings.
+    await page.goBack();
+    await expect(page).toHaveURL(exactly("/settings"));
+  });
+
+  test("Settings → Templates → Add preset → Cancel → ‹ Settings: one tap", async ({
+    page,
+  }, info) => {
+    if (info.project.name !== "desktop") await runInstalled(page);
+    await open(page, "/settings");
+    await page.getByRole("link", { name: "Templates", exact: true }).click();
+    await expect(page).toHaveURL(exactly("/settings/templates"));
     await hydrated(page);
     await page.getByRole("button", { name: "Add preset" }).first().click();
     const add = page.getByRole("dialog", { name: "Add a stage preset" });

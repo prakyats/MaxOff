@@ -4,13 +4,16 @@ import { istInstant } from "@/core/time";
 
 import {
   chatLabel,
+  earlierHandInLabel,
   handInFirst,
   moreSteps,
   neededLine,
   newestCommentAt,
   nextStep,
+  HISTORY_ARRIVAL,
   parseTaskView,
   relativeDeadline,
+  reopenAfterHandIn,
   shownView,
   unreadCount,
   unreadLabel,
@@ -86,31 +89,31 @@ const nameOf = (id: string) =>
       ] ?? "Someone");
 
 describe("relativeDeadline (Kickoff 4 decision 26)", () => {
-  // Thursday 1 Oct 2026, 3:00 PM IST.
+  // Thursday 1 Oct 2026, 3:00 pm IST.
   const now = new Date(istInstant("2026-10-01", "15:00"));
 
   it("names the day relative to today in IST, and the distance", () => {
     expect(relativeDeadline(task(), now)).toEqual({
-      label: "Due today 6:00 PM",
+      label: "Due today 6:00 pm",
       relative: "in 3 h",
       overdue: false,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-02", "10:00") }), now)).toEqual({
-      label: "Due tomorrow 10:00 AM",
+      label: "Due tomorrow 10:00 am",
       relative: "in 19 h",
       overdue: false,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-05", "18:00") }), now).label).toBe(
-      "Due Mon 6:00 PM",
+      "Due Mon 6:00 pm",
     );
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-05", "18:00") }), now).relative).toBe(
       "in 4 days",
     );
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-12", "18:00") }), now).label).toBe(
-      "Due Mon 12 Oct, 6:00 PM",
+      "Due Mon 12 Oct, 6:00 pm",
     );
     expect(relativeDeadline(task({ dueAt: istInstant("2027-01-05", "18:00") }), now).label).toBe(
-      "Due Tue 5 Jan 2027, 6:00 PM",
+      "Due Tue 5 Jan 2027, 6:00 pm",
     );
   });
 
@@ -130,23 +133,23 @@ describe("relativeDeadline (Kickoff 4 decision 26)", () => {
     // 00:30 IST on 2 Oct is still 1 Oct in UTC: it is tomorrow in IST.
     const late = new Date(istInstant("2026-10-01", "23:00"));
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-02", "00:30") }), late).label).toBe(
-      "Due tomorrow 12:30 AM",
+      "Due tomorrow 12:30 am",
     );
   });
 
   it("is overdue once the deadline has passed, and says by how much", () => {
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-01", "11:00") }), now)).toEqual({
-      label: "Due today 11:00 AM",
-      relative: "overdue by 4 h",
+      label: "Due today 11:00 am",
+      relative: "overdue 4 h",
       overdue: true,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-09-30", "18:00") }), now)).toEqual({
-      label: "Due yesterday 6:00 PM",
-      relative: "overdue by 21 h",
+      label: "Due yesterday 6:00 pm",
+      relative: "overdue 21 h",
       overdue: true,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-09-25", "18:00") }), now).relative).toBe(
-      "overdue by 6 days",
+      "overdue 6 days",
     );
   });
 
@@ -154,7 +157,7 @@ describe("relativeDeadline (Kickoff 4 decision 26)", () => {
     for (const state of ["completed", "cancelled"] as const) {
       expect(
         relativeDeadline(task({ state, dueAt: istInstant("2026-09-25", "18:00") }), now),
-      ).toEqual({ label: "Due Fri 25 Sep, 6:00 PM", relative: null, overdue: false });
+      ).toEqual({ label: "Due Fri 25 Sep, 6:00 pm", relative: null, overdue: false });
     }
   });
 });
@@ -315,7 +318,10 @@ describe("the views (decisions 27, 32)", () => {
     expect(parseTaskView(null)).toBe("work");
     expect(parseTaskView("")).toBe("work");
     expect(parseTaskView("chat")).toBe("chat");
-    expect(parseTaskView("activity")).toBe("activity");
+    // Activity is no longer a view (v1.8 sweep): an old ?tab=activity lands on Work, with the
+    // header's History sheet open (HISTORY_ARRIVAL).
+    expect(parseTaskView("activity")).toBe("work");
+    expect(HISTORY_ARRIVAL).toEqual({ tab: "activity" });
     expect(parseTaskView("details")).toBe("details");
     expect(parseTaskView("history")).toBe("work");
   });
@@ -325,12 +331,11 @@ describe("the views (decisions 27, 32)", () => {
     expect(shownView("chat", true)).toBe("chat");
     expect(shownView("details", true)).toBe("work");
     expect(shownView("details", false)).toBe("details");
-    expect(shownView("activity", false)).toBe("activity");
   });
 
   it("keeps the view in the query, leaving Work (the landing view) out", () => {
-    expect(viewQuery("", "activity")).toBe("?tab=activity");
-    expect(viewQuery("?tab=activity", "work")).toBe("");
+    expect(viewQuery("", "chat")).toBe("?tab=chat");
+    expect(viewQuery("?tab=chat", "work")).toBe("");
     expect(viewQuery("?tab=chat&x=1", "details")).toBe("?tab=details&x=1");
   });
 
@@ -370,5 +375,40 @@ describe("unread comments (decision 28)", () => {
     expect(chatLabel(2)).toBe("Chat · 2 new");
     expect(unreadLabel(1)).toBe("1 new comment");
     expect(unreadLabel(3)).toBe("3 new comments");
+  });
+});
+
+describe("a hand-in after a reopen (B5)", () => {
+  const entry = (action: string, at: string, meta: Record<string, unknown> = {}) => ({
+    entity: "tasks",
+    action,
+    at,
+    meta,
+  });
+  const latest = { at: "2026-10-09T10:00:00Z" };
+
+  it("is earlier work once the task is reopened after it, with the reopen's day and reason", () => {
+    const reopen = reopenAfterHandIn(latest, [
+      entry("reopened", "2026-10-16T06:00:00Z", { reason: " simple ", from_state: "completed" }),
+      entry("completed", "2026-10-10T06:00:00Z"),
+    ]);
+    expect(reopen).toEqual({ at: "2026-10-16T06:00:00Z", reason: "simple" });
+    expect(reopen && earlierHandInLabel(reopen)).toBe(
+      'Earlier hand-in · reopened 16 Oct: "simple"',
+    );
+  });
+
+  it("stays the current hand-in when the reopen came before it, or there is none", () => {
+    expect(reopenAfterHandIn(latest, [entry("reopened", "2026-10-08T06:00:00Z")])).toBeNull();
+    expect(reopenAfterHandIn(latest, [entry("completed", "2026-10-10T06:00:00Z")])).toBeNull();
+    expect(reopenAfterHandIn(null, [entry("reopened", "2026-10-16T06:00:00Z")])).toBeNull();
+  });
+
+  it("takes the latest reopen, and says nothing more without a reason", () => {
+    const reopen = reopenAfterHandIn(latest, [
+      entry("reopened", "2026-10-12T06:00:00Z", { reason: "first" }),
+      entry("reopened", "2026-10-16T06:00:00Z"),
+    ]);
+    expect(reopen && earlierHandInLabel(reopen)).toBe("Earlier hand-in · reopened 16 Oct");
   });
 });

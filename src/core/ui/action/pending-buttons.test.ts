@@ -8,8 +8,9 @@ import { describe, expect, it } from "vitest";
  * Every button that saves or changes something shows it is working (ARCHITECTURE §14.1, owner
  * 2026-09-28): a spinner, a working label ("Saving…"), disabled so a second tap does nothing.
  * Built once in `Button` (`pending`, `pendingLabel`) and `useAction`; this sweeps the source for
- * a commit button that does not take part: a `<Button>` that is `variant="primary"` (the commit
- * colour) or `type="submit"` without both `pending=` and `pendingLabel=`.
+ * a commit button that does not take part: a `<Button>` that is `variant="primary"` or
+ * `variant="danger"` (the commit variants, ADR-0015) or `type="submit"` without both `pending=`
+ * and `pendingLabel=`.
  *
  * A primary button that commits nothing itself (it opens a form or a confirmation whose own
  * button commits) is marked on its line or the one above with `pending: none` and a reason.
@@ -53,7 +54,7 @@ export function findPendingViolations(text: string): Violation[] {
   const found: Violation[] = [];
   for (const match of text.matchAll(/<Button(?=[\s>])/g)) {
     const tag = openingTag(text, match.index);
-    const commits = /variant="primary"/.test(tag) || /type="submit"/.test(tag);
+    const commits = /variant="(primary|danger)"/.test(tag) || /type="submit"/.test(tag);
     if (!commits) continue;
     if (/\bpending=/.test(tag) && /\bpendingLabel=/.test(tag)) continue;
     const line = text.slice(0, match.index).split("\n").length;
@@ -64,7 +65,10 @@ export function findPendingViolations(text: string): Violation[] {
 }
 
 describe("the checker (fixtures)", () => {
-  it("flags a primary or submit button without its pending state", () => {
+  it("flags a primary, danger or submit button without its pending state", () => {
+    expect(
+      findPendingViolations(`<Button variant="danger" onClick={remove}>Remove</Button>`),
+    ).toHaveLength(1);
     expect(findPendingViolations(`<Button variant="primary" onClick={save}>Save</Button>`)).toEqual(
       [expect.objectContaining({ line: 1 })],
     );

@@ -80,7 +80,7 @@ export default async function TaskRequestsPage() {
         help={description}
         actions={suggests ? <SuggestTaskButton clients={choices} /> : undefined}
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="task-requests">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="task-requests">
         {requests.length === 0 ? (
           <EmptyState
             icon={InboxIcon}
@@ -168,7 +168,9 @@ function RequestSection({
         {title}
         {count > 0 ? <span className="text-muted-foreground font-normal"> · {count}</span> : null}
       </h2>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">{children}</ul>
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
+        {children}
+      </ul>
     </section>
   );
 }

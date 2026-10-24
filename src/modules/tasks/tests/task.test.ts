@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isOverdue,
   joinNames,
+  lateLabel,
   latestChangeRequest,
   pairName,
   reviewerName,
@@ -213,6 +214,15 @@ describe("the task at a glance", () => {
     expect(isOverdue(task(), new Date("2026-10-03T12:29:00.000Z"))).toBe(false);
   });
 
+  it("says how late an overdue task is, as Today's risks do (PP-tasks-2)", () => {
+    expect(lateLabel(task(), new Date("2026-10-03T15:30:00.000Z"))).toBe("3 h late");
+    expect(lateLabel(task(), new Date("2026-10-05T12:30:00.000Z"))).toBe("2 days late");
+    expect(
+      lateLabel(task({ state: "completed" }), new Date("2026-10-05T12:30:00.000Z")),
+    ).toBeNull();
+    expect(lateLabel(task(), new Date("2026-10-03T12:29:00.000Z"))).toBeNull();
+  });
+
   it("joins names briefly and finds the latest change request", () => {
     expect(joinNames(["A"])).toBe("A");
     expect(joinNames(["A", "B", "C", "D"])).toBe("A, B and 2 more");
@@ -323,8 +333,8 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
     expect(
       remindAgainAt([{ entity: "tasks", action: "updated", at: "2026-10-15T09:59:00.000Z" }], now),
     ).toBeNull();
-    // IST on the button: 10:30 UTC is 4:00 PM.
-    expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 PM");
+    // IST on the button: 10:30 UTC is 4:00 pm.
+    expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 pm");
   });
 
   it("names whom Remind reaches: one, two, then a count", () => {

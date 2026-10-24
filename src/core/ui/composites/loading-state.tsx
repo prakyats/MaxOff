@@ -33,6 +33,8 @@ interface LoadingStateProps {
   columns?: readonly string[] | undefined;
   className?: string | undefined;
   label?: string | undefined;
+  /** `cards` led by a person's 40 px photo (People, V5b-D). */
+  avatars?: boolean | undefined;
 }
 
 const DEFAULT_COUNT: Record<LoadingShape, number> = {
@@ -56,6 +58,7 @@ export function LoadingState({
   columns = ["w-1/3", "w-1/4", "w-1/6", "w-1/6"],
   className,
   label = "Loading",
+  avatars = false,
 }: LoadingStateProps) {
   const items = count ?? DEFAULT_COUNT[shape];
 
@@ -69,7 +72,7 @@ export function LoadingState({
       className={cn(shape === "tiles" ? "grid grid-cols-2 gap-3 lg:grid-cols-4" : null, className)}
     >
       {shape === "list" ? <ListSkeleton items={items} actions={actions} /> : null}
-      {shape === "cards" ? <CardsSkeleton items={items} /> : null}
+      {shape === "cards" ? <CardsSkeleton items={items} avatars={avatars} /> : null}
       {shape === "tiles" ? <TilesSkeleton items={items} /> : null}
       {shape === "detail" ? <DetailSkeleton items={items} /> : null}
       {shape === "table" ? <TableSkeleton items={items} columns={columns} /> : null}
@@ -81,7 +84,7 @@ export function LoadingState({
 /** Rows of text with a leading status dot, and optional trailing action buttons. */
 function ListSkeleton({ items, actions }: { items: number; actions: number }) {
   return (
-    <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+    <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
       {Array.from({ length: items }, (_, i) => (
         <li
           key={i}
@@ -103,15 +106,16 @@ function ListSkeleton({ items, actions }: { items: number; actions: number }) {
  * The mobile card list. Height and padding come from `row-metrics`, the same constants
  * `DataTable` uses for a real card, so the two cannot drift apart.
  */
-function CardsSkeleton({ items }: { items: number }) {
+function CardsSkeleton({ items, avatars }: { items: number; avatars: boolean }) {
   return (
-    <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+    <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
       {Array.from({ length: items }, (_, i) => (
         <li
           key={i}
           data-slot="loading-row"
           className={cn("flex items-center gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}
         >
+          {avatars ? <Skeleton className="size-10 shrink-0 rounded-full" /> : null}
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
             <Skeleton className="h-4 w-1/2" />
             <Skeleton className="h-3 w-1/3" />
@@ -202,6 +206,7 @@ export function PageLoading({
   count,
   actions,
   back,
+  avatars,
   children,
 }: {
   title: string;
@@ -216,6 +221,8 @@ export function PageLoading({
   count?: number | undefined;
   actions?: number | undefined;
   back?: { href: string; label: string } | undefined;
+  /** `cards` led by a person's photo (People, V5b-D). */
+  avatars?: boolean | undefined;
   /** Replaces the default skeleton when a screen needs a shape of its own (e.g. the calendar). */
   children?: React.ReactNode;
 }) {
@@ -228,7 +235,13 @@ export function PageLoading({
         {...(back ? { back } : {})}
       />
       {children ?? (
-        <LoadingState shape={shape} count={count} actions={actions} label={`Loading ${title}`} />
+        <LoadingState
+          shape={shape}
+          count={count}
+          actions={actions}
+          avatars={avatars}
+          label={`Loading ${title}`}
+        />
       )}
     </>
   );

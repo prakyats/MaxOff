@@ -3,17 +3,24 @@ import { FolderClockIcon, ListChecksIcon } from "lucide-react";
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { addISTDays, systemClock, todayIST, type ISODate } from "@/core/time";
+import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   getTodayPeople,
   getUnendedYesterday,
+  pendingDayRows,
   summariseToday,
   TodayAttendanceCard,
 } from "@/modules/attendance";
 import { buildCalendar, parseCalendarQuery } from "@/modules/calendar";
 import {
-  CalendarHeaderLink,
+  ApprovalPersonRow,
   DashSection,
+  dateLine,
+  DayColumns,
+  dayContext,
+  PhoneDateLine,
+  ThisWeek,
   heldEmailsLine,
   LinkRow,
   leaveRisks,
@@ -23,7 +30,6 @@ import {
   OWNER_NEEDS_YOU_EMPTY,
   OWNER_TODAY_EMPTY,
   ownerMyTasks,
-  QuietText,
   reachedAt,
   RiskRows,
   RowList,
@@ -32,7 +38,6 @@ import {
   todaysTasks,
   todaysTasksLine,
   waitingFor,
-  WeekBlocks,
   weekBlocks,
   type Risk,
   type Waiting,
@@ -71,11 +76,13 @@ import {
   readUnreachable,
   eventsHorizon,
 } from "./reads";
-import { ownerGreeting } from "./words";
 
 /**
  * The Owner's Today (6.2; PRODUCT §2 principle 11, its first application; Kickoff 6 decisions 4–8,
- * 12, 22, 23 and 24; **the Today refresh, owner 2026-10-09, ROADMAP 6b.7**). In order:
+ * 12, 22, 23 and 24; **the Today refresh, owner 2026-10-09, ROADMAP 6b.7**; **v1.8 V5b major
+ * change 1**: the date line under the title, empty sections as one quiet line, bigger attendance
+ * figures, risk chips and "This week" as a laptop column from an 896 px content width,
+ * `DayColumns`). In order:
  *
  * 1. **Needs you**: the approvals, first. One list of compact rows, no heading per kind: the
  *    oldest five in the Approvals group order (decision 5's cut), each a kind label and the name
@@ -83,8 +90,8 @@ import { ownerGreeting } from "./words";
  *    how long it has waited alone ("Waiting 11 h", from when it reached the Owner; amber from a
  *    day, red from three), and one outlined button: Approve with the 6-second Undo, or Review
  *    where the decision needs the review (extra work and expenses, as on Approvals). A tap on the
- *    row opens the review. "See all N" only when the list is cut; "Nothing needs you." when
- *    nothing waits (the section always stands, so the screen keeps its shape).
+ *    row opens the review. "See all N" only when the list is cut; when nothing waits, one
+ *    quiet line with no heading, "Nothing needs you right now" (PP-today-2).
  * 2. **Attendance**: the four counts in one row; Absent and yesterday's unended days as red lines
  *    under it, only above zero (decision 24's counts, links and colours; owner 2026-10-09).
  * 3. **My tasks** (6b.2, owner 2026-10-07): the Owner's own open tasks that are overdue or due
@@ -94,12 +101,13 @@ import { ownerGreeting } from "./words";
  * 4. **Client work** (7.4; kickoff 7 amendment C, E1): one line, "N client items overdue", its
  *    icon and words in red, hidden at zero, opening the cross-client list grouped by Admin; no item
  *    approvals (issue #56 Q1: the client's Admin's) and no progress line (not an exception).
- * 5. **Overdue and risks** (decisions 6, 23): one status signal per row, the kind's icon and the
- *    meta line in red (overdue) or amber.
+ * 5. **Overdue and risks** (decisions 6, 23; PP-today-5): the reason as a chip ("3 h late" red,
+ *    "Not noted · 18 h" amber) and the plain words on the meta line.
  * 6. **This week** (the detailed layout, the owner's final note 2026-10-09): a block per day with
  *    something in it, its rows a time on the left and the words on the right (a holiday, a
- *    person's consecutive leave as one row, each event opening its task, the deadlines as a
- *    count), at most five days and eight rows, then "See the week"; "Calendar ›" in the header.
+ *    person's consecutive leave as one row, each event opening its task, each deadline by name
+ *    with a "Due" chip, PP-today-4), at most five days and eight rows, then "See the week";
+ *    "Calendar ›" in the header. The right column from an 896 px content width; under 5 below.
  *
  * Sections 3–6 (and My tasks) are drawn only with something in them (decision 24: exceptions only); when none
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists
@@ -149,6 +157,13 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const names = new Map(directory.map((member) => [member.id, member]));
   const nameOf = (id: string) => names.get(id)?.fullName ?? "Someone";
   const nameRecord = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  // Each person's photo, from the directory already read (#89): no read of its own.
+  const faces = Object.fromEntries(
+    directory.map((member) => [
+      member.id,
+      { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId },
+    ]),
+  );
   const rowContext = {
     viewerId: viewer.id,
     nameOf: (id: string) => (id === viewer.id ? "you" : nameOf(id)),
@@ -156,14 +171,24 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     clientName: () => null,
   };
 
+  // L8: a person's several waiting days are one row ("PShetty · 5 days proposed absent · Review").
+  const dayRows = pendingDayRows(days);
+  // B2: the heading counts rows, the folded ones once; "See all N" counts what Approvals lists.
   const total = days.length + requests.length + notes.length + claims.length + toDecide.length;
-  const shown = firstInGroupOrder(
-    { days, requests, notes, claims, toDecide },
+  const rowCount =
+    dayRows.length + requests.length + notes.length + claims.length + toDecide.length;
+  const shownRows = firstInGroupOrder(
+    { days: dayRows, requests, notes, claims, toDecide },
     ["days", "requests", "notes", "claims", "toDecide"],
     OWNER_APPROVALS_SHOWN,
   );
+  const shown = {
+    ...shownRows,
+    days: shownRows.days.flatMap((row) => (row.kind === "day" ? [row.day] : [])),
+  };
+  const folded = shownRows.days.flatMap((row) => (row.kind === "person" ? [row.person] : []));
   const shownCount =
-    shown.days.length +
+    shownRows.days.length +
     shown.requests.length +
     shown.notes.length +
     shown.claims.length +
@@ -176,7 +201,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     ...mine.rows.map((row) => row.id),
   ]);
   const tasks = shown.toDecide.map((item) => ({
-    ...taskItem(item, nameRecord, true),
+    ...taskItem(item, nameRecord, true, faces),
     unread: unread[item.row.id] ?? 0,
   }));
   // How long each has waited for the Owner: from the hand-in, or the approving Admin's approval
@@ -185,6 +210,13 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const waited = (since: string | null): Waiting | null => (since ? waitingFor(since, now) : null);
   const waiting = {
     days: waitingMap(shown.days, (day) => waited(day.submittedAt ?? day.updatedAt)),
+    // A folded row waits as long as its oldest day.
+    folded: Object.fromEntries(
+      folded.map((person) => {
+        const oldest = person.days[0]!;
+        return [person.memberId, waited(oldest.submittedAt ?? oldest.updatedAt)];
+      }),
+    ),
     requests: waitingMap(shown.requests, (request) => waited(request.createdAt)),
     notes: waitingMap(shown.notes, (note) => waited(note.createdAt)),
     claims: waitingMap(shown.claims, (claim) => waited(claim.createdAt)),
@@ -237,157 +269,174 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
 
   return (
     <>
-      <PageHeader title="Today" description={ownerGreeting(viewer.name)} />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="owner-today">
-        <DashSection title="Needs you" slot="today-approvals" count={total}>
-          {total === 0 ? (
-            <QuietText slot="today-approvals-empty">{OWNER_NEEDS_YOU_EMPTY}</QuietText>
-          ) : (
-            <div className="flex min-w-0 flex-col gap-2" data-slot="today-approvals-preview">
-              <ul
-                aria-label="Waiting for you"
-                data-slot="today-approval-rows"
-                className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
-              >
-                {shown.days.length > 0 ? (
-                  <PreviewDays days={shown.days} today={today} waiting={waiting.days} preview />
-                ) : null}
-                {shown.requests.length > 0 ? (
-                  <PreviewLeave requests={shown.requests} waiting={waiting.requests} preview />
-                ) : null}
-                {shown.notes.length > 0 ? (
-                  <PreviewNotes notes={shown.notes} waiting={waiting.notes} preview />
-                ) : null}
-                {shown.claims.length > 0 ? (
-                  <PreviewClaims claims={shown.claims} waiting={waiting.claims} preview />
-                ) : null}
-                {tasks.length > 0 ? (
-                  <PreviewTasks tasks={tasks} heading="Tasks" waiting={waiting.tasks} preview />
-                ) : null}
-              </ul>
-              {/* "See all N" only when the list is cut (owner 2026-10-09). */}
-              {total > shownCount ? (
-                <RowList label="All approvals" slot="today-approvals-all">
-                  <LinkRow
-                    href="/approvals"
-                    slot="today-see-all-approvals"
-                    title={`See all ${total}`}
-                    tab
-                  />
-                </RowList>
-              ) : null}
-            </div>
-          )}
-        </DashSection>
-
-        <TodayAttendanceCard summary={summary} />
-
-        {sections.mine ? (
-          <DashSection
-            title="My tasks"
-            slot="today-my-tasks"
-            count={mine.total}
-            hint="Your own tasks, overdue or due today. Tap one to open it."
-          >
-            <div className="flex min-w-0 flex-col gap-2">
-              <TaskRowList label="My tasks">
-                {mine.rows.map((row) => (
-                  <TaskRow
-                    key={row.id}
-                    id={row.id}
-                    title={row.title}
-                    meta={rowMeta(row, rowContext)}
-                    status={row.state}
-                    statusLabel={stateLabel(row)}
-                    flag={rowFlag(row, now) ?? { label: "Due today", tone: "attention" }}
-                    unread={unread[row.id] ?? 0}
-                    chevron
-                  />
-                ))}
-              </TaskRowList>
-              {mine.total > mine.rows.length ? (
-                <RowList label="All my tasks" slot="today-my-tasks-all">
-                  <LinkRow
-                    href={`/tasks/all?person=${viewer.id}`}
-                    slot="today-see-all-my-tasks"
-                    title={`See all ${mine.total} of my tasks`}
-                    tab
-                  />
-                </RowList>
-              ) : null}
-            </div>
-          </DashSection>
-        ) : null}
-
-        {sections.tasks ? (
-          <DashSection title="Today's tasks" slot="today-tasks">
-            <RowList label="Today's tasks" slot="today-tasks-line">
-              <LinkRow
-                href="/tasks/all?overdue=today"
-                slot="today-tasks-due"
-                icon={<ListChecksIcon className="size-4" aria-hidden />}
-                title={todaysTasksLine(dueToday)}
-                tab
-              />
-            </RowList>
-          </DashSection>
-        ) : null}
-
-        {/* Client work (7.4), after Today's tasks (owner 2026-10-09): one line, red for overdue,
-            its icon and words in the one tone (the row's one status signal, as the risk rows). */}
-        {sections.clientWork ? (
-          <DashSection title="Client work" slot="today-client-work">
-            <RowList label="Client work" slot="today-client-work-line">
-              <LinkRow
-                href="/clients/items?filter=overdue"
-                slot="today-items-overdue"
-                icon={
-                  <FolderClockIcon
-                    data-slot="today-items-overdue-icon"
-                    className="text-danger size-4"
-                    aria-hidden
-                  />
-                }
-                title={
-                  <span
-                    data-slot="today-items-overdue-signal"
-                    data-tone="danger"
-                    className="text-danger"
+      <PageHeader title="Today" description={dayContext(today, viewer.name)} />
+      <PhoneDateLine line={dateLine(today)} />
+      <DayColumns
+        slot="owner-today"
+        week={<ThisWeek blocks={week.blocks} hidden={week.hidden} />}
+        main={
+          <>
+            {/* FINAL 1, PP-today-2: with nothing waiting, one quiet line and no heading. */}
+            {total === 0 ? (
+              <EmptyRow slot="today-approvals-empty">{OWNER_NEEDS_YOU_EMPTY}</EmptyRow>
+            ) : (
+              <DashSection title="Needs you" slot="today-approvals" count={rowCount}>
+                <div className="flex min-w-0 flex-col gap-2" data-slot="today-approvals-preview">
+                  <ul
+                    aria-label="Waiting for you"
+                    data-slot="today-approval-rows"
+                    className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
                   >
-                    {overdueItems === 1
-                      ? "1 client item overdue"
-                      : `${overdueItems} client items overdue`}
-                  </span>
-                }
-                detail="Grouped by Admin"
-              />
-            </RowList>
-          </DashSection>
-        ) : null}
+                    {folded.map((person) => (
+                      <ApprovalPersonRow
+                        key={person.memberId}
+                        href="/approvals"
+                        kind="Attendance"
+                        name={person.memberName}
+                        person={{
+                          id: person.memberId,
+                          name: person.memberName,
+                          avatarFileId: person.days[0]?.memberAvatarFileId ?? null,
+                        }}
+                        detail={person.label}
+                        waiting={waiting.folded[person.memberId] ?? null}
+                      />
+                    ))}
+                    {shown.days.length > 0 ? (
+                      <PreviewDays days={shown.days} today={today} waiting={waiting.days} preview />
+                    ) : null}
+                    {shown.requests.length > 0 ? (
+                      <PreviewLeave requests={shown.requests} waiting={waiting.requests} preview />
+                    ) : null}
+                    {shown.notes.length > 0 ? (
+                      <PreviewNotes notes={shown.notes} waiting={waiting.notes} preview />
+                    ) : null}
+                    {shown.claims.length > 0 ? (
+                      <PreviewClaims claims={shown.claims} waiting={waiting.claims} preview />
+                    ) : null}
+                    {tasks.length > 0 ? (
+                      <PreviewTasks tasks={tasks} heading="Tasks" waiting={waiting.tasks} preview />
+                    ) : null}
+                  </ul>
+                  {/* "See all N" only when the list is cut (owner 2026-10-09). */}
+                  {rowCount > shownCount ? (
+                    <RowList label="All approvals" slot="today-approvals-all">
+                      <LinkRow
+                        href="/approvals"
+                        slot="today-see-all-approvals"
+                        title={`See all ${total}`}
+                        tab
+                      />
+                    </RowList>
+                  ) : null}
+                </div>
+              </DashSection>
+            )}
 
-        {sections.risks ? (
-          <DashSection title="Overdue and risks" slot="today-risks" count={risks.length}>
-            <RiskRows
-              risks={risks}
-              held={held}
-              empty={null}
-              label="Overdue and risks"
-              slot="today-risk-rows"
-              nameOf={nameOf}
-              today={today}
-              now={now}
-            />
-          </DashSection>
-        ) : null}
+            <TodayAttendanceCard summary={summary} />
 
-        {sections.week ? (
-          <DashSection title="This week" slot="today-events" action={<CalendarHeaderLink />}>
-            <WeekBlocks blocks={week.blocks} hidden={week.hidden} />
-          </DashSection>
-        ) : null}
+            {sections.mine ? (
+              <DashSection
+                title="My tasks"
+                slot="today-my-tasks"
+                count={mine.total}
+                hint="Your own tasks, overdue or due today. Tap one to open it."
+              >
+                <div className="flex min-w-0 flex-col gap-2">
+                  <TaskRowList label="My tasks">
+                    {mine.rows.map((row) => (
+                      <TaskRow
+                        key={row.id}
+                        id={row.id}
+                        title={row.title}
+                        meta={rowMeta(row, rowContext)}
+                        status={row.state}
+                        statusLabel={stateLabel(row)}
+                        flag={rowFlag(row, now) ?? { label: "Due today", tone: "attention" }}
+                        unread={unread[row.id] ?? 0}
+                      />
+                    ))}
+                  </TaskRowList>
+                  {mine.total > mine.rows.length ? (
+                    <RowList label="All my tasks" slot="today-my-tasks-all">
+                      <LinkRow
+                        href={`/tasks/all?person=${viewer.id}`}
+                        slot="today-see-all-my-tasks"
+                        title={`See all ${mine.total} of my tasks`}
+                        tab
+                      />
+                    </RowList>
+                  ) : null}
+                </div>
+              </DashSection>
+            ) : null}
 
-        {nothing ? <QuietText slot="today-nothing-else">{OWNER_TODAY_EMPTY}</QuietText> : null}
-      </div>
+            {sections.tasks ? (
+              <DashSection title="Today's tasks" slot="today-tasks">
+                <RowList label="Today's tasks" slot="today-tasks-line">
+                  <LinkRow
+                    href="/tasks/all?overdue=today"
+                    slot="today-tasks-due"
+                    icon={<ListChecksIcon className="size-4" aria-hidden />}
+                    title={todaysTasksLine(dueToday)}
+                    tab
+                  />
+                </RowList>
+              </DashSection>
+            ) : null}
+
+            {/* Client work (7.4), after Today's tasks (owner 2026-10-09): one line, red for overdue,
+            its icon and words in the one tone (the row's one status signal, as the risk rows). */}
+            {sections.clientWork ? (
+              <DashSection title="Client work" slot="today-client-work">
+                <RowList label="Client work" slot="today-client-work-line">
+                  <LinkRow
+                    href="/clients/items?filter=overdue"
+                    slot="today-items-overdue"
+                    icon={
+                      <FolderClockIcon
+                        data-slot="today-items-overdue-icon"
+                        className="text-danger size-4"
+                        aria-hidden
+                      />
+                    }
+                    title={
+                      <span
+                        data-slot="today-items-overdue-signal"
+                        data-tone="danger"
+                        className="text-danger"
+                      >
+                        {overdueItems === 1
+                          ? "1 deliverable overdue"
+                          : `${overdueItems} deliverables overdue`}
+                      </span>
+                    }
+                    detail="Grouped by Admin"
+                  />
+                </RowList>
+              </DashSection>
+            ) : null}
+
+            {sections.risks ? (
+              <DashSection title="Overdue and risks" slot="today-risks" count={risks.length}>
+                <RiskRows
+                  risks={risks}
+                  held={held}
+                  empty={null}
+                  label="Overdue and risks"
+                  slot="today-risk-rows"
+                  nameOf={nameOf}
+                  faceOf={(id) => faces[id]}
+                  today={today}
+                  now={now}
+                />
+              </DashSection>
+            ) : null}
+
+            {nothing ? <EmptyRow slot="today-nothing-else">{OWNER_TODAY_EMPTY}</EmptyRow> : null}
+          </>
+        }
+      />
     </>
   );
 }
@@ -451,7 +500,7 @@ function calendarWeek(input: {
   return days.map((day) => ({
     date: day.date,
     holiday: day.holiday,
-    due: day.due.length,
+    due: day.due.map((task) => ({ id: task.id, title: task.title, dueAt: task.dueAt })),
     events: day.events.map((event) => ({
       id: event.id,
       title: event.title,

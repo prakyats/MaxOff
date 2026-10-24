@@ -9,6 +9,7 @@ import { CLIENT_STATE_LABELS, CLIENT_STATE_NOTES } from "@/modules/clients";
 import { ClientMenu } from "@/modules/clients/components/client-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
+import { ClientHistoryButton } from "../client-history";
 import { ClientTabs } from "../client-nav";
 import { loadClient, loadPeople } from "../client";
 
@@ -16,7 +17,7 @@ import { loadClient, loadPeople } from "../client";
 const BACK = { href: "/clients", label: "Clients", from: [{ path: "/today", label: "Today" }] };
 
 /**
- * A client's page (3.4): one header over its views (Overview, Brand, Activity), with the state,
+ * A client's page (3.4): one header over its views (Overview, Projects, Brand) with History in it, with the state,
  * the ⋯ menu (Edit details for whoever edits it; the Admin and the lifecycle for the Owner) and,
  * for a Draft, Paused or Inactive client, a banner that names the state and who can change it
  * (kickoff 3 decision 17: those clients stay fully editable). **The header and tabs live here**
@@ -36,7 +37,17 @@ export default async function ClientLayout({
       <Suspense fallback={null}>
         <RecordReadReceipt entity="clients" id={id} />
       </Suspense>
-      <Suspense fallback={<PageHeader title={<Skeleton className="h-5 w-40" />} back={BACK} />}>
+      <Suspense
+        fallback={
+          <PageHeader
+            title={<Skeleton className="h-5 w-40" />}
+            back={BACK}
+            className="flex-wrap"
+            // History, always there; the ⋯ follows only for whoever edits the client.
+            menu={<Skeleton aria-hidden className="size-11 rounded-lg" />}
+          />
+        }
+      >
         <ClientHeader id={id} />
       </Suspense>
       <ClientTabs clientId={id} />
@@ -50,7 +61,7 @@ export default async function ClientLayout({
 }
 
 async function ClientHeader({ id }: { id: string }) {
-  const [{ client, canManage, canEdit }, { admins }] = await checkThenRead(
+  const [{ viewer, client, canManage, canEdit }, { admins }] = await checkThenRead(
     loadClient(id),
     loadPeople(),
   );
@@ -59,19 +70,27 @@ async function ClientHeader({ id }: { id: string }) {
       title={client.name}
       description={<StatusBadge status={client.state} label={CLIENT_STATE_LABELS[client.state]} />}
       back={BACK}
+      // History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep); the old
+      // Activity tab's path opens the sheet (`?history=1`).
+      className="flex-wrap"
       menu={
-        canEdit ? (
-          <ClientMenu
-            client={{
-              id: client.id,
-              name: client.name,
-              state: client.state,
-              adminId: client.adminId,
-            }}
-            canManage={canManage}
-            admins={admins}
-          />
-        ) : undefined
+        <>
+          {/* Reads the history only when it opens, never with this layout (P2 item 6). */}
+          <ClientHistoryButton clientId={client.id} />
+          {canEdit ? (
+            <ClientMenu
+              client={{
+                id: client.id,
+                name: client.name,
+                state: client.state,
+                adminId: client.adminId,
+              }}
+              canManage={canManage}
+              canDelete={viewer.role === "owner"}
+              admins={admins}
+            />
+          ) : null}
+        </>
       }
     />
   );

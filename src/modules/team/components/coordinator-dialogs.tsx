@@ -194,7 +194,13 @@ export function ChangeCoordinatorDialog({
         )}
         <ActionStatus action={action} />
         <DialogFooter>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={pending}
+            data-dismiss=""
+          >
             Cancel
           </Button>
           <Button
@@ -268,7 +274,13 @@ export function ReactivateFreelancerDialog({
         )}
         <ActionStatus action={action} />
         <DialogFooter>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={pending}
+            data-dismiss=""
+          >
             Cancel
           </Button>
           <Button
@@ -398,7 +410,13 @@ export function InviteEmployeeDialog({
             </FormField>
             <ActionStatus action={action} />
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button

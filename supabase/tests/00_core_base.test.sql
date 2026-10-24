@@ -174,7 +174,16 @@ insert into app_internal values
   ('cron_history_trim'),
   -- 6b Release 2 D2 (migration client_work_bulk_and_rounds): the bulk edits' checked, locked
   -- selection and a cycle's extra deliverables, read by functions only
-  ('client_work_bulk_items'), ('cycle_extras');
+  ('client_work_bulk_items'), ('cycle_extras'),
+  -- v1.8 V0: B1's one time format for bodies and messages (migration b1_one_time_format) and B7's
+  -- key between two stages (migration b7_revision_round_position), used by functions only
+  ('ist_time'), ('wall_time'), ('position_between'),
+  -- v1.8 V5a 6b: the Owner-only Delete's caller check, a template's usage and its name for the
+  -- delete (migration v5_owner_delete; template_usage, template_delete and holiday_delete are public)
+  ('owner_delete_caller'), ('template_usage_of'), ('template_name_for_delete'),
+  -- v1.8 V5a 6c: the Delete of what was never used: the target's name, the reference check and its
+  -- history part (migration v5_owner_delete_unused; unused_usage and unused_delete are public)
+  ('unused_delete_target'), ('unused_reference_found'), ('unused_history_found');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -195,7 +204,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 119::bigint,
+             and p.proname in (select name from app_internal)), 128::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

@@ -3,11 +3,10 @@
 import { ChevronRightIcon, ListChecksIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
@@ -21,6 +20,7 @@ import {
 
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemRowView } from "../domain/views";
+import { PlannedWords } from "./planned-words";
 
 /** Amendment D3: done is approved at once, so the list holds open items (overdue or not). */
 export type ItemListFilter = "live" | "overdue";
@@ -203,7 +203,7 @@ export function ItemList({
                 <span className="tabular-nums">{group.rows.length}</span>
               </h2>
             ) : null}
-            <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
               {group.rows.map((row) => (
                 <li key={row.id}>
                   <DrillLink
@@ -220,18 +220,15 @@ export function ItemList({
                       <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
                         <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
                         {row.planned ? (
-                          <span
-                            data-slot="item-list-planned"
-                            className={cn(row.planned.overdue && "text-danger")}
-                          >
-                            {row.planned.text}
+                          <span data-slot="item-list-planned">
+                            <PlannedWords planned={row.planned} />
                           </span>
                         ) : null}
                       </span>
                       {row.meter ? (
                         // The deliverable's own stages in miniature (6b.11 (5)).
                         <span className="mt-0.5 flex items-center gap-2 text-xs">
-                          <SegmentedBar
+                          <ProgressBar
                             counts={row.meter}
                             label={`Stages ${row.meter.done} of ${row.meter.total} ticked`}
                             slot="item-list-meter"

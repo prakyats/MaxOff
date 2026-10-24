@@ -1,31 +1,32 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ListIcon,
-  PencilIcon,
-} from "lucide-react";
-import { useActionState, useState } from "react";
-import { toast } from "sonner";
+import { ListIcon } from "lucide-react";
+import { useId, useState } from "react";
 
-import type { Result } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
 import type { ListKey } from "@/core/lists";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { FormField } from "@/core/ui/composites/form-field";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
-import { Input } from "@/core/ui/primitives/input";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListHeading,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
 
-import { addListItem, moveListItemBy, renameListItem, setListItemArchived } from "../actions/lists";
-import { FormError } from "./form-error";
-import { ListItemActionsSheet } from "./list-item-actions-sheet";
-import { RenameListItemDialog } from "./rename-list-item-dialog";
+import {
+  addListItem,
+  deleteListItem,
+  listItemUsage,
+  moveListItemBy,
+  renameListItem,
+  setListItemArchived,
+} from "../actions/lists";
+import { ListItemDialog } from "./list-item-dialog";
 
 export type ManagedListItem = {
   id: string;
@@ -35,46 +36,50 @@ export type ManagedListItem = {
 
 /**
  * One screen for any editable list (ADR-0002): add, rename, reorder and archive. Job titles
- * are the first (1.3 seeded them); task types (4.1) and stage presets (7.4) reuse it by adding
- * a key to `core/lists`' registry and a page. Order is changed one step at a time, which a
- * phone and a keyboard both handle; entries are archived, never deleted, so a member who
- * carries one keeps it.
+ * are the first (1.3 seeded them); expense categories reuse it by adding a key to `core/lists`'
+ * registry and a page. Adding follows the Settings Add pattern (C4): "Add ‹thing›" on the list's
+ * heading opens a one-field dialog. Order is changed one step at a time, which a phone (in the
+ * row's ⋯ sheet) and a keyboard both handle. Archive (D6; named Archive again, owner 2026-10-21): a member
+ * who carries one keeps it; Undo in its toast brings it back, and the collapsed "Archived (n)" at the
+ * list's foot (V5b-0 item 9) restores it later.
+ * Delete (v1.8 V5a 6c) is the Owner's (`canDelete`): its confirm asks first whether anything ever
+ * used the entry, and only one nothing ever pointed at goes; otherwise it says "In use — archive it
+ * instead."
  */
 export function ListManager({
   listKey,
   labels,
   items,
-  addVariant = "primary",
+  title,
+  headingId,
+  canDelete = false,
 }: {
   listKey: ListKey;
   labels: { singular: string; plural: string };
   items: ManagedListItem[];
-  /**
-   * Add's colour: the screen's red commit by default; the neutral outline (still a commit) on a
-   * screen whose red commit is another form's, such as Settings → Expenses' receipt amount, so
-   * the screen never shows two solid red buttons (colour rule; phase 4 review).
-   */
-  addVariant?: "primary" | "secondary";
+  /** The list's heading ("Categories"); the count of active entries ("7 job titles") by default. */
+  title?: string;
+  headingId?: string;
+  /** The Owner's Delete of an entry nothing ever used (V5a 6c). */
+  canDelete?: boolean;
 }) {
+  const ownId = useId();
+  const listId = headingId ?? ownId;
+  const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<ManagedListItem | null>(null);
   const [archiving, setArchiving] = useState<ManagedListItem | null>(null);
+  const [deleting, setDeleting] = useState<ManagedListItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const [state, formAction, pending] = useActionState(
-    async (_previous: Result<null> | null, formData: FormData) => {
-      const result = await addListItem({
-        listKey,
-        item: { name: String(formData.get("name") ?? "") },
-      });
-      if (result.ok) toast.success(`${labels.singular} added`);
-      return result;
-    },
-    null,
-  );
-  const error = state && !state.ok ? state.error : null;
 
   const active = items.filter((item) => !item.archivedAt);
   const archived = items.filter((item) => item.archivedAt);
+
+  async function restore(item: ManagedListItem): Promise<void> {
+    toastResult(await setListItemArchived({ listKey, id: item.id, archived: false }), {
+      success: `${item.name} restored`,
+    });
+  }
+  const thing = labels.singular.toLowerCase();
 
   async function move(item: ManagedListItem, direction: "up" | "down"): Promise<void> {
     setBusyId(item.id);
@@ -84,170 +89,81 @@ export function ListManager({
 
   return (
     <div className="flex flex-col gap-6">
-      <form
-        action={formAction}
-        noValidate
-        className="border-border flex flex-col gap-4 rounded-lg border p-4"
-      >
-        <FormError error={error} />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <FormField
-            label={`Add a ${labels.singular.toLowerCase()}`}
-            error={error?.fieldErrors?.["item.name"]}
-            className="flex-1"
-          >
-            {(control) => (
-              <Input
-                {...control}
-                name="name"
-                // The component serves every list, so the hint comes from the list, not from
-                // one example of a job title (ADR-0002: code knows keys, never entries).
-                placeholder={`New ${labels.singular.toLowerCase()}`}
-                maxLength={80}
-                required
-              />
-            )}
-          </FormField>
-          <Button
-            variant={addVariant}
-            commits
-            type="submit"
-            pending={pending}
-            pendingLabel="Adding…"
-            className="w-full sm:mt-6 sm:w-auto"
-          >
-            Add
-          </Button>
-        </div>
-      </form>
-
-      {active.length === 0 ? (
-        <EmptyState
-          icon={ListIcon}
-          title={`No ${labels.plural.toLowerCase()} yet`}
-          description={`Add the first one above. ${labels.plural} appear wherever people pick one.`}
+      <section aria-labelledby={listId} className="flex flex-col gap-3">
+        <ListHeading
+          id={listId}
+          title={
+            title ?? `${active.length} ${active.length === 1 ? thing : labels.plural.toLowerCase()}`
+          }
+          action={
+            <ListAddButton onClick={() => setAdding(true)} data-slot="list-add">
+              Add {thing}
+            </ListAddButton>
+          }
         />
-      ) : (
-        <ul
-          data-slot="list-items"
-          className="border-border divide-border divide-y rounded-lg border"
-        >
-          {active.map((item, index) => (
-            <li
-              key={item.id}
-              data-slot="list-item"
-              className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-            >
-              <span className={cn("truncate text-sm font-medium", CARD_ROW_TITLE)}>
-                {item.name}
-              </span>
-              {/*
-                Four 44px targets and a name do not fit side by side at 375px, so on a phone the
-                row keeps only the two that are used while looking at the order (up and down) and
-                moves Rename and Archive into a sheet behind one button (ARCHITECTURE §14.1:
-                nothing hover-only, nothing clipped). Desktop shows all four.
-              */}
-              <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Move ${item.name} up`}
-                  disabled={index === 0 || busyId !== null}
-                  onClick={() => void move(item, "up")}
-                >
-                  <ChevronUpIcon aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Move ${item.name} down`}
-                  disabled={index === active.length - 1 || busyId !== null}
-                  onClick={() => void move(item, "down")}
-                >
-                  <ChevronDownIcon aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Rename ${item.name}`}
-                  onClick={() => setRenaming(item)}
-                  className="hidden md:inline-flex"
-                >
-                  <PencilIcon aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  aria-label={`Archive ${item.name}`}
-                  onClick={() => setArchiving(item)}
-                  className="hidden md:inline-flex"
-                >
-                  <ArchiveIcon aria-hidden />
-                </Button>
-                <ListItemActionsSheet
-                  item={item}
-                  label={labels.singular}
-                  onRename={() => setRenaming(item)}
-                  onArchive={() => setArchiving(item)}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
 
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
-          <p className="text-muted-foreground text-sm">
-            Archived {labels.plural.toLowerCase()} are not offered any more. Anyone who already
-            carries one keeps it.
-          </p>
+        {active.length === 0 ? (
+          <EmptyState
+            icon={ListIcon}
+            title={`No ${labels.plural.toLowerCase()} yet`}
+            description={`Add the first with "Add ${thing}". ${labels.plural} appear wherever people pick one.`}
+          />
+        ) : (
           <ul
-            data-slot="archived-list-items"
-            className="border-border divide-border divide-y rounded-lg border"
+            data-slot="list-items"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
-            {archived.map((item) => (
+            {active.map((item, index) => (
               <li
                 key={item.id}
-                data-slot="archived-list-item"
+                data-slot="list-item"
                 className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
               >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
+                <span className={cn("text-sm font-medium break-words", CARD_ROW_TITLE)}>
                   {item.name}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className={CARD_ROW_TRAILING}
-                  disabled={busyId !== null}
-                  onClick={async () => {
-                    setBusyId(item.id);
-                    toastResult(
-                      await setListItemArchived({ listKey, id: item.id, archived: false }),
-                      {
-                        success: `${labels.singular} restored`,
-                      },
-                    );
-                    setBusyId(null);
+                <ListRowActions
+                  name={item.name}
+                  kind={labels.singular}
+                  slot="list-item-actions"
+                  move={{
+                    onMove: (direction) => void move(item, direction),
+                    first: index === 0,
+                    last: index === active.length - 1,
+                    disabled: busyId !== null,
                   }}
-                >
-                  <ArchiveRestoreIcon aria-hidden />
-                  Restore
-                </Button>
+                  edit={{ label: "Rename", onSelect: () => setRenaming(item) }}
+                  onArchive={() => setArchiving(item)}
+                  onDelete={canDelete ? () => setDeleting(item) : undefined}
+                />
               </li>
             ))}
           </ul>
-        </section>
+        )}
+        <ArchivedSection count={archived.length}>
+          {archived.map((item) => (
+            <ArchivedRow
+              key={item.id}
+              name={item.name}
+              kind={labels.singular}
+              onRestore={() => void restore(item)}
+              onDelete={canDelete ? () => setDeleting(item) : undefined}
+            />
+          ))}
+        </ArchivedSection>
+      </section>
+
+      {adding ? (
+        <ListItemDialog
+          key="add"
+          label={labels.singular}
+          onClose={() => setAdding(false)}
+          onSubmit={async (name) => addListItem({ listKey, item: { name } })}
+        />
       ) : null}
 
       {renaming ? (
-        <RenameListItemDialog
+        <ListItemDialog
           key={renaming.id}
           label={labels.singular}
           name={renaming.name}
@@ -263,13 +179,34 @@ export function ListManager({
             if (!open) setArchiving(null);
           }}
           title={`Archive ${archiving.name}?`}
-          description={`It stops being offered. People who already have this ${labels.singular.toLowerCase()} keep it, and you can restore it later.`}
+          description={`It won't be offered again. People who already have this ${labels.singular.toLowerCase()} keep it.`}
           confirmLabel={`Archive ${archiving.name}`}
           onConfirm={async () => {
-            toastResult(await setListItemArchived({ listKey, id: archiving.id, archived: true }), {
-              success: `${labels.singular} archived`,
+            const { id, name } = archiving;
+            toastResult(await setListItemArchived({ listKey, id, archived: true }), {
+              success: `${name} archived`,
+              undo: () =>
+                void setListItemArchived({ listKey, id, archived: false }).then((result) =>
+                  toastResult(result),
+                ),
             });
             setArchiving(null);
+          }}
+        />
+      ) : null}
+
+      {deleting ? (
+        <UnusedDeleteDialog
+          key={deleting.id}
+          kind={listKey}
+          name={deleting.name}
+          loadUsage={() => listItemUsage({ listKey, id: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const { id, name } = deleting;
+            toastResult(await deleteListItem({ listKey, id }), { success: `${name} deleted` });
           }}
         />
       ) : null}

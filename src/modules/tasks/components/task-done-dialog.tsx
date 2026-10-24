@@ -176,11 +176,12 @@ export function DoneDialog({
               variant="secondary"
               onClick={() => close(false)}
               disabled={pending}
+              data-dismiss=""
             >
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant="approve"
               type="submit"
               pending={pending}
               pendingLabel={forName ? `Marking done for ${forName}…` : "Marking done…"}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, PencilIcon } from "lucide-react";
+import { ExternalLinkIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { type ComponentProps, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -59,6 +59,11 @@ export interface EditableField<K extends string> {
    * structured `extra`, not a display of a string: `modules/clients` `BrandRecord`.)
    */
   display?: "text" | "multiline" | "link" | "email" | "tel";
+  /**
+   * Left out of read mode (still edited): a value the record's `header` already shows, such as
+   * Me's name in its identity block (V5b, the Me restructure).
+   */
+  hideInRead?: boolean;
   input?: Pick<
     ComponentProps<typeof Input>,
     "type" | "autoComplete" | "inputMode" | "maxLength" | "required" | "placeholder"
@@ -124,7 +129,20 @@ export function EditableRecord<K extends string, V = undefined>({
   editLabel = "Edit",
   canEdit = true,
   editKey,
+  foldEmpty = false,
+  header,
 }: {
+  /**
+   * Drawn in place of the title (V5b, the Me restructure): an identity block with the Edit button
+   * beside it. The title stays the section's accessible name. Without it, the title heading.
+   */
+  header?: ReactNode;
+  /**
+   * L6 (UX review 2026-10-21): the read view lists only the fields with a value; the empty ones
+   * fold into one "Add details" (which opens Edit), or a quiet "N not added" for a viewer who may
+   * not edit. Edit still shows every field.
+   */
+  foldEmpty?: boolean;
   title: string;
   subject: ChangeSubject;
   fields: readonly EditableField<K>[];
@@ -299,9 +317,15 @@ export function EditableRecord<K extends string, V = undefined>({
     <section data-slot="editable-record" aria-labelledby={`${formId}-title`}>
       {/* Wraps: at 200% system text "Profile" and "Edit profile" no longer share a phone's width. */}
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <h2 id={`${formId}-title`} className="text-sm font-medium">
+        <h2
+          id={`${formId}-title`}
+          className={header === undefined ? "text-sm font-medium" : "sr-only"}
+        >
           {title}
         </h2>
+        {/* 16rem: beside a 64 px photo (V5b-D) the name and email keep a phone's whole width,
+            Edit dropping under them, so their lines wrap the same at 375 and 430. */}
+        {header === undefined ? null : <div className="min-w-0 flex-[1_1_16rem]">{header}</div>}
         {editing || !canEdit || blocked ? null : (
           <Button
             ref={editButton}
@@ -348,7 +372,7 @@ export function EditableRecord<K extends string, V = undefined>({
           {extra?.first ? null : extraEditor}
           {/* Only while editing, so it never hangs over the rest of the page (§14.1). */}
           <StickyActions>
-            <Button type="button" variant="secondary" onClick={cancel}>
+            <Button type="button" variant="secondary" onClick={cancel} data-dismiss="">
               Cancel
             </Button>
             {/* pending: none (it opens the confirmation; the confirmation's Save commits) */}
@@ -366,15 +390,23 @@ export function EditableRecord<K extends string, V = undefined>({
         <div className="mt-3 flex flex-col gap-3">
           {extra?.first ? extra.read(extra.value) : null}
           <dl className="flex flex-col gap-3 text-sm">
-            {fields.map((field) => (
-              <div key={field.name} data-slot="record-value">
-                <dt className="text-muted-foreground">{field.label}</dt>
-                <dd className="font-medium break-words">
-                  <ReadValue field={field} />
-                </dd>
-              </div>
-            ))}
+            {(foldEmpty ? fields.filter((field) => (field.value ?? "") !== "") : fields)
+              .filter((field) => !field.hideInRead)
+              .map((field) => (
+                <div key={field.name} data-slot="record-value">
+                  <dt className="text-muted-foreground">{field.label}</dt>
+                  <dd className="font-medium break-words">
+                    <ReadValue field={field} />
+                  </dd>
+                </div>
+              ))}
           </dl>
+          {foldEmpty ? (
+            <FoldedEmpty
+              count={fields.filter((field) => (field.value ?? "") === "").length}
+              onAdd={canEdit && !blocked ? startEdit : null}
+            />
+          ) : null}
           {extra && !extra.first ? extra.read(extra.value) : null}
         </div>
       )}
@@ -395,6 +427,7 @@ export function EditableRecord<K extends string, V = undefined>({
       </ConfirmDialog>
 
       <ConfirmDialog
+        destructive
         open={mode === "discard"}
         onOpenChange={(open) => {
           if (!open && !leaving.current && mode === "discard") {
@@ -568,4 +601,32 @@ function valuesOf<K extends string>(fields: readonly EditableField<K>[]): Record
     K,
     string
   >;
+}
+
+/** The empty fields, folded (L6): "Add details · 3 not added", or the count alone read-only. */
+function FoldedEmpty({ count, onAdd }: { count: number; onAdd: (() => void) | null }) {
+  if (count === 0) return null;
+  const words = `${count} not added`;
+  if (!onAdd) {
+    return (
+      <p data-slot="record-folded" className="text-muted-foreground text-sm">
+        {words}
+      </p>
+    );
+  }
+  return (
+    <p data-slot="record-folded" className="flex flex-wrap items-center gap-x-2 text-sm">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-slot="record-add-details"
+        onClick={onAdd}
+      >
+        <PlusIcon aria-hidden />
+        Add details
+      </Button>
+      <span className="text-muted-foreground">{words}</span>
+    </p>
+  );
 }

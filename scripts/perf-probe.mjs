@@ -1,17 +1,42 @@
 #!/usr/bin/env node
 // Times what the Worker answers, route by route, from wherever this runs (unit P, 2026-10-15:
-// "the app has become slow after v1.7.0"). Run by `.github/workflows/perf.yml` from a GitHub
-// runner against a branch preview and against staging, and by hand:
+// "the app has become slow after v1.7.0"), and holds the v1.8 speed gate. Run by the Preview
+// workflow's `perf-probe` job (`.github/workflows/preview.yml`, Actions → Preview → Run
+// workflow → `perf-probe`) from a GitHub runner against a branch preview and against staging,
+// and by hand:
 //
 //   node scripts/perf-probe.mjs --base https://phase-x-maxoff-staging.<sub>.workers.dev
 //                               [--samples 5] [--role owner] [--label "phase-x @ abc1234"]
-//                               [--project <id>] [--client <id>] [--out probe.json] [--no-signin]
+//                               [--project <id>] [--client <id>] [--task <id>] [--person <id>]
+//                               [--out probe.json] [--no-signin]
+//                               [--compare-to staging.json] [--candidate branch.json]
+//                               [--pair https://maxoff-staging.<sub>.workers.dev --pair-out staging.json]
 //
 // Environment: SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (the project the Worker talks to) and
 // one way to sign in: PROBE_EMAIL + PROBE_PASSWORD (GoTrue's password grant, no secret), or
 // SUPABASE_SECRET_KEY (the service key: the first active member of `--role` gets a session
 // through a magic link that is never sent; PROBE_EMAIL picks the member). **Staging only** with
 // a session; production only with `--no-signin` (the public routes, no key in the environment).
+// Read-only: every request is a GET (the sign-in itself is GoTrue's, on the staging project).
+//
+// Routes: the public ones, then every main signed-in route (`scripts/lib/perf-gate.mjs`:
+// each role's tabs and More items, Me, the bell, and one task, client, project and person the
+// signed-in member can see, picked through that member's own session; no fixed ids). A route
+// the member's role can't open, or a record it has none of, is a "skipped" row in the table.
+//
+// The speed gate (`scripts/lib/perf-gate.mjs` holds the thresholds): a route fails when its
+// warm TTFB p50 is above 600 ms, when it answered with another status than its own, or, with a
+// staging compare, when it is slower than staging by more than 100 ms, or by more than 10 % and at
+// least 50 ms (more than 10 % under 50 ms is a WARN, shown but not failing; /api/warm is shown
+// and never judged; see scripts/lib/perf-gate.mjs). The
+// table's Gate column says PASS / FAIL / SKIP with the reason, a summary line follows, each
+// failing route is a `::error::` annotation, and the process exits 1. The compare:
+//   --pair <base>        (the workflow's way) staging is probed in the same run, request by
+//                        request after this base, and the gate judges this base against it
+//                        (staging's own rows are printed for reference, not gated);
+//   --compare-to <file>  this run is the candidate; the file is staging's `--out`;
+//   --candidate <file>   this run is staging; the file is the candidate's `--out`, and the gate
+//                        judges the candidate (staging's own rows are printed, not gated).
 //
 // For every route it makes `--samples` requests on a **fresh** connection (DNS + TLS each time,
 // the way a first open or the advisor's curl lands: often on an isolate that has not run the
@@ -33,10 +58,13 @@
 // round trip costs ~200 ms there against a few tens from India. That exaggerates a waterfall
 // (good: it shows) and says nothing about the owner's absolute numbers; the `colo` column says
 // where the Worker ran, and the same script from India gives the real ones.
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import http from "node:http";
 import https from "node:https";
 import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
+
+import { judgeRun, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -60,6 +88,14 @@ const samples = Number(args.samples ?? 5);
 const role = args.role ?? "owner";
 const label = args.label ?? base;
 const signIn = args["no-signin"] !== "true";
+// `--pair <staging>` (2026-10-23): probe staging in the same run, each request right after the
+// candidate's (branch, staging, branch, …), so both sides share the same minutes of Worker and
+// database load. Probing them one after the other let a slow spell land on one side only: the
+// Admin compare failed by a flat ~140 ms on routes that changed from run to run, while the
+// Worker's own chain (`/diagnostics/timing`) timed the same on both. `--pair-out` keeps staging's rows.
+const pairBase = args.pair ? args.pair.replace(/\/$/, "") : null;
+const pairLabel = args["pair-label"] ?? "staging (main)";
+const bases = pairBase ? [base, pairBase] : [base];
 
 const env = {
   url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -71,7 +107,7 @@ const env = {
 };
 // Production is probed signed out only (`--no-signin`: the static asset, the 404, health, /login),
 // never with a session and never with a key in the environment.
-if (signIn && /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base)) {
+if (signIn && bases.some((at) => /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(at))) {
   throw new Error("Never probe production with a signed-in session: use --no-signin.");
 }
 /** Production's Supabase project (`maxoff-production`, Mumbai; README → "Deploying"). */
@@ -86,13 +122,15 @@ if (signIn) {
   ) {
     throw new Error("Never sign in on production's Supabase project: use --no-signin.");
   }
-  const { protocol, hostname } = new URL(base);
-  const local = hostname === "localhost" || hostname === "127.0.0.1";
-  const workers = protocol === "https:" && hostname.endsWith(".workers.dev");
-  if (!local && !workers) {
-    throw new Error(
-      `A signed-in probe goes only to a *.workers.dev address over https or to localhost, not ${hostname}: use --no-signin.`,
-    );
+  for (const at of bases) {
+    const { protocol, hostname } = new URL(at);
+    const local = hostname === "localhost" || hostname === "127.0.0.1";
+    const workers = protocol === "https:" && hostname.endsWith(".workers.dev");
+    if (!local && !workers) {
+      throw new Error(
+        `A signed-in probe goes only to a *.workers.dev address over https or to localhost, not ${hostname}: use --no-signin.`,
+      );
+    }
   }
 }
 
@@ -168,31 +206,53 @@ async function cookieHeaderFor(session) {
   return [...jar].map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join("; ");
 }
 
+/**
+ * The signed-in member's role and one record of each kind for the detail routes, read with the
+ * member's own session (RLS decides what it sees; no fixed ids). A read the role is refused is
+ * no record, and the route is a skipped row.
+ */
 async function pickIds(session) {
   const headers = {
     apikey: env.publishableKey,
     authorization: `Bearer ${session.access_token}`,
   };
   const read = async (query) => {
-    const response = await fetch(`${env.url}/rest/v1/${query}`, { headers });
-    if (!response.ok) throw new Error(`${query}: ${response.status}`);
+    const response = await fetch(`${env.url}/rest/v1/${query}`, {
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) return [];
     return response.json();
   };
+  const self = JSON.parse(Buffer.from(session.access_token.split(".")[1], "base64url")).sub;
+  const me = (await read(`members?select=id,role&id=eq.${self}`))[0];
+  if (!me) throw new Error("the signed-in member's own row is not readable");
+  const task =
+    args.task ??
+    (await read("tasks?select=id&archived_at=is.null&order=created_at.desc&limit=1"))[0]?.id;
   const client =
     args.client ??
     (await read("clients?select=id&state=eq.active&order=created_at.asc&limit=1"))[0]?.id;
-  const project =
-    args.project ??
+  const project = args.project
+    ? ((await read(`projects?select=id,client_id&id=eq.${args.project}`))[0] ?? null)
+    : (
+        await read("projects?select=id,client_id&archived_at=is.null&order=created_at.desc&limit=1")
+      )[0];
+  const person =
+    args.person ??
     (
-      await read("projects?select=id,client_id&archived_at=is.null&order=created_at.desc&limit=1")
-    )[0];
+      await read(`members?select=id&status=eq.active&id=neq.${self}&order=created_at.asc&limit=1`)
+    )[0]?.id ??
+    self;
   return {
-    client: client ?? null,
-    project: project
-      ? typeof project === "string"
-        ? { id: project, client_id: client }
-        : project
-      : null,
+    role: me.role,
+    ids: {
+      task: task ?? null,
+      client: client ?? null,
+      project: project?.id ?? null,
+      projectClient: project?.client_id ?? null,
+      person: person ?? null,
+    },
   };
 }
 
@@ -206,10 +266,15 @@ function request(url, { agent, headers }) {
     let connected = 0;
     let secured = 0;
     let reused = false;
-    const req = https.request(url, { method: "GET", agent, headers }, (res) => {
+    // GET only: the probe reads screens and never writes.
+    const req = transport.request(url, { method: "GET", agent, headers }, (res) => {
       const ttfb = performance.now() - start;
       let bytes = 0;
+      // The body's first bytes, kept only for a sample that did not answer as it should
+      // (`diagnose`): what the Worker said, for the error page's Ray ID and message.
+      const head = [];
       res.on("data", (chunk) => {
+        if (bytes < BODY_HEAD_BYTES) head.push(chunk.subarray(0, BODY_HEAD_BYTES - bytes));
         bytes += chunk.length;
       });
       res.on("end", () => {
@@ -225,6 +290,7 @@ function request(url, { agent, headers }) {
           colo: String(res.headers["cf-ray"] ?? "").split("-")[1] ?? "",
           timing: parseServerTiming(serverTiming),
           location: res.headers.location ?? null,
+          head: Buffer.concat(head).toString("utf8"),
         });
       });
     });
@@ -247,6 +313,10 @@ function request(url, { agent, headers }) {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
+/** How much of a failing sample's body `diagnose` keeps. */
+const BODY_HEAD_BYTES = 300;
+/** `http` for this machine's `pnpm start`, `https` everywhere else. */
+const transport = new URL(base).protocol === "http:" ? http : https;
 
 /** `Server-Timing: claims;dur=12, isolate;desc="n=1 age=0"` → `{ claims: 12, n: 1, age: 0 }`. */
 function parseServerTiming(value) {
@@ -274,8 +344,8 @@ function parseServerTiming(value) {
 
 /** A sample that failed or timed out: status 0, the timeout as its time, so the table shows it. */
 function failed(error) {
-  process.stderr.write(`sample failed: ${error instanceof Error ? error.message : error}\n`);
   return {
+    error: error instanceof Error ? error.message : String(error),
     status: 0,
     ttfb: REQUEST_TIMEOUT_MS,
     total: REQUEST_TIMEOUT_MS,
@@ -286,7 +356,31 @@ function failed(error) {
     colo: "",
     timing: {},
     location: null,
+    head: "",
   };
+}
+
+/** Whether a sample answered with its route's own status: the route's `expect`, or a 2xx. */
+function statusOk(route, status) {
+  return route.expect !== undefined ? route.expect.includes(status) : status >= 200 && status < 300;
+}
+
+/**
+ * Diagnostics only (2026-10-23, the intermittent 500): a sample that failed, or answered with
+ * another status than its route's own, keeps its `cf-ray` and the body's first bytes in the
+ * `--out` JSON (`failure`) and prints one line to stderr; every other sample drops its body head.
+ * The gate's judgement never reads either.
+ */
+function diagnose(sample, route, at, kind) {
+  const { head, ...rest } = sample;
+  if (sample.status !== 0 && statusOk(route, sample.status)) return rest;
+  const failure = { ray: sample.ray, body: head, ...(sample.error ? { error: sample.error } : {}) };
+  process.stderr.write(
+    `sample ${sample.status === 0 ? "failed" : `HTTP ${sample.status}`}: ${route.name} (${kind}) ${at}${
+      route.path ?? ""
+    } cf-ray=${sample.ray || "none"}${sample.error ? ` error=${sample.error}` : ""} body=${JSON.stringify(head)}\n`,
+  );
+  return { ...rest, failure };
 }
 
 async function json(url, headers) {
@@ -298,102 +392,199 @@ async function json(url, headers) {
   return response.json();
 }
 
-const median = (values) =>
-  values.length === 0 ? 0 : [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const ms = (value) => `${Math.round(value)}`;
 const range = (values) =>
   values.length === 0 ? "" : `${ms(Math.min(...values))}–${ms(Math.max(...values))}`;
 
+/** A probe's `--out` file, for the staging compare. */
+function readRun(file) {
+  const run = JSON.parse(readFileSync(file, "utf8"));
+  if (!Array.isArray(run.summary)) {
+    throw new Error(`${file} has no route summary: probe it again with this script.`);
+  }
+  return run;
+}
+
+/** The staging compare's other run, from an earlier run's `--out` (`--pair` probes it live). */
+function compareFiles() {
+  if (args["compare-to"]) return { baseline: readRun(args["compare-to"]) };
+  if (args.candidate) return { candidate: readRun(args.candidate) };
+  return {};
+}
+
 // ---------------------------------------------------------------------------------------------
 async function main() {
   let cookie = null;
-  let ids = { client: null, project: null };
+  let ids = {};
+  let memberRole = null;
   let who = "signed out";
   if (signIn) {
     const { session, email } = await mintSession();
     cookie = await cookieHeaderFor(session);
-    ids = await pickIds(session);
+    ({ role: memberRole, ids } = await pickIds(session));
     const [, payload] = session.access_token.split(".");
     const header = JSON.parse(Buffer.from(session.access_token.split(".")[0], "base64url"));
     const claims = JSON.parse(Buffer.from(payload, "base64url"));
-    who = `${email} (${claims.role ?? "?"}; JWT ${header.alg}${
+    who = `${email} (${memberRole}; JWT ${claims.role ?? "?"}, ${header.alg}${
       header.alg?.startsWith("HS") ? ": symmetric, getClaims() asks GoTrue every time" : ""
     })`;
   }
+  // Read before probing, so a bad file stops the run before minutes of requests.
+  const compare = pairBase ? {} : compareFiles();
 
   // Production (advisor, 2026-10-15): the public routes UptimeRobot-style only, read-only.
   const production = /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base);
-  const routes = [
+  /** @type {{ name: string, path?: string, auth?: boolean, expect?: number[], skip?: string }[]} */
+  const plan = [
     { name: "static (no Worker)", path: "/manifest.webmanifest", auth: false },
     ...(production
       ? []
-      : [{ name: "404 (Worker, no data)", path: "/__perf-probe-nope", auth: false }]),
+      : // Signed out, the proxy sends an unknown path to /login (307); signed in it is a 404.
+        [
+          {
+            name: "404 (Worker, no data)",
+            path: "/__perf-probe-nope",
+            auth: false,
+            expect: [307, 404],
+          },
+        ]),
     { name: "/api/health", path: "/api/health", auth: false },
     // The warm-up the app sends when it comes back into view (P2, ARCHITECTURE §19): no data, no
     // database; with the session's cookie when there is one, as the app sends it.
     { name: "/api/warm", path: "/api/warm", auth: true },
     { name: "/login", path: "/login", auth: false },
+    ...(cookie ? planMemberRoutes(memberRole, ids).map((r) => ({ ...r, auth: true })) : []),
   ];
-  if (cookie) {
-    routes.push(
-      { name: "/today", path: "/today", auth: true },
-      { name: "/tasks", path: "/tasks", auth: true },
-      { name: "/clients", path: "/clients", auth: true },
-      ...(ids.client ? [{ name: "a client", path: `/clients/${ids.client}`, auth: true }] : []),
-      ...(ids.project
-        ? [
-            {
-              name: "a project",
-              path: `/clients/${ids.project.client_id}/projects/${ids.project.id}`,
-              auth: true,
-            },
-          ]
-        : []),
-      { name: "/settings/templates", path: "/settings/templates", auth: true },
-      { name: "/diagnostics/timing", path: "/diagnostics/timing", auth: true },
-    );
-  }
+  const routes = plan.filter((route) => route.path !== undefined);
 
   const headersFor = (route) => ({
     "user-agent": "maxoff-perf-probe",
     accept: "text/html,application/json;q=0.9,*/*;q=0.8",
     ...(route.auth && cookie ? { cookie } : {}),
   });
+  const Agent = transport.Agent;
 
   const results = [];
-  // Fresh connections, routes interleaved so no route gets every warm isolate or every cold one.
+  // Fresh connections, routes interleaved so no route gets every warm isolate or every cold one;
+  // with `--pair`, each request goes to every base in turn.
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      const agent = new https.Agent({ keepAlive: false });
-      const r = await request(base + route.path, { agent, headers: headersFor(route) }).catch(
-        failed,
-      );
-      agent.destroy();
-      results.push({ ...r, route: route.name, kind: "fresh" });
+      for (const at of bases) {
+        const agent = new Agent({ keepAlive: false });
+        const r = await request(at + route.path, { agent, headers: headersFor(route) }).catch(
+          failed,
+        );
+        agent.destroy();
+        results.push({
+          ...diagnose(r, route, at, "fresh"),
+          route: route.name,
+          kind: "fresh",
+          base: at,
+        });
+      }
     }
   }
-  // One kept-alive connection for everything: a warm Worker, the way a phone taps around.
-  const keep = new https.Agent({ keepAlive: true, maxSockets: 1 });
-  await request(base + "/manifest.webmanifest", { agent: keep, headers: headersFor(routes[0]) });
+  // One kept-alive connection per base for everything: a warm Worker, the way a phone taps around.
+  const keep = new Map(bases.map((at) => [at, new Agent({ keepAlive: true, maxSockets: 1 })]));
+  for (const at of bases) {
+    await request(at + "/manifest.webmanifest", {
+      agent: keep.get(at),
+      headers: headersFor(routes[0]),
+    }).catch(failed);
+  }
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      const r = await request(base + route.path, { agent: keep, headers: headersFor(route) }).catch(
-        failed,
-      );
-      results.push({ ...r, route: route.name, kind: "reused" });
+      for (const at of bases) {
+        const r = await request(at + route.path, {
+          agent: keep.get(at),
+          headers: headersFor(route),
+        }).catch(failed);
+        results.push({
+          ...diagnose(r, route, at, "warm"),
+          route: route.name,
+          kind: "reused",
+          base: at,
+        });
+      }
     }
   }
-  keep.destroy();
+  for (const agent of keep.values()) agent.destroy();
 
   // The layout's chain as the Worker itself timed it.
-  let chain = null;
+  const chains = new Map(bases.map((at) => [at, null]));
   if (cookie) {
-    const reads = [];
+    const reads = new Map(bases.map((at) => [at, []]));
     for (let i = 0; i < samples; i++) {
-      reads.push(await json(base + "/diagnostics/timing", headersFor({ auth: true })));
+      for (const at of bases) {
+        reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
+      }
     }
-    chain = reads.filter((r) => r && typeof r.total === "number");
+    for (const at of bases) {
+      chains.set(
+        at,
+        reads.get(at).filter((r) => r && typeof r.total === "number"),
+      );
+    }
   }
+
+  const ofBase = (at) => results.filter((r) => r.base === at);
+  const own = report(
+    { plan, who, base, label, results: ofBase(base), chain: chains.get(base) },
+    { compare, out: args.out, gateLine: !pairBase },
+  );
+  // With `--pair`, staging's run prints its own rows for reference and judges this one.
+  const { judgements } = pairBase
+    ? report(
+        {
+          plan,
+          who,
+          base: pairBase,
+          label: pairLabel,
+          results: ofBase(pairBase),
+          chain: chains.get(pairBase),
+        },
+        { compare: { candidate: { label, summary: own.summary } }, out: args["pair-out"] },
+      )
+    : own;
+
+  const failing = judgements.filter((j) => j.verdict === "FAIL");
+  for (const j of failing) {
+    process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
+  }
+  if (failing.length > 0) process.exitCode = 1;
+}
+
+/**
+ * One base's table (and, with a compare, the gate's): printed, added to the job summary and
+ * written to `out`. Returns the run's route summary and the gate's judgements.
+ */
+function report({ plan, who, base, label, results, chain }, { compare, out, gateLine = true }) {
+  // Per route: did every sample answer with the route's own status, and the warm TTFB p50.
+  const summary = plan.map((route) => {
+    if (route.skip !== undefined) return { name: route.name, skip: route.skip };
+    const rows = results.filter((r) => r.route === route.name);
+    const warm = rows.filter((r) => r.kind === "reused").map((r) => r.ttfb);
+    return {
+      name: route.name,
+      path: route.path,
+      statusOk: rows.every((r) => statusOk(route, r.status)),
+      statuses: [...new Set(rows.map((r) => r.status))].join("/"),
+      warmP50: median(warm),
+    };
+  });
+
+  // The gate judges the candidate: this run, or the branch's run when this one is staging.
+  const gated = compare.candidate ? compare.candidate.summary : summary;
+  const baseline = compare.candidate ? summary : (compare.baseline?.summary ?? null);
+  const judgements = judgeRun(gated, baseline);
+  const own = compare.candidate ? judgeRun(summary, null) : judgements;
+  const ownByName = new Map(own.map((j) => [j.name, j]));
+  const gateCell = (j) =>
+    j.verdict === "FAIL"
+      ? `**FAIL**: ${j.reasons.join("; ")}`
+      : j.reasons.length > 0
+        ? `${j.verdict}: ${j.reasons.join("; ")}`
+        : `${j.verdict}`;
 
   // ------------------------------------------------------------------------------------------
   const lines = [];
@@ -402,10 +593,14 @@ async function main() {
   lines.push(`Base \`${base}\` · ${samples} samples per cell · as ${who}`);
   lines.push("");
   lines.push(
-    "| Route | Conn | Status | TTFB p50 (spread) | Server p50 | Total p50 | Cold | Claims p50 | Colo |",
+    "| Route | Conn | Status | TTFB p50 (spread) | Server p50 | Total p50 | Cold | Claims p50 | Colo | Gate |",
   );
-  lines.push("|---|---|---|---|---|---|---|---|---|");
-  for (const route of routes) {
+  lines.push("|---|---|---|---|---|---|---|---|---|---|");
+  for (const route of plan) {
+    if (route.skip !== undefined) {
+      lines.push(`| ${route.name} | · | skipped: ${route.skip} | · | · | · | · | · | · | SKIP |`);
+      continue;
+    }
     for (const kind of ["fresh", "reused"]) {
       const rows = results.filter((r) => r.route === route.name && r.kind === kind);
       if (rows.length === 0) continue;
@@ -414,14 +609,45 @@ async function main() {
       const cold = rows.filter((r) => r.timing.n === 1).length;
       const seen = rows.filter((r) => r.timing.n !== undefined).length;
       const claims = rows.map((r) => r.timing.claims).filter((v) => typeof v === "number");
+      // The verdict sits on the warm row, the one the gate reads.
+      const judgement = ownByName.get(route.name);
       lines.push(
-        `| ${route.name} | ${kind} | ${statuses} | **${ms(median(rows.map((r) => r.ttfb)))}** (${range(
-          rows.map((r) => r.ttfb),
-        )}) | ${ms(median(rows.map((r) => r.ttfb - r.connect)))} | ${ms(
-          median(rows.map((r) => r.total)),
-        )} | ${seen ? `${cold}/${seen}` : "·"} | ${claims.length ? ms(median(claims)) : "·"} | ${colos} |`,
+        `| ${route.name} | ${kind === "reused" ? "warm" : "fresh"} | ${statuses} | **${ms(
+          median(rows.map((r) => r.ttfb)),
+        )}** (${range(rows.map((r) => r.ttfb))}) | ${ms(
+          median(rows.map((r) => r.ttfb - r.connect)),
+        )} | ${ms(median(rows.map((r) => r.total)))} | ${seen ? `${cold}/${seen}` : "·"} | ${
+          claims.length ? ms(median(claims)) : "·"
+        } | ${colos} | ${kind === "reused" && judgement ? gateCell(judgement) : ""} |`,
       );
     }
+  }
+  if (compare.candidate) {
+    lines.push("");
+    lines.push(
+      `Staging's own rows above are for reference; the gate judges **${compare.candidate.label}** against them:`,
+    );
+  }
+  if (compare.candidate || compare.baseline) {
+    lines.push("");
+    lines.push("| Route | Warm p50 | Staging warm p50 | Δ | Gate |");
+    lines.push("|---|---|---|---|---|");
+    for (const j of judgements) {
+      if (j.verdict === "SKIP") {
+        lines.push(`| ${j.name} | skipped: ${j.skip} | · | · | SKIP |`);
+        continue;
+      }
+      const delta = j.baselineP50 !== undefined ? (j.warmP50 ?? 0) - j.baselineP50 : undefined;
+      lines.push(
+        `| ${j.name} | ${ms(j.warmP50 ?? 0)} | ${
+          j.baselineP50 !== undefined ? ms(j.baselineP50) : "·"
+        } | ${delta !== undefined ? `${delta >= 0 ? "+" : ""}${ms(delta)}` : "·"} | ${gateCell(j)} |`,
+      );
+    }
+  }
+  if (gateLine) {
+    lines.push("");
+    lines.push(summaryLine(judgements, { compared: baseline !== null }));
   }
   if (chain && chain.length > 0) {
     lines.push("");
@@ -440,9 +666,14 @@ async function main() {
   const text = lines.join("\n");
   process.stdout.write(text + "\n");
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text + "\n");
-  if (args.out) {
-    writeFileSync(args.out, JSON.stringify({ label, base, samples, who, results, chain }, null, 2));
+  if (out) {
+    writeFileSync(
+      out,
+      JSON.stringify({ label, base, samples, who, summary, results, chain }, null, 2),
+    );
   }
+
+  return { summary, judgements };
 }
 
 main().catch((error) => {

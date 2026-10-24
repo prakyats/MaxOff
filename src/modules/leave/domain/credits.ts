@@ -67,6 +67,12 @@ export function expiryLabel(expiresOn: string): string {
   return `use by ${formatIST(istDayStart(expiresOn), "d MMM")}`;
 }
 
+/** The balance in the Owner's attendance Review panel (B4): "1 day · use by 30 Oct", or "None". */
+export function compBalanceWords(balance: CompBalance): string {
+  if (balance.availableDays <= 0 || !balance.useBy) return "None";
+  return `${daysLabel(balance.availableDays)} · ${expiryLabel(balance.useBy)}`;
+}
+
 /** One date the leave form may offer for comp leave, with the free days valid on it. */
 export type CompDate = { date: string; availableDays: number };
 

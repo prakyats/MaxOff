@@ -4,6 +4,7 @@ import type { FieldErrors } from "@/core/errors";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput, DateTimeInput } from "@/core/ui/primitives/date-time-input";
 import { Label } from "@/core/ui/primitives/label";
 import {
   Select,
@@ -84,7 +85,8 @@ export function CustomFieldsForm({
       {[...sections.entries()].map(([section, fields]) => (
         <div key={section || "_"} className="flex flex-col gap-4">
           {section ? (
-            <h3 className="text-muted-foreground text-sm font-medium">{section}</h3>
+            // PP-forms-8: a section reads as the form's own group labels do ("Assign to").
+            <h3 className="text-sm font-medium">{section}</h3>
           ) : null}
           {fields.map((definition) => (
             <CustomFieldControl
@@ -178,10 +180,9 @@ function CustomFieldControl({
             );
           case "date":
             return (
-              <Input
+              <DateInput
                 {...control}
                 name={name}
-                type="date"
                 value={textOf(value)}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
@@ -189,10 +190,9 @@ function CustomFieldControl({
             );
           case "datetime":
             return (
-              <Input
+              <DateTimeInput
                 {...control}
                 name={name}
-                type="datetime-local"
                 value={textOf(value)}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
@@ -330,7 +330,7 @@ function CustomFieldControl({
                   name={name}
                   value={textOf(value)}
                   onChange={(event) => onChange(event.target.value)}
-                  placeholder="#E11D48"
+                  placeholder="e.g. #E11D48"
                   maxLength={7}
                   disabled={disabled}
                 />

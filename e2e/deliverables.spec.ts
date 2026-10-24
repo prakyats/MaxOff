@@ -3,11 +3,13 @@ import type { Locator, Page, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   animationsSettled,
+  createFromNewProject,
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
   insertAs,
   memberIdOf,
+  newProjectStep,
   removeClientFixture,
   rpcAs,
   runInstalled,
@@ -168,13 +170,9 @@ async function expectSummary(scope: Locator, line: string): Promise<void> {
   await expect(counts.locator('[data-slot="preview-stat"]')).toHaveText(line.split(" · "));
 }
 
-/** Create in the New project dialog: a phone goes through its Preview step first. */
-async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
-  if ((page.viewportSize()?.width ?? 1280) < 768) {
-    await dialog.getByRole("button", { name: "Preview", exact: true }).click();
-    await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
-  }
-  await dialog.getByRole("button", { name: "Create project" }).click();
+/** Create in the New project dialog (V5b PP-forms-7): Next to Preview & create, then Create. */
+async function createFromDialog(_page: Page, dialog: Locator): Promise<void> {
+  await createFromNewProject(dialog);
 }
 
 test("New project: six deliverables × three preset groups, a drag, the preview, and the next cycle repeats them", async ({
@@ -195,7 +193,8 @@ test("New project: six deliverables × three preset groups, a drag, the preview,
   await dialog.getByLabel("Project name").fill("Weekly set");
   await dialog.getByRole("combobox", { name: "Repeats" }).click();
   await page.getByRole("option", { name: "Weekly" }).click();
-  // "Item" × 6, each with the three presets as its groups, in the order ticked.
+  // Step 2: "Item" × 6, each with the three presets as its groups, in the order ticked.
+  await newProjectStep(dialog, 2);
   await dialog.getByLabel("Deliverable name").fill("Item");
   await dialog.getByLabel("How many").fill("6");
   const add = dialog.locator('[data-slot="add-deliverables"]');
@@ -220,11 +219,11 @@ test("New project: six deliverables × three preset groups, a drag, the preview,
     .poll(() => valuesOf(body.locator('[data-slot="stage-name"]')))
     .toEqual(["A2", "A1", "A3", "B1", "B2", "C1"]);
 
-  // The live preview counts what Create makes (beside the form, or on the phone's step).
+  // The live preview counts what Create makes (beside the editors on a laptop, and step 3).
   const phone = (page.viewportSize()?.width ?? 1280) < 768;
-  if (phone) await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+  if (!phone) await expectSummary(dialog, "6 deliverables · 3 groups · 36 stages");
+  await newProjectStep(dialog, 3);
   await expectSummary(dialog, "6 deliverables · 3 groups · 36 stages");
-  if (phone) await dialog.getByRole("button", { name: "Back to edit" }).click();
   await createFromDialog(page, dialog);
   const projectPage = new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`);
   await expect(page).toHaveURL(projectPage);
@@ -460,17 +459,25 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await page.goto(`/clients/${clientId}/projects`);
     await hydrated(page);
 
-    // New project → Preview: back returns to the form, a second back asks (something typed).
+    // New project's three steps are a stack (V5b PP-forms-7): each back returns to the step
+    // before, then back from Basics asks (something typed).
     await page.getByRole("button", { name: "New project" }).click();
     const create = page.getByRole("dialog", { name: "New project" });
     await create.getByLabel("Project name").fill("Draft");
-    await create.getByRole("button", { name: "Preview", exact: true }).click();
+    await newProjectStep(create, 3);
     await expect(create.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await page.goBack();
+    await expect(create.getByLabel("Deliverable name")).toBeVisible();
     await expectNoHorizontalScroll(page);
     await page.goBack();
     await expect(create.getByLabel("Project name")).toBeVisible();
     await expect(create.getByLabel("Project name")).toHaveValue("Draft");
     await expect(page).toHaveURL(tab);
+    // The Back button takes the same path.
+    await newProjectStep(create, 2);
+    await create.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(create.getByLabel("Project name")).toBeVisible();
     await page.goBack();
     const discard = page.getByRole("alertdialog", { name: "Discard this project?" });
     await discard.getByRole("button", { name: "Discard project" }).click();
@@ -491,6 +498,12 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     // Measured inside the layer: the toast that says so is the toaster's, sliding in.
     await animationsSettled(page);
     await expectLayerFits(page, defaults);
+    // The group's ⋯ names the group on its title line (PP-sheet-4); back closes only the menu.
+    await defaults.getByRole("button", { name: `Actions for the group ${presetName}` }).click();
+    const groupMenu = page.getByRole("menu");
+    await expect(groupMenu.locator('[data-slot="menu-sheet-title"]')).toHaveText(presetName);
+    await expectBackStack(page, [{ closes: groupMenu, url: here }]);
+    await expect(defaults).toBeVisible();
     await defaults.getByRole("button", { name: `Actions for the group ${presetName}` }).click();
     await page.getByRole("menuitem", { name: "Remove group" }).click();
     const remove = page.getByRole("alertdialog", { name: `Remove the group ${presetName}?` });
@@ -708,7 +721,7 @@ test("New project's template library: search, a preview that back closes, then U
   await hydrated(page);
   await page.getByRole("button", { name: "New project" }).click();
   const create = page.getByRole("dialog", { name: "New project" });
-  await create.getByRole("button", { name: "Search and preview templates" }).click();
+  await create.getByRole("button", { name: "Start from a template" }).click();
   const library = page.getByRole("dialog", { name: "Start from a template" });
   await expect(library).toBeVisible();
   const rows = library.locator('[data-slot="template-library-row"]');
@@ -732,7 +745,7 @@ test("New project's template library: search, a preview that back closes, then U
   await expectBackStack(page, [{ closes: preview, url: tab }]);
   await expect(library).toBeVisible();
 
-  // Use this template: the form takes it, as Start from does, still editable.
+  // Use this template: the form takes it, shown as a chip on Basics, still editable.
   await rows
     .first()
     .getByRole("button", { name: `Preview ${alpha}` })
@@ -740,8 +753,13 @@ test("New project's template library: search, a preview that back closes, then U
   await preview.getByRole("button", { name: "Use this template" }).click();
   await expect(preview).toBeHidden();
   await expect(library).toBeHidden();
+  await expect(create.locator('[data-slot="new-project-basics"]')).toContainText(alpha);
+  await expect(create.getByRole("button", { name: "Change template" })).toBeVisible();
+  await create.getByLabel("Project name").fill("From the library");
+  await newProjectStep(create, 2);
   await expect(create.locator('[data-slot="deliverable-title"]')).toHaveText(["Item 1", "Item 2"]);
-  await expect(create.getByRole("combobox", { name: "Start from" })).toContainText(alpha);
+  await page.goBack();
+  await expect(create.getByLabel("Project name")).toBeVisible();
 
   // Back now asks before the picked template is lost.
   await page.goBack();

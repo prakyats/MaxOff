@@ -1,5 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { openMoreOptions } from "./helpers";
+
 /**
  * The in-app guide's screenshots, one entry per picture (ROADMAP 6b.14, Release 2). Read by
  * `e2e/guide-screenshots.ts` (`pnpm guide:screenshots`), which signs in as the entry's role, opens
@@ -92,8 +94,8 @@ const deliverableRow = (page: Page, title: string) =>
 
 /** Reel 2's first stage line opened in place, its stage chips showing. */
 async function openStageLine(page: Page): Promise<void> {
-  await deliverableRow(page, "Reel 2").locator('[data-slot="item-strip-toggle"]').first().click();
-  await deliverableRow(page, "Reel 2").locator('[data-slot="item-row-stages"]').first().waitFor();
+  await deliverableRow(page, "Reel 2").locator('[data-slot="item-progress"]').first().click();
+  await deliverableRow(page, "Reel 2").locator('[data-slot="item-stages"]').first().waitFor();
 }
 
 /** Select mode with Reel 3 and Reel 4 selected: the bar shows Mark 2 done, Tick a stage, Edit 2. */
@@ -132,6 +134,8 @@ async function newProjectWithDeliverables(page: Page): Promise<void> {
   await tap(page, "New project");
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Project name").fill("Quarterly reels");
+  // V5b PP-forms-7: the deliverables and stages are step 2.
+  await dialog.locator('[data-slot="new-project-next"]').click();
   await dialog.getByRole("combobox", { name: /preset/i }).click();
   await page.getByRole("option", { name: "Video steps" }).click();
   await dialog.getByLabel("Deliverable name").fill("Reel");
@@ -319,7 +323,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "admin/calendar-day",
     path: "/calendar?view=month",
-    // The first day with tasks due: the sheet opens on them, then Who's free and the buttons.
+    // The first day with tasks due: the sheet opens on them, then who is away and the buttons.
     prepare: (page) => tap(page, /, \d+ due$/),
     highlight: (page) => layer(page).getByRole("button", { name: /New task on/ }),
     crop: layer,
@@ -345,7 +349,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     path: (demo) => `/clients/${demo.clientId}`,
     highlight: (page) => slot(page, "client-tabs"),
     crop: main,
-    alt: "A client's page with its tabs highlighted: Overview, Projects, Brand and Activity.",
+    alt: "A client's page with its tabs highlighted: Overview, Projects and Brand.",
   },
   {
     id: "admin/new-project",
@@ -374,9 +378,11 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "admin/deliverable-sheet",
     path: project,
     prepare: (page) => openDeliverable(page, "Reel 2"),
-    highlight: (page) => layer(page).getByRole("button", { name: "Mark done", exact: true }),
+    // PP-sheet-2: the sheet's one action, "Next: ‹stage›" until every stage is ticked, then Mark done.
+    highlight: (page) =>
+      layer(page).locator('[data-slot="item-next-stage"], [data-slot="item-mark-done"]'),
     crop: layer,
-    alt: "A deliverable's sheet with its stages and the Mark done button highlighted.",
+    alt: "A deliverable's sheet with its stages and its next step highlighted.",
   },
   {
     id: "admin/edit-stages",
@@ -393,7 +399,8 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "admin/deliverable-rows",
     path: project,
     prepare: openStageLine,
-    highlight: (page) => deliverableRow(page, "Reel 2").locator('[data-slot="item-strip"]').first(),
+    highlight: (page) =>
+      deliverableRow(page, "Reel 2").locator('[data-slot="item-progress"]').first(),
     crop: (page) => slot(page, "cycle-items"),
     alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
   },
@@ -423,7 +430,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "admin/stage-presets",
-    path: "/settings/stage-presets",
+    path: "/settings/templates#presets",
     highlight: (page) => slot(page, "add-stage-preset"),
     crop: main,
     alt: "Stage presets with the Add preset button highlighted.",
@@ -437,9 +444,9 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "admin/template-builder",
-    path: "/settings/templates",
+    path: "/settings/templates#projects",
     prepare: async (page) => {
-      await tap(page, "Add a project template");
+      await tap(page, "Add project template");
       await layer(page).waitFor();
     },
     highlight: (page) => layer(page).getByLabel("How many"),
@@ -537,7 +544,10 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/new-task",
     path: "/tasks",
-    prepare: (page) => tap(page, "New task"),
+    prepare: async (page) => {
+      await tap(page, "New task");
+      await openMoreOptions(page);
+    },
     highlight: (page) => layer(page).getByLabel("Checked first by"),
     crop: layer,
     alt: "The New task form with the Checked first by field highlighted.",
@@ -607,9 +617,9 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "owner/new-project",
     path: projects,
     prepare: (page) => tap(page, "New project"),
-    highlight: (page) => layer(page).getByRole("combobox", { name: "Start from" }),
+    highlight: (page) => layer(page).getByRole("button", { name: "Start from a template" }),
     crop: layer,
-    alt: "The New project form with the Start from field highlighted.",
+    alt: "The New project form with the Start from a template button highlighted.",
   },
   {
     id: "owner/project-preview",
@@ -630,7 +640,8 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "owner/deliverable-rows",
     path: project,
     prepare: openStageLine,
-    highlight: (page) => deliverableRow(page, "Reel 2").locator('[data-slot="item-strip"]').first(),
+    highlight: (page) =>
+      deliverableRow(page, "Reel 2").locator('[data-slot="item-progress"]').first(),
     crop: (page) => slot(page, "cycle-items"),
     alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
   },
@@ -679,10 +690,17 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "owner/templates",
-    path: "/settings/templates",
+    path: "/settings/templates#projects",
     highlight: (page) => button(page, "Preview Monthly reels"),
     crop: main,
     alt: "Templates with a project template's Preview button highlighted.",
+  },
+  {
+    id: "owner/delete-unused",
+    path: "/settings/job-titles",
+    highlight: (page) => button(page, "Delete Graphic Designer"),
+    crop: main,
+    alt: "Job titles with a row's red Delete highlighted.",
   },
   {
     id: "owner/settings",
@@ -694,6 +712,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/thresholds",
     path: "/settings/thresholds",
+    prepare: (page) => page.locator("summary").getByText("Tasks", { exact: true }).click(),
     highlight: (page) => page.getByLabel("Acknowledgement reminder (hours)"),
     crop: main,
     alt: "Thresholds with the Acknowledgement reminder (hours) field highlighted.",

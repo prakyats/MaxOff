@@ -40,6 +40,8 @@ export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
     .select(
       "id, name, description, recurrence, stages, items, stage_groups, deliverables, field_defaults, archived_at, created_by",
     )
+    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
+    .is("deleted_at", null)
     .order("name");
   if (error) throw error;
   return data.map((row) => {

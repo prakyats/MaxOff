@@ -49,7 +49,7 @@ export function OwnClaimsList({ claims }: { claims: ExpenseClaim[] }) {
     <>
       <ul
         data-slot="expense-claims"
-        className="border-border divide-border bg-card divide-y rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
       >
         {claims.map((claim) => {
           const outcome = claimOutcome(claim);
@@ -89,6 +89,7 @@ export function OwnClaimsList({ claims }: { claims: ExpenseClaim[] }) {
         })}
       </ul>
       <ConfirmDialog
+        destructive
         open={withdrawing !== null}
         onOpenChange={(open) => (open ? null : setWithdrawing(null))}
         title="Withdraw this claim?"

@@ -20,6 +20,7 @@ export {
 export {
   getTask,
   getTaskRead,
+  getTaskTitle,
   listUnreadCounts,
   listAssignees,
   listComments,
@@ -63,6 +64,7 @@ export {
   MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
+  needsYouSummary,
   openByDeadline,
   ownPart,
   rowMeta,
@@ -113,7 +115,11 @@ export {
 } from "./domain/activity";
 export {
   chatLabel,
+  earlierHandInLabel,
   handInFirst,
+  reopenAfterHandIn,
+  type HandInReopen,
+  HISTORY_ARRIVAL,
   moreSteps,
   neededLine,
   newestCommentAt,
@@ -130,6 +136,18 @@ export {
   type RelativeDeadline,
   type TaskView,
 } from "./domain/page";
+export {
+  CHAT_PAGE,
+  chatRows,
+  firstUnreadId,
+  mergeMessages,
+  type ChatEvent,
+  type ChatFace,
+  type ChatMessage,
+  type ChatRow,
+} from "./domain/chat";
+export { chatDayLabel, chatEvents, chatMessages, type ChatPeople } from "./domain/chat-feed";
+export { enlargedLine } from "./domain/chat-space";
 export { linkSegments, type TextSegment } from "./domain/links";
 export {
   activeAssignees,
@@ -139,6 +157,7 @@ export {
   isFinal,
   isLocked,
   isOverdue,
+  lateLabel,
   latestChangeRequest,
   pairName,
   remindAgainAt,
@@ -169,4 +188,4 @@ export {
 /** The Approvals screen's single approve, behind the delayed send's route (4.5). */
 export { approveTask } from "./actions/approvals";
 /** Background calls behind `/api/tasks/*` (ARCHITECTURE §4.4): plain server functions, not actions. */
-export { markTaskRead, readAvailability } from "./actions/background";
+export { markTaskRead, readAvailability, readEarlierComments } from "./actions/background";

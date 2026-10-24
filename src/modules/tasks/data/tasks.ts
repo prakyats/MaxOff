@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { listActivity } from "@/core/activity/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import type { ActivityEntry } from "@/core/activity";
@@ -10,6 +12,7 @@ import { nextPosition } from "@/core/lists";
 import { parseReminderRules } from "@/core/lib/reminder-rules";
 import { systemClock } from "@/core/time";
 
+import { CHAT_PAGE } from "../domain/chat";
 import type { TaskChanges, TaskFields } from "../domain/form";
 import type { TaskListRow } from "../domain/lists";
 import type {
@@ -106,6 +109,23 @@ export async function getTask(id: string): Promise<Task | null> {
   return data ? toTask(data) : null;
 }
 
+const TITLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A task's title alone, for the browser tab (`generateMetadata`): one column under the same RLS
+ * as `getTask` (`app.task_visible()`), so a task the reader may not see is null and the tab
+ * stays neutral. Next resolves a route's metadata on every prefetch of it, so this is all a task
+ * row's prefetch reads, never the page's set (P2 item 6). Not an id: null, with no read.
+ * `cache()`d per request.
+ */
+export const getTaskTitle = cache(async (id: string): Promise<string | null> => {
+  if (!TITLE_ID.test(id)) return null;
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.from("tasks").select("title").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data?.title ?? null;
+});
+
 /** Everyone ever on the task, removed people included (the history names them). */
 export async function listAssignees(taskId: string): Promise<TaskAssignee[]> {
   const supabase = await createServerSupabase();
@@ -144,23 +164,43 @@ export async function listStages(taskId: string): Promise<TaskStage[]> {
   }));
 }
 
-/** The comments, oldest first (a timeline reads down). */
-export async function listComments(taskId: string): Promise<TaskComment[]> {
+/**
+ * A page of the comments, oldest first (a timeline reads down): the latest `CHAT_PAGE`, or with
+ * `before` the page just before that message (Chat's "Load earlier", v1.8 V5b E). `more`: earlier
+ * comments remain.
+ */
+export async function listComments(
+  taskId: string,
+  before: { at: string; id: string } | null = null,
+): Promise<{ comments: TaskComment[]; more: boolean }> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from("task_comments")
     .select("id, author_id, on_behalf_of, body, created_at")
-    .eq("task_id", taskId)
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
+    .eq("task_id", taskId);
+  // Keyset (created_at, id): the page just before the oldest message the reader holds.
+  if (before) {
+    query = query.or(
+      `created_at.lt."${before.at}",and(created_at.eq."${before.at}",id.lt.${before.id})`,
+    );
+  }
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(CHAT_PAGE + 1);
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    authorId: row.author_id,
-    onBehalfOf: row.on_behalf_of,
-    body: row.body,
-    createdAt: row.created_at,
-  }));
+  const more = data.length > CHAT_PAGE;
+  const comments = data
+    .slice(0, CHAT_PAGE)
+    .reverse()
+    .map((row) => ({
+      id: row.id,
+      authorId: row.author_id,
+      onBehalfOf: row.on_behalf_of,
+      body: row.body,
+      createdAt: row.created_at,
+    }));
+  return { comments, more };
 }
 
 /**
@@ -513,7 +553,8 @@ function toBlocks(value: Json): { startAt: string; endAt: string }[] {
  */
 export async function availability(
   days: readonly string[],
-  memberIds: readonly string[],
+  /** Omitted: everyone the caller may see (the function's own default). */
+  memberIds?: readonly string[],
 ): Promise<AvailabilityDay[]> {
   const supabase = await createServerSupabase();
   const answers = await Promise.all(
@@ -521,7 +562,7 @@ export async function availability(
       supabase.rpc("member_availability", {
         from_date: day,
         to_date: day,
-        member_ids: [...memberIds],
+        ...(memberIds ? { member_ids: [...memberIds] } : {}),
       }),
     ),
   );

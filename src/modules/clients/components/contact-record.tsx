@@ -1,15 +1,18 @@
 "use client";
 
 import { MoreHorizontalIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import { customFieldsExtra } from "@/core/custom-fields/components/custom-fields-extra";
 import type { MemberOption } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { UnusedDeleteDialog } from "@/core/ui/composites/unused-delete-dialog";
 import { EditableRecord, type EditableField } from "@/core/ui/composites/editable-record";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { requestEdit } from "@/core/ui/edit/edit-requests";
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -30,6 +33,8 @@ import { toastResult } from "@/core/ui/toast";
 
 import {
   archiveContact,
+  contactUsage,
+  deleteContact,
   restoreContact,
   setPrimaryContact,
   updateContact,
@@ -122,16 +127,23 @@ export function ContactRecord({
  * The contact's ⋯ (3.4, kickoff 3 decision 4): Edit, Make primary, Archive (the primary asks
  * which live contact takes over; exactly one primary stays while any live contact exists) and
  * Restore. The moves go through their functions (`client_contact_*`), audited there.
+ * **Delete** (v1.8 V5a 6c) is the Owner's (`canDelete`): only a contact nothing ever pointed at
+ * goes (never edited, archived or made primary over others); the page then replaces itself with
+ * the client's.
  */
 export function ContactMenu({
   contact,
   others,
+  canDelete = false,
 }: {
   contact: ClientContact;
   /** The client's other live contacts, the candidates to become primary. */
   others: readonly { id: string; name: string }[];
+  /** The Owner's Delete of a contact nothing ever pointed at (V5a 6c). */
+  canDelete?: boolean;
 }) {
-  const [dialog, setDialog] = useState<"archive" | "primary" | null>(null);
+  const router = useRouter();
+  const [dialog, setDialog] = useState<"archive" | "primary" | "delete" | null>(null);
   const [nextId, setNextId] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
   const selectId = useId();
@@ -158,7 +170,7 @@ export function ContactMenu({
             <MoreHorizontalIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuContent align="end" className="min-w-48" title={contact.name}>
           {archived ? (
             <DropdownMenuItem onSelect={restore}>Restore</DropdownMenuItem>
           ) : (
@@ -172,11 +184,14 @@ export function ContactMenu({
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => setDialog("archive")}>
-                Archive
-              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setDialog("archive")}>Archive</DropdownMenuItem>
             </>
           )}
+          {canDelete ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
+              Delete
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -191,6 +206,25 @@ export function ContactMenu({
           toastResult(result, { success: `${contact.name} is the primary contact` });
         }}
       />
+
+      {dialog === "delete" ? (
+        <UnusedDeleteDialog
+          kind="contact"
+          name={contact.name}
+          loadUsage={() => contactUsage({ contactId: contact.id })}
+          onOpenChange={(open) => setDialog(open ? "delete" : null)}
+          onConfirm={async () => {
+            const result = await deleteContact({ contactId: contact.id });
+            toastResult(result, { success: `${contact.name} deleted` });
+            if (!result.ok) return;
+            // The page is gone: leave the dialog's entry first, then replace it with the client's.
+            closeOverlaysThen(() =>
+              router.replace(`/clients/${contact.clientId}`, { scroll: false }),
+            );
+            return false;
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={dialog === "archive"}

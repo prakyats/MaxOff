@@ -14,7 +14,7 @@ export default function Loading() {
         aria-busy="true"
         aria-label="Loading the contact"
         data-slot="loading-contact"
-        className="flex max-w-xl flex-col gap-4"
+        className="flex flex-col gap-4"
       >
         <Card aria-hidden>
           <CardContent className="flex flex-col gap-3">

@@ -85,7 +85,7 @@ export function TaskMenu({
             <MoreHorizontalIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuContent align="end" className="min-w-48" title={task.title}>
           {more.includes("done") ? (
             <DropdownMenuItem onSelect={() => setDialog("done")}>{doneLabel}</DropdownMenuItem>
           ) : null}

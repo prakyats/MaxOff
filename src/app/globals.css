@@ -24,6 +24,7 @@
   --color-ring: var(--ring);
   --color-brand: var(--brand);
   --color-logo: var(--logo);
+  --color-logo-foreground: var(--logo-foreground);
   --color-brand-foreground: var(--brand-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -37,13 +38,13 @@
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
   /* The calendar's weekly-off date number (decision 25 C): distinct, never red. */
-  --color-off-day: var(--off-day);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
@@ -58,53 +59,127 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  /* Radii stay within 10–12px (ARCHITECTURE §3.3); larger steps collapse to 12px. */
-  --radius-xl: 0.75rem;
-  --radius-2xl: 0.75rem;
-  --radius-3xl: 0.75rem;
-  --radius-4xl: 0.75rem;
-  /* Hairline borders carry depth; shadows are soft and offset, never heavy. */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 8px 24px -6px rgb(0 0 0 / 0.12);
-  --shadow-xl: 0 12px 32px -8px rgb(0 0 0 / 0.14);
+  /* The surface/elevation ladder (docs/DESIGN.md §3): page, raised, floating, modal. */
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-scrim: var(--scrim);
+  /* A holiday on the calendar (decision 25): green, never a status (DESIGN.md §4). */
+  --color-holiday: var(--holiday);
+  /* Leave on the calendar (PP-calendar-3, V5b): violet, its own tone, never a status. */
+  --color-leave: var(--leave);
+  --color-leave-soft: var(--leave-soft);
+  --color-leave-stripe: var(--leave-stripe);
+  /* Today's whole box on the calendar (PP-calendar-15): a faint neutral lift under the red circle. */
+  --color-today: var(--today);
+  --color-row-unread: var(--row-unread);
+  --color-row-read: var(--row-read);
+  /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
+  --color-destructive-solid: var(--destructive-solid);
+  --color-destructive-solid-foreground: var(--destructive-solid-foreground);
+  --color-approve: var(--approve);
+  --color-approve-foreground: var(--approve-foreground);
+
+  /*
+   * Four radii (DESIGN.md §5): 6px controls, 10px cards, 14px sheets, round chips. Tailwind's
+   * steps collapse onto them: sm and md are a control, lg (and bare `rounded`, = --radius) a
+   * card, xl and above a sheet. `xs` and arbitrary radii are a lint error (maxoff/design-tokens).
+   */
+  --radius-control: 0.375rem;
+  --radius-card: var(--radius);
+  --radius-sheet: 0.875rem;
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-sheet);
+  --radius-2xl: var(--radius-sheet);
+  --radius-3xl: var(--radius-sheet);
+  --radius-4xl: var(--radius-sheet);
+  /*
+   * Chat only (v1.8 V5b E, the approved chat sample): a message bubble's 16px corners (the joined
+   * corners of a group are a control's 6px) and the composer's rounded field.
+   */
+  --radius-bubble: 1rem;
+  --radius-composer: 1.375rem;
+
+  /*
+   * One shadow per elevation step (DESIGN.md §3): raised (cards), floating (menus, popovers,
+   * toasts), modal (dialogs, sheets). Values per theme in :root / .dark (`--elevation-*`).
+   */
+  --shadow-raised: var(--elevation-1);
+  --shadow-floating: var(--elevation-2);
+  --shadow-modal: var(--elevation-3);
+  --shadow: var(--elevation-1);
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+  --shadow-lg: var(--elevation-3);
+  --shadow-xl: var(--elevation-3);
+
+  /*
+   * The type scale: six steps, nothing under 12px (DESIGN.md §2). Tailwind's own names and
+   * unitless line heights, so a class says its step; `text-3xl` and above and arbitrary sizes
+   * are a lint error (maxoff/design-tokens).
+   */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  /* The one step under 12px: a bell's count pill only (owner, #89 comment 6338991185; DESIGN §2). */
+  --text-count: 0.6875rem;
+  --text-count--line-height: 1;
 }
 
-/* Pixora Clips brand theme (ARCHITECTURE §3.3). Light: bone surfaces, graphite text. */
+/* Pixora Clips brand theme (DESIGN.md §3, §4). Light: a warm cream page, white cards, graphite text;
+ * the sidebar one tone darker than the page (V5b major change 4). */
 :root {
-  --background: #fafaf9;
+  --background: #f6f5f2;
   --foreground: #18181b;
   --card: #ffffff;
   --card-foreground: #18181b;
   --popover: #ffffff;
   --popover-foreground: #18181b;
   /*
-   * The action colour rule (ARCHITECTURE §14.1, PRODUCT §2): brand red is the one action that
-   * commits, in both themes, white text (5.8:1). `--strong` is the neutral solid (selection
-   * states, the Approvals triggers), `--control-border` the secondary outline (≥ 3:1 against the
-   * page and the card, WCAG 1.4.11), and the focus ring is neutral: red is never decoration.
+   * The action colour rule (ADR-0015, DESIGN.md §4): red is urgent or destructive only. The one
+   * commit per layer (`--primary`) is the neutral solid, like `--strong` (selection states, the
+   * Approvals triggers); `--destructive-solid` is the named red commit of a destructive action
+   * (white text, 5.8:1, the same red in both themes). `--control-border` is the secondary outline
+   * (≥ 3:1 against the page and the card, WCAG 1.4.11), and the focus ring is neutral.
    */
-  --primary: #c42126;
+  --primary: #18181b;
   --primary-foreground: #ffffff;
   --strong: #18181b;
-  --strong-foreground: #fafaf9;
-  --control-border: #8a8a91;
-  --secondary: #f2f1ef;
+  --strong-foreground: #ffffff;
+  --destructive-solid: #c42126;
+  --destructive-solid-foreground: #ffffff;
+  /* The Forest green approve commit (owner 2026-10-21): Mark done when ready; one solid a layer. */
+  --approve: #15803d;
+  --approve-foreground: #ffffff;
+  --control-border: #85858c;
+  --secondary: #eeede8;
   --secondary-foreground: #18181b;
-  --muted: #f2f1ef;
-  --muted-foreground: #71717a;
-  --accent: #f2f1ef;
+  --muted: #eeede8;
+  --muted-foreground: #62626a;
+  --accent: #eeede8;
   --accent-foreground: #18181b;
   --brand-foreground: #ffffff;
   /* The logo tile is a fixed brand asset: same red in both themes, never overridden in .dark. */
   --logo: #c42126;
+  --logo-foreground: #ffffff;
   --destructive: #c42126;
   --destructive-foreground: #ffffff;
-  --border: #e7e5e4;
-  --input: #e7e5e4;
+  --border: #e3e2dd;
+  /* Faint (V5b sample fidelity): chevrons and other decorative marks, never text. */
+  --faint: #8b8b93;
+  --input: #e3e2dd;
   --ring: #18181b;
   --chart-1: #18181b;
   --chart-2: #52525b;
@@ -112,80 +187,150 @@
   --chart-4: #a1a1aa;
   --chart-5: #d4d4d8;
   --radius: 0.625rem;
-  --sidebar: #ffffff;
+  --sidebar: #efeee9;
   --sidebar-foreground: #18181b;
   --sidebar-primary: #18181b;
-  --sidebar-primary-foreground: #fafaf9;
-  --sidebar-accent: #f2f1ef;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffffff;
   --sidebar-accent-foreground: #18181b;
-  --sidebar-border: #e7e5e4;
+  --sidebar-border: #e3e2dd;
   --sidebar-ring: #18181b;
-  --success: #047857;
-  --success-soft: #e1efeb;
-  --info: #1d4ed8;
-  --info-soft: #e4eafa;
-  --attention: #ad5009;
-  --attention-soft: #f6eae1;
-  --danger: #c42126;
-  --danger-soft: #f8e4e5;
-  --neutral: #52525b;
-  --neutral-soft: #eaeaeb;
-  --off-day: #0369a1;
+  --success: #157e3c;
+  --success-soft: #e6f4ea;
+  --info: #2952cc;
+  --info-soft: #e9effd;
+  --attention: #8f5400;
+  --attention-soft: #fdf3e2;
+  --danger: #b42318;
+  --danger-soft: #fdecec;
+  --neutral: #62626a;
+  --neutral-soft: #efefef;
   --brand: #c42126;
-  --brand-soft: #f8e4e5;
+  --brand-soft: #fdecec;
+  /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
+  --holiday: #15803d;
+  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15; the design gate, 23 Oct): a neutral
+   * tint under the red circle on its date, never a red wash and never an outline. Light: one grey
+   * step under the white boxes (white on white was no tint at all); dark: one surface step up
+   * (surface-3). Every text on it reads at 4.5:1 (holiday green 4.5:1, the floor). */
+  --today: #f3f3f3;
+  /* An alert's row (PP-alerts-2, V5b; the design gate, 23 Oct): unread sits one shade lighter than
+   * read, as in the sample. Light: unread is the white card, read one quiet warm step under it (a
+   * grey unread row looked dimmer than the read ones); dark: read is the card, unread one surface
+   * step lighter. Text on both reads at 4.5:1. */
+  --row-unread: #ffffff;
+  --row-read: #f9f8f5;
+  /* Leave on the calendar (DESIGN.md §4, PP-calendar-10): a soft neutral bar with faint stripes,
+   * apart from every task type's colour; its text reads at 4.5:1 on the bar and on a stripe. */
+  --leave: #62626a;
+  /* PP-light-2 (V5b): the stripes one step stronger in light only, so they read on the cream
+   * page (dark is approved as it is). With the sample's `--leave` (#62626a) the text keeps AA on
+   * a stripe only down to about #DFDFE1 (#D4D4D8 fell to 4.1:1), so the bar is a near-white step
+   * instead (the sample's bar is clear over the day's white box): 4.54:1 text on a stripe, 1.25:1
+   * stripe on the bar. */
+  --leave-soft: #f8f8f9;
+  --leave-stripe: #dfdfe1;
+  /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
+  --scrim: rgb(0 0 0 / 0.1);
+  /* A person's initials when they have no photo (v1.8 V5b-D, the approved pull-in sample): four
+   * calm tones, the same in both themes, white initials at 4.9:1 or more on each. */
+  --avatar-1: #2f6b5f;
+  --avatar-2: #6d4fb3;
+  --avatar-3: #a8572e;
+  --avatar-4: #2c5aa0;
+  --avatar-foreground: #ffffff;
+  /* The surface ladder (DESIGN.md §3, major change 4): a warm cream page and white steps above
+   * it, so the page tint is distinct from the cards; the shadow confirms the step. No pure white
+   * page anywhere. */
+  --surface-0: #f6f5f2;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  /* One shadow per step: soft and offset, never heavy. */
+  --elevation-1: 0 1px 2px 0 rgb(20 20 20 / 0.06), 0 4px 14px 0 rgb(20 20 20 / 0.06);
+  --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.08);
+  --elevation-3: 0 12px 32px 0 rgb(24 24 27 / 0.14), 0 2px 6px 0 rgb(24 24 27 / 0.06);
+  /* Calm motion (DESIGN.md §7): one ease, three durations. */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 260ms;
+  --motion-ease: cubic-bezier(0, 0, 0.2, 1);
 }
 
 /* Dark: graphite. Surfaces sit one step above the page so cards read as surfaces, not borders. */
 .dark {
   --background: #0b0b0c;
-  --foreground: #fafaf9;
-  --card: #141416;
-  --card-foreground: #fafaf9;
-  --popover: #141416;
-  --popover-foreground: #fafaf9;
-  --primary: #c42126;
-  --primary-foreground: #ffffff;
-  --strong: #fafaf9;
-  --strong-foreground: #18181b;
+  --foreground: #ededee;
+  --card: #131315;
+  --card-foreground: #ededee;
+  --popover: #1a1a1d;
+  --popover-foreground: #ededee;
+  --primary: #ededee;
+  --primary-foreground: #0b0b0c;
+  --strong: #ededee;
+  --strong-foreground: #0b0b0c;
+  --destructive-solid: #c42126;
+  --destructive-solid-foreground: #ffffff;
+  --approve: #15803d;
+  --approve-foreground: #ffffff;
   --control-border: #6b6b73;
   --secondary: #1f1f23;
-  --secondary-foreground: #fafaf9;
+  --secondary-foreground: #ededee;
   --muted: #1f1f23;
-  --muted-foreground: #a1a1aa;
+  --muted-foreground: #9d9da5;
   --accent: #1f1f23;
-  --accent-foreground: #fafaf9;
+  --accent-foreground: #ededee;
   --brand-foreground: #0b0b0c;
   --destructive: #f2686d;
   --destructive-foreground: #0b0b0c;
-  --border: #26262a;
-  --input: #26262a;
-  --ring: #fafaf9;
-  --chart-1: #fafaf9;
+  --border: #25252a;
+  --faint: #6b6b73;
+  --input: #25252a;
+  --ring: #ededee;
+  --chart-1: #ededee;
   --chart-2: #a1a1aa;
   --chart-3: #71717a;
   --chart-4: #52525b;
   --chart-5: #3f3f46;
-  --sidebar: #141416;
-  --sidebar-foreground: #fafaf9;
-  --sidebar-primary: #fafaf9;
-  --sidebar-primary-foreground: #18181b;
-  --sidebar-accent: #1f1f23;
-  --sidebar-accent-foreground: #fafaf9;
-  --sidebar-border: #26262a;
-  --sidebar-ring: #fafaf9;
-  --success: #34d399;
-  --success-soft: #1a362e;
-  --info: #7da2ff;
-  --info-soft: #272e40;
-  --attention: #fbbf24;
-  --attention-soft: #3e3319;
-  --danger: #f2686d;
-  --danger-soft: #3c2326;
-  --neutral: #a1a1aa;
-  --neutral-soft: #2d2d31;
-  --off-day: #7dd3fc;
+  /* The sidebar is chrome: a cooler neutral one step off the page, under the cards (FINAL 2). */
+  --sidebar: #0f0f11;
+  --sidebar-foreground: #ededee;
+  --sidebar-primary: #ededee;
+  --sidebar-primary-foreground: #0b0b0c;
+  --sidebar-accent: #222226;
+  --sidebar-accent-foreground: #ededee;
+  --sidebar-border: #25252a;
+  --sidebar-ring: #ededee;
+  --success: #5fd497;
+  --success-soft: #10291c;
+  --info: #8fb0ff;
+  --info-soft: #18203a;
+  --attention: #f5b55a;
+  --attention-soft: #33240e;
+  --danger: #ff8a8f;
+  --danger-soft: #3a1517;
+  --neutral: #9d9da5;
+  --neutral-soft: #232327;
   --brand: #f2686d;
-  --brand-soft: #3c2326;
+  --brand-soft: #3a1517;
+  --holiday: #4ade80;
+  --today: #222226;
+  /* One surface step lighter than the card (= surface-2); a read row is the card. */
+  --row-unread: #1a1a1d;
+  --row-read: #131315;
+  --leave: #9d9da5;
+  --leave-soft: #27272a;
+  --leave-stripe: #232327;
+  /* A deeper veil: 10% black disappears on a graphite page. */
+  --scrim: rgb(0 0 0 / 0.3);
+  /* In dark a higher step is a lighter graphite: shadows barely read on black. */
+  --surface-0: #0b0b0c;
+  --surface-1: #131315;
+  --surface-2: #1a1a1d;
+  --surface-3: #222226;
+  --elevation-1: 0 1px 0 0 rgb(255 255 255 / 0.03), 0 6px 18px 0 rgb(0 0 0 / 0.35);
+  --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.45);
+  --elevation-3: 0 12px 32px 0 rgb(0 0 0 / 0.5);
 }
 
 @layer base {
@@ -206,7 +351,7 @@
   body {
     /* Counts, dates and amounts line up in every table and list. */
     font-variant-numeric: tabular-nums;
-    /* Neutral: red is reserved for the commit action (ARCHITECTURE §14.1). */
+    /* Neutral: red is urgent or destructive only (ADR-0015, DESIGN.md §4). */
     caret-color: var(--foreground);
     accent-color: var(--strong);
   }
@@ -228,10 +373,8 @@
  */
 @layer base {
   :root {
-    /* Height of the mobile brand bar. The page title bar sticks directly below it, so when the
-     * brand bar hides on scroll this drops to 0 and the title bar takes the top edge.
-     * `core/ui/shell/chrome-scroll.ts` sets `data-chrome` on <html>; nothing else moves. */
-    --app-chrome-h: 0rem;
+    /* Height of the laptop's sticky top bar (`TopBar`, md up): a sticky table header sits below it. */
+    --app-top-bar-h: 3.5rem;
     /* Height of the mobile bottom nav, used for page padding and for anything docked above it. */
     --app-bottom-nav-h: 0rem;
     /* Everything docked at the bottom clears the home indicator (viewport-fit=cover). */
@@ -271,15 +414,7 @@
 
   @media (max-width: 767px) {
     :root {
-      --app-chrome-h: 3rem;
       --app-bottom-nav-h: 3.5rem;
-    }
-    /* The brand bar is hidden: it slides out and the title bar moves up to the top edge. */
-    html[data-chrome="hidden"] {
-      --app-chrome-h: 0rem;
-    }
-    html[data-chrome="hidden"] [data-slot="top-bar"] {
-      transform: translateY(-100%);
     }
 
     /* A bottom bar with Alerts (none since 5B decision 1): the title bar doesn't repeat the bell. */
@@ -345,14 +480,6 @@
       width: 2.75rem;
       height: 2.75rem;
       transform: translate(-50%, -50%);
-    }
-  }
-
-  /* The brand bar slides away on scroll down and comes back on scroll up. Someone who asked for
-   * less motion still gets the bar, just without the slide. */
-  @media (prefers-reduced-motion: reduce) {
-    [data-slot="top-bar"] {
-      transition: none !important;
     }
   }
 }
@@ -424,6 +551,26 @@
     }
   }
 }
+/* The page grid (L1, DESIGN.md §6): lists, boards and sections take the main column's full width;
+ * a block of running text (a description, a note, a hint paragraph) stops at a reading measure. */
+@utility reading {
+  max-width: 70ch;
+}
+/* A hairline under a sticky header row (a table's): a border on a sticky `thead` scrolls away with
+ * the collapsed borders, an inset hairline in the `border` colour stays with it. */
+/* Leave's bar and chip (PP-calendar-10): faint diagonal stripes over the soft neutral fill, so
+ * leave reads as time away, never as a task type's colour. */
+@utility leave-stripes {
+  background-color: var(--leave-soft);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--leave-stripe) 0 2px,
+    transparent 2px 6px
+  );
+}
+@utility hairline-b {
+  box-shadow: inset 0 -1px 0 var(--border);
+}
 @utility pressable-row {
   transition-property: background-image, background-color;
   transition-duration: 120ms;
@@ -432,6 +579,90 @@
     background-image: linear-gradient(var(--press-tint), var(--press-tint));
     transition-duration: 0ms;
   }
+}
+
+/* A person's photo (`PersonAvatar`, v1.8 V5b-D, the approved pull-in sample): four fixed sizes,
+ * a 1 px ring in the line colour and a 2 px ring in the surface behind it (`--avatar-ring`, the
+ * card unless the row says otherwise), so a photo keeps its edge in both themes and faces in a
+ * stack stay apart. The ring is a shadow: it never changes the avatar's size. */
+[data-slot="person-avatar"] {
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 0 0 3px var(--avatar-ring, var(--card));
+  color: var(--avatar-foreground);
+  font-weight: 600;
+  line-height: 1;
+}
+[data-slot="person-avatar"][data-size="20"] {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+[data-slot="person-avatar"][data-size="28"] {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+[data-slot="person-avatar"][data-size="40"] {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+[data-slot="person-avatar"][data-size="64"] {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+/* The calendar's leave bar, where even "Name · Leave" has no room (owner 23 Oct): the
+ * person's photo and "Leave" (on the phone's full month, where that too has no room, the photo
+ * alone). The 20 px face drawn at 14 px with its 1 px line ring only, so it
+ * sits inside the bar's 16 px line and the bar keeps its height whichever wording it shows. */
+[data-leave-word="photo"] > [data-slot="person-avatar"][data-size],
+[data-leave-word="face"] > [data-slot="person-avatar"][data-size] {
+  width: 14px;
+  height: 14px;
+  margin-right: 3px;
+  font-size: 7px;
+  margin-top: 1px;
+  vertical-align: top;
+  box-shadow: 0 0 0 1px var(--border);
+}
+[data-slot="person-avatar"][data-tone="1"] {
+  background-color: var(--avatar-1);
+}
+[data-slot="person-avatar"][data-tone="2"] {
+  background-color: var(--avatar-2);
+}
+[data-slot="person-avatar"][data-tone="3"] {
+  background-color: var(--avatar-3);
+}
+[data-slot="person-avatar"][data-tone="4"] {
+  background-color: var(--avatar-4);
+}
+/* No person to show (a job's alert, someone outside the viewer's directory): a quiet neutral. */
+[data-slot="person-avatar"][data-tone="none"] {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+/* An overlap stack: each face after the first tucks 6 px under the one before. */
+[data-slot="avatar-stack"] > [data-slot="person-avatar"] + [data-slot="person-avatar"] {
+  margin-left: -6px;
+}
+/* An alert's row is its own shade (read, or one lighter unread): its avatar's ring follows it. */
+[data-slot="notification-row"] {
+  --avatar-ring: var(--row-read);
+}
+[data-unread] {
+  --avatar-ring: var(--row-unread);
+}
+
+/* The one row (`ListRow`, FINAL 5): its opener is stretched over the row by its ::after, so the
+ * pressed tint is drawn there, over the whole row, and not on the opener's own text box. */
+[data-slot="list-row-opener"].pressable-row:active:not(:disabled, [aria-disabled="true"]) {
+  background-image: none;
+}
+[data-slot="list-row-opener"]:active:not(:disabled, [aria-disabled="true"])::after {
+  background-image: linear-gradient(var(--press-tint), var(--press-tint));
 }
 :root {
   --press-tint: color-mix(in oklab, var(--foreground) 10%, transparent);
@@ -680,6 +911,99 @@ html[data-nav-slide="forward"] [data-slot="route"] {
   }
 }
 
+/* Menus as bottom sheets on a phone (L5, docs/DESIGN.md §6). Radix places a menu with an inline
+ * `transform` on its popper wrapper; below `md` the wrapper is pinned to the bottom edge instead and
+ * the menu becomes a full-width sheet (surface step 3) with a grab handle, a scrim (a spread shadow
+ * in the scrim colour: a tap on it lands outside the menu, which closes it as any outside tap does)
+ * and 44px rows at 16px. It slides up and down; reduced motion keeps the fade only. */
+@media (max-width: 767px) {
+  [data-radix-popper-content-wrapper]:has(> [data-slot="dropdown-menu-content"]) {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    min-width: 0 !important;
+  }
+  [data-slot="dropdown-menu-content"] {
+    width: 100% !important;
+    max-width: none;
+    max-height: min(80dvh, 36rem) !important;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding: 0.75rem 0.5rem calc(0.75rem + var(--app-safe-bottom));
+    background-color: var(--surface-3);
+    box-shadow:
+      0 0 0 100vmax var(--scrim),
+      var(--elevation-3);
+    font-size: 1rem;
+    line-height: 1.5;
+    --tw-enter-translate-y: 100% !important;
+    --tw-exit-translate-y: 100% !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    animation-duration: var(--motion-base);
+    animation-timing-function: var(--motion-ease);
+  }
+  /* PP-sheet-4 (V5b): the rows are More's list items: 44 px, 12 px in, a 12 px gap to a 20 px
+   * icon, the card's rounded pressed tint. */
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"] {
+    font-size: 1rem;
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    gap: 0.75rem;
+    border-radius: var(--radius-card);
+  }
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"] svg:not([class*="size-"]) {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-separator"] {
+    margin-inline: 0.75rem;
+  }
+  [data-slot="menu-sheet-handle"] {
+    display: block;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0 auto 0.5rem;
+    border-radius: 9999px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="dropdown-menu-content"] {
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+    }
+  }
+}
+
+/* Toasts (P3, docs/DESIGN.md §6): bottom-centre on laptop and phone, above everything docked at the
+ * bottom so an Undo never covers the page header or a commit. `--app-toast-lift` is the height of
+ * what is docked above the bottom nav: the phone's FAB, a floating save bar (its measured height),
+ * the Select bar. */
+:root {
+  --app-toast-lift: 0px;
+  --app-toast-bottom: calc(1.5rem + var(--app-bands-h, 0px) + var(--app-toast-lift));
+}
+html:has([data-slot="bulk-bar"]) {
+  --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 0.75rem);
+}
+@media (max-width: 767px) {
+  :root {
+    --app-toast-bottom: calc(
+      var(--app-bottom-nav-h) + var(--app-safe-bottom) + var(--app-bands-h, 0px) + 0.75rem +
+        var(--app-toast-lift)
+    );
+  }
+  html:has([data-slot="page-actions"]) {
+    --app-toast-lift: 4rem;
+  }
+  html:has([data-slot="sticky-actions"]) {
+    --app-toast-lift: var(--app-sticky-actions-h, 5rem);
+  }
+  html:has([data-slot="bulk-bar"]) {
+    --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 1rem);
+  }
+}
+
 /* A page with a floating primary action or a sticky save bar gets room for it, so neither ever
  * covers the last row or the last field (ARCHITECTURE §14.1). In the utilities layer on purpose:
  * the shell's `main` sets its padding with a utility class, which beats anything in `base` (the
@@ -688,9 +1012,10 @@ html[data-nav-slide="forward"] [data-slot="route"] {
  * bar (large system text, a wrapped label) still clears; a focused control scrolls above it. */
 @layer utilities {
   @media (max-width: 767px) {
+    /* L3: the FAB is 3rem tall, 1rem above the bar; the last row ends 1.5rem above its top. */
     main:has([data-slot="page-actions"]) {
       padding-bottom: calc(
-        var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
+        var(--app-bottom-nav-h) + 5.5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
     }
     main:has([data-slot="sticky-actions"]) {
@@ -749,5 +1074,29 @@ html[data-nav-slide="forward"] [data-slot="route"] {
       flex: 1 1 0px;
       flex-direction: column;
     }
+  }
+}
+
+/* PP-calendar-13: the laptop month's "+" (New task on the day, `MonthGrid`'s `add`) exists for a
+ * mouse or trackpad only, never a touch screen; it shows while the pointer is on the box's empty
+ * part (not on a chip, "+N more" or the leave bar) and while it has the keyboard's focus. */
+[data-slot="calendar-add"] {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  [data-slot="calendar-add"] {
+    display: flex;
+    opacity: 0;
+  }
+  [data-slot="calendar-cell"]:hover:not(
+      :has(
+        [data-slot="calendar-strip"]:hover,
+        [data-slot="calendar-more"]:hover,
+        [data-slot="calendar-leave-bar"]:hover
+      )
+    )
+    > [data-slot="calendar-add"],
+  [data-slot="calendar-add"]:focus-within {
+    opacity: 1;
   }
 }

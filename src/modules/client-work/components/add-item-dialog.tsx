@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -196,10 +197,9 @@ export function AddItemDialog({
               error={error?.field === "plannedDate" ? error.message : undefined}
             >
               {(control) => (
-                <Input
+                <DateInput
                   {...control}
                   name="plannedDate"
-                  type="date"
                   value={planned}
                   onChange={(event) => setPlanned(event.target.value)}
                 />
@@ -234,7 +234,13 @@ export function AddItemDialog({
               )}
             </FormField>
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button type="submit" variant="primary" pending={pending} pendingLabel="Adding…">
@@ -245,6 +251,7 @@ export function AddItemDialog({
         </DialogContent>
       </Dialog>
       <ConfirmDialog
+        destructive
         open={phase === "discard"}
         onOpenChange={(open) => {
           if (!open) setPhase("form");

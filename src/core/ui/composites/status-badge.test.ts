@@ -3,7 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { STATUS_TONES, STATUS_TONES_LIST, statusLabel, statusTone } from "./status-badge";
+import {
+  attendanceStatus,
+  STATUS_TONES,
+  STATUS_TONES_LIST,
+  statusLabel,
+  statusTone,
+} from "./status-badge";
 
 /** Every enum value in DATA-MODEL §0 that a badge can show. Keep in sync with the doc. */
 const DATA_MODEL_STATES = {
@@ -65,7 +71,7 @@ describe("STATUS_TONES", () => {
   });
 
   it("follows the brand rules: red means act now, green means accepted", () => {
-    for (const s of ["rejected", "absent", "cancelled", "declined", "urgent"]) {
+    for (const s of ["rejected", "absent", "declined", "urgent"]) {
       expect(statusTone(s), s).toBe("danger");
     }
     for (const s of ["approved", "completed", "done", "settled", "billed"]) {
@@ -77,17 +83,42 @@ describe("STATUS_TONES", () => {
     for (const s of ["pending_review", "awaiting_choice", "changes_requested", "admin_approved"]) {
       expect(statusTone(s), s).toBe("attention");
     }
+    // Owner correction 2026-10-21 (reverses C5): Cancelled is final, so red.
+    expect(statusTone("cancelled")).toBe("danger");
     for (const s of ["draft", "todo", "inactive", "withdrawn", "none", "skipped"]) {
       expect(statusTone(s), s).toBe("neutral");
     }
   });
 
-  it("keeps info (blue) for work in motion only", () => {
+  it("follows the approved colour plan's chip table (owner 2026-10-21)", () => {
+    // red: Overdue/Late, Cancelled, Rejected, Absent
+    for (const s of ["cancelled", "rejected", "absent", "declined", "urgent"]) {
+      expect(statusTone(s), s).toBe("danger");
+    }
+    // amber: Proposed, Waiting for you, Due soon, Nearly done
+    for (const s of ["pending_review", "awaiting_choice", "admin_approved", "pending"]) {
+      expect(statusTone(s), s).toBe("attention");
+    }
+    // blue: In progress, Open, Planned, Noted
+    for (const s of ["in_progress", "open", "submitted"]) {
+      expect(statusTone(s), s).toBe("info");
+    }
+    // green: Done, Approved, Present, Active
+    for (const s of ["done", "completed", "approved", "present", "active"]) {
+      expect(statusTone(s), s).toBe("success");
+    }
+    // grey: Draft, Archived, Withdrawn, Replaced, Not started
+    for (const s of ["draft", "withdrawn", "superseded", "todo", "inactive"]) {
+      expect(statusTone(s), s).toBe("neutral");
+    }
+  });
+
+  it("keeps info (blue) for work in motion or open for work only", () => {
     const info = Object.entries(STATUS_TONES)
       .filter(([, tone]) => tone === "info")
       .map(([status]) => status)
       .sort();
-    expect(info).toEqual(["converted", "in_progress", "submitted"]);
+    expect(info).toEqual(["converted", "in_progress", "open", "submitted"]);
     for (const s of ["invited", "leave", "half_day", "comp_leave", "carry_forward", "corrected"]) {
       expect(statusTone(s), s).toBe("neutral");
     }
@@ -170,6 +201,54 @@ describe("badge contrast (globals.css)", () => {
       }
     });
 
+    it(`${theme}: the calendar's leave text reads on its bar and its stripes (PP-calendar-3, 10)`, () => {
+      for (const bg of ["leave-soft", "leave-stripe"]) {
+        expect(tokens[bg], `--${bg} missing in ${selector}`).toBeDefined();
+        const ratio = contrast(tokens["leave"] as string, tokens[bg] as string);
+        expect(ratio, `${theme} leave on ${bg} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    if (theme === "light") {
+      it("light: the leave stripes read against their bar (PP-light-2)", () => {
+        const ratio = contrast(tokens["leave-stripe"] as string, tokens["leave-soft"] as string);
+        expect(ratio, `stripe on bar = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(1.25);
+      });
+    }
+
+    it(`${theme}: an unread alert's row is one shade lighter than a read one and both read (PP-alerts-2)`, () => {
+      const unread = tokens["row-unread"] as string;
+      const read = tokens["row-read"] as string;
+      expect(unread, `--row-unread missing in ${selector}`).toBeDefined();
+      expect(read, `--row-read missing in ${selector}`).toBeDefined();
+      // The design gate (23 Oct): unread is lighter, never dimmer, in both themes.
+      expect(luminance(hexToRgb(unread))).toBeGreaterThan(luminance(hexToRgb(read)));
+      for (const bg of [unread, read]) {
+        for (const text of ["foreground", "muted-foreground"]) {
+          const ratio = contrast(tokens[text] as string, bg);
+          expect(ratio, `${theme} ${text} on ${bg} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
+            4.5,
+          );
+        }
+      }
+    });
+
+    it(`${theme}: today's box is a neutral tint, apart from the boxes and the weekly off, and its text reads (PP-calendar-15)`, () => {
+      const bg = tokens["today"];
+      expect(bg, `--today missing in ${selector}`).toBeDefined();
+      // A neutral tint, not a red wash (the design gate, 23 Oct: light is one grey step under the
+      // white boxes, dark one surface step up); never the card itself or the weekly off's tint.
+      expect(bg).toBe(theme === "light" ? "#f3f3f3" : tokens["surface-3"]);
+      expect(bg).not.toBe(tokens["card"]);
+      expect(bg).not.toBe(tokens["muted"]);
+      for (const text of ["foreground", "muted-foreground", "neutral", "holiday"]) {
+        const ratio = contrast(tokens[text] as string, bg as string);
+        expect(ratio, `${theme} ${text} on today = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
+          4.5,
+        );
+      }
+    });
+
     it(`${theme}: body and muted text read on the page and on surfaces`, () => {
       for (const surface of ["background", "card"]) {
         const bg = tokens[surface] as string;
@@ -182,6 +261,192 @@ describe("badge contrast (globals.css)", () => {
       expect(
         contrast(tokens["primary-foreground"] as string, tokens["primary"] as string),
       ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(
+          tokens["destructive-solid-foreground"] as string,
+          tokens["destructive-solid"] as string,
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${theme}: the page, the cards and the sidebar are three readable layers (V5b major change 4, FINAL 2)`, () => {
+      // No pure white page; the page tint distinct from the cards; the sidebar one step off it.
+      expect(tokens["background"]).not.toBe("#ffffff");
+      expect(tokens["surface-0"]).toBe(tokens["background"]);
+      expect(tokens["card"]).not.toBe(tokens["background"]);
+      expect(tokens["sidebar"]).not.toBe(tokens["background"]);
+      expect(tokens["sidebar"]).not.toBe(tokens["card"]);
+      // The card's hairline is visible against the card (about 1.15:1 or more).
+      const edge = contrast(tokens["border"] as string, tokens["card"] as string);
+      expect(edge, `${theme} border on card = ${edge.toFixed(2)}`).toBeGreaterThanOrEqual(1.15);
+      // Muted text reads on the quiet fills and in the sidebar too.
+      for (const surface of ["muted", "sidebar", "sidebar-accent"]) {
+        const ratio = contrast(tokens["muted-foreground"] as string, tokens[surface] as string);
+        expect(
+          ratio,
+          `${theme} muted text on ${surface} = ${ratio.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+      // The secondary outline is a 3:1 edge on the page, the card and the sidebar (WCAG 1.4.11).
+      for (const surface of ["background", "card", "sidebar"]) {
+        const ratio = contrast(tokens["control-border"] as string, tokens[surface] as string);
+        expect(
+          ratio,
+          `${theme} control edge on ${surface} = ${ratio.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it(`${theme}: the holiday green reads as text on the page and on every surface`, () => {
+      for (const surface of ["background", "card", "surface-2", "surface-3"]) {
+        const bg = tokens[surface] as string;
+        expect(bg, `--${surface} missing in ${selector}`).toBeDefined();
+        expect(contrast(tokens["holiday"] as string, bg)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(tokens["muted-foreground"] as string, bg)).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${theme}: the Forest green approve commit is the same in both themes and reads (ADR-0015 amendment)`, () => {
+      expect(tokens["approve"]).toBe("#15803d");
+      expect(tokens["approve-foreground"]).toBe("#ffffff");
+      const text = contrast(tokens["approve-foreground"] as string, tokens["approve"] as string);
+      expect(text, `white on approve = ${text.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+      // The button's edge against the page and the card it sits on (WCAG 1.4.11, 3:1).
+      for (const surface of ["background", "card"]) {
+        const edge = contrast(tokens["approve"] as string, tokens[surface] as string);
+        expect(edge, `${theme} approve on ${surface} = ${edge.toFixed(2)}`).toBeGreaterThanOrEqual(
+          3,
+        );
+      }
+      expect(tokens["approve"]).not.toBe(tokens["danger"]);
+      expect(tokens["approve"]).not.toBe(tokens["primary"]);
+    });
+
+    it(`${theme}: every chip ink also reads as text on the page and the card (risk and due text)`, () => {
+      for (const tone of STATUS_TONES_LIST) {
+        for (const surface of ["background", "card"]) {
+          const ratio = contrast(tokens[tone] as string, tokens[surface] as string);
+          expect(
+            ratio,
+            `${theme} ${tone} on ${surface} = ${ratio.toFixed(2)}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+
+    it(`${theme}: the faint mark (chevrons) is a 3:1 graphic on the card and the page (WCAG 1.4.11)`, () => {
+      for (const surface of ["background", "card"]) {
+        const ratio = contrast(tokens["faint"] as string, tokens[surface] as string);
+        expect(ratio, `${theme} faint on ${surface} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
+          3,
+        );
+      }
+    });
+
+    it(`${theme}: the commit is neutral and only the destructive commit is red (ADR-0015)`, () => {
+      expect(tokens["primary"]).toBe(tokens["strong"]);
+      expect(tokens["primary"]).not.toBe(tokens["danger"]);
+      expect(tokens["destructive-solid"]).toBe("#c42126");
     });
   }
+});
+
+/**
+ * SAMPLE FIDELITY (V5b SCOPE §6, owner 22 Oct): the tokens are the approved samples' own values
+ * (`docs/design/v18-major-changes-sample.html`, its `.mx` / `.mx.light` blocks). The only
+ * departures are the AA flags in DESIGN.md §Decisions: the light green ink (the sample's #15803d
+ * reads 4.42:1 on its tint) and the brand red (the sample's #d92d34 / #e5484d fail as chip text
+ * on their tint), so neither is listed here.
+ */
+const SAMPLE = {
+  light: {
+    background: "#f6f5f2",
+    card: "#ffffff",
+    "surface-1": "#ffffff",
+    "surface-2": "#ffffff",
+    "surface-3": "#ffffff",
+    sidebar: "#efeee9",
+    "sidebar-accent": "#ffffff",
+    foreground: "#18181b",
+    "muted-foreground": "#62626a",
+    faint: "#8b8b93",
+    border: "#e3e2dd",
+    "danger-soft": "#fdecec",
+    danger: "#b42318",
+    "attention-soft": "#fdf3e2",
+    attention: "#8f5400",
+    "info-soft": "#e9effd",
+    info: "#2952cc",
+    "success-soft": "#e6f4ea",
+    "neutral-soft": "#efefef",
+    neutral: "#62626a",
+    primary: "#18181b",
+    "primary-foreground": "#ffffff",
+  },
+  dark: {
+    background: "#0b0b0c",
+    card: "#131315",
+    "surface-1": "#131315",
+    "surface-2": "#1a1a1d",
+    "surface-3": "#222226",
+    sidebar: "#0f0f11",
+    "sidebar-accent": "#222226",
+    foreground: "#ededee",
+    "muted-foreground": "#9d9da5",
+    faint: "#6b6b73",
+    border: "#25252a",
+    "danger-soft": "#3a1517",
+    danger: "#ff8a8f",
+    "attention-soft": "#33240e",
+    attention: "#f5b55a",
+    "info-soft": "#18203a",
+    info: "#8fb0ff",
+    "success-soft": "#10291c",
+    success: "#5fd497",
+    "neutral-soft": "#232327",
+    neutral: "#9d9da5",
+    primary: "#ededee",
+    "primary-foreground": "#0b0b0c",
+  },
+} as const;
+
+describe("sample fidelity (V5b SCOPE §6)", () => {
+  for (const [theme, selector] of [
+    ["light", ":root"],
+    ["dark", ".dark"],
+  ] as const) {
+    it(`${theme}: the page, surfaces, sidebar, line, text and chips are the sample's values`, () => {
+      const tokens = readTokens(css, selector);
+      for (const [name, value] of Object.entries(SAMPLE[theme])) {
+        expect(tokens[name], `--${name} in ${selector}`).toBe(value);
+      }
+    });
+  }
+
+  it("the card shadow and the radii are the sample's", () => {
+    expect(css).toContain(
+      "--elevation-1: 0 1px 2px 0 rgb(20 20 20 / 0.06), 0 4px 14px 0 rgb(20 20 20 / 0.06);",
+    );
+    expect(css).toContain(
+      "--elevation-1: 0 1px 0 0 rgb(255 255 255 / 0.03), 0 6px 18px 0 rgb(0 0 0 / 0.35);",
+    );
+    expect(css).toContain("--radius: 0.625rem;");
+    expect(css).toContain("--radius-control: 0.375rem;");
+    expect(css).toContain("--radius-sheet: 0.875rem;");
+  });
+});
+
+describe("attendanceStatus (B13: one colour per attendance status)", () => {
+  it("colours an undecided day amber, whatever it proposes", () => {
+    const proposed = attendanceStatus({ status: "absent", undecided: true });
+    expect(proposed).toBe("pending_review");
+    expect(statusTone(proposed)).toBe("attention");
+    expect(attendanceStatus({ status: "leave", undecided: true })).toBe("pending_review");
+  });
+
+  it("colours a decided day by its outcome", () => {
+    expect(statusTone(attendanceStatus({ status: "absent", undecided: false }))).toBe("danger");
+    expect(statusTone(attendanceStatus({ status: "present", undecided: false }))).toBe("success");
+    expect(attendanceStatus({ status: null, undecided: false })).toBe("awaiting_choice");
+  });
 });

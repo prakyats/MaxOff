@@ -2,28 +2,27 @@ import type { Metadata } from "next";
 
 import { listAllDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead } from "@/core/lib/start-early";
+import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import { listStagePresets } from "@/modules/settings";
 import { listTaskTemplates, listTaskTypes } from "@/modules/tasks";
 import { listDeliverableTemplates, listProjectTemplates } from "@/modules/templates";
-import { ClientWorkTemplates } from "@/modules/templates/components/client-work-templates";
-import { AddTemplateButton, TemplateManager } from "@/modules/tasks/components/template-manager";
 import { listDirectory } from "@/modules/team";
 
 import { SETTINGS_HEADERS } from "../headers";
 
+import { TemplatesLibrary } from "./templates-library";
+
 export const metadata: Metadata = { title: "Templates" };
 
 /**
- * Settings → Templates (4.6; PRODUCT §4.6, WORKFLOWS §3.5, Kickoff 4 decision 19): task templates,
- * shared company-wide (`templates.manage`: the Owner and Admins). An Admin edits and archives
- * their own, the Owner any; RLS decides again. **Two groups** (kickoff 7 decision 23, 7.4): project
- * templates (a repeat, stages, an item list, field defaults; no billing category, amendment C) and
- * task templates; "Add template" in the header adds a task template, each group its own. **6b
- * Release 2:** a third group, **Deliverable templates**, and one search with a Preview on every
- * client-work template (ROADMAP 6b.16 (f)).
+ * Settings → Templates, the one Templates page (6b.6 owner note, 2026-10-16; 4.6, 7.4, 6b Release
+ * 2): Stage presets → Deliverable templates → Project templates, a divider, then Task templates,
+ * with one search across all four (`TemplatesLibrary`). `templates.manage` opens it (the Owner and
+ * Admins); Stage presets show for `lists.manage`. An Admin edits and deletes (archives, D6) their
+ * own, the Owner any; RLS decides again.
  */
 export default async function TemplatesSettingsPage() {
   // Read together with the permission check, not after it (ARCHITECTURE §19).
@@ -54,17 +53,8 @@ export default async function TemplatesSettingsPage() {
       listDeliverableTemplates(),
     ]),
   );
-  const context = {
-    viewer: { id: viewer.id, role: viewer.role },
-    types,
-    definitions,
-    members: directory
-      .filter((member) => member.status === "active")
-      .map((member) => ({ id: member.id, name: member.fullName })),
-    names: Object.fromEntries(directory.map((member) => [member.id, member.fullName])),
-    // 5.3: under a template's reminders, its type's, then the organisation's.
-    orgReminders: settings.defaultTaskReminders,
-  };
+  const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const viewerRef = { id: viewer.id, role: viewer.role };
 
   return (
     <>
@@ -72,26 +62,28 @@ export default async function TemplatesSettingsPage() {
         back={{ href: "/settings", label: "Settings" }}
         title="Templates"
         {...SETTINGS_HEADERS.templates}
-        actions={<AddTemplateButton {...context} />}
       />
-      <div className="flex max-w-2xl flex-col gap-8">
-        <section aria-labelledby="task-templates" className="flex flex-col gap-3">
-          <h2 id="task-templates" className="flex min-h-11 items-center text-sm font-semibold">
-            Task templates
-          </h2>
-          <TemplateManager templates={templates} {...context} />
-        </section>
-        <ClientWorkTemplates
-          projectTemplates={projectTemplates}
-          deliverableTemplates={deliverableTemplates}
-          viewer={context.viewer}
-          names={context.names}
-          presets={presets
-            .filter((preset) => !preset.archived)
-            .map((preset) => ({ id: preset.id, name: preset.name, stages: preset.stages }))}
-          definitions={projectFields.filter((definition) => definition.archivedAt === null)}
-        />
-      </div>
+      <TemplatesLibrary
+        presets={presets}
+        deliverableTemplates={deliverableTemplates}
+        projectTemplates={projectTemplates}
+        taskTemplates={templates}
+        taskContext={{
+          viewer: viewerRef,
+          types,
+          definitions,
+          members: directory
+            .filter((member) => member.status === "active")
+            .map((member) => ({ id: member.id, name: member.fullName })),
+          names,
+          // 5.3: under a template's reminders, its type's, then the organisation's.
+          orgReminders: settings.defaultTaskReminders,
+        }}
+        viewer={viewerRef}
+        names={names}
+        projectFields={projectFields.filter((definition) => definition.archivedAt === null)}
+        showPresets={can(viewer.role, "lists.manage")}
+      />
     </>
   );
 }

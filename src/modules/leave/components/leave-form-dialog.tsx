@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
-import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import {
   Select,
   SelectContent,
@@ -35,13 +35,14 @@ import {
   compDatesFor,
   type CompLeaveKind,
   compKindsAvailable,
+  compLeaveLine,
   daysLabel,
-  expiryLabel,
 } from "../domain/credits";
 import {
   LEAVE_TYPE_LABELS,
   LEAVE_TYPES,
   leaveDates,
+  leaveDayCount,
   type LeaveType,
   type MemberLeaveType,
   type OwnLeaveRequest,
@@ -102,14 +103,28 @@ export function LeaveFormDialog({
   );
 }
 
+/** "3 days", "½ day": the length of what is being asked for; nothing while the range is unset. */
+function leaveLength(kind: Kind, startDate: string, endDate: string): string | null {
+  if (kind === "half_day" || kind === "comp_half") return daysLabel(0.5);
+  if (kind === "comp_full") return daysLabel(1);
+  if (!startDate || !endDate || endDate < startDate) return null;
+  return daysLabel(leaveDayCount(startDate, endDate));
+}
+
 /** The fields' tracing while the balance loads: a select, two dates, a reason, two buttons. */
 function FormSkeleton() {
   return (
     <div aria-hidden className="flex flex-col gap-4" data-slot="leave-form-skeleton">
       <Skeleton className="h-11 w-full" />
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <Skeleton className="h-11 flex-1" />
-        <Skeleton className="h-11 flex-1" />
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <Skeleton className="h-11 flex-1" />
+          <Skeleton className="h-11 flex-1" />
+        </div>
+        {/* The length under the range ("1 day"). */}
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-12" />
+        </div>
       </div>
       <Skeleton className="h-20 w-full" />
       <div className="flex justify-end gap-2">
@@ -195,6 +210,8 @@ function LeaveForm({
     action.run();
   }
 
+  const balanceText = compKinds.length > 0 ? compLeaveLine(comp) : null;
+  const length = leaveLength(kind, startDate, endDate);
   const fieldErrors = error?.fieldErrors ?? {};
   const summary = error && !error.fieldErrors ? describeError(error) : null;
   const dateError = fieldErrors.startDate ?? fieldErrors.date;
@@ -204,15 +221,7 @@ function LeaveForm({
       {summary ? (
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
       ) : null}
-      <FormField
-        label="Kind of leave"
-        error={fieldErrors.type}
-        {...(compKinds.length > 0 && comp.useBy
-          ? {
-              hint: `You have ${daysLabel(comp.availableDays)} of comp leave · ${expiryLabel(comp.useBy)}.`,
-            }
-          : {})}
-      >
+      <FormField label="Kind of leave" error={fieldErrors.type}>
         {(control) => (
           <Select value={kind} onValueChange={(next) => chooseKind(next as Kind)}>
             <SelectTrigger
@@ -238,61 +247,73 @@ function LeaveForm({
           </Select>
         )}
       </FormField>
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <FormField label={singleDate ? "Date" : "First day"} error={dateError} className="flex-1">
-          {(control) =>
-            compDates ? (
-              <Select value={startDate} onValueChange={setStartDate}>
-                <SelectTrigger
-                  id={control.id}
-                  className="w-full"
-                  aria-describedby={control["aria-describedby"]}
-                  aria-invalid={control["aria-invalid"]}
-                  data-field="comp-date"
-                >
-                  <SelectValue placeholder="No working day left before the use-by date" />
-                </SelectTrigger>
-                <SelectContent>
-                  {compDates.map((date) => (
-                    <SelectItem key={date} value={date}>
-                      {compDateLabel(date)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                {...control}
-                name="startDate"
-                type="date"
-                min={minStart}
-                {...(isComp && comp.useBy ? { max: comp.useBy } : {})}
-                value={startDate}
-                onChange={(event) => {
-                  setStartDate(event.target.value);
-                  // Keep the range the right way round while picking forward.
-                  if (event.target.value > endDate) setEndDate(event.target.value);
-                }}
-                required
-              />
-            )
-          }
-        </FormField>
-        {singleDate ? null : (
-          <FormField label="Last day" error={fieldErrors.endDate} className="flex-1">
-            {(control) => (
-              <Input
-                {...control}
-                name="endDate"
-                type="date"
-                min={startDate || minStart}
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                required
-              />
-            )}
+      {/* PP-forms-5: what is left, above the dates (comp leave is the only balance kept). */}
+      {balanceText ? (
+        <p data-slot="leave-balance" className="text-muted-foreground -mb-1 text-sm">
+          {balanceText}
+        </p>
+      ) : null}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <FormField label={singleDate ? "Date" : "First day"} error={dateError} className="flex-1">
+            {(control) =>
+              compDates ? (
+                <Select value={startDate} onValueChange={setStartDate}>
+                  <SelectTrigger
+                    id={control.id}
+                    className="w-full"
+                    aria-describedby={control["aria-describedby"]}
+                    aria-invalid={control["aria-invalid"]}
+                    data-field="comp-date"
+                  >
+                    <SelectValue placeholder="No working day left before the use-by date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {compDates.map((date) => (
+                      <SelectItem key={date} value={date}>
+                        {compDateLabel(date)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <DateInput
+                  {...control}
+                  name="startDate"
+                  min={minStart}
+                  {...(isComp && comp.useBy ? { max: comp.useBy } : {})}
+                  value={startDate}
+                  onChange={(event) => {
+                    setStartDate(event.target.value);
+                    // Keep the range the right way round while picking forward.
+                    if (event.target.value > endDate) setEndDate(event.target.value);
+                  }}
+                  required
+                />
+              )
+            }
           </FormField>
-        )}
+          {singleDate ? null : (
+            <FormField label="Last day" error={fieldErrors.endDate} className="flex-1">
+              {(control) => (
+                <DateInput
+                  {...control}
+                  name="endDate"
+                  min={startDate || minStart}
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  required
+                />
+              )}
+            </FormField>
+          )}
+        </div>
+        {/* PP-forms-5: how long it is, worked out under the range. */}
+        {length ? (
+          <p data-slot="leave-length" aria-live="polite" className="text-muted-foreground text-sm">
+            {length}
+          </p>
+        ) : null}
       </div>
       <FormField label="Reason (optional)" error={fieldErrors.reason}>
         {(control) => (
@@ -309,7 +330,13 @@ function LeaveForm({
       </FormField>
       <ActionStatus action={action} />
       <DialogFooter>
-        <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onClose}
+          disabled={pending}
+          data-dismiss=""
+        >
           Cancel
         </Button>
         <Button

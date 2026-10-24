@@ -34,6 +34,9 @@ export { countPendingNotes, getNoteDays, listOwnNotes, listPendingNotes } from "
 export { ExtraWorkNotesList } from "./components/extra-work-notes-list";
 export type { NoteDay } from "./domain/notes";
 export {
+  pendingDayRows,
+  type PendingDayRow,
+  type PendingPersonDays,
   summariseToday,
   type TodayDetailRow,
   todayPersonFromRow,
@@ -46,3 +49,6 @@ export { approveDay } from "./actions/review";
 export { getMonthSummary } from "./data/summary";
 export type { MonthSummary } from "./domain/summary";
 export { MonthSummaryCard, MonthSummarySkeleton, TeamMonthList } from "./components/month-summary";
+/** The Review panel's context (B4): the person's week, behind `GET /api/attendance/review-context`. */
+export { readReviewWeek } from "./actions/background";
+export type { ReviewContext, WeekDay } from "./domain/review-context";

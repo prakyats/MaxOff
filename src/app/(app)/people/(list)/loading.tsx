@@ -9,5 +9,6 @@ import { PageLoading } from "@/core/ui/composites/loading-state";
  * person. `/people/[id]` has its own layout and skeleton.
  */
 export default function Loading() {
-  return <PageLoading title="People" shape="cards" />;
+  // Every card leads with the person's 40 px photo (V5b-D).
+  return <PageLoading title="People" shape="cards" avatars />;
 }

@@ -13,7 +13,7 @@ import {
 /**
  * The zod builder: one schema per definition, from its type and options (WORKFLOWS §4a). Empty
  * means "not filled": `undefined`, `null` and "" all read as no value, which a required field
- * refuses and an optional field leaves out of the stored object (an older record then shows "—"
+ * refuses and an optional field leaves out of the stored object (an older record then shows "Not added"
  * and saves once filled). Values arrive as JSON from the form state or as strings from a
  * FormData, so numbers and booleans are coerced from their string forms.
  */

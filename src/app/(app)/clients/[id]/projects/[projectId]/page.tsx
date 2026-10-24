@@ -1,15 +1,19 @@
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
+import { cn } from "@/core/lib/utils";
+import {
+  CustomFieldCells,
+  CustomFieldsView,
+} from "@/core/custom-fields/components/custom-fields-view";
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { PageHeader } from "@/core/ui/composites/page-header";
+import { DetailHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { ViewLink } from "@/core/ui/composites/view-link";
 import {
@@ -20,6 +24,7 @@ import {
   extrasCycles,
   extrasQuestion,
   getProject,
+  getProjectTitle,
   itemListPeriods,
   itemView,
   lastChangeOf,
@@ -32,7 +37,9 @@ import {
   listLastChanges,
   listReviews,
   listStages,
+  needsYouPills,
   nextStartable,
+  readyToComplete,
   cycleMeter,
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
@@ -52,7 +59,20 @@ import { listStagePresets } from "@/modules/settings";
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
 import { PROJECT_ORIGINS } from "./back";
 
-export const metadata: Metadata = { title: "Project" };
+/**
+ * The tab names the project ("Monthly reels · MaxOff") from its name alone (`getProjectTitle`, one
+ * column under RLS, this client's only): Next resolves metadata on a prefetch too, which must
+ * stay the loading boundary, never the page's reads (P2 item 6). One the reader may not see is
+ * "Project".
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; projectId: string }>;
+}): Promise<Metadata> {
+  const { id, projectId } = await params;
+  return { title: (await getProjectTitle(id, projectId)) ?? "Project" };
+}
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -91,6 +111,9 @@ export default async function ProjectPage({
   const askedItems = cycleParam && ID.test(cycleParam) ? listItems(cycleParam) : null;
   const unfinishedRead = listItemRows({ states: ["open", "done"], projectId });
   const fieldsRead = listDefinitions("project");
+  // Details' Client contact and Template cells (the v1.8 sample) come embedded in the project
+  // read (`getProject`), not as reads of their own: the first wave stays within a Worker's
+  // ~6 concurrent connections (v1.8 speed fix 2).
   startEarly(...(askedItems ? [askedItems] : []), unfinishedRead, fieldsRead);
   const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
     await checkThenRead(
@@ -148,6 +171,7 @@ export default async function ProjectPage({
     fieldsRead,
     listLastChanges(itemIds),
   ]);
+  const { contactName, templateName } = project;
 
   const permissions = {
     manage: canManage && working,
@@ -199,6 +223,17 @@ export default async function ProjectPage({
   );
   const definitions = projectFields.filter((definition) => definition.archivedAt === null);
   const base = `/clients/${client.id}/projects/${project.id}`;
+  // PP-client-2: a working one-time project with every deliverable done reads "Ready to complete".
+  const stateChip =
+    working &&
+    readyToComplete(
+      project.recurrence,
+      items.map((item) => item.state),
+    ) ? (
+      <StatusBadge status="ready" tone="attention" label="Ready to complete" />
+    ) : (
+      <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
+    );
   const cycleHref = (cycleId: string) => `${base}?cycle=${cycleId}`;
   const meta = [
     client.name,
@@ -211,9 +246,11 @@ export default async function ProjectPage({
       <Suspense fallback={null}>
         <RecordReadReceipt entity="projects" id={project.id} />
       </Suspense>
-      <PageHeader
+      <DetailHeader
         title={project.name}
         description={meta.join(" · ")}
+        // FINAL 6: back · title · status chip (from md; a phone reads it on the glance line).
+        status={stateChip}
         back={{ href: `/clients/${client.id}/projects`, label: client.name, from: PROJECT_ORIGINS }}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
@@ -260,11 +297,13 @@ export default async function ProjectPage({
           </>
         }
       />
-      <div className="flex max-w-5xl min-w-0 flex-col gap-4" data-slot="project-page">
-        <div className="flex max-w-3xl min-w-0 flex-col gap-2" data-slot="project-glance">
-          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
-            <span className="md:hidden">{meta.join(" · ")}</span>
+      {/* One page grid (L1, the v1.8 sample (G)): every section shares the deliverables' width. */}
+      <div className="flex min-w-0 flex-col gap-4" data-slot="project-page">
+        <div className="flex min-w-0 flex-col gap-2" data-slot="project-glance">
+          {/* A phone's glance line: the state and "client · repeat" (the header's from md). */}
+          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm md:hidden">
+            {stateChip}
+            <span>{meta.join(" · ")}</span>
           </p>
           {!working ? (
             <p
@@ -281,9 +320,22 @@ export default async function ProjectPage({
               </span>
             </p>
           ) : null}
-          {chosen ? (
-            <div
-              className="border-border bg-card flex min-h-11 items-center gap-1 rounded-lg border px-1"
+          {chosen && !previous && !next ? (
+            // PP-project-1 / PP-phone-7: a single cycle is a plain month label; the switcher
+            // shows only with two or more. It keeps the switcher's height (a 44 px tab inside its
+            // 4 px frame, 52 px), so the page below sits where the loading screen drew it.
+            <p className="flex min-h-13 items-center text-sm font-medium" data-slot="cycle-single">
+              <span className="break-words" data-slot="cycle-label">
+                {chosen.label ?? "The project's deliverables"}
+              </span>
+            </p>
+          ) : chosen ? (
+            // Months as tabs (the v1.8 sample, 08): the previous · this · the next cycle in one
+            // segmented control. A view control: each tab replaces the address (`?cycle=`),
+            // never adds history (§14.2).
+            <nav
+              aria-label="Cycles"
+              className="bg-muted rounded-control grid grid-cols-3 gap-1 p-1"
               data-slot="cycle-switcher"
             >
               {previous ? (
@@ -291,33 +343,40 @@ export default async function ProjectPage({
                   href={cycleHref(previous.id)}
                   scroll={false}
                   aria-label={`Previous: ${previous.label ?? "cycle"}`}
-                  className="flex size-11 items-center justify-center rounded-md"
-                  icon
+                  className={CYCLE_TAB}
+                  data-slot="cycle-tab"
                 >
-                  <ChevronLeftIcon className="size-5" aria-hidden />
+                  <span className="max-w-full truncate">
+                    {tabLabel(previous.label, chosen.label)}
+                  </span>
                 </ViewLink>
               ) : (
-                <span aria-hidden className="size-11 shrink-0" />
+                <span aria-hidden className={CYCLE_TAB} />
               )}
-              <div className="flex min-w-0 flex-1 flex-col items-center py-1 text-center">
-                <span className="text-sm font-medium break-words" data-slot="cycle-label">
+              <span
+                aria-current="page"
+                className={cn(CYCLE_TAB, "bg-background text-foreground shadow-raised")}
+                data-slot="cycle-tab"
+              >
+                {/* The chosen tab opens nothing: its label wraps (the truncation rule). */}
+                <span className="max-w-full text-center break-words" data-slot="cycle-label">
                   {chosen.label ?? "The project's deliverables"}
                 </span>
-              </div>
+              </span>
               {next ? (
                 <ViewLink
                   href={cycleHref(next.id)}
                   scroll={false}
                   aria-label={`Next: ${next.label ?? "cycle"}`}
-                  className="flex size-11 items-center justify-center rounded-md"
-                  icon
+                  className={CYCLE_TAB}
+                  data-slot="cycle-tab"
                 >
-                  <ChevronRightIcon className="size-5" aria-hidden />
+                  <span className="max-w-full truncate">{tabLabel(next.label, chosen.label)}</span>
                 </ViewLink>
               ) : (
-                <span aria-hidden className="size-11 shrink-0" />
+                <span aria-hidden className={CYCLE_TAB} />
               )}
-            </div>
+            </nav>
           ) : (
             <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
               No cycle yet. The current period&apos;s cycle starts once the client is Active.
@@ -328,6 +387,9 @@ export default async function ProjectPage({
               cycleId={chosen.id}
               label={chosen.label}
               meter={cycleMeter(views, today)}
+              cancelledAt={project.state === "cancelled" ? project.cancelledAt : null}
+              // Owner and Admin only (the page's roles); never Crew, who never see client work.
+              needsYou={working && canManage ? needsYouPills(views, today) : null}
             />
           ) : null}
           {toDecide > 0 && can(viewer.role, "cycles.carry_decide") ? (
@@ -368,20 +430,89 @@ export default async function ProjectPage({
           />
         ) : null}
 
-        {project.description || definitions.length > 0 ? (
-          <section aria-labelledby="project-details" className="flex max-w-3xl flex-col gap-2">
-            <h2 id="project-details" className="text-sm font-medium">
-              Details
-            </h2>
-            <div className="border-border bg-card flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm">
-              {project.description ? (
-                <p className="break-words whitespace-pre-wrap">{project.description}</p>
+        {/* Details as the approved sample's full-width field grid (owner 2026-10-21): a cell a
+            field, its small label over its value; the project fields follow in the same card. */}
+        <section aria-labelledby="project-details" className="flex min-w-0 flex-col gap-2">
+          <h2 id="project-details" className="text-sm font-medium">
+            Details
+          </h2>
+          <div className="border-border bg-card shadow-raised overflow-hidden rounded-lg border text-sm">
+            <dl
+              data-slot="project-details-grid"
+              // Each cell draws its right and bottom hairline; the grid sits a pixel past the card's
+              // clipped edge, so only the lines between cells show, however the cells wrap.
+              className="-mr-px -mb-px grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))]"
+            >
+              <div className={DETAIL_CELL} data-slot="detail-contact">
+                <dt className="text-muted-foreground text-xs">Client contact</dt>
+                <dd className={cn("break-words", !contactName && "text-muted-foreground")}>
+                  {contactName ?? "Not added"}
+                </dd>
+              </div>
+              <div className={DETAIL_CELL}>
+                <dt className="text-muted-foreground text-xs">Repeats</dt>
+                <dd>{RECURRENCE_LABELS[project.recurrence]}</dd>
+              </div>
+              {project.deliveryDate ? (
+                <div className={DETAIL_CELL}>
+                  <dt className="text-muted-foreground text-xs">Delivery date</dt>
+                  <dd className="tabular-nums">{shortDate(project.deliveryDate)}</dd>
+                </div>
               ) : null}
-              <CustomFieldsView definitions={projectFields} values={project.customFields} />
-            </div>
-          </section>
-        ) : null}
+              {/* A template the viewer may not read (RLS) leaves the cell out. */}
+              {templateName || !project.templateId ? (
+                <div className={DETAIL_CELL} data-slot="detail-template">
+                  <dt className="text-muted-foreground text-xs">Template</dt>
+                  <dd className={cn("break-words", !templateName && "text-muted-foreground")}>
+                    {templateName ?? "Not added"}
+                  </dd>
+                </div>
+              ) : null}
+              <div className={DETAIL_CELL}>
+                <dt className="text-muted-foreground text-xs">Notes</dt>
+                <dd
+                  className={cn(
+                    "break-words whitespace-pre-wrap",
+                    !project.description && "text-muted-foreground",
+                  )}
+                >
+                  {project.description ?? "Not added"}
+                </dd>
+              </div>
+              {/* PP-project-2: the project's fields flow into the same cells. */}
+              <CustomFieldCells
+                definitions={projectFields}
+                values={project.customFields}
+                cellClassName={DETAIL_CELL}
+              />
+            </dl>
+            {/* Archived fields that still hold a value stay apart, under the grid. */}
+            <CustomFieldsView
+              definitions={projectFields}
+              values={project.customFields}
+              archivedOnly
+              className="border-border border-t px-4 py-3"
+            />
+          </div>
+        </section>
       </div>
     </>
   );
+}
+
+/** A Details cell: its small label over its value (the approved field grid). */
+const DETAIL_CELL = "border-border flex min-w-0 flex-col gap-0.5 border-r border-b px-4 py-3";
+
+/** A month tab: the segmented control's cell, 44 px, one line (§14.1). */
+const CYCLE_TAB =
+  "pressable text-muted-foreground focus-visible:ring-ring rounded-control flex min-h-11 min-w-0 items-center justify-center px-2 text-sm font-medium outline-none focus-visible:ring-2";
+
+/**
+ * A neighbouring tab's label: the cycle's own, without the year it shares with the chosen one
+ * ("September" beside "October 2026", as in the sample), so three tabs fit a 375 px phone.
+ */
+function tabLabel(label: string | null, chosenLabel: string | null): string {
+  if (!label) return "Cycle";
+  const year = /\s(\d{4})$/.exec(chosenLabel ?? "")?.[1];
+  return year && label.endsWith(` ${year}`) ? label.slice(0, -5) : label;
 }

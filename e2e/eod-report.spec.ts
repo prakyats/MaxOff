@@ -233,9 +233,9 @@ for (const role of ["admin", "staff"] as const) {
 
     test("is not theirs to open", async ({ page }) => {
       await page.goto("/reports/end-of-day");
-      await expect(page).toHaveURL(/\/forbidden$/);
+      await expect(page).toHaveURL(/\/forbidden(\?|$)/);
       await page.goto(`/reports/end-of-day/${todayIST()}`);
-      await expect(page).toHaveURL(/\/forbidden$/);
+      await expect(page).toHaveURL(/\/forbidden(\?|$)/);
     });
   });
 }

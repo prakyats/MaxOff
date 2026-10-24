@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
-import { systemClock, todayIST } from "@/core/time";
+import { formatIST, istDayStart, systemClock, todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
@@ -22,13 +22,21 @@ import { getSettings } from "@/modules/settings";
 
 import { EOD_REPORT_DESCRIPTION } from "../copy";
 
-export const metadata: Metadata = { title: "End of day" };
+/** The tab names the day ("End of day · 21 Oct · MaxOff"); no read beyond the address. */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ date: string }>;
+}): Promise<Metadata> {
+  const date = parseEodDate((await params).date);
+  return { title: date ? `End of day · ${formatIST(istDayStart(date), "d MMM")}` : "End of day" };
+}
 
 /**
  * One day's end-of-day report (6.5; Kickoff 6 decisions 16–17; WORKFLOWS §8a), one tap under
  * Reports → End of day (a drill-down with the §14.2 k back control; the notification's deep link
  * lands here with the list beneath). Today is computed live, so far; yesterday live until the
- * End-day cutoff ("Live until it saves at 5:00 AM"), then its saved row; any earlier day shows
+ * End-day cutoff ("Live until it saves at 5:00 am"), then its saved row; any earlier day shows
  * the saved row only, never recomputed. `reports.all` (the Owner); a date that is not one is 404.
  */
 export default async function EndOfDayReportPage({

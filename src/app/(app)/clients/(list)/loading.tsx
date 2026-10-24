@@ -6,11 +6,12 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 /**
  * The client list (3.4) traced: the "Client items" row (7.3), the search box and the filters (two for the Owner, state and
  * Admin; one for an Admin), then cards on a phone and the table from `md` up (logo and name,
- * state, Admin). In the `(list)` group so it never wraps a client's page (the 2.9 rule).
+ * state, the Owner's Admin column, the running deliverables (N4, PP-clients-1) and Due (PP-admin-10)). In the `(list)` group so it never wraps a client's page (the 2.9 rule).
  */
 export default async function Loading() {
   const member = await getCurrentMember();
-  const filters = member !== null && can(member.role, "clients.manage") ? 2 : 1;
+  const owner = member !== null && can(member.role, "clients.manage");
+  const filters = owner ? 2 : 1;
   return (
     <PageLoading title="Clients" shape="cards">
       {/* The "Client deliverables" row (7.3) above the list. */}
@@ -31,7 +32,12 @@ export default async function Loading() {
         <LoadingState shape="cards" count={5} label="Loading Clients" className="md:hidden" />
         <LoadingState
           shape="table"
-          columns={["w-1/3", "w-1/6", "w-1/4"]}
+          // Client, State, (the Owner's Admin), Deliverables and Due (PP-clients-1, PP-admin-10).
+          columns={
+            owner
+              ? ["w-1/4", "w-1/12", "w-1/6", "w-1/6", "w-1/6"]
+              : ["w-1/3", "w-1/12", "w-1/5", "w-1/5"]
+          }
           label="Loading Clients"
           className="hidden md:block"
         />

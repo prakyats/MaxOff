@@ -17,7 +17,7 @@ export default function Loading() {
       <ul
         aria-hidden
         data-slot="loading-expense-claims"
-        className="border-border divide-border bg-card divide-y rounded-lg border"
+        className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
       >
         {[0, 1, 2].map((i) => (
           <li key={i} className={cn("flex items-start gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}>

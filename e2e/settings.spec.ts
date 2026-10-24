@@ -1,6 +1,17 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "./fixtures";
 
-import { removeJobTitles, storageStateFor } from "./helpers";
+import {
+  memberIdOf,
+  openThresholdGroups,
+  removeJobTitles,
+  serviceInsert,
+  serviceRest,
+  serviceSelect,
+  storageStateFor,
+  USERS,
+} from "./helpers";
 import { describeOffDays, istWeekday, pinnedOffDays, WEEKDAY_LONG } from "./calendar";
 import { wallClock } from "./run-state";
 
@@ -9,7 +20,10 @@ import { wallClock } from "./run-state";
  * title list, plus who may open which section. The Owner tests change the one organization
  * row, so they run in order and put their changes back where a later test depends on them.
  */
-const HOLIDAY = { date: "2026-10-02", name: "Gandhi Jayanti" };
+// Still ahead, so the Owner may remove it (V5a 6b: only before its date); 2 Oct 2037 is a Friday.
+const HOLIDAY = { date: "2037-10-02", name: "Gandhi Jayanti" };
+// Already past: it stays, with no Remove.
+const PAST_HOLIDAY = { date: "2026-01-26", name: "Republic Day (past)" };
 
 // One organization, one job-title list: every test here writes to the same rows, so the file
 // runs in order rather than racing itself (the Admin test would otherwise add a title while
@@ -35,7 +49,8 @@ test.describe("Owner", () => {
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
       ["Task types", "Task types"],
-      ["Stage presets", "Stage presets"],
+      // Stage presets are the Templates page's first section (6b.6 owner note).
+      ["Templates", "Templates"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();
@@ -97,7 +112,7 @@ test.describe("Owner", () => {
     await page.goto("/settings/days-off");
     await expect(page.getByText("No holidays yet")).toBeVisible();
 
-    // "Add holiday" opens a dialog; the red commit is inside it (the action colour rule, 2026-09-26).
+    // "Add holiday" opens a dialog; the commit is inside it (the action colour rule, ADR-0015).
     const addHoliday = async (date: string, name: string) => {
       await page.getByRole("button", { name: "Add holiday" }).click();
       const dialog = page.getByRole("dialog", { name: "Add a holiday" });
@@ -129,10 +144,33 @@ test.describe("Owner", () => {
     await expect(page.getByText("No holidays yet")).toBeVisible();
   });
 
+  test("a holiday on or before today has no Remove: it already shaped attendance and leave (V5a 6b)", async ({
+    page,
+  }) => {
+    await serviceRest(`holidays?name=eq.${encodeURIComponent(PAST_HOLIDAY.name)}`, {
+      method: "DELETE",
+    });
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("holidays", { org_id: org?.id, ...PAST_HOLIDAY });
+    await page.goto("/settings/days-off");
+    const row = page.locator('[data-slot="holiday-row"]', { hasText: PAST_HOLIDAY.name });
+    await expect(row).toContainText("past");
+    await expect(row.getByRole("button", { name: `Remove ${PAST_HOLIDAY.name}` })).toHaveCount(0);
+    await serviceRest(`holidays?name=eq.${encodeURIComponent(PAST_HOLIDAY.name)}`, {
+      method: "DELETE",
+    });
+  });
+
   test("saves the thresholds and refuses an Owner escalation before the Admin one", async ({
     page,
   }) => {
     await page.goto("/settings/thresholds");
+    // 6b.6: the groups at first glance (Approvals joins with 6b.5), each a row with its summary; open the ones to change.
+    await expect(page.locator('[data-slot="threshold-group"]')).toHaveCount(4);
+    await expect(page.locator('[data-slot="threshold-summary"]').first()).toHaveText(
+      /^End-of-day reminder 8:30 pm · late End day until \d{1,2}:\d{2} am$/,
+    );
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("20:30");
 
     await page.getByLabel("Escalate to the Owner after (hours)").fill("2");
@@ -144,6 +182,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("21:00");
 
     // The workload warning (4B, kickoff 4 decision 11): 4 by default, at least 1. Never saved
@@ -166,6 +205,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.locator('[data-field="weekly-digest-day"]')).toContainText("Friday");
     await page.locator('[data-field="weekly-digest-day"]').click();
     await page.getByRole("option", { name: "Monday" }).click();
@@ -173,8 +213,8 @@ test.describe("Owner", () => {
     await expect(page.getByText("Thresholds saved")).toBeVisible();
 
     // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
-    const overdue = page.getByLabel("Client item overdue → you after (hours)");
-    const undecided = page.getByLabel("Undecided cycle → you after (days)");
+    const overdue = page.getByLabel("Overdue deliverable → you after (hours)");
+    const undecided = page.getByLabel("Undecided period → you after (days)");
     await expect(overdue).toHaveValue("24");
     await expect(undecided).toHaveValue("2");
     await overdue.fill("200");
@@ -188,6 +228,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Client work");
     await expect(overdue).toHaveValue("36");
     await expect(undecided).toHaveValue("3");
     await overdue.fill("24");
@@ -204,17 +245,25 @@ test.describe("Owner", () => {
     const names = page.locator('[data-slot="list-item"]');
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
 
-    await page.getByLabel("Add a job title").fill("Colorist");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    // C4, the Settings Add pattern: "Add job title" on the list's heading opens a dialog whose
+    // commit is "Add job title" (was an inline field and an "Add" button).
+    await page.getByRole("button", { name: "Add job title" }).click();
+    let add = page.getByRole("dialog", { name: "Add a job title" });
+    await add.getByLabel("Name", { exact: true }).fill("Colorist");
+    await add.getByRole("button", { name: "Add job title" }).click();
     await expect(page.getByText("Job title added")).toBeVisible();
+    await expect(add).toBeHidden();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colorist/]);
 
     // The same name again (case and spaces aside) is the unique index, said in plain words.
-    await page.getByLabel("Add a job title").fill("  colorist ");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.locator('[data-slot="form-alert"]')).toContainText(
+    await page.getByRole("button", { name: "Add job title" }).click();
+    add = page.getByRole("dialog", { name: "Add a job title" });
+    await add.getByLabel("Name", { exact: true }).fill("  colorist ");
+    await add.getByRole("button", { name: "Add job title" }).click();
+    await expect(add.locator('[data-slot="form-alert"]')).toContainText(
       "already a job title with that name",
     );
+    await add.getByRole("button", { name: "Cancel" }).click();
 
     await page.getByRole("button", { name: "Move Colorist up" }).click();
     await expect(names).toHaveText([/Video Editor/, /Colorist/, /Graphic Designer/]);
@@ -230,15 +279,23 @@ test.describe("Owner", () => {
     await expect(page.getByText("Job title renamed")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
-    await page.getByRole("button", { name: "Archive Colourist" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Archive Colourist" }).click();
-    await expect(page.getByText("Job title archived")).toBeVisible();
-    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
-    // Its own archived row: another spec's archived title may sit beside it.
-    const archivedColourist = page.locator('[data-slot="archived-list-item"]', {
-      hasText: "Colourist",
-    });
-    await expect(archivedColourist).toBeVisible();
+    // D6: Archive and Undo in its toast (the Archived section at the foot: V5b-0 item 9, below).
+    const deleteColourist = async () => {
+      await page.getByRole("button", { name: "Archive Colourist" }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Archive Colourist" })
+        .click();
+      await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
+    };
+    await deleteColourist();
+    await expect(page.locator('[data-slot="archived-list-item"]')).toHaveCount(0);
+    await page
+      .locator("[data-sonner-toast]", { hasText: "Colourist archived" })
+      .getByRole("button", { name: "Undo" })
+      .click();
+    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
+    await deleteColourist();
 
     // An archived title is not offered when someone is invited.
     await page.goto("/people");
@@ -249,9 +306,165 @@ test.describe("Owner", () => {
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/job-titles");
-    await archivedColourist.getByRole("button", { name: "Restore" }).click();
-    await expect(page.getByText("Job title restored")).toBeVisible();
-    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
+    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
+  });
+});
+
+test.describe("Owner: Delete only what was never used (V5a 6c)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
+
+  test("deletes a job title no one ever held, even renamed; one someone once held says to archive it", async ({
+    page,
+  }) => {
+    const spare = "Spare title (6c)";
+    const used = "Once held title (6c)";
+    await removeJobTitles([spare, used, "Spare draft (6c)"]);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const draft = await serviceInsert<{ id: string }>("list_items", {
+      org_id: org?.id,
+      list_key: "job_title",
+      name: "Spare draft (6c)",
+      position: "y1",
+    });
+    // Its own history never blocks Delete (V5b-0 item 8, owner 2026-10-22): renamed, still unused.
+    await serviceRest(`list_items?id=eq.${draft.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: spare }),
+    });
+    const made = await serviceInsert<{ id: string }>("list_items", {
+      org_id: org?.id,
+      list_key: "job_title",
+      name: used,
+      position: "y2",
+    });
+    // Another record's history naming it is use: a person held it once, then went back.
+    const staffId = await memberIdOf(USERS.staff.email);
+    const [staff] = await serviceSelect<{ job_title_id: string | null }>(
+      `members?id=eq.${staffId}&select=job_title_id`,
+    );
+    for (const title of [made.id, staff?.job_title_id ?? null]) {
+      await serviceRest(`members?id=eq.${staffId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ job_title_id: title }),
+      });
+    }
+
+    await page.goto("/settings/job-titles");
+    const names = page.locator('[data-slot="list-item"]');
+    await page.getByRole("button", { name: `Delete ${used}`, exact: true }).click();
+    const inUse = page.getByRole("alertdialog", { name: `“${used}” is in use` });
+    await expect(inUse).toContainText("In use — archive it instead.");
+    await expect(inUse.getByRole("button", { name: `Delete ${used}` })).toHaveCount(0);
+    await inUse.getByRole("button", { name: "Close" }).click();
+    await expect(inUse).toBeHidden();
+    await expect(names).toContainText([used]);
+
+    await page.getByRole("button", { name: `Delete ${spare}`, exact: true }).click();
+    const confirm = page.getByRole("alertdialog", { name: `Delete job title “${spare}”?` });
+    await expect(confirm).toContainText("Nothing has ever used it, so it goes for good.");
+    await confirm.getByRole("button", { name: `Delete ${spare}` }).click();
+    await expect(confirm).toBeHidden();
+    await expect(page.getByText(`${spare} deleted`)).toBeVisible();
+    await expect(names.filter({ hasText: spare })).toHaveCount(0);
+    expect(
+      await serviceSelect(`list_items?name=eq.${encodeURIComponent(spare)}&select=id`),
+    ).toEqual([]);
+    await removeJobTitles([used]);
+  });
+});
+
+test.describe("Archived (n) at a list's foot (V5b-0 item 9)", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
+  const archivedToggle = (page: Page) => page.locator('[data-slot="archived-toggle"]');
+  const archivedRow = (page: Page, name: string) =>
+    page.locator('[data-slot="archived-item"]', { hasText: name });
+
+  test.describe("the Owner", () => {
+    test.use({ storageState: storageStateFor("owner") });
+
+    test("archive → it waits under Archived → Restore brings it back; Delete removes an unused one", async ({
+      page,
+    }) => {
+      const name = "Archive me (9)";
+      await removeJobTitles([name]);
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y3",
+      });
+      await page.goto("/settings/job-titles");
+      const names = page.locator('[data-slot="list-item"]');
+      await page.getByRole("button", { name: `Archive ${name}` }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: `Archive ${name}` })
+        .click();
+      await expect(names.filter({ hasText: name })).toHaveCount(0);
+
+      // Collapsed by default; opening it is a view control: no history entry.
+      await expect(archivedToggle(page)).toHaveText(/^Archived \(\d+\)$/);
+      await expect(archivedRow(page, name)).toBeHidden();
+      const before = await page.evaluate(() => history.length);
+      await archivedToggle(page).click();
+      await expect(archivedRow(page, name)).toBeVisible();
+      expect(await page.evaluate(() => history.length)).toBe(before);
+
+      await archivedRow(page, name)
+        .getByRole("button", { name: `Restore ${name}` })
+        .click();
+      await expect(page.getByText(`${name} restored`)).toBeVisible();
+      await expect(names.filter({ hasText: name })).toHaveCount(1);
+      await expect(archivedRow(page, name)).toHaveCount(0);
+
+      // Archived again, never used by anything else: the Owner deletes it from Archived.
+      await page.getByRole("button", { name: `Archive ${name}` }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: `Archive ${name}` })
+        .click();
+      await expect(names.filter({ hasText: name })).toHaveCount(0);
+      if (!(await archivedRow(page, name).isVisible())) await archivedToggle(page).click();
+      await archivedRow(page, name)
+        .getByRole("button", { name: `Delete ${name}` })
+        .click();
+      const confirm = page.getByRole("alertdialog", { name: `Delete job title “${name}”?` });
+      await confirm.getByRole("button", { name: `Delete ${name}` }).click();
+      await expect(confirm).toBeHidden();
+      await expect(archivedRow(page, name)).toHaveCount(0);
+      expect(
+        await serviceSelect(`list_items?name=eq.${encodeURIComponent(name)}&select=id`),
+      ).toEqual([]);
+    });
+  });
+
+  test.describe("an Admin", () => {
+    test.use({ storageState: storageStateFor("admin") });
+
+    test("restores an archived job title and has no Delete", async ({ page }) => {
+      const name = "Admin archived (9)";
+      await removeJobTitles([name]);
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y4",
+        archived_at: wallClock().toISOString(),
+      });
+      await page.goto("/settings/job-titles");
+      await archivedToggle(page).click();
+      const row = archivedRow(page, name);
+      await expect(row.getByRole("button", { name: `Restore ${name}` })).toBeVisible();
+      await expect(row.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+      await row.getByRole("button", { name: `Restore ${name}` }).click();
+      await expect(page.locator('[data-slot="list-item"]').filter({ hasText: name })).toHaveCount(
+        1,
+      );
+      await removeJobTitles([name]);
+    });
   });
 });
 
@@ -280,7 +493,7 @@ test.describe("Admin", () => {
       "/settings/task-types",
     ]) {
       await page.goto(path);
-      await expect(page, `${path} for an Admin`).toHaveURL(/\/forbidden$/);
+      await expect(page, `${path} for an Admin`).toHaveURL(/\/forbidden(\?|$)/);
     }
   });
 
@@ -288,18 +501,22 @@ test.describe("Admin", () => {
     // The archived one from an earlier run would make "add" a duplicate (2.6).
     await removeJobTitles(["Colorist", "Colourist", "Sound Engineer"]);
     await page.goto("/settings/job-titles");
-    await page.getByLabel("Add a job title").fill("Sound Engineer");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByRole("button", { name: "Add job title" }).click();
+    const add = page.getByRole("dialog", { name: "Add a job title" });
+    await add.getByLabel("Name", { exact: true }).fill("Sound Engineer");
+    await add.getByRole("button", { name: "Add job title" }).click();
     await expect(page.getByText("Job title added")).toBeVisible();
     await expect(page.locator('[data-slot="list-item"]')).toContainText(["Sound Engineer"]);
+    // Delete is the Owner's alone (V5a 6c): an Admin's rows have none.
+    await expect(page.getByRole("button", { name: /^Delete / })).toHaveCount(0);
 
-    // Put the list back as it was: an Admin may archive too.
+    // Put the list back as it was: an Admin may delete too.
     await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Archive Sound Engineer" })
       .click();
-    await expect(page.getByText("Job title archived")).toBeVisible();
+    await expect(page.getByText("Sound Engineer archived")).toBeVisible();
   });
 });
 
@@ -314,7 +531,7 @@ test.describe("Staff", () => {
       "/settings/thresholds",
     ]) {
       await page.goto(path);
-      await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
+      await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden(\?|$)/);
     }
   });
 });

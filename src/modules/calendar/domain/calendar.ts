@@ -1,11 +1,12 @@
 import {
   addISTDays,
   formatIST,
+  formatTime,
   isISODate,
+  type ISODate,
   istDayStart,
   istWeekday,
   toISTDate,
-  type ISODate,
 } from "@/core/time";
 
 /**
@@ -215,7 +216,13 @@ export type AvailabilitySource = {
   blocks: readonly { startAt: string | null; endAt: string | null }[];
 };
 
-export type PersonSource = { id: string; name: string; engagement: "permanent" | "freelance" };
+export type PersonSource = {
+  id: string;
+  name: string;
+  engagement: "permanent" | "freelance";
+  /** Their photo, from the same directory read as the name (V5b-D): the day popup shows it. */
+  avatarFileId?: string | null;
+};
 
 /** Who the viewer is to the calendar (PERMISSIONS §2 "Calendar"). */
 export type CalendarScope = "owner" | "admin" | "staff";
@@ -268,6 +275,8 @@ export type BusyItem = {
   kind: "busy";
   memberId: string;
   name: string;
+  /** Their photo (V5b-D): the day popup only, never a month box. */
+  avatarFileId?: string | null;
   date: ISODate;
   startAt: string;
   endAt: string;
@@ -277,6 +286,11 @@ export type LeaveItem = {
   kind: "leave";
   memberId: string;
   name: string;
+  /**
+   * Their photo (V5b-D): the day popup, and the laptop's leave bar where even "Name · Leave" has
+   * no room ("[photo] Leave", owner 23 Oct).
+   */
+  avatarFileId?: string | null;
   date: ISODate;
   /** "Leave", "Half day", "Comp leave" in full detail; "On leave" / "Half day" for an Admin's others. */
   label: string;
@@ -286,7 +300,15 @@ export type LeaveItem = {
   own: boolean;
 };
 
-export type DueItem = { kind: "due"; id: string; title: string; dueAt: string; owner: string };
+export type DueItem = {
+  kind: "due";
+  id: string;
+  title: string;
+  dueAt: string;
+  owner: string;
+  /** Its type's colour (decision 25), the due chip's edge (PP-calendar-5, V5b). */
+  color: string;
+};
 
 /** A client item on its planned day: "Client items · N" (7.3); done ones are muted. */
 export type ClientItemEntry = {
@@ -369,6 +391,11 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
     if (!person) return "Someone";
     return person.engagement === "freelance" ? `${person.name} (freelancer)` : person.name;
   };
+  // Their photo, only when they have one (the day popup's avatar; V5b-D).
+  const photoOf = (memberId: string): { avatarFileId?: string } => {
+    const id = personOf.get(memberId)?.avatarFileId;
+    return id ? { avatarFileId: id } : {};
+  };
   const inRange = (date: ISODate) => date >= range.from && date <= range.to;
   const passes = (task: {
     clientId: string | null;
@@ -436,6 +463,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         title: task.title,
         dueAt: task.dueAt,
         owner: nameOf(task.primaryOwnerId),
+        color: typeOf.get(task.taskTypeId)?.color ?? DEFAULT_EVENT_COLOR,
       });
     }
   }
@@ -478,6 +506,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         kind: "leave",
         memberId: span.memberId,
         name: nameOf(span.memberId),
+        ...photoOf(span.memberId),
         date,
         label: LEAVE_LABELS[span.type],
         half: span.type === "half_day",
@@ -499,6 +528,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "leave",
           memberId: row.memberId,
           name: nameOf(row.memberId),
+          ...photoOf(row.memberId),
           date: row.day,
           label,
           half: row.leave === "half_day",
@@ -523,6 +553,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "busy",
           memberId: row.memberId,
           name: nameOf(row.memberId),
+          ...photoOf(row.memberId),
           date: row.day,
           startAt,
           endAt,
@@ -567,9 +598,9 @@ export function dayHeading(date: ISODate, today: ISODate): string {
 /** "10:00 am – 11:30 am", "10:00 am" for an hour, or "All day". */
 export function timeWords(startAt: string | null, endAt: string | null): string {
   if (!startAt) return "All day";
-  const start = formatIST(startAt, "h:mm aaa");
+  const start = formatTime(startAt);
   if (!endAt) return start;
-  return `${start} – ${formatIST(endAt, "h:mm aaa")}`;
+  return `${start} – ${formatTime(endAt)}`;
 }
 
 /** "6 – 12 Oct 2026", or "28 Sep – 4 Oct 2026" across a month end. */

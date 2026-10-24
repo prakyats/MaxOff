@@ -76,8 +76,9 @@ export function DaySheet({
               data-slot="calendar-day-footer"
               className="border-border flex shrink-0 flex-wrap items-center justify-end gap-2 border-t px-4 py-3"
             >
-              {action}
+              {/* The sample's order: "Open day", then the day's own action at the end. */}
               {footer}
+              {action}
             </div>
           ) : null}
         </DialogContent>

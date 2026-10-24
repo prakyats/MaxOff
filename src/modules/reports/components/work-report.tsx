@@ -109,7 +109,7 @@ export function ItemKpiCard({
       <span className="text-muted-foreground text-xs">{definition}</span>
       {now !== undefined ? (
         <dl className="flex min-w-0 flex-col">
-          <dt className="text-muted-foreground text-xs">Client items</dt>
+          <dt className="text-muted-foreground text-xs">Deliverables</dt>
           <dd className="text-base font-semibold break-words tabular-nums" data-slot="kpi-now">
             {now}
           </dd>
@@ -205,7 +205,7 @@ export function LoadList({
             <h3 className="text-muted-foreground text-xs font-medium">
               {ENGAGEMENT_LABELS[engagement]}
             </h3>
-            <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+            <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
               {rows[engagement].map((row) => (
                 <li
                   key={row.memberId}

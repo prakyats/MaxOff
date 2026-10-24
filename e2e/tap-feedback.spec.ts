@@ -605,7 +605,8 @@ test.describe("a failed action never retries onto another item", () => {
     await dialog.getByLabel("Reason").fill("Not a work trip");
     await dialog.getByRole("button", { name: "Reject claim" }).click();
     await expect(dialog.locator('[data-slot="action-failed"]')).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    // A destructive question's way out says what it keeps (PP-forms-3, V5b).
+    await dialog.getByRole("button", { name: "Keep it" }).click();
     await expect(dialog).toBeHidden();
 
     // The review sheet is still A's, beneath: close it, then open B.

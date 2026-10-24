@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { attendanceStatus, StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import {
   DashSection,
@@ -40,17 +40,6 @@ import {
  * component for the live view and a saved row. Server components only; a task row is a
  * drill-down into its task, a person's row into their history. No money anywhere.
  */
-
-const DOT_STATUS: Record<
-  NonNullable<EodReport["attendance"]["people"][number]["status"]>,
-  string
-> = {
-  present: "present",
-  leave: "leave",
-  half_day: "half_day",
-  comp_leave: "comp_leave",
-  absent: "absent",
-};
 
 const TASK_GROUPS: {
   key: keyof EodReport["tasks"];
@@ -106,7 +95,7 @@ export function EodReportView({ report }: { report: EodReport }) {
   const quiet = isQuietDay(report);
   const decisions = decisionLines(report.decisions);
   return (
-    <div data-slot="eod-report" className="flex max-w-3xl min-w-0 flex-col gap-6">
+    <div data-slot="eod-report" className="flex min-w-0 flex-col gap-6">
       {report.day_off.holiday || report.day_off.weekly_off ? (
         <Line slot="eod-day-off" icon={<CalendarDaysIcon className="size-4" aria-hidden />}>
           {report.day_off.holiday ? `Holiday: ${report.day_off.holiday}` : "Weekly off"}
@@ -135,7 +124,10 @@ export function EodReportView({ report }: { report: EodReport }) {
                     detail={personDetail(person) || undefined}
                     trailing={
                       <StatusDot
-                        status={person.status ? DOT_STATUS[person.status] : "awaiting_choice"}
+                        status={attendanceStatus({
+                          status: person.status,
+                          undecided: person.proposed || person.waiting,
+                        })}
                         label={personStatus(person)}
                       />
                     }
@@ -183,7 +175,7 @@ export function EodReportView({ report }: { report: EodReport }) {
               <ul
                 aria-label="Approvals per approver"
                 data-slot="eod-approval-rows"
-                className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+                className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
               >
                 {report.approvals.map((row) => (
                   <li
@@ -227,7 +219,7 @@ export function EodReportView({ report }: { report: EodReport }) {
                         </p>
                         <ul
                           aria-label={`${clientAdminName(admin)}: ${group.title}`}
-                          className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+                          className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
                         >
                           {admin[group.key].items.map((item) => (
                             <li
@@ -288,11 +280,7 @@ export function EodReportView({ report }: { report: EodReport }) {
 /** The report's skeleton: the attendance heading, its counts line and two person rows. */
 export function EodReportSkeleton() {
   return (
-    <div
-      aria-hidden
-      data-slot="loading-eod-report"
-      className="flex max-w-3xl min-w-0 flex-col gap-6"
-    >
+    <div aria-hidden data-slot="loading-eod-report" className="flex min-w-0 flex-col gap-6">
       <section className="flex min-w-0 flex-col gap-2">
         <DashSectionHeadingSkeleton width="w-24" />
         <div className="flex h-5 items-center gap-2">

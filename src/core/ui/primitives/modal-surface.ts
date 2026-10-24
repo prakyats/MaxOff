@@ -11,16 +11,19 @@
 export const MODAL_SURFACE = [
   // Phone: docked to the bottom edge, full width, rounded at the top, scrolling inside itself
   // and clearing the home indicator.
-  "fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-2xl p-4 pt-5 pb-[calc(1rem+var(--app-safe-bottom))] outline-none",
+  "fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-sheet p-4 pt-5 pb-[calc(1rem+var(--app-safe-bottom))] outline-none",
   // `duration-*` times the enter and exit animations; it also sets `transition-duration`, and
   // with the initial `transition-property: all` every style change then eased over 200ms: a
   // larger system text grew the footer's negative margins at once and the padding only later,
   // so the footer stuck out past the screen meanwhile (6B2, mobile.spec "the calendar's sizes
   // fit"). The surface animates, it never transitions.
   "transition-none duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-8",
-  // Tablet and desktop: the centred dialog, as it was before 1.5.
+  // Tablet and desktop: the centred dialog, as it was before 1.5. It fades in and out without a
+  // zoom: a dialog that grows from 95% draws every control in it smaller while it opens, so a
+  // 44 px target measured or tapped in that first 100 ms was 43 px (CI run 39889591399,
+  // task-settings.spec's drag handle). Its size is its size from the first frame.
   "md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[calc(100dvh-4rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-4 md:pb-4 md:duration-100",
-  "md:data-open:zoom-in-95 md:data-open:slide-in-from-bottom-0 md:data-closed:zoom-out-95 md:data-closed:slide-out-to-bottom-0",
+  "md:data-open:slide-in-from-bottom-0 md:data-closed:slide-out-to-bottom-0",
 ].join(" ");
 
 /**
@@ -29,9 +32,14 @@ export const MODAL_SURFACE = [
  * never sits under the thumb next to the primary one. There it is the sheet's own surface
  * (`bg-popover`) under a top border, clearing the home indicator. From `md` up it is the
  * dialog's last row: no band, no border, buttons right-aligned, Cancel then the action (2.9
- * review, owner's check 2026-09-26: the muted band read as a second surface).
+ * review, owner's check 2026-09-26: the muted band read as a second surface). A button marked
+ * `data-dismiss` is the way out: quiet text on a phone (PP-forms-3, V5b).
  */
 export const MODAL_FOOTER = [
+  // PP-forms-3 (V5b): on a phone the sheet's ✕ and its handle are the dismiss, so the way out
+  // (`data-dismiss`: Cancel, Keep it, Close) is a quiet text button under the commit, not a big
+  // outlined one; it keeps its 44 px target. From `md` it is the dialog's outline button again.
+  "max-md:[&>[data-dismiss]]:text-muted-foreground max-md:[&>[data-dismiss]]:border-transparent max-md:[&>[data-dismiss]]:bg-transparent",
   "bg-popover -mx-4 -mb-[calc(1rem+var(--app-safe-bottom))] flex flex-col-reverse gap-2 border-t p-4 pb-[calc(1rem+var(--app-safe-bottom))] *:w-full",
   "md:m-0 md:flex-row md:justify-end md:border-0 md:bg-transparent md:p-0 md:*:w-auto",
 ].join(" ");

@@ -57,7 +57,7 @@ export default async function ClientItemsPage({
         help={description}
         back={{ href: owner ? "/today" : "/clients", label: owner ? "Today" : "Clients" }}
       />
-      <div className="max-w-3xl">
+      <div className="min-w-0">
         <ItemList
           rows={sortItemRows(rows).map((row) =>
             itemRowView(

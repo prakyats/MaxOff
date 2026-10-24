@@ -51,7 +51,9 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     expect(personNav).toContain("/attendance`");
     expect(personNav).toContain("/leave`");
     expect(clientNav).toContain("/brand`");
-    expect(clientNav).toContain("/activity`");
+    // The Activity tab left in the v1.8 sweep (History is the header's sheet); its old path
+    // redirects, and routeKey still keys it to the client.
+    expect(clientNav).not.toContain("/activity`");
     expect(clientNav).toContain("/projects`");
   });
 });

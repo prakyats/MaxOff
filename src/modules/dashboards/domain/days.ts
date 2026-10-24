@@ -1,4 +1,11 @@
-import { addISTDays, formatIST, istDayStart, toISTDate, type ISODate } from "@/core/time";
+import {
+  addISTDays,
+  formatIST,
+  formatTime,
+  type ISODate,
+  istDayStart,
+  toISTDate,
+} from "@/core/time";
 
 /**
  * Day words the dashboards share (6A): "Today", "Tomorrow", else "Thu 8 Oct", always the IST day
@@ -20,7 +27,7 @@ export function inlineDay(date: ISODate, today: ISODate): string {
 
 /** An instant's IST time of day: "10:00 am". */
 export function clockWord(instant: string): string {
-  return formatIST(instant, "h:mm aaa");
+  return formatTime(instant);
 }
 
 /** The IST days from `today` through `days - 1` days later. */
@@ -32,4 +39,18 @@ export function nextDays(today: ISODate, days: number): ISODate[] {
 export function instantWithin(instant: string, from: ISODate, to: ISODate): boolean {
   const date = toISTDate(instant);
   return date >= from && date <= to;
+}
+
+/** The day line under Today's and My Day's title (PP-today-1, PP-phone-6): "Thursday, 22 October". */
+export function dateLine(date: ISODate): string {
+  return formatIST(istDayStart(date), "EEEE, d MMMM");
+}
+
+/**
+ * The header's one line of context (FINAL 1, major change 1): the date, then the greeting by first
+ * name, "Thursday, 22 October · Hello, Prishit". A phone shows the date line alone.
+ */
+export function dayContext(date: ISODate, name: string | null | undefined): string {
+  const first = name?.trim().split(/\s+/)[0];
+  return first ? `${dateLine(date)} · Hello, ${first}` : dateLine(date);
 }

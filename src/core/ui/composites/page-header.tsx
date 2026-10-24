@@ -4,6 +4,7 @@ import { cn } from "@/core/lib/utils";
 
 import { BackLink, type BackOrigin } from "./back-link";
 import { HeaderBell } from "./header-bell";
+import { HomeMark } from "./home-mark";
 import { HelpSheet } from "./help-sheet";
 
 /**
@@ -11,8 +12,9 @@ import { HelpSheet } from "./help-sheet";
  *
  * **Desktop** (`md` up): title, description and right-aligned actions, as before.
  *
- * **Phone**: a 44px sticky bar holding the back chevron, the title and the notification bell,
- * pinned directly under the brand bar and taking the top edge when that slides away. The
+ * **Phone**: **the one header bar** (L4: no brand bar above it), a 44px bar sticky at the top
+ * edge holding the back chevron (or, on a top-level tab, the MaxOff mark that goes home by replace), the title,
+ * the record's ⋯ menu and the notification bell. The
  * description does **not** render — an explanatory paragraph belongs in the empty state or
  * behind `help`, not in front of the first row of content — and `actions` moves to an extended
  * FAB above the bottom bar, because a primary action at the top of a scrolled page is out of
@@ -35,6 +37,11 @@ export function PageHeader({
   back,
   actions,
   menu,
+  status,
+  history,
+  primary,
+  primaryOwnBar = false,
+  titleLines = 2,
   className,
 }: {
   title: ReactNode;
@@ -48,6 +55,33 @@ export function PageHeader({
    * screen's primary one.
    */
   menu?: ReactNode;
+  /**
+   * The detail header (FINAL 6, `DetailHeader`): the record's status chip right after the title.
+   * Laptop only: the phone's 44 px bar has no room beside History, ⋯ and the bell, so a phone
+   * keeps the state on the page's first-glance line under the bar.
+   */
+  status?: ReactNode;
+  /** The record's History clock (`HistoryButton` / `HistorySheet`), just before ⋯. */
+  history?: ReactNode;
+  /**
+   * The page's one primary action on a laptop, in the header's action area beside History (e.g.
+   * Crew's Mark done, PP-crew-8). Laptop only: on a phone the same action is the sticky bottom
+   * bar (`StickyActions`), which the caller draws.
+   */
+  primary?: ReactNode;
+  /**
+   * `primary` draws its own phone sticky bar (`StickyActions`, the task page's next step,
+   * PP-crew-8): one element in both places, so its dialogs mount once. On a phone the header's
+   * slot is `display: contents` and the bar is fixed at the foot; from `md` up it is the header's
+   * action area.
+   */
+  primaryOwnBar?: boolean;
+  /**
+   * The phone bar's title lines: two (the default), or one with an ellipsis where the page's body
+   * shows the full title (the task page, the design gate of 23 Oct: the truncation rule). A laptop
+   * always allows two.
+   */
+  titleLines?: 1 | 2;
   className?: string;
 }) {
   return (
@@ -67,12 +101,13 @@ export function PageHeader({
       <div
         data-slot="page-header"
         className={cn(
-          // Phone: a full-bleed sticky title bar under the brand bar. The background is opaque
-          // on purpose: `backdrop-filter` would make this a containing block, and the `fixed`
-          // action below would then be positioned against the bar instead of the viewport.
-          "border-border bg-background sticky top-[var(--app-chrome-h)] z-20 -mx-4 mb-4 flex min-h-11 items-center gap-1 border-b px-2",
+          // Phone: the one full-bleed header bar, sticky at the top edge (below a notch, if any).
+          // The background is opaque on purpose: `backdrop-filter` would make this a containing
+          // block, and the `fixed` action below would then be positioned against the bar instead
+          // of the viewport.
+          "border-border bg-background sticky top-0 z-20 -mx-4 mb-4 flex min-h-11 items-center gap-1 border-b px-2 pt-[var(--app-safe-top)]",
           // Desktop: the title block it has always been.
-          "md:static md:mx-0 md:mb-6 md:min-h-0 md:items-start md:gap-3 md:border-0 md:px-0",
+          "md:static md:mx-0 md:mb-6 md:min-h-0 md:items-start md:gap-3 md:border-0 md:px-0 md:pt-0",
           className,
         )}
       >
@@ -84,25 +119,47 @@ export function PageHeader({
             variant="icon"
             className="text-muted-foreground active:bg-muted -ml-1 flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
           />
-        ) : null}
+        ) : (
+          <HomeMark />
+        )}
 
-        <div
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-0.5 md:block",
-            !back && "ml-2 md:ml-0",
-          )}
-        >
-          <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
-            {title}
-          </h1>
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 md:block">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1
+              className={cn(
+                "min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl",
+                titleLines === 1 ? "line-clamp-1 md:line-clamp-2" : "line-clamp-2",
+              )}
+            >
+              {title}
+            </h1>
+            {status ? (
+              <span data-slot="page-status" className="hidden shrink-0 md:inline-flex">
+                {status}
+              </span>
+            ) : null}
+          </div>
           {help ? <HelpSheet title={title}>{help}</HelpSheet> : null}
           {description ? (
             <p className="text-muted-foreground mt-1 hidden text-sm md:block">{description}</p>
           ) : null}
         </div>
 
-        {menu ? (
+        {primary ? (
+          <div
+            data-slot="page-primary"
+            className={cn(
+              "shrink-0 items-center gap-2 md:order-last md:flex",
+              primaryOwnBar ? "max-md:contents" : "hidden",
+            )}
+          >
+            {primary}
+          </div>
+        ) : null}
+
+        {menu || history ? (
           <div data-slot="page-menu" className="flex shrink-0 items-center md:order-last">
+            {history}
             {menu}
           </div>
         ) : null}
@@ -127,4 +184,18 @@ export function PageHeader({
       </div>
     </>
   );
+}
+
+/**
+ * **The detail header** (FINAL 6; V5b): back · title · status chip, then on the right the page's
+ * one primary action (laptop), the History clock, then ⋯; the bell after them on a phone. Every
+ * record page uses it (task, project, client, person). The phone's primary action is the sticky
+ * bottom bar (`StickyActions`), drawn by the page.
+ */
+export function DetailHeader(
+  props: Omit<Parameters<typeof PageHeader>[0], "actions"> & {
+    back: NonNullable<Parameters<typeof PageHeader>[0]["back"]>;
+  },
+) {
+  return <PageHeader {...props} />;
 }

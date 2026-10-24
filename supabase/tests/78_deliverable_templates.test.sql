@@ -264,7 +264,7 @@ insert into fx values ('pt_old', public.project_save_as_template(pg_temp.fx('old
 select isnt(pg_temp.fx('pt_old'), null, 'the client''s Admin saves a today-shape project as a template');
 select is((pg_temp.ptemplate(pg_temp.fx('pt_old'))).name, 'Saved month', 'named as typed, trimmed');
 select is((pg_temp.ptemplate(pg_temp.fx('pt_old'))).recurrence, 'monthly'::public.recurrence, 'with the project''s repeat');
-select is((pg_temp.ptemplate(pg_temp.fx('pt_old'))).description, 'Kept description', 'and its description');
+select is((pg_temp.ptemplate(pg_temp.fx('pt_old'))).description, null, 'never its description (V4: the structure only)');
 select is((pg_temp.ptemplate(pg_temp.fx('pt_old'))).stage_groups,
   '[{"label": null, "stages": ["Stage 1", "Stage 2"]}]'::jsonb, 'its default stages, one untitled group');
 select is((pg_temp.ptemplate(pg_temp.fx('pt_old'))).deliverables,

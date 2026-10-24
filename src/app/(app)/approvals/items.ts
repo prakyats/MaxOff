@@ -1,31 +1,34 @@
-import { formatIST } from "@/core/time";
+import { formatDateTime } from "@/core/time";
+import type { AvatarPerson } from "@/core/ui/composites/person-avatar";
 import { deadlineLabel, pairName, stateLabel, type TaskToDecide } from "@/modules/tasks";
 import type { TaskApprovalItem } from "@/modules/tasks/components/task-approval-group";
 
-const WHEN = "d MMM, h:mm a";
-
 /**
  * A task as the Approvals group shows it (4.5): who handed it in and when, and the words for its
- * step. Shared by /approvals and the Owner's Today preview (6.2).
+ * step. Shared by /approvals and the Owner's Today preview (6.2). `faces` (the directory the page
+ * already read) gives the row the photo of whoever handed it in, else the primary owner's (#89).
  */
 export function taskItem(
   item: TaskToDecide,
   names: Readonly<Record<string, string>>,
   owner: boolean,
+  faces?: Readonly<Record<string, AvatarPerson>>,
 ): Omit<TaskApprovalItem, "unread"> {
   const { row, submission, lateReason } = item;
   const by = submission ? pairName(names, submission.submittedBy, submission.onBehalfOf) : null;
   const at = submission?.at ?? row.submittedAt;
   const handedIn = [
     by ? `Done by ${by}` : "Done",
-    at ? formatIST(at, WHEN) : null,
+    at ? formatDateTime(at) : null,
     submission && submission.version > 1 ? `version ${submission.version}` : null,
   ]
     .filter(Boolean)
     .join(", ");
+  const avatar = faces?.[submission?.submittedBy ?? row.primaryOwnerId];
   return {
     id: row.id,
     title: row.title,
+    ...(avatar ? { avatar } : {}),
     subtitle: lateReason ? `${handedIn} · late` : handedIn,
     status: row.state,
     statusLabel: owner ? stateLabel(row, { finalApprover: true }) : "Waiting for your check",

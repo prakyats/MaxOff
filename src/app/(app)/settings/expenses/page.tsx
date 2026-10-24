@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Expenses" };
  */
 export default async function ExpensesSettingsPage() {
   // Read together with the permission check, not after it (ARCHITECTURE §19).
-  const [, [items, receiptAbove]] = await checkThenRead(
+  const [viewer, [items, receiptAbove]] = await checkThenRead(
     requirePermission("expenses.decide"),
     Promise.all([listItems("expense_category", { includeArchived: true }), getReceiptAbove()]),
   );
@@ -34,25 +34,20 @@ export default async function ExpensesSettingsPage() {
         {...SETTINGS_HEADERS.expenses}
       />
       <div className="flex max-w-2xl flex-col gap-8">
-        <section aria-labelledby="expense-categories" className="flex flex-col gap-3">
-          <h2 id="expense-categories" className="text-sm font-medium">
-            Categories
-          </h2>
-          {/* The screen's red commit is the receipt amount's Save (a floating bar on a phone, the
-              form's last row from md up), so Add is the neutral outline here. */}
-          <ListManager
-            addVariant="secondary"
-            listKey="expense_category"
-            labels={LIST_LABELS.expense_category}
-            items={items.map((item) => ({
-              id: item.id,
-              name: item.name,
-              archivedAt: item.archived_at,
-            }))}
-          />
-        </section>
+        <ListManager
+          title="Categories"
+          headingId="expense-categories"
+          listKey="expense_category"
+          labels={LIST_LABELS.expense_category}
+          items={items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            archivedAt: item.archived_at,
+          }))}
+          canDelete={viewer.role === "owner"}
+        />
         <section aria-labelledby="expense-receipts" className="flex flex-col gap-3">
-          <h2 id="expense-receipts" className="text-sm font-medium">
+          <h2 id="expense-receipts" className="text-sm font-semibold">
             Receipts
           </h2>
           <ReceiptAboveForm receiptAbove={receiptAbove} />

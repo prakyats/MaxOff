@@ -1,32 +1,25 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  LayoutTemplateIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { LayoutTemplateIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { templateMatches } from "@/core/lib/stage-groups";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/core/ui/primitives/sheet";
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListHeading,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { toastResult } from "@/core/ui/toast";
 
-import { setTemplateArchived } from "../actions/templates";
+import { deleteTaskTemplate, setTemplateArchived, taskTemplateUsage } from "../actions/templates";
 import { templateActions, type TaskTemplate } from "../domain/templates";
 import { PRIORITY_LABELS } from "../domain/types";
 import type { TemplateContext } from "./template-dialog";
@@ -44,20 +37,36 @@ type Context = TemplateContext;
  * templates, shared company-wide. Everyone with `templates.manage` (the Owner and Admins) adds one
  * and uses any in "New task → Start from"; an Admin edits and archives the ones they made, the
  * Owner any. A template holds a type, a priority, a description, stages and the task fields'
- * defaults; never a client, people or a deadline. Rows in the list-manager shape (1.4).
+ * defaults; never a client, people or a deadline. Rows in the list-manager shape (1.4): "Add task
+ * template" on the heading (C4) and each row's `ListRowActions`.
  */
 export function TemplateManager({
   templates,
+  query = "",
   ...context
-}: Context & { templates: readonly TaskTemplate[] }) {
+}: Context & {
+  templates: readonly TaskTemplate[];
+  /** The Templates page's one search (6b.6 owner note): a name or a stage; a view control. */
+  query?: string;
+}) {
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
   const [archiving, setArchiving] = useState<TaskTemplate | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const active = templates
-    .filter((template) => !template.archived)
+  // The Owner's permanent Delete (V5a 6b): any template, any time.
+  const [deleting, setDeleting] = useState<TaskTemplate | null>(null);
+  const isOwner = context.viewer.role === "owner";
+  const all = templates.filter((template) => !template.archived);
+  const active = all
+    .filter((template) => templateMatches(query, [template.name, ...template.stages]))
     .sort((a, b) => a.name.localeCompare(b.name));
+  // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
   const archived = templates
-    .filter((template) => template.archived)
+    .filter(
+      (template) =>
+        template.archived &&
+        templateActions(template, context.viewer).restore &&
+        templateMatches(query, [template.name, ...template.stages]),
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
   const typeName = new Map(context.types.map((type) => [type.id, type.name]));
 
@@ -77,119 +86,91 @@ export function TemplateManager({
       PRIORITY_LABELS[template.defaultPriority],
       stages,
       author,
+      // PP-admin-12: one the viewer cannot change says so.
+      templateActions(template, context.viewer).edit ? null : "view only",
     ]
       .filter(Boolean)
       .join(" · ");
   }
 
   async function restore(template: TaskTemplate) {
-    setBusyId(template.id);
     toastResult(await setTemplateArchived({ templateId: template.id, archived: false }), {
-      success: "Template restored",
+      success: `${template.name} restored`,
     });
-    setBusyId(null);
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {active.length === 0 ? (
-        <EmptyState
-          icon={LayoutTemplateIcon}
-          title="No templates yet"
-          description="Add one for work that repeats. New task offers it under Start from."
+    <section aria-labelledby="task-templates" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <ListHeading
+          id="task-templates"
+          title="Task templates"
+          action={
+            <ListAddButton onClick={() => setAdding(true)} data-slot="add-template">
+              Add task template
+            </ListAddButton>
+          }
         />
-      ) : (
-        <ul
-          data-slot="task-templates"
-          className="border-border divide-border divide-y rounded-lg border"
-        >
-          {active.map((template) => {
-            const allowed = templateActions(template, context.viewer);
-            return (
-              <li
-                key={template.id}
-                data-slot="task-template"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                  <span className="truncate text-sm font-medium">{template.name}</span>
-                  <span className="text-muted-foreground text-xs break-words">
-                    {line(template)}
-                  </span>
-                </div>
-                {allowed.edit ? (
-                  <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${template.name}`}
-                      onClick={() => setEditing(template)}
-                      className="hidden md:inline-flex"
-                    >
-                      <PencilIcon aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Archive ${template.name}`}
-                      onClick={() => setArchiving(template)}
-                      className="hidden md:inline-flex"
-                    >
-                      <ArchiveIcon aria-hidden />
-                    </Button>
-                    <RowSheet
-                      name={template.name}
-                      onEdit={() => setEditing(template)}
-                      onArchive={() => setArchiving(template)}
-                    />
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
-          <p className="text-muted-foreground text-sm">
-            Not offered in New task. Tasks made from one keep what it gave them.
+        {all.length === 0 ? (
+          <EmptyState
+            icon={LayoutTemplateIcon}
+            size="compact"
+            title="No task templates yet"
+            description="Add one for work that repeats. New task offers it under Start from."
+          />
+        ) : active.length === 0 ? (
+          <p className="text-muted-foreground text-sm" data-slot="task-templates-none">
+            No task template matches “{query.trim()}”.
           </p>
+        ) : (
           <ul
-            data-slot="archived-task-templates"
-            className="border-border divide-border divide-y rounded-lg border"
+            data-slot="task-templates"
+            className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
           >
-            {archived.map((template) => (
-              <li
-                key={template.id}
-                data-slot="archived-task-template"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                  {template.name}
-                </span>
-                {templateActions(template, context.viewer).restore ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={CARD_ROW_TRAILING}
-                    disabled={busyId !== null}
-                    onClick={() => void restore(template)}
-                  >
-                    <ArchiveRestoreIcon aria-hidden />
-                    Restore
-                  </Button>
-                ) : null}
-              </li>
-            ))}
+            {active.map((template) => {
+              const allowed = templateActions(template, context.viewer);
+              return (
+                <li
+                  key={template.id}
+                  data-slot="task-template"
+                  className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+                >
+                  <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
+                    <span className="text-sm font-medium break-words">{template.name}</span>
+                    <span className="text-muted-foreground text-xs break-words">
+                      {line(template)}
+                    </span>
+                  </div>
+                  {allowed.edit ? (
+                    <ListRowActions
+                      name={template.name}
+                      kind="Template"
+                      slot="task-template-actions"
+                      edit={{ label: "Edit", onSelect: () => setEditing(template) }}
+                      onArchive={() => setArchiving(template)}
+                      onDelete={isOwner ? () => setDeleting(template) : undefined}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
-        </section>
-      ) : null}
+        )}
+        <ArchivedSection count={archived.length}>
+          {archived.map((template) => (
+            <ArchivedRow
+              key={template.id}
+              name={template.name}
+              meta={line(template)}
+              kind="Template"
+              onRestore={() => void restore(template)}
+              onDelete={isOwner ? () => setDeleting(template) : undefined}
+            />
+          ))}
+        </ArchivedSection>
+      </div>
 
+      {adding ? <TemplateDialog key="add" {...context} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog
           key={editing.id}
@@ -205,94 +186,35 @@ export function TemplateManager({
             if (!open) setArchiving(null);
           }}
           title={`Archive ${archiving.name}?`}
-          description="New task stops offering it. Tasks made from it keep what it gave them, and you can restore it later."
+          description="It won't be offered for new tasks. Tasks already made from it don't change."
           confirmLabel={`Archive ${archiving.name}`}
           pendingLabel="Archiving…"
-          onConfirm={async () =>
-            toastResult(await setTemplateArchived({ templateId: archiving.id, archived: true }), {
-              success: "Template archived",
-            })
-          }
+          onConfirm={async () => {
+            const template = archiving;
+            toastResult(await setTemplateArchived({ templateId: template.id, archived: true }), {
+              success: `${template.name} archived`,
+              undo: () => void restore(template),
+            });
+          }}
         />
       ) : null}
-    </div>
-  );
-}
-
-/** Edit and Archive on a phone (1.5's shape). */
-function RowSheet({
-  name,
-  onEdit,
-  onArchive,
-}: {
-  name: string;
-  onEdit: () => void;
-  onArchive: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  function choose(then: () => void) {
-    setOpen(false);
-    then();
-  }
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Actions for ${name}`}
-          className="md:hidden"
-        >
-          <MoreHorizontalIcon aria-hidden />
-        </Button>
-      </SheetTrigger>
-      <SheetContent
-        side="bottom"
-        data-slot="task-template-actions"
-        className="gap-3 rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
-      >
-        <div
-          aria-hidden
-          className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
+      {deleting ? (
+        <TemplateDeleteDialog
+          key={deleting.id}
+          kind="task"
+          name={deleting.name}
+          loadUsage={() => taskTemplateUsage({ templateId: deleting.id })}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const template = deleting;
+            toastResult(await deleteTaskTemplate({ templateId: template.id }), {
+              success: `${template.name} deleted`,
+            });
+          }}
         />
-        <SheetHeader className="pt-3 pr-12 pb-0">
-          <SheetTitle>{name}</SheetTitle>
-          <SheetDescription className="sr-only">Template actions</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-2 px-4">
-          <Button
-            variant="secondary"
-            className="w-full justify-start"
-            onClick={() => choose(onEdit)}
-          >
-            <PencilIcon aria-hidden />
-            Edit
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full justify-start"
-            onClick={() => choose(onArchive)}
-          >
-            <ArchiveIcon aria-hidden />
-            Archive
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** The screen's one primary action, for `PageHeader` (a FAB on a phone). */
-export function AddTemplateButton(context: Context) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="strong" onClick={() => setOpen(true)} data-slot="add-template">
-        <PlusIcon aria-hidden />
-        Add template
-      </Button>
-      {open ? <TemplateDialog {...context} onClose={() => setOpen(false)} /> : null}
-    </>
+      ) : null}
+    </section>
   );
 }

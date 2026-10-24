@@ -15,8 +15,16 @@ import { describe, expect, it } from "vitest";
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const appDir = path.join(root, "src/app/(app)");
 
-/** Routes with no server data to wait for; a loading state would never paint. */
-const NO_DATA = new Set(["forbidden"]);
+/**
+ * Routes with no server data to wait for; a loading state would never paint. The old Stage presets
+ * path only redirects to the one Templates page (6b.6 owner note).
+ */
+const NO_DATA = new Set([
+  "forbidden",
+  "settings/stage-presets",
+  // The old client Activity tab: a redirect to the client with its History sheet open (V5a).
+  "clients/[id]/activity",
+]);
 
 function routesWithPages(dir: string, prefix = ""): string[] {
   const found: string[] = [];
@@ -132,9 +140,10 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("clients/(list)")).toBe("cards");
     // Settings traces its own sections and Help block from the classes the page uses (`list.ts`).
     expect(shapeOf("settings"), "settings traces its own rows, not a shape").toBeUndefined();
-    expect(sourceOf("settings")).toContain("settingsSectionsFor");
-    expect(sourceOf("settings")).toContain("SECTION_LINE_CLASS");
-    expect(sourceOf("settings")).toContain("HELP_ROW_CLASS");
+    expect(sourceOf("settings")).toContain("settingsGroupsFor");
+    expect(sourceOf("settings")).toContain("SECTION_ROW_CLASS");
+    // PP-settings-2: Help is a group of its own, traced as one.
+    expect(sourceOf("settings")).toContain("HELP_GROUP_CLASS");
     expect(sourceOf("settings")).not.toContain(standIn);
     expect(shapeOf("me")).toBe("detail");
     // The guide (6b.14): topic rows on the card-row geometry, under the search box.

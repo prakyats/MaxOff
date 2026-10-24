@@ -120,7 +120,10 @@ test("the team's month, one person's month, and the month's claims marked paid",
   const summary = page.locator('[data-slot="month-summary"]');
   await expect(summary.locator('[data-line="worked"]')).toContainText("1");
   await expect(summary.locator('[data-line="additional"]')).toContainText("2");
-  await expect(summary.locator('[data-line="leave"]')).toContainText("1 · 0 · 1");
+  // W6: three labelled rows instead of "1 · 0 · 1".
+  await expect(summary.locator('[data-line="leave"]')).toContainText(/Leave\s*1/);
+  await expect(summary.locator('[data-line="half"]')).toContainText(/Half days\s*0/);
+  await expect(summary.locator('[data-line="absent"]')).toContainText(/Absent\s*1/);
   await expect(summary.locator('[data-slot="month-pending"]')).toContainText(
     "1 day waiting for your review",
   );
@@ -153,9 +156,9 @@ test("an Admin reaches neither the team's month nor a person's", async ({ page }
   const memberId = await memberIdOf(person(info));
   await signIn(page, USERS.admin.email, USERS.admin.password);
   await page.goto("/reports/month");
-  await expect(page).toHaveURL(/\/forbidden$/);
+  await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   await page.goto(`/people/${memberId}/month`);
-  await expect(page).toHaveURL(/\/forbidden$/);
+  await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   // Their Reports stays the placeholder.
   await page.goto("/reports");
   await expect(page.locator('[data-slot="report-link"]')).toHaveCount(0);

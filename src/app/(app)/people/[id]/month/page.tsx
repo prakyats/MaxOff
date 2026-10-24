@@ -1,6 +1,8 @@
 import { CalendarRangeIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { displayName } from "@/core/lib/display-name";
+
 import { can } from "@/core/permissions";
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
@@ -18,7 +20,20 @@ import { MemberMonthClaims } from "@/modules/expenses/components/member-month-cl
 import { LeavePager } from "../../../leave/leave-nav";
 import { loadHistoryPerson, loadPerson } from "../person";
 
-export const metadata: Metadata = { title: "Month" };
+/**
+ * The tab names the person, then this view ("Prishit Shetty · Month · MaxOff"), from
+ * `loadHistoryPerson` (`loadPerson` and the session's member row).
+ * Next resolves metadata on a prefetch too; the layout's header makes the same `cache()`d
+ * `loadPerson` on it, so the title adds no read to a prefetch (P2 item 6).
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const person = await loadHistoryPerson((await params).id);
+  return { title: `${displayName(person.fullName)} · Month` };
+}
 
 /**
  * One person's month for the Owner (PRODUCT §4.18, WORKFLOWS §2b, 3b.4): the live summary of an
@@ -60,7 +75,7 @@ export default async function PersonMonthPage({
         previousLabel="Previous month"
         nextLabel="Next month"
       />
-      <div className="flex max-w-2xl flex-col gap-6">
+      <div className="flex flex-col gap-6">
         {summary ? (
           <MonthSummaryCard summary={summary} />
         ) : (

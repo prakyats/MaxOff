@@ -49,6 +49,10 @@ const BulkEditSheet = dynamic(
   () => import("./bulk-edit-sheet").then((module) => module.BulkEditSheet),
   { ssr: false },
 );
+const GroupStagesDialog = dynamic(
+  () => import("./group-stages-dialog").then((module) => module.GroupStagesDialog),
+  { ssr: false },
+);
 const ConfirmDialog = dynamic(
   () => import("@/core/ui/composites/confirm-dialog").then((module) => module.ConfirmDialog),
   { ssr: false },
@@ -86,7 +90,7 @@ export function CycleItems({
   solidAllowed = true,
 }: {
   /**
-   * The screen may carry a solid red Mark done (E+): false while another solid control shows on
+   * The screen may carry a solid Mark done (E+): false while another solid control shows on
    * the same layer (the month-end "Keep extras" card's neutral solid Yes; §14.1).
    */
   solidAllowed?: boolean;
@@ -113,6 +117,8 @@ export function CycleItems({
   // The sheet's code arrives on its first open and stays (`ItemSheet` above).
   const [sheetUsed, setSheetUsed] = useState(openItemId !== null);
   const [adding, setAdding] = useState(false);
+  // "Group stages" (fix D): the deliverable being split, mounted while open.
+  const [grouping, setGrouping] = useState<ItemView | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmUsed, setConfirmUsed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -182,7 +188,7 @@ export function CycleItems({
   // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
   const { open, finished } = orderDeliverables(items);
   // E+: Mark done is quiet until every stage is ticked; the first such row's is the screen's one
-  // solid red commit (never in Select mode, whose bar does it), the others outlined.
+  // solid commit (never in Select mode, whose bar does it), the others outlined.
   const canMark = (item: ItemView) => permissions.tick && item.rules.markDone && !waiting(item);
   const solidId = solidMarkDoneId(open, canMark, solidAllowed && !mode.selectMode);
   const row = (item: ItemView) => (
@@ -205,6 +211,8 @@ export function CycleItems({
       onOpen={() => openSheet(item.id)}
       onMarkDone={() => markDone(item)}
       error={errors[item.id]}
+      manage={permissions.manage && !mode.selectMode}
+      onGroup={permissions.manage ? () => setGrouping(item) : undefined}
     />
   );
 
@@ -266,10 +274,11 @@ export function CycleItems({
               aria-label="Deliverables"
               data-slot="cycle-items"
               className={cn(
-                "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
+                "border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border",
                 deliverableColumns(mode.selectMode),
               )}
             >
+              <DeliverableHeader selecting={mode.selectMode} />
               {open.map(row)}
             </ul>
           ) : (
@@ -336,6 +345,7 @@ export function CycleItems({
           title={`Mark ${itemCount(openSelected.length)} done?`}
           description="Each counts as done at once and its stages lock; a done item is sent back or reopened with a reason. Each is its own change: one that fails keeps its message."
           confirmLabel={`Mark ${itemCount(openSelected.length)} done`}
+          approve
           onConfirm={() =>
             bulk(
               "bulk-done",
@@ -343,6 +353,16 @@ export function CycleItems({
               "marked done",
             )
           }
+        />
+      ) : null}
+      {grouping ? (
+        <GroupStagesDialog
+          target={{
+            itemId: grouping.id,
+            title: grouping.title,
+            stages: grouping.stages.map((stage) => ({ id: stage.id, name: stage.name })),
+          }}
+          onClose={() => setGrouping(null)}
         />
       ) : null}
       {adding ? (
@@ -381,5 +401,27 @@ export function CycleItems({
         />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The laptop table's header row (owner 2026-10-21, the approved sample): Deliverable · Progress by
+ * group · Next · Planned, over the rows' columns (a subgrid). Hidden from assistive tech: each row
+ * already names its parts; a phone has cards and no header.
+ */
+function DeliverableHeader({ selecting }: { selecting: boolean }) {
+  return (
+    <li
+      aria-hidden
+      data-slot="deliverables-header"
+      className="bg-muted/40 text-muted-foreground hidden px-3 py-2 text-xs font-medium sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+    >
+      {selecting ? <span /> : null}
+      <span>Deliverable</span>
+      <span>Progress by group</span>
+      <span>Next</span>
+      <span>Planned</span>
+      <span />
+    </li>
   );
 }

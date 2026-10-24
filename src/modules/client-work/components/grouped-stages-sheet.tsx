@@ -374,11 +374,10 @@ export function GroupedStagesSheet({
                           <MoreHorizontalIcon aria-hidden />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="min-w-48">
+                      <DropdownMenuContent align="end" className="min-w-48" title={group.label}>
                         <ReorderMenuItems reorder={groupReorder} index={index} />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          variant="destructive"
                           onSelect={() => setRemoving({ kind: "group", label: group.label })}
                         >
                           <Trash2Icon aria-hidden />
@@ -507,6 +506,7 @@ export function GroupedStagesSheet({
         </div>
       </ReviewSheet>
       <ConfirmDialog
+        destructive
         open={asking}
         onOpenChange={(next) => (next ? null : setAsking(false))}
         title="Discard what you typed?"
@@ -520,6 +520,7 @@ export function GroupedStagesSheet({
         }}
       />
       <ConfirmDialog
+        destructive
         open={removing !== null}
         onOpenChange={(next) => (next ? null : setRemoving(null))}
         title={
@@ -672,10 +673,10 @@ function StageRows({
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuContent align="end" className="min-w-48" title={row.name}>
               <ReorderMenuItems reorder={reorder} index={index} />
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => onRemove(row)}>
+              <DropdownMenuItem onSelect={() => onRemove(row)}>
                 <Trash2Icon aria-hidden />
                 Remove stage
               </DropdownMenuItem>

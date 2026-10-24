@@ -15,7 +15,7 @@ import {
 } from "@/core/ui/composites/row-metrics";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
-import { Input } from "@/core/ui/primitives/input";
+import { DateInput } from "@/core/ui/primitives/date-time-input";
 import { Label } from "@/core/ui/primitives/label";
 import { toast } from "sonner";
 
@@ -86,7 +86,7 @@ export function MemberMonthClaims({
           No claims dated this month.
         </p>
       ) : (
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
           {claims.map((claim) => {
             const outcome = claimOutcome(claim);
             return (
@@ -161,9 +161,8 @@ export function MemberMonthClaims({
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${id}-paid-on`}>Paid on</Label>
-          <Input
+          <DateInput
             id={`${id}-paid-on`}
-            type="date"
             max={today}
             value={paidOn}
             aria-invalid={error ? true : undefined}

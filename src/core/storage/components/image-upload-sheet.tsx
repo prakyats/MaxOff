@@ -206,7 +206,7 @@ export function ImageUploadSheet({
               {hasCurrent && onRemove ? (
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="secondary"
                   onClick={() => setConfirmRemove(true)}
                   disabled={pending}
                   className="md:mr-auto"
@@ -215,7 +215,13 @@ export function ImageUploadSheet({
                   {removeLabel}
                 </Button>
               ) : null}
-              <Button type="button" variant="secondary" onClick={close} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={close}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button
@@ -234,6 +240,7 @@ export function ImageUploadSheet({
       ) : null}
       {confirmRemove && onRemove ? (
         <ConfirmDialog
+          destructive
           open
           onOpenChange={(next) => {
             if (!next) setConfirmRemove(false);

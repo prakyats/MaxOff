@@ -1,26 +1,26 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  EyeIcon,
-  PackageIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { PackageIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import {
+  ArchivedRow,
+  ArchivedSection,
+  ListAddButton,
+  ListRowActions,
+} from "@/core/ui/composites/list-rows";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
+import { TemplateDeleteDialog } from "@/core/ui/composites/template-delete-dialog";
 import { type StagePresetOption, groupsSummary } from "@/core/ui/stage-groups/editing";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
 import { toastResult } from "@/core/ui/toast";
 
+import { deleteDeliverableTemplate } from "../actions/delete";
 import {
   archiveDeliverableTemplate,
   restoreDeliverableTemplate,
@@ -57,8 +57,9 @@ export function DeliverableTemplateManager({
   const [editing, setEditing] = useState<DeliverableTemplate | null>(null);
   const [adding, setAdding] = useState(false);
   const [archiving, setArchiving] = useState<DeliverableTemplate | null>(null);
+  // The Owner's permanent Delete (V5a 6b): any template, any time.
+  const [deleting, setDeleting] = useState<DeliverableTemplate | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const matches = (template: DeliverableTemplate) =>
     templateMatches(query, [
       template.name,
@@ -66,34 +67,31 @@ export function DeliverableTemplateManager({
     ]);
   const all = templates.filter((template) => !template.archived);
   const active = all.filter(matches);
-  const archived = templates.filter((template) => template.archived && matches(template));
+  // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
+  const archived = templates.filter(
+    (template) =>
+      template.archived && templateRowActions(template, viewer).restore && matches(template),
+  );
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: DeliverableTemplate): string {
     const author =
       template.createdBy === viewer.id ? "by you" : `by ${names[template.createdBy] ?? "someone"}`;
-    return [groupsSummary(template.stageGroups), author].join(" · ");
+    // PP-admin-12: one the viewer cannot change says so, and keeps Preview.
+    const viewOnly = templateRowActions(template, viewer).edit ? null : "view only";
+    return [groupsSummary(template.stageGroups), author, viewOnly].filter(Boolean).join(" · ");
   }
 
   async function restore(template: DeliverableTemplate) {
-    setBusyId(template.id);
     toastResult(await restoreDeliverableTemplate({ templateId: template.id }), {
-      success: `Restored ${template.name}: + Add deliverable offers it again`,
+      success: `${template.name} restored`,
     });
-    setBusyId(null);
   }
 
   const addButton = (
-    <Button
-      variant="secondary"
-      className="min-h-11"
-      onClick={() => setAdding(true)}
-      data-slot="add-deliverable-template"
-      aria-label="Add a deliverable template"
-    >
-      <PlusIcon aria-hidden />
-      Add
-    </Button>
+    <ListAddButton onClick={() => setAdding(true)} data-slot="add-deliverable-template">
+      Add deliverable template
+    </ListAddButton>
   );
 
   return (
@@ -102,8 +100,7 @@ export function DeliverableTemplateManager({
         <h2 id="deliverable-templates" className="text-sm font-semibold">
           Deliverable templates
         </h2>
-        {/* With none yet, the empty state holds the one Add (one obvious next action). */}
-        {all.length > 0 ? addButton : null}
+        {addButton}
       </div>
       {all.length === 0 ? (
         <EmptyState
@@ -111,7 +108,6 @@ export function DeliverableTemplateManager({
           size="compact"
           title="No deliverable templates yet"
           description="Add one for a deliverable you repeat. Save as template on a deliverable makes one too."
-          action={addButton}
         />
       ) : active.length === 0 ? (
         <p className="text-muted-foreground text-sm" data-slot="deliverable-templates-none">
@@ -120,7 +116,7 @@ export function DeliverableTemplateManager({
       ) : (
         <ul
           data-slot="deliverable-templates"
-          className="border-border divide-border divide-y rounded-lg border"
+          className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
         >
           {active.map((template) => {
             const allowed = templateRowActions(template, viewer);
@@ -131,90 +127,44 @@ export function DeliverableTemplateManager({
                 className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
               >
                 <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                  <span className="truncate text-sm font-medium">{template.name}</span>
+                  <span className="text-sm font-medium break-words">{template.name}</span>
                   <span className="text-muted-foreground text-xs break-words">
                     {line(template)}
                   </span>
                 </div>
-                <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="min-h-11"
-                    aria-label={`Preview ${template.name}`}
-                    title={`See the stages a deliverable made from ${template.name} starts with`}
-                    onClick={() => setPreviewId(template.id)}
-                  >
-                    <EyeIcon aria-hidden />
-                    Preview
-                  </Button>
-                  {allowed.edit ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-11"
-                      aria-label={`Edit ${template.name}`}
-                      title={`Edit ${template.name}`}
-                      onClick={() => setEditing(template)}
-                    >
-                      <PencilIcon aria-hidden />
-                    </Button>
-                  ) : null}
-                  {allowed.archive ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-11"
-                      aria-label={`Archive ${template.name}`}
-                      title={`Archive ${template.name}`}
-                      onClick={() => setArchiving(template)}
-                    >
-                      <ArchiveIcon aria-hidden />
-                    </Button>
-                  ) : null}
-                </div>
+                <ListRowActions
+                  name={template.name}
+                  kind="Deliverable template"
+                  slot="deliverable-template-actions"
+                  preview={{
+                    onSelect: () => setPreviewId(template.id),
+                    title: `See the stages a deliverable made from ${template.name} starts with`,
+                  }}
+                  edit={
+                    allowed.edit
+                      ? { label: "Edit", onSelect: () => setEditing(template) }
+                      : undefined
+                  }
+                  onArchive={allowed.archive ? () => setArchiving(template) : undefined}
+                  onDelete={viewer.role === "owner" ? () => setDeleting(template) : undefined}
+                />
               </li>
             );
           })}
         </ul>
       )}
-      {archived.length > 0 ? (
-        <ul className="border-border divide-border divide-y rounded-lg border">
-          {archived.map((template) => (
-            <li
-              key={template.id}
-              data-slot="archived-deliverable-template"
-              className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-            >
-              <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                <span className="text-muted-foreground truncate text-sm">
-                  {template.name} (archived)
-                </span>
-                {template.archivedReason ? (
-                  <span className="text-muted-foreground text-xs break-words">
-                    {template.archivedReason}
-                  </span>
-                ) : null}
-              </div>
-              {templateRowActions(template, viewer).restore ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn("min-h-11", CARD_ROW_TRAILING)}
-                  aria-label={`Restore ${template.name}`}
-                  disabled={busyId !== null}
-                  onClick={() => void restore(template)}
-                >
-                  <ArchiveRestoreIcon aria-hidden />
-                  Restore
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <ArchivedSection count={archived.length}>
+        {archived.map((template) => (
+          <ArchivedRow
+            key={template.id}
+            name={template.name}
+            meta={line(template)}
+            kind="Deliverable template"
+            onRestore={() => void restore(template)}
+            onDelete={viewer.role === "owner" ? () => setDeleting(template) : undefined}
+          />
+        ))}
+      </ArchivedSection>
       {adding ? <TemplateDialog presets={presets} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog
@@ -242,18 +192,37 @@ export function DeliverableTemplateManager({
           if (!open) setArchiving(null);
         }}
         title={`Archive ${archiving?.name ?? "this template"}?`}
-        description="“+ Add deliverable” stops offering it. Deliverables made from it keep their stages."
+        description="It won't be offered for new deliverables. Deliverables already made from it don't change."
         label="Why archive it"
         submitLabel={`Archive ${archiving?.name ?? "template"}`}
-        destructive
-        onSubmit={async (reason) =>
-          archiving
-            ? toastResult(await archiveDeliverableTemplate({ templateId: archiving.id, reason }), {
-                success: `Archived ${archiving.name}: + Add deliverable no longer offers it`,
+        onSubmit={async (reason) => {
+          // Archive (D6; named Archive again, owner 2026-10-21) with its reason (invariant 9): the
+          // neutral commit, archive is never red; Undo in the toast.
+          const template = archiving;
+          return template
+            ? toastResult(await archiveDeliverableTemplate({ templateId: template.id, reason }), {
+                success: `${template.name} archived`,
+                undo: () => void restore(template),
               })
-            : false
-        }
+            : false;
+        }}
       />
+      {deleting ? (
+        <TemplateDeleteDialog
+          key={deleting.id}
+          kind="deliverable"
+          name={deleting.name}
+          onOpenChange={(open) => {
+            if (!open) setDeleting(null);
+          }}
+          onConfirm={async () => {
+            const template = deleting;
+            toastResult(await deleteDeliverableTemplate({ templateId: template.id }), {
+              success: `${template.name} deleted`,
+            });
+          }}
+        />
+      ) : null}
     </section>
   );
 }

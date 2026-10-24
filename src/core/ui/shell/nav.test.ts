@@ -35,7 +35,13 @@ describe("navFor", () => {
   });
 
   it("gives Admins the same screens under their own permissions", () => {
-    expect(keys("admin")).toEqual(keys("owner"));
+    // N1: plus their own Attendance & leave and Extra work & expenses, before Settings.
+    expect(keys("admin")).toEqual([
+      ...keys("owner").filter((key) => key !== "settings"),
+      "leave",
+      "work",
+      "settings",
+    ]);
     expect(permissions("admin")).toContain("tasks.approve_admin");
     expect(permissions("admin")).toContain("clients.edit_assigned");
     expect(permissions("admin")).toContain("reports.scoped");
@@ -122,14 +128,21 @@ describe("mobileNavFor", () => {
   });
 
   it("puts everything else in More in the same priority order, and Staff get no More", () => {
-    for (const role of ["owner", "admin"] as const) {
-      expect(mobileNavFor(role).more.map((i) => i.key)).toEqual([
-        "reports",
-        "clients",
-        "people",
-        "settings",
-      ]);
-    }
+    expect(mobileNavFor("owner").more.map((i) => i.key)).toEqual([
+      "reports",
+      "clients",
+      "people",
+      "settings",
+    ]);
+    // N1: the Admin's own leave and expenses, as on the sidebar.
+    expect(mobileNavFor("admin").more.map((i) => i.key)).toEqual([
+      "reports",
+      "clients",
+      "people",
+      "leave",
+      "work",
+      "settings",
+    ]);
     expect(mobileNavFor("staff").more).toEqual([]);
   });
 
@@ -238,7 +251,6 @@ describe("settingsSectionsFor", () => {
       "expenses",
       "job-titles",
       "task-types",
-      "stage-presets",
       "custom-fields",
       "templates",
       "drive",
@@ -250,7 +262,6 @@ describe("settingsSectionsFor", () => {
     expect(admin.map((s) => s.key)).toEqual([
       "notifications",
       "job-titles",
-      "stage-presets",
       "custom-fields",
       "templates",
     ]);

@@ -183,7 +183,13 @@ export function DeliverableTemplateDialog({
               </aside>
             </div>
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               {desktop === false ? (
@@ -236,6 +242,7 @@ export function DeliverableTemplateDialog({
         </DialogContent>
       </Dialog>
       <ConfirmDialog
+        destructive
         open={phase === "discard"}
         onOpenChange={(open) => {
           if (!open) setPhase("form");

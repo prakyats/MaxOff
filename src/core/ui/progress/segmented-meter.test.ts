@@ -19,7 +19,7 @@ describe("the segmented meter", () => {
     expect(ringSegments(1)).toEqual([{ offset: 0, length: 100 }]);
     const four = ringSegments(4);
     expect(four).toHaveLength(4);
-    expect(four[1]?.offset).toBeCloseTo(25.7);
-    expect(four.every((segment) => segment.length > 23 && segment.length < 25)).toBe(true);
+    expect(four[1]?.offset).toBeCloseTo(25.4);
+    expect(four.every((segment) => segment.length > 24 && segment.length < 25)).toBe(true);
   });
 });

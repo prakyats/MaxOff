@@ -3,12 +3,14 @@ import { test as base, expect } from "@playwright/test";
 import { DocumentLoadWatcher, type DocumentLoadsPolicy } from "./document-loads";
 
 /**
- * The action colour rule's e2e half (ARCHITECTURE §14.1): **at most one visible solid red commit
- * action (`[data-variant="primary"]`) per layer, and never beside a neutral solid one
- * (`[data-variant="strong"]`)**: one solid button per layer when red is on it (Kickoff 4 decision
- * 26: "no second solid button"). A layer is the screen, each dialog, each sheet and each sticky
- * action bar **while it floats** (`position: fixed`, a phone): from `md` up `StickyActions` is the
- * form's last row, part of the screen, not a layer (phase 4 review A-M1). Every spec imports
+ * The action colour rule's e2e half (docs/DESIGN.md §4, ADR-0015): **at most one visible solid
+ * commit action per layer** (`[data-variant="primary"]`, the neutral commit, or
+ * `[data-variant="danger"]`, the red commit of a destructive action, or `[data-variant="approve"]`,
+ * the Forest green commit of a positive final decision), **and never beside a solid trigger**
+ * (`[data-variant="strong"]`, or an `approve` marked `data-opens`): one solid button per layer (Kickoff 4
+ * decision 26: "no second solid button"). A layer is the screen, each dialog, each sheet and each
+ * sticky action bar **while it floats** (`position: fixed`, a phone): from `md` up `StickyActions`
+ * is the form's last row, part of the screen, not a layer (phase 4 review A-M1). Every spec imports
  * `test` from here, so every layer any spec opens is watched, not a hand-picked list: a watcher
  * installed before the page's own scripts checks on every DOM change and records a violation; the
  * test fails at its end if any occurred.
@@ -39,7 +41,9 @@ function watchPrimaries() {
   };
   const check = () => {
     const solids = [
-      ...document.querySelectorAll('[data-variant="primary"], [data-variant="strong"]'),
+      ...document.querySelectorAll(
+        '[data-variant="primary"], [data-variant="danger"], [data-variant="approve"], [data-variant="strong"]',
+      ),
     ].filter(visible);
     const byLayer = new Map<string, { primary: string[]; strong: string[] }>();
     for (const button of solids) {
@@ -50,9 +54,11 @@ function watchPrimaries() {
           ).slice(0, 60)}`
         : `screen ${location.pathname}`;
       const entry = byLayer.get(name) ?? { primary: [], strong: [] };
-      entry[button.getAttribute("data-variant") === "primary" ? "primary" : "strong"].push(
-        label(button),
-      );
+      // A trigger (`strong`, or a Forest `approve` marked `data-opens`: Approve all, Mark done
+      // on a task) opens the layer where the commit happens (ADR-0015 amendment 2026-10-21).
+      const trigger =
+        button.getAttribute("data-variant") === "strong" || button.hasAttribute("data-opens");
+      entry[trigger ? "strong" : "primary"].push(label(button));
       byLayer.set(name, entry);
     }
     for (const [layer, { primary, strong }] of byLayer) {
@@ -109,10 +115,9 @@ export const test = base.extend<{
       const violations = await page
         .evaluate(() => window.__primaryViolations ?? [])
         .catch(() => [] as string[]);
-      expect(
-        violations,
-        "one solid red commit per layer, never beside a second solid button",
-      ).toEqual([]);
+      expect(violations, "one solid commit per layer, never beside a second solid button").toEqual(
+        [],
+      );
     },
     { auto: true },
   ],

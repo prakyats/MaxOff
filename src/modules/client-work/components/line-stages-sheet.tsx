@@ -115,6 +115,7 @@ export function LineStagesSheet({
         </div>
       </ReviewSheet>
       <ConfirmDialog
+        destructive
         open={phase === "discard"}
         onOpenChange={(next) => (next ? null : setPhase("edit"))}
         title="Discard your changes?"

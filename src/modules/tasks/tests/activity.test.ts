@@ -35,6 +35,23 @@ function line(overrides: Partial<TaskActivityEntry>) {
 }
 
 describe("a task's history (4.4, ADR-0013)", () => {
+  it('says "You" for the reader\'s own changes, "You for Asha" for a pair (v1.8 pull-in item 5)', () => {
+    const noted = entry({
+      entity: "task_assignees",
+      action: "acknowledged",
+      actorId: "ravi",
+      onBehalfOfId: "asha",
+      meta: { member_id: "asha" },
+    });
+    expect(describeTaskActivity(noted, { ...context, viewerId: "ravi" })?.actor).toBe(
+      "You for Asha",
+    );
+    expect(describeTaskActivity(entry({}), { ...context, viewerId: "owner" })?.actor).toBe("You");
+    expect(describeTaskActivity(entry({}), { ...context, viewerId: "asha" })?.actor).toBe(
+      "Prishit Shetty",
+    );
+  });
+
   it("names the pair when a coordinator acted for a freelancer", () => {
     expect(
       line({
@@ -154,7 +171,7 @@ describe("a task's history (4.4, ADR-0013)", () => {
         },
       })?.text,
     ).toBe(
-      "moved the deadline from 3 Oct, 6:00 PM to 4 Oct, 6:00 PM, changed the priority from Medium to Urgent, labelled it Acme Weddings and changed the type to Meeting",
+      "moved the deadline from 3 Oct, 6:00 pm to 4 Oct, 6:00 pm, changed the priority from Medium to Urgent, labelled it Acme Weddings and changed the type to Meeting",
     );
   });
 
@@ -368,12 +385,16 @@ describe("tasks for the Owner in the history (6b.2)", () => {
     });
   });
 
-  it("names who a reminder asked", () => {
+  it("names who a reminder went to, and that it went as a notification, not into Chat (B6)", () => {
     expect(
       line({ action: "reminder_sent", actorId: "admin", meta: { recipients: ["ravi", "asha"] } }),
-    ).toMatchObject({ actor: "Local Admin", text: "asked Ravi and Asha about the task" });
+    ).toMatchObject({
+      actor: "Local Admin",
+      text: "sent Ravi and Asha a reminder",
+      note: "As a notification, not a chat message.",
+    });
     expect(line({ action: "reminder_sent", meta: {} })).toMatchObject({
-      text: "asked about the task",
+      text: "sent a reminder",
     });
   });
 });

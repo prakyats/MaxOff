@@ -21,7 +21,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop the sidebar lists Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings. On a phone the bottom bar shows Today, Approvals, Tasks and Calendar, and a More cell holds the rest.",
+              text: "On a laptop the sidebar lists Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings. On a phone the bottom bar shows Today, Approvals, Tasks and Calendar, and a More cell holds the rest. With very large text set on the phone, the bar shows its icons only.",
             },
             {
               kind: "steps",
@@ -29,7 +29,7 @@ export const ADMIN_GUIDE: Guide = {
                 { text: "Open Today. It is the first screen.", shot: "admin/today" },
                 "On a phone, tap More in the bottom bar.",
                 "Pick Reports, Clients, People or Settings.",
-                "Tap the Me row at the bottom of the sheet for your own page.",
+                "Tap the Me row near the bottom of the sheet for your own page, or Help under it for this guide.",
               ],
             },
             {
@@ -40,9 +40,13 @@ export const ADMIN_GUIDE: Guide = {
               kind: "note",
               text: "There is no tab for your own leave. It lives on Me, under Attendance & leave.",
             },
+            {
+              kind: "text",
+              text: "On a phone each screen has one bar at the top: the back arrow (or, on a main tab, the small MaxOff “M”, which takes you to your home screen), the title, the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+            },
           ],
           link: { href: "/today", label: "Open Today" },
-          keywords: ["menu", "sidebar", "more", "navigation", "tabs"],
+          keywords: ["menu", "sidebar", "more", "navigation", "tabs", "title bar", "sheet"],
         },
         {
           id: "admin-bell-me",
@@ -51,14 +55,14 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Me holds your own page: Attendance & leave, Extra work & expenses, Notifications, Your devices and Help & troubleshooting.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar.",
             },
             {
               kind: "steps",
               steps: [
                 "Tap the bell to open Alerts.",
                 "Tap Me (in the More sheet on a phone).",
-                "Pick the row you need, for example Attendance & leave.",
+                "Under My work, pick the row you need, for example Attendance & leave.",
               ],
             },
             {
@@ -86,7 +90,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Today updates by itself. The order is: your attendance strip, Needs you, Client work, My tasks, My clients, This week and Issues.",
+              text: "Today updates by itself. Today’s date is under the title. The order is: your attendance strip, Needs you, Client work, My tasks, My clients and Issues, then This week (a column on the right on a laptop). A section with nothing in it is not shown: an empty Needs you is one quiet line, “Nothing needs you right now”, and with no client work due you see “No client work due this week.” under My clients.",
             },
             {
               kind: "steps",
@@ -119,7 +123,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you lists tasks waiting for your check, suggested tasks to decide, unfinished deliverables to decide and tasks flagged Overdue or Not noted.",
+              text: "Needs you lists tasks waiting for your check, suggested tasks to decide, unfinished deliverables to decide and tasks flagged late (a red chip saying how late, such as “2 days late” or “3 h late”) or Not noted.",
             },
             {
               kind: "steps",
@@ -152,7 +156,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Client work lists deliverables on your clients that are overdue or due this week, each with Mark done. My clients is the clients you run. My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
+              text: "Client work lists deliverables on your clients that are overdue or due this week. Each row offers “Next: ‹stage›”, which ticks that stage with Undo, until every stage is ticked; then it offers Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted (the amber “Note it” chip), have changes requested, are overdue or are due today. This week shows the next seven days: holidays, events with their place, each of your own deadlines by name and time, and your own leave. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached. Each issue shows the reason as a chip, such as “On leave”, with the plain words under the task.",
             },
             {
               kind: "note",
@@ -175,7 +179,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Your attendance strip has one button. On an approved leave day it reads “I’m working today”, and on a day off “I worked today”.",
+              text: "Your attendance strip has one button. Before you start it says “Start your day”, and Start day shows the time it will record. On an approved leave day the strip says “You’re on leave today” with an outline “I’m working today”, and on a day off “I worked today”.",
             },
             {
               kind: "steps",
@@ -190,6 +194,10 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "next",
               text: "Your day is recorded. The Owner decides attendance.",
+            },
+            {
+              kind: "text",
+              text: "Your days are on Me, under Attendance & leave, on the Attendance tab, a month at a time. Each row has the start and end times; on a working day, a start or end time that was never recorded reads “Not recorded”.",
             },
             {
               kind: "note",
@@ -214,7 +222,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Me, then Attendance & leave.",
                 "On the Leave requests tab, tap Request leave.",
                 "Choose the Kind of leave: Leave, Half day or Comp leave.",
-                "Pick the Date, or the First day and Last day.",
+                "If you have comp leave, the line above the dates says how much is left. Pick the Date, or the First day and Last day (an empty one reads “Choose a date”; tap it to open the calendar); MaxOff shows how long it is under them, such as “2 days”.",
                 "Add a reason if you like (it is optional) and send it.",
               ],
             },
@@ -306,7 +314,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged Overdue, Changes requested or Not noted. Open tasks follows, ordered by deadline. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
+              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged late (a red chip saying how late, such as “2 days late”), Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -319,7 +327,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The New task form asks for Start from (only if task templates exist), Title, Type, Priority, Assign to, Deadline and Time (IST), Reminders, Client label, Description, Stages and any custom fields.",
+              text: "New task asks for the Title, Assign to, and the Deadline and Time (IST) first. Everything else is under More options: Start from (only if task templates exist), Type (the first by default; an event type opens More options by itself), Priority (Medium by default), Reminders, Client label, Description, Stages and any custom fields.",
             },
             {
               kind: "steps",
@@ -331,7 +339,7 @@ export const ADMIN_GUIDE: Guide = {
                   text: 'Add people under "Assign to" (highlighted) and choose the primary owner.',
                   shot: "admin/new-task",
                 },
-                "Set the Deadline and Time (IST).",
+                "Set the Deadline and Time (IST). An empty one reads “Choose a date” or “Choose a time”; times use the 12-hour clock, such as “6:00 pm”.",
                 `Add a Client label only if it helps. ${CREW} never see client records.`,
                 "Tap Create task.",
               ],
@@ -355,7 +363,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done. Pick the primary owner with the radio button beside a name. The form warns you if someone is busy that day or on leave.",
+              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done: the form says “The primary owner marks it done.” under Assign to. Pick the primary owner with the radio button beside a name. The form warns you if someone is busy that day or on leave.",
             },
             {
               kind: "example",
@@ -404,7 +412,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Approvals shows one group for you: Tasks to check. Each row has Review and Approve.",
+              text: "Approvals shows one group for you: Tasks to check. Each row has Review and Approve; with one task waiting its Approve is the green one, with two or more “Approve all” is. With nothing to check, Approvals offers “Tasks to check”, which opens All tasks on its “With the reviewers” filter.",
             },
             {
               kind: "steps",
@@ -434,7 +442,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Assignees tick stages as they go. The ticks lock once the task is marked done.",
+              text: "Assignees tick stages as they go. The ticks lock once the task is marked done. A task with no stages says “No stages yet.” with Add stage beside it.",
             },
             {
               kind: "steps",
@@ -481,7 +489,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Nothing is deleted. A cancelled task stays in the history with its reason.",
+              text: 'Nothing is deleted. A cancelled task stays in the history with its reason. A reopened task goes back to its people, and its old hand-in folds away under "Earlier hand-in · reopened ‹date›: ‹reason›" in Work.',
             },
           ],
           keywords: ["edit task", "cancel task", "reopen task"],
@@ -497,11 +505,14 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "steps",
-              steps: ["Open the task.", "Tap Remind ‹names›."],
+              steps: [
+                "Open the task.",
+                "Tap Remind ‹names›: on a laptop at the right end of the box that says what is needed now; on a phone, just under it.",
+              ],
             },
             {
               kind: "example",
-              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 PM”. You can send the next one then.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: the task’s History (the clock in its header) reads “sent Sam and Ria a reminder”, and Chat shows only a quiet line that it went out.",
             },
             {
               kind: "next",
@@ -513,6 +524,35 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           keywords: ["remind", "nudge", "reminder"],
+        },
+        {
+          id: "admin-task-chat",
+          title: "Chat on a task",
+          summary: "Talk with the people on a task, on the task itself.",
+          blocks: [
+            {
+              kind: "steps",
+              steps: [
+                "Open the task and choose “Chat”. On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right end of the chat’s header, beside the names, opens it large (Esc, ✕ or back closes it). On a phone it opens full screen and ‹ takes you back to the task.",
+                "Type in “Message…” at the bottom. The box grows as you write.",
+                "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "Everyone on the task sees it. Yours sit on the right; others’ on the left with their photo and name. The tab shows “Chat · N new” when something is unread.",
+            },
+            {
+              kind: "text",
+              text: "Chat opens at a red “New” line where unread messages start, otherwise at the latest. Days are divided (“Today”, “Yesterday”, “Mon 20 Oct”). Quiet lines in the middle show when someone noted the task, the deadline moved or a reminder went out; the full story stays in History (the clock in the header).",
+            },
+            {
+              kind: "note",
+              text: "Scrolled up when a message arrives? Tap “Jump to latest”. Older messages appear with “Load earlier” at the top.",
+            },
+          ],
+          link: { href: "/tasks", label: "Open Tasks" },
+          keywords: ["comment", "message", "discussion", "reply", "new", "load earlier"],
         },
         {
           id: "admin-all-tasks",
@@ -584,7 +624,7 @@ export const ADMIN_GUIDE: Guide = {
               steps: [
                 "Open Settings, then Templates, and add a task template.",
                 "Later, tap New task.",
-                "Pick it under Start from.",
+                "Tap More options and pick it under Start from.",
                 "Adjust the form and tap Create task.",
               ],
             },
@@ -613,7 +653,19 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop pick Day, Week or Month; it opens on Month. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. Today is dimmed while the day, week or month on screen already holds today. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+            },
+            {
+              kind: "text",
+              text: "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due, on a laptop each by name, amber (red with an alert when overdue), and on a phone’s full month as one count, “3 due” in amber, or a red alert with the count when overdue (tap the day to see them); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a day is narrow, on a laptop or a phone’s full month; where even that has no room, their photo and “Leave”, and on a phone, where that has no room either, their photo alone; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+            },
+            {
+              kind: "text",
+              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+            },
+            {
+              kind: "text",
+              text: "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone the same “All ▾” sits in the header, just before Filters, which is an icon with a dot while a filter is on. This phone or laptop remembers your choice, and leave and holidays always show.",
             },
             {
               kind: "steps",
@@ -630,7 +682,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave.",
+              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day shows each person on leave as a chip, “Asha · On leave” (“You · On leave” for you), and under it who is busy all day, or “Everyone is available”.",
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -638,18 +690,18 @@ export const ADMIN_GUIDE: Guide = {
         },
         {
           id: "admin-day-sheet",
-          title: "The day sheet and a task from a day",
-          summary: "See who is free and add a task on that day.",
+          title: "A day and a task from it",
+          summary: "See who is away and add a task on that day.",
           blocks: [
             {
               kind: "text",
-              text: "A day sheet shows Who’s free, what is Due, and events.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline and “+ New task on ‹day›”; on a laptop a day opens in a dialog, with “Open day”.",
             },
             {
               kind: "steps",
               steps: [
                 "Tap a day on the calendar.",
-                "Check Who’s free.",
+                "Check who is away.",
                 { text: 'Tap "+ New task on ‹day›" (highlighted).', shot: "admin/calendar-day" },
                 "Fill the form and tap Create task.",
               ],
@@ -657,6 +709,10 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "next",
               text: "The New task form opens with that date set. The footer also has Open day.",
+            },
+            {
+              kind: "text",
+              text: "On a laptop with a mouse or trackpad, point at an empty part of a day in the month: a small + appears in its corner. Click it (or Tab to it and press Enter) for the same New task form on that day.",
             },
             {
               kind: "note",
@@ -679,7 +735,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "People lists everyone on the team with their role and job title. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
+              text: "People lists the active people on the team with their role and job title, and a Today column: Available, On leave, Half day or Busy (inside one of their timed event tasks right now). “Show all” at the foot adds the people who are invited or deactivated; “Show active only” goes back. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
             },
           ],
           link: { href: "/people", label: "Open People" },
@@ -700,7 +756,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Reports (under More on a phone).",
                 "Choose Week, Month or Custom.",
                 "Read the four cards.",
-                "Scroll to Client items for your clients’ deliverables.",
+                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others.",
                 "Scroll to Who is loaded this week to see who has the most due.",
               ],
             },
@@ -729,7 +785,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen.",
+              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen. Beside each client it says what is running now, such as “3 open · 9/12 done”, and when work is due: a red “2 late” chip when deliverables are past their planned date, otherwise “Due Thu 22 Oct”.",
             },
             {
               kind: "steps",
@@ -788,7 +844,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has four tabs: Overview, Projects, Brand and Activity. Overview shows the Admin, the primary contact, the contacts, Details and Requirements and notes. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed “Archived (n)” at their foot, each with Restore), Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",
@@ -804,11 +860,11 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "Your changes show on the client page and are added to its Activity.",
+              text: "Your changes show on the client page and are added to its History (the clock in the header), where they read “You”.",
             },
             {
               kind: "note",
-              text: "Tasks are separate from client work. The Overview only shows how many open tasks carry this client’s label.",
+              text: "Tasks are separate from client work. The Overview only shows how many open tasks carry this client’s label. You archive a contact; only the Owner can delete one, and only if nothing ever pointed at it.",
             },
           ],
           keywords: ["overview", "brand", "activity", "contact", "edit details"],
@@ -842,20 +898,20 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The New project form has Start from, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Default stage groups, the Deliverables, Description and any custom fields.",
+              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Shetty”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
             },
             {
               kind: "steps",
               steps: [
                 "Open the client, then the Projects tab.",
                 "Tap New project.",
-                "Optionally pick a template under Start from.",
+                "Optionally tap Start from a template and pick one; it shows as a chip.",
                 {
-                  text: 'Enter the Project name and choose "Repeats" (highlighted).',
+                  text: 'Enter the Project name and choose "Repeats" (highlighted), then tap Next.',
                   shot: "admin/new-project",
                 },
-                "Add the deliverables and check the preview.",
-                "Tap Create project.",
+                "Add the deliverables, then tap Next to check the preview.",
+                "Tap Create project. Back returns to the step before.",
               ],
             },
             {
@@ -877,13 +933,13 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Search and preview templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
+              text: "A template fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. The Start from a template button opens the library: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title. The chosen template shows as a chip on Basics.",
             },
             {
               kind: "steps",
               steps: [
                 {
-                  text: 'In New project, tap "Search and preview templates" (highlighted).',
+                  text: 'In New project, tap "Start from a template" (highlighted).',
                   shot: "admin/templates",
                 },
                 "Type a name or deliverable in the search box.",
@@ -919,7 +975,7 @@ export const ADMIN_GUIDE: Guide = {
                 { text: 'Set "How many" (highlighted).', shot: "admin/template-builder" },
                 "Tick any stage presets you want, in the order you tick them. Each becomes one group.",
                 "Tap Add.",
-                "Open a row (⌄) to rename it or edit its stages.",
+                "Open a deliverable's row to rename it or edit its stages.",
               ],
             },
             {
@@ -944,18 +1000,18 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The preview sits beside the form on a laptop. On a phone, tap Preview. It shows one card per deliverable, tagged Default stages or Own stages, with its stage groups.",
+              text: "The preview sits beside the deliverables on a laptop, and step 3, Preview & create, shows it on every screen. It shows one card per deliverable, tagged Default stages or Own stages, with its stage groups.",
             },
             {
               kind: "steps",
               steps: [
                 "Fill in the deliverables.",
                 {
-                  text: "Open the preview (highlighted). On a phone, tap Preview.",
+                  text: "Open the preview (highlighted): tap Next on the deliverables step.",
                   shot: "admin/project-preview",
                 },
                 "Check the three totals: deliverables, groups, stages.",
-                "Tap Back to edit to fix anything, or Create project.",
+                "Tap Back to fix anything, or Create project.",
               ],
             },
             {
@@ -980,24 +1036,24 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A repeating project has one cycle per period; use the arrows to move between cycles. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track or “N behind plan”. At 100% it says the period is complete.",
+              text: "A repeating project has one cycle per period; the months sit as tabs (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A project with only one cycle shows just its month, with no tabs. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track (a green chip) or “N behind plan” (a red chip). At 100% it says the period is complete.",
             },
             {
               kind: "steps",
               steps: [
                 "Open the project.",
                 { text: "Read the progress ring (highlighted).", shot: "admin/project-page" },
-                "Use the arrows to move between cycles.",
-                "Tap Activity to see the project’s history.",
+                "Tap a month tab (the previous or the next cycle) to switch.",
+                "Tap the clock (History) in the header to see the project’s history.",
               ],
             },
             {
               kind: "text",
-              text: "Under Deliverables each row shows one line per stage group, such as “Edit ▮▮▯ 2/3” (a deliverable from before groups reads “Stages”), then “Next: ‹stage›” or “All stages ticked”, and its planned date. On a laptop these sit in columns; on a phone each deliverable is a card. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
+              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (a late one with a red chip saying how late), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or Not added), Notes and the project fields.",
             },
             {
               kind: "example",
-              text: "A row reads “Reel 1 · Planned 18 Oct · 2 days late”. Planned today, Planned 21 Oct and Not planned are the other forms.",
+              text: "A row reads “Reel 1 · Planned 18 Oct”, with a red “2 days late” chip. Planned today, Planned 21 Oct and Not planned are the other forms.",
             },
             {
               kind: "next",
@@ -1008,12 +1064,21 @@ export const ADMIN_GUIDE: Guide = {
               text: "Closed and carried deliverables are not counted in the ring.",
             },
           ],
-          keywords: ["progress", "ring", "cycle", "planned", "stage chips", "on track", "next"],
+          keywords: [
+            "progress",
+            "ring",
+            "cycle",
+            "planned",
+            "needs you",
+            "late",
+            "on track",
+            "next",
+          ],
         },
         {
           id: "admin-deliverable-rows",
           title: "Tick stages from the list",
-          summary: "Open a stage line and tap a stage, or tap Next.",
+          summary: "Open a row's bar and tick from its checklist, or tap Next.",
           blocks: [
             {
               kind: "text",
@@ -1023,7 +1088,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Tap a stage line, such as “Video steps 2/4” (highlighted), to show its stages: ticked ones with a ✓, the next one outlined, later ones dashed. Tap it again to hide them.",
+                  text: "Tap a row’s progress bar, such as “2/4” (highlighted), to open its checklist: each stage with a tick box, under its group’s name and count. Ticked ones are filled with a ✓, the next one is bold and outlined, later ones are grey; long names wrap to two lines. On a laptop the checklist runs in three columns, on a phone in one. Tap the bar again to close it.",
                   shot: "admin/deliverable-rows",
                 },
                 "Tap a stage to tick it (“Tick Edit”) or untick it (“Untick Edit”).",
@@ -1033,14 +1098,14 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The line’s count and the ring move at once, and the tick is added to the History.",
+              text: "The row’s count and the ring move at once, and the tick is added to the History.",
             },
             {
               kind: "note",
               text: "Stages tick only while the deliverable is open.",
             },
           ],
-          keywords: ["tick", "untick", "next", "stage line", "chips", "undo", "quick"],
+          keywords: ["tick", "untick", "next", "checklist", "bar", "undo", "quick"],
         },
         {
           id: "admin-add-deliverable",
@@ -1079,7 +1144,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, a History button and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date (“24 Oct”, or Not planned), its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”). Edit stages sits at the right of the Stages heading. The actions at the foot (Open the project, Close deliverable…, Next: ‹stage› or Mark done) move onto a second row when the sheet is narrow, never cut off.",
             },
             {
               kind: "steps",
@@ -1126,14 +1191,51 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. Ticks already made stay.",
+              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. It goes right after the last revision stage, or right after “Edit” when there is none, so it comes before “Posted”. With neither, it goes just before “Posted”, “Published” or “Delivered”, or at the end when there is none of those. Ticks already made stay.",
             },
             {
               kind: "note",
               text: "It works on open deliverables only. Reopen a done one first.",
             },
+            {
+              kind: "note",
+              text: "Use it instead of typing numbered round stages (“Approval round 1”, “Approval round 2”). When a deliverable has two or more stages like that, its open row shows this tip.",
+            },
           ],
-          keywords: ["revision", "another round", "changes", "client feedback"],
+          keywords: ["revision", "another round", "changes", "client feedback", "tip"],
+        },
+        {
+          id: "admin-group-stages",
+          title: "Split a long stage list into groups",
+          summary: "You choose where each group starts; nothing is grouped by itself.",
+          blocks: [
+            {
+              kind: "text",
+              text: "A deliverable with 9 or more stages and no groups shows, when you open its row, “12 stages: split them into groups?” with a Group stages button. It is only a suggestion: nothing changes until you choose.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open the row’s checklist and tap Group stages.",
+                "Tap the stage where each new group starts (“Start a group here”). The first group always starts at the first stage. Tap it again to undo.",
+                "Name each group, such as Concept, Shoot and Post, then tap Group stages.",
+                "Read the toast “Grouped the stages of ‹deliverable›”.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "The checklist shows each group’s name and its own count. Ticks and the order stay as they were, and only that deliverable changes. The History lists each stage moved into its group.",
+            },
+            {
+              kind: "example",
+              text: "A 12-stage reel: Concept starts at Concept note, Shoot at Shoot planning, Post at Rough cut.",
+            },
+            {
+              kind: "note",
+              text: "A deliverable that already has groups is changed in Edit stages, as before.",
+            },
+          ],
+          keywords: ["group", "groups", "long", "stages", "split", "concept", "shoot"],
         },
         {
           id: "admin-mark-done",
@@ -1142,7 +1244,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is red); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
+              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid green); until then it waits in the row’s ⋯, beside Open, as “Mark done…”, which asks first (“1 stage isn’t ticked”). A deliverable with no stages always shows it. In its sheet the action is “Next: ‹stage›”, which ticks that stage, until every stage is ticked; then it is the green Mark done (before that, Mark done… is in the sheet’s ⋯). “Close deliverable…” is in red; its confirmation’s way out is “Keep it”.",
             },
             {
               kind: "steps",
@@ -1275,7 +1377,7 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the project and tap Activity.",
+                "Open the project and tap the clock (History) in the header.",
                 "Use the chips All, Deliverables, Stages and Project to narrow it.",
                 "Tap Show older for more.",
               ],
@@ -1286,7 +1388,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Each deliverable also has its own History button.",
+              text: "Each deliverable also has its own History: the clock beside “Last change” in its sheet.",
             },
           ],
           keywords: ["history", "audit", "who changed"],
@@ -1304,7 +1406,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open the project and tap ⋯.",
-                "Choose Complete project, or Cancel project… and give a reason.",
+                "Choose Complete project, or Cancel project… and give a reason (Keep project closes the question without cancelling).",
                 "To change anything later, tap ⋯ and choose Reopen project….",
               ],
             },
@@ -1436,8 +1538,11 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open Settings, then Stage presets.",
-                { text: 'Tap "Add" (highlighted) to add a preset.', shot: "admin/stage-presets" },
+                "Open Settings, then Templates: Stage presets is the first section (on a phone, the Presets tab).",
+                {
+                  text: 'Tap "Add preset" (highlighted) to add a preset.',
+                  shot: "admin/stage-presets",
+                },
                 "Enter the Name and the Stages in order (up to 100).",
                 "Tap Add preset.",
               ],
@@ -1448,10 +1553,10 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You can edit or archive only the presets you made. Archiving stops new projects from offering it. Projects that already used it keep their stages.",
+              text: 'You can edit or archive only the presets you made. Archive stops new projects from offering it, with Undo in its message for a few seconds; later, "Archived (n)" at the foot of the list has Restore. Projects that already used it keep their stages.',
             },
           ],
-          link: { href: "/settings/stage-presets", label: "Open Stage presets" },
+          link: { href: "/settings/templates#presets", label: "Open Stage presets" },
           keywords: ["preset", "stages", "archive"],
         },
         {
@@ -1467,7 +1572,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Templates.",
-                "Add a project template.",
+                'Tap "Add project template" beside Project templates.',
                 "Enter the Name and choose Repeats.",
                 {
                   text: 'Add the deliverables, using "How many" (highlighted) for × N where it helps.',
@@ -1501,7 +1606,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Templates.",
-                "Add a deliverable template.",
+                'Tap "Add deliverable template" beside Deliverable templates.',
                 "Name it and build its stage groups.",
                 "Check the preview and tap Add template (on a phone, Preview and save).",
               ],
@@ -1525,7 +1630,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A project template keeps the default stage groups and the deliverables with their stages. A deliverable template keeps its stage groups, with no ticks or dates.",
+              text: "A project template keeps the structure only: the repeat, the default stage groups and the deliverables with their stages, never the description or custom field values. A deliverable template keeps its stage groups, with no ticks or dates.",
             },
             {
               kind: "steps",
@@ -1554,7 +1659,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Templates has Task templates, Project templates and Deliverable templates, with a search box. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Prakyat · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1563,17 +1668,17 @@ export const ADMIN_GUIDE: Guide = {
                   text: "Open Settings, then Templates, and use the search box (highlighted).",
                   shot: "admin/templates",
                 },
-                "Tap Preview on a project or deliverable template to see what work made from it gets.",
+                "Tap Preview on a stage preset, deliverable or project template to see what work made from it gets.",
                 "Edit or archive one of your own. Archive asks first.",
               ],
             },
             {
               kind: "next",
-              text: "An archived template stops being offered: “Archived ‹name›: New project no longer offers it”. Tap Restore on an archived one to bring it back: “Restored ‹name›: New project offers it again”. A task template’s Archive is a plain button, never red.",
+              text: "An archived template stops being offered: the message “‹name› archived” has Undo for a few seconds, and “Archived (n)” at the foot of the list has Restore later. The question's Archive button is plain, not red: nothing is destroyed.",
             },
             {
               kind: "note",
-              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Archiving does not touch work already made from it.",
+              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Only the Owner can delete a template for good; work made from it keeps everything, and a project's Details then read “Template: ‹name› (deleted)”.",
             },
           ],
           link: { href: "/settings/templates", label: "Open Templates" },
@@ -1598,7 +1703,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Make stage presets. In Settings, Stage presets, add “Edit” (Rough cut, Fine cut) and “Review” (Internal check, Final check).",
+                  text: "Make stage presets. In Settings, Templates, Stage presets, add “Edit” (Rough cut, Fine cut) and “Review” (Internal check, Final check).",
                   shot: "admin/stage-presets",
                 },
                 "Make a deliverable template. In Settings, Templates, add “Reel” and give it stage groups, for example Edit and Review.",
@@ -1838,11 +1943,11 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-settings-overview",
           title: "What you can change in Settings",
-          summary: "Notifications, Job titles, Stage presets, Custom fields and Templates.",
+          summary: "Notifications, Job titles, Custom fields and Templates.",
           blocks: [
             {
               kind: "text",
-              text: "You see five sections. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Stage presets and Templates are covered in their own topics. Custom fields are extra fields on clients and contacts.",
+              text: "You see four sections in two groups named by what they hold: Team (Notifications, Job titles) and Lists, fields and templates (Custom fields, Templates), each row with one line on what it holds; Help, at the foot, opens How MaxOff works. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
             },
             {
               kind: "steps",
@@ -1898,7 +2003,7 @@ export const ADMIN_GUIDE: Guide = {
               steps: [
                 "Open Settings.",
                 "Choose Job titles or Custom fields.",
-                "Add or change an entry and save.",
+                'Tap "Add job title" (or "Add field") at the top of the list, or a row\'s Rename or Edit (in its ⋯ on a phone), and save.',
               ],
             },
             {
@@ -1907,7 +2012,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Job titles are just labels: they never change what someone can do.",
+              text: "Job titles are just labels: they never change what someone can do. To stop offering one, Archive it. Only the Owner can delete an entry, and only one nothing ever used.",
             },
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },
@@ -1917,7 +2022,7 @@ export const ADMIN_GUIDE: Guide = {
     },
     {
       id: "notifications",
-      title: "Notifications",
+      title: "Alerts and your phone",
       topics: [
         {
           id: "admin-alerts",
@@ -1926,7 +2031,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Alerts lists your notifications, newest day first.",
+              text: "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
             },
             {
               kind: "steps",

@@ -444,12 +444,11 @@ test.describe("Web Push", () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    // Never at the top (decision 30): the title bar sits right under the brand bar… Both are
-    // measured as shown: React keeps a streamed section's copy hidden until it reveals it, and a
-    // hidden copy has no box.
+    // Never at the top (decision 30): the title bar, the phone's one header bar since L4, is the
+    // top edge… Measured as shown: React keeps a streamed section's copy hidden until it reveals
+    // it, and a hidden copy has no box.
     const title = await shownBox(pageHeader(page));
-    const brand = await shownBox(page.locator('[data-slot="top-bar"]:visible'));
-    expect(Math.abs(title.y - (brand.y + brand.height))).toBeLessThanOrEqual(1);
+    expect(Math.abs(title.y)).toBeLessThanOrEqual(1);
     // …and its height is reserved: scrolled to the end, the last content ends above it.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     const last = await shownBox(page.locator("main > *:visible").last());

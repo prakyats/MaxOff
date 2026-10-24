@@ -8,10 +8,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { listClients, sortClients } from "@/modules/clients";
 import { listTaskTypes } from "@/modules/tasks";
 import { CustomFieldEntityTabs } from "@/modules/settings/components/custom-field-entity-tabs";
-import {
-  AddFieldButton,
-  FieldDefinitionsManager,
-} from "@/modules/settings/components/field-definitions-manager";
+import { FieldDefinitionsManager } from "@/modules/settings/components/field-definitions-manager";
 
 import { SETTINGS_HEADERS } from "../headers";
 
@@ -68,7 +65,6 @@ export default async function CustomFieldsSettingsPage({
         back={{ href: "/settings", label: "Settings" }}
         title="Custom fields"
         {...SETTINGS_HEADERS.customFields}
-        actions={<AddFieldButton entity={entity} scopes={scopes} canGlobal={canGlobal} />}
       />
       <CustomFieldEntityTabs entities={entities} current={entity} />
       <div className="max-w-2xl">
@@ -78,6 +74,7 @@ export default async function CustomFieldsSettingsPage({
           definitions={definitions}
           scopes={scopes}
           canGlobal={canGlobal}
+          canDelete={isOwner}
         />
       </div>
     </>

@@ -56,7 +56,7 @@ const COLD_MS = 3_000;
 const INSTANT_MS = 300;
 /** How long a finger rests on the glass in a tap. */
 const TAP_HOLD_MS = 80;
-const SHELL_CACHE = "maxoff-shell-v10";
+const SHELL_CACHE = "maxoff-shell-v13";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 const ISO_DATE = /\b20\d\d-[01]\d-[0-3]\d\b/;
@@ -68,6 +68,8 @@ function shellPaths(): Set<string> {
   return new Set([...list.matchAll(/"([^"]+)"/g)].map((match) => match[1]!));
 }
 const SHELL_DRILL_DOWN = /^\/tasks\/[0-9a-f-]{36}$/;
+/** Where the worker keeps the one copy of a task's skeleton (sw.js `SHELL_DRILL_DOWN_KEY`). */
+const SHELL_TASK_KEY = "/tasks/:id";
 const isPrefetch = (headers: Record<string, string>) =>
   headers["rsc"] === "1" && headers["next-router-prefetch"] === "1";
 
@@ -129,12 +131,18 @@ function prefetchedBy(role: SessionRole): string[] {
   ];
 }
 
+/** The links at Tasks' foot (every role's Tasks has both): kept since sw.js v13. */
+const TASKS_FOOT = ["/tasks/all", "/tasks/requests"];
+
 test.describe("what the worker keeps carries no member data", () => {
   test.skip(({ isMobile }) => !isMobile, "the bar and the More sheet are the phone's");
   test.afterEach(({ context }) => releasePrefetches(context));
 
   test("between them the roles' shells prefetch every address the worker may keep", () => {
-    const prefetched = new Set((["owner", "admin", "staff"] as const).flatMap(prefetchedBy));
+    const prefetched = new Set([
+      ...(["owner", "admin", "staff"] as const).flatMap(prefetchedBy),
+      ...TASKS_FOOT,
+    ]);
     expect([...shellPaths()].filter((path) => !prefetched.has(path))).toEqual([]);
   });
 
@@ -175,16 +183,36 @@ test.describe("what the worker keeps carries no member data", () => {
             ),
           )
           .toEqual(awaited);
-        // A task's page, from its row (the Owner and the Crew member see the fixture's).
+        // A task's page, from its row on Tasks (the Owner and the Crew member see the fixture's).
+        // Tasks' own row: My Day links the task twice by design (its row, and its deadline by name
+        // under "This week", FINAL 8 / PP-today-4), so the row is found once Tasks is on screen.
+        await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+        await expect(page).toHaveURL(/\/tasks$/);
         if (role !== "admin") {
-          await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-          await expect(page.getByRole("link", { name: new RegExp(title(info)) })).toBeVisible();
+          await expect(
+            page
+              .locator('[data-slot="task-row"]')
+              .getByRole("link", { name: new RegExp(title(info)) }),
+          ).toBeVisible();
           await expect
             .poll(() =>
               [...answers.keys()].some((key) => /^\/tasks\/[0-9a-f-]{36} loading$/.test(key)),
             )
             .toBe(true);
         }
+        // Tasks' foot links, prefetched once they scroll into view: both kept, so both read. Tasks
+        // loaded afresh: the Owner's Today links `/tasks/all?person=…`, whose prefetch already gave
+        // the router that route's skeleton under a query, so the bare address was never asked.
+        await page.goto("/tasks");
+        await hydrated(page);
+        await page.locator('[data-slot="tasks-more"]').scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            TASKS_FOOT.filter(
+              (path) => answers.has(`${path} /_tree`) && answers.has(`${path} loading`),
+            ),
+          )
+          .toEqual(TASKS_FOOT);
 
         let checked = 0;
         for (const [key, body] of answers) {
@@ -394,11 +422,17 @@ test.describe("a tap on a cold Worker shows its skeleton at once", () => {
     await prep.close();
     await runInstalled(page);
 
-    // A warm visit: home, then Tasks, where the task's row is seen.
+    // A warm visit: home, then Tasks, where the task's row is seen. Tasks' own row: Today links
+    // the task too, and stays on screen until Tasks commits (a row found there is gone a moment
+    // later), so the row is found once Tasks is the page.
     await page.goto("/today");
     await hydrated(page);
     await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-    const row = page.getByRole("link", { name: new RegExp(TASK) }).first();
+    await expect(page).toHaveURL(/\/tasks$/);
+    const row = page
+      .locator('[data-slot="task-row"]')
+      .getByRole("link", { name: new RegExp(TASK) })
+      .first();
     await expect(row).toBeVisible();
     // Seen means on the screen: a row prefetches its skeleton when it comes into view, and a run's
     // overdue tasks under Needs you can hold the Open tasks below the fold.
@@ -409,17 +443,9 @@ test.describe("a tap on a cold Worker shows its skeleton at once", () => {
         const kept = await keptAddresses(page);
         const count = (path: string) => kept.filter((address) => address === path).length;
         // The route tree and the loading skeleton of each tab. A task's page differs from
-        // another's by its id only, so the router asks for its route tree once, with the first
-        // task row it prefetches, and asks every other row for its loading skeleton alone: the
-        // task's own skeleton is kept, and one task page's route tree.
-        const drillDowns = kept.filter((address) => SHELL_DRILL_DOWN.test(address));
-        const aTaskTree = drillDowns.length > new Set(drillDowns).size;
-        return (
-          count("/tasks") >= 2 &&
-          count("/clients") >= 2 &&
-          count(`/tasks/${taskId}`) >= 1 &&
-          aTaskTree
-        );
+        // another's by its id only, so the worker keeps one copy for every task (sw.js v12, the id
+        // out of its key): a task page's route tree and its loading skeleton.
+        return count("/tasks") >= 2 && count("/clients") >= 2 && count(SHELL_TASK_KEY) >= 2;
       })
       .toBe(true);
     await page.locator('[data-slot="bottom-nav"] a[href="/today"]').click();

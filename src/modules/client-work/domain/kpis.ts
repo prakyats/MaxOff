@@ -56,7 +56,7 @@ export function onTimeWords({
  * left out, as the progress line; amendment D3: done is approved, one figure).
  */
 export function cycleProgressWords(progress: { total: number; done: number }): string {
-  if (progress.total === 0) return "No current items";
+  if (progress.total === 0) return "No current deliverables";
   return `${progress.done} of ${progress.total} done`;
 }
 
@@ -115,6 +115,7 @@ export function sitLongest(input: {
 
 /** "8 waiting at Edit · median 3 days". */
 export function sitWords(row: SitRow): string {
-  const days = Math.round(row.medianDays * 10) / 10;
+  // W6 (v1.8 V4): whole days, never "20.2".
+  const days = Math.round(row.medianDays);
   return `${row.count} waiting at ${row.stage} · median ${days} ${days === 1 ? "day" : "days"}`;
 }

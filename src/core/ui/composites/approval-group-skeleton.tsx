@@ -9,18 +9,26 @@ import { APPROVAL_ROW_MIN_H, LIST_ROW_MIN_H } from "./row-metrics";
  * two meta lines (what and when; how long it has waited) under it, and the one outlined button
  * beside them (44px on a phone, 32px from `md`).
  */
-export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
+export function ApprovalRowsSkeleton({
+  rows = 2,
+  avatars = false,
+}: {
+  rows?: number;
+  /** The person's 20 px photo before the name (#89). */
+  avatars?: boolean;
+}) {
   return (
     <ul
       aria-hidden
       data-slot="loading-approval-rows"
-      className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, i) => (
         <li key={i} className={cn("flex min-w-0 items-center gap-3 pr-4", APPROVAL_ROW_MIN_H)}>
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 pl-4">
             <div className="flex h-5 min-w-0 items-center gap-2">
               <Skeleton className="h-3 w-12 shrink-0" />
+              {avatars ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
               <Skeleton className="h-3.5 w-32 max-w-full" />
             </div>
             <div className="flex h-4 min-w-0 items-center">
@@ -47,10 +55,13 @@ export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
 export function ApprovalGroupSkeleton({
   rows = 2,
   bulk = true,
+  avatars = false,
 }: {
   rows?: number;
   /** The heading's "Approve all N" (none in the Owner's Today preview, 6.2). */
   bulk?: boolean;
+  /** Rows led by the person's 20 px photo (a group titled by names, V5b-D). */
+  avatars?: boolean;
 }) {
   return (
     <div aria-hidden data-slot="loading-approval-group">
@@ -58,7 +69,7 @@ export function ApprovalGroupSkeleton({
         <Skeleton className="h-3.5 w-24" />
         {bulk ? <Skeleton className="h-11 w-28 rounded-md md:h-7" /> : null}
       </div>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+      <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
         {Array.from({ length: rows }, (_, i) => (
           <li
             key={i}
@@ -67,11 +78,18 @@ export function ApprovalGroupSkeleton({
               LIST_ROW_MIN_H,
             )}
           >
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-3.5 w-1/3" />
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              {avatars ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3.5 w-1/3" />
+                {/* How long it has waited (B4 context, V3). */}
+                <Skeleton className="h-3 w-20" />
+              </div>
             </div>
-            <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 *:flex-1 md:*:flex-none">
+              {/* The state chip (V5b: the one row anatomy's chips, then the actions). */}
+              <Skeleton className="h-5 w-24 flex-none! self-center rounded-full" />
               <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />
               <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />
             </div>

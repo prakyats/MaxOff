@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { BriefcaseIcon, MoreHorizontalIcon } from "lucide-react";
 import { useMemo } from "react";
 
+import { formatDateField } from "@/core/time";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import type { DataTableFilter } from "@/core/ui/composites/data-table-view";
 import { DrillLink } from "@/core/ui/composites/drill-link";
@@ -33,6 +34,37 @@ import {
 import { ClientLogo } from "./client-logo";
 import { type AdminOption, useClientActions } from "./use-client-actions";
 
+/** A client with no deliverables running now (N4). */
+const NO_WORK = "Nothing running now";
+
+/** A client's open deliverables by date (PP-admin-10), from `dueByClient`. */
+export type ClientDueCell = { late: number; next: string | null };
+
+/** "Thu 22 Oct" (the year only when it is not this year), as every date field reads. */
+function dueDate(date: string, today: string): string {
+  return formatDateField(date, today);
+}
+
+/** The Due cell: "2 late" as a red chip, else "Due Thu 22 Oct", else nothing (PP-admin-10). */
+function DueCell({ due, today }: { due: ClientDueCell | undefined; today: string }) {
+  if (!due) return <span className="text-muted-foreground">Nothing due</span>;
+  if (due.late > 0) {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+        <StatusBadge status="overdue" tone="danger" label={`${due.late} late`} />
+        {due.next ? (
+          <span className="text-muted-foreground text-xs whitespace-nowrap">
+            next {dueDate(due.next, today)}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+  return (
+    <span className="whitespace-nowrap">{due.next ? `Due ${dueDate(due.next, today)}` : ""}</span>
+  );
+}
+
 /**
  * The client list (3.4, PRODUCT §4.4, kickoff 3 decision 18): logo, name, state and Admin;
  * cards on a phone, a table from `md` up. Search by name and the state and Admin filters are
@@ -46,7 +78,20 @@ export function ClientList({
   admins,
   adminNames,
   canManage,
+  work = null,
+  due = {},
+  today,
 }: {
+  /**
+   * N4 (UX review 2026-10-21) and PP-clients-1: each client's running deliverables ("3 open ·
+   * 9/12 done", by client id; null when none run now), on the Owner's list beside the Admin column
+   * and on an Admin's instead of it (always themselves). Never money (invariant 2).
+   */
+  work?: Readonly<Record<string, string | null>> | null;
+  /** PP-admin-10: each client's late count and next date (absent: nothing open and dated). */
+  due?: Readonly<Record<string, ClientDueCell>>;
+  /** The IST date, for the Due words. */
+  today: string;
   clients: ClientSummary[];
   /** Active Admins, for the Owner's Admin filter and "Change Admin". */
   admins: readonly AdminOption[];
@@ -116,12 +161,44 @@ export function ClientList({
       ),
       size: 110,
     },
+    // The Owner keeps the Admin column (PP-clients-1); an Admin's is always themselves (N4).
+    ...(canManage
+      ? [
+          {
+            id: "admin",
+            header: "Admin",
+            accessorFn: (client: ClientSummary) => adminName(client) ?? "",
+            cell: ({ row }: { row: { original: ClientSummary } }) =>
+              adminName(row.original) ?? (
+                <span className="text-muted-foreground">No Admin yet</span>
+              ),
+            size: 150,
+          } satisfies ColumnDef<ClientSummary>,
+        ]
+      : []),
+    ...(work
+      ? [
+          {
+            id: "work",
+            header: "Deliverables",
+            accessorFn: (client: ClientSummary) => work[client.id] ?? "",
+            cell: ({ row }: { row: { original: ClientSummary } }) =>
+              work[row.original.id] ?? <span className="text-muted-foreground">{NO_WORK}</span>,
+            size: 170,
+          } satisfies ColumnDef<ClientSummary>,
+        ]
+      : []),
     {
-      id: "admin",
-      header: "Admin",
-      accessorFn: (client) => adminName(client) ?? "",
-      cell: ({ row }) =>
-        adminName(row.original) ?? <span className="text-muted-foreground">No Admin yet</span>,
+      id: "due",
+      header: "Due",
+      // Late first, then the soonest date; nothing due last.
+      accessorFn: (client) => {
+        const entry = due[client.id];
+        if (!entry) return "9";
+        return entry.late > 0 ? `0${String(999 - entry.late).padStart(3, "0")}` : `1${entry.next}`;
+      },
+      cell: ({ row }) => <DueCell due={due[row.original.id]} today={today} />,
+      size: 170,
     },
   ];
   if (canManage) {
@@ -140,7 +217,7 @@ export function ClientList({
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuContent align="end" className="min-w-44" title={client.name}>
               <DropdownMenuItem onSelect={() => act("admin", client)}>
                 {client.adminId ? "Change Admin" : "Assign Admin"}
               </DropdownMenuItem>
@@ -167,17 +244,26 @@ export function ClientList({
   }
 
   const mobile: MobileCard<ClientSummary> = {
-    title: (client) => (
-      <span className="inline-flex max-w-full items-center gap-2 align-middle">
-        <ClientLogo fileId={client.logoFileId} name={client.name} />
-        <span className="truncate">{client.name}</span>
-      </span>
-    ),
+    // The logo leads the card, beside the title rather than inside it: at large system text the
+    // name then drops under the logo with the card's full width instead of being cut to a sliver
+    // between the logo and the card's ⋯ and › (§14.2 i, the truncation rule).
+    leading: (client) => <ClientLogo fileId={client.logoFileId} name={client.name} />,
+    title: (client) => client.name,
     detailTitle: (client) => client.name,
-    subtitle: (client) => adminName(client) ?? "No Admin yet",
-    trailing: (client) => (
-      <StatusDot status={client.state} label={CLIENT_STATE_LABELS[client.state]} />
-    ),
+    // The Owner's card: who runs it, then the work; an Admin's: the work (N4, PP-clients-1).
+    subtitle: (client) =>
+      [canManage ? (adminName(client) ?? "No Admin yet") : null, work?.[client.id] ?? NO_WORK]
+        .filter(Boolean)
+        .join(" · "),
+    trailing: (client) => {
+      const late = due[client.id]?.late ?? 0;
+      return (
+        <span className="inline-flex flex-wrap items-center justify-end gap-2">
+          {late > 0 ? <StatusBadge status="overdue" tone="danger" label={`${late} late`} /> : null}
+          <StatusDot status={client.state} label={CLIENT_STATE_LABELS[client.state]} />
+        </span>
+      );
+    },
     href: (client) => `/clients/${client.id}`,
     moreLabel: (client) => `More for ${client.name}`,
     // The sheet behind ⋯ is the Owner's: the facts and the lifecycle. An Admin's card only opens.

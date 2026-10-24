@@ -5,8 +5,9 @@ import { describeValue, type FieldDefinition, splitDefinitions } from "../regist
 export type CustomFieldValues = Record<string, unknown>;
 
 /**
- * The read-only side of a record's custom fields: label and value rows, grouped by section, a
- * "—" for an empty one (an older record saves once filled, WORKFLOWS §4a). Archived definitions
+ * The read-only side of a record's custom fields: label and value rows, grouped by section, in the
+ * built-in fields' style (`EditableRecord`: a muted `text-sm` label over a medium value) and with
+ * their empty word, "Not added" (P1; an older record saves once filled, WORKFLOWS §4a). Archived definitions
  * that still hold a value sit apart under "Archived fields" (kickoff 3); with `archivedOnly` the
  * component renders just that section (the form uses it under its inputs). A server component:
  * no state, no handlers.
@@ -38,7 +39,7 @@ export function CustomFieldsView({
   return (
     <div data-slot="custom-fields-view" className={cn("flex flex-col gap-4", className)}>
       {[...sections.entries()].map(([section, fields]) => (
-        <dl key={section || "_"} className="flex flex-col gap-3">
+        <dl key={section || "_"} className="flex flex-col gap-3 text-sm">
           {section ? (
             <dt className="text-muted-foreground text-sm font-medium">{section}</dt>
           ) : null}
@@ -53,7 +54,7 @@ export function CustomFieldsView({
           <p className="text-muted-foreground text-xs">
             These fields were archived; their values are kept and can no longer be edited.
           </p>
-          <dl className="flex flex-col gap-3">
+          <dl className="flex flex-col gap-3 text-sm">
             {archivedWithValues.map((definition) => (
               <Row key={definition.id} definition={definition} value={values[definition.key]} />
             ))}
@@ -64,12 +65,58 @@ export function CustomFieldsView({
   );
 }
 
-function Row({ definition, value }: { definition: FieldDefinition; value: unknown }) {
+/**
+ * The active fields as cells of a caller's field grid (PP-project-2: a project's fields flow into
+ * the same Details cells as its built-in ones): each a `<div>` of a small label over its value,
+ * with `cellClassName`, to sit inside the caller's `<dl>`. A field's section names the cell
+ * ("Shoot · Location"). Archived fields with values stay apart (`CustomFieldsView archivedOnly`).
+ */
+export function CustomFieldCells({
+  definitions,
+  values,
+  cellClassName,
+}: {
+  definitions: readonly FieldDefinition[];
+  values: CustomFieldValues;
+  cellClassName?: string;
+}) {
+  const { active } = splitDefinitions(definitions);
+  return (
+    <>
+      {active.map((definition) => (
+        <Row
+          key={definition.id}
+          definition={definition}
+          value={values[definition.key]}
+          cell
+          className={cellClassName}
+        />
+      ))}
+    </>
+  );
+}
+
+function Row({
+  definition,
+  value,
+  cell = false,
+  className,
+}: {
+  definition: FieldDefinition;
+  value: unknown;
+  /** A grid cell: the small label (12 px) over a regular value, as the built-in cells read. */
+  cell?: boolean;
+  className?: string | undefined;
+}) {
   const text = describeValue(definition, value);
   return (
-    <div data-slot="custom-field-value" data-key={definition.key} className="flex flex-col gap-0.5">
-      <dt className="text-muted-foreground text-xs">{definition.label}</dt>
-      <dd className={cn("text-sm", text === null && "text-muted-foreground")}>
+    <div data-slot="custom-field-value" data-key={definition.key} className={className}>
+      <dt className={cell ? "text-muted-foreground text-xs" : "text-muted-foreground"}>
+        {cell && definition.section
+          ? `${definition.section} · ${definition.label}`
+          : definition.label}
+      </dt>
+      <dd className={cn("break-words", !cell && "font-medium")}>
         {definition.type === "color" && text ? (
           <span className="inline-flex items-center gap-2">
             <span
@@ -88,8 +135,10 @@ function Row({ definition, value }: { definition: FieldDefinition; value: unknow
           >
             {text}
           </a>
+        ) : text === null ? (
+          <span className="text-muted-foreground font-normal">Not added</span>
         ) : (
-          (text ?? "—")
+          text
         )}
       </dd>
     </div>

@@ -18,7 +18,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <div className="mb-6 flex items-center gap-2">
         <span
           aria-hidden
-          className="bg-logo flex size-8 items-center justify-center rounded-md text-sm font-bold text-white"
+          className="bg-logo text-logo-foreground flex size-8 items-center justify-center rounded-md text-sm font-semibold"
         >
           M
         </span>
