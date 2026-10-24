@@ -221,9 +221,9 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 1. **ANSWERED (owner 2026-10-22: as recommended).** (W0) Who is told what? Recommended: each early-leave request is an actionable push + in-app to the Owner, the answer goes to the person, a late start notifies nobody (Today's count and the end-of-day report show it), none of it emailed.
 2. **ANSWERED (owner 2026-10-22: as recommended).** (W0) "Left early, not answered": what can the Owner do later? Recommended: Approve (it stands) or Correct (a correction beside the original, invariant 7).
 3. **ANSWERED (owner 2026-10-22): no, the start stays 10:00; when the person has a shoot later that day, the late reason is pre-filled "Shoot at ‹time›" for one-tap confirm (editable).** (W0) Does a shoot change the **start** time (a 07:00 shoot, a 14:00 shoot)? Recommended: no, the start time stays 10:00; the owner's rule (a) only moves the end time later.
-4. (W1) Where does the Owner set the kind on older closes? Recommended: the closed deliverable's sheet, ⋯ "Set close kind", Owner only, audited.
-5. (W4) A5: after "Just looking", PRODUCT §4.2 brings the prompt back every 30 minutes; the review suggests once a day. Recommended: once a day after "Just looking"; the start-time reminder still comes.
-6. (W4, W5) A1–A5 and S1–S5 are the advisor's 21 Oct review findings, not yet approved by the owner for v1.9; S2 changes kickoff 5's "20 a page" Alerts. Recommended: approve all ten.
+4. **ANSWERED (owner 2026-10-24: as recommended).** (W1) Where does the Owner set the kind on older closes? Recommended: the closed deliverable's sheet, ⋯ "Set close kind", Owner only, audited.
+5. **SKIPPED (advisor 2026-10-24: skip A5; the prompt keeps PRODUCT §4.2's 30 minutes).** (W4) A5: after "Just looking", PRODUCT §4.2 brings the prompt back every 30 minutes; the review suggests once a day. Recommended: once a day after "Just looking"; the start-time reminder still comes.
+6. **ANSWERED (owner 2026-10-24: approve all: A1–A4 in W4, S1–S4 in W5, S2 included; A5 skipped, S5 built).** (W4, W5) A1–A5 and S1–S5 are the advisor's 21 Oct review findings, not yet approved by the owner for v1.9; S2 changes kickoff 5's "20 a page" Alerts. Recommended: approve all ten.
 7. D7 (activity behind the clock icon app-wide, 6b.4 (5)) is in neither kickoff 6b's list nor v1.9. Check whether v1.8's History clock sweep (V5a) covered it; if not, ask which release.
 
 ## Phase 7: Client work
