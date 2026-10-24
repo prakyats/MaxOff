@@ -4,6 +4,15 @@ import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 export const LEAVE_FIT = "data-leave-fit";
 
 /**
+ * On an area once `fitLeaveLabels` has measured its labels. The server's HTML says `long` on every
+ * label until the calendar's own JavaScript runs, which lands after the shell has hydrated (the
+ * shell's `data-chrome`), so a reader that must tell a measured label from the server's default
+ * waits for this (the specs: CI run 40050701307, the week at 1024 read "long", cut, before the
+ * first fit).
+ */
+export const LEAVE_FITTED = "data-leave-fitted";
+
+/**
  * On a leave label (`data-leave-fit`): one line, clipped (never an ellipsis), and only the
  * wording its `data-leave-fit` names shown (long until measured): `long`, `short`, `photo` or
  * `face`.
@@ -32,6 +41,9 @@ const RUNGS = ["long", "short", "photo", "face"] as const;
 export function fitLeaveLabels(root: HTMLElement): void {
   let open = [...root.querySelectorAll<HTMLElement>(`[${LEAVE_FIT}]`)];
   for (const label of open) label.setAttribute(LEAVE_FIT, RUNGS[0]);
+  // Measured from here on, whatever the labels end up saying (one pass is one task: nothing
+  // reads the area between this mark and the rungs below).
+  root.setAttribute(LEAVE_FITTED, "");
   for (const rung of RUNGS.slice(1)) {
     open = open.filter(
       (label) =>

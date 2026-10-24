@@ -1497,6 +1497,15 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
       const prefix = `Space ${size.width} ${info.project.name} `;
       const taskId = await chatTask(info, prefix, 49 + (size.width === 1440 ? 1 : 0));
       await page.setViewportSize(size);
+      // A full load in the middle of the walk puts the page back at its top, in the view's opening
+      // state, and every measure after it reads that state (CI run 40050701307 shard 2, 1440:
+      // after the scroll the panel's height equalled the opening's with the foot within a pixel,
+      // the one state those two numbers meet in; not reproduced in 22 local runs, 8× CPU throttle
+      // included). Counted, so a recurrence says so instead of a height.
+      let fullLoads = 0;
+      page.on("load", () => {
+        fullLoads += 1;
+      });
       await page.goto(`/tasks/${taskId}`);
       await hydrated(page);
       await live(page);
@@ -1602,6 +1611,7 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
         .toBe(16);
       await expect.poll(foot).toBeGreaterThanOrEqual(0);
       expect(await foot()).toBeLessThan(1);
+      expect(fullLoads, "the page loaded once: no full load during the walk").toBe(1);
       expect((await box(chatPanel(page))).height).toBeGreaterThan(opening.height);
       await expect(composer).toBeInViewport();
       await expect(page.locator('[data-slot="page-header"] h1')).not.toBeInViewport();

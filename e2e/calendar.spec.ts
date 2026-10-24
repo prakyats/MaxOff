@@ -2071,6 +2071,11 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
    * person's photo is showing (the last wording, `[photo] Leave`, owner 23 Oct).
    */
   async function leaveLabel(label: Locator) {
+    // The server's HTML says `long` on every label until the calendar's own JavaScript has
+    // measured, which lands after the shell's `hydrated()`: on a slow machine the bar is visible,
+    // and still the server's default, when it is read (CI run 40050701307, the week at 1024:
+    // "long", cut; 12 of 12 locally at a 6× CPU throttle). The area says when it has measured.
+    await expect(label.locator("xpath=ancestor::*[@data-leave-fitted]")).toHaveCount(1);
     return label.evaluate((element) => {
       const shown = element.getAttribute("data-leave-fit");
       const fits = (fit: string) => {
