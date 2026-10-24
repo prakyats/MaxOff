@@ -280,7 +280,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   dialog (`calendar-chip`): an event in its type's colour (tint and left edge), the title before
   the time; what is due by name in `attention` (amber) or `danger` (red, overdue) with its clock or
   alert icon and the type's colour on its edge; leave in `leave` with the palm icon; done dimmed
-  with a small ✓, never struck through.
+  with a small ✓, never struck through. **Exception (owner, 24 Oct):** the phone's full month, where a day box has no room for the ✓, strikes a done item through and dims it, as v1.7.1 did; the laptop keeps the dimmed ✓.
 - **Tasks vs client work (the approved calendar sample, SCOPE §6, owner 2026-10-22):** a task is a
   filled soft chip, its type's colour as the tint and a small leading dot (`TypeDot`), no side
   stripe; client work is an outlined chip (`border-border`, no fill) with the box icon and the

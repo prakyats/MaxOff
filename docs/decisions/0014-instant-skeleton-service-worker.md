@@ -115,7 +115,7 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
   before): 74 of 74 green at 375 and 430 px, tap to skeleton 185–235 ms. The 300 ms limit is
   unchanged. Unit tests cover the one copy, the id swap and the 60-copy limit.
 
-## Amendment (2026-10-24)
+## Amendment (2026-10-24, approved by the owner)
 
 - **The change.** Two more addresses admitted under decision 1, by its own rule (the e2e proof
   first): Tasks' foot links, `/tasks/all` and `/tasks/requests` (`public/sw.js` v13). Neither has
