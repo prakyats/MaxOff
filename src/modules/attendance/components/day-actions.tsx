@@ -2,9 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { systemClock } from "@/core/time/clock";
+import { clockWords } from "@/core/time/clock-words";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialogLazy } from "@/core/ui/composites/confirm-dialog-lazy";
@@ -38,8 +40,15 @@ export function StartDayButton({
   label = "Start day",
   onStarted,
   statusClassName,
+  showTime = false,
 }: {
   size?: "default" | "sm";
+  /**
+   * Says the time the tap will record, live ("Start day · 9:41 am", PP-crew-2), on the strip of
+   * My Day and Today. Drawn after hydration only, so the server's and the phone's clocks never
+   * disagree.
+   */
+  showTime?: boolean;
   variant?: "primary" | "strong";
   label?: string;
   /** A caller that closes a layer first refreshes itself once that has happened. */
@@ -75,10 +84,27 @@ export function StartDayButton({
         onClick={() => action.run()}
       >
         {label}
+        {showTime ? <NowTime /> : null}
       </Button>
       <ActionStatus action={action} className={statusClassName} />
     </>
   );
+}
+
+/** The time a tap would record, refreshed every 15 seconds; nothing before hydration. */
+function NowTime() {
+  const [now, setNow] = useState<string | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(clockWords(systemClock()));
+    tick();
+    const timer = window.setInterval(tick, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now ? (
+    <span data-slot="start-day-time" className="font-normal tabular-nums opacity-80">
+      · {now}
+    </span>
+  ) : null;
 }
 
 /**

@@ -87,6 +87,13 @@ async function expectTouchTargets(page: Page): Promise<void> {
           const outer = label.getBoundingClientRect();
           if (outer.width >= min && outer.height >= min) return false;
         }
+        // A row's stretched opener (`ListRow`): its absolute ::after covers the row, so the row's
+        // box is the target, not the text's.
+        const after = getComputedStyle(el, "::after");
+        if (after.content !== "none" && after.position === "absolute") {
+          const host = el.offsetParent?.getBoundingClientRect();
+          if (host && host.width >= min && host.height >= min) return false;
+        }
         return true;
       })
       .slice(0, 8)
@@ -135,6 +142,11 @@ const SCREENS = [
   { path: "/calendar", role: "admin" },
   { path: "/calendar", role: "staff" },
   { path: "/me", role: "staff" },
+  { path: "/me", role: "admin" },
+  { path: "/me", role: "owner" },
+  // PP-crew-3 (V5b): the no-access page under its standard header.
+  { path: "/forbidden", role: "staff" },
+  { path: "/leave", role: "staff" },
   { path: "/leave/expenses", role: "staff" },
   { path: "/leave/expenses", role: "admin" },
   { path: "/my-day", role: "staff" },
@@ -360,12 +372,20 @@ for (const role of ["owner", "admin", "staff"] as const) {
       for (const size of ["2", "3", "1"]) {
         await expect(phone).toHaveAttribute("data-size", size);
         await fits();
-        // Every size fits the screen (the owner's phone walk, 2026-10-08): the page never
-        // scrolls; in the week and the compact month the day's timeline is the one scroll.
+        // The full month fits the screen (the owner's phone walk, 2026-10-08); the week and the
+        // compact month are part of the page, which scrolls when the day is long, and nothing in
+        // them scrolls inside it (PP-light-4, V5b).
         const overflow = await page.evaluate(
           () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
         );
-        expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
+        if (size === "3") {
+          expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
+        } else {
+          const inner = await page
+            .locator('[data-slot="calendar-phone"] [data-slot="calendar-hours"]')
+            .evaluateAll((all) => all.map((hours) => hours.scrollHeight - hours.clientHeight));
+          expect(Math.max(0, ...inner), `size ${size}: no scroll inside the page`).toBe(0);
+        }
         await handle.click();
       }
       // A day of the full month opens its sheet, which fits too.
@@ -444,7 +464,8 @@ test.describe("More, for Owner and Admin", () => {
         const sheet = page.locator('[data-slot="more-sheet"]');
         await expect(sheet).toBeVisible();
         // The rest of the navigation, in the same priority order as the bar, then the profile.
-        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too.
+        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too. Help (the
+        // guide) under Me (V5b, PP-phone-1).
         await expect(sheet.getByRole("link")).toHaveText(
           role === "admin"
             ? [
@@ -455,8 +476,9 @@ test.describe("More, for Owner and Admin", () => {
                 "Extra work & expenses",
                 "Settings",
                 "Me",
+                "Help",
               ]
-            : ["Reports", "Clients", "People", "Settings", "Me"],
+            : ["Reports", "Clients", "People", "Settings", "Me", "Help"],
         );
         // "Sign out of this device" lives under Me only (kickoff 3b decision 1): nothing here.
         await expect(sheet.getByRole("button", { name: /Log out|Sign out/ })).toHaveCount(0);
@@ -494,7 +516,9 @@ test.describe("More, for Owner and Admin", () => {
         await expect(page.locator('[data-slot="bottom-nav"]')).toBeVisible();
       });
 
-      test("only Approvals can carry a count today (2.4; Alerts join in 5.1)", async ({ page }) => {
+      test("only Approvals and Tasks can carry a count today (2.4; Alerts join in 5.1; the Owner's own tasks, 6b)", async ({
+        page,
+      }) => {
         await page.goto("/today");
         // The counts stream after the page (4C): wait until every cell's count has landed (a
         // zero draws no badge, so the settled marker says it arrived) before reading any of them.
@@ -504,11 +528,13 @@ test.describe("More, for Owner and Admin", () => {
         );
         // Whether a count shows depends on what other specs left waiting; where it shows does not.
         const badges = page.locator('[data-slot="bottom-nav"] [data-slot="nav-badge"]');
-        const onApprovals = page.locator(
-          '[data-slot="bottom-nav"] [data-nav="approvals"] [data-slot="nav-badge"]',
+        // The Owner can be on a task since 6b (`tasks_for_owner`): one he has not noted counts on
+        // Tasks, as it does for everyone else.
+        const allowed = page.locator(
+          '[data-slot="bottom-nav"] :is([data-nav="approvals"], [data-nav="tasks"]) [data-slot="nav-badge"]',
         );
-        await expect(badges).toHaveCount(await onApprovals.count());
-        expect(await badges.count()).toBeLessThanOrEqual(1);
+        await expect(badges).toHaveCount(await allowed.count());
+        expect(await badges.count()).toBeLessThanOrEqual(2);
       });
 
       test("More reads as current while one of its screens is open", async ({ page }) => {

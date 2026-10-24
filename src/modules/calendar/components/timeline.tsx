@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 
+import dynamic from "next/dynamic";
+
 import { cn } from "@/core/lib/utils";
 import { formatIST, formatTime, type ISODate, istDayStart, systemClock } from "@/core/time";
 
@@ -21,10 +23,12 @@ import {
   minutesInDay,
   openingMinute,
   placeBlocks,
+  spanOf,
   VISIBLE_FROM_HOUR,
   VISIBLE_TO_HOUR,
 } from "../domain/timeline";
-import { DoneTick } from "./calendar-chip";
+import type { Hovered } from "./block-details";
+import { DoneTick, TypeDot, typeTint } from "./calendar-chip";
 
 /**
  * The hour timeline (6.4b; Kickoff 6 decision 25 E): one column (the phone's day detail, the
@@ -41,16 +45,17 @@ import { DoneTick } from "./calendar-chip";
  * exactly. A block shows the client under its title when it has room, and hovering (or focusing)
  * it shows its details beside it; a click opens the task.
  *
- * **On the phone's week and compact month** (`fill`, the owner's phone walk of 2026-10-08) the
- * timeline fills what the day's detail leaves above the bottom bar, never less than two hours, as
- * the screen's one scroll (`overscroll-behavior: contain`, so it never chains to the page): the
- * hours, then the day's other rows (`after`).
+ * **On the phone's week and compact month** (`span`, PP-light-4, V5b: the day area never scrolls
+ * inside the page) the timeline is part of the page: it draws only the hours around the day's
+ * timed blocks (an hour either side, two at least, `spanOf`), with no scroll of its own, and the
+ * page scrolls. The day's other rows follow it in the page.
  *
  * Every timeline opens 8 px above its opening hour (a whole hour), so that hour's label shows
  * whole at the top.
  */
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const FULL_DAY = { from: 0, to: DAY_MINUTES };
 
 /** The visible window's height and a minute's offset, in `--hour` units. */
 const WINDOW_HOURS = VISIBLE_TO_HOUR - VISIBLE_FROM_HOUR;
@@ -58,48 +63,14 @@ function at(minutes: number): string {
   return `calc(var(--hour) * ${minutes / 60})`;
 }
 
-/** The details shown beside a hovered (or focused) block on the laptop. */
-type Hovered = { event: EventItem; rect: DOMRect };
-
-/** A block's details beside it, inside the viewport: a mouse's look before the click. */
-function BlockDetails({ hovered }: { hovered: Hovered }) {
-  const { event, rect } = hovered;
-  const width = 256;
-  const gap = 8;
-  const left =
-    rect.right + gap + width <= window.innerWidth ? rect.right + gap : rect.left - gap - width;
-  const top = Math.max(gap, Math.min(rect.top, window.innerHeight - 160));
-  return (
-    <div
-      data-slot="calendar-event-details"
-      data-task={event.id}
-      // The block's own text says the same to assistive tech; this is the mouse's look.
-      aria-hidden
-      className="bg-popover text-popover-foreground ring-foreground/10 pointer-events-none fixed z-50 flex flex-col gap-1 rounded-lg p-3 text-xs shadow-md ring-1"
-      style={{ left: Math.max(gap, left), top, width }}
-    >
-      <span className="flex items-start gap-2 text-sm font-medium">
-        <span
-          className="mt-1 size-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: event.color }}
-        />
-        <span className="min-w-0 break-words">
-          {event.completed ? <DoneTick className="mr-1" /> : null}
-          {event.title}
-        </span>
-      </span>
-      <span className="text-muted-foreground tabular-nums">
-        {timeWords(event.startAt, event.endAt)}
-      </span>
-      {event.typeName ? <span className="text-muted-foreground">{event.typeName}</span> : null}
-      {event.clientName ? <span>{event.clientName}</span> : null}
-      {event.location ? <span className="text-muted-foreground">{event.location}</span> : null}
-      {event.people.length > 0 ? (
-        <span className="text-muted-foreground break-words">{event.people.join(", ")}</span>
-      ) : null}
-    </div>
-  );
-}
+/**
+ * A block's details beside it on the laptop (a mouse's look before the click): loaded on the
+ * first hover, after the page (ARCHITECTURE §19; SCOPE §6 made room on /calendar this way).
+ */
+const BlockDetails = dynamic(
+  () => import("./block-details").then((module) => module.BlockDetails),
+  { ssr: false },
+);
 
 /** The IST minute of now, read after hydration (the server's now is not the phone's). */
 function useNowMinute(today: ISODate): number | null {
@@ -127,8 +98,7 @@ export function Timeline({
   header,
   eventLink,
   laptop = false,
-  fill = false,
-  after,
+  span = false,
   className,
 }: {
   days: readonly CalendarDay[];
@@ -147,10 +117,8 @@ export function Timeline({
    * the client line and the hover details.
    */
   laptop?: boolean;
-  /** The phone's week and compact month: fills the height it is given, its one scroll. */
-  fill?: boolean;
-  /** What scrolls in after the hours (`fill`): the day's Due list, "Who's free" and buttons. */
-  after?: ReactNode;
+  /** The phone's week and compact month: only the hours around the blocks, in the page. */
+  span?: boolean;
   className?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -212,6 +180,9 @@ export function Timeline({
   // wheel: a scroll the page makes itself (a block brought into view) must not close them.
   const closeLook = hovered ? () => setHovered(null) : undefined;
 
+  // The hours drawn: the whole day, or on the phone only those around the blocks (`span`).
+  const range = span ? spanOf(days.flatMap((day) => placeBlocks(day))) : FULL_DAY;
+  const hours = HOURS.filter((hour) => hour * 60 >= range.from && hour * 60 < range.to);
   const columns = days.length;
   const grid = { gridTemplateColumns: `3rem repeat(${columns}, minmax(0, 1fr))` };
   // The same gutter as the hours' scrollbar on the rows above them, so every column lines up.
@@ -224,7 +195,6 @@ export function Timeline({
       className={cn(
         "flex min-w-0 flex-col [--hour:2.75rem] md:[--hour:3rem]",
         laptop && "min-h-0 flex-1",
-        fill && "grow basis-0",
         className,
       )}
     >
@@ -267,27 +237,29 @@ export function Timeline({
         data-slot="calendar-hours"
         onWheel={closeLook}
         className={cn(
-          "relative overflow-y-auto overscroll-contain",
+          "relative",
+          !span && "overflow-y-auto overscroll-contain",
           laptop && "min-h-0 flex-1 [scrollbar-gutter:stable]",
-          // Two hours at least: at a very large text size the page scrolls before this shrinks.
-          fill && "min-h-[calc(var(--hour)*2)] grow basis-0",
         )}
-        style={laptop || fill ? undefined : { height: `calc(var(--hour) * ${WINDOW_HOURS})` }}
+        style={laptop || span ? undefined : { height: `calc(var(--hour) * ${WINDOW_HOURS})` }}
       >
-        <div className={cn(fill && "border-border overflow-hidden rounded-lg border")}>
+        {/* In the page (span), room under the last hour for the "now" dot and the last hour's
+            label, which sit across the line: the day never overflows its own box, so nothing
+            in it scrolls (PP-light-4; "now" at 11:57 on a day drawn to 12:00 stuck out 4 px). */}
+        <div className={cn(span && "pb-2")}>
           <div
             ref={hoursGrid}
             className="relative grid"
-            style={{ ...grid, height: at(DAY_MINUTES) }}
+            style={{ ...grid, height: at(range.to - range.from) }}
           >
             <div className="relative">
-              {HOURS.map((hour) => (
+              {hours.map((hour) => (
                 <span
                   key={hour}
                   className="text-muted-foreground absolute right-1 -translate-y-1/2 text-xs leading-4 tabular-nums"
-                  style={{ top: at(hour * 60) }}
+                  style={{ top: at(hour * 60 - range.from) }}
                 >
-                  {hour === 0 ? "" : hourLabel(hour)}
+                  {hour * 60 === range.from ? "" : hourLabel(hour)}
                 </span>
               ))}
             </div>
@@ -298,17 +270,17 @@ export function Timeline({
                 data-date={day.date}
                 className="border-border relative min-w-0 border-l"
               >
-                {HOURS.map((hour) => (
+                {hours.map((hour) => (
                   <span
                     key={hour}
                     aria-hidden
                     className="border-border/60 absolute inset-x-0 border-t"
-                    style={{ top: at(hour * 60) }}
+                    style={{ top: at(hour * 60 - range.from) }}
                   />
                 ))}
                 {placeBlocks(day).map((block) => {
                   const style: CSSProperties = {
-                    top: at(block.start),
+                    top: at(block.start - range.from),
                     height: at(block.end - block.start),
                     left: `${(block.column / block.columns) * 100}%`,
                     width: `${100 / block.columns}%`,
@@ -319,7 +291,7 @@ export function Timeline({
                         key={`busy-${block.item.memberId}-${block.item.startAt}`}
                         data-slot="calendar-busy"
                         data-member={block.item.memberId}
-                        className="text-muted-foreground border-muted-foreground/70 bg-background absolute min-h-6 overflow-hidden rounded-md border border-dotted px-1.5 py-0.5 text-xs leading-4"
+                        className="text-muted-foreground border-muted-foreground/70 bg-background absolute min-h-6 truncate rounded-md border border-dotted px-1.5 py-0.5 text-xs leading-4"
                         style={style}
                       >
                         <span className="font-medium">{block.item.name}</span> busy ·{" "}
@@ -340,8 +312,13 @@ export function Timeline({
                       {eventLink(
                         event,
                         <>
-                          <span className={cn("block font-medium", laptop && "truncate")}>
-                            {event.completed ? <DoneTick className="mr-0.5" /> : null}
+                          {/* One line each, ellipsised (SCOPE §6): the task, opened, shows it in full. */}
+                          <span className="block truncate font-medium">
+                            {event.completed ? (
+                              <DoneTick className="mr-0.5" />
+                            ) : (
+                              <TypeDot color={event.color} className="mr-1" />
+                            )}
                             {event.title}
                           </span>
                           {client ? (
@@ -349,7 +326,7 @@ export function Timeline({
                               {event.clientName}
                             </span>
                           ) : null}
-                          <span className="text-muted-foreground block">
+                          <span className="text-foreground/80 block truncate">
                             {[
                               timeWords(event.startAt, event.endAt),
                               event.location,
@@ -360,20 +337,20 @@ export function Timeline({
                           </span>
                         </>,
                         cn(
-                          "focus-visible:ring-ring block h-full min-h-11 overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4 outline-none focus-visible:ring-2 md:min-h-6",
+                          "focus-visible:ring-ring block h-full min-h-11 overflow-hidden rounded-md px-1.5 py-0.5 text-xs leading-4 outline-none focus-visible:ring-2 md:min-h-6",
                           event.completed && "opacity-60",
                         ),
-                        { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
+                        typeTint(event.color),
                       )}
                     </div>
                   );
                 })}
-                {day.date === today && now !== null ? (
+                {day.date === today && now !== null && now >= range.from && now <= range.to ? (
                   <span
                     data-slot="calendar-now"
                     aria-label={`Now, ${formatTime(systemClock())}`}
                     className="bg-foreground pointer-events-none absolute inset-x-0 z-10 h-0.5"
-                    style={{ top: at(now) }}
+                    style={{ top: at(now - range.from) }}
                   >
                     <span className="bg-foreground absolute -top-1 -left-1 size-2.5 rounded-full" />
                   </span>
@@ -382,11 +359,6 @@ export function Timeline({
             ))}
           </div>
         </div>
-        {fill && after ? (
-          <div data-slot="calendar-day-rest" className="flex flex-col gap-3 py-3">
-            {after}
-          </div>
-        ) : null}
       </div>
       {hovered ? <BlockDetails hovered={hovered} /> : null}
     </div>

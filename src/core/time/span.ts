@@ -19,6 +19,14 @@ export function spanWords(ms: number): string {
   return days === 1 ? "1 day" : `${days} days`;
 }
 
+/**
+ * "3 h late", "2 days late": how late a task is, `ms` past its deadline, as a chip says it (the
+ * Owner's Today risks, and every task row's late chip since PP-tasks-2).
+ */
+export function lateWords(ms: number): string {
+  return `${spanWords(ms)} late`;
+}
+
 /** "overdue 3 h", "overdue 1 day": how late something is, `ms` past its deadline. */
 export function overdueWords(ms: number): string {
   return `overdue ${spanWords(ms)}`;

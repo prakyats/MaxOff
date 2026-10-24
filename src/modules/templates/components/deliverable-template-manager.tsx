@@ -70,14 +70,16 @@ export function DeliverableTemplateManager({
   // V5b-0 item 9: the archived ones the viewer may restore, at the list's foot.
   const archived = templates.filter(
     (template) =>
-      template.archived && templateRowActions(template, viewer).archive && matches(template),
+      template.archived && templateRowActions(template, viewer).restore && matches(template),
   );
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: DeliverableTemplate): string {
     const author =
       template.createdBy === viewer.id ? "by you" : `by ${names[template.createdBy] ?? "someone"}`;
-    return [groupsSummary(template.stageGroups), author].join(" · ");
+    // PP-admin-12: one the viewer cannot change says so, and keeps Preview.
+    const viewOnly = templateRowActions(template, viewer).edit ? null : "view only";
+    return [groupsSummary(template.stageGroups), author, viewOnly].filter(Boolean).join(" · ");
   }
 
   async function restore(template: DeliverableTemplate) {
@@ -125,7 +127,7 @@ export function DeliverableTemplateManager({
                 className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
               >
                 <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                  <span className="truncate text-sm font-medium">{template.name}</span>
+                  <span className="text-sm font-medium break-words">{template.name}</span>
                   <span className="text-muted-foreground text-xs break-words">
                     {line(template)}
                   </span>

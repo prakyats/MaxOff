@@ -44,6 +44,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
@@ -72,6 +73,8 @@
   --color-leave-stripe: var(--leave-stripe);
   /* Today's whole box on the calendar (PP-calendar-15): a faint neutral lift under the red circle. */
   --color-today: var(--today);
+  --color-row-unread: var(--row-unread);
+  --color-row-read: var(--row-read);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
@@ -79,13 +82,13 @@
   --color-approve-foreground: var(--approve-foreground);
 
   /*
-   * Four radii (DESIGN.md §5): 6px controls, 10px cards, 12px sheets, round chips. Tailwind's
+   * Four radii (DESIGN.md §5): 6px controls, 10px cards, 14px sheets, round chips. Tailwind's
    * steps collapse onto them: sm and md are a control, lg (and bare `rounded`, = --radius) a
    * card, xl and above a sheet. `xs` and arbitrary radii are a lint error (maxoff/design-tokens).
    */
   --radius-control: 0.375rem;
   --radius-card: var(--radius);
-  --radius-sheet: 0.75rem;
+  --radius-sheet: 0.875rem;
   --radius-sm: var(--radius-control);
   --radius-md: var(--radius-control);
   --radius-lg: var(--radius-card);
@@ -93,6 +96,12 @@
   --radius-2xl: var(--radius-sheet);
   --radius-3xl: var(--radius-sheet);
   --radius-4xl: var(--radius-sheet);
+  /*
+   * Chat only (v1.8 V5b E, the approved chat sample): a message bubble's 16px corners (the joined
+   * corners of a group are a control's 6px) and the composer's rounded field.
+   */
+  --radius-bubble: 1rem;
+  --radius-composer: 1.375rem;
 
   /*
    * One shadow per elevation step (DESIGN.md §3): raised (cards), floating (menus, popovers,
@@ -124,6 +133,9 @@
   --text-xl--line-height: calc(1.75 / 1.25);
   --text-2xl: 1.5rem;
   --text-2xl--line-height: calc(2 / 1.5);
+  /* The one step under 12px: a bell's count pill only (owner, #89 comment 6338991185; DESIGN §2). */
+  --text-count: 0.6875rem;
+  --text-count--line-height: 1;
 }
 
 /* Pixora Clips brand theme (DESIGN.md §3, §4). Light: a warm cream page, white cards, graphite text;
@@ -143,9 +155,9 @@
    * (≥ 3:1 against the page and the card, WCAG 1.4.11), and the focus ring is neutral.
    */
   --primary: #18181b;
-  --primary-foreground: #fafaf9;
+  --primary-foreground: #ffffff;
   --strong: #18181b;
-  --strong-foreground: #fafaf9;
+  --strong-foreground: #ffffff;
   --destructive-solid: #c42126;
   --destructive-solid-foreground: #ffffff;
   /* The Forest green approve commit (owner 2026-10-21): Mark done when ready; one solid a layer. */
@@ -155,7 +167,7 @@
   --secondary: #eeede8;
   --secondary-foreground: #18181b;
   --muted: #eeede8;
-  --muted-foreground: #66666e;
+  --muted-foreground: #62626a;
   --accent: #eeede8;
   --accent-foreground: #18181b;
   --brand-foreground: #ffffff;
@@ -165,6 +177,8 @@
   --destructive: #c42126;
   --destructive-foreground: #ffffff;
   --border: #e3e2dd;
+  /* Faint (V5b sample fidelity): chevrons and other decorative marks, never text. */
+  --faint: #8b8b93;
   --input: #e3e2dd;
   --ring: #18181b;
   --chart-1: #18181b;
@@ -176,36 +190,55 @@
   --sidebar: #efeee9;
   --sidebar-foreground: #18181b;
   --sidebar-primary: #18181b;
-  --sidebar-primary-foreground: #fafaf9;
-  --sidebar-accent: #e6e5df;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffffff;
   --sidebar-accent-foreground: #18181b;
   --sidebar-border: #e3e2dd;
   --sidebar-ring: #18181b;
-  --success: #047857;
-  --success-soft: #e1efeb;
-  --info: #1d4ed8;
-  --info-soft: #e4eafa;
-  --attention: #ad5009;
-  --attention-soft: #f6eae1;
-  --danger: #c42126;
-  --danger-soft: #f8e4e5;
-  --neutral: #52525b;
-  --neutral-soft: #eaeaeb;
+  --success: #157e3c;
+  --success-soft: #e6f4ea;
+  --info: #2952cc;
+  --info-soft: #e9effd;
+  --attention: #8f5400;
+  --attention-soft: #fdf3e2;
+  --danger: #b42318;
+  --danger-soft: #fdecec;
+  --neutral: #62626a;
+  --neutral-soft: #efefef;
   --brand: #c42126;
-  --brand-soft: #f8e4e5;
+  --brand-soft: #fdecec;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
-  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15): a faint neutral lift, one surface
-   * step above the other days (= surface-3; light adds the raised shadow), never a red wash: the
-   * red circle on the date is the marker. Every text on it reads at 4.5:1. */
-  --today: #ffffff;
+  /* Today's box on the calendar (DESIGN.md §4, PP-calendar-15; the design gate, 23 Oct): a neutral
+   * tint under the red circle on its date, never a red wash and never an outline. Light: one grey
+   * step under the white boxes (white on white was no tint at all); dark: one surface step up
+   * (surface-3). Every text on it reads at 4.5:1 (holiday green 4.5:1, the floor). */
+  --today: #f3f3f3;
+  /* An alert's row (PP-alerts-2, V5b; the design gate, 23 Oct): unread sits one shade lighter than
+   * read, as in the sample. Light: unread is the white card, read one quiet warm step under it (a
+   * grey unread row looked dimmer than the read ones); dark: read is the card, unread one surface
+   * step lighter. Text on both reads at 4.5:1. */
+  --row-unread: #ffffff;
+  --row-read: #f9f8f5;
   /* Leave on the calendar (DESIGN.md §4, PP-calendar-10): a soft neutral bar with faint stripes,
    * apart from every task type's colour; its text reads at 4.5:1 on the bar and on a stripe. */
-  --leave: #52525b;
-  --leave-soft: #f1f1f2;
-  --leave-stripe: #e4e4e7;
+  --leave: #62626a;
+  /* PP-light-2 (V5b): the stripes one step stronger in light only, so they read on the cream
+   * page (dark is approved as it is). With the sample's `--leave` (#62626a) the text keeps AA on
+   * a stripe only down to about #DFDFE1 (#D4D4D8 fell to 4.1:1), so the bar is a near-white step
+   * instead (the sample's bar is clear over the day's white box): 4.54:1 text on a stripe, 1.25:1
+   * stripe on the bar. */
+  --leave-soft: #f8f8f9;
+  --leave-stripe: #dfdfe1;
   /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
   --scrim: rgb(0 0 0 / 0.1);
+  /* A person's initials when they have no photo (v1.8 V5b-D, the approved pull-in sample): four
+   * calm tones, the same in both themes, white initials at 4.9:1 or more on each. */
+  --avatar-1: #2f6b5f;
+  --avatar-2: #6d4fb3;
+  --avatar-3: #a8572e;
+  --avatar-4: #2c5aa0;
+  --avatar-foreground: #ffffff;
   /* The surface ladder (DESIGN.md §3, major change 4): a warm cream page and white steps above
    * it, so the page tint is distinct from the cards; the shadow confirms the step. No pure white
    * page anywhere. */
@@ -216,7 +249,7 @@
   /* One shadow per step: soft and offset, never heavy. */
   --elevation-1: 0 1px 2px 0 rgb(20 20 20 / 0.06), 0 4px 14px 0 rgb(20 20 20 / 0.06);
   --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.08);
-  --elevation-3: 0 8px 24px -6px rgb(0 0 0 / 0.12);
+  --elevation-3: 0 12px 32px 0 rgb(24 24 27 / 0.14), 0 2px 6px 0 rgb(24 24 27 / 0.06);
   /* Calm motion (DESIGN.md §7): one ease, three durations. */
   --motion-fast: 120ms;
   --motion-base: 200ms;
@@ -227,73 +260,77 @@
 /* Dark: graphite. Surfaces sit one step above the page so cards read as surfaces, not borders. */
 .dark {
   --background: #0b0b0c;
-  --foreground: #fafaf9;
-  --card: #141416;
-  --card-foreground: #fafaf9;
-  --popover: #141416;
-  --popover-foreground: #fafaf9;
-  --primary: #fafaf9;
-  --primary-foreground: #18181b;
-  --strong: #fafaf9;
-  --strong-foreground: #18181b;
+  --foreground: #ededee;
+  --card: #131315;
+  --card-foreground: #ededee;
+  --popover: #1a1a1d;
+  --popover-foreground: #ededee;
+  --primary: #ededee;
+  --primary-foreground: #0b0b0c;
+  --strong: #ededee;
+  --strong-foreground: #0b0b0c;
   --destructive-solid: #c42126;
   --destructive-solid-foreground: #ffffff;
   --approve: #15803d;
   --approve-foreground: #ffffff;
   --control-border: #6b6b73;
   --secondary: #1f1f23;
-  --secondary-foreground: #fafaf9;
+  --secondary-foreground: #ededee;
   --muted: #1f1f23;
-  --muted-foreground: #a1a1aa;
+  --muted-foreground: #9d9da5;
   --accent: #1f1f23;
-  --accent-foreground: #fafaf9;
+  --accent-foreground: #ededee;
   --brand-foreground: #0b0b0c;
   --destructive: #f2686d;
   --destructive-foreground: #0b0b0c;
-  --border: #26262a;
-  --input: #26262a;
-  --ring: #fafaf9;
-  --chart-1: #fafaf9;
+  --border: #25252a;
+  --faint: #6b6b73;
+  --input: #25252a;
+  --ring: #ededee;
+  --chart-1: #ededee;
   --chart-2: #a1a1aa;
   --chart-3: #71717a;
   --chart-4: #52525b;
   --chart-5: #3f3f46;
   /* The sidebar is chrome: a cooler neutral one step off the page, under the cards (FINAL 2). */
-  --sidebar: #101013;
-  --sidebar-foreground: #fafaf9;
-  --sidebar-primary: #fafaf9;
-  --sidebar-primary-foreground: #18181b;
-  --sidebar-accent: #1f1f23;
-  --sidebar-accent-foreground: #fafaf9;
-  --sidebar-border: #26262a;
-  --sidebar-ring: #fafaf9;
-  --success: #34d399;
-  --success-soft: #1a362e;
-  --info: #7da2ff;
-  --info-soft: #272e40;
-  --attention: #fbbf24;
-  --attention-soft: #3e3319;
-  --danger: #f2686d;
-  --danger-soft: #3c2326;
-  --neutral: #a1a1aa;
-  --neutral-soft: #2d2d31;
+  --sidebar: #0f0f11;
+  --sidebar-foreground: #ededee;
+  --sidebar-primary: #ededee;
+  --sidebar-primary-foreground: #0b0b0c;
+  --sidebar-accent: #222226;
+  --sidebar-accent-foreground: #ededee;
+  --sidebar-border: #25252a;
+  --sidebar-ring: #ededee;
+  --success: #5fd497;
+  --success-soft: #10291c;
+  --info: #8fb0ff;
+  --info-soft: #18203a;
+  --attention: #f5b55a;
+  --attention-soft: #33240e;
+  --danger: #ff8a8f;
+  --danger-soft: #3a1517;
+  --neutral: #9d9da5;
+  --neutral-soft: #232327;
   --brand: #f2686d;
-  --brand-soft: #3c2326;
+  --brand-soft: #3a1517;
   --holiday: #4ade80;
-  --today: #1c1c1f;
-  --leave: #a1a1aa;
+  --today: #222226;
+  /* One surface step lighter than the card (= surface-2); a read row is the card. */
+  --row-unread: #1a1a1d;
+  --row-read: #131315;
+  --leave: #9d9da5;
   --leave-soft: #27272a;
-  --leave-stripe: #323236;
+  --leave-stripe: #232327;
   /* A deeper veil: 10% black disappears on a graphite page. */
   --scrim: rgb(0 0 0 / 0.3);
   /* In dark a higher step is a lighter graphite: shadows barely read on black. */
   --surface-0: #0b0b0c;
-  --surface-1: #141416;
-  --surface-2: #18181b;
-  --surface-3: #1c1c1f;
-  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --surface-1: #131315;
+  --surface-2: #1a1a1d;
+  --surface-3: #222226;
+  --elevation-1: 0 1px 0 0 rgb(255 255 255 / 0.03), 0 6px 18px 0 rgb(0 0 0 / 0.35);
   --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.45);
-  --elevation-3: 0 8px 24px -6px rgb(0 0 0 / 0.55);
+  --elevation-3: 0 12px 32px 0 rgb(0 0 0 / 0.5);
 }
 
 @layer base {
@@ -542,6 +579,81 @@
     background-image: linear-gradient(var(--press-tint), var(--press-tint));
     transition-duration: 0ms;
   }
+}
+
+/* A person's photo (`PersonAvatar`, v1.8 V5b-D, the approved pull-in sample): four fixed sizes,
+ * a 1 px ring in the line colour and a 2 px ring in the surface behind it (`--avatar-ring`, the
+ * card unless the row says otherwise), so a photo keeps its edge in both themes and faces in a
+ * stack stay apart. The ring is a shadow: it never changes the avatar's size. */
+[data-slot="person-avatar"] {
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 0 0 3px var(--avatar-ring, var(--card));
+  color: var(--avatar-foreground);
+  font-weight: 600;
+  line-height: 1;
+}
+[data-slot="person-avatar"][data-size="20"] {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+[data-slot="person-avatar"][data-size="28"] {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+[data-slot="person-avatar"][data-size="40"] {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+[data-slot="person-avatar"][data-size="64"] {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+/* The calendar's leave bar, where even "Name · Leave" has no room (owner 23 Oct): the
+ * person's photo and "Leave" (on the phone's full month, where that too has no room, the photo
+ * alone). The 20 px face drawn at 14 px with its 1 px line ring only, so it
+ * sits inside the bar's 16 px line and the bar keeps its height whichever wording it shows. */
+[data-leave-word="photo"] > [data-slot="person-avatar"][data-size],
+[data-leave-word="face"] > [data-slot="person-avatar"][data-size] {
+  width: 14px;
+  height: 14px;
+  margin-right: 3px;
+  font-size: 7px;
+  margin-top: 1px;
+  vertical-align: top;
+  box-shadow: 0 0 0 1px var(--border);
+}
+[data-slot="person-avatar"][data-tone="1"] {
+  background-color: var(--avatar-1);
+}
+[data-slot="person-avatar"][data-tone="2"] {
+  background-color: var(--avatar-2);
+}
+[data-slot="person-avatar"][data-tone="3"] {
+  background-color: var(--avatar-3);
+}
+[data-slot="person-avatar"][data-tone="4"] {
+  background-color: var(--avatar-4);
+}
+/* No person to show (a job's alert, someone outside the viewer's directory): a quiet neutral. */
+[data-slot="person-avatar"][data-tone="none"] {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+/* An overlap stack: each face after the first tucks 6 px under the one before. */
+[data-slot="avatar-stack"] > [data-slot="person-avatar"] + [data-slot="person-avatar"] {
+  margin-left: -6px;
+}
+/* An alert's row is its own shade (read, or one lighter unread): its avatar's ring follows it. */
+[data-slot="notification-row"] {
+  --avatar-ring: var(--row-read);
+}
+[data-unread] {
+  --avatar-ring: var(--row-unread);
 }
 
 /* The one row (`ListRow`, FINAL 5): its opener is stretched over the row by its ::after, so the

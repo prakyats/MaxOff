@@ -438,6 +438,8 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     await page.goto(`/tasks/${taskId}`);
     await hydrated(page);
     await live(page);
+    // The browser tab names the task (v1.8 pull-in item 5), not "Task".
+    await expect(page).toHaveTitle(`${prefix}layout · MaxOff`);
     const main = await page.locator('[data-slot="task-tabs"]').boundingBox();
     const details = await panel(page, "details").boundingBox();
     expect(details?.x ?? 0).toBeGreaterThan((main?.x ?? 0) + (main?.width ?? 0));
@@ -448,9 +450,44 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     await expect(page.locator('[data-slot="task-tab"]:visible')).toHaveText(["Work", "Chat"]);
     await tab(page, "chat").click();
     await expect(panel(page, "chat")).toBeVisible();
-    await expect(panel(page, "chat").getByRole("textbox", { name: "Comment" })).toBeVisible();
+    await expect(panel(page, "chat").getByRole("textbox", { name: "Message" })).toBeVisible();
     await expect(chatSheet(page)).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`\\?tab=chat$`));
+  });
+});
+
+test.describe("a long title (the design gate, 23 Oct)", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("a phone's bar holds it on one line with an ellipsis; the body shows it in full", async ({
+    page,
+  }, info) => {
+    test.skip(!phone(page), "the phone's title bar");
+    const prefix = `Long title ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staffId = await memberIdOf(person("staff", info).email);
+    const title = `${prefix}the brand film's second cut with the client's notes on colour and the music`;
+    const taskId = await ownerCreates({ title, assignees: [staffId], primary: staffId, day: 34 });
+    await as(page, "staff", info);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await live(page);
+    const heading = page.locator('[data-slot="page-header"] h1');
+    await expect(heading).toHaveText(title);
+    const bar = await heading.evaluate((element) => ({
+      lines:
+        element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight),
+      cut: element.scrollHeight > element.clientHeight,
+    }));
+    expect(Math.round(bar.lines), "one line").toBe(1);
+    expect(bar.cut, "the title ends in an ellipsis").toBe(true);
+    const full = page.locator('[data-slot="task-title-full"]');
+    await expect(full).toBeVisible();
+    expect(await full.evaluate((element) => getComputedStyle(element, "::before").content)).toBe(
+      JSON.stringify(title),
+    );
+    expect((await full.boundingBox())?.height ?? 0, "wrapped, in full").toBeGreaterThan(40);
+    await removeTasksTitled(prefix);
   });
 });
 
@@ -518,7 +555,7 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     // Staff's own reply is not new to them; to the helper it is.
     const composer = phone(page) ? chatSheet(page) : panel(page, "chat");
     await tab(page, "chat").click();
-    await composer.getByRole("textbox", { name: "Comment" }).fill("Got it, thanks.");
+    await composer.getByRole("textbox", { name: "Message" }).fill("Got it, thanks.");
     // One solid commit per layer (decision 26, phase 4 review A-M1): Send is solid only in the
     // phone's sheet, its own layer; inline on desktop it sits beside the next step's solid button.
     await expect(composer.getByRole("button", { name: "Send" })).toHaveAttribute(
@@ -571,10 +608,20 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     await live(page);
     await tab(page, "chat").click();
     const chat = phone(page) ? chatSheet(page) : panel(page, "chat");
-    const box = chat.getByRole("textbox", { name: "Comment" });
+    const box = chat.getByRole("textbox", { name: "Message" });
     const own = chat.locator('[data-slot="task-comment"][data-own="true"]');
     const hint = chat.locator('[data-slot="composer-hint"]');
     await expect(box).toBeVisible();
+    // The design gate (23 Oct): "Message <first name>…" on one line, in the sample's raised bar.
+    await expect(box).toHaveAttribute("placeholder", /^Message [^\s…]+…$/);
+    expect((await box.boundingBox())?.height ?? 0, "one line").toBeLessThanOrEqual(48);
+    const surfaces = await chat
+      .locator('[data-slot="task-chat-composer-row"]')
+      .evaluate((row) => [
+        getComputedStyle(row).backgroundColor,
+        getComputedStyle(row.querySelector("textarea") as HTMLElement).backgroundColor,
+      ]);
+    expect(surfaces[0], "the bar is raised above the field").not.toBe(surfaces[1]);
 
     if (phone(page)) {
       // Touch: Enter is a new line and never sends; Send sends. No hint.
@@ -660,6 +707,129 @@ test.describe("Chat and the unread comments (decision 28)", () => {
   });
 });
 
+/**
+ * Chat as a conversation (v1.8 V5b E, the approved sample `docs/design/v18-task-chat-sample.html`):
+ * the latest 50 messages in their own scroller, day lines, grouped bubbles, the red "New" line it
+ * opens at, "Load earlier" and "Jump to latest".
+ */
+test.describe("Chat as a conversation (v1.8 V5b E)", () => {
+  test.skip(({ viewport }) => viewport?.width === 430, "the flows run at 375px and desktop");
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("opens at the first unread under day lines; Load earlier keeps the place; Jump to latest", async ({
+    page,
+  }, info) => {
+    const prefix = `Conversation ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const helper = person("helper", info);
+    const [staffId, helperId] = await Promise.all([
+      memberIdOf(staff.email),
+      memberIdOf(helper.email),
+    ]);
+    const taskId = await ownerCreates({
+      title: `${prefix}reel`,
+      assignees: [staffId, helperId],
+      primary: staffId,
+      day: 47,
+    });
+    // 52 of the helper's yesterday, a minute apart; today the Crew member's "Morning", then two
+    // of the helper's. 55 in all: the page holds the latest 50, "Load earlier" the five before.
+    const yesterday = addISTDays(todayIST(), -1);
+    const earlier = Array.from({ length: 52 }, (_, index) => ({
+      body: `Earlier ${String(index + 1).padStart(2, "0")}`,
+      at: istInstant(yesterday, `10:${String(index).padStart(2, "0")}`),
+    }));
+    await postComments(helper.email, taskId, earlier);
+    await postComments(staff.email, taskId, [
+      { body: "Morning", at: istInstant(todayIST(), "00:05") },
+    ]);
+    await postComments(helper.email, taskId, [
+      { body: "On it", at: istInstant(todayIST(), "00:06") },
+      { body: "Uploading now", at: istInstant(todayIST(), "00:07") },
+    ]);
+    // The Crew member read up to their own "Morning": the helper's two after it are new.
+    await rpcAs(staff.email, PASSWORD, "task_mark_read", {
+      task_id: taskId,
+      up_to: istInstant(todayIST(), "00:05"),
+    });
+    await fixtureNotificationsRead(taskId);
+
+    await as(page, "staff", info);
+    await page.goto(`/tasks/${taskId}?tab=chat`);
+    await live(page);
+    const chat = phone(page) ? chatSheet(page) : panel(page, "chat");
+    await expect(chat).toBeVisible();
+    const thread = chat.locator('[data-slot="task-chat-thread"]');
+    const bubbles = chat.locator('[data-slot="task-comment"]');
+    await expect(bubbles).toHaveCount(50);
+
+    // Day lines, the grouping, and the "New" line where the unread start, in view on opening.
+    await expect(chat.locator('[data-slot="chat-day"]')).toHaveText(["Yesterday", "Today"]);
+    const newLine = chat.locator('[data-slot="chat-new-line"]');
+    await expect(newLine).toHaveText("New");
+    await expect(newLine).toBeInViewport();
+    await expect(bubbles.first()).not.toBeInViewport();
+    const groups = chat.locator('[data-slot="chat-group"]');
+    await expect(groups).toHaveCount(3);
+    await expect(groups.nth(1)).toHaveAttribute("data-own", "true");
+    await expect(groups.nth(2).locator('[data-slot="task-comment"]')).toHaveText([
+      /On it$/,
+      /Uploading now$/,
+    ]);
+    // A bubble fits its text: "Morning" is a small one on the right.
+    const own = (await groups.nth(1).locator('[data-slot="task-comment"]').boundingBox())!;
+    const feed = (await thread.boundingBox())!;
+    expect(own.width).toBeLessThan(feed.width / 2);
+    expect(own.x + own.width).toBeGreaterThan(feed.x + feed.width / 2);
+
+    // Load earlier, at the top: the five before; the message that was first stays in view.
+    await thread.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await chat.locator('[data-slot="chat-load-earlier"]').click();
+    await expect(bubbles).toHaveCount(55);
+    await expect(chat.locator('[data-slot="chat-load-earlier"]')).toHaveCount(0);
+    await expect(bubbles.filter({ hasText: "Earlier 06" })).toBeInViewport();
+    await expect(bubbles.first()).toContainText("Earlier 01");
+
+    // Scrolled up, a new message arrives (its notification re-reads the page): Jump to latest.
+    await expect(page.locator("html")).toHaveAttribute("data-live", "on");
+    await insertAs(helper.email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: "Fresh from the edit suite",
+    });
+    const fresh = bubbles.filter({ hasText: "Fresh from the edit suite" });
+    await expect(fresh).toHaveCount(1);
+    await expect(fresh).not.toBeInViewport();
+    const jump = chat.locator('[data-slot="chat-jump"]');
+    await expect(jump).toHaveText("Jump to latest");
+    await jump.click();
+    await expect(fresh).toBeInViewport();
+    await expect(jump).toHaveCount(0);
+    await receiptsSettled(page);
+    if (phone(page)) {
+      await page.goBack();
+      await expect(chatSheet(page)).toBeHidden();
+    }
+  });
+});
+
+/** Posts comments as one person, then sets their times (the API stamps "now"). */
+async function postComments(
+  email: string,
+  taskId: string,
+  rows: readonly { body: string; at: string }[],
+): Promise<void> {
+  for (const row of rows) {
+    const comment = await insertAs<{ id: string }>(email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: row.body,
+    });
+    await serviceUpdate(`task_comments?id=eq.${comment.id}`, { created_at: row.at });
+  }
+}
+
 test.describe("History (decision 29; the header's History sheet since V5a)", () => {
   test.skip(({ viewport }) => viewport?.width === 430, "the flows run at 375px and desktop");
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -691,10 +861,9 @@ test.describe("History (decision 29; the header's History sheet since V5a)", () 
     }
 
     await openHistory(page);
-    // Three ticks within ten minutes by the same person: one line (newest first).
-    await expect(historyRows(page).first()).toContainText(
-      `${person("staff", info).name} ticked “Cut”, “Grade” and “Mix”`,
-    );
+    // Three ticks within ten minutes by the same person: one line (newest first). The reader's
+    // own changes say "You" (v1.8 pull-in item 5).
+    await expect(historyRows(page).first()).toContainText(`You ticked “Cut”, “Grade” and “Mix”`);
     // Created, assigned, four stages added, the ticks: more than five lines, five shown.
     await expect(historyRows(page)).toHaveCount(5);
     const all = page.locator('[data-slot="task-history-show-all"]');
@@ -870,6 +1039,55 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
       { closes: chatSheet(page), url: new RegExp(`/tasks/${taskId}\\?tab=chat$`) },
       { url: /\/tasks$/ },
     ]);
+  });
+
+  test("Chat is a full-height view: ‹ returns to the task, the gesture too, then one back leaves", async ({
+    page,
+  }, info) => {
+    const prefix = `Chat view ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staffId = await memberIdOf(person("staff", info).email);
+    const helper = person("helper", info);
+    const taskId = await ownerCreates({
+      title: `${prefix}promo`,
+      assignees: [staffId, await memberIdOf(helper.email)],
+      primary: staffId,
+      day: 52,
+    });
+    await insertAs(helper.email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: "The first cut is up.",
+    });
+    await fixtureNotificationsRead(taskId);
+    await runInstalled(page);
+    await as(page, "staff", info);
+    await page.goto("/tasks");
+    await page.goto(`/tasks/${taskId}`);
+    const url = new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`);
+    await live(page);
+
+    // Full height, its own title with ‹, the composer at its foot.
+    await tab(page, "chat").click();
+    const sheet = chatSheet(page);
+    await expect(sheet).toBeVisible();
+    await receiptsSettled(page);
+    await animationsSettled(page);
+    const viewport = page.viewportSize() as { width: number; height: number };
+    const box = (await sheet.boundingBox()) as { y: number; height: number };
+    expect(box.y).toBe(0);
+    expect(Math.round(box.y + box.height)).toBe(viewport.height);
+    await expect(sheet.getByRole("heading", { name: `${prefix}promo · Chat` })).toBeVisible();
+    const composer = (await sheet.locator('[data-slot="task-chat-composer-row"]').boundingBox())!;
+    expect(Math.round(composer.y + composer.height)).toBe(viewport.height);
+    await expect(sheet.locator('[data-slot="task-comment"]')).toContainText("The first cut is up.");
+
+    // ‹ returns to the task (the layer's own back), the gesture too, then back leaves.
+    await sheet.getByRole("button", { name: "Back to the task" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(url);
+    await tab(page, "chat").click();
+    await expect(chatSheet(page)).toBeVisible();
+    await expectBackStack(page, [{ closes: chatSheet(page), url }, { url: /\/tasks$/ }]);
   });
 });
 
@@ -1096,13 +1314,13 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the edi
     await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2", "Stage 4", "Stage 3"]);
     await receiptsSettled(page);
 
-    // The history: each move, by the Admin, newest first.
+    // The history: each move, by the Admin reading it ("You", v1.8 pull-in item 5), newest first.
     await openHistory(page);
     await expect(historyRows(page).first()).toContainText(
-      `${admin.name} moved the stage “Stage 4” to position 3 of 4`,
+      `You moved the stage “Stage 4” to position 3 of 4`,
     );
     await expect(historyRows(page).nth(1)).toContainText(
-      `${admin.name} moved the stage “Stage 4” to position 2 of 4`,
+      `You moved the stage “Stage 4” to position 2 of 4`,
     );
   });
 
@@ -1217,5 +1435,390 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the edi
     await expectBackStack(page, [{ closes: menu, url }]);
     await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2"]);
     await expectBackStack(page, [{ url: /\/tasks$/ }, { url: /\/today$/ }]);
+  });
+});
+
+/**
+ * The laptop's chat space (task chat height, owner 23 Oct 2026; the approved sample
+ * `docs/design/v18-task-chat-height-sample.html`, laptop only): a tighter header that is the same
+ * on Work and Chat (the priority and the deadline on one line, Remind inside the next-step box at
+ * its right end), the panel filling to the screen's foot with its composer pinned, the Work | Chat
+ * bar sticking under the top bar as the header scrolls away (the task named beside it), and ⤢
+ * enlarging the chat over the dimmed page (an overlay: back, Esc and ✕ close it, the page where it
+ * was). The page opens at its top, on Work. The People card stays in the right column.
+ */
+test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "laptop only; the phone's is unchanged (below)");
+  test.use({ storageState: storageStateFor("owner") });
+
+  /** The top bar's foot: where the bar sticks. */
+  const TOP_BAR = 56;
+  /** The page's foot padding under the panel. */
+  const FOOT = 24;
+  const band = (page: Page) => page.locator('[data-slot="task-tabs-band"]');
+  const chatPanel = (page: Page) => page.locator('[data-slot="task-chat-panel"]');
+  const box = async (locator: Locator) =>
+    (await locator.boundingBox()) as { x: number; y: number; width: number; height: number };
+
+  async function chatTask(info: TestInfo, prefix: string, day: number): Promise<string> {
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const staffId = await memberIdOf(staff.email);
+    const taskId = await ownerCreates({
+      title: `${prefix}edit`,
+      assignees: [staffId],
+      primary: staffId,
+      day,
+      stages: ["Rough cut", "Colour", "Export"],
+    });
+    await postComments(
+      staff.email,
+      taskId,
+      Array.from({ length: 30 }, (_, index) => ({
+        body: `Cut note ${index + 1}`,
+        at: istInstant(addISTDays(todayIST(), -1), `11:${String(index).padStart(2, "0")}`),
+      })),
+    );
+    await rpcAs(USERS.owner.email, USERS.owner.password, "task_mark_read", {
+      task_id: taskId,
+      up_to: istInstant(todayIST(), "00:00"),
+    });
+    await fixtureNotificationsRead(taskId);
+    return taskId;
+  }
+
+  for (const size of [
+    { width: 1280, height: 720 },
+    { width: 1440, height: 900 },
+  ]) {
+    test(`${size.width}: one header on Work and Chat; the chat fills to the foot; the bar sticks and the chat grows`, async ({
+      page,
+    }, info) => {
+      const prefix = `Space ${size.width} ${info.project.name} `;
+      const taskId = await chatTask(info, prefix, 49 + (size.width === 1440 ? 1 : 0));
+      await page.setViewportSize(size);
+      // A full load in the middle of the walk puts the page back at its top, in the view's opening
+      // state, and every measure after it reads that state (CI run 40050701307 shard 2, 1440:
+      // after the scroll the panel's height equalled the opening's with the foot within a pixel,
+      // the one state those two numbers meet in; not reproduced in 22 local runs, 8× CPU throttle
+      // included). Counted, so a recurrence says so instead of a height.
+      let fullLoads = 0;
+      page.on("load", () => {
+        fullLoads += 1;
+      });
+      await page.goto(`/tasks/${taskId}`);
+      await hydrated(page);
+      await live(page);
+
+      // It opens at the top, on Work.
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
+      await expect(band(page)).toHaveAttribute("data-stuck", "false");
+      await expect(page.locator('[data-slot="task-tabs-context"]')).toBeHidden();
+
+      // The priority and the deadline share one line.
+      const priority = await box(page.locator('[data-slot="task-priority"]'));
+      const deadline = await box(page.locator('[data-slot="task-deadline"]'));
+      expect(
+        Math.abs(priority.y + priority.height / 2 - (deadline.y + deadline.height / 2)),
+      ).toBeLessThan(2);
+      expect(deadline.x).toBeGreaterThan(priority.x + priority.width);
+      // Remind sits inside the next-step box, at its right end, a neutral outline (no solid).
+      const nextBox = await box(page.locator('[data-slot="task-next-box"]'));
+      const remind = page.locator('[data-slot="task-remind"] button');
+      await expect(remind).toHaveText(/^Remind /);
+      const remindBox = await box(remind);
+      expect(remindBox.y).toBeGreaterThanOrEqual(nextBox.y);
+      expect(remindBox.y + remindBox.height).toBeLessThanOrEqual(nextBox.y + nextBox.height);
+      expect(nextBox.x + nextBox.width - (remindBox.x + remindBox.width)).toBeLessThan(8);
+      await expect(remind).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      // The People card stays in the right column.
+      const tabsOnWork = await box(page.locator('[data-slot="task-tabs"]'));
+      expect((await box(panel(page, "details"))).x).toBeGreaterThan(
+        tabsOnWork.x + tabsOnWork.width,
+      );
+
+      // On Work the bar holds only the views: no ⤢ (it is the chat head's, issue #89).
+      const enlarge = page.locator('[data-slot="task-chat-enlarge"]');
+      await expect(enlarge).toBeHidden();
+      await expect(band(page).locator('[data-slot="task-chat-enlarge"]')).toHaveCount(0);
+
+      // Chat: the tabs do not move; the panel runs to the screen's foot, the composer in view.
+      await tab(page, "chat").click();
+      await expect(panel(page, "chat")).toBeVisible();
+      await receiptsSettled(page);
+      expect(await box(page.locator('[data-slot="task-tabs"]'))).toEqual(tabsOnWork);
+      // ⤢ sits in the chat panel's own head, at its right end beside the people (44 px, neutral).
+      const head = chatPanel(page).locator('[data-slot="task-chat-head"]');
+      await expect(head.locator('[data-slot="task-chat-enlarge"]')).toBeVisible();
+      await expect(enlarge).toHaveCount(1);
+      const enlargeBox = await box(enlarge);
+      expect(enlargeBox.width).toBeGreaterThanOrEqual(44);
+      expect(enlargeBox.height).toBeGreaterThanOrEqual(44);
+      await expect(enlarge).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      const headBox = await box(head);
+      expect(Math.round(headBox.x + headBox.width - (enlargeBox.x + enlargeBox.width))).toBe(6);
+      expect(enlargeBox.y).toBeGreaterThanOrEqual(headBox.y);
+      expect(enlargeBox.y + enlargeBox.height).toBeLessThanOrEqual(headBox.y + headBox.height);
+      const bandBox = await box(band(page));
+      // Whole pixels, rounded down (`chatSpace`): the foot is within a pixel of the page's own.
+      // The bands fixed at the screen's foot (notifications off, offline) cover the page's end.
+      const foot = async () => {
+        const rect = await box(chatPanel(page));
+        const bands = await page.evaluate(() => {
+          const style = getComputedStyle(document.documentElement);
+          return (
+            (Number.parseFloat(style.getPropertyValue("--app-offline-h")) || 0) +
+            (Number.parseFloat(style.getPropertyValue("--app-push-h")) || 0)
+          );
+        });
+        return size.height - bands - FOOT - (rect.y + rect.height);
+      };
+      // Never shorter than 320px: a short screen with a band at its foot scrolls the page instead
+      // (the bar then sticks and the panel reaches the foot, below).
+      const atMin = async () => Math.round((await box(chatPanel(page))).height) === 320;
+      await expect.poll(async () => (await atMin()) || (await foot()) >= 0).toBe(true);
+      if (!(await atMin())) {
+        expect(await foot()).toBeLessThan(1);
+        await expect(
+          panel(page, "chat").getByRole("textbox", { name: "Message" }),
+        ).toBeInViewport();
+      }
+      const composer = panel(page, "chat").getByRole("textbox", { name: "Message" });
+      // Measured at the page's top, where it opens.
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      const opening = await box(chatPanel(page));
+
+      // Scrolled as far as it goes: the header has gone, the bar is stuck under the top bar with
+      // the task named beside it, and the panel fills the screen under it, composer still in view.
+      await page.mouse.move(size.width - 40, 200);
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect(band(page)).toHaveAttribute("data-stuck", "true");
+      await expect.poll(async () => Math.round((await box(band(page))).y)).toBe(TOP_BAR);
+      const context = page.locator('[data-slot="task-tabs-context"]');
+      await expect(context).toBeVisible();
+      await expect(context).toContainText(`${prefix}edit · in `);
+      expect(await box(page.locator('[data-slot="task-tabs"]'))).toMatchObject({
+        x: tabsOnWork.x,
+      });
+      await expect(page.locator('[data-slot="task-chat-head-noted"]')).toHaveText(" · Not noted");
+      await expect
+        .poll(async () => {
+          const rect = await box(chatPanel(page));
+          const stuck = await box(band(page));
+          return Math.round(rect.y - (stuck.y + stuck.height));
+        })
+        .toBe(16);
+      await expect.poll(foot).toBeGreaterThanOrEqual(0);
+      expect(await foot()).toBeLessThan(1);
+      expect(fullLoads, "the page loaded once: no full load during the walk").toBe(1);
+      expect((await box(chatPanel(page))).height).toBeGreaterThan(opening.height);
+      await expect(composer).toBeInViewport();
+      await expect(page.locator('[data-slot="page-header"] h1')).not.toBeInViewport();
+      // The page scrolled exactly as far as the bar's sticking needed, no further.
+      const scrolled = await page.evaluate(() => window.scrollY);
+      expect(Math.round(scrolled)).toBe(Math.round(opening.y - (TOP_BAR + bandBox.height + 16)));
+
+      // Back at the top, the header is there again and the bar is not stuck.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect(band(page)).toHaveAttribute("data-stuck", "false");
+      await expect(context).toBeHidden();
+      await expect
+        .poll(async () => Math.round((await box(chatPanel(page))).height))
+        .toBe(Math.round(opening.height));
+
+      // On Work the bar sticks too, and nothing switches by itself; ⤢ goes with the chat.
+      await tab(page, "work").click();
+      await expect(enlarge).toBeHidden();
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
+      await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+    });
+  }
+
+  test("installed, ⤢ enlarges the chat over the dimmed page: back, Esc and ✕ close it where the page was; the views add no history", async ({
+    page,
+  }, info) => {
+    const prefix = `Enlarge ${info.project.name} `;
+    const taskId = await chatTask(info, prefix, 51);
+    await runInstalled(page);
+    await page.goto("/tasks");
+    await hydrated(page);
+    await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
+    const url = new RegExp(`/tasks/${taskId}(\\?tab=chat)?$`);
+    await expect(page).toHaveURL(url);
+    await hydrated(page);
+    await live(page);
+    // The views are a view control: switching adds nothing to history.
+    await tab(page, "chat").click();
+    await tab(page, "work").click();
+    await tab(page, "chat").click();
+    await expect(panel(page, "chat")).toBeVisible();
+    await receiptsSettled(page);
+
+    const enlarged = page.locator('[data-slot="task-chat-enlarged"]');
+    const enlarge = page.locator('[data-slot="task-chat-enlarge"]');
+    const scrollTo = async (top: number) => {
+      await page.evaluate((y) => window.scrollTo(0, y), top);
+      await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(top);
+    };
+    const scrollIs = (top: number) =>
+      expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(top);
+
+    // ⤢: a large panel over the dimmed page, with the chat, its composer and ✕.
+    await scrollTo(60);
+    await enlarge.click();
+    await expect(enlarged).toBeVisible();
+    await animationsSettled(page);
+    const viewport = page.viewportSize() as { width: number; height: number };
+    const bigBox = await box(enlarged);
+    expect(bigBox.height).toBeGreaterThan(viewport.height - 64);
+    expect(bigBox.width).toBeGreaterThan(viewport.width * 0.7);
+    await expect(enlarged.getByRole("heading")).toHaveText(
+      `${prefix}edit · chat with ${person("staff", info).name.split(" ")[0]}`,
+    );
+    await expect(enlarged.locator('[data-slot="task-comment"]').last()).toBeInViewport();
+    await expect(enlarged.getByRole("textbox", { name: "Message" })).toBeInViewport();
+    await expect(page.locator('[data-slot="sheet-overlay"]')).toBeVisible();
+    await expect(page).toHaveURL(url);
+
+    // Back closes it, and the page is where it was.
+    await expectBackStack(page, [{ closes: enlarged, url }]);
+    await scrollIs(60);
+    await expect(panel(page, "chat").getByRole("textbox", { name: "Message" })).toBeVisible();
+
+    // Esc closes it, as back would.
+    await scrollTo(40);
+    await enlarge.click();
+    await expect(enlarged).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(enlarged).toBeHidden();
+    await scrollIs(40);
+    // Focus returns to ⤢ in the chat head.
+    await expect(enlarge).toBeFocused();
+
+    // ✕ closes it.
+    await enlarge.click();
+    await expect(enlarged).toBeVisible();
+    await enlarged.locator('[data-slot="task-chat-enlarged-close"]').click();
+    await expect(enlarged).toBeHidden();
+    await scrollIs(40);
+    await expect(enlarge).toBeFocused();
+
+    // A draft typed in the large chat is still there in the panel.
+    await enlarge.click();
+    await enlarged.getByRole("textbox", { name: "Message" }).fill("Draft from the big chat");
+    await page.keyboard.press("Escape");
+    await expect(enlarged).toBeHidden();
+    await expect(panel(page, "chat").getByRole("textbox", { name: "Message" })).toHaveValue(
+      "Draft from the big chat",
+    );
+
+    // No layer left behind and no view in history: one back leaves the task.
+    await expectBackStack(page, [{ url: /\/tasks$/ }]);
+  });
+});
+
+/**
+ * The phone's task page is unchanged by the laptop's chat space (task chat height, owner 23 Oct:
+ * "the phone task page and chat stay exactly as they are today"): the header's lines (the state
+ * chip and priority, then the deadline on its own line, then the callout), Remind on its own row
+ * under the callout, the views' bar sticky under the title bar as before, no ⤢ and no task name
+ * beside the tabs, and Chat the full-height view.
+ */
+test.describe("the phone's task page is unchanged by the laptop's chat space", () => {
+  test.skip(({ isMobile }) => !isMobile, "the phone widths, 375 and 430");
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("the header, Remind's row, the sticky views' bar and the full-height Chat as before", async ({
+    page,
+  }, info) => {
+    const prefix = `Phone same ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const staffId = await memberIdOf(staff.email);
+    const taskId = await ownerCreates({
+      title: `${prefix}reel`,
+      assignees: [staffId],
+      primary: staffId,
+      day: 52,
+      stages: Array.from({ length: 14 }, (_, index) => `Stage ${index + 1}`),
+    });
+    await insertAs(staff.email, PASSWORD, "task_comments", {
+      task_id: taskId,
+      body: "Uploading the first cut.",
+    });
+    await fixtureNotificationsRead(taskId);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await live(page);
+    const viewport = page.viewportSize() as { width: number; height: number };
+    const box = async (selector: string) =>
+      (await page.locator(selector).first().boundingBox()) as {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+
+    // The header's lines, one under the other: the state chip and priority, the deadline (14px),
+    // the callout (its own bordered box), then Remind on its own row, a 44px outline.
+    await expect(page.locator('[data-slot="task-meta"]')).toHaveCSS("display", "contents");
+    await expect(page.locator('[data-slot="task-next-box"]')).toHaveCSS("display", "contents");
+    await expect(page.locator('[data-slot="task-glance"] [data-status]')).toBeVisible();
+    const glance = await box('[data-slot="task-glance"]');
+    const deadline = await box('[data-slot="task-deadline"]');
+    const needed = await box('[data-slot="task-needed"]');
+    const remind = await box('[data-slot="task-remind"] button');
+    expect(Math.round(deadline.y - (glance.y + glance.height))).toBe(8);
+    expect(Math.round(needed.y - (deadline.y + deadline.height))).toBe(8);
+    expect(Math.round(remind.y - (needed.y + needed.height))).toBe(8);
+    expect(Math.round(remind.x)).toBe(Math.round(needed.x));
+    expect(remind.height).toBeGreaterThanOrEqual(44);
+    await expect(page.locator('[data-slot="task-deadline"]')).toHaveCSS("font-size", "14px");
+    await expect(page.locator('[data-slot="task-needed"]')).toHaveCSS("border-top-width", "1px");
+    await expect(page.locator('[data-slot="task-needed"]')).toHaveCSS("padding-top", "10px");
+    expect(needed.width).toBeCloseTo(viewport.width - 32, 0);
+
+    // No ⤢, no task name beside the tabs, and the bar is the phone's: sticky under the title bar,
+    // full width, as before.
+    await expect(page.locator('[data-slot="task-chat-enlarge"]')).toBeHidden();
+    await expect(page.locator('[data-slot="task-tabs-context"]')).toBeHidden();
+    const bandLocator = page.locator('[data-slot="task-tabs-band"]');
+    await expect(bandLocator).toHaveCSS("position", "sticky");
+    await expect(bandLocator).toHaveCSS("display", "block");
+    await expect(bandLocator).toHaveAttribute("data-stuck", "false");
+    expect(Math.round((await box('[data-slot="task-tabs-band"]')).width)).toBe(viewport.width);
+    await expect(page.locator('[data-slot="task-tab"]:visible')).toHaveText([
+      "Work",
+      /^Chat/,
+      "Details",
+    ]);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect
+      .poll(async () => {
+        const header = await box('[data-slot="page-header"]');
+        const band = await box('[data-slot="task-tabs-band"]');
+        return Math.round(band.y - (header.y + header.height));
+      })
+      .toBe(0);
+    await expect(bandLocator).toHaveAttribute("data-stuck", "false");
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    // Chat is the full-height view, as before; no laptop panel and no large chat.
+    await tab(page, "chat").click();
+    const sheet = chatSheet(page);
+    await expect(sheet).toBeVisible();
+    await receiptsSettled(page);
+    await animationsSettled(page);
+    const sheetBox = (await sheet.boundingBox()) as { y: number; height: number };
+    expect(sheetBox.y).toBeLessThanOrEqual(24);
+    expect(Math.round(sheetBox.y + sheetBox.height)).toBe(viewport.height);
+    await expect(sheet.getByRole("heading", { name: `${prefix}reel · Chat` })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Back to the task" })).toBeVisible();
+    await expect(page.locator('[data-slot="task-chat-panel"]')).toBeHidden();
+    await expect(page.locator('[data-slot="task-chat-enlarged"]')).toHaveCount(0);
+    await page.goBack();
+    await expect(sheet).toBeHidden();
   });
 });

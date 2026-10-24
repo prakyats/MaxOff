@@ -788,19 +788,20 @@ test.describe("staff tasks, the flows", () => {
       await expect(page.getByRole("checkbox", { name: "Colour grade" })).toBeDisabled();
       await expect(page.locator('[data-slot="task-stages-locked"]')).toBeVisible();
       const history = await historyRows(page);
-      await expect(
-        history.filter({ hasText: `${coord.name} for ${asha.name} noted the task` }),
-      ).toHaveCount(1);
-      await expect(
-        history.filter({ hasText: `${coord.name} for ${asha.name} marked it done` }),
-      ).toHaveCount(1);
+      // The coordinator reads their own changes as "You for Asha" (v1.8 pull-in item 5).
+      await expect(history.filter({ hasText: `You for ${asha.name} noted the task` })).toHaveCount(
+        1,
+      );
+      await expect(history.filter({ hasText: `You for ${asha.name} marked it done` })).toHaveCount(
+        1,
+      );
 
       // A comment for the freelancer: the coordinator reads it as theirs, "You for Asha".
       const chat = await openChat(page);
       await expect(chat.getByLabel("Writing as")).toContainText(`For ${asha.name}`);
-      await chat.getByRole("textbox", { name: "Comment" }).fill("Uploaded the final cut.");
+      await chat.getByRole("textbox", { name: "Message" }).fill("Uploaded the final cut.");
       await chat.getByRole("button", { name: "Send" }).click();
-      await expect(chat.getByRole("textbox", { name: "Comment" })).toHaveValue("");
+      await expect(chat.getByRole("textbox", { name: "Message" })).toHaveValue("");
       await expect(chat.locator('[data-slot="task-comment"]')).toContainText(
         `You for ${asha.name}`,
       );
@@ -1022,12 +1023,10 @@ test.describe("staff tasks, the flows", () => {
       await expect(stage).toHaveAttribute("data-done", "false");
       await expect(stage).not.toContainText("Ticked by");
       await expect(page.locator('[data-slot="task-stages-count"]')).toContainText("0 of 2 done");
-      // A tick and an untick by the same person within ten minutes are one line (decision 29).
-      const by = escape(staff.name);
+      // A tick and an untick by the same person within ten minutes are one line (decision 29),
+      // and the reader's own line says "You" (v1.8 pull-in item 5).
       await expect(
-        (await historyRows(page)).filter({
-          hasText: new RegExp(`${by} ticked a stage, unticked a stage`),
-        }),
+        (await historyRows(page)).filter({ hasText: /You ticked a stage, unticked a stage/ }),
       ).toHaveCount(1);
     });
   });
@@ -1440,7 +1439,16 @@ async function expectTargets(page: Page): Promise<void> {
       const box = el.getBoundingClientRect();
       if (box.width <= 1 || box.height <= 1) continue;
       const label = el.closest("label")?.getBoundingClientRect();
-      const reach = label && label.width >= 44 && label.height >= 44;
+      // A row's stretched opener (`ListRow`): its absolute ::after covers the row, so the row's
+      // box is what a thumb hits, not the text's.
+      const after = getComputedStyle(el, "::after");
+      const host =
+        after.content !== "none" && after.position === "absolute"
+          ? (el.offsetParent?.getBoundingClientRect() ?? null)
+          : null;
+      const reach =
+        (label && label.width >= 44 && label.height >= 44) ||
+        (host && host.width >= 44 && host.height >= 44);
       if ((box.width < 44 || box.height < 44) && !reach) {
         found.push(
           `${el.tagName.toLowerCase()} "${el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 24)}" ${Math.round(box.width)}x${Math.round(box.height)}`,

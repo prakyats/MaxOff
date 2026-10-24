@@ -17,7 +17,20 @@ import { listProjectTemplates } from "@/modules/templates";
 import { assertClientId, loadClientWork } from "../../client";
 import { ProjectList } from "../../project-list";
 
-export const metadata: Metadata = { title: "Projects" };
+/**
+ * The tab names the client, then this view ("Shetty · Projects · MaxOff"), from `loadClientWork`
+ * (`loadClient` and the session's member row).
+ * Next resolves metadata on a prefetch too; the layout's header makes this same `cache()`d read
+ * on it (it always has), so the title adds no read to a prefetch (P2 item 6).
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { client } = await loadClientWork((await params).id);
+  return { title: `${client.name} · Projects` };
+}
 
 /**
  * A client's Projects (7.3; PRODUCT §4.4 "page sections", §4.5; kickoff 7 decisions 1, 18, 20, 26;
@@ -55,6 +68,7 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
         {canCreate ? (
           <NewProjectButton
             clientId={client.id}
+            clientName={client.name}
             today={today}
             presets={presets
               .filter((preset) => !preset.archived)

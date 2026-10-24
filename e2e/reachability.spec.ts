@@ -195,6 +195,6 @@ test.describe("Staff", () => {
 
   test("are refused (their own devices are on Me)", async ({ page }) => {
     await page.goto("/settings/notifications");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 });

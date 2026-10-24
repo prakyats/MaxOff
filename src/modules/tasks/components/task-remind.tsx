@@ -18,6 +18,8 @@ import { remindTask } from "../actions/tasks";
  * while the hour of anyone's last one runs, the button says when it can be used again and waits.
  * An outlined button (never a second solid action on the layer) naming whom it reaches ("Remind
  * Sam and Ria"); no confirmation, because the database refuses a second reminder within the hour.
+ * Where it sits: a phone's own row under the "needed" callout; a laptop's next-step box, at its
+ * right end (the task chat height sample, owner 23 Oct).
  */
 export function TaskRemind({
   taskId,
@@ -57,7 +59,12 @@ export function TaskRemind({
   });
 
   return (
-    <div data-slot="task-remind" className="flex min-w-0 flex-col items-start gap-1">
+    // On a laptop it sits at the right end of the next-step box (task chat height, owner 23 Oct);
+    // a phone keeps it on its own row under the box, as before.
+    <div
+      data-slot="task-remind"
+      className="flex min-w-0 flex-col items-start gap-1 md:shrink-0 md:items-end"
+    >
       <Button
         type="button"
         variant="secondary"

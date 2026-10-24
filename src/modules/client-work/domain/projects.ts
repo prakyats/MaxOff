@@ -5,6 +5,7 @@ import { cycleMeter, type CycleMeter, type MeterItem } from "./progress";
 import {
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
+  type ClientWorkSummary,
   type Cycle,
   type ItemState,
   type Project,
@@ -34,6 +35,12 @@ export type ProjectSummary = {
    */
   meter: CycleMeter | null;
   finished: boolean;
+  /**
+   * PP-client-2: a working one-time project whose deliverables are all done (none open, none
+   * waiting), so Complete would go through (WORKFLOWS §5 item 14): it reads "Ready to complete".
+   * Never a repeating one: its next cycle comes on its own, and completing it is a choice.
+   */
+  readyToComplete: boolean;
 };
 
 /**
@@ -45,6 +52,8 @@ export type CurrentCycleStates = Pick<Cycle, "id" | "projectId" | "label"> & {
   states: readonly ItemState[];
   /** The items with their dates and ticks (`listCurrentCycleMeters`), for the meter. */
   items?: readonly MeterItem[];
+  /** Each item's planned date in `states`' order (`listCurrentCycles`), for a client's Due. */
+  plannedDates?: readonly (string | null)[];
 };
 
 export function projectSummaries(
@@ -75,11 +84,26 @@ export function projectSummaries(
         : progressLine(progressOf((cycle?.states ?? []).map((state) => ({ state })))),
       meter: meterOf(cycle, today),
       finished,
+      readyToComplete: !finished && readyToComplete(project.recurrence, cycle?.states ?? []),
     };
   });
   return summaries.sort(
     (a, b) => Number(a.finished) - Number(b.finished) || a.name.localeCompare(b.name),
   );
+}
+
+/**
+ * Whether a working project reads "Ready to complete" (PP-client-2) from its cycle's deliverable
+ * states: one-time only, at least one done and none open or waiting (`project_complete` refuses
+ * while any is open or done, WORKFLOWS §5 item 14; a one-time project has the one cycle).
+ */
+export function readyToComplete(
+  recurrence: Project["recurrence"],
+  states: readonly ItemState[],
+): boolean {
+  if (recurrence !== "one_time") return false;
+  const done = states.some((state) => state === "approved");
+  return done && !states.some((state) => state === "open" || state === "done");
 }
 
 function meterOf(
@@ -127,4 +151,39 @@ export function clientProgressLine(
 ): string | null {
   if (!progress || progress.total === 0) return null;
   return `Deliverables ${progress.done}/${progress.total} done`;
+}
+
+/** A client's open deliverables by date (PP-admin-10): how many are late, and the next one due. */
+export type ClientDue = { late: number; next: ISODate | null };
+
+/**
+ * Each client's Due across its running cycles (PP-admin-10, the Clients list's column): the open
+ * deliverables past their planned date (IST, as `isOverdue`), and the earliest planned date from
+ * today on. A client with nothing open and dated is left out.
+ */
+export function dueByClient(
+  current: readonly CurrentCycleStates[],
+  today: ISODate,
+): Map<string, ClientDue> {
+  const due = new Map<string, ClientDue>();
+  for (const cycle of current) {
+    cycle.states.forEach((state, index) => {
+      const planned = cycle.plannedDates?.[index] ?? null;
+      if (state !== "open" || planned === null) return;
+      const sum = due.get(cycle.clientId) ?? { late: 0, next: null };
+      if (planned < today) sum.late += 1;
+      else if (sum.next === null || planned < sum.next) sum.next = planned;
+      due.set(cycle.clientId, sum);
+    });
+  }
+  return due;
+}
+
+/**
+ * A client's Due from its summed running deliverables (`client_work_summary()`, the Clients list):
+ * the same answer `dueByClient` gives from the cycles, null when nothing open is dated.
+ */
+export function clientDueOf(summary: Pick<ClientWorkSummary, "late" | "next">): ClientDue | null {
+  if (summary.late === 0 && summary.next === null) return null;
+  return { late: summary.late, next: summary.next };
 }

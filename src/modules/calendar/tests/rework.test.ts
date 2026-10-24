@@ -23,7 +23,7 @@ import {
   eventStripText,
   HOLIDAY_COLOR,
 } from "../domain/strips";
-import { allDayEvents, minutesInDay, openingMinute, placeBlocks } from "../domain/timeline";
+import { allDayEvents, minutesInDay, openingMinute, placeBlocks, spanOf } from "../domain/timeline";
 import { busyWindow, whoFreeLine, whoIsFree } from "../domain/who-free";
 
 /**
@@ -144,7 +144,9 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
           kind: "leave",
           key: "leave",
           label: "Asha · On leave",
-          spoken: "Asha off",
+          short: "Asha · Leave",
+          person: { id: "a", name: "Asha", avatarFileId: null },
+          spoken: "Asha, on leave",
           pending: false,
         },
       ],
@@ -159,7 +161,9 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         kind: "leave",
         key: "leave",
         label: "Asha · On leave",
-        spoken: "Asha off, half day",
+        short: "Asha · Leave",
+        person: { id: "a", name: "Asha Rao", avatarFileId: null },
+        spoken: "Asha, on leave, half day",
         pending: false,
       },
     ]);
@@ -169,13 +173,42 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
         TODAY,
       ),
     ).toEqual([
-      { kind: "leave", key: "leave", label: "2 on leave", spoken: "2 off", pending: false },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "2 on leave",
+        short: "2 on leave",
+        person: null,
+        spoken: "2 on leave",
+        pending: false,
+      },
     ]);
     expect(
       allStrips(day({ leave: [off("m", "Me", { own: true, pending: true })] }), TODAY),
     ).toEqual([
-      { kind: "leave", key: "leave", label: "You · On leave", spoken: "You off", pending: true },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "You · On leave",
+        short: "You · Leave",
+        person: { id: "m", name: "Me", avatarFileId: null },
+        spoken: "You, on leave",
+        pending: true,
+      },
     ]);
+  });
+
+  it("carries one person's photo for the laptop bar's last wording, [photo] Leave", () => {
+    const [line] = allStrips(
+      day({ leave: [off("j", "Jayalakshmi Rao", { avatarFileId: "file-1" })] }),
+      TODAY,
+    );
+    expect(line).toMatchObject({
+      kind: "leave",
+      short: "Jayalakshmi · Leave",
+      person: { id: "j", name: "Jayalakshmi Rao", avatarFileId: "file-1" },
+      spoken: "Jayalakshmi, on leave",
+    });
   });
 
   it("puts the title, then the time and the client on a laptop's strip; never a red colour of its own", () => {
@@ -220,13 +253,61 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
       ],
     });
     expect(dueBadge(past, TODAY)).toEqual({ tone: "overdue", count: 2, label: "2 overdue" });
-    // PP-calendar-5: each one a named chip (a deliverable has no type colour); a done one is not due.
+    // PP-calendar-5: each task a named chip; SCOPE §6: then the client work, the client first,
+    // late on a past day; a done one is not due.
     expect(allStrips(past, TODAY)).toEqual([
       { kind: "due", key: "due-t-2026-10-07", label: "Edit", tone: "overdue", color: VIOLET },
-      { kind: "due", key: "item-i", label: "Reel 2", tone: "overdue", color: null },
+      {
+        kind: "item",
+        key: "item-i",
+        label: "Acme · Reel 2",
+        client: "Acme",
+        title: "Reel 2",
+        late: true,
+      },
     ]);
     expect(dayLabel(past, TODAY)).toBe("Wednesday 7 October, 2 overdue");
     expect(dueBadge(day(), TODAY)).toBeNull();
+  });
+
+  it("counts what is due on the phone's full month, as v1.7.1: one line, the tasks and the open deliverables", () => {
+    const deliverable = (id: string, done = false) => ({
+      kind: "item" as const,
+      id,
+      title: `Reel ${id}`,
+      project: "October",
+      client: "Acme",
+      href: "/clients/c/projects/p",
+      done,
+    });
+    const busyDay = day({
+      holiday: "Dussehra",
+      events: [event("shoot", { title: "Brand reel" })],
+      due: [...dueOn(TODAY), { ...dueOn(TODAY)[0]!, id: "t-2", title: "Poster" }],
+      items: [deliverable("1"), deliverable("2", true)],
+      leave: [off("a", "Asha")],
+    });
+    // The event by title, then one count ("3 due": two tasks and the open deliverable), then the
+    // rest in the same priority; never a chip per task.
+    expect(
+      allStrips(busyDay, TODAY, "counts").map((strip) => `${strip.kind}:${strip.label}`),
+    ).toEqual(["event:Brand reel", "tasks:3 due", "holiday:Dussehra", "leave:Asha · On leave"]);
+    const shown = dayStrips(busyDay, TODAY, "counts");
+    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "tasks"]);
+    expect(shown.more).toBe(2);
+    // A past day's open work is overdue (the red pill); five tasks are still one line.
+    const past = day({
+      date: "2026-10-07",
+      due: [1, 2, 3, 4, 5].map((n) => ({ ...dueOn("2026-10-07")[0]!, id: `t-${n}` })),
+    });
+    expect(dayStrips(past, TODAY, "counts")).toEqual({
+      strips: [{ kind: "tasks", key: "tasks", tone: "overdue", count: 5, label: "5 overdue" }],
+      more: 0,
+      holidayHidden: false,
+    });
+    // The laptop's month keeps naming each one; the screen reader hears the count either way.
+    expect(allStrips(past, TODAY).filter((strip) => strip.kind === "due")).toHaveLength(5);
+    expect(dayLabel(past, TODAY)).toBe("Wednesday 7 October, 5 overdue");
   });
 
   it("draws the compact month as one bar per kind present, no text, in the strips' order", () => {
@@ -249,7 +330,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
   it("tells a screen reader what the box holds", () => {
     expect(
       dayLabel(day({ weeklyOff: true, leave: [off("a", "Asha", { pending: true })] }), TODAY),
-    ).toBe("Thursday 8 October, today, weekly off, Asha off, requested");
+    ).toBe("Thursday 8 October, today, weekly off, Asha, on leave, requested");
   });
 });
 
@@ -297,7 +378,8 @@ describe("who's free (decision 25 D)", () => {
       onLeave: ["Meera (½)"],
     });
     // Owner 2026-10-21: only who is away; part-day busy stays on the timeline.
-    expect(whoFreeLine(who!)).toBe("On leave: Meera (½)");
+    // The leave chip names Meera; the line does not repeat it (PP-phone-2).
+    expect(whoFreeLine(who!)).toBe("");
   });
 
   it("an Admin: their own in full, everyone else through availability only (no title, no pending)", () => {
@@ -358,7 +440,7 @@ describe("who's free (decision 25 D)", () => {
         ],
         onLeave: ["Meera"],
       }),
-    ).toBe("On leave: Meera · Busy all day: Kiran, Ravi");
+    ).toBe("Busy all day: Kiran, Ravi");
     expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe(
       "9:15 am – 10:15 am",
     );
@@ -444,5 +526,23 @@ describe("the hour timelines (decision 25 E)", () => {
     expect(openingMinute(TODAY, TODAY, 15 * 60 + 20)).toBe(14 * 60);
     expect(openingMinute(TODAY, TODAY, 15 * 60 + 40)).toBe(15 * 60);
     expect(openingMinute(TODAY, TODAY, 23 * 60 + 50)).toBe(21 * 60);
+  });
+});
+
+describe("the phone's day in the page (PP-light-4, V5b): the hours around its blocks", () => {
+  const h = (hour: number) => hour * 60;
+  it("an hour either side of the blocks, on whole hours", () => {
+    expect(spanOf([{ start: h(10), end: h(11) }])).toEqual({ from: h(9), to: h(12) });
+    expect(
+      spanOf([
+        { start: h(10) + 15, end: h(11) + 30 },
+        { start: h(14), end: h(16) },
+      ]),
+    ).toEqual({ from: h(9), to: h(17) });
+  });
+  it("stays within the day and is never less than two hours", () => {
+    expect(spanOf([{ start: 0, end: 30 }])).toEqual({ from: 0, to: h(2) });
+    expect(spanOf([{ start: h(23), end: h(24) }])).toEqual({ from: h(22), to: h(24) });
+    expect(spanOf([])).toEqual({ from: h(8), to: h(10) });
   });
 });

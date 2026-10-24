@@ -59,6 +59,11 @@ export interface EditableField<K extends string> {
    * structured `extra`, not a display of a string: `modules/clients` `BrandRecord`.)
    */
   display?: "text" | "multiline" | "link" | "email" | "tel";
+  /**
+   * Left out of read mode (still edited): a value the record's `header` already shows, such as
+   * Me's name in its identity block (V5b, the Me restructure).
+   */
+  hideInRead?: boolean;
   input?: Pick<
     ComponentProps<typeof Input>,
     "type" | "autoComplete" | "inputMode" | "maxLength" | "required" | "placeholder"
@@ -125,7 +130,13 @@ export function EditableRecord<K extends string, V = undefined>({
   canEdit = true,
   editKey,
   foldEmpty = false,
+  header,
 }: {
+  /**
+   * Drawn in place of the title (V5b, the Me restructure): an identity block with the Edit button
+   * beside it. The title stays the section's accessible name. Without it, the title heading.
+   */
+  header?: ReactNode;
   /**
    * L6 (UX review 2026-10-21): the read view lists only the fields with a value; the empty ones
    * fold into one "Add details" (which opens Edit), or a quiet "N not added" for a viewer who may
@@ -306,9 +317,15 @@ export function EditableRecord<K extends string, V = undefined>({
     <section data-slot="editable-record" aria-labelledby={`${formId}-title`}>
       {/* Wraps: at 200% system text "Profile" and "Edit profile" no longer share a phone's width. */}
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <h2 id={`${formId}-title`} className="text-sm font-medium">
+        <h2
+          id={`${formId}-title`}
+          className={header === undefined ? "text-sm font-medium" : "sr-only"}
+        >
           {title}
         </h2>
+        {/* 16rem: beside a 64 px photo (V5b-D) the name and email keep a phone's whole width,
+            Edit dropping under them, so their lines wrap the same at 375 and 430. */}
+        {header === undefined ? null : <div className="min-w-0 flex-[1_1_16rem]">{header}</div>}
         {editing || !canEdit || blocked ? null : (
           <Button
             ref={editButton}
@@ -373,16 +390,16 @@ export function EditableRecord<K extends string, V = undefined>({
         <div className="mt-3 flex flex-col gap-3">
           {extra?.first ? extra.read(extra.value) : null}
           <dl className="flex flex-col gap-3 text-sm">
-            {(foldEmpty ? fields.filter((field) => (field.value ?? "") !== "") : fields).map(
-              (field) => (
+            {(foldEmpty ? fields.filter((field) => (field.value ?? "") !== "") : fields)
+              .filter((field) => !field.hideInRead)
+              .map((field) => (
                 <div key={field.name} data-slot="record-value">
                   <dt className="text-muted-foreground">{field.label}</dt>
                   <dd className="font-medium break-words">
                     <ReadValue field={field} />
                   </dd>
                 </div>
-              ),
-            )}
+              ))}
           </dl>
           {foldEmpty ? (
             <FoldedEmpty

@@ -8,7 +8,7 @@ import { PROJECT_ORIGINS } from "./back";
 /**
  * A project's page (7.3) traced: the title bar with its back control (to the client's Projects;
  * the client's name is not read yet, so its label is a bar), the Activity button and ⋯ (both
- * 44 px), the description line (client · repeat, desktop), the state line, the month tabs (previous ·
+ * 44 px), the description line (client · repeat) and the state chip (desktop), a phone's glance line, the month tabs (previous ·
  * this · next, one segmented control), the progress card (the ring, its line and pace; 6b.11), the
  * Deliverables heading with Select and Add deliverable, the open deliverables in the list's
  * columns (V3: one line on a laptop, the title, one progress bar with "n/m", Next, the date and the
@@ -42,6 +42,8 @@ export default function Loading() {
           // The client's own screens are where a project is opened from, too.
           from: [...PROJECT_ORIGINS, { path: "/clients/*", label: "the client" }],
         }}
+        // The state chip beside the title from md (FINAL 6; a phone's is on the glance line).
+        status={<Skeleton className="h-5 w-20 rounded-full" />}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
         className="flex-wrap"
@@ -54,11 +56,13 @@ export default function Loading() {
       />
       <div aria-hidden className="flex min-w-0 flex-col gap-4">
         <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex h-5 items-center gap-2">
-            <Skeleton className="size-2 rounded-full" />
-            <Skeleton className="h-3.5 w-20" />
+          {/* A phone's glance line: the state chip and "client · repeat". */}
+          <div className="flex h-5 items-center gap-2 md:hidden">
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-3.5 w-40" />
           </div>
-          {/* The month tabs: previous · this · next, one segmented control (the v1.8 sample). */}
+          {/* The month tabs: previous · this · next, one segmented control (the v1.8 sample); a
+              project's single first cycle is a plain label instead (PP-project-1), the rarer case. */}
           <div className="bg-muted rounded-control grid grid-cols-3 gap-1 p-1">
             {["w-16", "w-24", "w-16"].map((width, cell) => (
               <span
@@ -180,7 +184,7 @@ export default function Loading() {
           <span className="flex h-5 items-center">
             <Skeleton className="h-3.5 w-14" />
           </span>
-          <div className="border-border bg-card grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] rounded-lg border">
+          <div className="border-border bg-card shadow-raised grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] overflow-hidden rounded-lg border">
             {[0, 1, 2, 3].map((cell) => (
               <span key={cell} className="flex flex-col gap-0.5 px-4 py-3">
                 <span className="flex h-4 items-center">

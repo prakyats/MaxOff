@@ -9,6 +9,7 @@ import {
   activeAssignees,
   deadlineLabel,
   isOverdue,
+  lateLabel,
   listFinishedTaskRows,
   listUnreadCounts,
   stateLabel,
@@ -68,6 +69,7 @@ export default async function AllTasksPage() {
       dueAt: row.dueAt,
       dueLabel: deadlineLabel(row.dueAt),
       overdue: isOverdue(row, now),
+      lateLabel: lateLabel(row, now),
       dueToday: toISTDate(row.dueAt) === today,
       owner:
         row.primaryOwnerId === viewer.id

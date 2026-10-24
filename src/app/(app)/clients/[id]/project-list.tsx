@@ -39,7 +39,9 @@ export function ProjectList({
               <span className="text-sm font-medium break-words">{project.name}</span>
               <span className="text-muted-foreground text-xs break-words">{project.meta}</span>
               {project.meter ? (
-                // The cycle's meter in miniature (6b.11 (5)); its words are the line beside it.
+                // The cycle's meter in miniature (6b.11 (5)). PP-client-1: the bar, its figure and
+                // the line under it are one measure, the stages, and say so ("50% of stages"; then
+                // "6 of 12 stages · 1 of 3 deliverables done").
                 <span className="mt-1 flex min-w-0 items-center gap-2" data-slot="project-meter">
                   <ProgressBar
                     counts={{
@@ -47,23 +49,35 @@ export function ProjectList({
                       next: project.meter.next,
                       total: project.meter.units,
                     }}
-                    label={`${project.meter.percent}%: ${meterLine(project.meter)}`}
+                    label={`${project.meter.percent}% of stages: ${meterLine(project.meter)}`}
                     slot="project-meter-bar"
                     className="w-24 shrink-0 sm:w-32"
                   />
-                  <span className="text-xs font-medium tabular-nums" data-slot="project-percent">
-                    {project.meter.percent}%
+                  <span className="text-xs tabular-nums">
+                    <span className="font-medium" data-slot="project-percent">
+                      {project.meter.percent}%
+                    </span>{" "}
+                    <span className="text-muted-foreground">of stages</span>
                   </span>
                 </span>
               ) : null}
-              {project.progress ? (
+              {project.meter ? (
+                <span className="text-xs break-words" data-slot="project-progress">
+                  {meterLine(project.meter)}
+                </span>
+              ) : project.progress ? (
                 <span className="text-xs break-words" data-slot="project-progress">
                   {project.progress}
                 </span>
               ) : null}
             </span>
             <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
-              <StatusBadge status={project.state} label={project.stateLabel} />
+              {project.readyToComplete ? (
+                // PP-client-2: every deliverable done, the project still working (amber).
+                <StatusBadge status="ready" tone="attention" label="Ready to complete" />
+              ) : (
+                <StatusBadge status={project.state} label={project.stateLabel} />
+              )}
               <ChevronRightIcon className="text-muted-foreground size-4" aria-hidden />
             </span>
           </DrillLink>

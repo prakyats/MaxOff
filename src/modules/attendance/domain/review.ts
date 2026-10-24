@@ -14,6 +14,8 @@ export type PendingDay = {
   id: string;
   memberId: string;
   memberName: string;
+  /** Their photo (`members.avatar_file_id`), read with the name (V5b-D). */
+  memberAvatarFileId?: string | null;
   workDate: string;
   submittedChoice: AttendanceChoice | null;
   /** The 23:59 job's proposed absence (2.5), or the approved-leave day on "I'm working today". */

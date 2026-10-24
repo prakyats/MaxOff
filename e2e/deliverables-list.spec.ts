@@ -322,6 +322,65 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
   await removeClientFixture(client);
 });
 
+test("the list's heading reads whole beside Select and Add deliverable, at 375 and 430 (owner 23 Oct)", async ({
+  page,
+}, info) => {
+  test.skip((page.viewportSize()?.width ?? 1280) >= 768, "the phone's heading row");
+  const client = nameOf(info, "heading");
+  const clientId = await workClient(client);
+  const projectId = await listProject(clientId);
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const heading = page.locator("#cycle-items-title");
+  await expect(heading).toHaveText("Deliverables");
+  const head = heading.locator("xpath=..");
+  await expect(head.getByRole("button", { name: "Select" })).toBeVisible();
+  await expect(head.locator('[data-slot="add-item"]')).toBeVisible();
+  const width = page.viewportSize()!.width;
+  // This phone's width, then the narrowest phone: where the row is too tight its controls wrap
+  // under the heading, and the heading is never cut.
+  for (const shown of [width, 320]) {
+    await page.setViewportSize({ width: shown, height: page.viewportSize()!.height });
+    const fit = await head.evaluate((row) => {
+      const title = row.querySelector<HTMLElement>("#cycle-items-title")!;
+      const box = row.getBoundingClientRect();
+      const titleBox = title.getBoundingClientRect();
+      // Every control in the row, the heading's neighbours.
+      const others = [...row.querySelectorAll<HTMLElement>("button, a")].map((control) =>
+        control.getBoundingClientRect(),
+      );
+      const range = document.createRange();
+      range.selectNodeContents(title);
+      const text = range.getBoundingClientRect();
+      return {
+        rowOverflows: row.scrollWidth > row.clientWidth,
+        titleCut: title.scrollWidth > title.clientWidth || text.right > titleBox.right + 0.5,
+        titleInside: titleBox.left >= box.left - 0.5 && titleBox.right <= box.right + 0.5,
+        overlaps: others.some(
+          (other) =>
+            other.left < text.right - 0.5 &&
+            other.right > text.left + 0.5 &&
+            other.top < text.bottom - 0.5 &&
+            other.bottom > text.top + 0.5,
+        ),
+        controlsInside: others.every(
+          (other) => other.left >= box.left - 0.5 && other.right <= box.right + 0.5,
+        ),
+        ellipsis: getComputedStyle(title).textOverflow === "ellipsis",
+      };
+    });
+    expect(fit.rowOverflows, `${shown}: nothing pushed past the row`).toBe(false);
+    expect(fit.titleCut, `${shown}: the heading is not cut`).toBe(false);
+    expect(fit.titleInside, `${shown}: the heading inside the row`).toBe(true);
+    expect(fit.overlaps, `${shown}: nothing drawn over the heading`).toBe(false);
+    expect(fit.controlsInside, `${shown}: Select and Add deliverable inside the row`).toBe(true);
+    expect(fit.ellipsis, `${shown}: no ellipsis`).toBe(false);
+    await expectNoHorizontalScroll(page);
+    await head.screenshot({ path: info.outputPath(`deliverables-heading-${shown}.png`) });
+  }
+  await removeClientFixture(client);
+});
+
 test("the loading screen traces the list: its heading, first row, its bar and a row's height", async ({
   page,
 }, info) => {
@@ -680,7 +739,8 @@ test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Need
   }
   await expectNoHorizontalScroll(page);
 
-  // Opened: a left-aligned checklist, three columns on a laptop, one on a phone; two lines at most.
+  // Opened: a left-aligned checklist, three columns on a laptop, one on a phone; every name in
+  // full, never cut (the owner's truncation rule: the opened view shows the full text).
   await strips(page, "Pre Production").click();
   const checks = pre.locator('[data-slot="stage-check"]');
   await expect(checks).toHaveCount(12);
@@ -688,10 +748,14 @@ test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Need
     nodes.map((node) => Math.round(node.getBoundingClientRect().left)),
   );
   expect(new Set(lefts).size).toBe(phone ? 1 : 3);
-  const heights = await checks.evaluateAll((nodes) =>
-    nodes.map((node) => node.querySelector(".line-clamp-2")!.getBoundingClientRect().height),
+  const checkNames = await checks.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const name = node.querySelector<HTMLElement>('[data-slot="stage-check-name"]')!;
+      return { text: name.textContent, cut: name.scrollHeight > name.clientHeight + 1 };
+    }),
   );
-  for (const height of heights) expect(height).toBeLessThanOrEqual(42);
+  expect(checkNames.map((name) => name.text)).toEqual([...LONG_STAGES]);
+  for (const name of checkNames) expect(name.cut, `${name.text} is shown in full`).toBe(false);
   await expect(checks.first()).toHaveAttribute("data-check", "next");
   await expect(checks.first()).toHaveCSS("font-weight", "600");
   await expectNoHorizontalScroll(page);

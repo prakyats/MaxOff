@@ -8,8 +8,8 @@ import { formatTime, type ISODate } from "@/core/time";
 
 import { type CalendarDay, type CalendarScope, EMPTY_DAY, isEmptyDay } from "../domain/calendar";
 import { agendaEvents, agendaTime } from "../domain/laptop";
-import { DoneTick, DUE_TONE, DueIcon, typeTint } from "./calendar-chip";
-import { AllDayChips, eventLink } from "./day-detail";
+import { DoneTick, DUE_TONE, DueIcon, TypeDot, typeTint } from "./calendar-chip";
+import { AllDayChips, ClientItemsList, eventLink } from "./day-detail";
 
 /**
  * The laptop's day popup body (a Month day, a Week heading or a "Due · N"; the owner's
@@ -35,6 +35,11 @@ export function DayAgenda({
   const events = agendaEvents(day);
   const hasAllDay = day.holiday !== null || day.weeklyOff || day.leave.length > 0;
   const tone = day.date < today ? "overdue" : "due";
+  // The Owner's and Admins' popup is in two parts (SCOPE §6): "Tasks · n", then "Client work · n"
+  // grouped by client, then who is away; Crew's is unchanged. Every line in full, wrapped: the
+  // month's chips are cut to one line, the popup is where they are read whole.
+  const split = scope !== "staff";
+  const tasks = day.events.length + day.due.length;
   return (
     <section
       aria-label="The day"
@@ -49,8 +54,19 @@ export function DayAgenda({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} events={false} />
+          {/* Each person's photo beside their leave, as the day sheet's (V5b-D, #89). */}
+          <AllDayChips day={day} today={today} dueAsChip={false} events={false} avatars />
         </div>
+      ) : null}
+      {split && tasks > 0 ? (
+        <h3
+          id={`agenda-${day.date}-tasks`}
+          data-slot="calendar-tasks-title"
+          className="flex items-center gap-1.5 text-sm font-semibold"
+        >
+          <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
+          Tasks <span className="text-muted-foreground font-medium">· {tasks}</span>
+        </h3>
       ) : null}
       {events.length > 0 ? (
         <ul aria-label="Events" data-slot="calendar-agenda-events" className="flex flex-col gap-1">
@@ -59,8 +75,8 @@ export function DayAgenda({
               {eventLink(
                 event,
                 <>
-                  {event.completed ? <DoneTick /> : null}
-                  <span className="min-w-0 truncate">
+                  {event.completed ? <DoneTick /> : <TypeDot color={event.color} />}
+                  <span className="min-w-0 break-words">
                     <span className="font-medium">{event.title}</span>
                     {" · "}
                     <span className="tabular-nums">{agendaTime(event.startAt, event.endAt)}</span>
@@ -69,7 +85,7 @@ export function DayAgenda({
                   </span>
                 </>,
                 cn(
-                  "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md border-l-4 px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
+                  "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md px-2 py-1 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
                   event.completed && "opacity-60",
                 ),
                 typeTint(event.color),
@@ -80,17 +96,19 @@ export function DayAgenda({
       ) : null}
       {day.due.length > 0 ? (
         <section
-          aria-labelledby={`agenda-${day.date}-due`}
+          aria-labelledby={split ? `agenda-${day.date}-tasks` : `agenda-${day.date}-due`}
           data-slot="calendar-due-list"
           className="flex flex-col gap-1"
         >
-          <h3
-            id={`agenda-${day.date}-due`}
-            className="flex items-center gap-1.5 text-sm font-semibold"
-          >
-            <ClockIcon className="text-muted-foreground size-4" aria-hidden />
-            Due · {day.due.length}
-          </h3>
+          {split ? null : (
+            <h3
+              id={`agenda-${day.date}-due`}
+              className="flex items-center gap-1.5 text-sm font-semibold"
+            >
+              <ClockIcon className="text-muted-foreground size-4" aria-hidden />
+              Due · {day.due.length}
+            </h3>
+          )}
           <ul className="flex flex-col gap-1">
             {day.due.map((item) => (
               <li key={item.id} className="min-w-0">
@@ -100,13 +118,13 @@ export function DayAgenda({
                   data-task={item.id}
                   data-tone={tone}
                   className={cn(
-                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md border-l-4 px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
+                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md px-2 py-1 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
                     DUE_TONE[tone],
                   )}
-                  style={{ borderLeftColor: item.color }}
                 >
+                  <TypeDot color={item.color} />
                   <DueIcon tone={tone} />
-                  <span className="min-w-0 truncate">
+                  <span className="min-w-0 break-words">
                     <span className="font-medium">{item.title}</span>
                     <span className="tabular-nums"> · {formatTime(item.dueAt)}</span>
                     <span> · {item.owner}</span>
@@ -118,42 +136,13 @@ export function DayAgenda({
         </section>
       ) : null}
       {day.items.length > 0 ? (
-        <section
-          aria-labelledby={`agenda-${day.date}-items`}
-          data-slot="calendar-items-list"
-          className="flex flex-col gap-1"
-        >
-          <h3
-            id={`agenda-${day.date}-items`}
-            className="flex items-center gap-1.5 text-sm font-semibold"
-          >
-            <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
-            Deliverables · {day.items.length}
-          </h3>
-          <ul className="flex flex-col gap-1">
-            {day.items.map((item) => (
-              <li key={item.id} className="min-w-0">
-                <OverlayLink
-                  href={item.href}
-                  data-slot="calendar-item"
-                  data-item={item.id}
-                  className={cn(
-                    "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md border-l-4 px-2 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
-                    item.done ? "bg-muted text-muted-foreground border-l-border" : DUE_TONE[tone],
-                  )}
-                >
-                  {item.done ? <DoneTick /> : <DueIcon tone={tone} />}
-                  <span className="min-w-0 truncate">
-                    <span className="font-medium">{item.title}</span> · {item.project} ·{" "}
-                    {item.client}
-                  </span>
-                </OverlayLink>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ClientItemsList
+          items={day.items}
+          headingId={`agenda-${day.date}-items`}
+          late={day.date < today}
+        />
       ) : null}
-      {free !== null && scope !== "staff" ? (
+      {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
         </p>

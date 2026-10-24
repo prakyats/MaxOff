@@ -1,4 +1,4 @@
-import { SETTINGS_GROUPS, settingsSectionsFor, type SettingsSection } from "@/core/ui/shell/nav";
+import { settingsSectionsFor, type SettingsSection } from "@/core/ui/shell/nav";
 import type { ShellRole } from "@/core/ui/shell/viewer";
 
 /**
@@ -8,15 +8,77 @@ import type { ShellRole } from "@/core/ui/shell/viewer";
  * line), and the Help and troubleshooting block under them.
  */
 
+/**
+ * The Settings groups, named by what the reader sees in them (PP-admin-9, owner 2026-10-22): the
+ * company and its working days, the team (who can't be reached, job titles), then the lists,
+ * fields and templates, and the integrations. A group that would hold one section for the role
+ * folds into its neighbour (`FOLDED_LABEL` names the two together).
+ */
+const GROUPS: readonly { key: string; label: string; sections: readonly string[] }[] = [
+  {
+    key: "company",
+    label: "Company and working days",
+    sections: ["company", "days-off", "thresholds"],
+  },
+  { key: "team", label: "Team", sections: ["notifications", "job-titles"] },
+  {
+    key: "lists",
+    label: "Lists, fields and templates",
+    sections: ["expenses", "task-types", "custom-fields", "templates"],
+  },
+  { key: "integrations", label: "Integrations", sections: ["drive"] },
+];
+
+/** A group's heading once a one-section neighbour has folded into it (by the two keys). */
+const FOLDED_LABEL: Readonly<Record<string, string>> = {
+  "lists+integrations": "Lists, templates and integrations",
+  "company+team": "Company and team",
+  "team+lists": "Team, lists and templates",
+};
+
 /** The role's sections in their groups, in order; a group with nothing for the role is left out. */
 export function settingsGroupsFor(
   role: ShellRole,
 ): { key: string; label: string; sections: readonly SettingsSection[] }[] {
   const sections = settingsSectionsFor(role);
-  return SETTINGS_GROUPS.map((group) => ({
-    ...group,
-    sections: sections.filter((section) => section.group === group.key),
+  const byKey = new Map(sections.map((section) => [section.key, section]));
+  const groups = GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    sections: group.sections.flatMap((key) => {
+      const section = byKey.get(key);
+      return section ? [section] : [];
+    }),
   })).filter((group) => group.sections.length > 0);
+  // A section in no group (a new one) joins the last group rather than vanish.
+  const placed = new Set(groups.flatMap((group) => group.sections.map((section) => section.key)));
+  const rest = sections.filter((section) => !placed.has(section.key));
+  const last = groups.at(-1);
+  if (last && rest.length > 0) last.sections = [...last.sections, ...rest];
+  // Fold a one-section group into its neighbour: the one before it, or after it when first.
+  const folded: typeof groups = [];
+  for (const group of groups) {
+    const previous = folded.at(-1);
+    if (group.sections.length === 1 && previous) {
+      previous.sections = [...previous.sections, ...group.sections];
+      previous.label = FOLDED_LABEL[`${previous.key}+${group.key}`] ?? previous.label;
+      previous.key = `${previous.key}+${group.key}`;
+      continue;
+    }
+    folded.push({ ...group });
+  }
+  const [first, second, ...others] = folded;
+  if (first && second && first.sections.length === 1) {
+    return [
+      {
+        key: `${first.key}+${second.key}`,
+        label: FOLDED_LABEL[`${first.key}+${second.key}`] ?? second.label,
+        sections: [...first.sections, ...second.sections],
+      },
+      ...others,
+    ];
+  }
+  return folded;
 }
 
 /** The header line for the reader's role: the Owner's control centre, or an Admin's lists. */
@@ -39,7 +101,7 @@ export const GROUP_HEADING_CLASS = "text-muted-foreground mb-2 px-1 text-sm font
 
 /** A group's list of rows. */
 export const GROUP_LIST_CLASS =
-  "border-border bg-card divide-border divide-y overflow-hidden rounded-card border";
+  "border-border bg-card shadow-raised divide-border divide-y overflow-hidden rounded-card border";
 
 /** A row: the name over its one line, beside the chevron (or the "Coming soon" pill). */
 export const SECTION_ROW_CLASS = "relative flex min-h-16 items-center gap-2 px-4 py-2.5";
@@ -50,9 +112,9 @@ export const SECTION_LABEL_CLASS = "block truncate text-sm leading-5 font-medium
 /** The one line under the name: what the section holds; one line at every width. */
 export const SECTION_LINE_CLASS = "text-muted-foreground block truncate text-sm leading-5";
 
-/** Help and troubleshooting (ROADMAP 6b.14): one bordered row under the sections. */
-export const HELP_LIST_CLASS =
-  "border-border mt-6 overflow-hidden rounded-lg border md:max-w-md md:rounded-xl";
-
-/** The row: two lines (what opens, and for whom) beside a chevron. */
-export const HELP_ROW_CLASS = "flex min-h-14 items-center gap-2 px-4 py-2";
+/**
+ * Help (ROADMAP 6b.14; PP-settings-2: its own group, "Help", under the others): one row in a
+ * group's list, opening the guide.
+ */
+export const HELP_GROUP_CLASS = "mt-6 md:max-w-md";
+export const HELP_LIST_CLASS = GROUP_LIST_CLASS;

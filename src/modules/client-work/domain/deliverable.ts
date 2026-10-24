@@ -1,3 +1,5 @@
+import { formatIST } from "@/core/time";
+
 import type { ItemState } from "./types";
 
 /**
@@ -178,4 +180,23 @@ export function groupsLine(item: RowItem): string {
   if (total === 0) return "No stages";
   const done = isDone(item.state) ? total : item.stages.filter((stage) => stage.done).length;
   return `${groups} ${groups === 1 ? "group" : "groups"} · ${done} of ${total} stages`;
+}
+
+/**
+ * The deliverable sheet's last-change line, short (PP-sheet-1): "Last change · Prishit ticked
+ * Shoot Planning · 21 Oct". The sheet is the deliverable's own, so a trailing "on ‹its title›" is
+ * dropped; the time is in its History.
+ */
+export function lastChangeLine(
+  change: { text: string; by: string; at: string },
+  title: string,
+): string {
+  const suffix = ` on ${title}`;
+  const text = change.text.endsWith(suffix) ? change.text.slice(0, -suffix.length) : change.text;
+  return `Last change · ${change.by} ${text} · ${formatIST(change.at, "d MMM")}`;
+}
+
+/** "1 stage isn't ticked.", "3 stages aren't ticked." (PP-sheet-2: Mark done before they are). */
+export function untickedWords(count: number): string {
+  return count === 1 ? "1 stage isn't ticked." : `${count} stages aren't ticked.`;
 }

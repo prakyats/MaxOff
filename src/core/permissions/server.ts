@@ -11,7 +11,9 @@ import type { PermissionKey } from "./keys";
 /**
  * The early, friendly permission check for pages (ARCHITECTURE §4.2; actions use
  * `assertPermission`). With no signed-in member the page sends the visitor to /login
- * (`requireMember()`); a member without the key (or any of the keys) is sent to /forbidden.
+ * (`requireMember()`); a member without the key (or any of the keys) is sent to /forbidden,
+ * with the keys (`?for=`), so the screen names what was blocked ("Clients are for the Owner and
+ * Admins", `blockedLine`).
  * Returns the member so the page can render for them. RLS is the real gate: this only avoids
  * showing a screen that would come back empty.
  */
@@ -19,7 +21,12 @@ export async function requirePermission(
   permission: PermissionKey | readonly PermissionKey[],
 ): Promise<CurrentMember> {
   const member = await requireMember();
-  if (!can(member.role, permission)) redirect("/forbidden");
+  if (!can(member.role, permission)) {
+    // The keys travel with the bounce, so No access can name what was blocked (V5b-D).
+    const keys: readonly PermissionKey[] =
+      typeof permission === "string" ? [permission] : permission;
+    redirect(`/forbidden?for=${keys.join(",")}`);
+  }
   return member;
 }
 

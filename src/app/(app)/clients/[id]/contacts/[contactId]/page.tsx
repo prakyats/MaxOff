@@ -6,12 +6,25 @@ import { checkThenRead } from "@/core/lib/start-early";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
-import { listContacts } from "@/modules/clients";
+import { getContactName, listContacts } from "@/modules/clients";
 import { ContactMenu, ContactRecord } from "@/modules/clients/components/contact-record";
 
 import { assertClientId, loadClient, loadPeople } from "../../client";
 
-export const metadata: Metadata = { title: "Contact" };
+/**
+ * The tab names the contact ("Asha Rao · MaxOff") from its name alone (`getContactName`, one
+ * column under RLS, this client's only): Next resolves metadata on a prefetch too, which must
+ * stay the loading boundary, never the page's reads (P2 item 6). One the reader may not see is
+ * "Contact".
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; contactId: string }>;
+}): Promise<Metadata> {
+  const { id, contactId } = await params;
+  return { title: (await getContactName(id, contactId)) ?? "Contact" };
+}
 
 /**
  * One contact of a client (3.4): a drill-down from the Overview (back returns there, §14.2 b),

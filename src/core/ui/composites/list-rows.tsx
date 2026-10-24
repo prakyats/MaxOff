@@ -102,9 +102,9 @@ export type ListRowMove = {
  * labelled button at every width, since anyone who may open the list may preview.
  *
  * **Delete** (v1.8 V5a 6b, owner 2026-10-22) is the Owner's only, so a caller passes `onDelete` for
- * the Owner alone: the row keeps Edit · Archive · Delete. Delete is permanent, so it is red before
- * its confirmation too (`destructive`: a red outline icon on a laptop, a red outline row in the
- * phone sheet); the confirmation's named "Delete ‹name›" is the red `danger` commit.
+ * the Owner alone: the row keeps Edit · Archive · Delete. Delete is permanent, yet it stays grey
+ * before its confirmation (a quiet grey bin on a laptop, a plain `secondary` row in the phone
+ * sheet): red belongs to the confirmation's named "Delete ‹name›", the red `danger` commit, only.
  */
 export function ListRowActions({
   name,
@@ -222,14 +222,16 @@ export function ListRowActions({
         </Button>
       ) : null}
       {onDelete ? (
+        // A quiet grey bin (owner, V5b preview): red belongs to the confirmation's commit only
+        // (the colour rule); a 44 px target.
         <Button
           type="button"
-          variant="destructive"
+          variant="ghost"
           size="icon"
           aria-label={`Delete ${name}`}
           title={`Delete ${name}`}
           onClick={onDelete}
-          className="ml-1 hidden md:inline-flex"
+          className="text-muted-foreground ml-1 hidden size-11 md:inline-flex"
         >
           <Trash2Icon aria-hidden />
         </Button>
@@ -305,7 +307,7 @@ export function ListRowActions({
               ) : null}
               {onDelete ? (
                 <Button
-                  variant="destructive"
+                  variant="secondary"
                   className="w-full justify-start"
                   onClick={() => choose(onDelete)}
                 >

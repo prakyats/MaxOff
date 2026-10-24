@@ -56,7 +56,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
                     className="flex min-h-14 items-center justify-between gap-3 px-4 py-3"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{holiday.name}</p>
+                      <p className="text-sm font-medium break-words">{holiday.name}</p>
                       <p className="text-muted-foreground text-xs">
                         {holiday.date} · {holiday.weekday}
                         {isUpcoming(holiday, today) ? "" : " · past"}

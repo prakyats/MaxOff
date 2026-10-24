@@ -4,6 +4,10 @@ import * as React from "react";
 import { cn } from "cn";
 import { Avatar as AvatarPrimitive } from "radix-ui";
 
+/**
+ * A person's photo (PP-me-2, V5b): a 1 px ring in the foreground at 15% over every photo and on
+ * either theme (a dark photo keeps its edge), and the initials in the token colours without one.
+ */
 function Avatar({
   className,
   size = "default",
@@ -16,7 +20,7 @@ function Avatar({
       data-slot="avatar"
       data-size={size}
       className={cn(
-        "group/avatar after:border-border relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
+        "group/avatar after:border-foreground/15 relative flex size-8 shrink-0 rounded-full select-none after:pointer-events-none after:absolute after:inset-0 after:rounded-full after:border data-[size=lg]:size-10 data-[size=sm]:size-6",
         className,
       )}
       {...props}
@@ -42,7 +46,7 @@ function AvatarFallback({
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
       className={cn(
-        "bg-muted text-muted-foreground flex size-full items-center justify-center rounded-full text-sm group-data-[size=sm]/avatar:text-xs",
+        "bg-muted text-muted-foreground flex size-full items-center justify-center rounded-full text-sm font-medium group-data-[size=sm]/avatar:text-xs",
         className,
       )}
       {...props}

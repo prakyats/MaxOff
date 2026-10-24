@@ -162,7 +162,7 @@ test.describe("A member's photo", () => {
   // Both tests use the project's own photo person, so they run one after the other.
   test.describe.configure({ mode: "serial" });
 
-  test("is their own to set, shown to team.view, never an SVG", async ({
+  test("is their own to set, shown to every active member, never an SVG", async ({
     page,
     browser,
     isMobile,
@@ -181,26 +181,58 @@ test.describe("A member's photo", () => {
     await expect(sheet(page)).toBeVisible();
     await fileInput(page).setInputFiles({ name: "me.svg", mimeType: "image/svg+xml", buffer: SVG });
     await expect(sheet(page)).toContainText("SVG is not accepted for photos.");
-    await fileInput(page).setInputFiles({ name: "me.png", mimeType: "image/png", buffer: PNG });
+    // A real photo-sized PNG drawn by the browser (the tiny fixture PNG is not decoded by
+    // Chromium, so no preview could be made from it): 320 × 200, for the thumbnail's crop.
+    const drawn = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 200;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "rgb(168, 87, 46)";
+      context.fillRect(0, 0, 320, 200);
+      return canvas.toDataURL("image/png").split(",")[1] ?? "";
+    });
+    await fileInput(page).setInputFiles({
+      name: "me.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(drawn, "base64"),
+    });
     await sheet(page).getByRole("button", { name: "Save photo" }).click();
     await expect(page.getByText("Your photo saved")).toBeVisible();
-    const avatar = page.locator('[data-slot="avatar-image"]').first();
+    // The shared photo at 64 px over the initials (V5b-D), its 512 px preview.
+    const avatar = page.locator('[data-slot="me-identity"] [data-slot="person-avatar"] img');
     await expect(avatar).toBeVisible();
+    await expect(avatar).toHaveAttribute("src", /\?variant=preview$/);
     const fileId = await fileIdFrom((await avatar.getAttribute("src")) ?? "");
     const [row] = await serviceSelect<{ avatar_file_id: string | null }>(
       `members?id=eq.${memberId}&select=avatar_file_id`,
     );
     expect(row?.avatar_file_id).toBe(fileId);
 
-    // The person and team.view (the Owner) see it; another Staff member does not.
+    // The browser made two previews of it (V5b-D): the 512 px one and the 96 px list thumbnail.
+    await expect
+      .poll(
+        async () =>
+          (
+            await serviceSelect<{ id: string }>(
+              `files?preview_of=eq.${fileId}&status=eq.ready&select=id`,
+            )
+          ).length,
+      )
+      .toBe(2);
+    const thumb = await page.request.get(`/api/files/${fileId}?variant=thumb`);
+    expect(thumb.status()).toBe(200);
+    expect(thumb.headers()["content-type"]).toBe("image/jpeg");
+    expect(thumb.headers()["cache-control"]).toContain("immutable");
+
+    // Every active member sees it (V5b-D, PERMISSIONS §3 "Profile photos"): the person, the
+    // Owner, and another Crew member too.
     expect((await page.request.get(`/api/files/${fileId}?variant=preview`)).status()).toBe(200);
     const owner = await browser.newContext({ storageState: storageStateFor("owner") });
     expect((await owner.request.get(`/api/files/${fileId}?variant=preview`)).status()).toBe(200);
     await owner.close();
     const otherStaff = await browser.newContext({ storageState: storageStateFor("staff") });
-    expect((await otherStaff.request.get(`/api/files/${fileId}?variant=preview`)).status()).toBe(
-      404,
-    );
+    expect((await otherStaff.request.get(`/api/files/${fileId}?variant=thumb`)).status()).toBe(200);
     await otherStaff.close();
 
     await page.getByRole("button", { name: "Change photo" }).click();

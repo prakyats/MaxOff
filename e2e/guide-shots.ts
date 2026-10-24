@@ -134,6 +134,8 @@ async function newProjectWithDeliverables(page: Page): Promise<void> {
   await tap(page, "New project");
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Project name").fill("Quarterly reels");
+  // V5b PP-forms-7: the deliverables and stages are step 2.
+  await dialog.locator('[data-slot="new-project-next"]').click();
   await dialog.getByRole("combobox", { name: /preset/i }).click();
   await page.getByRole("option", { name: "Video steps" }).click();
   await dialog.getByLabel("Deliverable name").fill("Reel");
@@ -376,9 +378,11 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "admin/deliverable-sheet",
     path: project,
     prepare: (page) => openDeliverable(page, "Reel 2"),
-    highlight: (page) => layer(page).getByRole("button", { name: "Mark done", exact: true }),
+    // PP-sheet-2: the sheet's one action, "Next: ‹stage›" until every stage is ticked, then Mark done.
+    highlight: (page) =>
+      layer(page).locator('[data-slot="item-next-stage"], [data-slot="item-mark-done"]'),
     crop: layer,
-    alt: "A deliverable's sheet with its stages and the Mark done button highlighted.",
+    alt: "A deliverable's sheet with its stages and its next step highlighted.",
   },
   {
     id: "admin/edit-stages",
@@ -613,9 +617,9 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "owner/new-project",
     path: projects,
     prepare: (page) => tap(page, "New project"),
-    highlight: (page) => layer(page).getByRole("combobox", { name: "Start from" }),
+    highlight: (page) => layer(page).getByRole("button", { name: "Start from a template" }),
     crop: layer,
-    alt: "The New project form with the Start from field highlighted.",
+    alt: "The New project form with the Start from a template button highlighted.",
   },
   {
     id: "owner/project-preview",

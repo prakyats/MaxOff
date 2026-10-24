@@ -80,18 +80,25 @@ export async function listOwnNotes(memberId: string): Promise<ExtraWorkNote[]> {
 const PENDING_LIMIT = 200;
 
 /** Every note waiting for the Owner, oldest first, with the person's name. */
-export async function listPendingNotes(): Promise<(ExtraWorkNote & { memberName: string })[]> {
+export async function listPendingNotes(): Promise<
+  (ExtraWorkNote & { memberName: string; memberAvatarFileId: string | null })[]
+> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("extra_work_notes")
-    .select(`${NOTE_COLUMNS}, member:members!member_id(full_name)`)
+    .select(`${NOTE_COLUMNS}, member:members!member_id(full_name, avatar_file_id)`)
     .eq("state", "submitted")
     .order("created_at", { ascending: true })
     .limit(PENDING_LIMIT);
   if (error) throw error;
-  return (data as unknown as (NoteRow & { member: { full_name: string } | null })[]).map((row) => ({
+  return (
+    data as unknown as (NoteRow & {
+      member: { full_name: string; avatar_file_id: string | null } | null;
+    })[]
+  ).map((row) => ({
     ...toNote(row),
     memberName: displayName(row.member?.full_name),
+    memberAvatarFileId: row.member?.avatar_file_id ?? null,
   }));
 }
 

@@ -4,20 +4,21 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { withSessionUserId } from "@/core/auth/server";
-import { checkThenRead } from "@/core/lib/start-early";
+import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { EmptyState } from "@/core/ui/composites/empty-state";
+import { EmptyRow, EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { DayColumns, ThisWeek } from "@/modules/dashboards";
 import { getSettings } from "@/modules/settings";
 import {
   countRequestsToDecide,
   countTasks,
   forLabel,
-  isOverdue,
+  lateLabel,
   listUnreadCounts,
   MY_GROUP_TITLES,
   MY_LIST_GROUPS,
@@ -38,6 +39,7 @@ import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 
+import { ownWeek, readOwnWeek } from "../own-week";
 import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../reads";
 
@@ -59,7 +61,12 @@ const OPEN_ON_FIRST_SCREEN = 15;
  */
 export default async function TasksPage() {
   // Every read starts with the session read (ARCHITECTURE §19); RLS decides what each returns,
-  // and the ones only managers use are cheap for Staff (their own rows, a count).
+  // and the ones only managers use are cheap for Staff (their own rows, a count). "My tasks'"
+  // This week starts in the same wave (startEarly) and is awaited only for the list that shows
+  // it, so the Owner's and Admins' page never waits on it.
+  const today = todayIST();
+  const weekRead = readOwnWeek(today);
+  startEarly(weekRead);
   const [viewer, [rows, directory, labels, own, counts, requests, settings, unread]] =
     await checkThenRead(
       requirePermission("tasks.work"),
@@ -77,6 +84,13 @@ export default async function TasksPage() {
       ]),
     );
   const names = new Map(directory.map((member) => [member.id, member]));
+  // The primary owner's photo on a team row, from the directory already read (#89).
+  const faceOf = (id: string) => {
+    const member = names.get(id);
+    return member
+      ? { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId }
+      : undefined;
+  };
   const clients = new Map(labels.map((label) => [label.id, label.name]));
   const context = {
     viewerId: viewer.id,
@@ -94,11 +108,21 @@ export default async function TasksPage() {
     const choices = labels
       .filter((label) => label.state === "active" || label.state === "paused")
       .map((label) => ({ id: label.id, name: label.name }));
+    const groups = myTaskGroups(rows, listViewer, now, today);
+    const week = ownWeek({
+      read: await weekRead,
+      viewerId: viewer.id,
+      own,
+      groups,
+      nameOf: context.nameOf,
+      today,
+    });
     return (
       <>
         <TasksFreshOnReturn renderId={crypto.randomUUID()} />
         <MyTasks
-          rows={rows}
+          groups={groups}
+          week={week}
           viewer={listViewer}
           context={context}
           now={now}
@@ -125,12 +149,11 @@ export default async function TasksPage() {
         actions={<NewTaskButton setup={loadTaskFormSetup(viewer).catch(() => null)} />}
       />
       <div className="flex min-w-0 flex-col gap-6" data-slot="tasks-team">
-        <Section title="Needs you" slot="tasks-needs-you" count={summary.count}>
-          {nothingNeeded ? (
-            <p className="text-muted-foreground text-sm" data-slot="tasks-needs-nothing">
-              Nothing needs you right now.
-            </p>
-          ) : (
+        {/* FINAL 1, PP-tasks-1: an empty section takes no heading, only one quiet line. */}
+        {nothingNeeded ? (
+          <EmptyRow slot="tasks-needs-nothing">Nothing needs you right now.</EmptyRow>
+        ) : (
+          <Section title="Needs you" slot="tasks-needs-you" count={summary.count}>
             <div className="flex flex-col gap-2">
               {summary.approvalsLink > 0 || requests > 0 ? (
                 <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
@@ -171,27 +194,27 @@ export default async function TasksPage() {
                       meta={rowMeta(item.row, context)}
                       status={item.row.state}
                       statusLabel={stateLabel(item.row, labelViewer)}
-                      flag={reasonFlag(item)}
+                      flag={reasonFlag(item, now)}
                       note={needsNote(item, viewer.id, context.nameOf)}
                       unread={unread[item.row.id] ?? 0}
+                      person={faceOf(item.row.primaryOwnerId)}
                     />
                   ))}
                 </TaskRowList>
               ) : null}
             </div>
-          )}
-        </Section>
+          </Section>
+        )}
 
-        <Section title="Open tasks" slot="tasks-open" count={open.length}>
-          {open.length === 0 && needs.length === 0 ? (
-            <EmptyState
-              title="No open tasks"
-              description="Give out work with New task. Each one opens on its own page, where people note it and you approve it."
-              size="compact"
-            />
-          ) : open.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Every open task is under Needs you.</p>
-          ) : (
+        {/* PP-tasks-1: with every open task under Needs you, Open tasks is not drawn at all. */}
+        {open.length === 0 && needs.length === 0 ? (
+          <EmptyState
+            title="No open tasks"
+            description="Give out work with New task. Each one opens on its own page, where people note it and you approve it."
+            size="compact"
+          />
+        ) : open.length === 0 ? null : (
+          <Section title="Open tasks" slot="tasks-open" count={open.length}>
             <TaskRowList label="Open tasks by deadline">
               {open.slice(0, OPEN_ON_FIRST_SCREEN).map((row) => (
                 <TaskRow
@@ -203,11 +226,12 @@ export default async function TasksPage() {
                   statusLabel={stateLabel(row, labelViewer)}
                   flag={rowFlag(row, now)}
                   unread={unread[row.id] ?? 0}
+                  person={faceOf(row.primaryOwnerId)}
                 />
               ))}
             </TaskRowList>
-          )}
-        </Section>
+          </Section>
+        )}
 
         <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
           <MoreLink href="/tasks/all" slot="tasks-see-all">
@@ -226,21 +250,22 @@ export default async function TasksPage() {
 
 /** Staff "My tasks" (decision 17), a coordinator's freelancers mixed in "for Asha". */
 function MyTasks({
-  rows,
+  groups,
+  week,
   viewer,
   context,
   now,
   clients,
   unread,
 }: {
-  rows: TaskListRow[];
+  groups: ReturnType<typeof myTaskGroups>;
+  week: ReturnType<typeof ownWeek>;
   viewer: { id: string; role: "owner" | "admin" | "staff"; coordinates: string[] };
   context: Parameters<typeof rowMeta>[1];
   now: Date;
   clients: { id: string; name: string }[];
   unread: Readonly<Record<string, number>>;
 }) {
-  const groups = myTaskGroups(rows, viewer, now, todayIST());
   const empty = MY_LIST_GROUPS.every((group) => groups[group].length === 0);
   const reviewing = groups.with_reviewers.length;
 
@@ -251,68 +276,77 @@ function MyTasks({
         description="The work given to you, and what's due next."
         actions={<SuggestTaskButton clients={clients} />}
       />
-      <div className="flex min-w-0 flex-col gap-6" data-slot="tasks-mine">
-        {empty ? (
-          <EmptyState
-            title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}
-            description="Tasks given to you appear here. Note each one when you see it."
-            size="compact"
-          />
-        ) : (
-          MY_LIST_GROUPS.map((group) =>
-            groups[group].length > 0 ? (
-              <Section
-                key={group}
-                title={MY_GROUP_TITLES[group]}
-                slot={`tasks-group-${group}`}
-                count={groups[group].length}
-              >
-                <TaskRowList label={MY_GROUP_TITLES[group]}>
-                  {groups[group].map(({ row, part }) => {
-                    const note =
-                      group === "not_noted"
-                        ? forNote(part.notNoted, viewer.id, context.nameOf)
-                        : forNote(
-                            [...(part.self ? [viewer.id] : []), ...part.forIds],
-                            viewer.id,
-                            context.nameOf,
-                          );
-                    return (
-                      <TaskRow
-                        key={row.id}
-                        id={row.id}
-                        title={row.title}
-                        meta={rowMeta(row, context)}
-                        status={row.state}
-                        statusLabel={stateLabel(row)}
-                        flag={rowFlag(row, now)}
-                        note={note}
-                        unread={unread[row.id] ?? 0}
-                      />
-                    );
-                  })}
-                </TaskRowList>
-              </Section>
-            ) : null,
-          )
-        )}
-        <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
-          {reviewing > 0 ? (
-            // view-link: navigation (the full list is another page, opened on this filter)
-            <MoreLink href="/tasks/all?state=review" slot="tasks-with-reviewers">
-              {reviewing === 1
-                ? "1 task with the reviewers"
-                : `${reviewing} tasks with the reviewers`}
-            </MoreLink>
-          ) : null}
-          <MoreLink href="/tasks/all" slot="tasks-see-all">
-            All my tasks
-          </MoreLink>
-          <MoreLink href="/tasks/requests" slot="tasks-requests">
-            Your suggestions
-          </MoreLink>
-        </nav>
-      </div>
+      {/* PP-crew-7 (FINAL 8): "This week" beside the list on a laptop, under it below an 896 px
+          content width; the phone keeps its one list (laptopOnly). */}
+      <DayColumns
+        slot="tasks-mine"
+        laptopOnly
+        week={<ThisWeek blocks={week.blocks} hidden={week.hidden} slot="tasks-week" />}
+        main={
+          <>
+            {empty ? (
+              <EmptyState
+                title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}
+                description="Tasks given to you appear here. Note each one when you see it."
+                size="compact"
+              />
+            ) : (
+              MY_LIST_GROUPS.map((group) =>
+                groups[group].length > 0 ? (
+                  <Section
+                    key={group}
+                    title={MY_GROUP_TITLES[group]}
+                    slot={`tasks-group-${group}`}
+                    count={groups[group].length}
+                  >
+                    <TaskRowList label={MY_GROUP_TITLES[group]}>
+                      {groups[group].map(({ row, part }) => {
+                        const note =
+                          group === "not_noted"
+                            ? forNote(part.notNoted, viewer.id, context.nameOf)
+                            : forNote(
+                                [...(part.self ? [viewer.id] : []), ...part.forIds],
+                                viewer.id,
+                                context.nameOf,
+                              );
+                        return (
+                          <TaskRow
+                            key={row.id}
+                            id={row.id}
+                            title={row.title}
+                            meta={rowMeta(row, context)}
+                            status={row.state}
+                            statusLabel={stateLabel(row)}
+                            flag={rowFlag(row, now)}
+                            note={note}
+                            unread={unread[row.id] ?? 0}
+                          />
+                        );
+                      })}
+                    </TaskRowList>
+                  </Section>
+                ) : null,
+              )
+            )}
+            <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
+              {reviewing > 0 ? (
+                // view-link: navigation (the full list is another page, opened on this filter)
+                <MoreLink href="/tasks/all?state=review" slot="tasks-with-reviewers">
+                  {reviewing === 1
+                    ? "1 task with the reviewers"
+                    : `${reviewing} tasks with the reviewers`}
+                </MoreLink>
+              ) : null}
+              <MoreLink href="/tasks/all" slot="tasks-see-all">
+                All my tasks
+              </MoreLink>
+              <MoreLink href="/tasks/requests" slot="tasks-requests">
+                Your suggestions
+              </MoreLink>
+            </nav>
+          </>
+        }
+      />
     </>
   );
 }
@@ -341,7 +375,8 @@ function rowFlag(
   row: TaskListRow,
   now: Date,
 ): { label: string; tone: "danger" | "attention" } | null {
-  if (isOverdue(row, now)) return { label: "Overdue", tone: "danger" };
+  const late = lateLabel(row, now);
+  if (late) return { label: late, tone: "danger" };
   if (row.priority === "urgent" || row.priority === "high") {
     return {
       label: PRIORITY_LABELS[row.priority],
@@ -351,15 +386,20 @@ function rowFlag(
   return null;
 }
 
-function reasonFlag(item: NeedsYouItem): { label: string; tone: "danger" | "attention" } {
+function reasonFlag(
+  item: NeedsYouItem,
+  now: Date,
+): { label: string; tone: "danger" | "attention" } {
   switch (item.reason) {
     case "overdue":
-      return { label: "Overdue", tone: "danger" };
+      return { label: lateLabel(item.row, now) ?? "Overdue", tone: "danger" };
     case "changes_requested":
       return { label: "Changes requested", tone: "attention" };
     case "to_approve":
       return { label: "To approve", tone: "attention" };
     case "your_note":
+      // PP-admin-13: their own note to give is the same chip as every row state.
+      return { label: "Note it", tone: "attention" };
     case "not_noted":
       return { label: "Not noted", tone: "attention" };
   }
@@ -372,7 +412,8 @@ function needsNote(
 ): string | null {
   switch (item.reason) {
     case "your_note":
-      return forNote(item.part.notNoted, viewerId, nameOf) ?? "Yours to note";
+      // The "Note it" chip says it is theirs; a line only when it is someone else's too.
+      return forNote(item.part.notNoted, viewerId, nameOf);
     case "changes_requested":
       return "Back with you to fix";
     case "to_approve":

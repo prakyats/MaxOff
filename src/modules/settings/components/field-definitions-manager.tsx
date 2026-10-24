@@ -195,7 +195,7 @@ export function FieldDefinitionsManager({
                     className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
                   >
                     <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                      <span className="truncate text-sm font-medium">
+                      <span className="text-sm font-medium break-words">
                         {definition.label}
                         {definition.required ? <span aria-label="required"> *</span> : null}
                       </span>

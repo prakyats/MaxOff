@@ -30,6 +30,14 @@ describe("describeClientActivity (3.4)", () => {
     expect(joinNouns(["name", "phone", "website"])).toBe("name, phone and website");
   });
 
+  it('says "You" for the reader\'s own changes (v1.8 pull-in item 5)', () => {
+    const edit = entry({ new: { phone: "1" } });
+    expect(describeClientActivity(edit, { ...context, viewerId: "owner" })?.actor).toBe("You");
+    expect(describeClientActivity(edit, { ...context, viewerId: "ravi" })?.actor).toBe(
+      "Prishit Shetty",
+    );
+  });
+
   it("names the fields a plain edit changed", () => {
     expect(
       describeClientActivity(entry({ new: { phone: "1", drive_url: "x" } }), context),

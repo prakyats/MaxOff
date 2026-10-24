@@ -4791,6 +4791,17 @@ export type Database = {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
       };
+      client_work_summary: {
+        Args: { on_date?: string };
+        Returns: {
+          client_id: string;
+          closed: number;
+          done: number;
+          late: number;
+          next_planned: string;
+          total: number;
+        }[];
+      };
       comp_leave_balance: {
         Args: { member_id?: string };
         Returns: {
@@ -5295,6 +5306,28 @@ export type Database = {
           run_unread: string[];
           title: string;
           total: number;
+        }[];
+      };
+      notifications_inbox_page: {
+        Args: {
+          p_before_at: string;
+          p_before_id: string;
+          p_limit: number;
+          p_unread_only: boolean;
+        };
+        Returns: {
+          actor_avatar_file_id: string;
+          actor_id: string;
+          actor_name: string;
+          body: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          link: string;
+          run_kinds: string[];
+          run_size: number;
+          run_unread: string[];
+          title: string;
         }[];
       };
       notifications_mark_all_read: { Args: never; Returns: number };

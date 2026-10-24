@@ -76,18 +76,26 @@ export async function listOwnClaims(memberId: string): Promise<ExpenseClaim[]> {
 const PENDING_LIMIT = 200;
 
 /** Every claim waiting for the Owner, oldest first, with the person's name. */
-export async function listPendingClaims(): Promise<(ExpenseClaim & { memberName: string })[]> {
+export async function listPendingClaims(): Promise<
+  (ExpenseClaim & { memberName: string; memberAvatarFileId: string | null })[]
+> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("expense_claims")
-    .select(`${CLAIM_COLUMNS}, member:members!member_id(full_name)`)
+    .select(`${CLAIM_COLUMNS}, member:members!member_id(full_name, avatar_file_id)`)
     .eq("state", "submitted")
     .order("created_at", { ascending: true })
     .limit(PENDING_LIMIT);
   if (error) throw error;
-  return (data as unknown as (ClaimRow & { member: { full_name: string } | null })[]).map(
-    (row) => ({ ...toClaim(row), memberName: displayName(row.member?.full_name) }),
-  );
+  return (
+    data as unknown as (ClaimRow & {
+      member: { full_name: string; avatar_file_id: string | null } | null;
+    })[]
+  ).map((row) => ({
+    ...toClaim(row),
+    memberName: displayName(row.member?.full_name),
+    memberAvatarFileId: row.member?.avatar_file_id ?? null,
+  }));
 }
 
 /** How many claims wait for the Owner: part of the Approvals badge. */

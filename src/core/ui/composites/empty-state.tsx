@@ -59,14 +59,17 @@ export function EmptyRow({
   children,
   action,
   className,
+  slot = "empty-row",
 }: {
   children: ReactNode;
   action?: ReactNode;
   className?: string;
+  /** The line's `data-slot`, when a screen's specs already name it ("tasks-needs-nothing"). */
+  slot?: string;
 }) {
   return (
     <div
-      data-slot="empty-row"
+      data-slot={slot}
       className={cn(
         "text-muted-foreground flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 text-sm",
         className,

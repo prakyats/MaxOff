@@ -1,4 +1,4 @@
-import { addISTDays, overdueWords, toISTDate, type ISODate } from "@/core/time";
+import { addISTDays, lateWords, toISTDate, type ISODate } from "@/core/time";
 
 import { inlineDay } from "./days";
 import { byStart, type DayEvent } from "./my-day";
@@ -30,9 +30,9 @@ export const OWNER_TODAY_EMPTY = "Nothing else needs you today.";
 
 /**
  * The Owner's "Needs you" (their approvals, first on Today since the refresh, owner 2026-10-09)
- * with nothing waiting: the section stays, with this line, so the screen keeps its shape.
+ * with nothing waiting: one quiet line in its place, with no heading (PP-today-2, FINAL 1).
  */
-export const OWNER_NEEDS_YOU_EMPTY = "Nothing needs you.";
+export const OWNER_NEEDS_YOU_EMPTY = "Nothing needs you right now.";
 
 /** How many waiting items the Owner's "Needs you" shows before "See all N" (decision 5). */
 export const OWNER_APPROVALS_SHOWN = 5;
@@ -460,14 +460,17 @@ export function clientCountsLine({ open, overdue }: { open: number; overdue: num
 // A risk's words -----------------------------------------------------------------------------------
 
 /**
- * A risk row's words. **One status signal per row** (the owner's preview review and final note,
- * 2026-10-09): the kind's icon and the meta line in its tone, red for overdue, amber for the rest.
- * No chip and no dot, for every kind alike; the words carry the meaning.
+ * A risk row's words (PP-today-5, FINAL 5: "a risk reason becomes a chip plus plain text"): the
+ * reason is a status chip ("3 h late" red, "Not noted · 24 h" amber, "On leave", "Can't be
+ * reached"), the meta line plain muted words (whose it is, what the leave clashes with). Text
+ * colour alone never carries the state.
  */
 export type RiskWords = {
   title: string;
   detail: string;
-  /** The icon's and the meta line's colour: red for "overdue …" (decision 24), else amber. */
+  /** The reason, as a chip. */
+  chip: string;
+  /** The chip's colour: red for late work (decision 24), else amber. */
   tone: "danger" | "attention";
   href: string;
   icon: "overdue" | "not_noted" | "on_leave" | "unreachable";
@@ -496,7 +499,8 @@ export function riskWords(
     case "overdue":
       return {
         title: risk.title,
-        detail: `${context.nameOf(risk.ownerId)} · ${overdueWords(context.now.getTime() - Date.parse(risk.dueAt))}`,
+        detail: context.nameOf(risk.ownerId),
+        chip: lateWords(context.now.getTime() - Date.parse(risk.dueAt)),
         tone: "danger",
         href: `/tasks/${risk.taskId}`,
         icon: "overdue",
@@ -507,8 +511,8 @@ export function riskWords(
       const who = first ? context.nameOf(first.memberId) : "Someone";
       return {
         title: risk.title,
-        detail:
-          `${who}${more} hasn't noted it · ${first ? spanWords(hoursSince(first.since)) : ""}`.trim(),
+        detail: `${who}${more} hasn't noted it`,
+        chip: first ? `Not noted · ${spanWords(hoursSince(first.since))}` : "Not noted",
         tone: "attention",
         href: `/tasks/${risk.taskId}`,
         icon: "not_noted",
@@ -521,6 +525,7 @@ export function riskWords(
       return {
         title: risk.title,
         detail: `${context.nameOf(risk.memberId)} is ${LEAVE_PHRASE[risk.leave]} ${when}, ${what}`,
+        chip: risk.leave === "half_day" ? "Half day" : "On leave",
         tone: "attention",
         href: `/tasks/${risk.taskId}`,
         icon: "on_leave",
@@ -528,10 +533,11 @@ export function riskWords(
     }
     case "unreachable":
       return {
-        title: `${risk.name} can't be reached`,
+        title: risk.name,
         detail: `No notification has reached them for 2 days · ${
           risk.openTasks === 1 ? "1 open task" : `${risk.openTasks} open tasks`
         }`,
+        chip: "Can't be reached",
         tone: "attention",
         href: "/settings/notifications",
         icon: "unreachable",

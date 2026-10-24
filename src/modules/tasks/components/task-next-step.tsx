@@ -33,14 +33,15 @@ const DoneDialog = dynamic(() => import("./task-done-dialog").then((module) => m
  * pending label shares the label's grid cell (`Button`), so it wraps the same way and the button
  * keeps its size when it switches.
  */
-const ACTION = "h-auto min-h-11 py-2 text-center whitespace-normal";
+const ACTION = "h-auto min-h-11 py-2 text-center whitespace-normal md:min-h-9 md:py-1.5";
 
 /**
  * The task's next step (Kickoff 4 decision 26): **only the one step the viewer takes now**, in
  * the order the work goes (Task Noted → Start work → Mark done, one at a time; Approve or Request
  * changes for the step's reviewer); everything else is under ⋯. On a phone it is a sticky bar at
  * the bottom (a layer of its own for the colour rule), hidden while the keyboard is open
- * (decision 32); from `md` up, a row under the first glance. The colour rule: one solid button,
+ * (decision 32); from `md` up, the header's action area beside History (PP-crew-8, the page
+ * passes it as `DetailHeader`'s `primary`). The colour rule: one solid button,
  * no second: Task Noted and Start work commit at the tap (solid, "Noting…", "Starting…",
  * disabled offline, Retry after a lost reply: the transition functions refuse a second note or
  * start); Mark done and Approve open a sheet or a confirmation (neutral solid), and Request

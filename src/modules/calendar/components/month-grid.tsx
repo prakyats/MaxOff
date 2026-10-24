@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 
 import type { CalendarDay, MonthGrid as Grid } from "../domain/calendar";
 import {
@@ -14,22 +15,35 @@ import {
   HOLIDAY_COLOR,
   type Strip,
 } from "../domain/strips";
-import { DoneTick, DUE_TONE, DueIcon, LEAVE_TONE, LeaveIcon, typeTint } from "./calendar-chip";
+import {
+  DoneTick,
+  DUE_TONE,
+  DueIcon,
+  ItemIcon,
+  LEAVE_TONE,
+  LeaveIcon,
+  TypeDot,
+  typeTint,
+} from "./calendar-chip";
+import { LEAVE_FIT_LABEL } from "./leave-fit";
 
 /**
  * The month (6.4b; Kickoff 6 decision 25 A, B, C, C amended 2026-10-08): Monday to Sunday, the
  * neighbouring months' days dimmed. Three densities: `compact` (the phone's opening size: the date,
- * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month) and `laptop`
- * (the same lines, an event with its title then its time and client). In a box, at most three
- * lines, the last "+N more" when there are more (PP-calendar-14): the events, what is due by name
- * (amber, red overdue with its icon), the holiday (cut for space, the date number turns green),
+ * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month: v1.7.1's
+ * day cells, the events by title, done struck through, and what is due as one count, "3 due" or the
+ * red overdue pill) and `laptop` (an event with its title then its time and client, what is due by
+ * name). In a box, at most three
+ * lines, the last "+N more" when there are more (PP-calendar-14): the events, what is due (amber,
+ * red overdue with its icon; by name on a laptop, a count on a phone), the holiday (cut for space, the date number turns green),
  * others' busy, then leave as a soft neutral striped bar along the bottom, "Asha · On leave" with the palm icon, continuous across consecutive leave days
  * of the week row (`calendar-chip`: the day's dialog draws the same chips). V5b's polish
- * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle and the selected day the
- * outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
- * weekdays read "Mon Tue …" on a laptop, single letters on a phone; done is dimmed with a ✓. Every
- * line is ellipsised when it does not fit, never clipped mid-word and never past its box (the
- * owner's preview review). Every box is one button: what a tap does is the caller's (select, or
+ * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle on a neutral tint, never
+ * outlined, and any other selected day the outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
+ * weekdays read "Mon Tue …" on a laptop, single letters on a phone; done is dimmed with a ✓ (struck through on the phone's full month). Every
+ * line is one line at a fixed height, ellipsised when it does not fit, never wrapped, clipped
+ * mid-word or past its box (the owner's preview review; SCOPE §6). Client deliverables are outlined
+ * chips with the client first, after the tasks (the approved calendar sample). Every box is one button: what a tap does is the caller's (select, or
  * open the day).
  */
 
@@ -44,36 +58,100 @@ const LINE = {
 } as const;
 
 /**
- * One chip of a box: an event, a thing due, the holiday or someone busy. One line, ellipsised;
- * on a laptop a box with a single chip lets it run to two lines first (PP-calendar-2), a fuller
- * box keeps one line each so nothing is clipped.
+ * One chip of a box: an event, a thing due, a client deliverable, the holiday or someone busy.
+ * One line at a fixed height, ellipsised, everywhere (SCOPE §6, "One line, always"): the day's
+ * popup or sheet shows the full text.
  */
 function StripLine({
   strip,
   density,
-  twoLines,
 }: {
   strip: Exclude<Strip, { kind: "leave" }>;
   density: "full" | "laptop";
-  twoLines: boolean;
 }) {
-  const fit = twoLines ? "line-clamp-2 break-words" : "truncate";
+  const fit = "truncate";
+  if (strip.kind === "tasks") {
+    // The phone's full month (v1.7.1's day cells, restored in the v1.8 fix round): one count for
+    // what is due, "3 due" in amber; a past day's open work a compact red pill, the alert icon and
+    // the count (never colour alone), in today's tokens.
+    if (strip.tone === "overdue") {
+      return (
+        <span
+          data-slot="calendar-strip"
+          data-kind="tasks"
+          data-tone="overdue"
+          className={cn(
+            "inline-flex w-fit max-w-full items-center gap-0.5 self-start rounded-full px-1 font-semibold tabular-nums",
+            LINE[density],
+            DUE_TONE.overdue,
+          )}
+        >
+          <DueIcon tone="overdue" className="size-2.5" />
+          <span className="truncate">{strip.count}</span>
+        </span>
+      );
+    }
+    return (
+      <span
+        data-slot="calendar-strip"
+        data-kind="tasks"
+        data-tone="due"
+        // Narrow side room and tight letters, so "12 due" reads whole in a seventh of a 375 px
+        // phone (with the chips' room it was cut to "5 d…").
+        className={cn(
+          "text-attention block px-px font-medium tracking-tight tabular-nums",
+          LINE[density],
+          fit,
+        )}
+      >
+        {strip.label}
+      </span>
+    );
+  }
+  if (strip.kind === "item") {
+    // The approved calendar sample: an outlined chip, the box icon, the client first; red
+    // outlined when late, and it says so (never colour alone).
+    return (
+      <span
+        data-slot="calendar-strip"
+        data-kind="item"
+        data-late={strip.late ? "" : undefined}
+        className={cn(
+          "block rounded-sm border px-1",
+          LINE[density],
+          fit,
+          strip.late ? "border-danger text-danger" : "border-border text-foreground",
+        )}
+      >
+        <ItemIcon className="mr-0.5 size-2.5" />
+        {/* An inline block cut on its own, so a long client never reaches past the box: narrower
+            than the line by the icon and the box's own "…" (an atomic block reaching into the
+            ellipsis's room would be hidden whole, leaving "…" alone on a phone). */}
+        <span className="inline-block max-w-[calc(100%-1.5rem)] truncate align-top font-semibold">
+          {strip.client}
+        </span>{" "}
+        · {strip.title}
+        {strip.late ? " · late" : ""}
+      </span>
+    );
+  }
   if (strip.kind === "due") {
-    // PP-calendar-5: named, amber or red overdue with its icon, the type's colour on the edge.
+    // PP-calendar-5 and the approved sample: named, a filled soft chip in amber (red and its alert
+    // icon when overdue), the type's colour as the leading dot (major change 5: no side stripe).
     return (
       <span
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
         className={cn(
-          "block rounded-sm border-l-2 px-1 font-medium",
+          "block rounded-sm px-1 font-medium",
           LINE[density],
           fit,
           DUE_TONE[strip.tone],
         )}
-        style={strip.color ? { borderLeftColor: strip.color } : undefined}
       >
-        <DueIcon tone={strip.tone} className="mr-0.5 size-2.5" />
+        {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
+        {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
         {strip.label}
       </span>
     );
@@ -82,6 +160,9 @@ function StripLine({
   const color =
     strip.kind === "event" ? strip.color : strip.kind === "holiday" ? HOLIDAY_COLOR : null;
   const done = strip.kind === "event" && strip.completed;
+  // Done: on a laptop dimmed with a ✓ (PP-calendar-7); on the phone's full month struck through
+  // and dimmed, as v1.7.1 (a seventh of a phone has no room for the ✓).
+  const struck = done && density === "full";
   return (
     <span
       data-slot="calendar-strip"
@@ -92,15 +173,21 @@ function StripLine({
         "block rounded-sm px-1",
         LINE[density],
         fit,
+        // A task (and the holiday) is a filled soft chip with its dot (the approved sample, no
+        // side stripe); someone busy is grey and dotted.
         color
-          ? "text-foreground border-l-2"
+          ? "text-foreground"
           : "border-muted-foreground/70 text-muted-foreground border border-dotted",
-        // PP-calendar-7: done is dimmed with a ✓, never struck through.
         done && "opacity-60",
+        struck && "line-through",
       )}
       style={color ? typeTint(color) : undefined}
     >
-      {done ? <DoneTick className="mr-0.5 size-2.5" /> : null}
+      {done && !struck ? (
+        <DoneTick className="mr-0.5 size-2.5" />
+      ) : color ? (
+        <TypeDot color={color} className="mr-1" />
+      ) : null}
       {text}
     </span>
   );
@@ -134,7 +221,10 @@ export function MonthGrid({
   const inMonth = (date: ISODate) => date.slice(0, 7) === grid.month.slice(0, 7);
   const linesOf = (date: ISODate | undefined) => {
     const day = date ? days.get(date) : undefined;
-    return day && density !== "compact" ? dayStrips(day, today) : null;
+    // The laptop names what is due; the phone's full month counts it (v1.7.1).
+    return day && density !== "compact"
+      ? dayStrips(day, today, density === "laptop" ? "named" : "counts")
+      : null;
   };
   return (
     <div
@@ -200,14 +290,15 @@ export function MonthGrid({
                           ? "min-h-0"
                           : "min-h-28 p-1",
                       // Each day its own faint tile (the owner's review): a hairline at low
-                      // contrast; the selected day outlined (PP-calendar-1); the weekly off lightly
-                      // tinted (PP-calendar-4); today's box a faint neutral lift, one surface step up (PP-calendar-15).
-                      isSelected ? "border-foreground" : "border-border/60",
-                      isToday
-                        ? "bg-today shadow-raised"
-                        : day?.weeklyOff
-                          ? "bg-muted/50"
-                          : "bg-card/40",
+                      // contrast; only the selected day outlined (PP-calendar-1, PP-phone-3: the
+                      // outline follows the tapped day); the weekly off lightly tinted
+                      // (PP-calendar-4); today's box a neutral tint, one surface step up, with no
+                      // shadow that could read as a second outline (PP-calendar-15, FINAL 4).
+                      // Today is marked by its red circle and its tint alone: never also the
+                      // selection's outline (the design gate, 23 Oct; kept on the phone by the
+                      // owner's correction of 23 Oct).
+                      isSelected && !isToday ? "border-foreground" : "border-border/60",
+                      isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
                     )}
@@ -223,7 +314,7 @@ export function MonthGrid({
                           day?.weeklyOff && "text-muted-foreground",
                           lines?.holidayHidden && "text-holiday",
                           // PP-calendar-1: today is the filled red circle.
-                          isToday && "bg-brand text-brand-foreground",
+                          isToday && "bg-destructive-solid text-destructive-solid-foreground",
                         )}
                       >
                         {formatIST(istDayStart(date), "d")}
@@ -265,12 +356,7 @@ export function MonthGrid({
                         className="@container flex min-h-0 min-w-0 flex-col gap-px overflow-hidden"
                       >
                         {others.map((strip) => (
-                          <StripLine
-                            key={strip.key}
-                            strip={strip}
-                            density={density}
-                            twoLines={density === "laptop" && others.length === 1}
-                          />
+                          <StripLine key={strip.key} strip={strip} density={density} />
                         ))}
                         {/* PP-calendar-14: what does not fit is one last line, "+N more" ("+N" where
                             the box is too narrow for the word), part of the box: a tap opens the day. */}
@@ -292,12 +378,17 @@ export function MonthGrid({
                       <span
                         aria-hidden
                         data-slot="calendar-leave-bar"
+                        data-leave-fit="long"
                         data-pending={leave.pending ? "" : undefined}
                         className={cn(
                           // Along the bottom, joined to its neighbours' bars, soft neutral with faint
                           // stripes (PP-calendar-3, 10), so a leave run reads at a glance.
                           LEAVE_TONE,
-                          "mt-auto block truncate px-1 font-medium",
+                          "mt-auto block px-1 font-medium",
+                          // The bar never truncates: "Name · On leave", "Name · Leave" where that
+                          // has no room, else "[photo] Leave" (v1.8, owner 23 Oct; on the phone's
+                          // full month too, owner #89 comment 6370526089; `useLeaveFit` measures).
+                          LEAVE_FIT_LABEL,
                           "text-xs leading-4",
                           before
                             ? density === "laptop"
@@ -317,8 +408,30 @@ export function MonthGrid({
                           "\u00a0"
                         ) : (
                           <>
-                            <LeaveIcon className="mr-0.5 size-2.5" />
-                            {leave.label}
+                            <span data-leave-word="long">
+                              <LeaveIcon className="mr-0.5 size-2.5" />
+                              {leave.label}
+                            </span>
+                            <span data-leave-word="short">
+                              <LeaveIcon className="mr-0.5 size-2.5" />
+                              {leave.short}
+                            </span>
+                            {/* Where even "Name · Leave" has no room: their photo, "Leave"
+                                    (owner 23 Oct); never an ellipsis. */}
+                            {leave.person ? (
+                              <span data-leave-word="photo">
+                                <PersonAvatar person={leave.person} size={20} />
+                                Leave
+                              </span>
+                            ) : null}
+                            {/* The phone's full month, where even that has no room: the photo
+                                  alone (the bar's tone says leave, the box's name "Name, on
+                                  leave"); never a cut word. */}
+                            {leave.person && density === "full" ? (
+                              <span data-leave-word="face">
+                                <PersonAvatar person={leave.person} size={20} />
+                              </span>
+                            ) : null}
                           </>
                         )}
                       </span>

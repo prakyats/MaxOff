@@ -37,7 +37,7 @@
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v10";
+const VERSION = "v13";
 const CACHE = `maxoff-${VERSION}`;
 const SHELL_CACHE = `maxoff-shell-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -231,10 +231,18 @@ function takeHeldLaunch(url) {
  * (`e2e/instant-skeleton.spec.ts` reads every one, for every role). Never a client's or a
  * person's page (their layouts read the record), never `/leave` (its layout hands the comp leave
  * balance and today's date to the page). Adding a path here needs that proof first.
+ *
+ * Tasks' two drill-downs, `/tasks/all` and `/tasks/requests` (v13, ADR-0014 amendment
+ * 2026-10-24), are the links at Tasks' foot: their pages have no layout of their own and their
+ * loading screens read the role only. Unkept, on a cold Worker they held two of the router's four
+ * prefetch slots for ~3 s each, so a task row tapped right after Tasks drew waited behind them.
+ * Only the bare address is kept: `/tasks/all?state=review` carries a query and stays network-only.
  */
 const SHELL_PATHS = new Set([
   "/approvals",
   "/tasks",
+  "/tasks/all",
+  "/tasks/requests",
   "/calendar",
   "/clients",
   "/people",
@@ -245,9 +253,19 @@ const SHELL_PATHS = new Set([
 /**
  * Drill-downs whose prefetch is the same proven skeleton for every record: a task's page has no
  * layout of its own and a static title, so its prefetch is the loading screen and the id from its
- * own address. One copy per task, so at most `SHELL_DRILL_DOWNS_KEPT` are kept, the oldest going.
+ * own address. **One copy for every task** (V5b integration, sw.js v12): it is kept under
+ * `SHELL_DRILL_DOWN_KEY` with the id taken out of the key, and answered for any task with that
+ * task's id put back in place of the one it was fetched for (`withId`). So on a cold Worker a row
+ * never seen before is as instant as one seen yesterday, and the rows' prefetches never queue
+ * behind the Worker for seconds (the router runs four at a time: a row tapped right after it
+ * scrolled in waited behind them, and a touch's own prefetch lands after the tap). At most
+ * `SHELL_DRILL_DOWNS_KEPT` copies (one per segment and tree), the oldest going.
  */
-const SHELL_DRILL_DOWN = /^\/tasks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const SHELL_DRILL_DOWN =
+  /^\/tasks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const SHELL_DRILL_DOWN_KEY = "/tasks/:id";
+/** The id a kept drill-down copy was fetched for, so another task's answer can put its own in. */
+const SHELL_ID_HEADER = "X-MaxOff-Shell-Id";
 const SHELL_DRILL_DOWNS_KEPT = 60;
 /**
  * The role the kept skeletons were drawn for (`pwa-after-page` posts it). Until the shell has
@@ -294,11 +312,86 @@ function shellKey(request) {
   const deployment = headers.get("x-deployment-id");
   const rsc = url.searchParams.get("_rsc");
   if (!deployment || !rsc || [...url.searchParams.keys()].length !== 1) return null;
-  const key = new URL(url.pathname, self.location.origin);
+  const id = drillDownId(url.pathname);
+  const key = new URL(id ? SHELL_DRILL_DOWN_KEY : url.pathname, self.location.origin);
   key.searchParams.set("segment", headers.get("next-router-segment-prefetch") ?? "");
-  key.searchParams.set("tree", headers.get("next-router-state-tree") ?? "");
+  const tree = requestTreeKey(headers.get("next-router-state-tree") ?? "");
+  key.searchParams.set("tree", id ? withoutId(tree, id) : tree);
   key.searchParams.set("dpl", deployment);
   return key.href;
+}
+
+/** A task's id when `pathname` is a kept drill-down's address, else null. */
+function drillDownId(pathname) {
+  return SHELL_DRILL_DOWN.exec(pathname)?.[1] ?? null;
+}
+
+/** The tree with the task's id taken out (as sent, the tree is URL-encoded JSON). */
+function withoutId(tree, id) {
+  try {
+    return encodeURIComponent(decodeURIComponent(tree).split(id).join(":id"));
+  } catch {
+    return tree.split(id).join(":id");
+  }
+}
+
+/**
+ * A kept drill-down's answer for task `id`: the same bytes with the id it was fetched for replaced
+ * by `id` (both 36 ASCII characters, so every length the payload declares still holds).
+ */
+async function withId(response, id) {
+  const kept = response.headers.get(SHELL_ID_HEADER);
+  if (!kept || kept === id || kept.length !== id.length) return response;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const from = new TextEncoder().encode(kept);
+  const to = new TextEncoder().encode(id);
+  for (let at = 0; at <= bytes.length - from.length; at += 1) {
+    let match = true;
+    for (let i = 0; i < from.length; i += 1) {
+      if (bytes[at + i] !== from[i]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      bytes.set(to, at);
+      at += from.length - 1;
+    }
+  }
+  const headers = new Headers(response.headers);
+  headers.set(SHELL_ID_HEADER, id);
+  return new Response(bytes, { status: response.status, headers });
+}
+
+/**
+ * The router state tree as the cache key holds it: the router's "inside-shared-layout" marks
+ * read as no mark. The router sends one where the destination leaves the page it is asked from
+ * and that part is already in its memory, and none when it is asked from under the same part
+ * (a task's row on Today or on Tasks): the server uses the mark only to begin looking for a
+ * loading boundary, and every kept address has its own below it, so both requests render from
+ * the same "refetch" mark down and get the same skeleton. Without this, a task's skeleton kept
+ * from Today never answered the same task tapped on Tasks after a cold reopen (seconds on a cold
+ * Worker). Any other tree is kept as sent.
+ */
+function requestTreeKey(header) {
+  if (!header.includes("inside-shared-layout")) return header;
+  try {
+    const unmark = (node) => {
+      if (!Array.isArray(node)) return node;
+      const copy = node.slice();
+      if (copy[3] === "inside-shared-layout") copy[3] = null;
+      const children = copy[1];
+      if (children && typeof children === "object" && !Array.isArray(children)) {
+        copy[1] = Object.fromEntries(
+          Object.entries(children).map(([slot, child]) => [slot, unmark(child)]),
+        );
+      }
+      return copy;
+    };
+    return encodeURIComponent(JSON.stringify(unmark(JSON.parse(decodeURIComponent(header)))));
+  } catch {
+    return header;
+  }
 }
 
 async function readShellViewer() {
@@ -383,16 +476,18 @@ async function storeShell(key, request, response, generation) {
   headers.delete("vary");
   headers.delete("set-cookie");
   headers.set(SHELL_KEPT_AT_HEADER, String(nowMs()));
+  const id = drillDownId(new URL(request.url).pathname);
+  if (id) headers.set(SHELL_ID_HEADER, id);
   if (generation !== shellGeneration) return;
   await cache.delete(key);
   await cache.put(key, new Response(body, { status: 200, headers }));
-  if (SHELL_DRILL_DOWN.test(new URL(key).pathname)) await pruneDrillDowns(cache);
+  if (new URL(key).pathname === SHELL_DRILL_DOWN_KEY) await pruneDrillDowns(cache);
 }
 
 /** Keeps the newest `SHELL_DRILL_DOWNS_KEPT` drill-down skeletons (keys list oldest first). */
 async function pruneDrillDowns(cache) {
-  const kept = (await cache.keys()).filter((request) =>
-    SHELL_DRILL_DOWN.test(new URL(request.url).pathname),
+  const kept = (await cache.keys()).filter(
+    (request) => new URL(request.url).pathname === SHELL_DRILL_DOWN_KEY,
   );
   for (const old of kept.slice(0, Math.max(0, kept.length - SHELL_DRILL_DOWNS_KEPT))) {
     await cache.delete(old);
@@ -426,7 +521,8 @@ async function answerShell(event, request, key) {
       ),
     );
   }
-  return cached;
+  const id = drillDownId(new URL(request.url).pathname);
+  return id ? withId(cached, id) : cached;
 }
 
 /** Whether a navigation reaches a page only a signed-out visitor sees. */

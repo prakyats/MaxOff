@@ -10,14 +10,19 @@ import { dueCount, type CalendarDay, type EventItem } from "./calendar";
  * 1. the events: shoots, site visits and meetings (the task type's colour, the title), in the
  *    Owner's order of the types;
  * 2. what is due, each a named chip (PP-calendar-5, V5b: "Test 4", not "1 due"): red for a past
- *    day's open tasks and deliverables (overdue), else amber, its type's colour on the edge;
+ *    day's open tasks (overdue), else amber, its type's colour on the edge;
+ * 2b. client work (SCOPE §6, the approved calendar sample): each open deliverable an outlined chip,
+ *    the client first ("Shetty · Reel 1"), red outlined when late;
  * 3. the holiday: a thin green strip with its name (cut for space, the date number turns green);
  * 4. others' events, an Admin's view (grey, dotted, "Ravi busy", decision 13);
  * 5. leave, last and at most one line a day: a bar in the leave tone along the bottom of the box,
  *    continuous across consecutive leave days of a week row, "Asha · On leave" for one person and
  *    "2 on leave" for several (PP-calendar-3, V5b). It is the first thing cut when the box is full,
  *    and "+N" counts it. Who, which type and a half day are in the day's detail only.
- * Only an overdue chip is red. On a phone's compact month
+ * Only an overdue chip is red. **The phone's full month counts instead** (v1.7.1's day cells, restored
+ * in the v1.8 fix round: the owner never approved named chips there, a seventh of a phone cuts them
+ * to a letter): 2 and 2b are one compact count, "3 due" in amber, a past day's open work a red pill
+ * with the count (`StripMode` "counts"). On a phone's compact month
  * each kind present is one thin bar with no text (`compactBars`). Every label is one line,
  * ellipsised by the view. Pure (ADR-0011): the views draw what this says.
  */
@@ -48,6 +53,31 @@ export type Strip =
       /** The task type's colour; null for a deliverable (no type: the tone's colour). */
       color: string | null;
     }
+  | {
+      /**
+       * A client deliverable (SCOPE §6, the approved calendar sample): an outlined chip with the
+       * box icon, the client first, "Shetty · Reel 1"; red outlined when late (its planned day is
+       * past and it is still open).
+       */
+      kind: "item";
+      key: string;
+      /** "Shetty · Reel 1": the client first. */
+      label: string;
+      client: string;
+      title: string;
+      late: boolean;
+    }
+  | {
+      /**
+       * The phone's full month (v1.7.1): what is due, the tasks and the open deliverables, as one
+       * count, "3 due" in amber, "1 overdue" (a red pill with the count) on a past day.
+       */
+      kind: "tasks";
+      key: string;
+      tone: "due" | "overdue";
+      count: number;
+      label: string;
+    }
   | { kind: "holiday"; key: string; label: string }
   | { kind: "busy"; key: string; label: string }
   | {
@@ -55,7 +85,20 @@ export type Strip =
       key: string;
       /** "Asha · On leave" or "2 on leave": the bar's text. */
       label: string;
-      /** "Asha off", "Asha off, half day", "2 off": what a screen reader hears. */
+      /**
+       * "Asha · Leave": the laptop bar's wording where "On leave" has no room (v1.8, owner 23 Oct:
+       * a leave bar never truncates); "2 on leave" stays as it is.
+       */
+      short: string;
+      /**
+       * One person's photo for the laptop bar's last wording, `[photo] Leave`, where even "Asha ·
+       * Leave" has no room (owner 23 Oct); null for several people ("2 on leave" stays).
+       */
+      person: { id: string; name: string; avatarFileId: string | null } | null;
+      /**
+       * "Asha, on leave", "Asha, on leave, half day", "2 on leave": what a screen reader hears,
+       * the first name always in full, whichever wording the bar shows.
+       */
       spoken: string;
       pending: boolean;
     };
@@ -128,7 +171,9 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
       kind: "leave",
       key: "leave",
       label: `${who} · On leave`,
-      spoken: only.half ? `${who} off, half day` : `${who} off`,
+      short: `${who} · Leave`,
+      person: { id: only.memberId, name: only.name, avatarFileId: only.avatarFileId ?? null },
+      spoken: only.half ? `${who}, on leave, half day` : `${who}, on leave`,
       pending: only.pending,
     };
   }
@@ -136,13 +181,21 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
     kind: "leave",
     key: "leave",
     label: `${people.length} on leave`,
-    spoken: `${people.length} off`,
+    short: `${people.length} on leave`,
+    person: null,
+    spoken: `${people.length} on leave`,
     pending: people.every((item) => item.pending),
   };
 }
 
+/**
+ * How a box tells what is due: "named", a chip each (the laptop's month), or "counts", one count
+ * (the phone's full month, v1.7.1).
+ */
+export type StripMode = "named" | "counts";
+
 /** Every line a day could show, in priority order (before the cut). */
-export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
+export function allStrips(day: CalendarDay, today: ISODate, mode: StripMode = "named"): Strip[] {
   const strips: Strip[] = [];
   for (const event of [...day.events].sort(eventOrder)) {
     strips.push({
@@ -156,12 +209,22 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
     });
   }
   const tone = day.date < today ? "overdue" : "due";
-  for (const due of day.due) {
+  const badge = mode === "counts" ? dueBadge(day, today) : null;
+  if (badge) strips.push({ kind: "tasks", key: "tasks", ...badge });
+  for (const due of mode === "counts" ? [] : day.due) {
     strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
   }
-  for (const item of day.items) {
+  // Client work after the tasks (SCOPE §6: timed tasks, due tasks, client work, "+N more").
+  for (const item of mode === "counts" ? [] : day.items) {
     if (item.done) continue;
-    strips.push({ kind: "due", key: `item-${item.id}`, label: item.title, tone, color: null });
+    strips.push({
+      kind: "item",
+      key: `item-${item.id}`,
+      label: `${item.client} · ${item.title}`,
+      client: item.client,
+      title: item.title,
+      late: day.date < today,
+    });
   }
   if (day.holiday) strips.push({ kind: "holiday", key: "holiday", label: day.holiday });
   const busy = new Map<string, string>();
@@ -178,8 +241,13 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
  * The lines a day's box shows: all of them when they fit in `max`, else `max - 1` and a "+N more"
  * line for the rest, the line counted in `max` (PP-calendar-14; leave cut first).
  */
-export function dayStrips(day: CalendarDay, today: ISODate, max = MAX_STRIPS): DayStrips {
-  const strips = allStrips(day, today);
+export function dayStrips(
+  day: CalendarDay,
+  today: ISODate,
+  mode: StripMode = "named",
+  max = MAX_STRIPS,
+): DayStrips {
+  const strips = allStrips(day, today, mode);
   const shown = strips.length <= max ? strips : strips.slice(0, max - 1);
   return {
     strips: shown,
@@ -214,7 +282,7 @@ export function dayLabel(day: CalendarDay, today: ISODate): string {
   const badge = dueBadge(day, today);
   let dueSaid = false;
   for (const strip of allStrips(day, today)) {
-    if (strip.kind === "due") {
+    if (strip.kind === "due" || strip.kind === "item" || strip.kind === "tasks") {
       if (!dueSaid && badge) parts.push(badge.label);
       dueSaid = true;
     } else if (strip.kind === "leave")

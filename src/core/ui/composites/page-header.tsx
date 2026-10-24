@@ -40,6 +40,8 @@ export function PageHeader({
   status,
   history,
   primary,
+  primaryOwnBar = false,
+  titleLines = 2,
   className,
 }: {
   title: ReactNode;
@@ -67,6 +69,19 @@ export function PageHeader({
    * bar (`StickyActions`), which the caller draws.
    */
   primary?: ReactNode;
+  /**
+   * `primary` draws its own phone sticky bar (`StickyActions`, the task page's next step,
+   * PP-crew-8): one element in both places, so its dialogs mount once. On a phone the header's
+   * slot is `display: contents` and the bar is fixed at the foot; from `md` up it is the header's
+   * action area.
+   */
+  primaryOwnBar?: boolean;
+  /**
+   * The phone bar's title lines: two (the default), or one with an ellipsis where the page's body
+   * shows the full title (the task page, the design gate of 23 Oct: the truncation rule). A laptop
+   * always allows two.
+   */
+  titleLines?: 1 | 2;
   className?: string;
 }) {
   return (
@@ -110,7 +125,12 @@ export function PageHeader({
 
         <div className="flex min-w-0 flex-1 items-center gap-0.5 md:block">
           <div className="flex min-w-0 items-center gap-3">
-            <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
+            <h1
+              className={cn(
+                "min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl",
+                titleLines === 1 ? "line-clamp-1 md:line-clamp-2" : "line-clamp-2",
+              )}
+            >
               {title}
             </h1>
             {status ? (
@@ -128,7 +148,10 @@ export function PageHeader({
         {primary ? (
           <div
             data-slot="page-primary"
-            className="hidden shrink-0 items-center gap-2 md:order-last md:flex"
+            className={cn(
+              "shrink-0 items-center gap-2 md:order-last md:flex",
+              primaryOwnBar ? "max-md:contents" : "hidden",
+            )}
           >
             {primary}
           </div>

@@ -52,6 +52,13 @@ export function daysBetween(from: ISODate, to: ISODate): number {
 }
 
 /**
+ * A planned date's words: `text` whole ("Planned 18 Oct · 2 days late"), and its parts as a row
+ * draws them, the date (`date`, "Planned 18 Oct") and the lateness (`late`, "2 days late", the red
+ * chip: text colour never carries a status alone, the design gate of 23 Oct).
+ */
+export type PlannedLine = { text: string; overdue: boolean; date: string; late: string | null };
+
+/**
  * A row's planned-date words, keeping "Planned" (6b.11 (2), owner 2026-10-10): "Planned 21 Oct",
  * "Planned today", and once it has passed on an open deliverable "Planned 18 Oct · 2 days late"
  * (`overdue`: the overdue tone); null without a date (the project page says "Not planned").
@@ -59,18 +66,17 @@ export function daysBetween(from: ISODate, to: ISODate): number {
 export function plannedLine(
   item: Pick<Item, "state" | "plannedDate">,
   today: ISODate,
-): { text: string; overdue: boolean } | null {
+): PlannedLine | null {
   if (item.plannedDate === null) return null;
+  const date = `Planned ${shortDate(item.plannedDate)}`;
   if (isOverdue(item, today)) {
-    const late = daysBetween(item.plannedDate, today);
-    return {
-      text: `Planned ${shortDate(item.plannedDate)} · ${late} ${late === 1 ? "day" : "days"} late`,
-      overdue: true,
-    };
+    const days = daysBetween(item.plannedDate, today);
+    const late = `${days} ${days === 1 ? "day" : "days"} late`;
+    return { text: `${date} · ${late}`, overdue: true, date, late };
   }
   if (item.plannedDate === today && item.state === "open")
-    return { text: "Planned today", overdue: false };
-  return { text: `Planned ${shortDate(item.plannedDate)}`, overdue: false };
+    return { text: "Planned today", overdue: false, date: "Planned today", late: null };
+  return { text: date, overdue: false, date, late: null };
 }
 
 export type Progress = {

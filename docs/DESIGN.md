@@ -31,7 +31,7 @@ These win over anything below that disagrees (the earlier sections are brought i
 lands). Precedence: the owner's later rulings (the truncation rule, the Me restructure, the nine
 approved major changes, change 6) win over the FINAL UI DECISIONS, which win over any earlier
 polish item (`docs/reviews/v18-polish/SCOPE.md`). The approved sample for the nine changes is
-`docs/design/v18-major-changes.html` (each change's real screen before and the target after, with
+`docs/design/v18-major-changes-sample.html` (each change's real screen before and the target after, with
 a Dark/Light toggle).
 
 ### FINAL UI DECISIONS (issue #89, comment 6322652532)
@@ -83,6 +83,24 @@ a Dark/Light toggle).
   sheet's content): **never truncate**; wrap as needed.
 - Withdrawn: PP-phone-5 and the min-width part of PP-project-3. Instead, expanded rows, checklists
   and the deliverable sheet show every group and stage name in full.
+- **Leave in the laptop calendar (owner 23 Oct, #89 comment 6367337528): never an ellipsis.** A
+  month bar or a Week/Day leave chip shows the first wording that fits on its one line, measured
+  before paint (never guessed from a name's length): "Asha · On leave", then "Asha · Leave", then
+  the person's photo (`PersonAvatar`, initials when there is none, drawn at 14 px inside the bar's
+  line so its height never changes) and "Leave". The day's accessible name always says the first
+  name in full ("Asha, on leave"), and a tap opens the day popup with every name whole. This is the
+  one place a photo sits inside a month box. "2 on leave" stays as it is.
+- **Leave on the phone's full month (owner, #89 comment 6370526089; the last rung owner 23 Oct,
+  asked directly in the v1.8 fix round): the same rungs, never an ellipsis.** "Asha · On leave",
+  "Asha · Leave", the photo and "Leave", then, only where even that overflows (a seventh of a 375
+  or 430 phone has about 41 to 49 px), **the photo alone** on the striped leave-tone bar. The
+  accessible name stays the full first name ("Jayalakshmi, on leave"); a tap opens the day sheet.
+- **The phone's full month counts what is due (v1.7.1's day cells, restored in the v1.8 fix
+  round; advisor audit #89 comment 6370400281, item 1).** The events by title (done struck
+  through), then one count for the tasks and the open deliverables, "3 due" in amber (tight letters, so
+  "12 due" reads whole at 375), a past day's open work a red soft pill with the alert icon and the
+  count. Per-item chips there were never v1.7.1's nor owner-approved; the laptop month keeps
+  naming each one (PP-calendar-5, SCOPE §6).
 - **Audit:** every ellipsis in the app sits on something that opens to the full text. An ellipsis
   on an element that opens nothing is a bug. (This replaces "two lines, then an ellipsis" in §2 and
   §6 where they disagree.)
@@ -91,7 +109,7 @@ a Dark/Light toggle).
 1. **Today and My Day:** the date line under the title; empty sections collapsed to one quiet line;
    larger attendance figures with the tiles keeping their current width (bigger numbers only, not
    a wider bar); risk chips; a laptop **"This week"** column of **at most 25–30% of the content
-   width** (e.g. `minmax(260px, 28%)`), two columns **only at a content width of 1200 px or more**;
+   width** (`minmax(260px, 30%)`), two columns **from a content width of 896 px** (owner 23 Oct, #89 comment 6370526089: a 1280 px laptop shows it; its content is about 960 px wide; was 1200 px);
    below that "This week" moves **under** "Overdue and risks" as a full-width section, never a
    squeezed third column and never hidden.
 2. **New project in 3 steps** (PP-forms-7): 1 Basics (start from a template, name, repeats), 2
@@ -138,6 +156,27 @@ a Dark/Light toggle).
   gap to a 20 px icon, the card's rounded tint), under a title line over a hairline: every row ⋯
   passes `title` (the record's name) to `DropdownMenuContent`.
 
+### Sample fidelity (SCOPE §6, owner 22 Oct)
+The tokens in `globals.css` are the approved samples' own values: the `.mx` / `.mx.light` blocks of
+`docs/design/v18-major-changes-sample.html` (the calendar sample uses the same block), with the
+project-page sample's sheet shadow. `status-badge.test.ts` ("sample fidelity") pins them. Where a
+sample value fails AA in the app's real compositions, the nearest passing value is kept and
+flagged here:
+
+| Flag | Sample | Kept | Why |
+|---|---|---|---|
+| Light green chip ink (`success`) | `#15803D` | `#157E3C` | `#15803D` on the green tint `#E6F4EA` is 4.42:1; `#157E3C` is 4.53:1. The Forest approve button stays `#15803D` (white on it is 5.0:1). |
+| Light count red (`brand`) | `#D92D34` | `#C42126` | white on `#D92D34` passes (4.8:1), but `brand` is also a chip ink and reads 4.20:1 on its tint `#FDECEC`; `#C42126` reads 5.1:1. |
+| Dark count red (`brand`) | `#E5484D` with white numerals | `#F2686D` with near-black numerals | white on `#E5484D` is 3.91:1, and as a chip ink it reads 4.13:1 on `#3A1517`. |
+| Placeholders | `faint` (`#8B8B93` / `#6B6B73`) | `muted-foreground` | placeholder text is text: `faint` is 3.4–3.5:1. `faint` is used for the row's › only. |
+| Chat: others' bubbles on the laptop panel, light (V5b E) | `--s3` (`#FFFFFF`) on the panel's `--s1` (`#FFFFFF`) | `muted` (`#EEEDE8`) from `md` | white on white has no edge; the phone's feed is the page (`background`), where `surface-3` shows, so the phone keeps the sample's value; dark keeps `surface-3` everywhere. |
+| Chat: the group's time (V5b E) | `faint` | `muted-foreground` | text, as for placeholders. |
+| Chat: Send on a laptop (V5b E) | solid `--primary` | solid only when the screen holds no next-step solid; else the neutral outline | one solid commit per layer (colour rule): the header's next step is already solid. The phone's Chat view is its own layer, so Send is solid there. |
+| Chat: the first bubble's top corner (V5b E) | the sample's CSS rounds it (16 px), but its name line defeats `:first-child` for others' groups | rounded on both sides | the sample's evident intent; joined corners are 6 px. |
+
+The mocks' type sizes (13 px body, 12.5 px meta, 11.5 px chips) are the sample drawn at a reduced
+scale inside a frame; the app keeps the approved scale of FINAL 3 (12/14/16/18/20/24).
+
 ### The V5b shared foundations (where they live)
 | Pattern | Use |
 |---|---|
@@ -146,7 +185,16 @@ a Dark/Light toggle).
 | The detail header (FINAL 6) | `DetailHeader` / `PageHeader`'s `status`, `history`, `primary` (`page-header.tsx`) |
 | The top bar's bell (change 9) | `TopBar` + `NavBadgeMark` place `topbar` |
 | Dates and times (change 6) | `DateInput` / `TimeInput` / `DateTimeInput` (`core/ui/primitives/date-time-input.tsx`), labels from `core/time/field.ts` |
-| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState` |
+| An empty section (FINAL 1, 7) | `EmptyRow` (`empty-state.tsx`); a whole empty list keeps `EmptyState`, with its one action inside it (`action`) and no heading row above it (Expenses' Add expense, Extra work's Add note; V5b C) |
+| Today / My Day's columns (change 1) | `DayColumns` + `ThisWeek` (`modules/dashboards`, `day-blocks.tsx`): a container query, two columns from a 56rem (896 px) content width, "This week" `minmax(260px, 30%)`; `laptopOnly` hides it below `md` (My tasks); `PhoneDateLine` for the phone's date |
+| A page's primary in the header (FINAL 6, PP-crew-8) | `DetailHeader`'s `primary`; with `primaryOwnBar` the same element is the phone's sticky bar (`StickyActions`), so its dialogs mount once |
+| A stepped form (change 2) | New project: each later step a `useOverlayHistory` layer over the one before, Back via `closeOverlaysThen`; one primary a step (Next, then the commit) |
+| Waiting words (FINAL 4) | from a day a dot plus the word (amber, red from three), never colour alone (`ApprovalGroup`, `ApprovalPersonRow`) |
+| A calendar item (change 5) | `TypeDot` + `typeTint` (`modules/calendar/components/calendar-chip.tsx`); secondary words on a tint are `text-foreground/80`, never muted (PP-light-3) |
+| Light tint contrast (PP-light-3) | `core/ui/theme/tint-contrast.ts`: a tint composited over its surface, checked at 4.5:1 (`tint-contrast.test.ts`, `type-tint-contrast.test.ts`) |
+| An alert's row (PP-alerts-2; the design gate, 23 Oct) | unread `bg-row-unread`, read `bg-row-read`: unread one shade lighter, never dimmer (light: unread the white card `#FFFFFF`, read `#F9F8F5` one warm step under it; dark: read the card `#131315`, unread `surface-2` `#1A1A1D`); text AA on both |
+| A person's photo (pull-in sample, V5b-D) | `PersonAvatar` / `AvatarStack` (`core/ui/composites/person-avatar.tsx`): 20 list rows, 28 chat and Alerts, 40 People and headers, 64 a person's page and Me; initials on `--avatar-1…4` (stable per member id, `core/lib/avatar.ts`); the ring and sizes in `globals.css`; lists load the 96 px thumbnail (`fileUrl(id, "thumb")`); never in calendar month boxes or long tables |
+| No access (FINAL 7, V5b-D) | `/forbidden?for=<keys>`; `blockedLine` (`core/permissions/blocked.ts`) names the area and who it is for from the permission table |
 
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`
@@ -160,6 +208,10 @@ or above (lint).
 | Section | `text-lg` | 18 / 28 px | a card's or a section's title |
 | Title | `text-xl` | 20 / 28 px | a page title |
 | Display | `text-2xl` | 24 / 32 px | one large figure ("68%", a count tile) |
+
+- **One exception under 12 px:** `text-count` (11 / 11 px, semibold) is the bell's count pill and
+  nothing else (owner, #89 comment 6338991185: a 16 px pill, so one digit makes a circle). Every
+  other count (bottom bar, sidebar, sheet) stays `text-xs`.
 
 - **Weights:** 400 for text, 500 for labels and buttons, 600 for titles and the one figure. No
   700+ in the app (the logo is the brand, not type).
@@ -175,22 +227,22 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Step | Surface token | Light | Dark | Shadow token | Used for |
 |---|---|---|---|---|---|
 | 0 Page | `surface-0` (= `background`) | `#F6F5F2` (warm cream; V5b) | `#0B0B0C` | none | the page |
-| 1 Raised | `surface-1` (= `card`) | `#FFFFFF` | `#141416` | `shadow-raised` (= `shadow-sm`, `shadow`) | cards and grouped lists (`bg-card shadow-raised` + hairline) |
-| 2 Floating | `surface-2` | `#FFFFFF` | `#18181B` | `shadow-floating` (= `shadow-md`) | menus, popovers, tooltips, toasts, a floating sticky bar |
-| 3 Modal | `surface-3` | `#FFFFFF` | `#1C1C1F` | `shadow-modal` (= `shadow-lg`, `shadow-xl`) | dialogs and sheets |
+| 1 Raised | `surface-1` (= `card`) | `#FFFFFF` | `#131315` | `shadow-raised` (= `shadow-sm`, `shadow`) | cards and grouped lists (`bg-card shadow-raised` + hairline) |
+| 2 Floating | `surface-2` | `#FFFFFF` | `#1A1A1D` | `shadow-floating` (= `shadow-md`) | menus, popovers, tooltips, toasts, a floating sticky bar |
+| 3 Modal | `surface-3` | `#FFFFFF` | `#222226` | `shadow-modal` (= `shadow-lg`, `shadow-xl`) | dialogs and sheets |
 
-- `popover` keeps its v1.7 values (`#FFFFFF` / `#141416`) until V2 moves menus and sheets onto
-  steps 2 and 3 (and re-checks `muted` fills on them in dark).
-- **The sidebar** (`sidebar`, `#EFEEE9` / `#101013`) is chrome, a second neutral one step off the
+- `popover` is step 2 (`#FFFFFF` / `#1A1A1D`), the sample's sheet surface.
+- **The sidebar** (`sidebar`, `#EFEEE9` / `#0F0F11`) is chrome, a second neutral one step off the
   page: warmer and darker in light, cooler in dark, under the cards (V5b, FINAL 2); its active item
-  `sidebar-accent` (`#E6E5DF` / `#1F1F23`).
+  `sidebar-accent` is the sample's `s3` (`#FFFFFF` / `#222226`).
 - `muted` / `secondary` / `accent` (`#EEEDE8` / `#1F1F23`) are quiet fills (hover rows, active
-  nav), not elevation. `border` / `input` (`#E3E2DD` / `#26262A`) are hairlines (about 1.3:1 on a
-  card). Light's raised shadow is the approved sample's soft pair (`0 1px 2px` + `0 4px 14px`, 6%).
+  nav), not elevation. `border` / `input` (`#E3E2DD` / `#25252A`) are hairlines (about 1.3:1 on a
+  card). The raised shadow is the approved sample's: light `0 1px 2px` + `0 4px 14px` at 6%; dark a 3% white top edge + `0 6px 18px` at 35% black. The modal shadow is the project-page sample's sheet shadow.
 - **No pure white page** anywhere (V5b major change 4): white is a card or an overlay, never the
   page. `status-badge.test.ts` holds the three layers apart and their text at AA.
-- Text: `foreground` (`#18181B` / `#FAFAF9`) and `muted-foreground` (`#66666E` / `#A1A1AA`,
-  ≥ 4.5:1 on the page, every surface, the quiet fills and the sidebar).
+- Text: `foreground` (`#18181B` / `#EDEDEE`) and `muted-foreground` (`#62626A` / `#9D9DA5`,
+  ≥ 4.5:1 on the page, every surface, the quiet fills and the sidebar). `faint` (`#8B8B93` /
+  `#6B6B73`) is for decorative marks only (a row's ›), a 3:1 graphic, never text.
 - No other shadows: no `shadow-xs`, `shadow-2xl`, `shadow-inner`, no `shadow-[…]` (lint).
 
 ## 4. Colour: red is urgent or destructive only (ADR-0015)
@@ -198,18 +250,18 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 | Tone | Token | Light | Dark | Means |
 |---|---|---|---|---|
-| Red | `danger` (= `brand`, `destructive`) | `#C42126` | `#F2686D` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), **cancelled** (final; owner correction 2026-10-21, reversing C5), and destructive or final actions |
-| Amber | `attention` | `#AD5009` | `#FBBF24` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
-| Blue | `info` | `#1D4ED8` | `#7DA2FF` | in progress, new, unread: work in motion only |
-| Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
-| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
+| Red | `danger` (chips and red text; `brand` `#C42126` / `#F2686D` for counts; `destructive`) | `#B42318` on `#FDECEC` | `#FF8A8F` on `#3A1517` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), **cancelled** (final; owner correction 2026-10-21, reversing C5), and destructive or final actions |
+| Amber | `attention` | `#8F5400` on `#FDF3E2` | `#F5B55A` on `#33240E` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
+| Blue | `info` | `#2952CC` on `#E9EFFD` | `#8FB0FF` on `#18203A` | in progress, new, unread: work in motion only |
+| Green | `success` | `#157E3C` on `#E6F4EA` (flagged, see §Decisions) | `#5FD497` on `#10291C` | done, approved, present, active |
+| Grey | `neutral` | `#62626A` on `#EFEFEF` | `#9D9DA5` on `#232327` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
-| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#52525B` on `#F1F1F2`, stripes `#E4E4E7` | `#A1A1AA` on `#27272A`, stripes `#323236` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
-| Today lift | `today` (= `surface-3`) | `#FFFFFF` + `shadow-raised` | `#1C1C1F` | today's whole box on the calendar, under the red circle on its date: a faint neutral lift one surface step above the other days, never a red wash and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
+| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#62626A` on `#F8F8F9`, stripes `#DFDFE1` (PP-light-2: stronger stripes, 1.25:1 on the bar, with the text still 4.5:1 on a stripe; the sample's `#EFEFEF` stripes on a clear bar were too faint for PP-light-2) | `#9D9DA5` on `#27272A`, stripes `#232327` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
+| Today tint | `today` | `#F3F3F3` | `#222226` (= `surface-3`) | today's whole box on the calendar, under the red circle on its date: a neutral tint (light: one grey step under the white boxes; dark: one surface step up), never a red wash, never an outline (the selection's outline skips today, the design gate of 23 Oct) and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 
-- Each tone has a `*-soft` background (12% over the light surface, 18% over the dark) whose text
-  reads at ≥ 4.5:1; `status-badge.test.ts` reads `globals.css` and fails below that.
+- Each tone has a `*-soft` background (the samples' chip tints) whose text reads at ≥ 4.5:1, and
+  the ink reads at ≥ 4.5:1 on the page and the card too; `status-badge.test.ts` reads `globals.css` and fails below that.
 - **Status → colour is one map:** `STATUS_TONES` and `attendanceStatus` in
   `src/core/lib/status-tones.ts` (B13). A screen asks for a tone from a status (`statusTone`), a
   domain function or `StatusBadge` / `StatusDot`; it never types a colour of its own.
@@ -220,14 +272,28 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   palette colours (`bg-red-500`, `text-white`), no `bg-[#…]` (lint). A new colour is a token here
   first.
 
-- **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled `brand`
-  red circle on its date number and its whole box one surface step up, `bg-today shadow-raised` (PP-calendar-15), the selected
-  day the outlined box; the weekly off's date number is `muted-foreground` and its box tinted
+- **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled solid red (`destructive-solid`, white digit 5.85:1 in both themes; the gate follow-up, 23 Oct)
+  red circle on its date number and its whole box the neutral `bg-today` tint, never outlined (PP-calendar-15; the design
+  gate, 23 Oct), any other selected day the outlined box; the phone's full month is the live v1.7.1 seven-column
+  month (the owner's correction, 23 Oct: the two-column `PhoneMonth` is gone); the weekly off's date number is `muted-foreground` and its box tinted
   `bg-muted/50` (blue means in progress); weekdays read "Mon Tue …" on a laptop, single letters on a phone. One chip look for the month and the day's
   dialog (`calendar-chip`): an event in its type's colour (tint and left edge), the title before
   the time; what is due by name in `attention` (amber) or `danger` (red, overdue) with its clock or
   alert icon and the type's colour on its edge; leave in `leave` with the palm icon; done dimmed
-  with a small ✓, never struck through.
+  with a small ✓, never struck through. **Exception (owner, 24 Oct):** the phone's full month, where a day box has no room for the ✓, strikes a done item through and dims it, as v1.7.1 did; the laptop keeps the dimmed ✓.
+- **Tasks vs client work (the approved calendar sample, SCOPE §6, owner 2026-10-22):** a task is a
+  filled soft chip, its type's colour as the tint and a small leading dot (`TypeDot`), no side
+  stripe; client work is an outlined chip (`border-border`, no fill) with the box icon and the
+  client first, "Shetty · Reel 1", outlined and written in `danger` when late. A month box's order
+  is fixed: timed tasks, due tasks, client work, then "+N more" (`allStrips`). Every chip is one
+  line at a fixed height ending in "…"; the day's popup or sheet shows the full text. The Owner's
+  and Admins' **All · Tasks · Client work** switch (`calendar-show`, a segmented control beside
+  Filters, a full-width row under the phone's header) is view state remembered per device
+  (`localStorage`, read after mount), never the address; leave, holidays and the weekly off always
+  show. Their day popup is "Tasks · n", then "Client work · n" grouped by client, then who is away,
+  then "Open day" and "+ New task on ‹day›". Crew's calendar is unchanged. **Today** is dimmed
+  (`aria-disabled`, out of the tab order) while the shown day, week or month holds today. The
+  Day and Week hour rail reads "10 am", "12 pm" (`formatHour`, `core/time`).
 
 ### The action colour rule (option A, with the approved colour plan of 2026-10-21)
 **The colour plan (owner-approved 2026-10-21, "colour plan approved with forest"; ADR-0015
@@ -326,8 +392,10 @@ Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by
 |---|---|---|---|
 | `radius-control` | `rounded-control` (= `rounded-sm`, `rounded-md`) | 6 px | buttons, inputs, selects, small chips' squares, menu items |
 | `radius-card` | `rounded-card` (= `rounded-lg`, `rounded`) | 10 px | cards, list groups, banners |
-| `radius-sheet` | `rounded-sheet` (= `rounded-xl`) | 12 px | dialogs, sheets, large panels |
+| `radius-sheet` | `rounded-sheet` (= `rounded-xl`) | 14 px (the sample's sheet) | dialogs, sheets, large panels |
 | full | `rounded-full` | round | chips, pills, dots, avatars |
+
+Chat only (V5b E, the approved chat sample): `rounded-bubble` (16 px, a message bubble; a group's joined corners are `rounded-control`) and `rounded-composer` (22 px, the message field).
 
 No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 

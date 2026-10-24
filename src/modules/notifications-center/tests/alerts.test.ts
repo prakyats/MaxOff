@@ -14,12 +14,9 @@ describe("the Alerts filter (5B decision 10)", () => {
     expect(alertsFilterFrom("UNREAD")).toBe("all");
   });
 
-  it("writes the address with only what differs from the first page of All", () => {
+  it("writes the address with only what differs from All (one continuous list, V5b-D)", () => {
     expect(alertsHref("all")).toBe("/notifications");
-    expect(alertsHref("all", 1)).toBe("/notifications");
-    expect(alertsHref("all", 3)).toBe("/notifications?page=3");
     expect(alertsHref("unread")).toBe("/notifications?show=unread");
-    expect(alertsHref("unread", 2)).toBe("/notifications?show=unread&page=2");
   });
 });
 

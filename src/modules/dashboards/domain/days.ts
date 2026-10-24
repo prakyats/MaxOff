@@ -40,3 +40,17 @@ export function instantWithin(instant: string, from: ISODate, to: ISODate): bool
   const date = toISTDate(instant);
   return date >= from && date <= to;
 }
+
+/** The day line under Today's and My Day's title (PP-today-1, PP-phone-6): "Thursday, 22 October". */
+export function dateLine(date: ISODate): string {
+  return formatIST(istDayStart(date), "EEEE, d MMMM");
+}
+
+/**
+ * The header's one line of context (FINAL 1, major change 1): the date, then the greeting by first
+ * name, "Thursday, 22 October · Hello, Prishit". A phone shows the date line alone.
+ */
+export function dayContext(date: ISODate, name: string | null | undefined): string {
+  const first = name?.trim().split(/\s+/)[0];
+  return first ? `${dateLine(date)} · Hello, ${first}` : dateLine(date);
+}

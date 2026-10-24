@@ -216,7 +216,13 @@ export type AvailabilitySource = {
   blocks: readonly { startAt: string | null; endAt: string | null }[];
 };
 
-export type PersonSource = { id: string; name: string; engagement: "permanent" | "freelance" };
+export type PersonSource = {
+  id: string;
+  name: string;
+  engagement: "permanent" | "freelance";
+  /** Their photo, from the same directory read as the name (V5b-D): the day popup shows it. */
+  avatarFileId?: string | null;
+};
 
 /** Who the viewer is to the calendar (PERMISSIONS §2 "Calendar"). */
 export type CalendarScope = "owner" | "admin" | "staff";
@@ -269,6 +275,8 @@ export type BusyItem = {
   kind: "busy";
   memberId: string;
   name: string;
+  /** Their photo (V5b-D): the day popup only, never a month box. */
+  avatarFileId?: string | null;
   date: ISODate;
   startAt: string;
   endAt: string;
@@ -278,6 +286,11 @@ export type LeaveItem = {
   kind: "leave";
   memberId: string;
   name: string;
+  /**
+   * Their photo (V5b-D): the day popup, and the laptop's leave bar where even "Name · Leave" has
+   * no room ("[photo] Leave", owner 23 Oct).
+   */
+  avatarFileId?: string | null;
   date: ISODate;
   /** "Leave", "Half day", "Comp leave" in full detail; "On leave" / "Half day" for an Admin's others. */
   label: string;
@@ -377,6 +390,11 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
     const person = personOf.get(memberId);
     if (!person) return "Someone";
     return person.engagement === "freelance" ? `${person.name} (freelancer)` : person.name;
+  };
+  // Their photo, only when they have one (the day popup's avatar; V5b-D).
+  const photoOf = (memberId: string): { avatarFileId?: string } => {
+    const id = personOf.get(memberId)?.avatarFileId;
+    return id ? { avatarFileId: id } : {};
   };
   const inRange = (date: ISODate) => date >= range.from && date <= range.to;
   const passes = (task: {
@@ -488,6 +506,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         kind: "leave",
         memberId: span.memberId,
         name: nameOf(span.memberId),
+        ...photoOf(span.memberId),
         date,
         label: LEAVE_LABELS[span.type],
         half: span.type === "half_day",
@@ -509,6 +528,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "leave",
           memberId: row.memberId,
           name: nameOf(row.memberId),
+          ...photoOf(row.memberId),
           date: row.day,
           label,
           half: row.leave === "half_day",
@@ -533,6 +553,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "busy",
           memberId: row.memberId,
           name: nameOf(row.memberId),
+          ...photoOf(row.memberId),
           date: row.day,
           startAt,
           endAt,

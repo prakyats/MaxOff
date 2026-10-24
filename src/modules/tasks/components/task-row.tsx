@@ -1,22 +1,21 @@
-import { ChevronRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { cn } from "@/core/lib/utils";
-import { DrillLink } from "@/core/ui/composites/drill-link";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { type StatusTone, StatusDot } from "@/core/ui/composites/status-badge";
+import { ListRow, ListRowSkeleton } from "@/core/ui/composites/list-row";
+import { type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
+import { type StatusTone, StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { UnreadMarker } from "./unread-marker";
 
 /**
- * One task in a list (4.5): the Tasks tab's groups, "Needs you" and the open tasks. A drill-down
- * to the task's page (ARCHITECTURE §14.2 b, it slides in the installed app), phone first: the
- * title with the state as a dot and a word (§14.1: never a badge column), the deadline and whose
- * it is on the second line, and at most one line that says why it is here ("for Asha", "Asha
- * hasn't noted it · 9 h"). Under large text the state drops under the title (`CARD_ROW_*`).
- * Unread comments show as a bubble with the count beside the state (Kickoff 4 decision 28).
- * A server component: it draws nothing a phone has to hydrate.
+ * One task in a list (4.5): the Tasks tab's groups, "Needs you" and the open tasks, Today and My
+ * Day. **The one row anatomy** (`ListRow`, DESIGN §Decisions FINAL 5; V5b major change 9): the
+ * title on one line (the task's page shows it in full) with the unread comments as a small muted
+ * badge beside it (PP-admin-6, PP-crew-6), the deadline and whose it is on the muted meta line,
+ * at most one line that says why it is here ("for Asha", "Asha hasn't noted it · 9 h"), then on
+ * the right the chips (the reason, "Overdue" red or "Note it" amber, then the state; PP-tasks-2,
+ * PP-admin-13) and ›. A drill-down to the task's page (ARCHITECTURE §14.2 b). A server component:
+ * it draws nothing a phone has to hydrate.
  */
 export function TaskRow({
   id,
@@ -28,75 +27,52 @@ export function TaskRow({
   flag,
   note,
   unread = 0,
-  chevron = false,
+  person,
 }: {
   id: string;
   title: string;
   /** "Due Thu 1 Oct, 6:00 pm · Asha · Sharma Weddings". */
   meta: string;
-  /** The task state (the dot's tone) and its word. */
+  /** The task state (the chip's tone) and its word. */
   status: string;
   statusLabel: string;
   tone?: StatusTone;
-  /** A second marker beside the state: "Overdue", "High". */
+  /** A chip before the state: "Overdue", "Note it", "High". */
   flag?: { label: string; tone: StatusTone } | null;
   /** Why the task is in this list, one line. */
   note?: ReactNode;
   /** The viewer's unread comments on it (`task_unread_counts()`). */
   unread?: number;
-  /** A chevron at the right edge, saying the row opens the task (Today's My tasks). */
-  chevron?: boolean;
+  /** The primary owner, from the directory the page already read: their photo leads (#89). */
+  person?: AvatarPerson | undefined;
 }) {
-  const body = (
-    <>
-      <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-        <span
-          className={cn("text-sm font-medium break-words", CARD_ROW_TITLE)}
-          data-slot="task-row-title"
-        >
+  return (
+    <ListRow
+      slot="task-row"
+      data={{ "data-task": id }}
+      href={`/tasks/${id}`}
+      // Block and cut themselves: an inline span would run on past its cut parent's box, reaching
+      // past the screen's edge at large text (the `expectNoHorizontalScroll` sweep).
+      title={
+        <span data-slot="task-row-title" className="block truncate">
           {title}
         </span>
-        {/* Two markers wrap under each other at large text rather than reach past the edge. */}
-        <span
-          className={cn(
-            "flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1",
-            CARD_ROW_TRAILING,
-          )}
-        >
-          <UnreadMarker count={unread} />
-          {flag ? <StatusDot status={flag.label} tone={flag.tone} label={flag.label} /> : null}
-          <StatusDot status={status} label={statusLabel} {...(tone ? { tone } : {})} />
+      }
+      titleBadge={<UnreadMarker count={unread} />}
+      lead={person ? <PersonAvatar person={person} size={20} /> : undefined}
+      meta={
+        <span data-slot="task-row-meta" className="block truncate">
+          {meta}
         </span>
-      </span>
-      <span className="text-muted-foreground text-xs break-words" data-slot="task-row-meta">
-        {meta}
-      </span>
-      {note ? (
-        <span className="text-xs font-medium break-words" data-slot="task-row-note">
-          {note}
-        </span>
-      ) : null}
-    </>
-  );
-  return (
-    <li data-slot="task-row" data-task={id}>
-      <DrillLink
-        href={`/tasks/${id}`}
-        className={cn(
-          "focus-visible:ring-ring flex min-h-16 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset",
-          chevron ? "items-center gap-3" : "flex-col gap-1",
-        )}
-      >
-        {chevron ? (
-          <>
-            <span className="flex min-w-0 flex-1 flex-col gap-1">{body}</span>
-            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-          </>
-        ) : (
-          body
-        )}
-      </DrillLink>
-    </li>
+      }
+      note={note ? <span data-slot="task-row-note">{note}</span> : undefined}
+      chips={
+        <>
+          {flag ? <StatusBadge status={flag.label} tone={flag.tone} label={flag.label} /> : null}
+          <StatusBadge status={status} label={statusLabel} {...(tone ? { tone } : {})} />
+        </>
+      }
+    />
   );
 }
 
@@ -123,18 +99,21 @@ export function TaskRowList({
 
 /**
  * The skeleton of a `TaskRowList` (ARCHITECTURE §14.1: a skeleton traces its screen): each row the
- * height, padding and lines of a `TaskRow` (the title with the state dot at its right, the meta
- * line), `min-w-0` on the columns so the rem-wide bars survive 200% text (3c review).
+ * height, padding and lines of a `TaskRow` (`ListRowSkeleton`: the title with a chip and › on its
+ * line, the meta line under both), `max-w-full` on the bars so they survive 200% text.
  */
 export function TaskRowsSkeleton({
   rows,
   label,
   notes = 0,
+  avatars = false,
 }: {
   rows: number;
   label: string;
   /** How many rows (the first ones) carry the third line ("Asha hasn't noted it · 9 h"). */
   notes?: number;
+  /** Rows led by the primary owner's photo (`TaskRow`'s `person`). */
+  avatars?: boolean;
 }) {
   return (
     <ul
@@ -144,24 +123,7 @@ export function TaskRowsSkeleton({
       className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
       {Array.from({ length: rows }, (_, index) => (
-        <li key={index} className="flex min-h-16 min-w-0 flex-col gap-1 px-4 py-3">
-          <span className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
-            <span className={cn("flex h-5 min-w-0 items-center", CARD_ROW_TITLE)}>
-              <Skeleton className="h-4 w-44 max-w-full" />
-            </span>
-            <span className={cn("flex h-4 items-center", CARD_ROW_TRAILING)}>
-              <Skeleton className="h-3 w-20" />
-            </span>
-          </span>
-          <span className="flex h-4 min-w-0 items-center">
-            <Skeleton className="h-3 w-56 max-w-full" />
-          </span>
-          {index < notes ? (
-            <span className="flex h-4 min-w-0 items-center">
-              <Skeleton className="h-3 w-40 max-w-full" />
-            </span>
-          ) : null}
-        </li>
+        <ListRowSkeleton key={index} note={index < notes} lead={avatars} />
       ))}
     </ul>
   );

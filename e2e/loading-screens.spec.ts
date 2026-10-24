@@ -169,7 +169,8 @@ const TASK_WORK: Record<string, Point> = {
 const ME: Record<string, Point> = {
   "profile card": {
     held: '[aria-label="Loading Me"] > [data-slot="card"]',
-    settled: 'main [data-slot="card"]',
+    // V5b: the identity block is its own card (`me-identity`), the first on the page.
+    settled: 'main [data-slot="me-identity"]',
   },
 };
 
@@ -194,9 +195,9 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/today",
     marker: 'data-slot="loading-today"',
     hold: "/rest/v1/rpc/emails_held_today",
-    // Since the Today refresh (owner 2026-10-09) "Needs you" comes first and always stands, then
-    // the card: the heading, then the first compact approval row or, with nothing waiting, the
-    // "Nothing needs you." line, which starts where the first row does. The card follows however
+    // Since the Today refresh (owner 2026-10-09) "Needs you" comes first, then the card: the
+    // heading, then the first compact approval row (every run has the Owner's approvals; with
+    // nothing waiting, V5b's one quiet line takes the section's place). The card follows however
     // many rows wait (up to five, from every spec's Owner approvals), so its place is traced by
     // the static render at two rows (PROGRESS "Today refresh"), not here.
     trace: {
@@ -223,9 +224,12 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
         held: '[data-slot="attendance-strip-skeleton"]',
         settled: '[data-slot="attendance-strip"]',
       },
+      // With nothing waiting, Needs you is one quiet line with no heading (V5b, FINAL 1), where
+      // the heading would start.
       "needs you heading": {
         held: '[data-slot="loading-today"] > section > :first-child',
-        settled: '[data-slot="today-needs-you"] > :first-child',
+        settled:
+          '[data-slot="today-needs-you"] > :first-child, [data-slot="today-needs-you-empty"]',
       },
     },
   },
@@ -438,8 +442,13 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "task page",
     trace: {
       ...TASK_VIEWS,
+      // V5b-D: the people's photo stack and names lead the card (PP-task-3), then each person.
+      "people at a glance": {
+        held: '[data-slot="loading-task-people-summary"]',
+        settled: '[data-slot="task-people-summary"]',
+      },
       "first person": {
-        held: '[data-slot="loading-task-details"] > :first-child > :nth-child(2) > :first-child',
+        held: '[data-slot="loading-task-person"]',
         settled: '[data-slot="task-person"]',
       },
     },
@@ -460,20 +469,25 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     },
     trace: {
       ...TASK_GLANCE,
-      "first comment": {
-        held: '[data-slot="loading-task-chat"] > :first-child > :first-child, [data-slot="loading-task-chat-sheet"] > :nth-child(2) > div > :first-child',
+      // v1.8 V5b E (deliberate): the feed's first row is its day line ("Today"), traced in the
+      // panel on a laptop and the full-height view on a phone. The first message is no longer the
+      // point: the red "New" line sits above it when something is unread (data, not layout).
+      "first day line": {
+        held: '[data-slot="loading-chat-day"]',
         settled:
-          '[data-slot="task-panel-chat"] [data-slot="task-comment"], [data-slot="task-chat-sheet"] [data-slot="task-comment"]',
+          '[data-slot="task-panel-chat"] [data-slot="chat-day"], [data-slot="task-chat-sheet"] [data-slot="chat-day"]',
       },
     },
   },
-  // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you" (always there, whatever
-  // it holds), Staff's first group (their own task, not noted).
+  // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you", Staff's first group
+  // (their own task, not noted). An empty "Needs you" is one quiet line since PP-tasks-1, so the
+  // Owner's and the Admin's runs give it something to decide: a Crew suggestion.
   {
     role: "owner",
     path: "/tasks",
     marker: 'aria-label="Loading tasks"',
     hold: "/rest/v1/tasks",
+    fixture: "suggestion",
     trace: TASKS_TEAM,
   },
   {
@@ -481,6 +495,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/tasks",
     marker: 'aria-label="Loading tasks"',
     hold: "/rest/v1/tasks",
+    fixture: "suggestion",
     trace: TASKS_TEAM,
   },
   {
@@ -617,7 +632,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role,
     path: "/notifications",
     marker: 'data-slot="loading-notifications"',
-    hold: "/rest/v1/rpc/notifications_inbox",
+    hold: "/rest/v1/rpc/notifications_inbox_page",
     fixture: "notification",
     trace: ALERTS,
   })),
@@ -851,7 +866,7 @@ type HeldAtNavigation = {
 
 /**
  * Settings: the first and the last section (each card's description wraps to the page's lines
- * from `md` up), Help and troubleshooting under them, and that row's second line.
+ * from `md` up), the Help group under them, and its row's second line.
  */
 const SETTINGS: Record<string, Point> = {
   "first section": {
@@ -862,12 +877,13 @@ const SETTINGS: Record<string, Point> = {
     held: '[data-slot="loading-settings"] > div > section:last-child li:last-child',
     settled: '[data-slot="settings-list"] > section:last-child li:last-child',
   },
+  // PP-settings-2: Help is a group of its own under the others, its row a section row.
   "help and troubleshooting": {
-    held: '[data-slot="loading-settings"] > ul',
+    held: '[data-slot="loading-settings"] > section ul',
     settled: '[data-slot="settings-help"]',
   },
   "its second line": {
-    held: '[data-slot="loading-settings"] > ul li > span > :nth-child(2)',
+    held: '[data-slot="loading-settings"] > section ul li > div > span > :nth-child(2)',
     settled: '[data-slot="settings-guide-link"] > span > :nth-child(2)',
   },
 };
@@ -983,3 +999,223 @@ for (const role of ["owner", "admin", "staff"] as const) {
     }
   });
 }
+
+/**
+ * "This week" as the laptop's right column (major change 1, FINAL 8, PP-crew-7; owner 23 Oct,
+ * #89 comment 6370526089): from an **896 px content width** (the owner asked for 1024 px; a 1280 px laptop’s content is about 960 px wide), so a 1280 px laptop shows it, at no
+ * more than 30% of the width. Held at 1280 and 1440 px, the skeleton's column (`ThisWeekSkeleton`)
+ * is where the page's is, on Today (the Owner), My Day and My tasks (Crew): the same left edge,
+ * width and top, and its first day and first row at the page's. On a phone My tasks shows no
+ * column at all (as live); My Day's and Today's sit under the rest (their own specs).
+ */
+const WEEK_COLUMN: Record<string, Point> = {
+  column: { held: '[data-slot="day-week"]', settled: '[data-slot="day-week"]' },
+  "first day": {
+    held: '[data-slot="loading-this-week"] ul > li:first-child',
+    settled: '[data-slot="week-blocks"] > ul > li:first-child',
+  },
+  "first row": {
+    held: '[data-slot="loading-this-week"] ul > li:first-child > :nth-child(2)',
+    settled: '[data-slot="week-blocks"] > ul > li:first-child [data-slot="week-row"]',
+  },
+};
+
+const WEEK_SCREENS = [
+  {
+    role: "owner",
+    path: "/today",
+    marker: 'data-slot="loading-today"',
+    hold: "/rest/v1/rpc/emails_held_today",
+  },
+  {
+    role: "staff",
+    path: "/my-day",
+    marker: 'data-slot="loading-my-day"',
+    hold: "/rest/v1/holidays",
+  },
+  { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"', hold: "/rest/v1/tasks" },
+] as const;
+
+/** Each point's box (document coordinates) on its first visible match, or null. */
+async function boxesOf(page: Page, selectors: Record<string, string>) {
+  return page.evaluate((points) => {
+    const boxes: Record<string, { x: number; y: number; width: number } | null> = {};
+    for (const [name, selector] of Object.entries(points)) {
+      const element = [...document.querySelectorAll<HTMLElement>(selector)].find((candidate) => {
+        const box = candidate.getBoundingClientRect();
+        return box.height > 0 && candidate.checkVisibility();
+      });
+      const box = element?.getBoundingClientRect();
+      boxes[name] = box ? { x: box.left, y: box.top + window.scrollY, width: box.width } : null;
+    }
+    return boxes;
+  }, selectors);
+}
+
+for (const width of [1280, 1440] as const) {
+  test.describe(`This week's column at ${width} px, held`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    for (const screen of WEEK_SCREENS) {
+      test.describe(screen.role, () => {
+        test.use({ storageState: storageStateFor(screen.role) });
+
+        test(`${screen.path}: the right column, at most 30%, traced by its skeleton`, async ({
+          page,
+        }, info) => {
+          test.skip(info.project.name !== "desktop", "a laptop's column");
+          const user = USERS[screen.role];
+          // A deadline of the Crew member's in three days: a row in every reader's week.
+          const prefix = `Week ${width} ${screen.role} ${screen.path} `;
+          const made = await makeFixture(prefix, "staff task", screen.role);
+          const session = await ownSession(page, user.email, user.password);
+          const held = await holdReads(screen.hold, session);
+          try {
+            await page.goto(screen.path, { waitUntil: "commit" });
+            const loading = page.locator(`[${screen.marker}]`);
+            await expect(loading).toBeVisible();
+            await expect.poll(() => held.caught()).toBe(true);
+            const skeleton = await boxesOf(page, pick(WEEK_COLUMN, "held"));
+            held.release();
+            await expect(loading).toHaveCount(0);
+            await expectSettled(page);
+            await hydrated(page);
+            await expect(page.locator('[data-slot="week-day"]').first()).toBeVisible();
+            const settled = await boxesOf(page, pick(WEEK_COLUMN, "settled"));
+            const moves = Object.keys(WEEK_COLUMN).flatMap((name) => {
+              const from = skeleton[name];
+              const to = settled[name];
+              if (!from) return [`${name}: not in the skeleton`];
+              if (!to) return [`${name}: not on the page`];
+              return (["x", "y", "width"] as const).flatMap((side) =>
+                Math.abs(to[side] - from[side]) > TRACE_TOLERANCE
+                  ? [`${name} ${side}: ${from[side].toFixed(1)} → ${to[side].toFixed(1)}`]
+                  : [],
+              );
+            });
+            expect(moves, "nothing moves when the data arrives").toEqual([]);
+
+            // Beside the main column, at its top, and no wider than 30% of the content.
+            const columns = await page.locator('[data-slot="day-columns"]').boundingBox();
+            const main = await page
+              .locator('[data-slot="day-columns"] > div > :first-child')
+              .boundingBox();
+            const week = await page.locator('[data-slot="day-week"]').boundingBox();
+            expect(columns!.width, "a content width of 896 px or more").toBeGreaterThanOrEqual(896);
+            expect(week!.x).toBeGreaterThanOrEqual(main!.x + main!.width);
+            expect(Math.abs(week!.y - main!.y)).toBeLessThanOrEqual(TRACE_TOLERANCE);
+            expect(week!.width).toBeLessThanOrEqual(columns!.width * 0.3 + TRACE_TOLERANCE);
+            // Its days and rows: the fixture's deadline, by name, opening the task.
+            const due = page
+              .locator('[data-slot="day-week"] [data-slot="week-row"][data-kind="due"]')
+              .filter({ hasText: `${prefix}task` });
+            if ((await due.count()) > 0) {
+              await expect(due.getByRole("link")).toHaveAttribute("href", `/tasks/${made.task}`);
+            } else {
+              // The week is past its cap with other specs' work: "See the week".
+              await expect(page.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+            }
+          } finally {
+            held.release();
+            await made.remove();
+          }
+        });
+      });
+    }
+  });
+}
+
+/**
+ * The laptop calendar's toolbar on two rows (v1.8, owner #89): where one row does not fit, All ▾
+ * and Filters wrap under Day · Week · Month, "‹ month ›" and Today, and the skeleton wraps the
+ * same way (the same parts at the same widths, the month's name written under its bar). Held at
+ * 900 and 1024 px for the Owner (All ▾ beside Filters), each row, the pager, Filters and the
+ * month's last row are where the page's are: the same left edge, top and width.
+ */
+const TOOLBAR_ROWS: Record<string, Point> = {
+  "row 1": {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-main"]',
+    settled: '[data-slot="calendar-controls-main"]',
+  },
+  "row 2": {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-side"]',
+    settled: '[data-slot="calendar-controls-side"]',
+  },
+  pager: {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-main"] > :last-child',
+    settled: '[data-slot="calendar-pager"]',
+  },
+  Filters: {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-controls-side"] > :last-child',
+    settled: '[data-slot="calendar-filters-button"]',
+  },
+  "last week": {
+    held: '[data-slot="loading-calendar"] [data-slot="calendar-month"] > div > ol:last-child',
+    settled: '[data-slot="calendar-month"] > div > ol:last-child',
+  },
+};
+
+for (const width of [900, 1024] as const) {
+  test.describe(`The calendar's toolbar on two rows at ${width} px, held`, () => {
+    test.use({ viewport: { width, height: 900 }, storageState: storageStateFor("owner") });
+
+    test("owner: /calendar's two rows, traced by its skeleton", async ({ page }, info) => {
+      test.skip(info.project.name !== "desktop", "a laptop's toolbar");
+      const session = await ownSession(page, USERS.owner.email, USERS.owner.password);
+      const held = await holdReads("/rest/v1/holidays", session);
+      try {
+        await page.goto("/calendar", { waitUntil: "commit" });
+        const loading = page.locator('[data-slot="loading-calendar"]');
+        await expect(loading).toBeVisible();
+        await expect.poll(() => held.caught()).toBe(true);
+        const skeleton = await boxesOf(page, pick(TOOLBAR_ROWS, "held"));
+        held.release();
+        await expect(loading).toHaveCount(0);
+        await expectSettled(page);
+        await hydrated(page);
+        await expect(page.locator('[data-slot="calendar-show-menu"]:visible')).toBeVisible();
+        const settled = await boxesOf(page, pick(TOOLBAR_ROWS, "settled"));
+        const moves = Object.keys(TOOLBAR_ROWS).flatMap((name) => {
+          const from = skeleton[name];
+          const to = settled[name];
+          if (!from) return [`${name}: not in the skeleton`];
+          if (!to) return [`${name}: not on the page`];
+          return (["x", "y", "width"] as const).flatMap((side) =>
+            Math.abs(to[side] - from[side]) > TRACE_TOLERANCE
+              ? [`${name} ${side}: ${from[side].toFixed(1)} → ${to[side].toFixed(1)}`]
+              : [],
+          );
+        });
+        expect(moves, "nothing moves when the data arrives").toEqual([]);
+        // Two rows indeed: All ▾ and Filters under the pager.
+        const rowOne = settled["row 1"];
+        const rowTwo = settled["row 2"];
+        expect(rowTwo!.y, "All ▾ and Filters on the second row").toBeGreaterThan(rowOne!.y + 20);
+      } finally {
+        held.release();
+      }
+    });
+  });
+}
+
+test.describe("staff: My tasks on a phone has no This week", () => {
+  test.use({ storageState: storageStateFor("staff") });
+
+  test("the list alone, as live", async ({ page }, info) => {
+    test.skip(info.project.name === "desktop", "a phone's layout");
+    const prefix = `Week phone ${info.project.name} `;
+    const made = await makeFixture(prefix, "staff task", "staff");
+    try {
+      await page.goto("/tasks");
+      await hydrated(page);
+      await expect(
+        page.locator('[data-slot="tasks-mine"] [data-slot="task-row"]').first(),
+      ).toBeVisible();
+      await expect(page.locator('[data-slot="day-week"]')).toBeHidden();
+      await expect(page.locator('[data-slot="week-row"]:visible')).toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+    } finally {
+      await made.remove();
+    }
+  });
+});

@@ -11,4 +11,3 @@ export {
 } from "./components/notification-list";
 export { RecordReadReceipt } from "./components/record-read-receipt";
 export { type AlertsFilter, alertsFilterFrom, alertsHref } from "./domain/alerts";
-export { pageFrom } from "./domain/when";

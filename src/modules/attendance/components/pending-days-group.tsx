@@ -1,13 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { Result } from "@/core/errors";
 import { getInBackground } from "@/core/http/background";
-import { cn } from "@/core/lib/utils";
 import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
-import { attendanceStatus, StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
@@ -28,11 +26,14 @@ import {
 } from "../domain/review";
 
 import { CorrectDayDialog, type CorrectTarget } from "./correct-day-dialog";
+import { ReviewWeek } from "./review-week";
 
 /** The route behind the delayed send (`app/api/approvals/approve`): it outlives the page. */
 const APPROVE_URL = "/api/approvals/approve";
 /** The Review panel's context (B4): the person's week and comp leave, read when it opens. */
 const CONTEXT_URL = "/api/attendance/review-context";
+/** How many of Approvals' first days have their Review context read once the page is idle. */
+const PREFETCHED = 6;
 
 /**
  * The Attendance group of Approvals (task 2.4): every day waiting for the Owner, oldest first.
@@ -66,12 +67,39 @@ export function PendingDaysGroup({
   const review = days.find((day) => day.id === reviewId) ?? null;
   const context = review ? contexts[review.id] : undefined;
 
+  // PP-approvals-2: the panel's context (the week, comp leave) is read before the panel opens:
+  // for the first rows once Approvals is idle, and for any row the moment it is about to be
+  // opened (a pointer on it, a press, focus). One read a day; a failed one is tried again.
+  const asked = useRef<Set<string>>(new Set());
+  function prefetch(dayId: string) {
+    if (asked.current.has(dayId)) return;
+    asked.current.add(dayId);
+    void getInBackground<ReviewContext>(CONTEXT_URL, { day: dayId }).then((result) => {
+      if (!result.ok) asked.current.delete(dayId);
+      setContexts((current) => ({ ...current, [dayId]: result }));
+    });
+  }
+  const firstIds = days
+    .slice(0, PREFETCHED)
+    .map((day) => day.id)
+    .join(",");
+  useEffect(() => {
+    if (preview || firstIds === "") return;
+    const ids = firstIds.split(",");
+    const run = () => ids.forEach(prefetch);
+    const idle = window.requestIdleCallback?.(run, { timeout: 2000 });
+    const timer = idle === undefined ? window.setTimeout(run, 300) : undefined;
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback(idle);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+    // `prefetch` only reads refs and sets state; the rows on screen are the dependency.
+  }, [preview, firstIds]);
+
   function openReview(dayId: string) {
     setReviewId(dayId);
     if (contexts[dayId]?.ok) return;
-    void getInBackground<ReviewContext>(CONTEXT_URL, { day: dayId }).then((result) =>
-      setContexts((current) => ({ ...current, [dayId]: result })),
-    );
+    prefetch(dayId);
   }
 
   return (
@@ -83,6 +111,11 @@ export function PendingDaysGroup({
         rows={days.map((day) => ({
           id: day.id,
           title: day.memberName,
+          avatar: {
+            id: day.memberId,
+            name: day.memberName,
+            avatarFileId: day.memberAvatarFileId ?? null,
+          },
           // A compact row's first meta line: what was chosen and when, never cut short.
           // Approvals' row carries the panel's context too (B4, V3): the person's note.
           subtitle: preview
@@ -101,6 +134,7 @@ export function PendingDaysGroup({
         layout={preview ? "rows" : "group"}
         kind="Attendance"
         approveHandle={approveHandle}
+        onIntent={prefetch}
       />
       <ReviewSheet
         open={review !== null}
@@ -184,57 +218,5 @@ export function PendingDaysGroup({
         onCorrected={() => setReviewId(null)}
       />
     </>
-  );
-}
-
-/**
- * The person's week around the day (B4): Monday to today, one line a day with its status in the
- * shared colours (`attendanceStatus`, B13), the reviewed day marked. Its own number of skeleton
- * lines while it loads, a quiet line if it cannot be read.
- */
-function ReviewWeek({
-  context,
-  lines,
-}: {
-  context: Result<ReviewContext> | undefined;
-  lines: number;
-}) {
-  return (
-    <section aria-label="This week" data-slot="review-week" className="mt-4 flex flex-col gap-2">
-      <h3 className="text-muted-foreground text-xs font-medium">This week</h3>
-      {context === undefined ? (
-        <ul aria-hidden className="flex flex-col gap-1">
-          {Array.from({ length: lines }, (_, index) => (
-            <li key={index} className="flex min-h-7 items-center justify-between gap-4">
-              <Skeleton className="h-4 w-14" />
-              <Skeleton className="h-4 w-24" />
-            </li>
-          ))}
-        </ul>
-      ) : context.ok ? (
-        <ul className="flex flex-col gap-1">
-          {context.data.week.map((day) => (
-            <li
-              key={day.date}
-              data-slot="review-week-day"
-              data-current={day.current ? "" : undefined}
-              className={cn(
-                "flex min-h-7 items-center justify-between gap-4 rounded-md px-2",
-                day.current && "bg-muted font-medium",
-              )}
-            >
-              <span>{day.current ? `${day.label} (this day)` : day.label}</span>
-              <StatusDot
-                status={attendanceStatus(day.dot)}
-                label={day.status}
-                className="text-sm"
-              />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-muted-foreground">The week could not be loaded.</p>
-      )}
-    </section>
   );
 }

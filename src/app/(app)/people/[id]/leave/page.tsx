@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+
+import { displayName } from "@/core/lib/display-name";
 import { redirect } from "next/navigation";
 
 import { checkThenRead } from "@/core/lib/start-early";
@@ -16,7 +18,20 @@ import { LeavePager } from "../../../leave/leave-nav";
 
 import { assertMemberId, loadHistoryPerson } from "../person";
 
-export const metadata: Metadata = { title: "Attendance & leave" };
+/**
+ * The tab names the person, then this view ("Prishit Shetty · Attendance & leave · MaxOff"), from
+ * `loadHistoryPerson` (`loadPerson` and the session's member row).
+ * Next resolves metadata on a prefetch too; the layout's header makes the same `cache()`d
+ * `loadPerson` on it, so the title adds no read to a prefetch (P2 item 6).
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const person = await loadHistoryPerson((await params).id);
+  return { title: `${displayName(person.fullName)} · Attendance & leave` };
+}
 
 /**
  * One person's comp leave (3b.2: the balance, the credits, **Grant comp leave** and **Revoke**)

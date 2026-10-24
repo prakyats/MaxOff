@@ -1,4 +1,4 @@
-import { ChevronRightIcon, CircleAlertIcon, FlagIcon } from "lucide-react";
+import { CalendarClockIcon, ChevronRightIcon, CircleAlertIcon, FlagIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
@@ -10,23 +10,29 @@ import { startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { formatDateTime, systemClock } from "@/core/time";
+import { formatDateTime, systemClock, todayIST } from "@/core/time";
 import { HistorySheet } from "@/core/ui/composites/history-sheet";
-import { PageHeader } from "@/core/ui/composites/page-header";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { DetailHeader } from "@/core/ui/composites/page-header";
+import { AvatarStack, type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
+import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import {
   activeAssignees,
-  actorPair,
+  chatEvents,
+  chatMessages,
   collapseTicks,
   describeTaskActivity,
+  enlargedLine,
   eventLabel,
   earlierHandInLabel,
+  firstUnreadId,
+  getTaskTitle,
   handInFirst,
   HISTORY_ARRIVAL,
   reopenAfterHandIn,
   isFinal,
   isLocked,
   latestChangeRequest,
+  listUnreadCounts,
   LinkedText,
   moreSteps,
   neededLine,
@@ -58,7 +64,19 @@ import { loadTaskFormSetup } from "../task-form-setup";
 
 import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
-export const metadata: Metadata = { title: "Task" };
+/**
+ * The tab names the task ("Test 4 · MaxOff") from its title alone (`getTaskTitle`, one column under
+ * RLS): Next resolves metadata on a row's prefetch too, which must stay the loading boundary, never
+ * the page's reads (P2 item 6). A task the reader may not see is "Task".
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  return { title: (await getTaskTitle(id)) ?? "Task" };
+}
 
 /**
  * A task's page (4.4, reworked to the owner's review, Kickoff 4 decisions 26–32; PRODUCT §4.6,
@@ -93,6 +111,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
 
   const names: Record<string, string> = Object.fromEntries(
     directory.map((member) => [member.id, displayName(member.fullName)]),
+  );
+  // Each person's photo comes with their name, in the same directory read (V5b-D).
+  const faces: Record<string, AvatarPerson> = Object.fromEntries(
+    directory.map((member) => [
+      member.id,
+      { id: member.id, name: displayName(member.fullName), avatarFileId: member.avatarFileId },
+    ]),
   );
   const name = (memberId: string | null) => (memberId ? (names[memberId] ?? "Someone") : "Someone");
   const nameOrYou = (memberId: string) => (memberId === viewer.id ? "you" : name(memberId));
@@ -153,9 +178,26 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     remindNames.every((one) => one !== undefined) ? (remindNames as string[]) : [],
   );
 
+  const stateWords = stateLabel(task, { finalApprover: can(viewer.role, "tasks.approve_final") });
+  const state = <StatusBadge status={task.state} label={stateWords} />;
+  // PP-crew-8: the one next step is the header's primary action on a laptop and the sticky bar
+  // at a phone's foot: one element (`primaryOwnBar`), so its dialogs mount once.
+  const stepBar = (
+    <TaskNextStep
+      taskId={task.id}
+      dueAt={task.dueAt}
+      next={next}
+      done={actions.done}
+      review={actions.review}
+      names={names}
+      approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
+      primaryName={name(task.primaryOwnerId)}
+    />
+  );
+
   const work = workPanel({ data, task, actions, pair });
-  const thread = chatThread({ data, viewerId: viewer.id, pair, names });
-  const activity = activityPanel({ data, names });
+  const chat = await chatData({ data, viewerId: viewer.id, names, faces, active });
+  const activity = activityPanel({ data, names, viewerId: viewer.id });
   const details = detailsPanel({
     data,
     task,
@@ -168,13 +210,11 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     clientName: client?.name ?? null,
     definitions,
     ownerId,
+    faces,
   });
 
   return (
-    <TaskViewProvider
-      unread={unreadCount(data.comments, data.lastRead, viewer.id)}
-      newestAt={newestCommentAt(data.comments)}
-    >
+    <TaskViewProvider unread={chat.unread} newestAt={newestCommentAt(data.comments)}>
       <Suspense fallback={null}>
         <RecordReadReceipt entity="tasks" id={task.id} />
       </Suspense>
@@ -185,9 +225,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         {/* The main column; on a phone its parts sit straight in the page, so the title bar and
             the views' bar stick for the whole page. */}
         <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
-          <PageHeader
+          <DetailHeader
             back={TASK_BACK}
             title={task.title}
+            status={state}
+            primary={stepBar}
+            primaryOwnBar
+            titleLines={1}
             menu={
               <>
                 {/* History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep). */}
@@ -216,58 +260,84 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             data-slot="task-summary"
             className="flex min-w-0 flex-col gap-2"
           >
+            {/* A phone's bar keeps the title to one line with an ellipsis; the full title is here,
+                wrapped (the truncation rule; the design gate, 23 Oct). Drawn from its data
+                attribute, so the page's text and its accessible name hold the title once (the
+                bar's heading). */}
             <p
-              data-slot="task-glance"
-              className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+              aria-hidden
+              data-slot="task-title-full"
+              data-title={task.title}
+              className="text-lg leading-7 font-semibold tracking-tight break-words before:content-[attr(data-title)] md:hidden"
+            />
+            {/* PP-task-1: the state as a chip (in the header on a laptop), the priority a quiet
+                label, and the deadline on a line of its own, red once it has passed. On a laptop
+                the priority and the deadline share one line (task chat height, owner 23 Oct);
+                a phone keeps its two lines (`max-md:contents`). */}
+            <div
+              data-slot="task-meta"
+              className="max-md:contents md:flex md:min-w-0 md:flex-wrap md:items-center md:gap-x-3.5 md:gap-y-1"
             >
-              <StatusDot
-                status={task.state}
-                label={stateLabel(task, {
-                  finalApprover: can(viewer.role, "tasks.approve_final"),
-                })}
-              />
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
-              <span
-                data-slot="task-priority"
-                className="text-muted-foreground inline-flex items-center gap-1"
+              <p
+                data-slot="task-glance"
+                className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
               >
-                <FlagIcon aria-hidden className="size-3.5 shrink-0" />
-                {PRIORITY_LABELS[task.priority]}
-                <span className="sr-only"> priority</span>
-              </span>
-              <span aria-hidden className="text-muted-foreground">
-                ·
-              </span>
-              <span
+                <span className="md:hidden">{state}</span>
+                <span
+                  data-slot="task-priority"
+                  className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+                >
+                  <FlagIcon aria-hidden className="size-3.5 shrink-0" />
+                  {PRIORITY_LABELS[task.priority]} priority
+                </span>
+              </p>
+              <p
                 data-slot="task-deadline"
                 data-overdue={deadline.overdue ? "true" : "false"}
                 className={cn(
-                  "inline-flex min-w-0 items-center gap-1 break-words",
-                  deadline.overdue ? "text-destructive font-medium" : "text-muted-foreground",
+                  "flex min-w-0 items-center gap-1.5 text-sm break-words md:gap-1 md:text-xs",
+                  deadline.overdue ? "text-destructive font-medium" : "text-foreground",
                 )}
               >
                 {deadline.overdue ? (
-                  <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
-                ) : null}
+                  <CircleAlertIcon aria-hidden className="size-4 shrink-0 md:size-3.5" />
+                ) : (
+                  <CalendarClockIcon
+                    aria-hidden
+                    className="text-muted-foreground size-4 shrink-0 md:size-3.5"
+                  />
+                )}
                 <span className="min-w-0">
                   {deadline.label}
                   {deadline.relative ? ` · ${deadline.relative}` : ""}
                 </span>
-              </span>
-            </p>
-            <p data-slot="task-needed" className="text-sm font-medium break-words">
-              {needed}
-            </p>
-            {actions.remind ? (
-              <TaskRemind
-                taskId={task.id}
-                againAt={remindAt}
-                againLabel={remindAt ? remindAgainLabel(remindAt) : null}
-                who={remindTo}
-              />
-            ) : null}
+              </p>
+            </div>
+            {/* PP-task-2: what is needed now, as a calm callout above the actions. On a laptop
+                Remind sits inside it, at its right end (task chat height); a phone keeps Remind
+                on its own row under it (`max-md:contents`). One Remind either way. */}
+            <div
+              data-slot="task-next-box"
+              className={cn(
+                "md:border-border md:bg-muted/50 max-md:contents md:flex md:min-h-[2.875rem] md:min-w-0 md:items-center md:gap-2.5 md:rounded-lg md:border md:py-0 md:pl-3",
+                actions.remind ? "md:pr-1" : "md:pr-3",
+              )}
+            >
+              <p
+                data-slot="task-needed"
+                className="border-border bg-muted/50 rounded-lg border px-3 py-2.5 text-sm font-medium break-words md:min-w-0 md:flex-1 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5"
+              >
+                {needed}
+              </p>
+              {actions.remind ? (
+                <TaskRemind
+                  taskId={task.id}
+                  againAt={remindAt}
+                  againLabel={remindAt ? remindAgainLabel(remindAt) : null}
+                  who={remindTo}
+                />
+              ) : null}
+            </div>
             {changeRequest?.reason ? (
               <div
                 data-slot="task-change-request"
@@ -288,30 +358,38 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               </p>
             ) : null}
           </section>
-          <TaskNextStep
-            taskId={task.id}
-            dueAt={task.dueAt}
-            next={next}
-            done={actions.done}
-            review={actions.review}
-            names={names}
-            approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
-            primaryName={name(task.primaryOwnerId)}
+          <TaskTabs
+            context={{
+              title: task.title,
+              relative: deadline.relative,
+              overdue: deadline.overdue,
+            }}
           />
-          <TaskTabs />
           <TaskViewPanel name="work">{work}</TaskViewPanel>
           <TaskChat
             taskId={task.id}
-            thread={thread}
-            count={data.comments.length}
+            taskTitle={task.title}
+            messages={chat.messages}
+            events={chat.events}
+            more={data.earlierComments}
+            firstUnread={chat.firstUnread}
             newestAt={newestCommentAt(data.comments)}
+            people={chat.people}
+            // One solid commit a screen: Send is solid on a laptop only without a next step.
+            solidSend={next === null}
+            placeholder={chat.placeholder}
             forOptions={commentFor}
             defaultFor={selfOnTask ? null : (commentFor[0]?.id ?? null)}
+            // The enlarged chat's head (⤢, a laptop's): "Edit · chat with Asha", the state and
+            // the deadline ("In progress · Overdue 4 days").
+            enlargedLine={enlargedLine(stateWords, deadline.relative)}
           />
         </div>
         <TaskViewPanel
           name="details"
-          className="md:sticky md:top-6 md:w-64 md:shrink-0 md:self-start lg:w-80"
+          // Beside Chat it scrolls away with the header (task chat height, owner 23 Oct): the chat
+          // head keeps its key line ("Asha · Noted").
+          className="md:sticky md:top-6 md:w-64 md:shrink-0 md:self-start md:data-[view=chat]:static lg:w-80"
         >
           {details}
         </TaskViewPanel>
@@ -463,65 +541,62 @@ function workPanel({
 }
 
 /**
- * Chat's thread (decision 28): the comments, oldest first, the viewer's own on the right ("You",
- * or "You for Asha" when written for a freelancer), everyone else's named as the pair.
+ * Chat's feed (decision 28; v1.8 V5b E): the latest page of messages and the task's small events,
+ * worded for the reader ("You" for their own), the first unread one, the people on the task for
+ * the panel's head, and the unread count. When every message held is unread and earlier ones
+ * remain, the count is the database's own (`task_unread_counts`; 50+ unread, rare).
  */
-function chatThread({
+async function chatData({
   data,
   viewerId,
-  pair,
   names,
+  faces,
+  active,
 }: {
   data: TaskReads;
   viewerId: string;
-  pair: Pair;
   names: Record<string, string>;
-}): ReactNode {
-  if (data.comments.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm" data-slot="task-comments-empty">
-        No comments yet. Ask a question or post an update: everyone on the task sees it.
-      </p>
-    );
+  /** Each person's photo, from the same directory read as the names (V5b-D). */
+  faces: Record<string, AvatarPerson>;
+  active: { memberId: string; acknowledgedAt: string | null }[];
+}) {
+  const today = todayIST();
+  const messages = chatMessages(data.comments, { viewerId, names, faces, today });
+  const events = chatEvents(data.activity, { viewerId, names, today });
+  const firstUnread = firstUnreadId(data.comments, data.lastRead, viewerId);
+  let unread = unreadCount(data.comments, data.lastRead, viewerId);
+  if (data.earlierComments && firstUnread !== null && firstUnread === data.comments[0]?.id) {
+    unread = (await listUnreadCounts([data.task?.id ?? ""]))[data.task?.id ?? ""] ?? unread;
   }
-  return (
-    <ol aria-label="Comments" data-slot="task-comments" className="flex min-w-0 flex-col gap-3">
-      {data.comments.map((comment) => {
-        const own = comment.authorId === viewerId;
-        const forName = comment.onBehalfOf ? (names[comment.onBehalfOf] ?? "a freelancer") : null;
-        return (
-          <li
-            key={comment.id}
-            data-slot="task-comment"
-            data-own={own ? "true" : "false"}
-            className={cn(
-              "flex max-w-[85%] min-w-0 flex-col gap-0.5 rounded-xl px-3 py-2",
-              own ? "bg-muted self-end" : "border-border bg-card self-start border",
-            )}
-          >
-            <p className="text-xs break-words">
-              <span className="font-medium">
-                {own ? actorPair("You", forName) : pair(comment.authorId, comment.onBehalfOf)}
-              </span>{" "}
-              <time dateTime={comment.createdAt} className="text-muted-foreground">
-                {formatDateTime(comment.createdAt)}
-              </time>
-            </p>
-            <LinkedText text={comment.body} className="text-sm" />
-          </li>
-        );
-      })}
-    </ol>
-  );
+  // The others first, then the reader: "Asha, You".
+  const people = [...active]
+    .sort((a, b) => Number(a.memberId === viewerId) - Number(b.memberId === viewerId))
+    .map((assignee) => {
+      const name = assignee.memberId === viewerId ? "You" : (names[assignee.memberId] ?? "Someone");
+      return {
+        id: assignee.memberId,
+        name,
+        face: faces[assignee.memberId] ?? { id: assignee.memberId, name, avatarFileId: null },
+        noted: assignee.acknowledgedAt !== null,
+        self: assignee.memberId === viewerId,
+      };
+    });
+  const others = people.filter((person) => person.id !== viewerId).map((person) => person.name);
+  // One line, the first name only (the design gate, 23 Oct): "Message Asha…".
+  const placeholder =
+    others.length === 1 ? `Message ${others[0]?.split(/\s+/)[0] ?? ""}…` : "Message…";
+  return { messages, events, firstUnread, unread, people, placeholder };
 }
 
 /** Activity (decision 29): every change as a sentence, ticks collapsed, the newest five first. */
 function activityPanel({
   data,
   names,
+  viewerId,
 }: {
   data: TaskReads;
   names: Record<string, string>;
+  viewerId: string;
 }): ReactNode {
   const tickedStages = Object.fromEntries(
     data.stages.flatMap((stage) =>
@@ -534,6 +609,7 @@ function activityPanel({
       types: Object.fromEntries(data.types.map((option) => [option.id, option.name])),
       clients: Object.fromEntries(data.labels.map((label) => [label.id, label.name])),
       tickedStages,
+      viewerId,
     });
     return line ? [line] : [];
   });
@@ -581,11 +657,13 @@ function detailsPanel({
   clientName,
   definitions,
   ownerId,
+  faces,
 }: {
   data: TaskReads;
   task: LoadedTask;
   active: readonly TaskReads["assignees"][number][];
   people: PeopleIndex;
+  faces: Record<string, AvatarPerson>;
   viewerId: string;
   name: (memberId: string | null) => string;
   pair: Pair;
@@ -594,10 +672,18 @@ function detailsPanel({
   definitions: TaskReads["definitions"];
   ownerId: string | null;
 }): ReactNode {
+  // PP-task-3: People and About the task sit on one subtle surface card (no card in a card: the
+  // people are divided rows inside it), the facts as aligned label and value pairs.
   return (
-    <>
+    <div
+      data-slot="task-about-card"
+      className="border-border bg-card shadow-raised flex min-w-0 flex-col gap-5 rounded-lg border p-4"
+    >
       <Section title="People" slot="task-people">
-        <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
+        <ul className="divide-border -mx-1 divide-y">
+          {active.length > 0 ? (
+            <PeopleSummary active={active} faces={faces} viewerId={viewerId} name={name} />
+          ) : null}
           {active.map((assignee) => {
             const person = people[assignee.memberId];
             const freelancer = person?.engagement === "freelance";
@@ -611,12 +697,24 @@ function detailsPanel({
                 key={assignee.memberId}
                 data-slot="task-person"
                 data-member={assignee.memberId}
-                className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5"
+                className="flex min-w-0 flex-col gap-0.5 px-1 py-2.5"
               >
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <span className="min-w-0 text-sm font-medium break-words">
-                    {name(assignee.memberId)}
-                    {assignee.memberId === viewerId ? " (you)" : ""}
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-medium break-words">
+                    <PersonAvatar
+                      person={
+                        faces[assignee.memberId] ?? {
+                          id: assignee.memberId,
+                          name: name(assignee.memberId),
+                          avatarFileId: null,
+                        }
+                      }
+                      size={20}
+                    />
+                    <span className="min-w-0">
+                      {name(assignee.memberId)}
+                      {assignee.memberId === viewerId ? " (you)" : ""}
+                    </span>
                   </span>
                   <StatusDot
                     status={noted ? "noted" : "not_noted"}
@@ -624,7 +722,7 @@ function detailsPanel({
                     label={noted ? "Noted" : "Not noted"}
                   />
                 </div>
-                <span className="text-muted-foreground text-xs break-words">
+                <span className="text-muted-foreground pl-7 text-xs break-words">
                   {[
                     assignee.isPrimary ? "Primary owner" : null,
                     freelancer
@@ -645,27 +743,76 @@ function detailsPanel({
         </ul>
       </Section>
       <Section title="About the task" slot="task-details">
-        <dl className="flex min-w-0 flex-col gap-3 text-sm">
-          {clientName ? (
-            <Fact label="Client" stacked>
-              {clientName}
-            </Fact>
-          ) : null}
+        <dl
+          data-slot="task-facts"
+          className="grid min-w-0 grid-cols-[minmax(5rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm"
+        >
+          {clientName ? <Fact label="Client">{clientName}</Fact> : null}
           {typeName ? (
-            <Fact label="Type" stacked>
+            <Fact label="Type">
               <span data-slot="task-type">{typeName}</span>
             </Fact>
           ) : null}
-          <Fact label="Approval" stacked>
+          <Fact label="Approval">
             <span data-slot="task-route">{routeLine(task, data.assignees, name, ownerId)}</span>
           </Fact>
-          <Fact label="Created by" stacked>
+          <Fact label="Created by">
             {name(task.createdBy)}, {formatDateTime(task.createdAt)}
           </Fact>
         </dl>
         <CustomFieldsView definitions={definitions} values={task.customFields} />
       </Section>
-    </>
+    </div>
+  );
+}
+
+/**
+ * The task's people at a glance (the approved pull-in sample, V5b-D): up to three overlapping
+ * photos then "+n", the first names, how many have noted it and who marks it done (the primary
+ * owner, invariant 6). The rows under it keep each person's Task Noted.
+ */
+function PeopleSummary({
+  active,
+  faces,
+  viewerId,
+  name,
+}: {
+  active: readonly TaskReads["assignees"][number][];
+  faces: Record<string, AvatarPerson>;
+  viewerId: string;
+  name: (memberId: string | null) => string;
+}) {
+  const people = active.map(
+    (assignee) =>
+      faces[assignee.memberId] ?? {
+        id: assignee.memberId,
+        name: name(assignee.memberId),
+        avatarFileId: null,
+      },
+  );
+  const noted = active.filter((assignee) => assignee.acknowledgedAt !== null).length;
+  const primary = active.find((assignee) => assignee.isPrimary) ?? null;
+  const names = people.slice(0, 3).map((person) => (person.id === viewerId ? "You" : person.name));
+  const more = people.length - names.length;
+  const notedLine = noted === active.length ? "All noted" : `${noted} of ${active.length} noted`;
+  const doneLine = primary
+    ? primary.memberId === viewerId
+      ? "You mark it done"
+      : `${name(primary.memberId)} marks it done`
+    : null;
+  return (
+    <li data-slot="task-people-summary" className="flex min-w-0 items-center gap-2.5 px-1 py-2.5">
+      <AvatarStack people={people} size={28} />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm font-semibold break-words">
+          {names.join(", ")}
+          {more > 0 ? ` +${more}` : ""}
+        </span>
+        <span className="text-muted-foreground text-xs break-words">
+          {[notedLine, doneLine].filter(Boolean).join(" · ")}
+        </span>
+      </span>
+    </li>
   );
 }
 
@@ -681,7 +828,10 @@ function Section({ title, slot, children }: { title: string; slot: string; child
   );
 }
 
-/** A label and its value: side by side from `sm` up, stacked on a phone and under large text. */
+/**
+ * A label and its value. `stacked`: the label over its value (the brief's long texts); otherwise
+ * a row of the parent `dl`'s two-column grid, so the labels and values line up (PP-task-3).
+ */
 function Fact({
   label,
   children,
@@ -691,8 +841,16 @@ function Fact({
   children: ReactNode;
   stacked?: boolean;
 }) {
+  if (!stacked) {
+    return (
+      <>
+        <dt className="text-muted-foreground">{label}</dt>
+        <dd className="min-w-0 break-words">{children}</dd>
+      </>
+    );
+  }
   return (
-    <div className={stacked ? "flex min-w-0 flex-col gap-0.5" : "flex min-w-0 flex-wrap gap-x-2"}>
+    <div className="flex min-w-0 flex-col gap-0.5">
       <dt className="text-muted-foreground shrink-0">{label}</dt>
       <dd className="min-w-0 break-words">{children}</dd>
     </div>

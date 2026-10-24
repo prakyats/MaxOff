@@ -49,6 +49,8 @@ export type ProjectActivityContext = {
    * project Monthly reels". Without it, "the project" (the project's own page).
    */
   projects?: Readonly<Record<string, string>>;
+  /** The reader: their own changes say "You" (v1.8 pull-in item 5). */
+  viewerId?: string | null;
 };
 
 /** Columns the history never names: internal timers and bookkeeping. */
@@ -461,7 +463,11 @@ export function describeProjectActivity(
       line = null;
   }
   if (!line) return null;
-  const actor = entry.actorId ? (context.names[entry.actorId] ?? "Someone") : "MaxOff";
+  const actor = !entry.actorId
+    ? "MaxOff"
+    : entry.actorId === context.viewerId
+      ? "You"
+      : (context.names[entry.actorId] ?? "Someone");
   return {
     id: entry.id,
     at: entry.at,

@@ -19,6 +19,7 @@ import {
   CARD_ROW_TRAILING,
 } from "@/core/ui/composites/row-metrics";
 import { DrillLink } from "@/core/ui/composites/drill-link";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import { Card, CardContent } from "@/core/ui/primitives/card";
@@ -31,6 +32,7 @@ import {
 import { getOwnerNotes, listContacts } from "@/modules/clients";
 import { countOpenTasksForClient } from "@/modules/tasks";
 import { AddContactDialog } from "@/modules/clients/components/add-contact-dialog";
+import { ArchivedContacts } from "@/modules/clients/components/archived-contacts";
 import {
   ClientDetails,
   ClientNotes,
@@ -41,7 +43,19 @@ import { AddClientFieldButton } from "@/modules/settings/components/add-client-f
 import { assertClientId, loadClient, loadPeople } from "../client";
 import { ProjectList } from "../project-list";
 
-export const metadata: Metadata = { title: "Client" };
+/**
+ * The tab names the client ("Shetty · MaxOff") from `loadClient`, the layout's own read.
+ * Next resolves metadata on a prefetch too; the layout's header makes this same `cache()`d read
+ * on it (it always has), so the title adds no read to a prefetch (P2 item 6).
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { client } = await loadClient((await params).id);
+  return { title: client.name };
+}
 
 /**
  * A client's Overview (3.4, PRODUCT §4.4). **First glance** (PRODUCT §2; L6, UX review
@@ -81,19 +95,66 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   const archived = contacts.filter((contact) => contact.archivedAt !== null);
   const primary = live.find((contact) => contact.isPrimary) ?? null;
   const adminName = client.adminId ? (people.names[client.adminId] ?? "An Admin") : null;
+  const adminFace = client.adminId ? people.faces[client.adminId] : undefined;
 
   return (
     <div className="flex flex-col gap-4" data-slot="client-overview">
       {active ? <ActiveProjects clientId={client.id} projects={active} /> : null}
-      <Card>
-        <CardContent className="flex flex-col gap-3 text-sm" data-slot="client-glance">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-muted-foreground">Admin</p>
-              <p className="font-medium">
-                {adminName ?? <span className="text-muted-foreground">No Admin yet</span>}
-              </p>
-            </div>
+      {/* PP-client-3: "Key people", one compact two-column strip: who runs it and whom to call,
+          with Call and the Drive folder under them. */}
+      <section
+        aria-labelledby="key-people"
+        data-slot="client-glance"
+        className="border-border bg-card shadow-raised flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm"
+      >
+        <h2 id="key-people" className="text-muted-foreground text-xs font-medium">
+          Key people
+        </h2>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <div className="flex min-w-0 flex-col gap-0.5" data-slot="key-admin">
+            <dt className="text-muted-foreground text-xs">Admin</dt>
+            <dd
+              className={cn(
+                "flex min-w-0 items-center gap-1.5",
+                adminName ? "font-medium" : "text-muted-foreground",
+              )}
+            >
+              {/* Their photo beside the name (#89); the name says who it is. */}
+              {adminFace ? <PersonAvatar person={adminFace} size={20} /> : null}
+              <span className="min-w-0 break-words">{adminName ?? "No Admin yet"}</span>
+            </dd>
+          </div>
+          <div className="flex min-w-0 flex-col gap-0.5" data-slot="key-contact">
+            <dt className="text-muted-foreground text-xs">Primary contact</dt>
+            {primary ? (
+              <dd className="flex min-w-0 flex-col">
+                <span className="font-medium break-words">{primary.name}</span>
+                {primary.designation ? (
+                  <span className="text-muted-foreground text-xs break-words">
+                    {primary.designation}
+                  </span>
+                ) : null}
+              </dd>
+            ) : (
+              <dd className="text-muted-foreground">No contacts yet</dd>
+            )}
+          </div>
+        </dl>
+        {primary?.phone || client.driveUrl ? (
+          <div className="flex flex-wrap gap-2">
+            {primary?.phone ? (
+              // A long name at large text wraps inside the button, never past the screen's edge.
+              <Button
+                variant="secondary"
+                className="h-auto max-w-full py-1.5 text-left break-words whitespace-normal"
+                asChild
+              >
+                <a href={`tel:${primary.phone.replace(/\s+/g, "")}`} data-slot="call-primary">
+                  <PhoneIcon aria-hidden />
+                  Call {primary.name}
+                </a>
+              </Button>
+            ) : null}
             {client.driveUrl ? (
               <Button variant="secondary" asChild>
                 <a
@@ -109,31 +170,8 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
               </Button>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-muted-foreground">Primary contact</p>
-              {primary ? (
-                <>
-                  <p className="truncate font-medium">{primary.name}</p>
-                  {primary.designation ? (
-                    <p className="text-muted-foreground truncate">{primary.designation}</p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="text-muted-foreground">No contacts yet</p>
-              )}
-            </div>
-            {primary?.phone ? (
-              <Button variant="secondary" asChild>
-                <a href={`tel:${primary.phone.replace(/\s+/g, "")}`} data-slot="call-primary">
-                  <PhoneIcon aria-hidden />
-                  Call
-                </a>
-              </Button>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+        ) : null}
+      </section>
 
       <ClientTasksLine clientId={client.id} clientName={client.name} count={openTasks} />
 
@@ -151,9 +189,11 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             />
           ) : null}
         </div>
-        {contacts.length === 0 ? (
+        {live.length === 0 ? (
           <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-6 text-center text-sm">
-            No contacts yet. The first one added becomes the primary contact.
+            {archived.length === 0
+              ? "No contacts yet. The first one added becomes the primary contact."
+              : "No active contacts. The next one added becomes the primary contact."}
           </p>
         ) : (
           <ul
@@ -161,7 +201,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             aria-label="Contacts"
             className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
           >
-            {[...live, ...archived].map((contact) => (
+            {live.map((contact) => (
               <li key={contact.id}>
                 <DrillLink
                   href={`/clients/${client.id}/contacts/${contact.id}`}
@@ -182,11 +222,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
                     </span>
                   </span>
                   <span className={cn("flex items-center gap-3", CARD_ROW_TRAILING)}>
-                    {contact.archivedAt ? (
-                      <StatusDot status="inactive" label="Archived" />
-                    ) : contact.isPrimary ? (
-                      <StatusDot status="active" label="Primary" />
-                    ) : null}
+                    {contact.isPrimary ? <StatusDot status="active" label="Primary" /> : null}
                     <ChevronRightIcon
                       className="text-muted-foreground size-4 shrink-0"
                       aria-hidden
@@ -197,6 +233,13 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             ))}
           </ul>
         )}
+        {/* Archived contacts wait under the shared collapsed "Archived (n)", as on every list
+            with Archive: Restore for whoever edits the client, Delete for the Owner. */}
+        <ArchivedContacts
+          contacts={archived}
+          canRestore={canEdit}
+          canDelete={canEdit && viewer.role === "owner"}
+        />
       </section>
 
       <Card>

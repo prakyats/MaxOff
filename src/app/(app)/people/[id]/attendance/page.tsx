@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { displayName } from "@/core/lib/display-name";
+
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
 import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
@@ -8,12 +10,26 @@ import { getCompBalance } from "@/modules/leave";
 import { LeavePager } from "../../../leave/leave-nav";
 import { loadHistoryPerson } from "../person";
 
-export const metadata: Metadata = { title: "Attendance & leave" };
+/**
+ * The tab names the person, then this view ("Prishit Shetty · Attendance & leave · MaxOff"), from
+ * `loadHistoryPerson` (`loadPerson` and the session's member row).
+ * Next resolves metadata on a prefetch too; the layout's header makes the same `cache()`d
+ * `loadPerson` on it, so the title adds no read to a prefetch (P2 item 6).
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const person = await loadHistoryPerson((await params).id);
+  return { title: `${displayName(person.fullName)} · Attendance & leave` };
+}
 
 /**
  * One person's attendance, one IST month at a time, for the Owner (task 2.4): the member's own
- * history in the Owner's words, with Correct on every day (WORKFLOWS §1: any state, a reason the
- * member reads). The month switcher replaces the entry (ARCHITECTURE §14.2 d).
+ * history in the Owner's words; every row opens its day, whose sheet holds Correct (WORKFLOWS §1:
+ * any state, a reason the member reads) and, on a waiting day, Approve (V5b-D). The month
+ * switcher replaces the entry (ARCHITECTURE §14.2 d).
  */
 export default async function PersonAttendancePage({
   params,

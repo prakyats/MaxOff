@@ -25,12 +25,12 @@ export const CREW_GUIDE: Guide = {
                 "Tasks: the work given to you.",
                 "Calendar: your events, due dates, leave and holidays.",
                 "Leave: attendance and leave requests.",
-                "Me: your profile, notifications and help.",
+                "Me: your profile, your own pages, notifications and help.",
               ],
             },
             {
               kind: "note",
-              text: '"Extra work & expenses" is in the laptop sidebar. On a phone it is a row on Me: "Note extra work and claim what you spent."',
+              text: '"Extra work & expenses" is in the laptop sidebar. On a phone it is on Me, under "My work", beside Attendance & leave: "Note extra work and claim what you spent."',
             },
             {
               kind: "text",
@@ -38,7 +38,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Help (this guide) is on Me, and on a laptop also in the account menu under your name and at the foot of the sidebar.",
+              text: "Help (this guide) is in the Help section of Me, and on a laptop also in the account menu under your name and at the foot of the sidebar.",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -79,12 +79,12 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: 'Open My Day. The line at the top shows where your day stands, such as "Not started" (highlighted).',
+                  text: 'Open My Day. Today\'s date is under the title, and the line at the top shows where your day stands, such as "Start your day" (highlighted).',
                   shot: "staff/my-day",
                 },
                 "Tap the words in that line to open your attendance.",
                 'Read the groups below it: "Not noted", "Changes requested", "Overdue" and "Due today".',
-                '"N more in the next 7 days" opens Tasks. "Events" lists your own events for today and tomorrow.',
+                '"This week" names each of your deadlines with its time, your events with their place, holidays and your own leave. Tap a row to open it; "Calendar" opens the calendar.',
               ],
             },
             {
@@ -93,7 +93,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'One quiet line shows the next holiday or your own approved leave. "Suggest a task" is at the bottom.',
+              text: 'On a laptop "This week" is a column on the right; in a narrow window or on a phone it sits below. "Suggest a task" is a quiet link at the bottom.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -109,7 +109,7 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 "Open My Day.",
                 {
-                  text: 'Tap "Start day" (highlighted) in the line at the top.',
+                  text: 'Tap "Start day" (highlighted) in the line at the top. It shows the time it will record, such as "Start day · 9:41 am".',
                   shot: "staff/start-day",
                 },
                 'Wait for "Your day has started".',
@@ -267,7 +267,8 @@ export const CREW_GUIDE: Guide = {
                   text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
                   shot: "staff/request-leave",
                 },
-                'Pick the "First day" and "Last day". A half day has a single "Date".',
+                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date".',
+                'Under the dates MaxOff shows how long it is, such as "2 days".',
                 "Add a reason if you like. It is optional.",
                 'Tap "Request leave".',
               ],
@@ -381,13 +382,13 @@ export const CREW_GUIDE: Guide = {
                   text: 'Open Leave and tap the "Attendance" tab (highlighted).',
                   shot: "staff/attendance-tab",
                 },
-                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times, and notes.',
+                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times ("Not recorded" for a start or end that never came; today\'s end shows "—" until you end the day), and notes.',
                 "Open a day to read the Owner's reason and its history.",
               ],
             },
             {
               kind: "next",
-              text: "If a day looks wrong, ask the Owner. The original always stays beside the correction.",
+              text: "If a day looks wrong, ask the Owner: the line under the table says so too. The original always stays beside the correction.",
             },
             {
               kind: "note",
@@ -412,11 +413,12 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: 'Open Tasks. "My tasks" starts with "Not noted" (highlighted), then "Changes requested", "Due today", "Upcoming" and "Overdue".',
+                  text: 'Open Tasks. "My tasks" starts with "Not noted" (highlighted), then "Changes requested", "Due today", "Upcoming" and "Overdue". A group with nothing in it is not shown.',
                   shot: "staff/my-tasks",
                 },
                 'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
-                "Tap a task to open it.",
+                'On a laptop, "This week" sits beside the list (below it on a narrow window), as on My Day: each of your deadlines by name and time, your events with their place, holidays and your own leave. A phone shows only the list.',
+                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title, such as a red "2 days late" or "3 h late" on a late task, and the task\'s state, then ›. On a small phone a long chip is shortened with “…”; the task\'s page shows it in full. Tap a task to open it.',
               ],
             },
             {
@@ -439,14 +441,14 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
-                "Read the sentence under it. It says what is needed from you.",
-                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat" and "Details" (who is on it and about the task). The clock in the header opens the task\'s History.',
+                'Open a task. The top shows its state as a chip (beside the title on a laptop) and its priority, then the due time on its own line, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
+                "Read the box under it. It says what is needed from you.",
+                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat" and "Details" (who is on it and about the task). The clock in the header opens the task\'s History, where your own changes read "You".',
               ],
             },
             {
               kind: "note",
-              text: "There is one next-step button at a time. On a phone it sits in a bar at the bottom.",
+              text: 'There is one next-step button at a time, such as "Mark done". On a laptop it sits at the top, beside the History clock; on a phone it sits in a bar at the bottom.',
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -578,14 +580,22 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open the task and tap "Chat". On a phone it opens as a sheet.',
-                'Tap "Write a comment" and type your message.',
-                "Send it.",
+                'Open the task and tap "Chat". On a phone it opens full screen; ‹ takes you back to the task. On a laptop it fills the screen under the tabs; scroll down and the tabs stay at the top while the chat grows, and ⤢ at the right end of the chat’s header, beside the names, opens it large (Esc, ✕ or back closes it).',
+                'Tap "Message…" at the bottom and type. The box grows as you write.',
+                "Tap the round send button. On a laptop, Enter sends and Shift+Enter starts a new line.",
               ],
             },
             {
               kind: "next",
-              text: 'People on the task see your comment. The tab shows "Chat · N new" when something is unread.',
+              text: 'Everyone on the task sees your message. Yours sit on the right; others\' on the left with their photo and name. The tab shows "Chat · N new" when something is unread.',
+            },
+            {
+              kind: "text",
+              text: 'Chat opens at a red "New" line where unread messages start, otherwise at the latest. Days are divided ("Today", "Yesterday", "Mon 20 Oct"). Quiet lines in the middle show when someone noted the task, the deadline moved or a reminder went out; the full story is in History (the clock in the header).',
+            },
+            {
+              kind: "text",
+              text: 'If you scroll up and a message arrives, tap "Jump to latest". Older messages appear when you tap "Load earlier" at the top.',
             },
             {
               kind: "note",
@@ -593,7 +603,7 @@ export const CREW_GUIDE: Guide = {
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
-          keywords: ["comment", "message", "discussion", "ask", "reply"],
+          keywords: ["comment", "message", "discussion", "ask", "reply", "new", "load earlier"],
         },
         {
           id: "freelancer-tasks",
@@ -618,7 +628,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'At the bottom of Me, "Your freelancers" lists them with a phone link each.',
+              text: 'On Me, under My work, "Your freelancers" lists them with a phone link each.',
             },
           ],
           link: { href: "/me", label: "Open Me" },
@@ -672,10 +682,10 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Open Calendar. Today’s date is a red circle on a slightly lighter box.",
+                  text: "Open Calendar. Today’s date is a red circle on a lightly shaded box.",
                   shot: "staff/calendar",
                 },
-                "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓. A day with more than fits ends in “+N more”; tap it to see the whole day.",
+                "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue; on a phone’s full month one count, “2 due”, or a red alert with the count when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. A day with more than fits ends in “+N more”; tap it to see the whole day.",
                 'Use the "Type" filter to show fewer things.',
                 'Open a day and tap "Suggest a task". The day is filled in for you.',
               ],
@@ -701,14 +711,14 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "On a phone, swipe, or tap the handle, to change size.",
-                'The day you choose shows a timeline. The header has "Today" and "Filters".',
-                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back; "Filters" is at the right.',
-                'The day popup has "Open day".',
+                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters" (an icon, with a dot while a filter is on).',
+                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right.',
+                'On a phone, a day of the full month opens in a sheet with its timeline and "Suggest a task". On a laptop a day opens in a dialog with "Open day".',
               ],
             },
             {
               kind: "note",
-              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day."',
+              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day." A day you are on leave shows "You · On leave" ("You · Leave" where a laptop’s day is narrow; it is never cut short).',
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -770,7 +780,7 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 'Open the "Expenses" tab and tap "Add expense".',
-                'Enter "Amount (₹)", "Category" and "Date".',
+                'Enter "Amount (₹)" (the ₹ is already in the field: type the number), "Category" and "Date".',
                 'Write "What was it for?".',
                 {
                   text: "Add a receipt photo (highlighted), if one is needed.",
@@ -848,6 +858,10 @@ export const CREW_GUIDE: Guide = {
               kind: "next",
               text: 'When there is nothing, it says "Nothing yet" or "You\'re all caught up".',
             },
+            {
+              kind: "note",
+              text: "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
+            },
           ],
           link: { href: "/notifications", label: "Open Alerts" },
           keywords: ["notifications", "unread", "mark all read", "bell", "inbox"],
@@ -861,7 +875,7 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: 'Open Me and find the "Notifications" row (highlighted).',
+                  text: 'Open Me and find the "Notifications" section (highlighted).',
                   shot: "staff/me-notifications",
                 },
                 'Tap "Turn on", or "Turn on here" if your phone already has them on.',
@@ -879,6 +893,27 @@ export const CREW_GUIDE: Guide = {
           ],
           link: { href: "/me", label: "Open Me" },
           keywords: ["push", "enable", "allow", "alerts", "iphone", "phone"],
+        },
+        {
+          id: "use-me",
+          title: "Use Me",
+          summary: "Your profile, your own pages, notifications and help, in one place.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them to change your name or phone. Then, in this order: My work (Attendance & leave, Extra work & expenses), Notifications (this device, Your devices and Send a test notification), Appearance, and Help (this guide and Reload app). Sign out of this device is the last button, and the app's version is the small line at the very bottom.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Tap Me in the bottom bar (on a laptop, in the sidebar).",
+                "Tap Edit profile to change your name or phone, then Save.",
+                "Tap a row under My work or Help to open it.",
+              ],
+            },
+          ],
+          link: { href: "/me", label: "Open Me" },
+          keywords: ["profile", "account", "photo", "phone number", "help", "version"],
         },
         {
           id: "appearance",
@@ -905,8 +940,8 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open Me and find "Sign out of this device".',
-                'Tap "Sign out".',
+                'Open Me and scroll to the end: "Sign out of this device" is the last button, in red outline.',
+                "Tap it.",
                 'Read "Sign out of this device?" and confirm.',
               ],
             },

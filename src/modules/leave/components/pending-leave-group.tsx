@@ -68,6 +68,11 @@ export function PendingLeaveGroup({
                 // A compact row leads with the person: what they ask for and when is the detail.
                 id: request.id,
                 title: request.memberName,
+                avatar: {
+                  id: request.memberId,
+                  name: request.memberName,
+                  avatarFileId: request.memberAvatarFileId ?? null,
+                },
                 subtitle: pendingLeaveDetail(request),
                 status: "submitted",
                 statusLabel: pendingLeaveStatus(request),
@@ -77,6 +82,11 @@ export function PendingLeaveGroup({
             : {
                 id: request.id,
                 title: pendingLeaveTitle(request),
+                avatar: {
+                  id: request.memberId,
+                  name: request.memberName,
+                  avatarFileId: request.memberAvatarFileId ?? null,
+                },
                 subtitle: pendingLeaveSubtitle(request),
                 status: "submitted",
                 statusLabel: pendingLeaveStatus(request),

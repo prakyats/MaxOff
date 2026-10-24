@@ -2,6 +2,7 @@ export {
   IST_TIMEZONE,
   addISTDays,
   formatDateTime,
+  formatHour,
   formatIST,
   formatTime,
   formatWallTime,
@@ -29,7 +30,7 @@ export {
   type WeekdayIndex,
   type WorkingDayRules,
 } from "./working-day";
-export { overdueWords, spanWords } from "./span";
+export { lateWords, overdueWords, spanWords } from "./span";
 export {
   FIELD_PLACEHOLDER,
   type FieldKind,

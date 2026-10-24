@@ -8,7 +8,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { clientWorkLine, listCurrentCycles, progressByClient } from "@/modules/client-work";
+import { clientDueOf, clientWorkLine, listClientWorkSummaries } from "@/modules/client-work";
 import { listClientSummaries } from "@/modules/clients";
 import { ClientList } from "@/modules/clients/components/client-list";
 import { NewClientDialog } from "@/modules/clients/components/new-client-dialog";
@@ -28,22 +28,29 @@ export default async function ClientsPage() {
   // The reads start with the session read (ARCHITECTURE §19); an Admin's field definitions
   // are dropped.
   const reads = Promise.all([listClientSummaries(), loadPeople(), listDefinitions("client")]);
-  startEarly(reads);
+  // Each client's running deliverables, added up in SQL (RLS: the Owner's every client, an
+  // Admin's own; v1.8 speed fix 3), join the first wave.
+  const today = todayIST();
+  const workRead = listClientWorkSummaries(today);
+  startEarly(reads, workRead);
   const viewer = await requirePermission(["clients.manage", "clients.edit_assigned"]);
   const canManage = can(viewer.role, "clients.manage");
   // Kickoff 7 amendment B: an Admin adds a client too (theirs, Active from the start).
   const canCreate = can(viewer.role, "clients.create");
-  // N4: an Admin's list shows each client's running deliverables instead of an Admin column.
-  const [[clients, people, allDefinitions], cycles] = await Promise.all([
-    reads,
-    canManage ? Promise.resolve(null) : listCurrentCycles(todayIST()),
-  ]);
-  const progress = cycles ? progressByClient(cycles) : null;
-  const work = progress
-    ? Object.fromEntries(
-        clients.map((client) => [client.id, clientWorkLine(progress.get(client.id))]),
-      )
-    : null;
+  // N4 (an Admin's) and PP-clients-1 (the Owner's): each client's running deliverables, and
+  // PP-admin-10 its Due (late count, else the next date), from the same summed read.
+  const [[clients, people, allDefinitions], summaries] = await Promise.all([reads, workRead]);
+  const summaryOf = new Map(summaries.map((summary) => [summary.clientId, summary]));
+  const work = Object.fromEntries(
+    clients.map((client) => [client.id, clientWorkLine(summaryOf.get(client.id))]),
+  );
+  const due = Object.fromEntries(
+    clients.flatMap((client) => {
+      const summary = summaryOf.get(client.id);
+      const entry = summary ? clientDueOf(summary) : null;
+      return entry ? [[client.id, entry] as const] : [];
+    }),
+  );
   const definitions = canCreate ? allDefinitions : [];
 
   const description = canManage
@@ -78,6 +85,8 @@ export default async function ClientsPage() {
         adminNames={people.names}
         canManage={canManage}
         work={work}
+        due={due}
+        today={today}
       />
     </>
   );

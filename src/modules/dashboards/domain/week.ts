@@ -1,4 +1,4 @@
-import { addISTDays, type ISODate } from "@/core/time";
+import { addISTDays, type ISODate, toISTDate } from "@/core/time";
 
 import { clockWord, dayWord } from "./days";
 import type { LeaveDay } from "./today";
@@ -11,10 +11,13 @@ import type { LeaveDay } from "./today";
  *
  * - a holiday ("All day" · "Holiday: Diwali");
  * - a person's approved leave on consecutive days, **one row** in the block of its first day
- *   ("All day" · "Prakyat on leave · Wed 14 – Thu 15"; the Owner sees names, as on the calendar);
- * - each event task by its time and title, opening the task (the calendar's order: all-day first,
- *   then by time);
- * - the day's other deadlines as one count ("3 tasks due", no time; 6b.9), opening the calendar's day.
+ *   ("All day" · "Prakyat on leave", "Prakyat on leave · until Thu 15"; the block's heading
+ *   already names the first day, PP-today-4; the Owner sees names, as on the calendar; the
+ *   reader's own reads "You're on leave");
+ * - each event task by its time and title (and its place), opening the task (the calendar's
+ *   order: all-day first, then by time);
+ * - each of the day's other deadlines **by name** ("6:00 pm" · "Test 4", a "Due" chip; PP-today-4),
+ *   opening the task, by time.
  *
  * Days with nothing are left out. At most `WEEK_DAYS_SHOWN` days and `WEEK_ROWS_SHOWN` rows, then
  * "See the week" (the calendar's week). Pure, so it is unit-tested; the caller hands over the
@@ -31,18 +34,20 @@ export const WEEK_ROWS_SHOWN = 8;
 export type WeekDay = {
   date: ISODate;
   holiday: string | null;
-  /** The open tasks due that day that are not events (the calendar's "3 due"). */
-  due: number;
+  /** The open tasks due that day that are not events (the calendar's "3 due"), each by name. */
+  due: readonly { id: string; title: string; dueAt: string }[];
   /** The day's event tasks, in the calendar's order (all-day first, then by time). */
-  events: readonly { id: string; title: string; startAt: string | null }[];
+  events: readonly { id: string; title: string; startAt: string | null; detail?: string | null }[];
 };
 
 /** A row: the time column, the words, where a tap goes, and what it is. */
 export type WeekRow = {
   kind: "holiday" | "leave" | "event" | "due";
-  /** "All day", "11:49 am", or empty for the day's due count. */
+  /** "All day", "11:49 am", "6:00 pm". */
   when: string;
   title: string;
+  /** A second, muted line: an event's place, whose it is. */
+  detail?: string | null;
   href: string;
   key: string;
 };
@@ -66,6 +71,11 @@ function leaveKind(value: string | null): LeaveKind | null {
 export function shortDay(date: ISODate, today: ISODate): string {
   const word = dayWord(date, today);
   return word === "Today" || word === "Tomorrow" ? word : word.replace(/ [A-Z][a-z]{2}$/, "");
+}
+
+/** "", or " · until Wed 14" for a span (its block's heading names the first day, PP-today-4). */
+export function spanTail(from: ISODate, to: ISODate, today: ISODate): string {
+  return from === to ? "" : ` · until ${shortDay(to, today)}`;
 }
 
 /** "Mon 12", or "Mon 12 – Wed 14" for a span. */
@@ -129,18 +139,21 @@ function dayRows(day: WeekDay, leave: readonly WeekRow[], today: ISODate): WeekR
       kind: "event",
       when: event.startAt ? clockWord(event.startAt) : "All day",
       title: event.title,
+      detail: event.detail ?? null,
       href: `/tasks/${event.id}`,
       key: `event-${event.id}`,
     });
   }
-  if (day.due > 0) {
+  const due = [...day.due].sort(
+    (a, b) => a.dueAt.localeCompare(b.dueAt) || a.title.localeCompare(b.title),
+  );
+  for (const task of due) {
     rows.push({
       kind: "due",
-      // 6b.9 (2): the row reads "2 tasks due", not "Due · 2 tasks due"; the time column stays empty.
-      when: "",
-      title: day.due === 1 ? "1 task due" : `${day.due} tasks due`,
-      href: dayHref(day.date, today),
-      key: `due-${day.date}`,
+      when: clockWord(task.dueAt),
+      title: task.title,
+      href: `/tasks/${task.id}`,
+      key: `due-${task.id}`,
     });
   }
   return rows;
@@ -156,6 +169,8 @@ export function weekBlocks(input: {
   leave: readonly LeaveDay[];
   nameOf: (memberId: string) => string;
   today: ISODate;
+  /** The reader: their own leave reads "You're on leave". */
+  selfId?: string;
 }): { blocks: WeekBlock[]; hidden: number } {
   const days = [...input.days].sort((a, b) => a.date.localeCompare(b.date));
   const from = days[0]?.date;
@@ -170,7 +185,7 @@ export function weekBlocks(input: {
     rows.push({
       kind: "leave",
       when: "All day",
-      title: `${span.name} ${LEAVE_PHRASE[span.kind]} · ${daySpan(span.from, span.to, input.today)}`,
+      title: `${span.memberId === input.selfId ? "You're" : span.name} ${LEAVE_PHRASE[span.kind]}${spanTail(span.from, span.to, input.today)}`,
       href: dayHref(span.from, input.today),
       key: `leave-${span.memberId}-${span.from}`,
     });
@@ -195,3 +210,65 @@ export function weekBlocks(input: {
 
 /** "See the week": the calendar's week (the laptop's Week view; a phone opens on today). */
 export const SEE_THE_WEEK_HREF = "/calendar?view=week";
+
+/**
+ * The week's days for a reader's own "This week" (My Day, an Admin's Today; FINAL 8): the
+ * holidays, their event tasks (all-day first, then by time) and the deadlines of their other open
+ * tasks, by name, each on its IST day in [from, to]. An event task is never listed as due too.
+ * Their own leave goes in `weekBlocks`' `leave`. Pure (`week.test.ts`).
+ */
+export function ownWeekDays(input: {
+  from: ISODate;
+  to: ISODate;
+  holidays: readonly { date: ISODate; name: string }[];
+  events: readonly {
+    id: string;
+    title: string;
+    eventDate: ISODate;
+    eventStartAt: string | null;
+    detail?: string | null;
+  }[];
+  due: readonly { id: string; title: string; dueAt: string }[];
+}): WeekDay[] {
+  const eventIds = new Set(input.events.map((event) => event.id));
+  const days: WeekDay[] = [];
+  for (let date = input.from; date <= input.to; date = addISTDays(date, 1)) {
+    const events = input.events
+      .filter((event) => event.eventDate === date)
+      .sort(
+        (a, b) =>
+          (a.eventStartAt ?? "").localeCompare(b.eventStartAt ?? "") ||
+          a.title.localeCompare(b.title),
+      )
+      .map((event) => ({
+        id: event.id,
+        title: event.title,
+        startAt: event.eventStartAt,
+        detail: event.detail ?? null,
+      }));
+    days.push({
+      date,
+      holiday: input.holidays.find((holiday) => holiday.date === date)?.name ?? null,
+      events,
+      due: input.due.filter((task) => !eventIds.has(task.id) && toISTDate(task.dueAt) === date),
+    });
+  }
+  return days;
+}
+
+/** A reader's own approved leave requests as `weekBlocks`' days (each day in [from, to]). */
+export function ownLeaveDays(
+  memberId: string,
+  spans: readonly { type: string; startDate: string; endDate: string }[],
+  window: { from: ISODate; to: ISODate },
+): LeaveDay[] {
+  const days: LeaveDay[] = [];
+  for (const span of spans) {
+    const first = span.startDate > window.from ? span.startDate : window.from;
+    const last = span.endDate < window.to ? span.endDate : window.to;
+    for (let day = first; day <= last; day = addISTDays(day, 1)) {
+      days.push({ memberId, day, leave: span.type });
+    }
+  }
+  return days;
+}

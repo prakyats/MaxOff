@@ -1,5 +1,6 @@
 import { CheckCheckIcon } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { withSessionUserId } from "@/core/auth/server";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
@@ -7,8 +8,10 @@ import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
+import { ApprovalScreen } from "@/core/ui/composites/approval-group";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { Button } from "@/core/ui/primitives/button";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
 import { reachedAt, waitingFor, type Waiting } from "@/modules/dashboards";
 import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
@@ -67,8 +70,14 @@ export default async function ApprovalsPage() {
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const faces = Object.fromEntries(
+    directory.map((member) => [
+      member.id,
+      { id: member.id, name: member.fullName, avatarFileId: member.avatarFileId },
+    ]),
+  );
   const tasks = toDecide.map((item) => ({
-    ...taskItem(item, names, viewer.role === "owner"),
+    ...taskItem(item, names, viewer.role === "owner", faces),
     unread: unread[item.row.id] ?? 0,
   }));
   const claims = decidesExpenses ? pendingClaims : [];
@@ -91,6 +100,14 @@ export default async function ApprovalsPage() {
         waited(reachedAt(item.submission?.at ?? item.row.submittedAt, item.adminApprovedAt)),
     ),
   };
+  // The groups with something waiting: a one-row group's Approve is solid only when it is alone.
+  const groupsShown = [
+    own.days,
+    own.requests,
+    own.notes,
+    decidesExpenses ? claims : [],
+    tasks,
+  ].filter((rows) => rows.length > 0).length;
   const nothing =
     own.days.length === 0 &&
     own.requests.length === 0 &&
@@ -111,23 +128,39 @@ export default async function ApprovalsPage() {
               ? "Attendance, leave, extra work, expense claims and tasks that need you appear here."
               : "The tasks you check appear here. Attendance, leave and expenses are the Owner's to decide."
           }
+          // PP-admin-2: an Admin with nothing to check is pointed at the tasks with the reviewers
+          // (the full list on its "With the reviewers" filter).
+          action={
+            decidesAttendance ? undefined : (
+              // The Button (asChild) carries the variant and size the phone's 44 px rule keys on.
+              <Button variant="secondary" asChild /* view-link: navigation (another page) */>
+                <Link href="/tasks/all?state=review" data-slot="approvals-open-tasks">
+                  Tasks to check
+                </Link>
+              </Button>
+            )
+          }
         />
       ) : (
-        <div className="flex flex-col gap-6">
-          {decidesAttendance ? (
-            <>
-              <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
-              <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
-              <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />
-            </>
-          ) : null}
-          {decidesExpenses ? <PendingClaimsGroup claims={claims} waiting={waiting.claims} /> : null}
-          <TaskApprovalGroup
-            tasks={tasks}
-            waiting={waiting.tasks}
-            heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
-          />
-        </div>
+        <ApprovalScreen groups={groupsShown}>
+          <div className="flex flex-col gap-6">
+            {decidesAttendance ? (
+              <>
+                <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
+                <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
+                <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />
+              </>
+            ) : null}
+            {decidesExpenses ? (
+              <PendingClaimsGroup claims={claims} waiting={waiting.claims} />
+            ) : null}
+            <TaskApprovalGroup
+              tasks={tasks}
+              waiting={waiting.tasks}
+              heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
+            />
+          </div>
+        </ApprovalScreen>
       )}
     </>
   );

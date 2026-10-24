@@ -799,9 +799,13 @@ export async function expectNoHorizontalScroll(page: Page): Promise<void> {
     return {
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
-      // Whatever is actually sticking out, so a failure names the culprit.
+      // Whatever is actually sticking out, so a failure names the culprit: the outermost of each
+      // (an element inside one already named is left out), so a wide band's own children cannot
+      // fill the list ahead of the element that widened the page (CI 40034086893: the push band
+      // and four of its spans, and nothing else named).
       wide: [...document.querySelectorAll<HTMLElement>("body *")]
         .filter((el) => el.getBoundingClientRect().right > edge && !insideFittingScroller(el))
+        .filter((el, _, all) => !all.some((other) => other !== el && other.contains(el)))
         .slice(0, 5)
         .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
     };
@@ -1205,4 +1209,25 @@ export async function templatesTab(
   const tab = tabs.locator(`#tab-${key}`);
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
+/**
+ * New project's steps (V5b PP-forms-7: 1 Basics, 2 Deliverables & stages, 3 Preview & create):
+ * Next until the dialog is on step `to`, each step waited for.
+ */
+export async function newProjectStep(dialog: Locator, to: 1 | 2 | 3): Promise<void> {
+  const current = dialog.locator('[data-slot="new-project-steps"] [aria-current="step"]');
+  let at = Number((await current.innerText()).trim().charAt(0));
+  while (at < to) {
+    await dialog.locator('[data-slot="new-project-next"]').click();
+    at += 1;
+    await expect(current).toHaveText(new RegExp(`^${at} `));
+  }
+}
+
+/** Create in the New project dialog: Next to its last step, then Create project. */
+export async function createFromNewProject(dialog: Locator): Promise<void> {
+  await newProjectStep(dialog, 3);
+  await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
+  await dialog.getByRole("button", { name: "Create project" }).click();
 }

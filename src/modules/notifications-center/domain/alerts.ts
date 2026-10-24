@@ -12,13 +12,9 @@ export function alertsFilterFrom(value: unknown): AlertsFilter {
   return value === "unread" ? "unread" : "all";
 }
 
-/** The address of a page of the list under a filter: page 1 and All need no query. */
-export function alertsHref(filter: AlertsFilter, page = 1): string {
-  const query = new URLSearchParams();
-  if (filter === "unread") query.set("show", "unread");
-  if (page > 1) query.set("page", String(page));
-  const search = query.toString();
-  return search ? `/notifications?${search}` : "/notifications";
+/** The list's address under a filter: All needs no query (one continuous list, V5b-D). */
+export function alertsHref(filter: AlertsFilter): string {
+  return filter === "unread" ? "/notifications?show=unread" : "/notifications";
 }
 
 export type DayGroup = "today" | "yesterday" | "this_week" | "older";

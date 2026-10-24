@@ -130,14 +130,15 @@ export function whoIsFree(input: {
 }
 
 /**
- * The day's availability line (owner 2026-10-21, v1.8 V4): only who is away, never who is free.
- * "On leave: Meera (½) · Busy all day: Kiran", each part only when it has anyone; a part-day
- * busy block is left out (it shows on the timeline); "Everyone is available" when neither has.
+ * The day's availability line (owner 2026-10-21, v1.8 V4; PP-phone-2 / PP-admin-1, V5b): only who
+ * is away, never who is free, and never leave: the day's own "‹Name› · On leave" chips say that
+ * (with "You" for the reader), so the line would only say it twice. "Busy all day: Kiran" when
+ * anyone is; a part-day busy block is left out (it shows on the timeline); "Everyone is
+ * available" when nobody is busy all day or away; and nothing ("") when someone is on leave and
+ * nobody is busy all day, so the chips stand alone.
  */
 export function whoFreeLine(who: WhoFree): string {
-  const parts: string[] = [];
-  if (who.onLeave.length > 0) parts.push(`On leave: ${who.onLeave.join(", ")}`);
   const allDay = who.busy.filter((group) => group.when === "all day").flatMap((g) => g.names);
-  if (allDay.length > 0) parts.push(`Busy all day: ${allDay.join(", ")}`);
-  return parts.length > 0 ? parts.join(" · ") : "Everyone is available";
+  if (allDay.length > 0) return `Busy all day: ${allDay.join(", ")}`;
+  return who.onLeave.length > 0 ? "" : "Everyone is available";
 }

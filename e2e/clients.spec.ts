@@ -85,6 +85,8 @@ test.describe("the Owner", () => {
     await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/);
     await expect(pageHeader(page)).toContainText(name);
     await expect(banner(page)).toContainText("Not active yet");
+    // The browser tab names the record (v1.8 pull-in item 5), not "Client".
+    await expect(page).toHaveTitle(`${name} · MaxOff`);
     // Back from the new client returns to the list, never to the form (§14.2 e).
     await page.goBack();
     await expect(page).toHaveURL(/\/clients$/);
@@ -176,17 +178,24 @@ test.describe("the Owner", () => {
     await expect(history).toContainText("changed the Owner's notes");
   });
 
-  test("deletes a draft nothing was added to; an edited draft says it stays (V5a 6c)", async ({
+  test("deletes a draft nothing else uses, edited or not; a used draft says it stays (V5b-0 item 8)", async ({
     page,
   }, info) => {
     const spare = nameOf(info, "Spare draft");
     const kept = nameOf(info, "Kept draft");
     const spareId = await seedClient(spare);
     const keptId = await seedClient(kept);
-    // One edit is history pointing at it: in use (owner 2026-10-22, "any reference counts").
-    await serviceRest(`clients?id=eq.${keptId}`, {
+    // Its own edit is its own history: never use (owner 2026-10-22, item 8).
+    await serviceRest(`clients?id=eq.${spareId}`, {
       method: "PATCH",
       body: JSON.stringify({ city: "Udupi" }),
+    });
+    // Another record pointing at it is use: a contact of the draft.
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("client_contacts", {
+      org_id: org?.id,
+      client_id: keptId,
+      name: "Kavya Rao",
     });
 
     await openClient(page, keptId, kept);
@@ -203,7 +212,7 @@ test.describe("the Owner", () => {
     await menu(page, spare).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     const confirm = page.getByRole("alertdialog", { name: `Delete client “${spare}”?` });
-    await expect(confirm).toContainText("Nothing has been added to this draft or changed on it");
+    await expect(confirm).toContainText("Nothing else uses this draft");
     await confirm.getByRole("button", { name: `Delete ${spare}` }).click();
     // The page is gone: the Clients list takes its place.
     await expect(page).toHaveURL(/\/clients$/);
@@ -303,7 +312,13 @@ test.describe("the Owner", () => {
     // client is opened directly rather than by a back press that would land here first.
     await page.goto(`/clients/${id}`);
     await expect(rows.filter({ hasText: "Arjun Das" })).toContainText("Primary");
-    await expect(rows.filter({ hasText: "Meera Rao" })).toContainText("Archived");
+    // An archived contact leaves the list for the collapsed "Archived (1)" at its foot.
+    await expect(rows.filter({ hasText: "Meera Rao" })).toHaveCount(0);
+    const archived = page.locator('[data-slot="archived-section"]');
+    const meera = archived.locator('[data-slot="archived-item"]', { hasText: "Meera Rao" });
+    await expect(meera).toBeHidden();
+    await archived.locator('[data-slot="archived-toggle"]').click();
+    await expect(meera).toBeVisible();
   });
 
   test("the brand: a swatch list and a font list, and a logo the list shows", async ({
@@ -445,7 +460,7 @@ test.describe("Staff", () => {
 
   test("cannot open Clients", async ({ page }) => {
     await page.goto("/clients");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 });
 
@@ -645,6 +660,20 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await page.goto(`/clients/${id}`);
     await hydrated(page);
 
+    // The archived contact waits under "Archived (1)": opening it adds no history (a view
+    // control, §14.2 d); its row's ⋯ (the Owner's Delete) is a sheet that back closes.
+    const overview = new RegExp(`/clients/${id}$`);
+    const archived = page.locator('[data-slot="archived-section"]');
+    await archived.locator('[data-slot="archived-toggle"]').click();
+    const oldRow = archived.locator('[data-slot="archived-item"]', { hasText: "Old Contact" });
+    await expect(oldRow).toBeVisible();
+    await expect(oldRow.getByRole("button", { name: "Restore Old Contact" })).toBeVisible();
+    await oldRow.getByRole("button", { name: "Actions for Old Contact" }).click();
+    const rowSheet = page.locator('[data-slot="archived-item-actions"]');
+    await expect(rowSheet).toBeVisible();
+    await expect(rowSheet.getByRole("button", { name: "Delete" })).toBeVisible();
+    await expectBackStack(page, [{ closes: rowSheet, url: overview }]);
+
     // A contact that is not the primary: ⋯, Make primary, Archive.
     await page.locator('[data-slot="contact-row"]', { hasText: "Arjun Das" }).click();
     const otherPage = new RegExp(`/contacts/${other}$`);
@@ -653,6 +682,9 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await menu(page, "Arjun Das").click();
     const items = page.getByRole("menu");
     await expect(items).toBeVisible();
+    // The phone's ⋯ sheet names the contact on its title line (PP-sheet-4).
+    await expect(items.locator('[data-slot="menu-sheet-title"]')).toHaveText("Arjun Das");
+    await expect(items.locator('[data-slot="menu-sheet-title"]')).toBeVisible();
     await expectBackStack(page, [{ closes: items, url: otherPage }]);
     await menu(page, "Arjun Das").click();
     await page.getByRole("menuitem", { name: "Make primary" }).click();

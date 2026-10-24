@@ -96,6 +96,10 @@ export function leaveRequestActions(
 /** What `leave_request_change` answers for approved leave that has fully passed (2.3). */
 export const LEAVE_ENDED_MESSAGE = "This leave has ended. Ask the Owner to correct it.";
 
+/** The same, said once under the laptop's table of requests (PP-crew-9, V5b). */
+export const LEAVE_ENDED_HINT =
+  "Leave that has ended can't be changed here. Ask the Owner to correct it.";
+
 /** Approved leave whose last day is before today (IST): the member can no longer change it. */
 export function leaveHasEnded(
   request: Pick<OwnLeaveRequest, "state" | "endDate">,

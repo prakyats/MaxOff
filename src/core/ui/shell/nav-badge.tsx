@@ -7,20 +7,23 @@
 
 export type NavBadgePlace = "bar" | "bell" | "topbar" | "list" | "sheet";
 
+const BELL_PILL =
+  "bg-brand text-brand-foreground ring-background absolute top-0 left-[calc(100%-6px)] flex h-4 min-w-4 translate-x-[min(0px,calc(22px-100%))] -translate-y-1/2 items-center justify-center rounded-full px-[3px] text-count font-semibold ring-2";
+
 const CLASSES: Record<NavBadgePlace, string> = {
   // The ring punches the badge out of the icon so it stays readable over either.
   bar: "bg-brand text-brand-foreground ring-background absolute -top-0.5 right-1.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
-  // The title bar's bell (owner 2026-10-07): the same disc, kept inside the bell's 44px box. The
-  // bar's offset sits above its 28px pill, with the tab's own height around it; on the bell it
-  // reached 2px above the sticky title bar, which the brand bar above then cut off. Inside the
-  // box (top 4px, right 4px) it overlaps the bell's top-right corner, as a count should, and
-  // "99+" (about 26px wide) still ends 4px short of the box's right edge.
-  bell: "bg-brand text-brand-foreground ring-background absolute top-1 right-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
-  // The laptop top bar's bell (V5b major change 9): a small pill offset to the top-right of the
-  // 20 px outline glyph, outside it (its left edge 16 px in, 6 px above), with a 2 px ring in the
-  // bar's own background, capped at "99+". Placed against the glyph's box, not the button's.
-  topbar:
-    "bg-brand text-brand-foreground ring-background absolute -top-1.5 left-4 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
+  // The bell's count, on the phone's title bar (`bell`) and the laptop's top bar (`topbar`): owner
+  // screenshot, #89 comment 6338991185 (the 18 px disc crowded the theme icon). A 16 px pill with
+  // 11 px semibold text (`text-count`, DESIGN §2), at least 16 px wide so one digit makes a
+  // circle, capped at "99+". Offset to the top-right, outside the glyph (the design gate, 23 Oct:
+  // centred on the corner, two digits covered most of the bell): its left edge 6 px inside the 20 px
+  // glyph's right edge and its middle on the glyph's top, so a longer count grows outward, never
+  // over the bell; past 22 px wide ("99+", or large system text) it reaches at most 16 px beyond the
+  // glyph and shifts its last pixels back over the corner, so it never touches the next control
+  // or the screen's edge. The 2 px ring is the bar's background, so it reads punched out in either theme.
+  bell: BELL_PILL,
+  topbar: BELL_PILL,
   list: "bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-none font-semibold tabular-nums",
   sheet:
     "bg-brand text-brand-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold",

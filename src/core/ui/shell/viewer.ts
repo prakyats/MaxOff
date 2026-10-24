@@ -1,3 +1,5 @@
+import { avatarInitials } from "@/core/lib/avatar";
+
 /**
  * What the shell needs to know about the signed-in person.
  * `role` mirrors DATA-MODEL §0 `member_role`. When `core/auth` lands (1.2) it produces this
@@ -19,9 +21,7 @@ export type ShellViewer = {
   avatarFileId?: string | null;
 };
 
+/** The initials a photo falls back to: the shared avatar's rule (`core/lib/avatar`). */
 export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
-  return (first + last).toUpperCase() || "?";
+  return avatarInitials(name);
 }

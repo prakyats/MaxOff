@@ -101,7 +101,11 @@ test("Staff: the prompt asks and snoozes, Start day is the tap, End day is final
   await page.goto("/my-day");
   await hydrated(page);
   await expect(prompt).toBeHidden();
-  await expect(stripStatus(page)).toHaveText("Not started");
+  // PP-crew-2: before the day starts, the strip's call to action; Start day says its time.
+  await expect(stripStatus(page)).toHaveText("Start your day");
+  await expect(strip(page).locator('[data-slot="start-day-time"]')).toHaveText(
+    /^· \d{1,2}:\d{2} (am|pm)$/,
+  );
   if (isPhone(info)) {
     // One line at the phone width (PRODUCT §4.10: My Day is mainly tasks).
     await expect
@@ -238,7 +242,9 @@ test("approved leave: no prompt, and the strip offers I'm working today", async 
   await expect(page).toHaveURL(/\/my-day$/);
   await hydrated(page);
   await expect(startPrompt(page)).toBeHidden();
-  await expect(stripStatus(page)).toHaveText("On leave today");
+  // PP-admin-3: a day on leave is a calm callout, one sentence with the leave icon.
+  await expect(stripStatus(page)).toHaveText("You're on leave today");
+  await expect(strip(page).locator('[data-slot="attendance-leave-icon"]')).toBeVisible();
 
   // A Start day on a leave day: Present for the Owner to review, the leave untouched.
   await strip(page).getByRole("button", { name: "I'm working today" }).click();

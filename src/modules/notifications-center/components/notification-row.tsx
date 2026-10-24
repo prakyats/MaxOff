@@ -32,7 +32,9 @@ export function NotificationRow({
       data-notification={id}
       data-unread={unread && !readHere ? "true" : undefined}
       data-run={runSize > 1 ? runSize : undefined}
-      className="group/row"
+      // PP-alerts-2 (V5b; the design gate, 23 Oct): an unread row sits one shade lighter than a
+      // read one (`row-unread` over `row-read`), so a long run of unread scans at a glance.
+      className="group/row bg-row-read data-[unread]:bg-row-unread"
     >
       {children}
     </li>

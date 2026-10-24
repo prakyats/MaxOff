@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isOverdue,
   joinNames,
+  lateLabel,
   latestChangeRequest,
   pairName,
   reviewerName,
@@ -211,6 +212,15 @@ describe("the task at a glance", () => {
     expect(isOverdue(task(), after)).toBe(true);
     expect(isOverdue(task({ state: "completed" }), after)).toBe(false);
     expect(isOverdue(task(), new Date("2026-10-03T12:29:00.000Z"))).toBe(false);
+  });
+
+  it("says how late an overdue task is, as Today's risks do (PP-tasks-2)", () => {
+    expect(lateLabel(task(), new Date("2026-10-03T15:30:00.000Z"))).toBe("3 h late");
+    expect(lateLabel(task(), new Date("2026-10-05T12:30:00.000Z"))).toBe("2 days late");
+    expect(
+      lateLabel(task({ state: "completed" }), new Date("2026-10-05T12:30:00.000Z")),
+    ).toBeNull();
+    expect(lateLabel(task(), new Date("2026-10-03T12:29:00.000Z"))).toBeNull();
   });
 
   it("joins names briefly and finds the latest change request", () => {

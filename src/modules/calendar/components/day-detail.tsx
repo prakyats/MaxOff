@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BoxIcon,
   ChevronRightIcon,
   ClockIcon,
   ListChecksIcon,
@@ -12,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -25,9 +27,12 @@ import {
   isEmptyDay,
   timeWords,
 } from "../domain/calendar";
+import { agendaEvents } from "../domain/laptop";
+import { clientWorkRows } from "../domain/show";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
-import { DoneTick, LEAVE_TONE } from "./calendar-chip";
+import { DoneTick, LEAVE_TONE, LeaveIcon, TypeDot, typeTint } from "./calendar-chip";
+import { LEAVE_FIT_LABEL } from "./leave-fit";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
@@ -54,6 +59,14 @@ export const eventLink: TimelineEventLink = (event, children, className, style) 
     {children}
   </OverlayLink>
 );
+
+/**
+ * A leave chip's word (PP-phone-2, PP-crew-5, V5b): "On leave", as the month's bar says it ("You ·
+ * On leave"), "Half day" and "Comp leave" as they are.
+ */
+function leaveWord(label: string): string {
+  return label === "Leave" ? "On leave" : label;
+}
 
 /** "Asha" for "Asha Rao (freelancer)": a chip is one short line. */
 function firstName(name: string): string {
@@ -93,6 +106,8 @@ export function AllDayChips({
   dueAsChip,
   onDue,
   events = true,
+  avatars = false,
+  fitLeave = false,
 }: {
   day: CalendarDay;
   /** A past day's open tasks are overdue: their "Due · N" reads red (decision 25 C). */
@@ -103,19 +118,21 @@ export function AllDayChips({
   onDue?: () => void;
   /** The all-day events in the line; the laptop's agenda lists them with the others instead. */
   events?: boolean;
+  /** Each person's photo beside their leave (the day popup only, V5b-D; never a month box). */
+  avatars?: boolean;
+  /**
+   * The laptop's Week and Day: a leave chip never truncates; "Name · Leave" where "Name · On
+   * leave" has no room, else "[photo] Leave" (v1.8, owner 23 Oct; the screen's `useLeaveFit`
+   * measures).
+   */
+  fitLeave?: boolean;
 }) {
   const overdue = day.date < today;
   return (
     <>
       {day.holiday ? (
-        <Chip
-          slot="calendar-holiday"
-          className="border-l-2"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${HOLIDAY_COLOR} 15%, transparent)`,
-            borderLeftColor: HOLIDAY_COLOR,
-          }}
-        >
+        <Chip slot="calendar-holiday" style={typeTint(HOLIDAY_COLOR)}>
+          <TypeDot color={HOLIDAY_COLOR} />
           <span className="min-w-0 truncate">{day.holiday}</span>
         </Chip>
       ) : null}
@@ -124,38 +141,94 @@ export function AllDayChips({
           Weekly off
         </Chip>
       ) : null}
-      {day.leave.map((item) => (
-        <Chip
-          key={`${item.memberId}-${item.label}-${item.pending}`}
-          slot="calendar-leave"
-          className={cn(
-            // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
-            LEAVE_TONE,
-            item.pending && "border-leave/60 border border-dashed",
-          )}
-        >
-          <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
-          <span data-member={item.memberId} className="min-w-0 truncate">
-            {item.own ? "You" : firstName(item.name)} · {item.label}
-            {item.pending ? " · requested" : ""}
+      {day.leave.map((item) => {
+        const chip = (
+          <Chip
+            key={`${item.memberId}-${item.label}-${item.pending}`}
+            slot="calendar-leave"
+            className={cn(
+              // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
+              LEAVE_TONE,
+              item.pending && "border-leave/60 border border-dashed",
+            )}
+          >
+            {fitLeave && item.label === "Leave" ? (
+              <span
+                data-member={item.memberId}
+                data-leave-fit="long"
+                className={cn("min-w-0", LEAVE_FIT_LABEL)}
+              >
+                <span data-leave-word="long">
+                  <LeaveIcon className="mr-1" />
+                  {item.own ? "You" : firstName(item.name)} · On leave
+                </span>
+                <span data-leave-word="short">
+                  <LeaveIcon className="mr-1" />
+                  {item.own ? "You" : firstName(item.name)} · Leave
+                </span>
+                {/* Where even "Name · Leave" has no room: their photo, "Leave" (owner 23 Oct). */}
+                <span data-leave-word="photo">
+                  <PersonAvatar
+                    person={{
+                      id: item.memberId,
+                      name: item.name,
+                      avatarFileId: item.avatarFileId ?? null,
+                    }}
+                    size={20}
+                  />
+                  Leave
+                </span>
+                {item.pending ? " · requested" : ""}
+              </span>
+            ) : (
+              <>
+                <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
+                <span data-member={item.memberId} className="min-w-0 truncate">
+                  {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
+                  {item.pending ? " · requested" : ""}
+                </span>
+              </>
+            )}
+          </Chip>
+        );
+        return avatars ? (
+          <span
+            key={`${item.memberId}-${item.label}-${item.pending}`}
+            className="inline-flex max-w-full min-w-0 items-center gap-1.5"
+          >
+            <PersonAvatar
+              person={{
+                id: item.memberId,
+                name: item.name,
+                avatarFileId: item.avatarFileId ?? null,
+              }}
+              size={20}
+            />
+            {chip}
           </span>
-        </Chip>
-      ))}
+        ) : (
+          chip
+        );
+      })}
       {(events ? allDayEvents(day) : []).map((event) =>
         eventLink(
           event,
           <>
-            {event.completed ? <DoneTick className="mr-1" /> : null}
+            {event.completed ? (
+              <DoneTick className="mr-1" />
+            ) : (
+              <TypeDot color={event.color} className="mr-1" />
+            )}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
-              <span className="text-muted-foreground"> · {event.location}</span>
+              <span className="text-foreground/80"> · {event.location}</span>
             ) : null}
           </>,
           cn(
-            "block max-w-full truncate rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4",
+            "block max-w-full truncate rounded-md px-1.5 py-0.5 text-xs leading-4",
             event.completed && "opacity-60",
           ),
-          { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
+          typeTint(event.color),
         ),
       )}
       {dueAsChip && dueCount(day) > 0 ? (
@@ -249,7 +322,7 @@ export function DayDetail({
   free,
   action,
   timeline,
-  fill = false,
+  inPage = false,
   footer,
   heading = true,
   headingId,
@@ -267,12 +340,11 @@ export function DayDetail({
    */
   timeline: boolean;
   /**
-   * The phone's week and compact month (the owner's phone walk, 2026-10-08): the detail fills the
-   * height left above the bottom bar. Its heading and all-day line stay put; under them one scroll
-   * takes the rest: the hour timeline with the day's other rows ("Due · N", "Who's free", the
-   * day's action) after its hours, or those rows alone on a day with no timed event.
+   * The phone's week and compact month (PP-light-4, V5b, replacing the owner's 2026-10-08 fill):
+   * the day is part of the page, which scrolls; the hour timeline draws only the hours around the
+   * day's timed events, with no scroll of its own, and the day's other rows follow it.
    */
-  fill?: boolean;
+  inPage?: boolean;
   /** "Open day" in the laptop's dialog. */
   footer?: ReactNode;
   /** The day's heading; a sheet's title says it instead. */
@@ -281,11 +353,20 @@ export function DayDetail({
 }) {
   const empty = isEmptyDay(day);
   const timed = placeBlocks(day);
+  // The Owner and Admins see the day in two parts (SCOPE §6, the approved calendar sample):
+  // "Tasks · n" (the events, all-day ones too, and what is due), then "Client work · n"; Crew's
+  // day is unchanged (they never see client work).
+  const split = scope !== "staff";
+  const tasks = day.events.length + day.due.length;
+  // The all-day events are rows under "Tasks · n", except in the phone's in-page day (`inPage`),
+  // whose all-day line keeps them as chips above the timeline.
+  const rowsForAllDay = split && !inPage;
+  const allDayEvents = rowsForAllDay ? day.events.filter((event) => event.startAt === null) : [];
   const hasAllDay =
     day.holiday !== null ||
     day.weeklyOff ||
     day.leave.length > 0 ||
-    day.events.some((event) => event.startAt === null);
+    (!rowsForAllDay && day.events.some((event) => event.startAt === null));
   // What follows the events: an Admin's others' busy times (beside the laptop Day's timeline),
   // "Due · N" and its tasks, "Who's free" and the day's buttons.
   const rest = (
@@ -297,23 +378,36 @@ export function DayDetail({
               key={`${block.memberId}-${block.startAt}`}
               data-slot="calendar-busy"
               data-member={block.memberId}
+              className="flex min-w-0 items-center gap-2"
             >
-              <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
-              {timeWords(block.startAt, block.endAt)}
+              <PersonAvatar
+                person={{
+                  id: block.memberId,
+                  name: block.name,
+                  avatarFileId: block.avatarFileId ?? null,
+                }}
+                size={20}
+              />
+              <span className="min-w-0">
+                <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
+                {timeWords(block.startAt, block.endAt)}
+              </span>
             </li>
           ))}
         </ul>
       ) : null}
       {day.due.length > 0 ? (
         <section
-          aria-labelledby={`${headingId}-due`}
+          aria-labelledby={split ? `${headingId}-tasks` : `${headingId}-due`}
           data-slot="calendar-due-list"
           className="flex flex-col gap-2"
         >
-          <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
-            <ClockIcon className="text-muted-foreground size-4" aria-hidden />
-            Due · {day.due.length}
-          </h3>
+          {split ? null : (
+            <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
+              <ClockIcon className="text-muted-foreground size-4" aria-hidden />
+              Due · {day.due.length}
+            </h3>
+          )}
           <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
             {day.due.map((item) => (
               <li key={item.id}>
@@ -346,9 +440,13 @@ export function DayDetail({
         </section>
       ) : null}
       {day.items.length > 0 ? (
-        <ClientItemsList items={day.items} headingId={`${headingId}-items`} />
+        <ClientItemsList
+          items={day.items}
+          headingId={`${headingId}-items`}
+          late={day.date < today}
+        />
       ) : null}
-      {free !== null && scope !== "staff" ? (
+      {free && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
         </p>
@@ -367,7 +465,7 @@ export function DayDetail({
       aria-label={heading ? undefined : dayHeading(day.date, today)}
       data-slot="calendar-detail"
       data-date={day.date}
-      className={cn("flex min-w-0 flex-col gap-3", fill && "grow basis-0")}
+      className="flex min-w-0 flex-col gap-3"
     >
       {heading ? (
         <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
@@ -381,51 +479,62 @@ export function DayDetail({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} />
+          <AllDayChips day={day} today={today} dueAsChip={false} events={!rowsForAllDay} avatars />
         </div>
       ) : null}
+      {split && tasks > 0 ? (
+        <h3
+          id={`${headingId}-tasks`}
+          data-slot="calendar-tasks-title"
+          className="flex items-center gap-1.5 text-sm font-semibold"
+        >
+          <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
+          Tasks <span className="text-muted-foreground font-medium">· {tasks}</span>
+        </h3>
+      ) : null}
+      {allDayEvents.length > 0 && timeline ? <EventRows events={allDayEvents} /> : null}
       {timed.length > 0 ? (
         timeline ? (
-          fill ? (
-            <Timeline days={[day]} today={today} eventLink={eventLink} fill after={rest} />
-          ) : (
-            <Timeline
-              days={[day]}
-              today={today}
-              eventLink={eventLink}
-              className="border-border overflow-hidden rounded-lg border"
-            />
-          )
+          <Timeline
+            days={[day]}
+            today={today}
+            eventLink={eventLink}
+            span={inPage}
+            className="border-border overflow-hidden rounded-lg border"
+          />
         ) : (
-          <EventRows events={day.events.filter((event) => event.startAt !== null)} />
+          <EventRows
+            events={
+              rowsForAllDay
+                ? agendaEvents(day)
+                : day.events.filter((event) => event.startAt !== null)
+            }
+          />
         )
-      ) : fill ? (
-        <div
-          data-slot="calendar-day-scroll"
-          // The one scroll on a day with no timed event; two of the phone's hours at least, as the
-          // timeline keeps.
-          className="flex min-h-[5.5rem] min-w-0 grow basis-0 flex-col gap-3 overflow-y-auto overscroll-contain"
-        >
-          {rest}
-        </div>
+      ) : !timeline && allDayEvents.length > 0 ? (
+        <EventRows events={allDayEvents} />
       ) : null}
-      {fill ? null : rest}
+      {rest}
     </section>
   );
 }
 
 /**
- * "Client items · N" after "Due · N" (7.3; kickoff 7 decision 21 in decision 25's priority): each
- * row the item's title · project · client, done ones muted; a tap opens the project on the item's
- * cycle with its sheet open. The Owner's and the client's Admin's only (the page reads none for
- * Crew).
+ * "Client work · n" after the tasks (SCOPE §6, the approved calendar sample; kickoff 7 decision 21):
+ * grouped by client, each row the client first, then the deliverable and its project, done ones
+ * muted, a late one saying so in red; a tap opens the project on the item's cycle with its sheet
+ * open. The Owner's and the client's Admin's only (the page reads none for Crew). The full text,
+ * wrapped: the popup is where a chip's cut words are read whole.
  */
 export function ClientItemsList({
   items,
   headingId,
+  late,
 }: {
   items: readonly ClientItemEntry[];
   headingId: string;
+  /** The day is past: its open work is late. */
+  late: boolean;
 }) {
   return (
     <section
@@ -434,29 +543,31 @@ export function ClientItemsList({
       className="flex flex-col gap-2"
     >
       <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
-        <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
-        Deliverables · {items.length}
+        <BoxIcon className="text-muted-foreground size-4" aria-hidden />
+        Client work <span className="text-muted-foreground font-medium">· {items.length}</span>
       </h3>
       <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
-        {items.map((item) => (
+        {clientWorkRows(items).map((item) => (
           <li key={item.id} className="min-w-0">
             <OverlayLink
               href={item.href}
               data-slot="calendar-item"
               data-item={item.id}
+              data-client={item.client}
               className={cn(
                 "focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset",
                 item.done && "text-muted-foreground",
               )}
             >
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="font-medium break-words">
+                <span className="font-semibold break-words">
                   {item.done ? <DoneTick className="mr-1" /> : null}
-                  {item.title}
+                  {item.client}
                 </span>
                 <span className="text-muted-foreground text-xs break-words">
-                  {item.project} · {item.client}
+                  {item.title} · {item.project}
                   {item.done ? " · done" : ""}
+                  {late && !item.done ? <span className="text-danger"> · late</span> : null}
                 </span>
               </span>
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
