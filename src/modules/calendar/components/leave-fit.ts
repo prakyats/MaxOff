@@ -4,21 +4,12 @@ import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 export const LEAVE_FIT = "data-leave-fit";
 
 /**
- * On an area once `fitLeaveLabels` has measured its labels. The server's HTML says `long` on every
- * label until the calendar's own JavaScript runs, which lands after the shell has hydrated (the
- * shell's `data-chrome`), so a reader that must tell a measured label from the server's default
- * waits for this (the specs: CI run 40050701307, the week at 1024 read "long", cut, before the
- * first fit).
- */
-export const LEAVE_FITTED = "data-leave-fitted";
-
-/**
  * On a leave label (`data-leave-fit`): one line, clipped (never an ellipsis), and only the
  * wording its `data-leave-fit` names shown (long until measured): `long`, `short`, `photo` or
  * `face`.
  */
 export const LEAVE_FIT_LABEL =
-  "overflow-hidden whitespace-nowrap [&[data-leave-fit=short]_[data-leave-word=long]]:hidden [&[data-leave-fit=photo]_[data-leave-word=long]]:hidden [&[data-leave-fit=face]_[data-leave-word=long]]:hidden [&:not([data-leave-fit=short])_[data-leave-word=short]]:hidden [&:not([data-leave-fit=photo])_[data-leave-word=photo]]:hidden [&:not([data-leave-fit=face])_[data-leave-word=face]]:hidden";
+  "overflow-hidden whitespace-nowrap [&:not([data-leave-fit=long])_[data-leave-word=long]]:hidden [&:not([data-leave-fit=short])_[data-leave-word=short]]:hidden [&:not([data-leave-fit=photo])_[data-leave-word=photo]]:hidden [&:not([data-leave-fit=face])_[data-leave-word=face]]:hidden";
 
 /**
  * The wordings in the order they are tried: the first that fits on its one line wins. `face`, the
@@ -41,9 +32,12 @@ const RUNGS = ["long", "short", "photo", "face"] as const;
 export function fitLeaveLabels(root: HTMLElement): void {
   let open = [...root.querySelectorAll<HTMLElement>(`[${LEAVE_FIT}]`)];
   for (const label of open) label.setAttribute(LEAVE_FIT, RUNGS[0]);
-  // Measured from here on, whatever the labels end up saying (one pass is one task: nothing
-  // reads the area between this mark and the rungs below).
-  root.setAttribute(LEAVE_FITTED, "");
+  // `data-leave-fitted`: the area has measured. The server's HTML says `long` on every label until
+  // the calendar's own JavaScript runs, which lands after the shell has hydrated (its
+  // `data-chrome`), so a reader that must tell a measured label from the server's default waits
+  // for this mark (the specs: CI run 40050701307, the week at 1024 read "long", cut, before the
+  // first fit). One pass is one task: nothing reads the area between the mark and the rungs below.
+  root.setAttribute("data-leave-fitted", "");
   for (const rung of RUNGS.slice(1)) {
     open = open.filter(
       (label) =>
