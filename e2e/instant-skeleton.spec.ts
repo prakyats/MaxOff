@@ -56,7 +56,7 @@ const COLD_MS = 3_000;
 const INSTANT_MS = 300;
 /** How long a finger rests on the glass in a tap. */
 const TAP_HOLD_MS = 80;
-const SHELL_CACHE = "maxoff-shell-v12";
+const SHELL_CACHE = "maxoff-shell-v13";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 const ISO_DATE = /\b20\d\d-[01]\d-[0-3]\d\b/;
@@ -131,12 +131,18 @@ function prefetchedBy(role: SessionRole): string[] {
   ];
 }
 
+/** The links at Tasks' foot (every role's Tasks has both): kept since sw.js v13. */
+const TASKS_FOOT = ["/tasks/all", "/tasks/requests"];
+
 test.describe("what the worker keeps carries no member data", () => {
   test.skip(({ isMobile }) => !isMobile, "the bar and the More sheet are the phone's");
   test.afterEach(({ context }) => releasePrefetches(context));
 
   test("between them the roles' shells prefetch every address the worker may keep", () => {
-    const prefetched = new Set((["owner", "admin", "staff"] as const).flatMap(prefetchedBy));
+    const prefetched = new Set([
+      ...(["owner", "admin", "staff"] as const).flatMap(prefetchedBy),
+      ...TASKS_FOOT,
+    ]);
     expect([...shellPaths()].filter((path) => !prefetched.has(path))).toEqual([]);
   });
 
@@ -180,9 +186,9 @@ test.describe("what the worker keeps carries no member data", () => {
         // A task's page, from its row on Tasks (the Owner and the Crew member see the fixture's).
         // Tasks' own row: My Day links the task twice by design (its row, and its deadline by name
         // under "This week", FINAL 8 / PP-today-4), so the row is found once Tasks is on screen.
+        await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+        await expect(page).toHaveURL(/\/tasks$/);
         if (role !== "admin") {
-          await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-          await expect(page).toHaveURL(/\/tasks$/);
           await expect(
             page
               .locator('[data-slot="task-row"]')
@@ -194,6 +200,19 @@ test.describe("what the worker keeps carries no member data", () => {
             )
             .toBe(true);
         }
+        // Tasks' foot links, prefetched once they scroll into view: both kept, so both read. Tasks
+        // loaded afresh: the Owner's Today links `/tasks/all?person=…`, whose prefetch already gave
+        // the router that route's skeleton under a query, so the bare address was never asked.
+        await page.goto("/tasks");
+        await hydrated(page);
+        await page.locator('[data-slot="tasks-more"]').scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            TASKS_FOOT.filter(
+              (path) => answers.has(`${path} /_tree`) && answers.has(`${path} loading`),
+            ),
+          )
+          .toEqual(TASKS_FOOT);
 
         let checked = 0;
         for (const [key, body] of answers) {

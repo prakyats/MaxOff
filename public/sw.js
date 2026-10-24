@@ -37,7 +37,7 @@
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v12";
+const VERSION = "v13";
 const CACHE = `maxoff-${VERSION}`;
 const SHELL_CACHE = `maxoff-shell-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -231,10 +231,18 @@ function takeHeldLaunch(url) {
  * (`e2e/instant-skeleton.spec.ts` reads every one, for every role). Never a client's or a
  * person's page (their layouts read the record), never `/leave` (its layout hands the comp leave
  * balance and today's date to the page). Adding a path here needs that proof first.
+ *
+ * Tasks' two drill-downs, `/tasks/all` and `/tasks/requests` (v13, ADR-0014 amendment
+ * 2026-10-24), are the links at Tasks' foot: their pages have no layout of their own and their
+ * loading screens read the role only. Unkept, on a cold Worker they held two of the router's four
+ * prefetch slots for ~3 s each, so a task row tapped right after Tasks drew waited behind them.
+ * Only the bare address is kept: `/tasks/all?state=review` carries a query and stays network-only.
  */
 const SHELL_PATHS = new Set([
   "/approvals",
   "/tasks",
+  "/tasks/all",
+  "/tasks/requests",
   "/calendar",
   "/clients",
   "/people",
