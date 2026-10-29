@@ -1,0 +1,356 @@
+<title>v1.9 Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column of numbered changes; each shows the real "before" screenshot beside a built "after" mock in MaxOff's own tokens */
+:root{
+  --page:#f4f4f2; --page-ink:#18181b; --page-muted:#5f5f66; --page-line:#dedede; --page-card:#ffffff;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0e0e10;--page-ink:#ededee;--page-muted:#a1a1a8;--page-line:#26262a;--page-card:#151517;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0e0e10;--page-ink:#ededee;--page-muted:#a1a1a8;--page-line:#26262a;--page-card:#151517;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--page-ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+header.top{display:flex;flex-direction:column;gap:10px}
+h1{font-size:28px;letter-spacing:-.025em;margin:0;text-wrap:balance}
+h2{font-size:20px;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.lede{color:var(--page-muted);margin:0;max-width:72ch}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar span{color:var(--page-muted);font-size:13px}
+.seg{display:inline-flex;background:var(--page-card);border:1px solid var(--page-line);border-radius:8px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--page-muted);padding:6px 12px;border-radius:6px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--page-ink);color:var(--page)}
+.seg button:focus-visible{outline:2px solid var(--page-ink);outline-offset:2px}
+section.change{display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px}
+.chead{display:flex;flex-direction:column;gap:6px}
+.num{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--page-muted)}
+ul.what{margin:0;padding-left:18px;max-width:80ch;display:flex;flex-direction:column;gap:3px;color:var(--page-ink)}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.pair.wideafter{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+@media (max-width:900px){.pair,.pair.wideafter{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tag{font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;width:max-content}
+.t-before{background:var(--page-card);border:1px solid var(--page-line);color:var(--page-muted)}
+.t-after{background:#15803d;color:#fff}
+figure{margin:0;display:flex;flex-direction:column;gap:6px}
+figure img{display:block;max-width:100%;height:auto;border-radius:10px;border:1px solid var(--page-line)}
+figcaption,.cap{font-size:12.5px;color:var(--page-muted)}
+.shots{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.shots figure{flex:1 1 220px;min-width:0}
+
+/* ---------- the MaxOff "after" mocks: their own tokens, switchable ---------- */
+.mx{--bg:#0b0b0c;--s1:#131315;--s2:#1a1a1d;--s3:#222226;--side:#0f0f11;--ink:#ededee;--muted:#9d9da5;--faint:#6b6b73;--line:#25252a;
+  --red:#e5484d;--red-solid:#c42126;--red-soft:#3a1517;--red-ink:#ff8a8f;--amber-soft:#33240e;--amber-ink:#f5b55a;--blue-soft:#18203a;--blue-ink:#8fb0ff;
+  --green:#15803d;--green-soft:#10291c;--green-ink:#5fd497;--grey-soft:#232327;--violet-soft:#241b3a;--violet-ink:#b9a3ff;--teal-soft:#0f2a28;--teal-ink:#5ed3c4;
+  --shadow:0 1px 0 rgba(255,255,255,.03),0 6px 18px rgba(0,0,0,.35);--primary:#ededee;--on-primary:#0b0b0c;
+  background:var(--bg);color:var(--ink);border-radius:12px;border:1px solid var(--line);overflow:hidden;font-size:13px;line-height:1.45;color-scheme:dark}
+.mx.light,.mxlight .mx{--bg:#f6f5f2;--s1:#ffffff;--s2:#ffffff;--s3:#ffffff;--side:#efeee9;--ink:#18181b;--muted:#62626a;--faint:#8b8b93;--line:#e3e2dd;
+  --red:#d92d34;--red-soft:#fdecec;--red-ink:#b42318;--amber-soft:#fdf3e2;--amber-ink:#8f5400;--blue-soft:#e9effd;--blue-ink:#2952cc;
+  --green-soft:#e6f4ea;--green-ink:#15803d;--grey-soft:#efefef;--violet-soft:#efeafd;--violet-ink:#5b3fc4;--teal-soft:#e3f5f2;--teal-ink:#0f766e;
+  --shadow:0 1px 2px rgba(20,20,20,.06),0 4px 14px rgba(20,20,20,.06);--primary:#18181b;--on-primary:#ffffff;color-scheme:light}
+.mx .app{display:grid;grid-template-columns:150px minmax(0,1fr);min-height:100%}
+.mx .side{background:var(--side);border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.mx .brand{display:flex;gap:8px;align-items:center;font-weight:700;padding:2px 6px 12px}
+.mx .mark{width:22px;height:22px;border-radius:6px;background:var(--red-solid);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.mx .nav{padding:6px 8px;border-radius:6px;color:var(--muted)}
+.mx .nav.on{background:var(--s3);color:var(--ink);font-weight:600}
+.mx .main{display:flex;flex-direction:column;min-width:0}
+.mx .bar{height:44px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 14px;color:var(--muted)}
+.mx .bar .bell{position:relative}
+.mx .bar .bell b{position:absolute;top:-6px;right:-9px;background:var(--red);color:#fff;font-size:9px;border-radius:999px;padding:0 4px}
+.mx .content{padding:16px 18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.mx .ttl{font-size:20px;font-weight:600;letter-spacing:-.02em;margin:0}
+.mx .sub{color:var(--muted);font-size:12.5px}
+.mx .h{font-size:12.5px;font-weight:600;display:flex;gap:6px;align-items:center}
+.mx .h .c{color:var(--muted);font-weight:500}
+.mx .card{background:var(--s1);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.mx .row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);min-width:0}
+.mx .row:first-child{border-top:0}
+.mx .rt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.mx .rt b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .rt span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .chev{color:var(--faint)}
+.mx .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.mx .chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.mx .c-red{background:var(--red-soft);color:var(--red-ink)}
+.mx .c-amber{background:var(--amber-soft);color:var(--amber-ink)}
+.mx .c-blue{background:var(--blue-soft);color:var(--blue-ink)}
+.mx .c-green{background:var(--green-soft);color:var(--green-ink)}
+.mx .c-grey{background:var(--grey-soft);color:var(--muted)}
+.mx .btn{font:inherit;font-size:12.5px;font-weight:500;height:30px;padding:0 12px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--ink);white-space:nowrap}
+.mx .btn.solid{background:var(--primary);color:var(--on-primary);border-color:transparent}
+.mx .btn.approve{background:var(--green);color:#fff;border-color:transparent}
+.mx .btn.red-out{border-color:var(--red);color:var(--red-ink)}
+.mx .btn.wide{width:100%;height:38px}
+.mx .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.mx .tile{padding:10px 12px;display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--line)}
+.mx .tile:first-child{border-left:0}
+.mx .tile b{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mx .tile span{font-size:11.5px;color:var(--muted)}
+.mx .quiet{color:var(--muted);font-size:12.5px}
+.mx .two{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start}
+.mx .badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);background:var(--s3);border-radius:999px;padding:0 6px;margin-left:6px}
+/* phone frame */
+.phone{width:280px;max-width:100%;border-radius:22px;border:1px solid var(--line);overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.mx.phone .pbar{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);font-weight:600}
+.mx.phone .pbody{padding:12px;display:flex;flex-direction:column;gap:12px}
+.mx.phone .pnav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);padding:6px 0;font-size:10px;color:var(--muted);text-align:center}
+.mx.phone .pnav .on{color:var(--ink);font-weight:600}
+.phones{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.mx .sheet{background:var(--s2);border-top:1px solid var(--line);border-radius:14px 14px 0 0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.mx .handle{width:36px;height:4px;border-radius:4px;background:var(--line);margin:0 auto}
+.mx .steps{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--muted)}
+.mx .steps b{color:var(--ink)}
+.mx .steps .dotl{flex:1;height:2px;background:var(--line);border-radius:2px}
+.mx .steps .dotl.on{background:var(--ink)}
+.mx label.l{font-size:12px;font-weight:600;display:block;margin-bottom:4px}
+.mx .field{height:34px;border:1px solid var(--line);border-radius:6px;background:var(--bg);display:flex;align-items:center;padding:0 10px;gap:8px;color:var(--ink);font-size:12.5px}
+.mx .field .ph{color:var(--faint)}
+.mx .field svg{flex:none}
+.mx .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mx .sect{display:flex;flex-direction:column;gap:6px}
+.mx .sect > .h{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
+.mx .li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.mx .li:first-child{border-top:0}
+.mx .avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:600;background:var(--s3);box-shadow:0 0 0 1px var(--line);flex:none}
+/* calendar */
+.mx .cal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:10px}
+.mx .cell{background:var(--s1);border:1px solid var(--line);border-radius:8px;min-height:92px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mx .cell.we{background:var(--s2);opacity:.85}
+.mx .cell.today{background:var(--s3)}
+.mx .dn{font-weight:600;font-size:12px;width:22px;height:22px;display:grid;place-items:center}
+.mx .dn.t{background:var(--red);color:#fff;border-radius:50%}
+.mx .ev{display:flex;gap:6px;align-items:center;font-size:11px;padding:2px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mx .ev i{width:6px;height:6px;border-radius:50%;flex:none}
+.mx .ev.teal{background:var(--teal-soft);color:var(--teal-ink)} .mx .ev.teal i{background:var(--teal-ink)}
+.mx .ev.violet{background:var(--violet-soft);color:var(--violet-ink)} .mx .ev.violet i{background:var(--violet-ink)}
+.mx .ev.amber{background:var(--amber-soft);color:var(--amber-ink)} .mx .ev.amber i{background:var(--amber-ink)}
+.mx .ev.done{opacity:.6}
+.mx .leave{font-size:11px;padding:2px 6px;border-radius:5px;color:var(--muted);background:repeating-linear-gradient(135deg,var(--grey-soft) 0 6px,transparent 6px 10px);border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .old .ev{border-left:4px solid currentColor;border-radius:3px}
+/* picker */
+.mx .pick{background:var(--s2);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px;width:220px}
+.mx .pg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11px}
+.mx .pg span{padding:4px 0;border-radius:6px}
+.mx .pg .wd{color:var(--faint)}
+.mx .pg .sel{background:var(--primary);color:var(--on-primary);font-weight:600}
+.mx .pg .tod{box-shadow:inset 0 0 0 1px var(--red)}
+.mx .stat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.mx .stat div{padding:12px 14px;display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--line)}
+.mx .stat div:first-child{border-left:0}
+.mx .stat b{font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mx .stat span{font-size:11.5px;color:var(--muted)}
+.mx .stat em{font-style:normal;font-size:11px}
+.mx .tabs{display:inline-flex;background:var(--s2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px}
+.mx .tabs span{padding:5px 12px;border-radius:6px;color:var(--muted);font-size:12px}
+.mx .tabs .on{background:var(--s3);color:var(--ink);font-weight:600}
+.mx .anno{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--muted);padding:8px 12px;border-top:1px dashed var(--line)}
+.mx .anno b{color:var(--ink);font-weight:600}
+@media (max-width:640px){.mx .app{grid-template-columns:minmax(0,1fr)}.mx .side{display:none}.mx .two{grid-template-columns:minmax(0,1fr)}.mx .tiles,.mx .stat{grid-template-columns:repeat(2,minmax(0,1fr))}.mx .cal{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ok{display:flex;flex-direction:column;gap:6px;background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:16px}
+.ok p{margin:0;max-width:75ch}
+</style><style>
+</style>
+<style>
+.mx .callout{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--s3);font-size:12.5px}
+.mx .radio{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.mx .radio .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--faint);flex:none;margin-top:1px}
+.mx .radio.on{border-color:var(--ink)} .mx .radio.on .o{border:5px solid var(--ink)}
+.mx .radio b{display:block;font-weight:600}
+.mx .ta{min-height:54px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px 10px;font-size:12.5px}
+.mx .dlg{background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
+.mx .hold{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--amber-soft);color:var(--ink);font-size:12.5px;border:1px solid var(--line)}
+.mx .hold b{color:var(--amber-ink)}
+.mx .ttlrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mx .ttlrow .t{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.mx .meta{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.mx .menu{background:var(--s2);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:4px;width:200px}
+.mx .menu div{padding:8px 10px;border-radius:6px;font-size:12.5px}
+.mx .menu .sep{height:1px;background:var(--line);padding:0;margin:4px 0}
+.mx .menu .hl{background:var(--s3);font-weight:600}
+.mx .lnk{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;font-size:12.5px}
+.mx table.t{width:100%;border-collapse:collapse;font-size:12px}
+.mx table.t th{text-align:left;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line)}
+.mx table.t td{padding:9px 10px;border-top:1px solid var(--line)}
+.mx .num{font-variant-numeric:tabular-nums}
+.mx .tl{display:flex;flex-direction:column;gap:6px;padding:10px}
+.mx .blk{border-radius:6px;padding:6px 8px;font-size:11.5px}
+.mx .blk.teal{background:var(--teal-soft);color:var(--teal-ink)} .mx .blk.violet{background:var(--violet-soft);color:var(--violet-ink)}
+.mx .pinrow{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px dashed var(--line);font-size:12.5px;font-weight:500}
+.mx .push{display:flex;gap:10px;padding:10px 12px;border-radius:12px;background:var(--s2);border:1px solid var(--line);box-shadow:var(--shadow);font-size:12px}
+.mx .push .ic{width:28px;height:28px;border-radius:7px;background:var(--red-solid);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.mx .redout{border-color:var(--red)!important;color:var(--ink)}
+.mx .tbtn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--line);border-radius:6px;font-size:12px;white-space:nowrap}
+.mx .chipline{display:flex;gap:4px;align-items:center;font-size:11px;padding:2px 6px;border-radius:5px;background:var(--violet-soft);color:var(--violet-ink);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .ok-x{color:var(--green-ink)} .mx .bad-x{color:var(--red-ink)}
+.mx .field2{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-top:1px solid var(--line);font-size:12.5px}
+.mx .field2:first-child{border-top:0}
+.mx .field2 .v{border:1px solid var(--line);border-radius:6px;padding:5px 10px;background:var(--bg);font-variant-numeric:tabular-nums}
+.grid2c{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.grid2c{grid-template-columns:minmax(0,1fr)}}
+.toc{display:flex;flex-wrap:wrap;gap:6px}
+.toc a{font-size:12.5px;color:var(--page-ink);text-decoration:none;border:1px solid var(--page-line);border-radius:999px;padding:4px 10px;background:var(--page-card)}
+.st{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.st.new{background:#b45309;color:#fff}.st.ok{background:#15803d;color:#fff}
+</style>
+<div class="wrap" id="root">
+<header class="top">
+  <h1>v1.9 screens to approve</h1>
+  <p class="lede">These are the v1.9 screens you haven't seen yet. The working-hours screens (late start, Ask to leave early, Stay until, half days, the two kinds of Close) were approved on 22 Oct and aren't repeated here. Everything uses the v1.8 look. On phones, only the new chips, banners and sheets are added; the layouts stay as live.</p>
+  <div class="toolbar"><span>Show the mocks in</span><div class="seg" role="group" aria-label="Theme"><button type="button" id="m-dark" aria-pressed="true">Dark</button><button type="button" id="m-light" aria-pressed="false">Light</button></div></div>
+  <nav class="toc" aria-label="Sections"><a href="#s1">1 On hold: task</a><a href="#s2">2 On hold: project</a><a href="#s3">3 Close kind & "Also add"</a><a href="#s4">4 + New task on a day</a><a href="#s5">5 Month counts</a><a href="#s6">6 Attendance rows</a><a href="#s7">7 Thresholds</a><a href="#s8">8 Reminder pushes</a><a href="#s9">9 Calendar highlight</a></nav>
+</header>
+
+<!-- 1 -->
+<section class="change" id="s1">
+  <div class="chead"><span class="num">1 · Owner & Admin (the task's creator)</span><h2>Putting a task on hold, and resuming it <span class="st new">new</span></h2>
+  <ul class="what">
+    <li><b>Hold</b> is in the task's <b>⋯</b>. A short sheet asks <b>why</b> (required), and the assignees get a quiet notice.</li>
+    <li>While on hold the task shows an amber <b>On hold</b> chip and a line with the reason. It leaves to-do and overdue lists, and no reminders or escalations go out.</li>
+    <li><b>Resume</b> is the one button on the hold line. If the deadline has passed, it asks for a <b>new deadline</b> (required); the old one stays in History.</li>
+  </ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <span class="quiet">‹ Tasks</span>
+      <div class="ttlrow"><span class="t">Reel edit · Yamuna</span><span class="chip c-amber"><i></i>On hold</span><span style="flex:1"></span><span class="quiet">↺ ⋯</span></div>
+      <div class="meta"><span>⚑ Medium priority</span><span>Due Mon 26 Oct, 6:00 pm</span></div>
+      <div class="hold"><span style="flex:1"><b>On hold since 24 Oct</b> · Prishit: "Client hasn't sent the footage"</span><button class="btn solid">Resume</button></div>
+      <div class="tabs" style="width:max-content"><span class="on">Work</span><span>Chat</span></div>
+      <span class="cap">Laptop: the hold line replaces "Nothing needed from you now" while the task is on hold.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="mx" style="padding:14px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+        <div class="menu"><div>Edit details</div><div>Reassign</div><div class="hl">Put on hold…</div><div class="sep"></div><div style="color:var(--red-ink)">Cancel task…</div></div>
+        <div class="dlg" style="flex:1;min-width:240px"><b style="font-size:15px">Put "Reel edit" on hold?</b><span class="quiet">Reminders and the deadline pause. PShetty is told quietly.</span><label class="l">Why</label><div class="ta">Client hasn't sent the footage</div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Keep working</button><button class="btn solid">Put on hold</button></div></div>
+      </div>
+      <div class="mx" style="padding:14px"><div class="dlg"><b style="font-size:15px">Resume "Reel edit"</b><span class="quiet">The deadline (Mon 26 Oct, 6:00 pm) has passed. Set a new one.</span><div class="grid2"><div><label class="l">New deadline</label><div class="field">Fri 30 Oct</div></div><div><label class="l">Time</label><div class="field">6:00 pm</div></div></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Not yet</button><button class="btn solid">Resume</button></div></div></div>
+    </div>
+  </div>
+  <div class="phones" style="margin-top:14px">
+    <div class="mx phone"><div class="pbar"><span class="quiet">‹</span>Reel edit · Yamuna</div><div class="pbody">
+      <div class="ttlrow"><span class="chip c-amber"><i></i>On hold</span><span class="quiet">Medium priority</span></div>
+      <div class="hold" style="flex-direction:column"><span><b>On hold since 24 Oct</b><br>"Client hasn't sent the footage"</span><button class="btn solid wide">Resume</button></div>
+      <div class="tabs"><span class="on">Work</span><span>Chat</span><span>Details</span></div>
+    </div></div>
+    <div class="mx phone"><div class="pbar"><span class="mark">M</span>Tasks</div><div class="pbody">
+      <div class="sect"><div class="h">Needs you <span class="c">· 2</span></div><div class="card"><div class="row"><div class="rt"><b>Thumbnail set</b><span>Due Fri 30 Oct, 6:00 pm</span></div><span class="chip c-red"><i></i>2 h late</span></div><div class="row"><div class="rt"><b>Caption pass</b><span>Due Sat 31 Oct</span></div><span class="chip c-blue"><i></i>In progress</span></div></div></div>
+      <div class="card"><div class="lnk"><span>On hold · 1</span><span class="chev">›</span></div><div class="lnk" style="border-top:1px solid var(--line)"><span>All tasks, with filters</span><span class="chev">›</span></div></div>
+    </div><div class="pnav"><span>Today</span><span>Approvals</span><span class="on">Tasks</span><span>Calendar</span><span>More</span></div></div>
+  </div>
+  <span class="cap">Phone: the same live layout. Only the chip, the hold line, the sheets and the "On hold · 1" line are new. Crew see the chip and the reason, but no Hold or Resume.</span>
+</section>
+
+<!-- 2 -->
+<section class="change" id="s2">
+  <div class="chead"><span class="num">2 · Owner & the client's Admin</span><h2>Putting a project on hold, and resuming it <span class="st new">new</span></h2>
+  <ul class="what">
+    <li><b>Put on hold…</b> is in the project's ⋯, with a reason. No new monthly or weekly cycles are made and no escalations go out. Its deliverables show <b>On hold</b>.</li>
+    <li><b>At month end:</b> held deliverables stay in their own month, marked On hold. There's <b>no automatic carry-forward</b> and no "decide these" nag while on hold. <i>(Advisor's recommendation: please confirm.)</i></li>
+    <li><b>Resume</b> lists every deliverable whose planned date has passed, to give each a new date in one go. Any whose month has ended also gets the usual Carry forward / Close / Leave pending choice.</li>
+    <li><b>Reports (Owner only):</b> held deliverables are their own "On hold" line, neither earned nor lost.</li>
+  </ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <span class="quiet">‹ Yamuna</span>
+      <div class="ttlrow"><span class="t">Monthly Social Media</span><span class="chip c-amber"><i></i>On hold</span></div>
+      <div class="hold"><span style="flex:1"><b>On hold since 20 Oct</b> · "Client paused content for Diwali week"</span><button class="btn solid">Resume…</button></div>
+      <div class="card"><div class="row"><div class="rt"><b>Reel 3</b><span>Planned 22 Oct</span></div><span class="chip c-amber"><i></i>On hold</span></div><div class="row"><div class="rt"><b>Carousel 2</b><span>Planned 27 Oct</span></div><span class="chip c-amber"><i></i>On hold</span></div></div>
+    </div>
+    <div class="mx" style="padding:14px"><div class="dlg"><b style="font-size:15px">Resume "Monthly Social Media"</b><span class="quiet">3 deliverables passed their planned date while on hold. Give each a new date.</span>
+      <div class="card">
+        <div class="field2"><span><b>Reel 3</b><br><span class="quiet">was 22 Oct</span></span><span class="v">2 Nov</span></div>
+        <div class="field2"><span><b>Carousel 2</b><br><span class="quiet">was 27 Oct</span></span><span class="v">4 Nov</span></div>
+        <div class="field2"><span><b>Reel 2</b> · <span class="quiet">September, month ended</span></span><span style="display:flex;gap:6px"><span class="tbtn" style="border-color:var(--ink)">Carry forward</span><span class="tbtn">Close</span><span class="tbtn">Leave</span></span></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Not yet</button><button class="btn solid">Resume project</button></div></div></div>
+  </div>
+  <div class="mx" style="padding:14px;margin-top:12px;max-width:560px"><div class="card stat"><div><b>₹1.8L</b><span>Earned</span></div><div><b>₹0.4L</b><span>Possible</span></div><div><b style="color:var(--amber-ink)">₹0.6L</b><span>On hold</span></div><div><b>₹0.2L</b><span>Closed, not done</span></div></div><span class="cap" style="display:block;margin-top:6px">Owner only: the month's revenue strip gains an "On hold" figure.</span></div>
+</section>
+
+<!-- 3 -->
+<section class="change" id="s3">
+  <div class="chead"><span class="num">3 · Owner (and the client's Admin when closing)</span><h2>Close kind on older closes, and "Also add to this period?" <span class="st new">new</span></h2>
+  <ul class="what">
+    <li>Closing now asks which kind (approved 22 Oct). For deliverables closed <b>before</b> v1.9, the Owner can set it later from the closed deliverable's <b>⋯ → Set close kind</b>.</li>
+    <li>Adding a line to a recurring project's deliverable list asks once: <b>"Also add Reel 5 to October 2026?"</b>. Yes adds it to this month too, with its stages; No starts it next month.</li>
+  </ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:14px"><div class="dlg"><b style="font-size:15px">Set close kind · Reel 1</b><span class="quiet">Closed 30 Sep by Prakyat: "Client moved it". Only the Owner can change this.</span><div class="radio on"><span class="o"></span><div><b>Not needed this month</b><span class="quiet">The client dropped or moved it</span></div></div><div class="radio"><span class="o"></span><div><b>Not delivered</b><span class="quiet">We didn't deliver it</span></div></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Cancel</button><button class="btn solid">Save</button></div></div></div>
+    <div class="mx" style="padding:14px"><div class="dlg"><b style="font-size:15px">Also add "Reel 5" to October 2026?</b><span class="quiet">It's now in the list for every month. Add it to this month too, with its 4 stages?</span><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">From November</button><button class="btn solid">Add to October too</button></div></div></div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="change" id="s4">
+  <div class="chead"><span class="num">4 · Everyone</span><h2>"+ New task on ‹day›" at the foot of a day <span class="st new">new</span></h2>
+  <ul class="what"><li>In the calendar's <b>Day</b> view and a day's sheet, a pinned row at the bottom starts a task for that date. Crew see <b>"Suggest a task on Fri 30 Oct"</b>. It doesn't show on past days, or on today after 11:59 pm.</li></ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:0"><div style="padding:10px 12px;font-weight:600;border-bottom:1px solid var(--line)">Fri 30 Oct</div><div class="tl"><div class="blk teal">10:00 am · Shoot · Yamuna</div><div class="blk violet">2:00 pm · Caption pass · due</div><div class="blk violet">6:00 pm · Thumbnail set · due</div></div><div class="pinrow">＋ New task on Fri 30 Oct</div></div>
+    <div class="mx phone"><div class="pbody"><div class="sheet" style="margin:0 -12px -12px;border-radius:14px"><div class="handle"></div><b>Fri 30 Oct</b><div class="blk violet">Caption pass · due 2:00 pm</div><div class="blk violet">Thumbnail set · due 6:00 pm</div><div class="pinrow" style="padding:10px 0">💡 Suggest a task on Fri 30 Oct</div></div></div></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="change" id="s5">
+  <div class="chead"><span class="num">5 · Owner</span><h2>Month counts per person <span class="st new">new</span></h2>
+  <ul class="what"><li>The Month report and a person's month gain four counts: <b>Late days</b>, <b>Left early (not answered)</b>, <b>Early leaves approved</b> and <b>Half days</b>. A zero shows as "—"; tapping a count opens those days.</li></ul></div>
+  <div class="mx" style="padding:14px;overflow-x:auto"><table class="t"><thead><tr><th>Person</th><th>Days worked</th><th>Late</th><th>Left early, not answered</th><th>Early approved</th><th>Half days</th></tr></thead><tbody>
+    <tr><td><b>PShetty</b></td><td class="num">18 / 22</td><td class="num" style="color:var(--amber-ink)">3</td><td class="num">1</td><td class="num">—</td><td class="num">1</td></tr>
+    <tr><td><b>Prakyat</b></td><td class="num">20 / 22</td><td class="num">—</td><td class="num">—</td><td class="num">2</td><td class="num">—</td></tr>
+  </tbody></table><span class="cap" style="display:block;margin-top:8px">Phone: each person is a card with the same four counts in two rows.</span></div>
+</section>
+
+<!-- 6 -->
+<section class="change" id="s6">
+  <div class="chead"><span class="num">6 · Owner (A1, A4); Admin (A1)</span><h2>Attendance rows: actions on tap, Approve beside Correct <span class="st new">new</span></h2>
+  <ul class="what"><li><b>A1:</b> rows no longer carry a button each. Tapping a row opens its actions, and only the ones that apply (Correct for you; Add overtime note for Admins, never on leave days).</li><li><b>A4:</b> a day waiting for you shows <b>Approve</b> (green) beside Correct.</li></ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:14px"><div class="card"><div class="row"><div class="rt"><b>Thu 29 Oct</b><span>Started 10:22 am · Late 22 min · "Traffic"</span></div><span class="chip c-amber"><i></i>Waiting for you</span><span class="chev">›</span></div><div class="row"><div class="rt"><b>Wed 28 Oct</b><span>10:02 am – 6:11 pm</span></div><span class="chip c-green"><i></i>Present</span><span class="chev">›</span></div><div class="row"><div class="rt"><b>Tue 27 Oct</b><span>Leave</span></div><span class="chip c-grey"><i></i>On leave</span><span class="chev">›</span></div></div></div>
+    <div class="mx phone"><div class="pbody"><div class="sheet" style="margin:0 -12px -12px;border-radius:14px"><div class="handle"></div><b>Thu 29 Oct · PShetty</b><span class="quiet">Started 10:22 am · Late 22 min · "Traffic"</span><button class="btn approve wide">Approve</button><button class="btn wide">Correct…</button></div></div></div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="change" id="s7">
+  <div class="chead"><span class="num">7 · Owner</span><h2>Settings → Thresholds: Working day and Approvals <span class="st new">new fields</span></h2>
+  <ul class="what"><li><b>Working day</b> gains the start, end and late grace. <b>Approvals</b> gains how often you're reminded per priority. Same groups and sticky Save as v1.8.</li></ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:14px"><div class="h" style="margin-bottom:8px">Working day</div><div class="card"><div class="field2"><span>Work starts</span><span class="v">10:00 am</span></div><div class="field2"><span>Work ends</span><span class="v">6:00 pm</span></div><div class="field2"><span>Late after<br><span class="quiet">"Started at 10:16 counts as late"</span></span><span class="v">15 min</span></div></div></div>
+    <div class="mx" style="padding:14px"><div class="h" style="margin-bottom:8px">Approvals</div><div class="card"><div class="field2"><span>Urgent tasks</span><span class="v">Every hour, 10–6</span></div><div class="field2"><span>High</span><span class="v">11 am · 2 pm · 5 pm</span></div><div class="field2"><span>Medium and low</span><span class="v">Once, 11 am</span></div></div><span class="cap" style="display:block;margin-top:6px">Working days only; quiet hours respected; never emailed.</span></div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="change" id="s8">
+  <div class="chead"><span class="num">8 · Owner</span><h2>The approval reminder pushes <span class="st new">new</span></h2>
+  <ul class="what"><li>A tap opens Approvals → Tasks. Leave and attendance waiting join the 11 am reminder as one line each.</li></ul></div>
+  <div class="mx" style="padding:14px;display:flex;flex-direction:column;gap:10px;max-width:460px">
+    <div class="push"><span class="ic">M</span><div><b>Urgent: "Launch reel" waits for your approval</b><br><span class="quiet">Handed in 1 h ago by PShetty</span></div></div>
+    <div class="push"><span class="ic">M</span><div><b>3 tasks waiting for your approval · oldest 2 days</b><br><span class="quiet">Also: 1 leave request · 2 attendance days</span></div></div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="change" id="s9">
+  <div class="chead"><span class="num">9 · Everyone (All ▾: Owner & Admin)</span><h2>Calendar: a filtered view is highlighted <span class="st ok">approved 23 Oct</span></h2>
+  <ul class="what"><li>When the calendar shows only Tasks or only Client work, or real filters are on, the button gets a <b>red outline</b> so nobody forgets they're not seeing everything. This needs a written exception to the colour rule (ADR-0015).</li><li>Month chips get at most one "…", and tapping the day still shows the full text.</li></ul></div>
+  <div class="grid2c">
+    <div class="mx" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="quiet">Not filtered:</span><span class="tbtn">All ▾</span><span class="tbtn">⚟ Filters</span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="quiet">Filtered:</span><span class="tbtn redout">Client work ▾</span><span class="tbtn redout">⚟ Filters · 2</span></div>
+      <div style="display:flex;gap:8px;align-items:center"><span class="quiet">Chips:</span><span class="chipline">✓ Yamuna Sky City reel</span><span class="quiet bad-x">was "Ya… …"</span></div>
+    </div>
+    <div class="mx phone"><div class="hdr" style="display:flex;align-items:center;gap:4px;padding:8px 10px"><span class="quiet">‹</span><b style="flex:1">Oct 2026</b><span class="quiet">›</span><span class="tbtn">23</span><span class="tbtn redout">Tasks ▾</span><span class="tbtn redout">⚟·1</span></div><div class="pbody"><span class="quiet">Phone header: the same one row, outlined when filtered.</span></div></div>
+  </div>
+</section>
+
+<div class="ok"><b>To approve</b><p>Reply <b>"v1.9 samples approved"</b>, or name a number and what to change. Please also confirm section 2's month-end handling (held deliverables stay in their month, no automatic carry-forward, an "On hold" line in your reports).</p></div>
+</div>
+<script>
+(function(){var root=document.getElementById('root'),d=document.getElementById('m-dark'),l=document.getElementById('m-light');
+function set(light){root.classList.toggle('mxlight',light);d.setAttribute('aria-pressed',String(!light));l.setAttribute('aria-pressed',String(light));try{localStorage.setItem('mx-theme',light?'light':'dark')}catch(e){}}
+d.addEventListener('click',function(){set(false)});l.addEventListener('click',function(){set(true)});try{if(localStorage.getItem('mx-theme')==='light')set(true)}catch(e){}})();
+</script>
