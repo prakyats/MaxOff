@@ -4,6 +4,40 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.9.0 (draft): attendance and reminders
+
+**Not released yet** (branch `claude/lucid-turing-sfdv10` → `phase-6b-r4` → `main`; the Owner tags after his walk). The
+full "What ships" is written in W6.
+
+### Deploying
+- **Deploy outside 10:00–18:00 IST.** The release's migrations switch the working hours on (`working_hours_on`):
+  a deploy during the working day would change Start day and End day under people who are mid-day.
+
+### Rolling back to v1.8
+The v1.9 database stays (every migration is expand-only); only the Worker goes back. With the working hours ON,
+v1.8's End day would be refused before the day's end time ("Your day ends at 6:00 pm. Ask to leave early
+instead.") and v1.8 has no "Ask to leave early", so **before rolling the Worker back, the Owner turns the working
+hours OFF in v1.9's Settings → Thresholds** (Working day). The switch is stored in the database, so it stays off
+under v1.8, and v1.8 then behaves exactly as today. Verified against the code (builder, 2 Nov):
+- **End day:** v1.8 calls `attendance_end_day(overtime_note, overtime_minutes)`, the same signature v1.9 re-created.
+  With the switch off, `app.attendance_hours()` reports no rules (`early_applies` false), so End day ends the day at
+  once, as in v1.8; a request still waiting is closed as `lapsed` (nobody is told).
+- **Start day:** `attendance_start_day()` marks Late only while the rules apply; off, nothing is marked.
+- **The v1.9 jobs:** `attendance_hours_tick` (the "Start your day" and end-time reminders) runs only for an
+  organisation with the switch on, so it sends nothing.
+- **Independent of the switch, harmless under v1.8:** the approval reminders (`app.approval_reminders`, W3) keep
+  reaching the Owner in-app and by push (the rows carry their own title and body, which v1.8's Alerts shows; the
+  kind is neither actionable nor always-emailed, so `email_claim()` never emails it); the decision-email policy
+  (`notifications.no_email`, set by `app.notify()` and read by `email_claim()`) is in the database, which v1.8
+  calls the same way.
+- **The functions v1.9 re-created with a new last argument** (`leave_submit`, `leave_submit_comp`,
+  `attendance_submit`, `attendance_choose_leave_today` with `half`; `item_cancel`, `cycle_carry_decide` with
+  `close_kind`) default it to null, so v1.8's calls resolve; `session_bundle()` gained a last column
+  (`pending_early_leaves`), which v1.8 does not read.
+- **Fix forward, not rollback, for one thing:** early-leave requests already "Left early, not answered" when the
+  Worker goes back stay undecided until v1.9 returns (v1.8 has no screen for them and does not count them on its
+  badge); the attendance day itself is unaffected and the Owner can still correct it from the person's history.
+
 ## v1.7.1: projects polish, Owner tasks, fresh data, drag reorder, faster pages, in-app guide (phase 6b, Release 2)
 
 **Released 2026-10-16 ~19:30 IST** (the owner's tag `v1.7.1` on `36b4b95`; production Deploy green, eight expand-only migrations applied in order).
