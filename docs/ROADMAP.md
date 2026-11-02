@@ -227,6 +227,8 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 6. **ANSWERED (owner 2026-10-24: approve all: A1–A4 in W4, S1–S4 in W5, S2 included; A5 skipped, S5 built).** (W4, W5) A1–A5 and S1–S5 are the advisor's 21 Oct review findings, not yet approved by the owner for v1.9; S2 changes kickoff 5's "20 a page" Alerts. Recommended: approve all ten.
 7. D7 (activity behind the clock icon app-wide, 6b.4 (5)) is in neither kickoff 6b's list nor v1.9. Check whether v1.8's History clock sweep (V5a) covered it; if not, ask which release.
 
+**Later (not v1.9):**
+- Month counts open the filtered days (needs a filtered-days view). (W4 Q3, advisor 2026-11-02: W4 shows the month counts on the Month report and a person's Month tab as plain figures; no filtered-days view exists yet.)
 
 ## Phase 7: Client work
 > **Launch order:** built **right after phase 6 (v1.5.x), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08; Owner and Admin; Crew never use it).
