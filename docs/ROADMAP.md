@@ -248,6 +248,7 @@ Exit: Staff submit photos and short videos from any device (iPhone included) and
 ## Phase 9: Revenue, reports and month close (Owner)
 Exit: the Owner sees Potential / Achieved / Remaining by client, category and month, and closes a month. (Exports and the activity-history search, 9.5 and 9.6, are **deferred past the launch**, owner 2026-09-27.)
 **Units:** **9A** [H] 9.1 + 9.2 · **9B** [H] 9.3 + 9.4
+**From v1.9's On hold (owner 2026-11-02):** the approved v1.9 screens sample shows a ₹ "On hold" strip on Reports; it needs this phase's money tables, so v1.9 ships a count only ("On hold · n deliverables", no money) and **9.2 / 9.3 add the ₹ value of held deliverables** (Owner only, invariant 2; neither earned nor lost, invariant 3).
 - [ ] **9.1** [H] Money tables + revenue views + overrides + billing status. pgTAP proving Admin and Staff can't read money through any path. **Since kickoff 7 amendment C (2026-10-08):** the billing category (projects and project-template defaults) lives here, in Owner-only tables, with `project_set_billing_category`; an Admin never reads it
 - [ ] **9.2** [C] Revenue UI (via `modules/revenue` components): project billing setup, per-item values, overrides with notes, billing status, revenue panels on the client page and dashboard
 - [ ] **9.3** [H] Metrics views (raw employee, stage-duration, revision-loop, delay and workload facts) + reports pages (week, month, custom range). Scoped operational reports for Admins
