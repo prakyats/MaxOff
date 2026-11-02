@@ -78,6 +78,22 @@
 
 **As built (v1.9 W0): working hours, late starts and leaving early** (migration `working_hours`, pgTAP 121 per role; owner 2026-10-22: **attendance stays Owner-only, Admins get no attendance controls or notifications**). No new permission key. `attendance_late_reason`, `attendance_ask_leave_early` and `attendance_own_hours` are `attendance.self` on the caller's own day (an Admin's own day included; the Owner and a freelancer FORBIDDEN, a deactivated member UNAUTHENTICATED). `attendance_stay_until` and `early_leave_decide` are `attendance.decide` (the Owner; an Admin and Crew FORBIDDEN, a freelancer or the Owner as the target refused). `attendance_hours_today` and `month_summary_hours` are `attendance.view_all` (the Owner). `early_leave_requests`: SELECT own rows or `attendance.view_all`, no API write. `org_settings.working_hours_on`, `late_grace_minutes` and `early_leave_wait_minutes` are `settings.manage`. A coordinator never acts on a freelancer's attendance (a freelancer has none).
 
+**As built (v1.9 W7): On hold, the database** (migration `on_hold`, ADR-0016, pgTAP 127 per role and path; WORKFLOWS §3.1a, §5.5). **No new permission key, table or policy**: the hold columns are read under `tasks`' and `projects`' existing RLS, and neither table takes an API write (the four columns carry `protect_columns` too). The screens are W8's.
+
+| Who | `task_hold` / `task_resume` | `project_hold` / `project_resume_list` / `project_resume` | `client_work_on_hold` (count, no money) |
+|---|---|---|---|
+| Owner | any task | any project | every held project |
+| The task's creator Admin (holding `tasks.create`) | their tasks | — | — |
+| The client's Admin (`projects.complete` on their clients) | only tasks they created | their clients' projects | their clients' held projects |
+| Another Admin | `NOT_FOUND` (a task they do not see) or `FORBIDDEN` (one they see: an approving Admin who did not create it, an assignee) | `NOT_FOUND` | none (RLS) |
+| A Crew assignee | `FORBIDDEN` (sees the hold and its reason) | `FORBIDDEN` | none |
+| Crew not on it | `NOT_FOUND` | `FORBIDDEN` | none |
+| A freelancer's coordinator | `FORBIDDEN` (sees the task) | `FORBIDDEN` | none |
+| A deactivated member | `UNAUTHENTICATED` | `UNAUTHENTICATED` | none |
+| anon | no EXECUTE | no EXECUTE | no EXECUTE |
+
+`project_resume` runs the ended months' choices through `cycle_carry_decide` (`cycles.carry_decide`, held by the Owner and Admins), so the caller's scope is checked again there. The guard `app.on_hold_guard()` and the rule `app.project_resume_items()` are internal (`service_role` only). Revenue reads are untouched (invariant 3); no amount is in any new function, column or notification (invariant 2).
+
 **As built (v1.9 W4): the working-hours screens** (no new key, no SQL beyond switching the rules on). The strip's Late, Ask to leave early and late reason: `attendance.self` (Admins and Crew, their own day; the Owner has no strip). `GET /api/attendance/late-rule`: `attendance.self`. Approvals' early-leave groups, Stay until behind a row of Everyone today, Today's Late line, the month counts and the Correct of a day left unanswered: `attendance.decide` / `attendance.view_all` (the Owner); an Admin never sees another person's early leave (RLS on `early_leave_requests`: their own rows only, never shown). Settings → Thresholds' Working day and Approvals fields: `settings.manage`.
 
 **As built (v1.9 W3): approval reminders and the decision-email policy** (migration `approval_reminders`, pgTAP 120 per role). No new permission key. The working hours and the reminder cadence (`org_settings.work_start_time`, `work_end_time`, `approval_reminder_urgent_minutes`, `approval_reminder_high_times`, `approval_reminder_daily_time`) are `settings.manage` through the existing UPDATE policy and a column grant (the Owner; an Admin's or Crew member's update matches no row; anon has no privilege); every member reads them with the rest of `org_settings`. `approval_reminder_sends` has RLS with no policy and no API grant: no role reads or writes it; only the job does. `app.approval_reminders()` is `service_role` only. The reminders go to the Owner alone. `notifications.no_email` is not in the API UPDATE grant (`read_at` stays the only writable column).

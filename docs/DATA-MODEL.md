@@ -66,6 +66,9 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    push, never email, the Owner only): an urgent task's hourly "<task> is waiting for
                    your approval" (entity the task) or the grouped "N tasks waiting for your approval ·
                    oldest D days" (the leave and attendance waiting as one line each at the daily time).
+                   v1.9 W7 (migration on_hold; all in-app and push, never email): task_held, task_resumed
+                   (a task's assignees, quietly; its creator when the Owner acts on an Admin's task),
+                   project_held, project_resumed (the client's Admin, when the Owner acts).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -1220,6 +1223,20 @@ projects             id, org_id, client_id (required), name, description, recurr
                      -- + delivery_armed_at timestamptz null (the 7A review of d9caeab, M1, migration
                      -- client_work_alerts_armed): stamped by the delivery_armed_at trigger on creation, a
                      -- changed delivery date or a reopen; E3 waits for the first 08:00 IST after it
+                     -- v1.9 W7 On hold (migration on_hold, ADR-0016: columns beside the state, not a
+                     -- project_state value): + held_at timestamptz null, held_by uuid null → members,
+                     -- hold_reason text null (1..1000), resumed_at timestamptz null. Checks: the three
+                     -- hold columns are null together (projects_hold_pair); held only while open or
+                     -- in_progress (projects_hold_state). Set by project_hold, cleared by project_resume
+                     -- (resumed_at stamped) and by a complete or cancel (app.on_hold_guard clears them;
+                     -- the history keeps them). protect_columns on the four. While held_at is set:
+                     -- no project_cycles insert, no project_items state change but to cancelled and no
+                     -- carry_decision change, no project_item_stage_list tick (app.on_hold_guard,
+                     -- INVALID_STATE); the jobs and reads skip it (WORKFLOWS §5.5, §8). Indexes:
+                     -- projects_held_idx (org_id) where held_at is not null; projects_held_by_idx.
+                     -- Reads: project_resume_list(project) (what a resume settles: needs_date /
+                     -- needs_choice), client_work_on_hold(from, to) (held projects with their count of
+                     -- unfinished deliverables, security invoker; never an amount)
 project_stages       id, org_id, project_id, name, position, archived_at null, created_at, updated_at
                      -- copied from a preset or typed; may be empty; at most 12 active (as presets and
                      -- templates, decision 22 / 23)
@@ -1448,6 +1465,18 @@ tasks                id, org_id, title, description, task_type_id, client_id nul
                      -- labelled with an assigned client; a coordinator sees their current freelancers'
                      -- tasks). Audited through app.audit_override; a task's history is every activity_log
                      -- row with entity_id = the task (the child tables audit with entity_id = task_id)
+                     -- v1.9 W7 On hold (migration on_hold, ADR-0016: columns beside the state, not a
+                     -- task_state value, so the state is the one it resumes to): + held_at timestamptz
+                     -- null, held_by uuid null → members, hold_reason text null (1..1000), resumed_at
+                     -- timestamptz null (the acknowledgement clock's start after a resume). Checks:
+                     -- tasks_hold_pair (the three together), tasks_hold_state (held only in todo,
+                     -- in_progress, changes_requested). Set by task_hold, cleared by task_resume (a new
+                     -- due_at with it when the old one passed) and by a cancel (app.on_hold_guard; the
+                     -- history keeps them). protect_columns on the four. While held: no state change but
+                     -- to cancelled, no task_stages tick (app.on_hold_guard, INVALID_STATE); no deadline
+                     -- reminder armed (app.task_arm_reminders; the tasks_reminders_hold trigger re-arms on
+                     -- hold and resume); never overdue. Indexes: tasks_held_idx (org_id) where held_at is
+                     -- not null; tasks_held_by_idx. Read under the task's RLS (its people see the reason)
 task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
                      -- kickoff 4: member_id is never the Owner (refused by task_create / task_update_assignment)
                      acknowledged_at null, acknowledged_by null (the coordinator when on behalf; else = member_id),
