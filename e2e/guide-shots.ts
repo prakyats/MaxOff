@@ -55,6 +55,12 @@ export type GuideShot = {
   readonly alt: string;
   /** Leave the Start-day prompt open (only the picture of the prompt itself). */
   readonly keepStartPrompt?: boolean;
+  /**
+   * The working hours switched off while this picture is made (v1.9 W6): End day's confirmation,
+   * which the rules offer only from the day's end time (before it the strip offers Ask to leave
+   * early), and the run may be at any hour. The confirmation itself is the same either way.
+   */
+  readonly hoursOff?: boolean;
 };
 
 // ── Locators the entries share ─────────────────────────────────────────────────────────────────
@@ -177,6 +183,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "staff/end-day",
     path: "/my-day",
+    hoursOff: true,
     prepare: (page) => tap(page, "End day"),
     highlight: (page) => layer(page).getByRole("button", { name: "End day", exact: true }),
     crop: layer,

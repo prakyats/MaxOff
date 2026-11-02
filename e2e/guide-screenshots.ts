@@ -629,7 +629,22 @@ async function toWebP(
   return { data, width: result.width, height: result.height };
 }
 
+/** The organisation's working-hours switch (v1.9: on by default), for a `hoursOff` picture. */
+async function setWorkingHours(on: boolean): Promise<void> {
+  await serviceUpdate(`org_settings?working_hours_on=eq.${!on}`, { working_hours_on: on });
+}
+
 async function capture(page: Page, converter: Page, shot: GuideShot): Promise<void> {
+  if (!shot.hoursOff) return captureNow(page, converter, shot);
+  await setWorkingHours(false);
+  try {
+    await captureNow(page, converter, shot);
+  } finally {
+    await setWorkingHours(true);
+  }
+}
+
+async function captureNow(page: Page, converter: Page, shot: GuideShot): Promise<void> {
   const path = typeof shot.path === "function" ? shot.path(demo) : shot.path;
   await page.goto(path);
   await expect(page.locator('[data-slot="page-header"]:visible')).toBeVisible();

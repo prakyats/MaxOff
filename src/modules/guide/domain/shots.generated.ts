@@ -14,7 +14,7 @@ export const GUIDE_SHOTS: Readonly<
   "staff/my-day": {
     src: "/guide/staff/my-day.webp",
     width: 1222,
-    height: 522,
+    height: 427,
     alt: "My Day with today's attendance strip highlighted at the top.",
   },
   "staff/alerts": {
@@ -80,7 +80,7 @@ export const GUIDE_SHOTS: Readonly<
   "staff/calendar": {
     src: "/guide/staff/calendar.webp",
     width: 1184,
-    height: 742,
+    height: 800,
     alt: "The calendar's month with today's date highlighted.",
   },
   "staff/extra-work-note": {
@@ -109,8 +109,8 @@ export const GUIDE_SHOTS: Readonly<
   },
   "admin/today": {
     src: "/guide/admin/today.webp",
-    width: 1222,
-    height: 521,
+    width: 1216,
+    height: 535,
     alt: "Today with the Needs you card highlighted.",
   },
   "admin/approvals": {
@@ -140,7 +140,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/calendar-day": {
     src: "/guide/admin/calendar-day.webp",
     width: 560,
-    height: 385,
+    height: 305,
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
   },
   "admin/clients": {
@@ -259,14 +259,14 @@ export const GUIDE_SHOTS: Readonly<
   },
   "owner/today": {
     src: "/guide/owner/today.webp",
-    width: 1222,
-    height: 800,
+    width: 1216,
+    height: 694,
     alt: "Today with the Needs you card highlighted, listing what waits for a decision.",
   },
   "owner/attendance-board": {
     src: "/guide/owner/attendance-board.webp",
-    width: 1222,
-    height: 800,
+    width: 1216,
+    height: 700,
     alt: "Today with the attendance counts highlighted.",
   },
   "owner/everyone-today": {
@@ -320,7 +320,7 @@ export const GUIDE_SHOTS: Readonly<
   "owner/calendar": {
     src: "/guide/owner/calendar.webp",
     width: 1190,
-    height: 742,
+    height: 800,
     alt: "The calendar with the Filters button highlighted.",
   },
   "owner/people": {
