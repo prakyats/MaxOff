@@ -1,6 +1,7 @@
 import type { ISODate } from "@/core/time";
 
 import { isCloseKind, type CloseKind } from "./close-kinds";
+import type { Recurrence } from "./types";
 
 /**
  * On hold, for projects (v1.9 W7; WORKFLOWS §5.5, ADR-0016). A held project keeps its state; its
@@ -160,7 +161,8 @@ export function splitHeldItems<T extends { projectHeldAt: string | null }>(
  * The resume sheet's lede, in the sample's words (§2): "3 deliverables passed their planned date
  * while on hold. Give each a new date.", and the ended months' choice.
  */
-export function resumeWords(dated: number, choosing: number): string {
+export function resumeWords(dated: number, choosing: number, recurrence: Recurrence): string {
+  const unit = periodUnit(recurrence);
   const parts: string[] = [];
   if (dated > 0) {
     parts.push(
@@ -172,11 +174,19 @@ export function resumeWords(dated: number, choosing: number): string {
   if (choosing > 0) {
     parts.push(
       choosing === 1
-        ? "1 is from a month that has ended: carry it forward, close it or leave it pending."
-        : `${choosing} are from a month that has ended: carry each forward, close it or leave it pending.`,
+        ? `1 is from a ${unit} that has ended: carry it forward, close it or leave it pending.`
+        : `${choosing} are from a ${unit} that has ended: carry each forward, close it or leave it pending.`,
     );
   }
   return parts.length > 0
     ? parts.join(" ")
     : "Nothing passed its date while it was on hold, so it carries on as it was.";
+}
+
+/**
+ * The project's period in words: "week" for a weekly project, "month" otherwise (a one-time
+ * project has no period, and its rows never end one), as `closeKindLabel` words it.
+ */
+export function periodUnit(recurrence: Recurrence): "week" | "month" {
+  return recurrence === "weekly" ? "week" : "month";
 }

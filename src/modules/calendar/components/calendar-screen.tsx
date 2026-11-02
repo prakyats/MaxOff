@@ -368,33 +368,39 @@ export function CalendarScreen({
       onClick={() => setFiltersOpen(true)}
       data-slot="calendar-filters-button"
       data-count={count}
+      data-narrowed={count > 0 ? "" : undefined}
       className={cn(
         "pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:min-h-8",
-        count > 0 && "border-foreground",
+        // Real filters hide work: the red outline (the ADR-0015 amendment of 2026-10-23, v1.9 W9).
+        count > 0 && "border-destructive",
       )}
     >
       <SlidersHorizontalIcon className="size-4" aria-hidden />
       {count > 0 ? `Filters · ${count}` : "Filters"}
     </button>
   );
-  // The phone header's Filters (option A, owner 23 Oct): a 44 px icon button, a neutral dot while
-  // a filter is on; its name says how many.
+  // The phone header's Filters (option A, owner 23 Oct): a 44 px icon button; while a filter is on
+  // (v1.9 W9, the approved sample §9) it is outlined red and shows "·n" beside the icon, in the same
+  // 44 px; its name says how many.
   const phoneFilters = (
     <button
       type="button"
       onClick={() => setFiltersOpen(true)}
       data-slot="calendar-filters-button"
       data-count={count}
+      data-narrowed={count > 0 ? "" : undefined}
       aria-label={count > 0 ? `Filters · ${count} on` : "Filters"}
-      className={cn("pressable relative", ICON_BUTTON)}
+      className={cn(
+        "pressable gap-px border border-transparent",
+        ICON_BUTTON,
+        count > 0 && "border-destructive text-foreground",
+      )}
     >
       <SlidersHorizontalIcon className="size-4" aria-hidden />
       {count > 0 ? (
-        <span
-          aria-hidden
-          data-slot="calendar-filters-dot"
-          className="bg-foreground absolute top-2.5 right-2.5 size-2 rounded-full"
-        />
+        <span aria-hidden data-slot="calendar-filters-count" className="text-xs font-semibold">
+          ·{count}
+        </span>
       ) : null}
     </button>
   );

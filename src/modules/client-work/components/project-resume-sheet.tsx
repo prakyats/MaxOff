@@ -30,6 +30,7 @@ import {
   type ResumeEntry,
   resumeProblems,
   type ResumeRow,
+  periodUnit,
   resumeWords,
 } from "../domain/hold";
 import { shortDate } from "../domain/items";
@@ -38,7 +39,7 @@ import type { Recurrence } from "../domain/types";
 
 import { CLEAR_KIND, CloseKindChoice } from "./close-kind-choice";
 
-/** The three choices of an ended month, in the sample's words (owner 2026-10-29). */
+/** The three choices of an ended month (or week), in the sample's words (owner 2026-10-29). */
 const CHOICES: { value: ResumeDecision; label: string }[] = [
   { value: "carry_forward", label: "Carry forward" },
   { value: "close", label: "Close" },
@@ -188,7 +189,7 @@ export function ProjectResumeSheet({
         <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
           <DialogHeader>
             <DialogTitle className="break-words">Resume &ldquo;{projectName}&rdquo;</DialogTitle>
-            <DialogDescription>{resumeWords(dated, choosing)}</DialogDescription>
+            <DialogDescription>{resumeWords(dated, choosing, recurrence)}</DialogDescription>
           </DialogHeader>
           {summary ? (
             <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
@@ -344,7 +345,7 @@ function ResumeRowField({
             dateNeeded
               ? "New date"
               : draft.decision === "carry_forward"
-                ? "Date in its new month (optional)"
+                ? `Date in its new ${periodUnit(recurrence)} (optional)`
                 : "New date (optional)"
           }
         >

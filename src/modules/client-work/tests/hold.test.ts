@@ -7,6 +7,7 @@ import {
   isProjectOnHold,
   needsNewDate,
   onHoldDeliverablesLine,
+  periodUnit,
   resumeItemsPayload,
   resumeProblems,
   type ResumeEntry,
@@ -231,14 +232,26 @@ describe("the screens' On hold (v1.9 W8)", () => {
   });
 
   it("words the resume sheet's lede as the sample", () => {
-    expect(resumeWords(3, 0)).toBe(
+    expect(resumeWords(3, 0, "monthly")).toBe(
       "3 deliverables passed their planned date while on hold. Give each a new date.",
     );
-    expect(resumeWords(1, 1)).toBe(
+    expect(resumeWords(1, 1, "monthly")).toBe(
       "1 deliverable passed its planned date while on hold. Give it a new date. 1 is from a month that has ended: carry it forward, close it or leave it pending.",
     );
-    expect(resumeWords(0, 0)).toBe(
+    expect(resumeWords(0, 0, "monthly")).toBe(
       "Nothing passed its date while it was on hold, so it carries on as it was.",
     );
+  });
+
+  it("says week for a weekly project, never month (W8 follow-up)", () => {
+    expect(resumeWords(0, 1, "weekly")).toBe(
+      "1 is from a week that has ended: carry it forward, close it or leave it pending.",
+    );
+    expect(resumeWords(0, 2, "weekly")).toBe(
+      "2 are from a week that has ended: carry each forward, close it or leave it pending.",
+    );
+    expect(resumeWords(0, 2, "weekly")).not.toMatch(/month/);
+    expect(periodUnit("weekly")).toBe("week");
+    expect(periodUnit("monthly")).toBe("month");
   });
 });

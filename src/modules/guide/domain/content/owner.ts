@@ -714,7 +714,7 @@ export const OWNER_GUIDE: Guide = {
               "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
             ),
             text(
-              "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone the same “All ▾” sits in the header, just before Filters, which is an icon with a dot while a filter is on. This phone or laptop remembers your choice, and leave and holidays always show.",
+              "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice. While it is not All, the button names it, “Client work ▾”, and has a red outline, so you can see the calendar is not showing everything. Filters works the same way: with filters on it reads “Filters · 2” (how many are on) with a red outline; with none it is a plain “Filters”. On a phone the same “All ▾” sits in the header, just before Filters, an icon that shows the count, “·2”, with a red outline while a filter is on. This phone or laptop remembers your All ▾ choice, and leave and holidays always show.",
             ),
             steps("Open Calendar.", {
               text: 'Tap "Filters" (highlighted) to narrow by Client, Person, Type or Status.',

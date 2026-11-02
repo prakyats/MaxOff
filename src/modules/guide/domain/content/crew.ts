@@ -800,8 +800,8 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "On a phone, swipe, or tap the handle, to change size.",
-                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters" (an icon, with a dot while a filter is on).',
-                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right.',
+                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters", an icon that shows the count, "·1", with a red outline while a filter is on, so you can see the calendar is not showing everything.',
+                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right, reading "Filters · 1" with a red outline while a filter is on.',
                 'On a phone, a day of the full month opens in a sheet with its timeline, and "Suggest a task on ‹day›" stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog with "Open day"; in the Day view "Suggest a task on ‹day›" sits at the bottom of the day\'s timeline.',
               ],
             },

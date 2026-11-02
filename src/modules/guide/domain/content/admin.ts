@@ -696,7 +696,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone the same “All ▾” sits in the header, just before Filters, which is an icon with a dot while a filter is on. This phone or laptop remembers your choice, and leave and holidays always show.",
+              text: "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice. While it is not All, the button names it, “Client work ▾”, and has a red outline, so you can see the calendar is not showing everything. Filters works the same way: with filters on it reads “Filters · 2” (how many are on) with a red outline; with none it is a plain “Filters”. On a phone the same “All ▾” sits in the header, just before Filters, an icon that shows the count, “·2”, with a red outline while a filter is on. This phone or laptop remembers your All ▾ choice, and leave and holidays always show.",
             },
             {
               kind: "steps",
