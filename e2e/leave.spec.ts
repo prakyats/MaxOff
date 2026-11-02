@@ -153,14 +153,14 @@ test("request a range and a half day, the refusals, and withdraw", async ({ page
 
   // The database's: a half day inside the waiting range.
   await fillLeave(dialog, { kind: "Half day", first: inDays(11) });
-  await dialog.getByRole("button", { name: "Request leave" }).click();
+  await dialog.getByRole("button", { name: "Request half day" }).click();
   await expect(dialog.locator('[data-slot="form-alert"]')).toContainText(
     "You already have a request for these dates",
   );
 
   // A half day elsewhere, then withdrawn.
   await fillLeave(dialog, { kind: "Half day", first: inDays(20) });
-  await dialog.getByRole("button", { name: "Request leave" }).click();
+  await dialog.getByRole("button", { name: "Request half day" }).click();
   await expect(dialog).toBeHidden();
   await expect(row(page, info, "Half day")).toContainText("Waiting");
   await act(page, info, "Withdraw", "Half day");
