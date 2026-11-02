@@ -3018,10 +3018,14 @@ export type Database = {
           delivery_armed_at: string | null;
           delivery_date: string | null;
           description: string | null;
+          held_at: string | null;
+          held_by: string | null;
+          hold_reason: string | null;
           id: string;
           name: string;
           org_id: string;
           recurrence: Database["public"]["Enums"]["recurrence"];
+          resumed_at: string | null;
           search: unknown;
           state: Database["public"]["Enums"]["project_state"];
           template_id: string | null;
@@ -3041,10 +3045,14 @@ export type Database = {
           delivery_armed_at?: string | null;
           delivery_date?: string | null;
           description?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           name: string;
           org_id: string;
           recurrence: Database["public"]["Enums"]["recurrence"];
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["project_state"];
           template_id?: string | null;
@@ -3064,10 +3072,14 @@ export type Database = {
           delivery_armed_at?: string | null;
           delivery_date?: string | null;
           description?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           name?: string;
           org_id?: string;
           recurrence?: Database["public"]["Enums"]["recurrence"];
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["project_state"];
           template_id?: string | null;
@@ -3126,6 +3138,20 @@ export type Database = {
           {
             foreignKeyName: "projects_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_held_by_fkey";
+            columns: ["held_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_held_by_fkey";
+            columns: ["held_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -4187,6 +4213,9 @@ export type Database = {
           event_date: string | null;
           event_end_at: string | null;
           event_start_at: string | null;
+          held_at: string | null;
+          held_by: string | null;
+          hold_reason: string | null;
           id: string;
           late_reason: string | null;
           location: string | null;
@@ -4195,6 +4224,7 @@ export type Database = {
           priority: Database["public"]["Enums"]["priority"];
           purpose: string | null;
           reminder_rules: Json;
+          resumed_at: string | null;
           search: unknown;
           state: Database["public"]["Enums"]["task_state"];
           submitted_at: string | null;
@@ -4222,6 +4252,9 @@ export type Database = {
           event_date?: string | null;
           event_end_at?: string | null;
           event_start_at?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           late_reason?: string | null;
           location?: string | null;
@@ -4230,6 +4263,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["priority"];
           purpose?: string | null;
           reminder_rules?: Json;
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["task_state"];
           submitted_at?: string | null;
@@ -4257,6 +4291,9 @@ export type Database = {
           event_date?: string | null;
           event_end_at?: string | null;
           event_start_at?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           late_reason?: string | null;
           location?: string | null;
@@ -4265,6 +4302,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["priority"];
           purpose?: string | null;
           reminder_rules?: Json;
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["task_state"];
           submitted_at?: string | null;
@@ -4314,6 +4352,20 @@ export type Database = {
           {
             foreignKeyName: "tasks_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_held_by_fkey";
+            columns: ["held_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_held_by_fkey";
+            columns: ["held_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -4790,6 +4842,17 @@ export type Database = {
       client_reactivate: {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
+      };
+      client_work_on_hold: {
+        Args: { from_date?: string; to_date?: string };
+        Returns: {
+          client_id: string;
+          deliverables: number;
+          held_at: string;
+          held_by: string;
+          hold_reason: string;
+          project_id: string;
+        }[];
       };
       client_work_summary: {
         Args: { on_date?: string };
@@ -5417,9 +5480,33 @@ export type Database = {
         };
         Returns: string;
       };
+      project_hold: {
+        Args: { project_id: string; reason: string };
+        Returns: string;
+      };
       project_reopen: {
         Args: { project_id: string; reason: string };
         Returns: Database["public"]["Enums"]["project_state"];
+      };
+      project_resume: {
+        Args: { items?: Json; new_delivery_date?: string; project_id: string };
+        Returns: Json;
+      };
+      project_resume_list: {
+        Args: { project_id: string };
+        Returns: {
+          carry_forward_allowed: boolean;
+          cycle_id: string;
+          cycle_label: string;
+          item_id: string;
+          left_pending: boolean;
+          month_ended: boolean;
+          needs_choice: boolean;
+          needs_date: boolean;
+          period_end: string;
+          planned_date: string;
+          title: string;
+        }[];
       };
       project_save_as_template: {
         Args: { name: string; project_id: string };
@@ -5610,6 +5697,7 @@ export type Database = {
         };
         Returns: string;
       };
+      task_hold: { Args: { reason: string; task_id: string }; Returns: string };
       task_mark_read: {
         Args: { task_id: string; up_to?: string };
         Returns: string;
@@ -5655,6 +5743,10 @@ export type Database = {
       task_request_withdraw: {
         Args: { request_id: string };
         Returns: Database["public"]["Enums"]["request_state"];
+      };
+      task_resume: {
+        Args: { new_due_at?: string; task_id: string };
+        Returns: string;
       };
       task_review: {
         Args: {

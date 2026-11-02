@@ -191,7 +191,10 @@ insert into app_internal values
   -- working_hours, pgTAP 121)
   ('attendance_hours'), ('attendance_hours_tick'), ('leave_half_check'),
   -- v1.9 W0 review: the working-hours functions' clock (migration w0_test_clock, pgTAP 121)
-  ('now');
+  ('now'),
+  -- v1.9 W7: On hold's guard trigger and the deliverables a project's resume settles (migration on_hold,
+  -- pgTAP 127)
+  ('on_hold_guard'), ('project_resume_items');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -212,7 +215,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 135::bigint,
+             and p.proname in (select name from app_internal)), 137::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
