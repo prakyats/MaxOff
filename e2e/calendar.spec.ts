@@ -2572,6 +2572,9 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     await dayBox(page, date).click();
     await expect(daySheet(page)).toHaveAttribute("data-date", date);
+    // The sheet slides up for 200 ms: its row is where it rests only once that is over (CI run
+    // 41524114062 measured it 19 px low, mid-slide; at rest it ends 16 px above a 932 px screen).
+    await animationsSettled(page);
   }
 
   /** The row is the last thing in its layer, under the scroll, and on screen. */
