@@ -516,6 +516,34 @@ export const CREW_GUIDE: Guide = {
           keywords: ["brief", "details", "status", "due", "priority", "activity"],
         },
         {
+          id: "task-on-hold",
+          title: "A task on hold",
+          summary: "Paused by the person who gave it: nothing is due until it resumes.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Whoever gave you a task can put it on hold, for example while the footage it needs is on its way. You get a quiet note with the reason. The task shows an amber “On hold” chip and a line with why.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "On My tasks, tap “On hold · n” to see your held tasks.",
+                "Open one to read why it is on hold. You can still note it and chat.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "When it is resumed you get a note with its deadline, and it is back in your list.",
+            },
+            {
+              kind: "note",
+              text: "While it is on hold, Start, Done and the stage ticks wait, and it is never late. Nothing to do until it is resumed.",
+            },
+          ],
+          link: { href: "/tasks", label: "Open My tasks" },
+          keywords: ["on hold", "paused", "hold", "resumed"],
+        },
+        {
           id: "task-noted",
           title: "Note a task, then start work",
           summary: 'Say you have seen a task with "Task Noted", then begin.',

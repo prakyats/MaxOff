@@ -574,6 +574,30 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["edit", "cancel", "reopen", "change approver", "menu"],
         },
         {
+          id: "owner-task-hold",
+          title: "Put a task on hold, and resume it",
+          summary: "Pause any task with a reason; resume it when it can go on.",
+          blocks: [
+            text(
+              "When a task cannot go on for now (the client has not sent the footage, say), put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. You can hold any task that is still with its people; an Admin can hold the tasks they created.",
+            ),
+            steps(
+              'Open the task, tap the ⋯ menu and tap "Put on hold…".',
+              'Write why, then tap "Put on hold". "Keep working" closes the question.',
+              'To go on, tap "Resume" on the amber "On hold since ‹date›" line (or "Resume…" in ⋯).',
+              "If the deadline passed while it was on hold, choose a new deadline and time, then tap Resume.",
+            ),
+            next(
+              'The people on it are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
+            ),
+            note(
+              "A task that is handed in, completed or cancelled cannot be put on hold. Cancelling a held task ends the hold. History keeps the reason and the old deadline.",
+            ),
+          ],
+          link: { href: "/tasks/all?state=on_hold", label: "See tasks on hold" },
+          keywords: ["on hold", "hold", "pause", "resume", "paused"],
+        },
+        {
           id: "owner-all-tasks",
           title: "Filter all tasks",
           summary: "Find any task by state, deadline, client, type or person.",
@@ -1364,6 +1388,31 @@ export const OWNER_GUIDE: Guide = {
             note('"Reopen it from ⋯ to change anything."'),
           ],
           keywords: ["complete", "cancel", "reopen", "read-only", "finish project"],
+        },
+        {
+          id: "owner-project-hold",
+          title: "Put a project on hold, and resume it",
+          summary: "Pause a client's project with a reason; settle its dates when it resumes.",
+          blocks: [
+            text(
+              'When a client pauses work, put the project on hold. No new monthly or weekly cycles are made and no escalations or reminders go out. Its open deliverables show an amber "On hold" chip, never late, and wait: nothing is ticked, marked done or sent back until it resumes.',
+            ),
+            steps(
+              'Open the project\'s ⋯ menu and tap "Put on hold…".',
+              'Write why, then tap "Put on hold". The client\'s Admin is told.',
+              'To go on, tap "Resume…" on the amber "On hold since ‹date›" banner (or in ⋯).',
+              "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending.",
+              'Tap "Resume project": everything is settled in one go.',
+            ),
+            next(
+              'Reports show "On hold · n deliverables" for this month: tap it to see them. They are neither done nor closed, and never money.',
+            ),
+            note(
+              'While a project is on hold there is no carry-forward and no "decide these" reminder at the month\'s end; the resume asks instead. Edits and Close still work.',
+            ),
+          ],
+          link: { href: "/clients/items?filter=on_hold", label: "See deliverables on hold" },
+          keywords: ["on hold", "hold", "pause", "resume", "paused project"],
         },
         {
           id: "owner-copy-schedule",
