@@ -121,8 +121,13 @@ select is((select next_planned from public.client_work_summary() where client_id
   null::date, 'next planned is null when no open item is dated');
 select ok(not exists (select 1 from public.client_work_summary() where client_id = pg_temp.fx('client_c')),
   'a client whose only project is completed has no row');
+-- Echo's monthly project is made today, so its first cycle is this month's: three days ago it has a
+-- cycle only when that date is still in this month (v1.9 merge, 2 Nov: the first three days of a month
+-- read before that cycle, so Echo is rightly absent then).
 select is(pg_temp.summary(app.today_ist() - 3), array['client_a:5/1/1/0/' || (app.today_ist() - 2),
-  'client_b:1/0/0/0/-', 'client_e:1/0/0/0/-'],
+  'client_b:1/0/0/0/-'] || case when date_trunc('month', (app.today_ist() - 3)::timestamp)
+                                    = date_trunc('month', app.today_ist()::timestamp)
+                               then array['client_e:1/0/0/0/-'] else array[]::text[] end,
   'on_date moves late and next planned (three days ago nothing was late yet)');
 select pg_temp.as_system();
 
