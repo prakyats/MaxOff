@@ -6,6 +6,7 @@ import { expect, test } from "./fixtures";
 import { systemClock } from "../src/core/time";
 
 import {
+  animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
@@ -158,9 +159,15 @@ async function startedPerson(page: Page, email: string): Promise<void> {
   await hydrated(page);
 }
 
-/** 44 px targets and nothing past the edge (ARCHITECTURE §14.1), on a phone. */
+/**
+ * 44 px targets and nothing past the edge (ARCHITECTURE §14.1), on a phone. Measured at rest: a
+ * button just tapped is still easing back from its 0.97 press scale (`pressable`, 120 ms), and a
+ * bounding box includes the transform (CI run 41524114062: "Ask the Owner" read 43.82 px, which is
+ * 44 × 0.996, 28 ms after its tap; its layout box is 44).
+ */
 async function expectFits(page: Page, layer: Locator, info: TestInfo): Promise<void> {
   if (!isPhone(info)) return;
+  await animationsSettled(page);
   for (const button of await layer.getByRole("button").all()) {
     if (!(await button.isVisible())) continue;
     const box = await button.boundingBox();
