@@ -1888,7 +1888,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "While this month is running, an add asks “Also add ‹title› to ‹October 2026›?”. Add to ‹October 2026› too also adds it to this month, with its stages; From ‹November 2026› only starts it next month.",
+              text: "While this month is running, an add asks “Also add ‹title› to ‹October 2026›?”. Add to ‹October› too also adds it to this month, with its stages; From ‹November› starts it next month.",
             },
             {
               kind: "note",

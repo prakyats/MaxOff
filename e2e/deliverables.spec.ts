@@ -559,14 +559,14 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await list.getByLabel("How many").fill("3");
     await list.getByRole("button", { name: "Add", exact: true }).click();
     // v1.9 W1: the add asks "Also add 3 deliverables to ‹this month›?" once; one back closes it
-    // and sends nothing, the name kept; "From ‹next› only" adds the lines alone.
+    // and sends nothing, the name kept; "From ‹next month›" adds the lines alone.
     const also = page.getByRole("dialog", { name: /^Also add 3 deliverables to / });
     await expect(also).toBeVisible();
     await expectBackStack(page, [{ closes: also, url: here }]);
     await expect(list).toBeVisible();
     await expect(list.getByLabel("New deliverable")).toHaveValue("Line");
     await list.getByRole("button", { name: "Add", exact: true }).click();
-    await also.getByRole("button", { name: /^From .* only$/ }).click();
+    await also.getByRole("button", { name: /^From [A-Z][a-z]+$/ }).click();
     for (const title of ["Line 1", "Line 2", "Line 3"]) {
       await expect(list.getByLabel(`Name of ${title}`)).toBeVisible();
     }
@@ -1105,7 +1105,8 @@ test('"Also add ‹title› to ‹this month›?": Add too adds the line and the
     "It joins the list for every month. Add it to this month too, with its 2 stages?",
   );
   await expectLayerFits(page, also);
-  await also.getByRole("button", { name: `Add to ${month} too` }).click();
+  const monthName = month.replace(/\s+\d{4}$/, "");
+  await also.getByRole("button", { name: `Add to ${monthName} too` }).click();
   await expect(
     page.getByText(new RegExp(`^Reel 5 added to ${month} and every month from `)),
   ).toBeVisible();
@@ -1120,7 +1121,7 @@ test('"Also add ‹title› to ‹this month›?": Add too adds the line and the
   await list.getByRole("button", { name: "Add", exact: true }).click();
   await page
     .getByRole("dialog", { name: `Also add "Reel 6" to ${month}?` })
-    .getByRole("button", { name: /^From .* only$/ })
+    .getByRole("button", { name: /^From [A-Z][a-z]+$/ })
     .click();
   await expect(page.getByText(/^Reel 6 added from /)).toBeVisible();
   await expect.poll(lines).toEqual(["Reel", "Reel 5", "Reel 6"]);

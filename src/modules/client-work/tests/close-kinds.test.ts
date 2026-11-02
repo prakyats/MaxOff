@@ -186,8 +186,8 @@ describe('"Also add ‹title› to ‹period›?" (v1.9 W1-db)', () => {
     expect(alsoAddCopy(periods!, "  Extra reel ", { stages: 4 })).toEqual({
       question: 'Also add "Extra reel" to October 2026?',
       detail: "It joins the list for every month. Add it to this month too, with its 4 stages?",
-      addToo: "Add to October 2026 too",
-      listOnly: "From November 2026 only",
+      addToo: "Add to October too",
+      listOnly: "From November",
       addedBoth: "Extra reel added to October 2026 and every month from November 2026",
       addedListOnly: "Extra reel added from November 2026",
     });
@@ -205,6 +205,8 @@ describe('"Also add ‹title› to ‹period›?" (v1.9 W1-db)', () => {
     expect(alsoAddCopy(periods!, "Post")?.detail).toBe(
       "It joins the list for every week. Add it to this week too?",
     );
+    expect(alsoAddCopy(periods!, "Post")?.addToo).toBe("Add to this week too");
+    expect(alsoAddCopy(periods!, "Post")?.listOnly).toBe("From next week");
     expect(alsoAddCopy(periods!, "Post")?.addedBoth).toBe(
       "Post added to 19–25 Oct 2026 and every week from 26 Oct–1 Nov 2026",
     );

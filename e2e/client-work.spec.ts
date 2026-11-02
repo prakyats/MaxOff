@@ -440,12 +440,14 @@ test("⋯ Deliverables list: a new line starts next month; this month's delivera
     `Every month starts with these, from ${next}. To add something to ${current}, use + Add deliverable on the project page.`,
   );
 
-  // A line added "From ‹next› only" (v1.9 W1: the add asks "Also add …?" first): the toast names
+  // A line added "From ‹next month›" (v1.9 W1: the add asks "Also add …?" first): the toast names
   // the month it starts from; this month's list is unchanged.
   await list.getByLabel("New deliverable").fill("Story 2");
   await list.getByRole("button", { name: "Add", exact: true }).click();
   const also = page.getByRole("dialog", { name: `Also add "Story 2" to ${current}?` });
-  await also.getByRole("button", { name: `From ${next} only` }).click();
+  await also
+    .getByRole("button", { name: `From ${next.replace(/\s+\d{4}$/, "")}`, exact: true })
+    .click();
   await expect(also).toBeHidden();
   await expect(page.getByText(`Story 2 added from ${next}`)).toBeVisible();
   await expect(list.getByLabel("Name of Story 2")).toBeVisible();
@@ -462,7 +464,7 @@ test("⋯ Deliverables list: a new line starts next month; this month's delivera
   await list.getByRole("button", { name: "Add", exact: true }).click();
   await page
     .getByRole("dialog", { name: `Also add "Story 3" to ${current}?` })
-    .getByRole("button", { name: `From ${next} only` })
+    .getByRole("button", { name: `From ${next.replace(/\s+\d{4}$/, "")}`, exact: true })
     .click();
   await expect(list.getByText(NETWORK_ERROR_CREATE_MESSAGE)).toBeVisible();
   await expect(list.getByLabel("New deliverable")).toHaveValue("Story 3");

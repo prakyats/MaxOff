@@ -1636,7 +1636,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               'Open the repeating project\'s ⋯ menu and tap "Deliverables list".',
               "Add lines with × N, or rename them.",
-              'While this month is running, an add asks "Also add ‹title› to ‹October 2026›?": "Add to ‹October 2026› too" also adds it to this month with its stages; "From ‹November 2026› only" starts it next month.',
+              'While this month is running, an add asks "Also add ‹title› to ‹October 2026›?": "Add to ‹October› too" also adds it to this month with its stages; "From ‹November›" starts it next month.',
               'Tap "Stages" on a line to set its stages.',
             ),
             next("Every month starts with these, from the next period."),

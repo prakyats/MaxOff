@@ -476,7 +476,7 @@ export function ListEditorSheet({
             <DialogDescription>{alsoAsk?.words.detail}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            {/* "From ‹next period› only" adds the line alone, as before; Add too is the layer's
+            {/* "From ‹next period›" adds the line alone, as before; Add too is the layer's
                 one neutral solid commit, the default (WORKFLOWS §5.3, ADR-0015). */}
             <Button
               type="button"
