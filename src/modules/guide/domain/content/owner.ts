@@ -707,7 +707,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline and "+ New task on" the date; on a laptop a day opens in the middle of the screen, with "Open day".',
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and "+ New task on" the date stays at the bottom of the sheet while you scroll. On a laptop a day opens in the middle of the screen, with "Open day"; in the Day view "+ New task on" the date sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.',
             ),
             steps(
               "Open Calendar and tap a day.",

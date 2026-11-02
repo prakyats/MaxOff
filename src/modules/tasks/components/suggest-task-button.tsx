@@ -7,6 +7,10 @@ import { useState } from "react";
 import { cn } from "@/core/lib/utils";
 import { Button } from "@/core/ui/primitives/button";
 
+import { DAY_ROW_BUTTON } from "./new-task-button";
+
+const DEFAULT_LABEL = "Suggest a task";
+
 /** The form (a select, a textarea) loads when it first opens (§19), as "New task" does. */
 const SuggestTaskDialog = dynamic(
   () => import("./suggest-task-dialog").then((module) => module.SuggestTaskDialog),
@@ -24,6 +28,8 @@ export function SuggestTaskButton({
   clients,
   variant = "strong",
   details,
+  label = DEFAULT_LABEL,
+  row,
   className,
 }: {
   /** The client labels the suggester may name. */
@@ -39,24 +45,31 @@ export function SuggestTaskButton({
    * D: Crew get "Suggest a task" with the day prefilled; a suggestion has no date of its own).
    */
   details?: string;
+  /** "Suggest a task on Fri 30 Oct" in a calendar day (v1.9 W5); "Suggest a task" elsewhere. */
+  label?: string;
+  /** The pinned row at the foot of a calendar day (v1.9 W5): the whole row is the button. */
+  row?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
-        variant={variant === "quiet" ? "ghost" : variant}
+        variant={variant === "quiet" || row ? "ghost" : variant}
         onClick={() => setOpen(true)}
         data-slot="suggest-task"
         data-quiet={variant === "quiet" ? "" : undefined}
         className={cn(
           variant === "quiet" &&
             "text-muted-foreground hover:text-foreground -ml-2 px-2 underline-offset-4 hover:bg-transparent hover:underline",
+          row && DAY_ROW_BUTTON,
           className,
         )}
       >
         <LightbulbIcon aria-hidden />
-        Suggest a task
+        {/* A calendar day's longer label ellipsises at a very large text size, never wider than
+            its row (as "New task on ‹day›"). */}
+        {label === DEFAULT_LABEL ? label : <span className="min-w-0 truncate">{label}</span>}
       </Button>
       {open ? (
         <SuggestTaskDialog

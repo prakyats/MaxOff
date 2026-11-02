@@ -27,9 +27,18 @@ const TaskFormDialog = dynamic(
 const CREATE = { kind: "create" } as const;
 
 /**
- * "+ New task on 8 Oct" in a calendar day's detail (6.4b; Kickoff 6 decision 25 D; `tasks.create`):
+ * The look of a calendar day's pinned action row (v1.9 W5, the approved sample's "+ New task on
+ * Fri 30 Oct" at the foot of a day): the whole row is the button, quiet (a trigger that opens a
+ * form, never a second solid on the layer), its words left-aligned, a 44 px target.
+ */
+export const DAY_ROW_BUTTON =
+  "h-auto min-h-11 w-full max-w-full justify-start rounded-none px-3 text-sm font-medium";
+
+/**
+ * "+ New task on Fri 30 Oct" in a calendar day (6.4b; Kickoff 6 decision 25 D; `tasks.create`):
  * the same form, the deadline (or an event's date) on that day. A pill-shaped trigger, neutral
- * solid as every trigger that opens a form. `icon`: the laptop month's small "+" in a day's box
+ * solid as every trigger that opens a form; `row`, the pinned row at the foot of the laptop's Day
+ * and a phone's day sheet (v1.9 W5). `icon`: the laptop month's small "+" in a day's box
  * (PP-calendar-13), the same form, its label spoken only.
  */
 export function NewTaskOnDayButton({
@@ -37,19 +46,21 @@ export function NewTaskOnDayButton({
   date,
   label,
   icon,
+  row,
   className,
 }: {
   setup: Promise<TaskFormSetup | null>;
   date: ISODate;
   label: string;
   icon?: boolean;
+  row?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
-        variant={icon ? "secondary" : "strong"}
+        variant={icon ? "secondary" : row ? "ghost" : "strong"}
         size={icon ? "icon-xs" : undefined}
         onClick={() => setOpen(true)}
         data-slot={icon ? "calendar-add-task" : "new-task-on-day"}
@@ -57,7 +68,12 @@ export function NewTaskOnDayButton({
         aria-label={icon ? label : undefined}
         // Never wider than its row: at a very large text size the label ellipsises (the owner's
         // phone walk found "New task on 13 Nov" past a 375 px screen's edge at 200 %).
-        className={cn("max-w-full rounded-full", icon && "bg-card", className)}
+        className={cn(
+          "max-w-full",
+          row ? DAY_ROW_BUTTON : "rounded-full",
+          icon && "bg-card",
+          className,
+        )}
       >
         <PlusIcon aria-hidden />
         {icon ? null : <span className="min-w-0 truncate">{label}</span>}

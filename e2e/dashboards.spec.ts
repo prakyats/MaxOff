@@ -26,6 +26,7 @@ import {
   USERS,
 } from "./helpers";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
+import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
 
 /**
  * The day screens (6A; Kickoff 6 decisions 1–12, 22, 23): Crew's My Day under the attendance
@@ -453,11 +454,24 @@ test.describe("the Owner's Today (6.2)", () => {
     }
     const todayBlock = week.locator(`[data-slot="week-day"][data-date="${todayIST()}"]`);
     await expect(todayBlock.locator('[data-slot="week-day-label"]')).toHaveText("Today");
-    const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]').first();
-    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText(/^\d{1,2}:\d{2} (am|pm)$/);
-    await expect(due.locator('[data-slot="week-row-title"]')).not.toHaveText(/^\d+ tasks? due$/);
-    await expect(due.locator('[data-slot="badge"]')).toHaveText("Due");
-    await expect(due.getByRole("link")).toHaveAttribute("href", /^\/tasks\//);
+    // This test's task due today is a row by name (PP-today-4), unless the shared week is already
+    // at its cap: a day lists its holiday, leave and events before its deadlines, and the week
+    // shows at most WEEK_ROWS_SHOWN rows (`week.ts`), so on a database where other specs put
+    // eight or more people on leave today, today's deadlines are behind "See the week" (proved
+    // 2 Nov: nine approved leaves today hid the row). The cut is then what is checked.
+    const due = todayBlock
+      .locator('[data-slot="week-row"][data-kind="due"]')
+      .filter({ hasText: `${prefix}due today` });
+    if ((await due.count()) === 0) {
+      await expect(todayBlock.locator('[data-slot="week-row"]')).toHaveCount(WEEK_ROWS_SHOWN);
+      await expect(week.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+    } else {
+      await expect(due).toHaveCount(1);
+      await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("11:00 pm");
+      await expect(due.locator('[data-slot="week-row-title"]')).toHaveText(`${prefix}due today`);
+      await expect(due.locator('[data-slot="badge"]')).toHaveText("Due");
+      await expect(due.getByRole("link")).toHaveAttribute("href", `/tasks/${dueToday}`);
+    }
     const rows = week.locator('[data-slot="week-row"]');
     for (let index = 0; index < (await rows.count()); index++) {
       const row = rows.nth(index);

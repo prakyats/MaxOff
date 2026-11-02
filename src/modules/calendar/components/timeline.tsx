@@ -99,6 +99,7 @@ export function Timeline({
   eventLink,
   laptop = false,
   span = false,
+  footer,
   className,
 }: {
   days: readonly CalendarDay[];
@@ -119,6 +120,11 @@ export function Timeline({
   laptop?: boolean;
   /** The phone's week and compact month: only the hours around the blocks, in the page. */
   span?: boolean;
+  /**
+   * A row pinned under the hours' scroll (the laptop's Day: the day's action, v1.9 W5), never
+   * scrolled to.
+   */
+  footer?: ReactNode;
   className?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -360,6 +366,7 @@ export function Timeline({
           </div>
         </div>
       </div>
+      {footer}
       {hovered ? <BlockDetails hovered={hovered} /> : null}
     </div>
   );

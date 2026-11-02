@@ -696,7 +696,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline and “+ New task on ‹day›”; on a laptop a day opens in a dialog, with “Open day”.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and “+ New task on ‹day›” stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog, with “Open day”; in the Day view “+ New task on ‹day›” sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.",
             },
             {
               kind: "steps",

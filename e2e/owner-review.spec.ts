@@ -649,13 +649,31 @@ test("the person page: Approve on a waiting day, with Approvals' context; Histor
   if (phone) await expectBackStack(page, [{ closes: history, url: here }]);
   else await page.keyboard.press("Escape");
 
-  // PP-person-3: the summary counts the waiting day and opens Attendance.
-  await expect(
-    page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]'),
-  ).toContainText("Review");
-  await page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]').click();
+  // PP-person-3: the summary counts this month's waiting days (`month_summary`) and opens
+  // Attendance on this month. In a month's first days the working day two back is in the month
+  // before (2 Nov: Fri 30 Oct): the summary rightly leaves it out, and the day is one "Previous
+  // month" away.
+  const thisMonth = workDate.slice(0, 7) === todayIST().slice(0, 7);
+  const waitingDays = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&state=eq.pending_review&work_date=gte.${todayIST().slice(0, 7)}-01&select=id`,
+  );
+  const waiting = page.locator('[data-slot="person-summary-cell"][data-cell="waiting"]');
+  await expect(waiting).toContainText(
+    `${waitingDays.length}${waitingDays.length === 1 ? "Day" : "Days"} waiting for you`,
+  );
+  if (waitingDays.length > 0) await expect(waiting).toContainText("Review");
+  else await expect(waiting).not.toContainText("Review");
+  await waiting.click();
   await expect(page).toHaveURL(new RegExp(`/people/${memberId}/attendance$`));
   await hydrated(page);
+  const attendance = new RegExp(
+    `/people/${memberId}/attendance${thisMonth ? "" : `\\?month=${workDate.slice(0, 7)}`}$`,
+  );
+  if (!thisMonth) {
+    await page.getByRole("link", { name: "Previous month" }).click();
+    await expect(page).toHaveURL(attendance);
+    await hydrated(page);
+  }
 
   // PP-person-4: the day's sheet has Approvals' context and the solid Forest Approve (V5b-D: it
   // names what it records, "Approve as absent").
@@ -670,9 +688,7 @@ test("the person page: Approve on a waiting day, with Approvals' context; Histor
   const approve = sheet.getByRole("button", { name: "Approve as absent", exact: true });
   await expect(approve).toHaveAttribute("data-variant", "approve");
   if (phone) {
-    await expectBackStack(page, [
-      { closes: sheet, url: new RegExp(`/people/${memberId}/attendance$`) },
-    ]);
+    await expectBackStack(page, [{ closes: sheet, url: attendance }]);
     await openDay();
     await expect(approve).toBeVisible();
   }

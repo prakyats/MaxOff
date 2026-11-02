@@ -136,8 +136,8 @@ async function chooseShow(page: Page, show: "all" | "tasks" | "client") {
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 
-/** "8 Oct", as the New-task pill says it. */
-const shortDay = (date: string) => formatIST(istDayStart(date), "d MMM");
+/** "Fri 30 Oct", as a day's action names it (the approved v1.9 sample, W5). */
+const shortDay = (date: string) => formatIST(istDayStart(date), "EEE d MMM");
 
 /** The laptop month's "+" of a day (PP-calendar-13) and the box that shows or hides it. */
 const plusOf = (page: Page, date: string) =>
@@ -543,9 +543,10 @@ test.describe("the calendar, as an Admin", () => {
       await expect(free).not.toContainText("On leave");
       await expect(free).toContainText(/^(Busy all day: |Everyone is available$)/);
     }
-    // An Admin creates tasks: the pill, not "Suggest a task".
-    await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
-    await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
+    // An Admin creates tasks: "+ New task on ‹day›" (the phone's pill, the laptop Day's pinned
+    // row since v1.9 W5), not "Suggest a task".
+    await expect(page.locator('[data-slot="new-task-on-day"]:visible')).toBeVisible();
+    await expect(page.locator('[data-slot="suggest-task"]')).toHaveCount(0);
     await page.locator('[data-slot="calendar-filters-button"]:visible').click();
     const sheet = page.locator('[data-calendar="filters-sheet"]');
     for (const kind of ["client", "person", "type", "status"]) {
@@ -613,8 +614,11 @@ test.describe("the calendar, as the Owner", () => {
     if (!isPhone(info)) {
       await expect(page.locator('[data-slot="calendar-day-view"]')).toBeVisible();
     }
-    // + New task on that day: the form opens with the deadline on it (decision 25 D).
-    const pill = detail(page).locator('[data-slot="new-task-on-day"]');
+    // + New task on that day: the form opens with the deadline on it (decision 25 D); on the
+    // laptop's Day it is the row pinned at the foot of the timeline (v1.9 W5).
+    const pill = isPhone(info)
+      ? detail(page).locator('[data-slot="new-task-on-day"]')
+      : page.locator('[data-slot="calendar-timeline"] [data-slot="new-task-on-day"]');
     await expect(pill).toHaveText(`New task on ${shortDay(day)}`);
     await pill.click();
     const form = page.locator('[data-slot="task-form-dialog"]');
@@ -1782,8 +1786,8 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     const width = (await box.boundingBox())?.width ?? 0;
     expect(width, "a seventh of the screen").toBeLessThan((page.viewportSize()?.width ?? 375) / 6);
     await expectNoHorizontalScroll(page);
-    // The day sheet: the day's detail with its hour timeline, the day's action inside it; no
-    // list-and-footer popup, and "Open day" is the laptop's alone.
+    // The day sheet: the day's detail with its hour timeline, the day's action pinned under it (v1.9
+    // W5); no list-and-footer popup, and "Open day" is the laptop's alone.
     await box.click();
     const sheet = daySheet(page);
     await expect(sheet).toBeVisible();
@@ -2505,3 +2509,166 @@ test.describe("the calendar's All ▾, as Crew", () => {
 });
 
 const WIDTHS_CREW = [768, 900, 1024, 1180, 1280, 1440] as const;
+
+/**
+ * v1.9 W5 (6b.4 (1), the approved v1.9 sample §4): "+ New task on ‹day›" pinned at the foot of a
+ * day, in the laptop's Day (under the timeline's one scroll) and a phone's day sheet (under the
+ * sheet's one scroll): the Owner's and an Admin's opens New task on that date, Crew's reads
+ * "Suggest a task on ‹day›" and opens a suggestion with the day in its details. None on a day before
+ * today (nor on today from 11:59 pm IST: `canStartTaskOnDate`, unit-tested).
+ */
+test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
+  /** The pinned row: the laptop Day's timeline foot, or the phone's day sheet foot. */
+  const pinned = (page: Page) => page.locator('[data-slot="calendar-day-action"]:visible');
+
+  /** Opens `date` where its pinned row lives: the laptop's Day, or the phone's full month's sheet. */
+  async function openDay(page: Page, info: TestInfo, date: string) {
+    if (!isPhone(info)) {
+      await page.goto(`/calendar?view=day&date=${date}`);
+      await hydrated(page);
+      await expect(page.locator('[data-slot="calendar-day-view"]')).toBeVisible();
+      return;
+    }
+    await page.goto(`/calendar?date=${date}`);
+    await hydrated(page);
+    await page.locator('button[data-slot="calendar-handle"]').click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await dayBox(page, date).click();
+    await expect(daySheet(page)).toHaveAttribute("data-date", date);
+  }
+
+  /** The row is the last thing in its layer, under the scroll, and on screen. */
+  async function expectPinnedAtFoot(page: Page, info: TestInfo) {
+    const row = pinned(page);
+    await expect(row).toHaveCount(1);
+    const box = await row.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y + box!.height, "the row is on screen").toBeLessThanOrEqual(
+      page.viewportSize()!.height + 1,
+    );
+    // 44 px target (ARCHITECTURE §14.1).
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    const layer = isPhone(info)
+      ? daySheet(page)
+      : page.locator('[data-slot="calendar-day-view"] [data-slot="calendar-timeline"]');
+    const foot = await layer.evaluate((element) => {
+      const scroll = element.querySelector<HTMLElement>(
+        '[data-slot="calendar-day-body"], [data-slot="calendar-hours"]',
+      );
+      const action = element.querySelector<HTMLElement>('[data-slot="calendar-day-action"]');
+      return {
+        below:
+          (action?.getBoundingClientRect().top ?? 0) -
+          (scroll?.getBoundingClientRect().bottom ?? 0),
+      };
+    });
+    expect(foot.below, "under the day's scroll, never in it").toBeGreaterThanOrEqual(-1);
+  }
+
+  test.describe("the Owner", () => {
+    test.use({ storageState: storageStateFor("owner") });
+
+    test("a later day's row opens New task on that date; none on a past day", async ({
+      page,
+    }, info) => {
+      const day = workingDay(3);
+      await openDay(page, info, day);
+      await expectPinnedAtFoot(page, info);
+      const button = pinned(page).locator('[data-slot="new-task-on-day"]');
+      await expect(button).toHaveText(`New task on ${shortDay(day)}`);
+      // A trigger that opens a form: quiet, never a second solid on the layer (ADR-0015).
+      await expect(button).toHaveAttribute("data-variant", "ghost");
+      await expect(pinned(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
+      await button.click();
+      const form = page.locator('[data-slot="task-form-dialog"]');
+      await expect(form).toBeVisible();
+      await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+      await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
+      await page.keyboard.press("Escape");
+      await expect(form).toHaveCount(0);
+
+      const past = addISTDays(todayIST(), -1);
+      await openDay(page, info, past);
+      await expect(page.locator('[data-slot="calendar-day-action"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+    });
+
+    test("installed: back closes New task, then the day sheet, then leaves the calendar", async ({
+      page,
+    }, info) => {
+      test.skip(!isPhone(info), "the installed app is a phone");
+      const day = workingDay(3);
+      await runInstalled(page);
+      await page.goto("/today");
+      await hydrated(page);
+      await page.locator('[data-slot="bottom-nav"] [data-nav="calendar"]').click();
+      await expect(page).toHaveURL(/\/calendar$/);
+      await hydrated(page);
+      await page.locator('[data-slot="calendar-handle"]').click();
+      await expect(phone(page)).toHaveAttribute("data-size", "3");
+      if (!(await dayBox(page, day).isVisible())) {
+        await page.locator('[data-slot="calendar-next"]').click();
+      }
+      await dayBox(page, day).click();
+      await expect(daySheet(page)).toHaveAttribute("data-date", day);
+      await pinned(page).locator('[data-slot="new-task-on-day"]').click();
+      const form = page.locator('[data-slot="task-form-dialog"]');
+      await expect(form).toBeVisible();
+      await expectBackStack(page, [
+        { closes: form, url: /\/calendar(\?.*)?$/ },
+        { closes: daySheet(page), url: /\/calendar(\?.*)?$/ },
+        { url: /\/today$/ },
+      ]);
+    });
+  });
+
+  test.describe("an Admin", () => {
+    test.use({ storageState: storageStateFor("admin") });
+
+    test("today's row opens New task on today", async ({ page }, info) => {
+      const today = todayIST();
+      test.skip(
+        toISTTime(systemClock().toISOString()) >= "23:59",
+        "from 11:59 pm IST today has no row (the rule under test elsewhere)",
+      );
+      await openDay(page, info, today);
+      await expectPinnedAtFoot(page, info);
+      const button = pinned(page).locator('[data-slot="new-task-on-day"]');
+      await expect(button).toHaveText(`New task on ${shortDay(today)}`);
+      await button.click();
+      const form = page.locator('[data-slot="task-form-dialog"]');
+      await expect(form).toBeVisible();
+      await expect(form.locator('input[name="dueDate"]')).toHaveValue(today);
+      await page.keyboard.press("Escape");
+      await expect(form).toHaveCount(0);
+    });
+  });
+
+  test.describe("Crew", () => {
+    test.use({ storageState: storageStateFor("staff") });
+
+    test("Suggest a task on ‹day› with the day in its details; none on a past day", async ({
+      page,
+    }, info) => {
+      const day = workingDay(3);
+      await openDay(page, info, day);
+      await expectPinnedAtFoot(page, info);
+      const button = pinned(page).locator('[data-slot="suggest-task"]');
+      await expect(button).toHaveText(`Suggest a task on ${shortDay(day)}`);
+      await expect(pinned(page).locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+      await button.click();
+      const dialog = page.getByRole("dialog", { name: "Suggest a task" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("textbox", { name: /Details/ })).toHaveValue(
+        `For ${shortDay(day)}.`,
+      );
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+
+      const past = addISTDays(todayIST(), -1);
+      await openDay(page, info, past);
+      await expect(page.locator('[data-slot="calendar-day-action"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="suggest-task"]')).toHaveCount(0);
+    });
+  });
+});

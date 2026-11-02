@@ -748,7 +748,7 @@ export const CREW_GUIDE: Guide = {
                 },
                 "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue; on a phone’s full month one count, “2 due”, or a red alert with the count when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. A day with more than fits ends in “+N more”; tap it to see the whole day.",
                 'Use the "Type" filter to show fewer things.',
-                'Open a day and tap "Suggest a task". The day is filled in for you.',
+                'Open a day and tap "Suggest a task on ‹day›" at the bottom. The day is filled in for you. There is none on a past day, or on today after 11:59 pm.',
               ],
             },
             {
@@ -774,7 +774,7 @@ export const CREW_GUIDE: Guide = {
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters" (an icon, with a dot while a filter is on).',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right.',
-                'On a phone, a day of the full month opens in a sheet with its timeline and "Suggest a task". On a laptop a day opens in a dialog with "Open day".',
+                'On a phone, a day of the full month opens in a sheet with its timeline, and "Suggest a task on ‹day›" stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog with "Open day"; in the Day view "Suggest a task on ‹day›" sits at the bottom of the day\'s timeline.',
               ],
             },
             {
