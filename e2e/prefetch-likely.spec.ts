@@ -129,13 +129,16 @@ async function trackPrefetches(context: BrowserContext, origin: string) {
 /**
  * The app's background calls (`/api/*`: the open report, the bell's count, the warm-up) are
  * refused in a counting test: they run on their own clock, so one landing in the window would be
- * counted as the prefetch's. The page ignores their failure (ARCHITECTURE §4.4).
+ * counted as the prefetch's. The page ignores their failure (ARCHITECTURE §4.4). So is Realtime:
+ * another worker changing the Owner's tasks refreshes Today live, and that refresh's task reads
+ * landed in the window (main's CI on 9a25f066: four `/rest/v1/tasks`, as `freshness.spec` found).
  */
 async function quietBackground(context: BrowserContext, origin: string): Promise<void> {
   await context.route(
     (url) => url.origin === origin && url.pathname.startsWith("/api/"),
     (route) => route.abort(),
   );
+  await context.routeWebSocket(/\/realtime\/v1\/websocket/, () => {});
 }
 
 /** The page's requests still on their way, router prefetches aside (those are held above). */
