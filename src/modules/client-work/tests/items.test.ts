@@ -198,7 +198,12 @@ describe("the Item list's words (amendment D4)", () => {
 
   it("names the running cycle and the period a new line starts from", () => {
     const periods = itemListPeriods("monthly", TODAY, [october], true);
-    expect(periods).toEqual({ unit: "month", from: "November 2026", running: "October 2026" });
+    expect(periods).toEqual({
+      unit: "month",
+      from: "November 2026",
+      running: "October 2026",
+      fromIsNext: true,
+    });
     const words = itemListCopy(periods!);
     expect(words.description).toBe(
       "Every month starts with these, from November 2026. To add something to October 2026, use + Add deliverable on the project page.",
@@ -220,7 +225,12 @@ describe("the Item list's words (amendment D4)", () => {
     // reopened (the night after): no cycle holds today yet.
     for (const canAddNow of [true, false]) {
       const periods = itemListPeriods("monthly", TODAY, [], canAddNow);
-      expect(periods).toEqual({ unit: "month", from: "October 2026", running: null });
+      expect(periods).toEqual({
+        unit: "month",
+        from: "October 2026",
+        running: null,
+        fromIsNext: false,
+      });
       expect(itemListCopy(periods!).description).toBe("Every month starts with these.");
       expect(itemListCopy(periods!).added("Reel 4")).toBe("Reel 4 added from October 2026");
       expect(itemListCopy(periods!).removeDescription).toBe("October 2026 starts without it.");
@@ -233,7 +243,12 @@ describe("the Item list's words (amendment D4)", () => {
   it("names this period when a carry made its cycle without the list (Q4 (a))", () => {
     const carried = cycle("2026-10-01", "2026-10-31", "October 2026", false);
     const periods = itemListPeriods("monthly", TODAY, [carried], true);
-    expect(periods).toEqual({ unit: "month", from: "October 2026", running: null });
+    expect(periods).toEqual({
+      unit: "month",
+      from: "October 2026",
+      running: null,
+      fromIsNext: false,
+    });
     expect(itemListCopy(periods!).removeDescription).toBe("October 2026 starts without it.");
     // A next period begun by a carry is likewise still to take the list.
     const carriedNext = cycle("2026-11-01", "2026-11-30", "November 2026", false);
@@ -258,7 +273,12 @@ describe("the Item list's words (amendment D4)", () => {
   it("speaks of weeks on a weekly project, and has no item list on a one-time one", () => {
     const week = cycle("2026-10-05", "2026-10-11", "5–11 Oct 2026");
     const periods = itemListPeriods("weekly", TODAY, [week], true);
-    expect(periods).toEqual({ unit: "week", from: "12–18 Oct 2026", running: "5–11 Oct 2026" });
+    expect(periods).toEqual({
+      unit: "week",
+      from: "12–18 Oct 2026",
+      running: "5–11 Oct 2026",
+      fromIsNext: true,
+    });
     expect(itemListCopy(periods!).description).toBe(
       "Every week starts with these, from 12–18 Oct 2026. To add something to 5–11 Oct 2026, use + Add deliverable on the project page.",
     );
