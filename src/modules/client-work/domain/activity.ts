@@ -118,6 +118,19 @@ function describeProject(
       const reason = text(entry.meta.reason);
       return { text: `reopened ${project}`, ...(reason ? { note: reason } : {}) };
     }
+    case "held": {
+      // v1.9 W7: On hold, with the reason (kept here after the resume, invariant 9).
+      const reason = text(entry.meta.reason);
+      return { text: `put ${project} on hold`, ...(reason ? { note: reason } : {}) };
+    }
+    case "resumed": {
+      // v1.9 W7: the resume; a one-time project's delivery date may move with it (its old and new
+      // dates are in the entry). The deliverables' new dates are their own entries.
+      const to = date(entry.new.delivery_date);
+      return {
+        text: to ? `resumed ${project} and moved the delivery date to ${to}` : `resumed ${project}`,
+      };
+    }
     case "saved_as_template": {
       // 6b Release 2: a copy as a project template; nothing on the project changed.
       const template = text(entry.meta.name);

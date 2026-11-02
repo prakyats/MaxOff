@@ -68,6 +68,13 @@ export type Project = {
   /** When it was cancelled (B8: "Cancelled 21 Oct · 1 deliverable closed"); null otherwise. */
   cancelledAt: string | null;
   cancelledReason: string | null;
+  /**
+   * On hold (v1.9 W7, ADR-0016): since when, by whom and why; all null when not held. Its
+   * deliverables read On hold: no cycle, tick, Mark done, carry or escalation until it resumes.
+   */
+  heldAt: string | null;
+  heldBy: string | null;
+  holdReason: string | null;
 };
 
 export type Cycle = {

@@ -49,6 +49,10 @@ function task(overrides: Partial<Task> = {}): Task {
     createdAt: "2026-10-01T04:30:00.000Z",
     reminderRules: [],
     templateId: null,
+    heldAt: null,
+    heldBy: null,
+    holdReason: null,
+    resumedAt: null,
     ...overrides,
   };
 }

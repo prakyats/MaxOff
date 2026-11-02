@@ -330,6 +330,9 @@ describe("the Projects tab", () => {
     createdAt: "2026-10-01T00:00:00Z",
     cancelledAt: null,
     cancelledReason: null,
+    heldAt: null,
+    heldBy: null,
+    holdReason: null,
     ...over,
   });
 
@@ -776,6 +779,9 @@ describe("every entry the activity reads return is a line (the 7B rework's revie
     ["projects", "completed", {}],
     ["projects", "cancelled", {}],
     ["projects", "reopened", {}],
+    // v1.9 W7 (migration on_hold).
+    ["projects", "held", {}],
+    ["projects", "resumed", {}],
     ["projects", "update", { delivery_date: "2026-11-01" }],
     ["projects", "update", { name: "Reels" }],
     ["projects", "update", { description: "Five" }],

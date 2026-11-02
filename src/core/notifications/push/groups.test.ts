@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GROUPED_KINDS, NOTIFY_GROUPS, notifyGroupFor } from "./groups";
 
-/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind, v1.9 W3's approval reminder, v1.9 W0's five working-hours kinds; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
+/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind, v1.9 W3's approval reminder, v1.9 W0's five working-hours kinds, v1.9 W7's four On hold kinds; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
 const KINDS = [
   "absent_proposed",
   "approval_reminder",
@@ -42,7 +42,9 @@ const KINDS = [
   "project_cancelled",
   "project_completed",
   "project_created",
+  "project_held",
   "project_reopened",
+  "project_resumed",
   "reminder_before_due",
   "reminder_before_due_last",
   "reminder_delivery_missed",
@@ -61,10 +63,12 @@ const KINDS = [
   "task_changes_requested",
   "task_comment",
   "task_completed",
+  "task_held",
   "task_reopened",
   "task_request_converted",
   "task_request_created",
   "task_request_declined",
+  "task_resumed",
   "task_submitted",
   "task_unassigned",
 ];
@@ -95,6 +99,11 @@ describe("notifyGroupFor (the push's large picture, owner 2026-10-02)", () => {
     // 6.5: the report is its own group; the weekly digest is never pushed (email only).
     expect(notifyGroupFor("eod_report_ready")).toBe("reports");
     expect(notifyGroupFor("owner_digest_weekly")).toBe("other");
+    // v1.9 W7: a hold on your task is about your work; a project's hold is information.
+    expect(notifyGroupFor("task_held")).toBe("tasks");
+    expect(notifyGroupFor("task_resumed")).toBe("tasks");
+    expect(notifyGroupFor("project_held")).toBe("other");
+    expect(notifyGroupFor("project_resumed")).toBe("other");
   });
 
   it("the quiet-hours summary and an unknown or inherited name are other", () => {

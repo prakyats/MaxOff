@@ -74,16 +74,20 @@ export async function listItemRows(query: ItemQuery): Promise<ItemRow[]> {
   return (rows as unknown as (Parameters<typeof toItem>[0] & Embedded)[]).map(toRow);
 }
 
-/** How many items match, with no rows read. */
+/** How many items match, with no rows read (a held project's left out). */
 async function countItems(query: ItemQuery): Promise<number> {
   const supabase = await createServerSupabase();
+  // v1.9 W7: a held project's deliverables are On hold, never overdue or waiting for a decision
+  // (WORKFLOWS §5.5), so both counts leave them out.
+  const project = "project:projects!project_items_project_id_fkey!inner(held_at)";
   const embed = query.cycleEndedBefore
-    ? "id, cycle:project_cycles!project_items_cycle_id_fkey!inner(period_end)"
-    : "id";
+    ? `id, ${project}, cycle:project_cycles!project_items_cycle_id_fkey!inner(period_end)`
+    : `id, ${project}`;
   let request = supabase
     .from("project_items")
     .select(embed, { count: "exact", head: true })
-    .in("state", [...query.states]);
+    .in("state", [...query.states])
+    .is("project.held_at", null);
   if (query.plannedTo) request = request.lte("planned_date", query.plannedTo);
   if (query.cycleEndedBefore) request = request.lt("cycle.period_end", query.cycleEndedBefore);
   const { count, error } = await request;

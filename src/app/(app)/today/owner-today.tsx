@@ -551,5 +551,7 @@ function toRiskTask(row: TaskListRow) {
     createdBy: row.createdBy,
     approvingAdminId: row.approvingAdminId,
     assigneeIds: activeAssignees(row.assignees).map((a) => a.memberId),
+    // v1.9 W7: a held task is never an overdue risk.
+    heldAt: row.heldAt ?? null,
   };
 }

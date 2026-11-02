@@ -27,16 +27,25 @@ export function isLocked(state: TaskState): boolean {
   return !WORK_STATES.includes(state);
 }
 
-/** Overdue is derived, never a state: past the deadline and not completed or cancelled. */
-export function isOverdue(task: Pick<Task, "dueAt" | "state">, now: Date): boolean {
-  return !isFinal(task.state) && now.getTime() > Date.parse(task.dueAt);
+/**
+ * Overdue is derived, never a state: past the deadline, not completed or cancelled, and not On hold
+ * (v1.9 W7: a held task's clocks stop; it reads On hold, never overdue).
+ */
+export function isOverdue(
+  task: Pick<Task, "dueAt" | "state"> & { heldAt?: string | null },
+  now: Date,
+): boolean {
+  return !isFinal(task.state) && !task.heldAt && now.getTime() > Date.parse(task.dueAt);
 }
 
 /**
  * A late task's chip, "3 h late" / "2 days late" (PP-tasks-2: the words of the Owner's Today
  * risks, never a bare "Overdue"), or null when it is not overdue.
  */
-export function lateLabel(task: Pick<Task, "dueAt" | "state">, now: Date): string | null {
+export function lateLabel(
+  task: Pick<Task, "dueAt" | "state"> & { heldAt?: string | null },
+  now: Date,
+): string | null {
   return isOverdue(task, now) ? lateWords(now.getTime() - Date.parse(task.dueAt)) : null;
 }
 

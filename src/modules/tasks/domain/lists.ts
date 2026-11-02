@@ -25,6 +25,10 @@ export type TaskListRow = {
   createdBy: string;
   submittedAt: string | null;
   createdAt: string;
+  /** On hold since (v1.9 W7; null or absent: not held). A held task is never overdue. */
+  heldAt?: string | null;
+  /** Why it is on hold, shown on the row (v1.9 W7). */
+  holdReason?: string | null;
   assignees: Pick<
     TaskAssignee,
     "memberId" | "isPrimary" | "assignedAt" | "acknowledgedAt" | "removedAt"
@@ -136,7 +140,8 @@ export function myTaskGroups(
 /** The Tasks badge's own arithmetic (decision 16), for the tests to hold it against the SQL. */
 export function badgeCount(rows: readonly TaskListRow[], viewer: ListViewer): number {
   return rows.filter((row) => {
-    if (isFinal(row.state)) return false;
+    // v1.9 W7: a held task leaves the badge (task_counts() too).
+    if (isFinal(row.state) || row.heldAt) return false;
     const part = ownPart(row, viewer);
     return part.notNoted.length > 0 || (isOwnWork(part) && row.state === "changes_requested");
   }).length;
@@ -188,7 +193,8 @@ export function needsYou(
     viewer.role === "owner" ? escalation.ackEscalateOwnerHours : escalation.ackEscalateHours;
   const items: NeedsYouItem[] = [];
   for (const row of byDeadline(rows)) {
-    if (isFinal(row.state)) continue;
+    // v1.9 W7: a held task leaves Needs you (its clocks stopped; the On hold line opens it).
+    if (isFinal(row.state) || row.heldAt) continue;
     const part = ownPart(row, viewer);
     if (part.notNoted.length > 0) {
       items.push({ row, reason: "your_note", waitingOn: [], part });

@@ -92,6 +92,20 @@ export {
   isCloseKind,
   type CloseKind,
 } from "./domain/close-kinds";
+// v1.9 W7: On hold (the screens are W8's).
+export {
+  PROJECT_HOLD_REASON_MAX,
+  RESUME_DECISIONS,
+  isProjectOnHold,
+  needsNewDate,
+  onHoldDeliverablesLine,
+  resumeItemsPayload,
+  resumeProblems,
+  type ResumeDecision,
+  type ResumeEntry,
+  type ResumeProblem,
+  type ResumeRow,
+} from "./domain/hold";
 export { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "./domain/extras";
 export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
 export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";

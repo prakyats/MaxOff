@@ -92,7 +92,7 @@ export function asObject(value: Json | null | undefined): Record<string, unknown
 }
 
 export const PROJECT_COLUMNS =
-  "id, client_id, name, description, recurrence, state, delivery_date, custom_fields, template_id, created_by, created_at, cancelled_at, cancelled_reason";
+  "id, client_id, name, description, recurrence, state, delivery_date, custom_fields, template_id, created_by, created_at, cancelled_at, cancelled_reason, held_at, held_by, hold_reason";
 
 export function toProject(
   row: Pick<
@@ -110,6 +110,9 @@ export function toProject(
     | "created_at"
     | "cancelled_at"
     | "cancelled_reason"
+    | "held_at"
+    | "held_by"
+    | "hold_reason"
   >,
 ): Project {
   return {
@@ -126,6 +129,9 @@ export function toProject(
     createdAt: row.created_at,
     cancelledAt: row.cancelled_at,
     cancelledReason: row.cancelled_reason,
+    heldAt: row.held_at,
+    heldBy: row.held_by,
+    holdReason: row.hold_reason,
   };
 }
 
