@@ -14,7 +14,6 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
-import { OnHoldBadge } from "@/core/ui/composites/status-badge";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -430,7 +429,7 @@ export function DayDetail({
                     <span className="font-medium break-words">{item.title}</span>
                     <span className="text-muted-foreground text-xs break-words">{item.owner}</span>
                   </span>
-                  {item.held ? <OnHoldBadge className="shrink-0" /> : null}
+                  {item.held ? <HeldWord /> : null}
                   <ChevronRightIcon
                     className="text-muted-foreground mt-0.5 size-4 shrink-0"
                     aria-hidden
@@ -574,12 +573,27 @@ export function ClientItemsList({
                   ) : null}
                 </span>
               </span>
-              {item.held ? <OnHoldBadge className="shrink-0" /> : null}
+              {item.held ? <HeldWord /> : null}
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </OverlayLink>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * "On hold" on a held task's or deliverable's row (v1.9 W8): the amber chip's look in plain
+ * markup, so the calendar's first load carries no badge component (its JS budget).
+ */
+function HeldWord() {
+  return (
+    <span
+      data-status="on_hold"
+      className="bg-attention-soft text-attention shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+    >
+      On hold
+    </span>
   );
 }

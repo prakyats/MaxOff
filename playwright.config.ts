@@ -75,6 +75,8 @@ const BACK_LINK_SPECS = /back-link\.spec\.ts$/;
 const INSTANT_SKELETON_SPECS = /instant-skeleton\.spec\.ts$/;
 const PREFETCH_LIKELY_SPECS = /prefetch-likely\.spec\.ts$/;
 const GUIDE_SPECS = /guide\.spec\.ts$/;
+// v1.9 W8: On hold's sheets and chips, installed back at both phone widths.
+const ON_HOLD_SPECS = /on-hold\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
 const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
@@ -267,6 +269,7 @@ export default defineConfig({
         INSTANT_SKELETON_SPECS,
         PREFETCH_LIKELY_SPECS,
         GUIDE_SPECS,
+        ON_HOLD_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

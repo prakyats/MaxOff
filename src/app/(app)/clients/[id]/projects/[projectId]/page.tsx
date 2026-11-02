@@ -146,7 +146,11 @@ export default async function ProjectPage({
   const canManage = can(viewer.role, "projects.manage");
   // 6b.16 (d): the cycle whose extras are asked about at the month's end (whichever is shown):
   // the month ending or the one just ended, the latest that has extras.
-  const asking = working && canManage ? extrasCycles(project.recurrence, cycles, today) : [];
+  // No month-end question while held (the sample §2: no "decide these" nag; the resume asks).
+  const asking =
+    working && canManage && project.heldAt === null
+      ? extrasCycles(project.recurrence, cycles, today)
+      : [];
   const [items, ...askingItems] = await Promise.all([
     chosen
       ? (askedItems && chosen.id === cycleParam ? askedItems : listItems(chosen.id)).then(sortItems)
@@ -419,7 +423,8 @@ export default async function ProjectPage({
             <CycleProgress
               cycleId={chosen.id}
               label={chosen.label}
-              meter={cycleMeter(views, today)}
+              // A held project's clock is stopped: never "behind plan" (v1.9 W8).
+              meter={held ? { ...cycleMeter(views, today), behind: 0 } : cycleMeter(views, today)}
               cancelledAt={project.state === "cancelled" ? project.cancelledAt : null}
               // Owner and Admin only (the page's roles); never Crew, who never see client work.
               needsYou={working && canManage && !held ? needsYouPills(views, today) : null}
