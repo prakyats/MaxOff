@@ -30,3 +30,23 @@ export function closeKindLabel(kind: CloseKind, recurrence: Recurrence): string 
 export function closeKindWords(kind: CloseKind): string {
   return kind === "not_needed" ? "not needed" : "not delivered";
 }
+
+/**
+ * What each kind means, under its choice (the approved v1.9 samples, 22 and 29 Oct): the Close
+ * sheet, the carry screen's Close and the Owner's "Set close kind" read the same.
+ */
+export const CLOSE_KIND_HINTS: Readonly<Record<CloseKind, string>> = {
+  not_needed: "The client dropped or moved it",
+  not_delivered: "We didn't deliver it",
+};
+
+/** The choices in the order the samples show them, each with its label and hint. */
+export function closeKindChoices(
+  recurrence: Recurrence,
+): { kind: CloseKind; label: string; hint: string }[] {
+  return CLOSE_KINDS.map((kind) => ({
+    kind,
+    label: closeKindLabel(kind, recurrence),
+    hint: CLOSE_KIND_HINTS[kind],
+  }));
+}

@@ -205,6 +205,7 @@ export default async function ProjectPage({
       reviews,
       cycleLabels: Object.fromEntries(origins.map((cycle) => [cycle.id, cycle.label])),
       cycleLabel: chosen?.label ?? null,
+      recurrence: project.recurrence,
     }),
   );
   const ended = chosen ? cycleEnded(chosen, today) : false;

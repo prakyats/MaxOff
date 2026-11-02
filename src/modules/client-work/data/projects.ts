@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import type { ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
-import type { Json, Tables } from "@/core/db";
+import type { Database, Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import {
   type Deliverable,
@@ -31,6 +31,12 @@ import type {
   Stage,
 } from "../domain/types";
 import type { ActivityKind } from "../domain/activity";
+import { type CloseKind, isCloseKind } from "../domain/close-kinds";
+
+type Functions = Database["public"]["Functions"];
+
+/** The generated argument types mark some nullable parameters as plain strings: null is valid. */
+type Nullable<T, K extends keyof T> = Omit<T, K> & { [P in K]: T[P] | null };
 
 /**
  * The client-work repository (CLAUDE.md rule 3): every database call of the module. Reads run
@@ -152,7 +158,7 @@ export function toCycle(
 }
 
 export const ITEM_COLUMNS =
-  "id, project_id, cycle_id, title, position, planned_date, notes, custom_fields, state, done_at, done_by, approved_at, approved_by, cancelled_reason, carry_decision, carried_from_item_id, origin_cycle_id, created_at";
+  "id, project_id, cycle_id, title, position, planned_date, notes, custom_fields, state, done_at, done_by, approved_at, approved_by, cancelled_reason, cancelled_at, cancelled_by, close_kind, carry_decision, carried_from_item_id, origin_cycle_id, created_at";
 
 type ItemColumns = Pick<
   Tables<"project_items">,
@@ -170,6 +176,9 @@ type ItemColumns = Pick<
   | "approved_at"
   | "approved_by"
   | "cancelled_reason"
+  | "cancelled_at"
+  | "cancelled_by"
+  | "close_kind"
   | "carry_decision"
   | "carried_from_item_id"
   | "origin_cycle_id"
@@ -192,6 +201,9 @@ export function toItem(row: ItemColumns): Item {
     approvedAt: row.approved_at,
     approvedBy: row.approved_by,
     cancelledReason: row.cancelled_reason,
+    cancelledAt: row.cancelled_at,
+    cancelledBy: row.cancelled_by,
+    closeKind: isCloseKind(row.close_kind) ? row.close_kind : null,
     carryDecision: row.carry_decision as CarryDecision | null,
     carriedFromItemId: row.carried_from_item_id,
     originCycleId: row.origin_cycle_id,
@@ -748,6 +760,26 @@ export async function archiveStage(stageId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * "Also add ‹title› to ‹period›?" answered Add too (v1.9 W1): the deliverables-list line and an open
+ * deliverable in the running cycle, one transaction (`project_blueprint_add_to_cycle`).
+ */
+export async function addBlueprintToCycle(
+  projectId: string,
+  title: string,
+  cycleId: string,
+): Promise<{ blueprintId: string; itemId: string }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_blueprint_add_to_cycle", {
+    project_id: projectId,
+    title,
+    cycle_id: cycleId,
+  });
+  if (error) throw error;
+  const row = asObject(data);
+  return { blueprintId: String(row.blueprint_id ?? ""), itemId: String(row.item_id ?? "") };
+}
+
 export async function addBlueprint(projectId: string, title: string): Promise<string> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("project_blueprint_add", {
@@ -800,10 +832,37 @@ export async function updateItem(itemId: string, changes: Record<string, unknown
   return data;
 }
 
-export async function cancelItem(itemId: string, reason: string): Promise<void> {
+/** Close a deliverable with its kind and reason (v1.9 W1: `item_cancel(…, close_kind)`). */
+export async function cancelItem(
+  itemId: string,
+  reason: string,
+  closeKind: CloseKind,
+): Promise<void> {
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("item_cancel", { item_id: itemId, reason });
+  const { error } = await supabase.rpc("item_cancel", {
+    item_id: itemId,
+    reason,
+    close_kind: closeKind,
+  });
   if (error) throw error;
+}
+
+/**
+ * The Owner sets, changes or clears (null) a closed deliverable's kind (v1.9 W1, OPEN 4:
+ * `item_set_close_kind`; the function refuses anyone else). False: it already held that value.
+ */
+export async function setCloseKind(itemId: string, closeKind: CloseKind | null): Promise<boolean> {
+  const supabase = await createServerSupabase();
+  const args: Nullable<Functions["item_set_close_kind"]["Args"], "close_kind"> = {
+    item_id: itemId,
+    close_kind: closeKind,
+  };
+  const { data, error } = await supabase.rpc(
+    "item_set_close_kind",
+    args as unknown as Functions["item_set_close_kind"]["Args"],
+  );
+  if (error) throw error;
+  return data;
 }
 
 export async function markItemDone(itemId: string): Promise<void> {
@@ -936,12 +995,15 @@ export async function carryDecide(
   itemIds: readonly string[],
   decision: CarryDecision,
   reason: string | null,
+  closeKind: CloseKind | null = null,
 ): Promise<BulkRow[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("cycle_carry_decide", {
     item_ids: [...itemIds],
     decision,
     ...(reason ? { reason } : {}),
+    // v1.9 W1: why it is closed, with a close only.
+    ...(closeKind ? { close_kind: closeKind } : {}),
   });
   if (error) throw error;
   return bulkRows(data);

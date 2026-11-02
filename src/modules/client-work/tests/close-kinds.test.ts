@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { describeProjectActivity, type ActivityEntry } from "../domain/activity";
-import { CLOSE_KINDS, closeKindLabel, closeKindWords, isCloseKind } from "../domain/close-kinds";
+import {
+  CLOSE_KINDS,
+  closeKindChoices,
+  closeKindLabel,
+  closeKindWords,
+  isCloseKind,
+} from "../domain/close-kinds";
+import { closeItemSchema, carryDecideSchema, setCloseKindSchema } from "../domain/schemas";
+import type { Item } from "../domain/types";
+import { itemView } from "../domain/views";
 import { alsoAddCopy, itemListPeriods } from "../domain/periods";
 
 describe("close kinds (v1.9 W1-db)", () => {
@@ -21,6 +30,99 @@ describe("close kinds (v1.9 W1-db)", () => {
     expect(closeKindLabel("not_delivered", "one_time")).toBe("Not delivered");
     expect(closeKindWords("not_needed")).toBe("not needed");
     expect(closeKindWords("not_delivered")).toBe("not delivered");
+  });
+});
+
+describe("the close kind on the screens (v1.9 W1)", () => {
+  it("offers the two kinds in the sample's order, with what each means", () => {
+    expect(closeKindChoices("monthly")).toEqual([
+      {
+        kind: "not_needed",
+        label: "Not needed this month",
+        hint: "The client dropped or moved it",
+      },
+      { kind: "not_delivered", label: "Not delivered", hint: "We didn't deliver it" },
+    ]);
+    expect(closeKindChoices("one_time")[0]?.label).toBe("Not needed");
+  });
+
+  it("takes a kind with a close, null to clear it, and only with a close on the carry screen", () => {
+    const itemId = "00000000-0000-4000-8000-000000000001";
+    expect(closeItemSchema.safeParse({ itemId, reason: "Late", closeKind: "lost" }).success).toBe(
+      false,
+    );
+    expect(closeItemSchema.safeParse({ itemId, reason: "Late" }).success).toBe(false);
+    expect(
+      closeItemSchema.safeParse({ itemId, reason: "Late", closeKind: "not_delivered" }).success,
+    ).toBe(true);
+    expect(setCloseKindSchema.safeParse({ itemId, closeKind: null }).success).toBe(true);
+    expect(setCloseKindSchema.safeParse({ itemId, closeKind: "not_needed" }).success).toBe(true);
+    expect(
+      carryDecideSchema.safeParse({
+        itemIds: [itemId],
+        decision: "close",
+        reason: "Dropped",
+        closeKind: "not_needed",
+      }).success,
+    ).toBe(true);
+    expect(
+      carryDecideSchema.safeParse({
+        itemIds: [itemId],
+        decision: "carry_forward",
+        closeKind: "not_needed",
+      }).success,
+    ).toBe(false);
+  });
+
+  const closed: Item = {
+    id: "i1",
+    projectId: "p1",
+    cycleId: "c1",
+    title: "Reel 1",
+    position: "a0",
+    plannedDate: null,
+    notes: null,
+    customFields: {},
+    state: "cancelled",
+    doneAt: null,
+    doneBy: null,
+    approvedAt: null,
+    approvedBy: null,
+    cancelledReason: "Client moved it",
+    cancelledAt: "2026-09-30T06:00:00Z",
+    cancelledBy: "m1",
+    closeKind: null,
+    carryDecision: null,
+    carriedFromItemId: null,
+    originCycleId: "c1",
+    createdAt: "2026-09-01T00:00:00Z",
+  };
+  const context = {
+    today: "2026-10-22",
+    names: { m1: "Prakyat" },
+    ownerId: null,
+    stages: [],
+    reviews: [],
+    cycleLabels: {},
+    cycleLabel: "September 2026",
+    recurrence: "monthly" as const,
+  };
+
+  it("a closed deliverable says when, by whom and its kind; an open one none", () => {
+    expect(itemView(closed, context).closed).toEqual({
+      kind: null,
+      kindLabel: null,
+      line: "Closed 30 Sep by Prakyat",
+    });
+    expect(itemView({ ...closed, closeKind: "not_needed" }, context).closed?.kindLabel).toBe(
+      "Not needed this month",
+    );
+    expect(
+      itemView({ ...closed, closeKind: "not_needed" }, { ...context, recurrence: "one_time" })
+        .closed?.kindLabel,
+    ).toBe("Not needed");
+    expect(itemView({ ...closed, state: "open" }, context).closed).toBeNull();
+    expect(itemView(closed, context).cycleLabel).toBe("September 2026");
   });
 });
 
@@ -81,8 +183,9 @@ describe('"Also add ‹title› to ‹period›?" (v1.9 W1-db)', () => {
   it("asks while the running cycle can take the line, Add too first", () => {
     const periods = itemListPeriods("monthly", "2026-10-22", [october], true);
     expect(periods).not.toBeNull();
-    expect(alsoAddCopy(periods!, "  Extra reel ")).toEqual({
-      question: "Also add Extra reel to October 2026?",
+    expect(alsoAddCopy(periods!, "  Extra reel ", { stages: 4 })).toEqual({
+      question: 'Also add "Extra reel" to October 2026?',
+      detail: "It joins the list for every month. Add it to this month too, with its 4 stages?",
       addToo: "Add to October 2026 too",
       listOnly: "From November 2026 only",
       addedBoth: "Extra reel added to October 2026 and every month from November 2026",
@@ -98,10 +201,36 @@ describe('"Also add ‹title› to ‹period›?" (v1.9 W1-db)', () => {
       itemListCopied: true,
     };
     const periods = itemListPeriods("weekly", "2026-10-22", [week], true);
-    expect(alsoAddCopy(periods!, "Post")?.question).toBe("Also add Post to 19–25 Oct 2026?");
+    expect(alsoAddCopy(periods!, "Post")?.question).toBe('Also add "Post" to 19–25 Oct 2026?');
+    expect(alsoAddCopy(periods!, "Post")?.detail).toBe(
+      "It joins the list for every week. Add it to this week too?",
+    );
     expect(alsoAddCopy(periods!, "Post")?.addedBoth).toBe(
       "Post added to 19–25 Oct 2026 and every week from 26 Oct–1 Nov 2026",
     );
+  });
+
+  it('asks once for "Name × N", in the plural', () => {
+    const periods = itemListPeriods("monthly", "2026-10-22", [october], true);
+    const words = alsoAddCopy(periods!, "Line", { stages: 1, count: 3 });
+    expect(words?.question).toBe("Also add 3 deliverables to October 2026?");
+    expect(words?.detail).toBe(
+      "They join the list for every month. Add them to this month too, each with 1 stage?",
+    );
+    expect(words?.addedBoth).toBe(
+      "3 deliverables added to October 2026 and every month from November 2026",
+    );
+    expect(words?.addedListOnly).toBe("3 deliverables added from November 2026");
+  });
+
+  it("names the running cycle's id for the add, only when it can take it", () => {
+    const withId = { ...october, id: "cycle-oct" };
+    expect(itemListPeriods("monthly", "2026-10-22", [withId], true)?.runningCycleId).toBe(
+      "cycle-oct",
+    );
+    expect(
+      itemListPeriods("monthly", "2026-10-22", [withId], false)?.runningCycleId,
+    ).toBeUndefined();
   });
 
   it("does not ask without a running cycle that can take it", () => {

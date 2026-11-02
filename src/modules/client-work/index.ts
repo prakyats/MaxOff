@@ -155,6 +155,7 @@ export {
 } from "./data/items";
 export {
   addBlueprint,
+  addBlueprintToCycle,
   addStage,
   addStageGroup,
   archiveBlueprint,
@@ -182,6 +183,7 @@ export {
   markItemDone,
   markItemsDone,
   reopenItem,
+  setCloseKind,
   tickItemStage,
   tickStages,
   updateItem,

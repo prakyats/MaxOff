@@ -1275,13 +1275,14 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Reopen… sends a done deliverable back to open. Close deliverable… keeps it in the cycle as closed, not done.",
+              text: "Reopen… sends a done deliverable back to open. Close deliverable… keeps it in the cycle as closed, not done, and asks why: “Not needed this month” (the client dropped or moved it; “this week” on a weekly project, “Not needed” on a one-time one) or “Not delivered” (we didn’t deliver it).",
             },
             {
               kind: "steps",
               steps: [
                 "Open the deliverable.",
                 "Tap Reopen… (done ones) or Close deliverable….",
+                "To close, pick Not needed or Not delivered.",
                 "Write the reason.",
                 "Confirm.",
               ],
@@ -1292,10 +1293,10 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Closing cannot be undone. Use Reopen… if you only need more changes.",
+              text: "Closing cannot be undone. Use Reopen… if you only need more changes. The kind shows on the closed deliverable’s sheet; only the Owner can change it afterwards.",
             },
           ],
-          keywords: ["reopen", "close", "send back", "reason"],
+          keywords: ["reopen", "close", "send back", "reason", "not needed", "not delivered"],
         },
         {
           id: "admin-bulk-actions",
@@ -1830,7 +1831,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open the link, or Unfinished deliverables from Today.",
                 "Select the rows, or select none to act on all.",
                 "Tap Carry N forward, or Leave N pending.",
-                "For one row, tap Close… and say why.",
+                "For one row, tap Close…, pick Not needed or Not delivered, and say why.",
               ],
             },
             {
@@ -1886,6 +1887,10 @@ export const ADMIN_GUIDE: Guide = {
               text: "On a recurring project, ⋯ then Deliverables list holds one row per line. Every month starts with these. Open Stages on a line to change its stage groups, and add lines with × N.",
             },
             {
+              kind: "text",
+              text: "While this month is running, an add asks “Also add ‹title› to ‹October 2026›?”. Add to ‹October 2026› too also adds it to this month, with its stages; From ‹November 2026› only starts it next month.",
+            },
+            {
               kind: "note",
               text: "Add deliverable on the project page adds to the running month only. The list stays as it is.",
             },
@@ -1899,7 +1904,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Unfinished deliverables says: carry forward, leave pending or close what an ended cycle left open. Each cycle has Carry N forward and Leave N pending. Each row has Close…. A carried deliverable shows “Carried from …” in the next cycle. When nothing is waiting it says “Nothing to decide.”",
+              text: "Unfinished deliverables says: carry forward, leave pending or close what an ended cycle left open. Each cycle has Carry N forward and Leave N pending. Each row has Close…, which asks Not needed or Not delivered, then why. A carried deliverable shows “Carried from …” in the next cycle. When nothing is waiting it says “Nothing to decide.”",
             },
           ],
           link: { href: "/clients/items/decide", label: "Open Unfinished deliverables" },

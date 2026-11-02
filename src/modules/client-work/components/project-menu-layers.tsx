@@ -30,6 +30,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
   addBlueprint,
+  addBlueprintToCycle,
   addStage,
   addStageGroup,
   archiveBlueprint,
@@ -52,7 +53,7 @@ import {
 } from "../domain/schemas";
 import type { Recurrence } from "../domain/types";
 
-import { itemListCopy, type ItemListPeriods } from "../domain/periods";
+import { alsoAddCopy, itemListCopy, type ItemListPeriods } from "../domain/periods";
 
 import { saveProjectAsTemplate } from "../actions/templates";
 
@@ -111,6 +112,18 @@ export function ProjectMenuLayers({
   const line = blueprints.find((row) => row.id === lineId) ?? null;
   const itemWords = itemList ? itemListCopy(itemList) : null;
   const projectId = project.id;
+  // "Also add ‹title› to ‹period›?" (v1.9 W1, D4 in full): while the running cycle can take it,
+  // each add asks; the new line starts with the project's default stages.
+  const runningCycleId = itemList?.runningCycleId;
+  const alsoAdd =
+    itemList && runningCycleId
+      ? {
+          words: (name: string, count: number) =>
+            alsoAddCopy(itemList, name, { stages: stages.length, count }),
+          onAddToo: (title: string) =>
+            addBlueprintToCycle({ projectId, title, cycleId: runningCycleId }),
+        }
+      : undefined;
   return (
     <>
       {layer === "edit" ? (
@@ -174,6 +187,7 @@ export function ProjectMenuLayers({
         quantity
         onAdd={(title) => addBlueprint({ projectId: project.id, title })}
         addedMessage={itemWords?.added}
+        alsoAdd={alsoAdd}
         onRename={(blueprintId, title) => updateBlueprint({ blueprintId, title })}
         onMove={(blueprintId, position) => updateBlueprint({ blueprintId, position })}
         onRemove={(blueprintId) => archiveBlueprint({ blueprintId })}

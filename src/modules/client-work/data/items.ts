@@ -3,7 +3,7 @@ import "server-only";
 import { createServerSupabase } from "@/core/db/server";
 import { addISTDays, type ISODate } from "@/core/time";
 
-import type { ClientState, ItemRow, ItemState } from "../domain/types";
+import type { ClientState, ItemRow, ItemState, Recurrence } from "../domain/types";
 
 import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
 
@@ -15,11 +15,12 @@ import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
  * 1000-row limit, 6A mechanics (1)); a count is a head request.
  */
 
-const ROW_SELECT = `${ITEM_COLUMNS}, project:projects!project_items_project_id_fkey!inner(name, client_id, client:clients!projects_client_id_fkey!inner(name, admin_id, state)), cycle:project_cycles!project_items_cycle_id_fkey!inner(label, period_end)`;
+const ROW_SELECT = `${ITEM_COLUMNS}, project:projects!project_items_project_id_fkey!inner(name, recurrence, client_id, client:clients!projects_client_id_fkey!inner(name, admin_id, state)), cycle:project_cycles!project_items_cycle_id_fkey!inner(label, period_end)`;
 
 type Embedded = {
   project: {
     name: string;
+    recurrence: Recurrence;
     client_id: string;
     client: { name: string; admin_id: string | null; state: ClientState };
   };
@@ -30,6 +31,7 @@ function toRow(row: Parameters<typeof toItem>[0] & Embedded): ItemRow {
   return {
     ...toItem(row),
     projectName: row.project.name,
+    recurrence: row.project.recurrence,
     clientId: row.project.client_id,
     clientName: row.project.client.name,
     adminId: row.project.client.admin_id,

@@ -6,6 +6,8 @@
 
 import type { StageGroup } from "@/core/lib/stage-groups";
 
+import type { CloseKind } from "./close-kinds";
+
 export type Recurrence = "one_time" | "weekly" | "monthly";
 export type ProjectState = "open" | "in_progress" | "completed" | "cancelled";
 export type CycleState = "open" | "settled";
@@ -131,6 +133,11 @@ export type Item = {
   approvedAt: string | null;
   approvedBy: string | null;
   cancelledReason: string | null;
+  /** When and by whom it was closed (cancelled), for "Set close kind"'s line (v1.9 W1). */
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  /** Why it was closed (v1.9 W1): null on an open one, a close before W1 or a project's cancel. */
+  closeKind: CloseKind | null;
   carryDecision: CarryDecision | null;
   carriedFromItemId: string | null;
   originCycleId: string;
@@ -166,6 +173,8 @@ export type Review = {
 /** An item with where it lives, for the lists that cross projects and clients. */
 export type ItemRow = Item & {
   projectName: string;
+  /** The project's repeat: the close kind's words ("Not needed this month", v1.9 W1). */
+  recurrence: Recurrence;
   clientId: string;
   clientName: string;
   /** The client's current Admin (null: the Owner runs it). */

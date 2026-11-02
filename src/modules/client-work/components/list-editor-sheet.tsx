@@ -16,6 +16,14 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
 import { moveItem } from "@/core/ui/reorder/reorder-math";
 import { DragHandle, ReorderItem, ReorderList } from "@/core/ui/reorder/reorder";
@@ -25,6 +33,27 @@ import { describeError, toastResult } from "@/core/ui/toast";
 import { movedKey, movedPosition } from "../domain/positions";
 
 export type ListRow = { id: string; name: string; position: string };
+
+/** "Also add ‹title› to ‹period›?" words (`domain/periods.ts` `alsoAddCopy`, v1.9 W1). */
+export type AlsoAddWords = {
+  question: string;
+  detail: string;
+  addToo: string;
+  listOnly: string;
+  addedBoth: string;
+  addedListOnly: string;
+};
+
+/**
+ * The deliverables list's "Also add ‹title› to ‹period›?" (v1.9 W1): asked before an add while the
+ * running cycle can take it (`words` null: added from the next period, no question).
+ */
+export type AlsoAdd = {
+  /** The words for a name (or the typed base of "Name × N") and how many lines. */
+  words: (name: string, count: number) => AlsoAddWords | null;
+  /** **Add to ‹period› too**: the line and the running cycle's deliverable, one transaction. */
+  onAddToo: (name: string) => Promise<Result<unknown>>;
+};
 
 /** A name sent and not yet in the server's list: drawn at once, faded (the 7B rework's flake). */
 type PendingAdd = { key: number; name: string; before: number };
@@ -70,6 +99,7 @@ export function ListEditorSheet({
   maxLength,
   onAdd,
   addedMessage,
+  alsoAdd,
   onRename,
   onMove,
   onRemove,
@@ -94,6 +124,8 @@ export function ListEditorSheet({
   onAdd: (name: string) => Promise<Result<unknown>>;
   /** The toast once an add is saved ("Reel 4 added from November 2026"); none without it. */
   addedMessage?: ((name: string) => string) | undefined;
+  /** v1.9 W1: ask "Also add ‹title› to ‹period›?" before each add (the deliverables list). */
+  alsoAdd?: AlsoAdd | undefined;
   onRename: (id: string, name: string) => Promise<Result<unknown>>;
   onMove: (id: string, position: string) => Promise<Result<unknown>>;
   onRemove: (id: string) => Promise<Result<unknown>>;
@@ -110,6 +142,13 @@ export function ListEditorSheet({
   const shown = pending.filter((add) => countNamed(rows, add.name) <= add.before);
   if (shown.length !== pending.length) setPending(shown);
   const [asking, setAsking] = useState(false);
+  // "Also add ‹title› to ‹period›?" (v1.9 W1): the add waiting for its answer, the name still in
+  // the field (back or ✕ on the question sends nothing).
+  const [alsoAsk, setAlsoAsk] = useState<{
+    typed: string;
+    count: number;
+    words: AlsoAddWords;
+  } | null>(null);
   // Set while the sheet hands over to "Discard?": the rename a closing field's blur would send
   // waits for the answer instead.
   const holding = useRef(false);
@@ -158,6 +197,26 @@ export function ListEditorSheet({
       setAddError(`At most ${max}.`);
       return;
     }
+    const words = alsoAdd?.words(typed, count) ?? null;
+    if (alsoAdd && words) {
+      setAddError(null);
+      setAlsoAsk({ typed, count, words });
+      return;
+    }
+    await send(typed, count, onAdd, addedMessage ? (label) => addedMessage(label) : undefined);
+  }
+
+  /**
+   * Sends the add ("Name × N" one call per name), drawing each name at once, faded; `added` words
+   * the one toast for what was saved.
+   */
+  async function send(
+    typed: string,
+    count: number,
+    addOne: (name: string) => Promise<Result<unknown>>,
+    /** The toast's words for what was saved: the one name, or "3 deliverables", and how many. */
+    added: ((label: string, saved: number) => string) | undefined,
+  ) {
     // "Name × N" is Name 1 … Name N, one add each (one audit entry each).
     const adds: PendingAdd[] = expandQuantity(typed, count).map((name) => ({
       key: nextKey.current++,
@@ -180,7 +239,7 @@ export function ListEditorSheet({
     let saved = 0;
     for (const [index, add] of adds.entries()) {
       try {
-        const result = await onAdd(add.name);
+        const result = await addOne(add.name);
         if (!result.ok) {
           const { title: heading, description: detail } = refusalText(result.error);
           takeBack(index, detail ?? heading);
@@ -198,10 +257,22 @@ export function ListEditorSheet({
       }
     }
     // One toast for the whole add: "Name added from …", or "3 deliverables added from …".
-    if (addedMessage && saved > 0) {
-      toast.success(addedMessage(saved === 1 ? (adds[0]?.name ?? typed) : `${saved} ${noun}s`));
+    if (added && saved > 0) {
+      toast.success(added(saved === 1 ? (adds[0]?.name ?? typed) : `${saved} ${noun}s`, saved));
     }
     setBusy(null);
+  }
+
+  /** The answer to "Also add ‹title› to ‹period›?": both rows, or the line from the next period. */
+  function answer(both: boolean) {
+    if (!alsoAsk || !alsoAdd) return;
+    const { typed, count } = alsoAsk;
+    setAlsoAsk(null);
+    const toastWords = (label: string, saved: number) => {
+      const words = alsoAdd.words(saved === 1 ? label : typed, saved);
+      return (both ? words?.addedBoth : words?.addedListOnly) ?? label;
+    };
+    void send(typed, count, both ? alsoAdd.onAddToo : onAdd, toastWords);
   }
 
   async function rename(row: ListRow) {
@@ -398,6 +469,36 @@ export function ListEditorSheet({
           )}
         </div>
       </ReviewSheet>
+      <Dialog open={alsoAsk !== null} onOpenChange={(next) => (next ? null : setAlsoAsk(null))}>
+        <DialogContent data-slot="also-add-dialog">
+          <DialogHeader>
+            <DialogTitle>{alsoAsk?.words.question}</DialogTitle>
+            <DialogDescription>{alsoAsk?.words.detail}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            {/* "From ‹next period› only" adds the line alone, as before; Add too is the layer's
+                one neutral solid commit, the default (WORKFLOWS §5.3, ADR-0015). */}
+            <Button
+              type="button"
+              variant="secondary"
+              data-slot="also-add-list-only"
+              onClick={() => answer(false)}
+            >
+              {alsoAsk?.words.listOnly}
+            </Button>
+            {/* The question closes at once; the list's Add shows the work ("Adding…", faded rows):
+                pending: none. */}
+            <Button
+              type="button"
+              variant="primary"
+              data-slot="also-add-both"
+              onClick={() => answer(true)}
+            >
+              {alsoAsk?.words.addToo}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         destructive
         open={asking}

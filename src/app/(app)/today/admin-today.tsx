@@ -221,6 +221,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
       reviews: details.reviews,
       cycleLabels: {},
       cycleLabel: row.cycleLabel,
+      recurrence: row.recurrence,
     }),
     where: `${row.projectName} · ${row.clientName}`,
     href: `/clients/${row.clientId}/projects/${row.projectId}?cycle=${row.cycleId}`,

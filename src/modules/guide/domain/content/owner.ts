@@ -1199,14 +1199,37 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open an open or done deliverable.",
               'Tap "Close deliverable…".',
-              'Write "Why close it".',
+              'Pick why: "Not needed this month" (the client dropped or moved it; "this week" on a weekly project, "Not needed" on a one-time one) or "Not delivered" (we didn\'t deliver it).',
+              'Write "Why close it", then tap "Close deliverable".',
             ),
-            next("It stays in the cycle as closed, not done, and is not counted in progress."),
+            next(
+              "It stays in the cycle as closed, not done, and is not counted in progress. Its sheet shows the kind above the reason.",
+            ),
             note(
               "Closing cannot be undone. If you only want to redo the work, use Send back instead.",
             ),
           ],
-          keywords: ["close", "drop", "cancel deliverable"],
+          keywords: ["close", "drop", "cancel deliverable", "not needed", "not delivered"],
+        },
+        {
+          id: "owner-set-close-kind",
+          title: "Set or change a close kind",
+          summary: "Say why an older deliverable was closed, or correct it.",
+          blocks: [
+            text(
+              "Closes made before the kinds came in have none. Only you can set, change or clear a closed deliverable's kind, on any project, a completed or cancelled one's included.",
+            ),
+            steps(
+              "Open the closed deliverable (Done and closed on the project page).",
+              'Tap ⋯, then "Set close kind".',
+              'Pick "Not needed this month" or "Not delivered" (or "No kind" to clear one), then tap "Save".',
+            ),
+            next(
+              "The kind shows on the deliverable's sheet, and the project's Activity says, for example, \"marked Reel 1's close as not delivered\". Nobody is notified.",
+            ),
+            note("Admins see the kind but cannot change it after the close."),
+          ],
+          keywords: ["close kind", "not needed", "not delivered", "older close", "set close kind"],
         },
         {
           id: "owner-bulk",
@@ -1613,6 +1636,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               'Open the repeating project\'s ⋯ menu and tap "Deliverables list".',
               "Add lines with × N, or rename them.",
+              'While this month is running, an add asks "Also add ‹title› to ‹October 2026›?": "Add to ‹October 2026› too" also adds it to this month with its stages; "From ‹November 2026› only" starts it next month.',
               'Tap "Stages" on a line to set its stages.',
             ),
             next("Every month starts with these, from the next period."),
@@ -1654,7 +1678,7 @@ export const OWNER_GUIDE: Guide = {
               "Open the link, then select the deliverables, or none to act on all rows.",
               'Tap "Carry N forward" to move them into the next cycle.',
               'Tap "Leave N pending" to leave them where they are.',
-              'Tap "Close…" on a row to close it. It asks "Why close it".',
+              'Tap "Close…" on a row to close it. Pick "Not needed this month" or "Not delivered", then write "Why close it".',
             ),
             next('Empty screen: "Nothing to decide."'),
             note(

@@ -12,6 +12,8 @@ import * as repo from "../data/projects";
 import {
   type AddBlueprintInput,
   addBlueprintSchema,
+  type AddBlueprintToCycleInput,
+  addBlueprintToCycleSchema,
   type AddProjectStageGroupInput,
   addProjectStageGroupSchema,
   type ArchiveProjectStageGroupInput,
@@ -241,6 +243,20 @@ export const addBlueprint = action(
     const id = await repo.addBlueprint(data.projectId, data.title);
     revalidate();
     return ok({ id });
+  },
+);
+
+/**
+ * "Also add ‹title› to ‹period›?" answered **Add to ‹period› too** (v1.9 W1, D4 in full): the line
+ * and an open deliverable with its stages in the running cycle, one transaction. No notification.
+ */
+export const addBlueprintToCycle = action(
+  async (input: AddBlueprintToCycleInput): Promise<Result<{ id: string; itemId: string }>> => {
+    const data = addBlueprintToCycleSchema.parse(input);
+    await assertPermission("projects.manage");
+    const added = await repo.addBlueprintToCycle(data.projectId, data.title, data.cycleId);
+    revalidate();
+    return ok({ id: added.blueprintId, itemId: added.itemId });
   },
 );
 

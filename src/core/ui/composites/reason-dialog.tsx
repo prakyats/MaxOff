@@ -48,6 +48,7 @@ export function ReasonDialog({
   cancelLabel,
   destructive = false,
   approve = false,
+  children,
   onSubmit,
 }: {
   open: boolean;
@@ -73,6 +74,8 @@ export function ReasonDialog({
   destructive?: boolean;
   /** A positive final decision: its button is the Forest green `approve` (ADR-0015 amendment). */
   approve?: boolean;
+  /** A choice that goes with the reason (a close's kind, v1.9 W1), drawn above the reason. */
+  children?: ReactNode;
   /** Resolve `false` to keep the dialog open with the reason (the save failed). */
   onSubmit: (reason: string) => void | boolean | Promise<void | boolean>;
 }) {
@@ -125,6 +128,7 @@ export function ReasonDialog({
             <DialogTitle>{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : null}
           </DialogHeader>
+          {children}
           <div className="flex flex-col gap-2">
             <Label htmlFor={id}>{label}</Label>
             <Textarea

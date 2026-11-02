@@ -57,10 +57,14 @@ export type ItemListPeriods = {
   from: string;
   /** The running cycle that takes new items through + Add item ("October 2026"), or null. */
   running: string | null;
+  /** That running cycle's id (v1.9 W1, "Also add"), when the cycles carried their ids. */
+  runningCycleId?: string;
 };
 
 /** The cycle facts the Item list's words read (`project_cycles`). */
 export type ItemListCycle = {
+  /** The cycle's id: "Also add" adds to the running one (v1.9 W1). */
+  id?: string;
   periodStart: string | null;
   periodEnd: string | null;
   label: string | null;
@@ -99,6 +103,8 @@ export function itemListPeriods(
     unit: recurrence === "monthly" ? "month" : "week",
     from: cycleLabel(recurrence, from),
     running: canAddNow && running ? (running.label ?? cycleLabel(recurrence, current)) : null,
+    // "Also add ‹title› to ‹period›?" (v1.9 W1) adds to this cycle: its id, when the caller gave ids.
+    ...(canAddNow && running?.id ? { runningCycleId: running.id } : {}),
   };
 }
 
@@ -133,8 +139,11 @@ export function itemListCopy(periods: ItemListPeriods): {
 export function alsoAddCopy(
   periods: ItemListPeriods,
   title: string,
+  /** The line's stages (the project's default stages it starts with) and how many lines ("× N"). */
+  options: { stages?: number; count?: number } = {},
 ): {
   question: string;
+  detail: string;
   addToo: string;
   listOnly: string;
   addedBoth: string;
@@ -142,11 +151,22 @@ export function alsoAddCopy(
 } | null {
   if (!periods.running) return null;
   const name = title.trim();
+  const count = Math.max(1, options.count ?? 1);
+  const stages = Math.max(0, options.stages ?? 0);
+  const many = count > 1;
+  const label = many ? `${count} deliverables` : name;
+  const staged =
+    stages === 0
+      ? ""
+      : `, ${many ? "each with" : "with its"} ${stages} ${stages === 1 ? "stage" : "stages"}`;
   return {
-    question: `Also add ${name} to ${periods.running}?`,
+    question: many
+      ? `Also add ${label} to ${periods.running}?`
+      : `Also add "${name}" to ${periods.running}?`,
+    detail: `${many ? "They join" : "It joins"} the list for every ${periods.unit}. Add ${many ? "them" : "it"} to this ${periods.unit} too${staged}?`,
     addToo: `Add to ${periods.running} too`,
     listOnly: `From ${periods.from} only`,
-    addedBoth: `${name} added to ${periods.running} and every ${periods.unit} from ${periods.from}`,
-    addedListOnly: `${name} added from ${periods.from}`,
+    addedBoth: `${label} added to ${periods.running} and every ${periods.unit} from ${periods.from}`,
+    addedListOnly: `${label} added from ${periods.from}`,
   };
 }

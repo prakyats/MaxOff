@@ -46,6 +46,7 @@ export default async function DecidePage({
         projectName: row.projectName,
         clientName: row.clientName,
         cycleLabel: row.cycleLabel ?? "",
+        recurrence: row.recurrence,
         inactive: row.clientState === "inactive",
         notActive: row.clientState !== "active",
         rows: [],

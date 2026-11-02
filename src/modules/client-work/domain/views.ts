@@ -2,8 +2,16 @@ import { groupRows } from "@/core/lib/stage-groups";
 import { formatIST, type ISODate } from "@/core/time";
 
 import { activeStages, carriedFromLabel, ITEM_RULES, type PlannedLine, plannedLine } from "./items";
+import { type CloseKind, closeKindLabel } from "./close-kinds";
 import { itemMeter } from "./progress";
-import { ITEM_STATE_LABELS, type Item, type ItemStage, type ItemState, type Review } from "./types";
+import {
+  ITEM_STATE_LABELS,
+  type Item,
+  type ItemStage,
+  type ItemState,
+  type Recurrence,
+  type Review,
+} from "./types";
 
 /**
  * What an item row and its sheet show (7.3; WORKFLOWS §5.3, kickoff 7 decisions 7, 12, 26; Q5 (b);
@@ -85,6 +93,15 @@ export type ItemView = {
   lastChange: LastChange | null;
   /** A closed (cancelled) item's reason. */
   closedReason: string | null;
+  /**
+   * A closed deliverable (v1.9 W1): its kind (null: a close before W1 or a project's cancel), the
+   * kind's words for its project ("Not needed this month") and "Closed 30 Sep by Prakyat".
+   */
+  closed: { kind: CloseKind | null; kindLabel: string | null; line: string } | null;
+  /** The project's repeat: the Close's kind choice names its period (v1.9 W1). */
+  recurrence: Recurrence;
+  /** The cycle it is in ("October 2026"): the Close says it stays there (v1.9 W1). */
+  cycleLabel: string | null;
   /** "Done by Ravi, 8 Oct" (and, for an item approved apart before amendment D3, its approval). */
   history: string[];
   /** What may change (the viewer's keys are applied by the screen). */
@@ -112,6 +129,8 @@ export type ItemViewContext = {
   cycleLabels: Readonly<Record<string, string | null>>;
   /** The label of the cycle the item is in. */
   cycleLabel: string | null;
+  /** The project's repeat (v1.9 W1: "Not needed this month" / "this week" / "Not needed"). */
+  recurrence: Recurrence;
 };
 
 const WHEN = "d MMM";
@@ -171,6 +190,22 @@ export function itemView(item: Item, context: ItemViewContext): ItemView {
         : null,
     lastChange: context.lastChanges?.[item.id] ?? null,
     closedReason: item.state === "cancelled" ? item.cancelledReason : null,
+    closed:
+      item.state === "cancelled"
+        ? {
+            kind: item.closeKind,
+            kindLabel: item.closeKind ? closeKindLabel(item.closeKind, context.recurrence) : null,
+            line: [
+              "Closed",
+              item.cancelledAt ? formatIST(item.cancelledAt, WHEN) : null,
+              item.cancelledBy ? `by ${name(item.cancelledBy)}` : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          }
+        : null,
+    recurrence: context.recurrence,
+    cycleLabel: context.cycleLabel,
     history,
     rules: {
       ticks: ITEM_RULES.ticks(item.state),

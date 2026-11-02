@@ -55,6 +55,9 @@ function item(over: Partial<Item> = {}): Item {
     approvedAt: null,
     approvedBy: null,
     cancelledReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    closeKind: null,
     carryDecision: null,
     carriedFromItemId: null,
     originCycleId: "c1",
@@ -404,6 +407,7 @@ describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
     ],
     cycleLabels: { old: "September 2026" },
     cycleLabel: "October 2026",
+    recurrence: "monthly" as const,
   };
 
   it("shows a send-back, its own active stages in order with ticks, a carried-in mark", () => {

@@ -15,6 +15,9 @@ import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { toastResult } from "@/core/ui/toast";
 
 import { carryDecide } from "../actions/items";
+import type { Recurrence } from "../domain/types";
+
+import { CLEAR_KIND, CloseKindChoice, type CloseKindValue } from "./close-kind-choice";
 
 /** One unfinished item of an ended cycle, as the carry screen shows it. */
 export type DecideRow = {
@@ -33,6 +36,8 @@ export type DecideGroup = {
   projectName: string;
   clientName: string;
   cycleLabel: string;
+  /** The project's repeat: the Close's kind reads "Not needed this ‹month/week›" (v1.9 W1). */
+  recurrence: Recurrence;
   /** The client is Inactive: carry forward is refused (decision 13). */
   inactive: boolean;
   /** The client is not Active: the next cycle holds only the carried items for now (Q4 (a)). */
@@ -45,7 +50,7 @@ export type DecideGroup = {
  * §5.4 items 11–13, 16; amendment C; Q4 (a); PERMISSIONS: `cycles.carry_decide`, the Owner on any
  * client, the client's Admin on theirs): each ended cycle's open items, grouped by project and
  * cycle. **Carry forward** and **Leave pending** in bulk per cycle (the selected rows, or every row
- * when none is selected); **Close** one item at a time with a reason. Carry forward is not offered
+ * when none is selected); **Close** one item at a time with its kind (v1.9 W1) and a reason. Carry forward is not offered
  * on an Inactive client; on a Paused or Draft one the next cycle takes only the carried items until
  * the client is Active (Q4 (a)), which the group says. A failed row keeps its message. Done items
  * are not here: they wait for approval in their own cycle (decision 11).
@@ -54,7 +59,9 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const [closing, setClosing] = useState<DecideRow | null>(null);
+  const [closing, setClosing] = useState<{ row: DecideRow; recurrence: Recurrence } | null>(null);
+  // The Close's kind (v1.9 W1): "Not needed this ‹month›" first, as the approved sample.
+  const [closeKind, setCloseKind] = useState<CloseKindValue>("not_needed");
 
   if (groups.length === 0) {
     return (
@@ -152,7 +159,10 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
                     variant="ghost"
                     size="sm"
                     className="ml-auto"
-                    onClick={() => setClosing(row)}
+                    onClick={() => {
+                      setCloseKind("not_needed");
+                      setClosing({ row, recurrence: group.recurrence });
+                    }}
                     data-slot="carry-close"
                   >
                     Close…
@@ -191,7 +201,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
       <ReasonDialog
         open={closing !== null}
         onOpenChange={(next) => (next ? null : setClosing(null))}
-        title={closing ? `Close ${closing.title}?` : "Close the deliverable"}
+        title={closing ? `Close ${closing.row.title}?` : "Close the deliverable"}
         description="It stays in its cycle as closed, not done. This can't be undone."
         label="Why close it"
         submitLabel="Close deliverable"
@@ -199,20 +209,31 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
         onSubmit={async (reason) => {
           if (!closing) return;
           const result = await carryDecide({
-            itemIds: [closing.id],
+            itemIds: [closing.row.id],
             decision: "close",
             reason,
+            closeKind: closeKind === CLEAR_KIND ? "not_needed" : closeKind,
           });
           if (result.ok && result.data.failed[0]) {
             setErrors((current) => ({
               ...current,
-              [closing.id]: result.data.failed[0]?.message ?? "",
+              [closing.row.id]: result.data.failed[0]?.message ?? "",
             }));
             return true;
           }
           return toastResult(result, { success: "Deliverable closed" });
         }}
-      />
+      >
+        {/* v1.9 W1: the same kind choice as the deliverable sheet's Close. */}
+        {closing ? (
+          <CloseKindChoice
+            name="carry-close-kind"
+            recurrence={closing.recurrence}
+            value={closeKind}
+            onChange={setCloseKind}
+          />
+        ) : null}
+      </ReasonDialog>
     </div>
   );
 }
