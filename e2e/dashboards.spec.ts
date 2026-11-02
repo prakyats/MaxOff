@@ -540,7 +540,16 @@ test.describe("the Owner's Today (6.2)", () => {
       for (let index = 0; index < shown; index++) {
         const row = rows.nth(index);
         const kind = (await row.locator('[data-slot="approval-kind"]').innerText()).trim();
-        expect(["Attendance", "Leave", "Extra work", "Expense", "Task"]).toContain(kind);
+        // v1.9 W4 Q2: early-leave requests too ("Leaving early", "Left early"), first.
+        expect([
+          "Leaving early",
+          "Left early",
+          "Attendance",
+          "Leave",
+          "Extra work",
+          "Expense",
+          "Task",
+        ]).toContain(kind);
         // One button: Approve, or Review where the decision needs the review (as on Approvals).
         // Outlined and neutral in every row, Approve and Review alike: no solid button repeated
         // down the list (owner 2026-10-09, ARCHITECTURE §14.1), and a 44px target on a phone.
@@ -594,8 +603,15 @@ test.describe("the Owner's Today (6.2)", () => {
       );
 
       if (isPhone(info)) {
-        // A tap on the row opens its review; back closes it and stays on Today (§14.2 a).
-        await rows.first().locator('[data-slot="approval-row-open"]').click();
+        // A tap on the row opens its review; back closes it and stays on Today (§14.2 a). (An
+        // early-leave row opens Approvals instead: the first row of another kind.)
+        await needs
+          .locator(
+            '[data-slot="today-approval-rows"] [data-slot="approval-row"]:not([data-group^="early-leave"])',
+          )
+          .first()
+          .locator('[data-slot="approval-row-open"]')
+          .click();
         const sheet = page.locator('[data-slot="review-sheet"]');
         await expect(sheet).toBeVisible();
         await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);

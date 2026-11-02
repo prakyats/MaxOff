@@ -180,8 +180,8 @@ select is(
    join information_schema.routines r on r.specific_name = p.specific_name
    where r.routine_schema = 'public' and r.routine_name = 'session_bundle' and p.parameter_mode = 'OUT'),
   array['not_noted', 'changes_requested', 'badge', 'to_decide', 'unread', 'pending_days',
-        'pending_requests', 'pending_notes', 'pending_claims'],
-  'the result''s columns are exactly the counts');
+        'pending_requests', 'pending_notes', 'pending_claims', 'pending_early_leaves'],
+  'the result''s columns are exactly the counts (v1.9 W4 Q2: pending_early_leaves last, pgTAP 126)');
 
 select * from finish();
 rollback;

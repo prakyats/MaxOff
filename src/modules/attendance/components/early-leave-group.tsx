@@ -1,19 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { useAction } from "@/core/ui/action/use-action";
-import { useApprovalGroupsShown } from "@/core/ui/composites/approval-group";
+
+import {
+  type ApprovalWaiting,
+  useApprovalGroupsShown,
+  WaitingWords,
+} from "@/core/ui/composites/approval-group";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
-import { LIST_ROW_MIN_H } from "@/core/ui/composites/row-metrics";
+import { APPROVAL_ROW_MIN_H, LIST_ROW_MIN_H } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import { decideEarlyLeave } from "../actions/hours";
 import { historyDate } from "../domain/history";
-import { earlyLeaveSubtitle, earlyLeaveTitle, type EarlyLeaveRequest } from "../domain/hours";
+import {
+  earlyLeavePreviewDetail,
+  earlyLeaveSubtitle,
+  earlyLeaveTitle,
+  type EarlyLeaveRequest,
+} from "../domain/hours";
 
 import { CorrectDayDialog, type CorrectTarget } from "./correct-day-dialog";
 
@@ -221,6 +232,121 @@ function Row({
           Approve
         </Button>
       </div>
+    </li>
+  );
+}
+
+/**
+ * The early-leave requests as the Owner's Today "Needs you" rows (v1.9 W4 Q2, advisor 2 Nov): the
+ * compact rows of Today's one list (`layout="rows"` in `ApprovalGroup`), in its order, no heading
+ * of their own. The kind says which ("Leaving early", "Left early"); the row opens its group on
+ * Approvals (Stay and Correct… live there); the one button is **Approve**, the neutral outline as
+ * in every Today row. No Undo: as on Approvals, an early leave is decided at once.
+ */
+export function EarlyLeavePreviewRows({
+  requests,
+  waiting,
+}: {
+  requests: EarlyLeaveRequest[];
+  /** How long each has waited, by id (the page's clock; Today's words). */
+  waiting: Readonly<Record<string, ApprovalWaiting | null>>;
+}) {
+  return (
+    <>
+      {requests.map((request) => (
+        <PreviewRow key={request.id} request={request} waiting={waiting[request.id] ?? null} />
+      ))}
+    </>
+  );
+}
+
+function PreviewRow({
+  request,
+  waiting,
+}: {
+  request: EarlyLeaveRequest;
+  waiting: ApprovalWaiting | null;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const waitingState = request.state === "waiting";
+  const approve = useAction(async () => {
+    setError(null);
+    const result = await decideEarlyLeave({ requestId: request.id, decision: "approve" });
+    if (
+      toastResult(result, {
+        success: waitingState
+          ? `${request.memberName} can leave: their day ended at the time they asked`
+          : `${request.memberName}'s early leave approved`,
+      })
+    ) {
+      setDone(true);
+      router.refresh();
+    } else if (!result.ok) {
+      const { title, description } = describeError(result.error);
+      setError(description ?? title);
+    }
+  });
+  const busy = approve.pending || done;
+  const group = waitingState ? "early-leave" : "early-leave-unanswered";
+  return (
+    <li
+      data-slot="approval-row"
+      data-group={group}
+      data-state={done ? "decided" : "waiting"}
+      className={cn(
+        "flex min-w-0 flex-wrap items-center gap-x-3 pr-4 transition-opacity duration-300",
+        APPROVAL_ROW_MIN_H,
+        done && "opacity-50",
+      )}
+    >
+      <Link
+        href={`/approvals#${group}`}
+        data-slot="approval-row-open"
+        className="pressable-row focus-visible:ring-ring flex min-w-0 flex-[1_1_10rem] flex-col justify-center gap-0.5 self-stretch py-2 pl-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+      >
+        <span className="flex min-h-5 min-w-0 flex-wrap items-center gap-x-2">
+          <span data-slot="approval-kind" className="text-muted-foreground shrink-0 text-xs">
+            {waitingState ? "Leaving early" : "Left early"}
+          </span>
+          <span className="flex min-w-0 flex-[1_1_6rem] items-center gap-1.5">
+            <PersonAvatar
+              person={{
+                id: request.memberId,
+                name: request.memberName,
+                avatarFileId: request.memberAvatarFileId,
+              }}
+              size={20}
+            />
+            <span data-slot="approval-title" className="min-w-0 truncate text-sm font-medium">
+              {request.memberName}
+            </span>
+          </span>
+        </span>
+        <span
+          data-slot="approval-detail"
+          className="text-muted-foreground min-h-4 text-xs break-words"
+        >
+          {earlyLeavePreviewDetail(request, historyDate)}
+        </span>
+        {waiting ? <WaitingWords waiting={waiting} className="min-h-4" /> : null}
+        {error ? (
+          <span data-slot="approval-error" role="status" className="text-destructive text-xs">
+            {error}
+          </span>
+        ) : null}
+      </Link>
+      <Button
+        variant="secondary"
+        commits
+        disabled={busy}
+        onClick={() => approve.run()}
+        data-slot="early-leave-approve"
+        className="my-1 ml-auto"
+      >
+        Approve
+      </Button>
     </li>
   );
 }

@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
-import { listPendingDays, listPendingNotes } from "@/modules/attendance";
+import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
   countItemsToDecide,
   countOverdueItems,
@@ -57,6 +57,9 @@ export const readApprovals = cache(() =>
     listPendingNotes(),
     listPendingClaims(),
     listTasksToDecide({ final: true }),
+    // v1.9 W4 Q2: the early-leave requests waiting for the Owner (RLS: his; the page asks only
+    // for `attendance.decide`).
+    listEarlyLeaveRequests(),
   ]),
 );
 

@@ -275,6 +275,19 @@ export function earlyLeaveTitle(request: EarlyLeaveRequest): string {
     : `${request.memberName} · ended ${timeOf(request.leftAt ?? request.requestedAt)}`;
 }
 
+/**
+ * The Owner's Today row's what-and-when line (v1.9 W4 Q2; the waiting time is the row's own line):
+ * "Leave at 4:30 pm · “Doctor's appointment”", or "Ended 4:40 pm, Mon 2 Nov · “Family function”".
+ */
+export function earlyLeavePreviewDetail(
+  request: EarlyLeaveRequest,
+  dateLabel: (date: string) => string,
+): string {
+  return request.state === "waiting"
+    ? `Leave at ${timeOf(request.requestedAt)} · “${request.reason}”`
+    : `Ended ${timeOf(request.leftAt ?? request.requestedAt)}, ${dateLabel(request.workDate)} · “${request.reason}”`;
+}
+
 /** "Doctor's appointment at 5 · waiting 12 min", "Asked at 3:30 pm · "Family function"". */
 export function earlyLeaveSubtitle(
   request: EarlyLeaveRequest,

@@ -106,7 +106,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               {
-                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting rows, in this order: attendance days, leave requests, extra-work notes, expense claims, tasks. A person with several days waiting is one row, such as "Asha · 5 days proposed absent · Review", which opens Approvals. The count beside "Needs you" is the number of rows. "See all N" opens Approvals.',
+                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting rows, in this order: requests to leave early ("Leaving early", then "Left early"), attendance days, leave requests, extra-work notes, expense claims, tasks. A person with several days waiting is one row, such as "Asha · 5 days proposed absent · Review", which opens Approvals. The count beside "Needs you" is the number of rows. "See all N" opens Approvals.',
                 shot: "owner/today",
               },
               {
@@ -202,7 +202,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Approve it, or ask them to stay. Only you decide.",
           blocks: [
             text(
-              `Before their day's end time (6:00 pm, later on a shoot day or after "Stay until"), an Admin or ${CREW} member asks to leave early with a reason. You get a push and the request waits at the top of Approvals, under "Leaving early".`,
+              `Before their day's end time (6:00 pm, later on a shoot day or after "Stay until"), an Admin or ${CREW} member asks to leave early with a reason. You get a push, the Approvals badge counts it, and it waits at the top of Approvals, under "Leaving early", and first in Today's "Needs you" (tap "Approve" there, or the row for Stay).`,
             ),
             steps(
               "Open Approvals.",

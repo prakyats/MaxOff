@@ -4,6 +4,7 @@ import {
   askSheetDescription,
   boardHoursDetail,
   canSetStayUntil,
+  earlyLeavePreviewDetail,
   earlyLeaveSubtitle,
   earlyLeaveTitle,
   type EarlyLeaveRequest,
@@ -232,6 +233,16 @@ describe("the Owner's words (sample §3)", () => {
     );
     expect(earlyLeaveSubtitle(left, at("18:00"), "2026-11-03", () => "Mon 2 Nov")).toBe(
       "Mon 2 Nov · Asked at 4:30 pm · “Doctor's appointment at 5”",
+    );
+  });
+
+  it("words the Owner's Today rows (W4 Q2): the time and reason, the day for a left one", () => {
+    expect(earlyLeavePreviewDetail(request, () => "Mon 2 Nov")).toBe(
+      "Leave at 4:30 pm · “Doctor's appointment at 5”",
+    );
+    const left = { ...request, state: "left_unanswered" as const, leftAt: iso("17:05") };
+    expect(earlyLeavePreviewDetail(left, () => "Mon 2 Nov")).toBe(
+      "Ended 5:05 pm, Mon 2 Nov · “Doctor's appointment at 5”",
     );
   });
 

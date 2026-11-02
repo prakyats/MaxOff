@@ -31,6 +31,11 @@ const ClaimsChunk = dynamic(() =>
     (module) => module.PendingClaimsGroup,
   ),
 );
+const EarlyChunk = dynamic(() =>
+  import("@/modules/attendance/components/early-leave-group").then(
+    (module) => module.EarlyLeavePreviewRows,
+  ),
+);
 const TasksChunk = dynamic(() =>
   import("@/modules/tasks/components/task-approval-group").then(
     (module) => module.TaskApprovalGroup,
@@ -73,6 +78,14 @@ export function PreviewTasks(props: ComponentProps<typeof TasksChunk>) {
   return (
     <Suspense>
       <TasksChunk {...props} />
+    </Suspense>
+  );
+}
+
+export function PreviewEarly(props: ComponentProps<typeof EarlyChunk>) {
+  return (
+    <Suspense>
+      <EarlyChunk {...props} />
     </Suspense>
   );
 }

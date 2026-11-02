@@ -221,6 +221,23 @@ test("ask to leave early, the Owner approves: the day ends at the time asked", a
   const email = person("staff", info);
   await hoursAround(5, 120);
   await startedPerson(page, email);
+  // W4 Q2: the Owner's Approvals badge before the ask, to see the ask join it.
+  const owner = await ownerPage(browser, info);
+  await owner.goto("/today");
+  await hydrated(owner);
+  const badgeOf = async () =>
+    Number(
+      (
+        await owner
+          .locator('[data-nav="approvals"] [data-slot="nav-badge"]')
+          .evaluateAll((badges) =>
+            badges
+              .filter((badge) => (badge as HTMLElement).offsetParent !== null)
+              .map((badge) => badge.textContent?.trim() ?? ""),
+          )
+      )[0] ?? "0",
+    );
+  const before = await badgeOf();
   await strip(page).getByRole("button", { name: "Ask to leave early" }).click();
   const sheet = page.locator('[data-slot="ask-leave-early-sheet"]');
   await expect(sheet).toContainText(
@@ -246,8 +263,32 @@ test("ask to leave early, the Owner approves: the day ends at the time asked", a
   const asked = await requestOf(email);
   expect(asked?.state).toBe("waiting");
 
-  const owner = await ownerPage(browser, info);
-  await owner.goto("/approvals");
+  // W4 Q2: the badge counts it (from the shell's one read), and Today's Needs you lists it: the
+  // kind, the time and reason, how long it has waited, one outlined Approve; the row opens its
+  // group on Approvals.
+  const name = (
+    await serviceSelect<{ full_name: string }>(
+      `members?email=eq.${encodeURIComponent(email)}&select=full_name`,
+    )
+  )[0]!.full_name;
+  await owner.reload();
+  await hydrated(owner);
+  await expect.poll(badgeOf).toBe(before + 1);
+  const todayRow = owner
+    .locator(
+      '[data-slot="today-approval-rows"] [data-slot="approval-row"][data-group="early-leave"]',
+    )
+    .filter({ hasText: name });
+  await expect(todayRow.locator('[data-slot="approval-kind"]')).toHaveText("Leaving early");
+  await expect(todayRow.locator('[data-slot="approval-detail"]')).toHaveText(
+    /^Leave at \d{1,2}:\d{2} [ap]m · “Doctor's appointment at 5”$/,
+  );
+  await expect(todayRow.locator('[data-slot="approval-waiting"]')).toHaveText(/^Waiting /);
+  await expect(todayRow.locator("[data-variant]")).toHaveCount(1);
+  await expect(todayRow.locator("[data-variant]")).toHaveAttribute("data-variant", "secondary");
+  await expect(todayRow.locator("[data-variant]")).toHaveText("Approve");
+  await todayRow.locator('[data-slot="approval-row-open"]').click();
+  await expect(owner).toHaveURL(/\/approvals#early-leave$/);
   const row = owner.locator('[data-slot="approval-row"][data-group="early-leave"]', {
     hasText: "Doctor's appointment at 5",
   });
@@ -265,7 +306,8 @@ test("ask to leave early, the Owner approves: the day ends at the time asked", a
   await page.reload();
   await expect(strip(page).locator('[data-slot="attendance-early"]')).toContainText(
     /The Owner approved\. Your day ended at/,
-  );  // W4 Q1 (advisor 2 Nov): the approval ended the day without End day's expenses question, so a
+  );
+  // W4 Q1 (advisor 2 Nov): the approval ended the day without End day's expenses question, so a
   // quiet link opens the same claim form, for today; closing it claims nothing.
   const claim = strip(page).locator('[data-slot="early-leave-claim"]');
   await expect(claim).toHaveText("Any expenses to claim today?");

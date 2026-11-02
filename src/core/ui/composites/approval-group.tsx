@@ -73,7 +73,13 @@ export type ApprovalWaiting = { label: string; tone: "muted" | "attention" | "da
  * How long a row has waited (B4): muted words under a day; from a day **a dot plus the word**,
  * amber, and red from three (FINAL 4: text colour alone never carries a state).
  */
-function WaitingWords({ waiting, className }: { waiting: ApprovalWaiting; className?: string }) {
+export function WaitingWords({
+  waiting,
+  className,
+}: {
+  waiting: ApprovalWaiting;
+  className?: string;
+}) {
   return (
     <span
       data-slot="approval-waiting"

@@ -22,6 +22,8 @@ export type SessionBundle = {
     requests: number | null;
     notes: number | null;
     claims: number | null;
+    /** v1.9 W4 Q2: early-leave requests waiting or left unanswered (the Owner's; 0 otherwise). */
+    earlyLeaves: number;
   };
 };
 
@@ -55,6 +57,7 @@ export const getSessionBundle = cache(async (): Promise<SessionBundle> => {
       requests: row.pending_requests,
       notes: row.pending_notes,
       claims: row.pending_claims,
+      earlyLeaves: row.pending_early_leaves ?? 0,
     },
   };
 });

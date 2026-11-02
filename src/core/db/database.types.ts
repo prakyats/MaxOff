@@ -5554,6 +5554,7 @@ export type Database = {
           not_noted: number;
           pending_claims: number;
           pending_days: number;
+          pending_early_leaves: number;
           pending_notes: number;
           pending_requests: number;
           to_decide: number;
