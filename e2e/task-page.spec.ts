@@ -1640,9 +1640,13 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
     const prefix = `Enlarge ${info.project.name} `;
     const taskId = await chatTask(info, prefix, 51);
     await runInstalled(page);
-    await page.goto("/tasks");
+    // Drilled into from All tasks, found through its search: the Owner's Tasks tab shows only the
+    // 15 soonest open tasks, and a run's other tasks fall due before this one (working day 51), so
+    // on a shared database it was not on that first screen (the click timed out).
+    await page.goto("/tasks/all");
     await hydrated(page);
-    await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
+    await page.getByRole("searchbox", { name: "Search tasks" }).fill(`${prefix}edit`);
+    await page.locator(`a[href="/tasks/${taskId}"]`).filter({ visible: true }).first().click();
     const url = new RegExp(`/tasks/${taskId}(\\?tab=chat)?$`);
     await expect(page).toHaveURL(url);
     await hydrated(page);
@@ -1713,7 +1717,7 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
     );
 
     // No layer left behind and no view in history: one back leaves the task.
-    await expectBackStack(page, [{ url: /\/tasks$/ }]);
+    await expectBackStack(page, [{ url: /\/tasks\/all$/ }]);
   });
 });
 

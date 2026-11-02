@@ -55,11 +55,14 @@ async function signInOwner(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" });
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("a note, a grant, a comp leave request, a rejection and a revoke", async ({ page }, info) => {
+// One flow in four serial steps, each well inside the 30 s test limit (as `expenses.spec`). As one
+// test (four sign-ins, ~120 steps) it took 27–28 s on the phone projects and 32.5 s on desktop with
+// the three projects side by side (2 workers, v1.9 W6): every step uniformly slower, the flow
+// simply longer than the limit. The steps share the person's rows, never a page.
+test("a note, and the Owner grants a day of comp leave from Approvals", async ({ page }, info) => {
   const email = person(info);
   const memberId = await memberIdOf(email);
   await resetAttendanceAndLeave(memberId);
-  const today = todayIST();
 
   // The member notes overtime from the Extra work tab.
   await signIn(page, email, PASSWORD);
@@ -103,9 +106,13 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await decide.getByRole("button", { name: "Grant comp leave" }).click();
   await expect(decide).toBeHidden();
   await expect(row).toHaveCount(0);
+});
+
+test("the member reads the grant and requests the comp leave day", async ({ page }, info) => {
+  const email = person(info);
+  const today = todayIST();
 
   // The member sees the outcome and the credit, and comp leave appears in the leave form.
-  await page.context().clearCookies();
   await signIn(page, email, PASSWORD);
   await page.goto("/leave/extra-work");
   const useBy = monthEnd(today);
@@ -147,6 +154,12 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await page.goto("/leave/extra-work");
   await expect(page.locator('[data-slot="comp-balance"]')).toHaveText("No comp leave available");
   await expect(creditRow).toContainText("Waiting on a request");
+});
+
+test("the Owner rejects the request, revokes the credit and grants half a day once", async ({
+  page,
+}, info) => {
+  const memberId = await memberIdOf(person(info));
 
   // The Owner rejects: the credit comes back. Then revokes it with a reason.
   await signInOwner(page);
@@ -182,9 +195,14 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
     `comp_leave_credits?select=id&member_id=eq.${memberId}&days=eq.0.5&revoked_at=is.null`,
   );
   expect(halfGrants).toHaveLength(1);
+});
+
+test("the member reads the revoke reason; the leave form offers only the half day", async ({
+  page,
+}, info) => {
+  const email = person(info);
 
   // The member reads the revoke reason, and the form offers only the half day now.
-  await page.context().clearCookies();
   await signIn(page, email, PASSWORD);
   await page.goto("/leave/extra-work");
   await expect(page.locator('[data-slot="comp-credit"][data-status="revoked"]')).toContainText(
@@ -192,6 +210,7 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   );
   await page.goto("/leave");
   await page.getByRole("button", { name: "Request leave" }).click();
+  const form = page.getByRole("dialog", { name: "Request leave" });
   await form.getByLabel("Kind of leave").click();
   await expect(page.getByRole("option", { name: "Comp leave (1 day)" })).toHaveCount(0);
   await expect(page.getByRole("option", { name: "Comp leave, half day (½)" })).toBeVisible();
