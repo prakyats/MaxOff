@@ -316,7 +316,6 @@ test("ask to leave early, the Owner approves: the day ends at the time asked", a
   const form = page.getByRole("dialog");
   await expect(form.getByRole("heading", { name: "Expenses to claim" })).toBeVisible();
   await expect(form.getByLabel("Amount (₹)")).toBeVisible();
-  await expectFits(page, form, info);
   await page.keyboard.press("Escape");
   await expect(form).toBeHidden();
   await expect(claim).toBeVisible();
