@@ -240,7 +240,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: 'If the Owner approves, your day ends at the time you asked. If the Owner says stay, carry on until your end time; you are reminded then, and you can ask again. With no answer after 30 minutes, End day comes back; ending your day then is marked "Left early, not answered" for the Owner to review.',
+              text: 'If the Owner approves, your day ends at the time you asked, and the strip shows "Any expenses to claim today?" to add your claims for the day. If the Owner says stay, carry on until your end time; you are reminded then, and you can ask again. With no answer after 30 minutes, End day comes back; ending your day then is marked "Left early, not answered" for the Owner to review.',
             },
             {
               kind: "note",

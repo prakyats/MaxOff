@@ -265,7 +265,19 @@ test("ask to leave early, the Owner approves: the day ends at the time asked", a
   await page.reload();
   await expect(strip(page).locator('[data-slot="attendance-early"]')).toContainText(
     /The Owner approved\. Your day ended at/,
-  );
+  );  // W4 Q1 (advisor 2 Nov): the approval ended the day without End day's expenses question, so a
+  // quiet link opens the same claim form, for today; closing it claims nothing.
+  const claim = strip(page).locator('[data-slot="early-leave-claim"]');
+  await expect(claim).toHaveText("Any expenses to claim today?");
+  await expect(claim).toHaveAttribute("data-variant", "ghost");
+  await claim.click();
+  const form = page.getByRole("dialog");
+  await expect(form.getByRole("heading", { name: "Expenses to claim" })).toBeVisible();
+  await expect(form.getByLabel("Amount (₹)")).toBeVisible();
+  await expectFits(page, form, info);
+  await page.keyboard.press("Escape");
+  await expect(form).toBeHidden();
+  await expect(claim).toBeVisible();
 });
 
 test("ask to leave early, the Owner says Stay: the message, and the ask again", async ({

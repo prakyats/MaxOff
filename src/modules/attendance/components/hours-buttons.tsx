@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { systemClock } from "@/core/time/clock";
+import { useFollowUpTrigger } from "@/core/ui/composites/follow-up";
 import { Button } from "@/core/ui/primitives/button";
 
 import { AskLeaveEarlySheetLazy, LateSheetLazy } from "./hours-sheets-lazy";
@@ -99,4 +100,25 @@ export function RefreshAt({ at }: { at: string }) {
     return () => window.clearTimeout(timer);
   }, [at, router]);
   return null;
+}
+
+/**
+ * "Any expenses to claim today?" on the strip's approved early leave (v1.9 W4 Q1, advisor 2 Nov):
+ * the Owner's approval ended the day, so End day's question never came; this quiet link opens the
+ * same claim form End day's "Yes" opens (the page's `FollowUpHost`). None outside a host.
+ */
+export function ClaimExpensesLink({ date }: { date: string }) {
+  const openClaims = useFollowUpTrigger();
+  if (!openClaims) return null;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={() => openClaims(date)}
+      data-slot="early-leave-claim"
+      className="text-muted-foreground hover:text-foreground -my-1 h-auto min-h-11 basis-full justify-start px-0 underline-offset-4 hover:bg-transparent hover:underline sm:min-h-8"
+    >
+      Any expenses to claim today?
+    </Button>
+  );
 }

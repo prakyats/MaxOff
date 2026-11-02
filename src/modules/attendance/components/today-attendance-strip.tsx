@@ -23,7 +23,12 @@ import type { NoteDay } from "../domain/notes";
 import { describeTodayStrip, type StripAction } from "../domain/today";
 
 import { EndDayButton, StartDayButton } from "./day-actions";
-import { AskLeaveEarlyButton, LateReasonButton, RefreshAt } from "./hours-buttons";
+import {
+  AskLeaveEarlyButton,
+  ClaimExpensesLink,
+  LateReasonButton,
+  RefreshAt,
+} from "./hours-buttons";
 import { AddNoteButton } from "./add-note-button";
 import { WorkingTodayButton } from "./working-today-button";
 
@@ -114,7 +119,7 @@ export async function TodayAttendanceStrip({
           />
         </div>
       ) : null}
-      <HoursRow facts={facts} hours={hours} />
+      <HoursRow facts={facts} hours={hours} workDate={today.workDate} />
       {facts.refreshAt ? <RefreshAt at={facts.refreshAt} /> : null}
     </div>
   );
@@ -184,7 +189,15 @@ const EARLY_TONE = {
  * the reason (or "Add a reason"), the day's end time and why it is later, and an early-leave
  * request's status. Nothing with the rules off, so the strip is then exactly as before.
  */
-function HoursRow({ facts, hours }: { facts: HoursStrip; hours: OwnHours | null }) {
+function HoursRow({
+  facts,
+  hours,
+  workDate,
+}: {
+  facts: HoursStrip;
+  hours: OwnHours | null;
+  workDate: string;
+}) {
   if (!facts.late && !facts.endLine && !facts.early) return null;
   return (
     <div
@@ -227,6 +240,8 @@ function HoursRow({ facts, hours }: { facts: HoursStrip; hours: OwnHours | null 
             label={facts.early.label}
           />
           <span className="min-w-0 flex-1">{facts.early.text}</span>
+          {/* v1.9 W4 Q1: the approval ended the day without End day's expenses question. */}
+          {facts.early.tone === "approved" ? <ClaimExpensesLink date={workDate} /> : null}
         </p>
       ) : null}
     </div>
