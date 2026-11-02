@@ -268,6 +268,10 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- late_grace_minutes int not null default 15 (check 0..120) and
                      -- early_leave_wait_minutes int not null default 30 (check 5..240); settings.manage
                      -- through the existing policy and a column grant (the Owner; pgTAP 121 per role).
+                     -- v1.9 W4 (migration working_hours_on, owner-approved 2026-10-29): the switch's
+                     -- default is now true and every existing organisation was switched on (audited
+                     -- per row, action 'working_hours_on', meta source 'migration'); the Owner turns it
+                     -- off in Settings -> Thresholds (Working day). pgTAP 121.
                      -- v1.9 W3 (6b.5, kickoff 6b decision 2, owner 2026-10-16; migration approval_reminders,
                      -- expand-only): work_start_time time not null default '10:00' and work_end_time time not
                      -- null default '18:00' (check start < end; the working hours, which W0's late start and

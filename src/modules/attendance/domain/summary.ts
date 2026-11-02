@@ -1,9 +1,13 @@
+import type { MonthHours } from "./hours";
+
 /**
  * The month summary (PRODUCT §4.18, WORKFLOWS §2b, task 3b.4): one person's IST month as the
  * Owner reads it. The figures come from `month_summary()` (DATA-MODEL §7b), which is the rule;
  * this only names and orders the lines. No salary anywhere: the Owner works out pay.
  */
 export type MonthSummary = {
+  /** v1.9 W4: the month counts (`month_summary_hours()`), or null where none came back. */
+  hours: MonthHours | null;
   memberId: string;
   fullName: string;
   role: "owner" | "admin" | "staff";

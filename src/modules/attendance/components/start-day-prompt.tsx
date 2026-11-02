@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { getInBackground } from "@/core/http/background";
 import { cn } from "@/core/lib/utils";
 import { systemClock } from "@/core/time";
 import { ActionStatus } from "@/core/ui/action/action-status";
@@ -25,6 +26,10 @@ import { toastResult } from "@/core/ui/toast";
 
 import { chooseLeaveToday } from "../actions/attendance";
 import { CHOICE_COPY, PROMPT_LEAVE_CHOICES, type PromptLeaveChoice } from "../domain/choices";
+import { type Half, HALF_COPY, HALVES, type LateRule } from "../domain/hours";
+
+/** Today's Late rule (v1.9 W4), a background read when the prompt opens (ARCHITECTURE §4.4). */
+const LATE_RULE_URL = "/api/attendance/late-rule";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 import { parseShownAt, promptDueNow, promptSnoozeKey } from "../domain/prompt";
 import { dayLabel } from "../domain/today";
@@ -46,7 +51,21 @@ export function StartDayPrompt({ memberId, workDate }: { memberId: string; workD
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"ask" | "leave">("ask");
+  // v1.9 W4: today's Late rule, read once the prompt opens (never by the layout), so a late Start
+  // day asks the reason first (the working-hours sample §1).
+  const [late, setLate] = useState<LateRule | null>(null);
   const key = promptSnoozeKey(memberId, workDate);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void getInBackground<LateRule | null>(LATE_RULE_URL).then((result) => {
+      if (!cancelled && result.ok) setLate(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     const check = () => {
@@ -105,7 +124,7 @@ export function StartDayPrompt({ memberId, workDate }: { memberId: string; workD
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2">
-              <StartDayButton onStarted={() => close(() => router.refresh())} />
+              <StartDayButton onStarted={() => close(() => router.refresh())} late={late} />
               <Button variant="secondary" onClick={() => setView("leave")}>
                 On leave today? Choose leave
               </Button>
@@ -138,6 +157,8 @@ function LeaveChoice({
 }) {
   const id = useId();
   const [choice, setChoice] = useState<PromptLeaveChoice | null>(null);
+  // The first card is chosen, as the approved sample shows it (§4).
+  const [half, setHalf] = useState<Half | null>("morning");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const action = useAction(async () => {
@@ -145,6 +166,7 @@ function LeaveChoice({
     const result = await chooseLeaveToday({
       choice: (choice ?? "") as PromptLeaveChoice,
       reason,
+      half: choice === "half_day" ? half : null,
     });
     if (toastResult(result, { success: "Sent to the Owner" })) onDone();
     else if (!result.ok) setError(result.error);
@@ -152,6 +174,7 @@ function LeaveChoice({
   const { pending } = action;
   const choiceError = error?.fieldErrors?.choice?.[0];
   const reasonError = error?.fieldErrors?.reason?.[0];
+  const halfError = error?.fieldErrors?.half?.[0];
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -200,6 +223,18 @@ function LeaveChoice({
         ))}
         {choiceError ? <ErrorText alert={false}>{choiceError}</ErrorText> : null}
       </fieldset>
+      {choice === "half_day" ? (
+        <HalfChoice
+          name="half"
+          legend="Which half?"
+          value={half}
+          onChange={(next) => {
+            setHalf(next);
+            setError(null);
+          }}
+          error={halfError}
+        />
+      ) : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor={`${id}-reason`}>Reason (optional)</Label>
         <Textarea
@@ -223,5 +258,57 @@ function LeaveChoice({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+/**
+ * Morning off / Afternoon off (v1.9 W4, the working-hours sample §4): two clear cards. A morning
+ * half is never Late; an afternoon half never needs "Ask to leave early" (WORKFLOWS §1).
+ */
+export function HalfChoice({
+  name,
+  legend,
+  value,
+  onChange,
+  error,
+}: {
+  name: string;
+  legend: string;
+  value: Half | null;
+  onChange: (half: Half) => void;
+  error?: string | undefined;
+}) {
+  return (
+    <fieldset
+      className="flex flex-col gap-2"
+      data-slot="half-choice"
+      aria-invalid={error ? true : undefined}
+    >
+      <legend className="mb-1 text-sm font-medium">{legend}</legend>
+      {HALVES.map((option) => (
+        <label
+          key={option}
+          data-slot="half-option"
+          className={cn(
+            "border-border bg-card flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border px-4 py-2.5",
+            "has-[:checked]:border-strong has-[:checked]:bg-strong/5 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-3",
+          )}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={option}
+            checked={value === option}
+            onChange={() => onChange(option)}
+            className="accent-strong mt-0.5 size-5 shrink-0"
+          />
+          <span className="flex flex-col">
+            <span className="font-medium">{HALF_COPY[option].label}</span>
+            <span className="text-muted-foreground text-sm">{HALF_COPY[option].hint}</span>
+          </span>
+        </label>
+      ))}
+      {error ? <ErrorText alert={false}>{error}</ErrorText> : null}
+    </fieldset>
   );
 }

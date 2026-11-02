@@ -13,6 +13,20 @@ export {
 } from "./components/today-attendance-strip";
 export { dayLabel, promptDue } from "./domain/today";
 export { getOwnToday, listDays } from "./data/attendance";
+/** Working hours (v1.9 W4): the reads behind the strip, Approvals, Today, the board and the month. */
+export { getHoursToday, getMonthHours, getOwnHours, listEarlyLeaveRequests } from "./data/hours";
+export {
+  afterEndLineWords,
+  boardHoursDetail,
+  canSetStayUntil,
+  type EarlyLeaveRequest,
+  type LateRule,
+  hoursTodayCounts,
+  type HoursToday,
+  lateLineWords,
+  type MonthHours,
+  monthHoursCounts,
+} from "./domain/hours";
 export { addMonths, historyMonth, monthLabel, monthOf, monthRange } from "./domain/months";
 export {
   PeopleBoard,
@@ -50,5 +64,5 @@ export { getMonthSummary } from "./data/summary";
 export type { MonthSummary } from "./domain/summary";
 export { MonthSummaryCard, MonthSummarySkeleton, TeamMonthList } from "./components/month-summary";
 /** The Review panel's context (B4): the person's week, behind `GET /api/attendance/review-context`. */
-export { readReviewWeek } from "./actions/background";
+export { readLateRule, readReviewWeek } from "./actions/background";
 export type { ReviewContext, WeekDay } from "./domain/review-context";

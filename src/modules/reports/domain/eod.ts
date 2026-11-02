@@ -92,6 +92,9 @@ export const eodReportSchema = z.object({
       waiting: count,
       end_not_recorded: count,
       overtime: count,
+      // v1.9 W0/W4: late starts and early leaves; reports saved before v1.9 have neither.
+      late: count.default(0),
+      left_early: count.default(0),
     }),
     people: z.array(
       z.object({
@@ -105,6 +108,9 @@ export const eodReportSchema = z.object({
         end_not_recorded: z.boolean(),
         overtime: z.boolean(),
         overtime_reason: z.string().max(2000).nullable(),
+        late_minutes: z.number().int().nonnegative().nullable().default(null),
+        late_reason: z.string().max(2000).nullable().default(null),
+        left_early: z.enum(["approved", "left_unanswered", "corrected"]).nullable().default(null),
       }),
     ),
   }),
@@ -349,11 +355,33 @@ export function personDetail(person: EodPerson): string {
   const parts: string[] = [];
   if (person.started_at) parts.push(`Started ${formatTime(person.started_at)}`);
   if (person.ended_at) parts.push(`Ended ${formatTime(person.ended_at)}`);
+  if (person.late_minutes !== null) {
+    parts.push(
+      person.late_reason
+        ? `Late ${lateMinutes(person.late_minutes)}: “${person.late_reason}”`
+        : `Late ${lateMinutes(person.late_minutes)}`,
+    );
+  }
+  if (person.left_early) parts.push(LEFT_EARLY_WORDS[person.left_early]);
   if (person.end_not_recorded) parts.push("End of day not recorded");
   if (person.overtime) {
     parts.push(person.overtime_reason ? `Overtime: ${person.overtime_reason}` : "Overtime");
   }
   return parts.join(" · ");
+}
+
+/** How an early leave ended (v1.9 W4), in the report's words. */
+const LEFT_EARLY_WORDS: Record<NonNullable<EodPerson["left_early"]>, string> = {
+  approved: "Left early, approved",
+  left_unanswered: "Left early, not answered",
+  corrected: "Left early, corrected",
+};
+
+/** "22 min", "1 h 5 min". */
+function lateMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest === 0 ? `${Math.floor(minutes / 60)} h` : `${Math.floor(minutes / 60)} h ${rest} min`;
 }
 
 /** "6 present · 1 on leave · 2 absent (1 proposed) · 1 waiting". */
@@ -366,6 +394,8 @@ export function attendanceLine(counts: EodReport["attendance"]["counts"]): strin
       : `${counts.absent} absent`,
   ];
   if (counts.waiting > 0) parts.push(`${counts.waiting} waiting`);
+  if (counts.late > 0) parts.push(`${counts.late} late`);
+  if (counts.left_early > 0) parts.push(`${counts.left_early} left early`);
   if (counts.end_not_recorded > 0) parts.push(`${counts.end_not_recorded} end not recorded`);
   if (counts.overtime > 0) parts.push(`${counts.overtime} overtime`);
   return parts.join(" · ");

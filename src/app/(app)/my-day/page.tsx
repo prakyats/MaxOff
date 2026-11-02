@@ -6,7 +6,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { getOwnToday, TodayAttendanceStrip } from "@/modules/attendance";
+import { getOwnHours, getOwnToday, TodayAttendanceStrip } from "@/modules/attendance";
 import {
   dateLine,
   DashSection,
@@ -53,7 +53,7 @@ export const metadata: Metadata = { title: "My Day" };
  */
 export default async function MyDayPage() {
   // The strip's day and End day's claim setup start with the session read, not after it (§19).
-  startEarly(getOwnToday(), getClaimSetup());
+  startEarly(getOwnToday(), getOwnHours(), getClaimSetup());
   const today = todayIST();
   const openRows = readOpenTasks();
   const [viewer, [rows, directory, labels, own, unread, weekRead]] = await checkThenRead(

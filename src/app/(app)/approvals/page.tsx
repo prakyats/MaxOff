@@ -12,7 +12,8 @@ import { ApprovalScreen } from "@/core/ui/composites/approval-group";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Button } from "@/core/ui/primitives/button";
-import { listPendingDays, listPendingNotes } from "@/modules/attendance";
+import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
+import { EarlyLeaveGroup } from "@/modules/attendance/components/early-leave-group";
 import { reachedAt, waitingFor, type Waiting } from "@/modules/dashboards";
 import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
 import { PendingNotesGroup } from "@/modules/attendance/components/pending-notes-group";
@@ -49,6 +50,8 @@ export default async function ApprovalsPage() {
     listPendingNotes(),
     listPendingClaims(),
     listDirectory(),
+    // v1.9 W4: early-leave requests (waiting, and left without an answer); RLS: the Owner's.
+    listEarlyLeaveRequests(),
   ]);
   const finalTasks = listTasksToDecide({ final: true });
   const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));
@@ -58,15 +61,14 @@ export default async function ApprovalsPage() {
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  const [[days, requests, notes, pendingClaims, directory], [toDecide, unread]] = await Promise.all(
-    [
+  const [[days, requests, notes, pendingClaims, directory, earlyLeave], [toDecide, unread]] =
+    await Promise.all([
       lists,
       // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
       (can(viewer.role, "tasks.approve_final") ? finalTasks : checkTasks).then(
         async (items) => [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
       ),
-    ],
-  );
+    ]);
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
@@ -82,6 +84,7 @@ export default async function ApprovalsPage() {
   }));
   const claims = decidesExpenses ? pendingClaims : [];
   const own = {
+    early: decidesAttendance ? earlyLeave : [],
     days: decidesAttendance ? days : [],
     requests: decidesAttendance ? requests : [],
     notes: decidesAttendance ? notes : [],
@@ -102,6 +105,8 @@ export default async function ApprovalsPage() {
   };
   // The groups with something waiting: a one-row group's Approve is solid only when it is alone.
   const groupsShown = [
+    own.early.filter((request) => request.state === "waiting"),
+    own.early.filter((request) => request.state === "left_unanswered"),
     own.days,
     own.requests,
     own.notes,
@@ -109,6 +114,7 @@ export default async function ApprovalsPage() {
     tasks,
   ].filter((rows) => rows.length > 0).length;
   const nothing =
+    own.early.length === 0 &&
     own.days.length === 0 &&
     own.requests.length === 0 &&
     own.notes.length === 0 &&
@@ -146,6 +152,8 @@ export default async function ApprovalsPage() {
           <div className="flex flex-col gap-6">
             {decidesAttendance ? (
               <>
+                {/* v1.9 W4: time-sensitive, so first (the working-hours sample §3). */}
+                <EarlyLeaveGroup requests={own.early} today={todayIST()} now={now.toISOString()} />
                 <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
                 <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
                 <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />

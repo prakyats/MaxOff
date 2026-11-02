@@ -243,7 +243,25 @@ describe("requestLeaveSchema", () => {
   it("accepts a range from today", () => {
     expect(
       schema.parse({ type: "leave", startDate: TODAY, endDate: "2026-09-26", reason: " Trip " }),
-    ).toEqual({ type: "leave", startDate: TODAY, endDate: "2026-09-26", reason: "Trip" });
+    ).toEqual({
+      type: "leave",
+      startDate: TODAY,
+      endDate: "2026-09-26",
+      reason: "Trip",
+      half: null,
+    });
+  });
+
+  it("takes which half of a half day, only with a half day (v1.9 W4)", () => {
+    expect(
+      schema.parse({ type: "half_day", startDate: "2026-09-30", half: "afternoon" }).half,
+    ).toBe("afternoon");
+    expect(
+      errorsOf(schema.safeParse({ type: "leave", startDate: "2026-09-30", half: "morning" })),
+    ).toEqual(["half"]);
+    expect(
+      errorsOf(schema.safeParse({ type: "half_day", startDate: "2026-09-30", half: "evening" })),
+    ).toEqual(["half"]);
   });
 
   it("makes a half day one date, whatever end date came with it", () => {

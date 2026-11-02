@@ -14,7 +14,14 @@ import config from "../playwright.config";
 const CI = readFileSync(join(process.cwd(), ".github", "workflows", "ci.yml"), "utf8");
 const names = (config.projects ?? []).map((project) => project.name ?? "");
 /** The projects that run alone, after the sharded step, each in its own step. */
-const SERIAL = ["owner-bulk", "push-cron"];
+const SERIAL = [
+  "owner-bulk",
+  "push-cron",
+  // v1.9 W4: the working hours switch the organisation's rules, so alone, after push-cron.
+  "working-hours",
+  "working-hours-375",
+  "working-hours-430",
+];
 
 /** The sharded step's command: from `pnpm test:e2e --shard=` up to the next step. */
 function shardStep(): string {
@@ -61,6 +68,13 @@ describe("the CI Playwright shards", () => {
     expect(stepWith(cron)).toContain("if: matrix.shard == 4");
     expect(CI.indexOf(bulk)).toBeGreaterThan(shard);
     expect(CI.indexOf(cron)).toBeGreaterThan(CI.indexOf(bulk));
+  });
+
+  it("run the working hours alone after push-cron, at each width, one worker (v1.9 W4)", () => {
+    const hours =
+      "--project=working-hours --project=working-hours-375 --project=working-hours-430 --no-deps --workers=1";
+    expect(stepWith(hours)).toContain("if: matrix.shard == 4");
+    expect(CI.indexOf(hours)).toBeGreaterThan(CI.indexOf("--project=push-cron --no-deps"));
   });
 
   it("keep the required checks' names, and the merge job requires every shard", () => {

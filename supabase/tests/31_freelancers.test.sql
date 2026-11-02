@@ -12,6 +12,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(121);
+-- v1.9 W4: these checks are of the day without working hours (on by default since migration
+-- working_hours_on; its rules are pgTAP 121's), so End day is not refused before the end time.
+update public.org_settings set working_hours_on = false;
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).

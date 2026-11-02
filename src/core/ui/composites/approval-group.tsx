@@ -29,6 +29,14 @@ export function ApprovalScreen({ groups, children }: { groups: number; children:
   return <ApprovalGroupsShown value={groups}>{children}</ApprovalGroupsShown>;
 }
 
+/**
+ * How many groups on the screen have rows (`ApprovalScreen`), for a group drawn outside
+ * `ApprovalGroup` (v1.9 W4's early leave): its one row's Approve is solid only when it is alone.
+ */
+export function useApprovalGroupsShown(): number {
+  return use(ApprovalGroupsShown);
+}
+
 /** One row waiting for a decision: what it is, whose, and where it stands. */
 export type ApprovalRow = {
   id: string;

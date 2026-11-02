@@ -13,6 +13,9 @@ begin;
 create extension if not exists pgtap with schema extensions;
 create extension if not exists dblink with schema extensions;
 select plan(24);
+-- v1.9 W4: these checks are of the day without working hours (on by default since migration
+-- working_hours_on; its rules are pgTAP 121's), so End day is not refused before the end time.
+update public.org_settings set working_hours_on = false;
 
 create function pg_temp.conninfo() returns text language sql stable as $$
   select format('hostaddr=%s port=%s dbname=%s user=postgres password=postgres',

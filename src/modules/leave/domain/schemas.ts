@@ -15,6 +15,12 @@ const reason = z
 
 const isoDate = (message: string) => z.iso.date({ error: message });
 
+/** Which half of a half day (v1.9 W4): morning off or afternoon off; none for older requests. */
+const half = z
+  .enum(["morning", "afternoon"], { error: "Choose Morning off or Afternoon off." })
+  .nullable()
+  .default(null);
+
 /**
  * The date rules of WORKFLOWS §2, as the form can check them before the database does (it
  * checks them again, and it is the rule): the end is not before the start, a half day is one
@@ -32,12 +38,21 @@ function leaveDatesSchema(today: string, keepStart: string | null) {
       startDate: isoDate("Choose the first day."),
       endDate: isoDate("Choose the last day.").optional(),
       reason,
+      // v1.9 W4: a new half day says which half (Morning off / Afternoon off, WORKFLOWS §1).
+      half,
     })
     .transform((value) => ({
       ...value,
       endDate: value.type === "half_day" || !value.endDate ? value.startDate : value.endDate,
     }))
     .superRefine((value, ctx) => {
+      if (value.half !== null && value.type !== "half_day") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["half"],
+          message: "Morning or afternoon is only for a half day.",
+        });
+      }
       if (value.startDate < today && value.startDate !== keepStart) {
         ctx.addIssue({
           code: "custom",
@@ -96,8 +111,16 @@ export function requestCompLeaveSchema(today: string, useBy: string | null) {
       date: isoDate("Choose the day."),
       halfDay: z.boolean(),
       reason,
+      half,
     })
     .superRefine((value, ctx) => {
+      if (value.half !== null && !value.halfDay) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["half"],
+          message: "Morning or afternoon is only for a half day.",
+        });
+      }
       if (value.date < today) {
         ctx.addIssue({
           code: "custom",

@@ -110,7 +110,7 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/today",
               },
               {
-                text: 'Read "Attendance" (highlighted): four counts, Not started, Waiting, Present and On leave. Red lines appear only when something is wrong, such as someone absent.',
+                text: 'Read "Attendance" (highlighted): four counts, Not started, Waiting, Present and On leave. Red lines appear only when something is wrong, such as someone absent. An amber line, "1 started late today", and a quiet one, "2 ended after the end time", appear only above zero and open everyone today, whose rows say who and why.',
                 shot: "owner/attendance-board",
               },
               'Read "My tasks": your own tasks, overdue or due today. Tap one to open it (each row ends in a ›). When there are more than it shows, "See all N of my tasks" opens them all in All tasks.',
@@ -195,6 +195,47 @@ export const OWNER_GUIDE: Guide = {
           ],
           link: { href: "/approvals", label: "Open Approvals" },
           keywords: ["attendance", "present", "correct", "approve day"],
+        },
+        {
+          id: "owner-early-leave",
+          title: "Answer a request to leave early",
+          summary: "Approve it, or ask them to stay. Only you decide.",
+          blocks: [
+            text(
+              `Before their day's end time (6:00 pm, later on a shoot day or after "Stay until"), an Admin or ${CREW} member asks to leave early with a reason. You get a push and the request waits at the top of Approvals, under "Leaving early".`,
+            ),
+            steps(
+              "Open Approvals.",
+              'Read the row: "PShetty · leave at 4:30 pm", the reason and how long it has waited.',
+              'Tap "Approve": their day ends at the time they asked. Or tap "Stay": they carry on until their end time and are reminded then.',
+            ),
+            next("They are told your answer at once."),
+            text(
+              'With no answer after 30 minutes they may end their day. It then waits under "Left early, not answered" ("Prakyat · ended 4:05 pm"): tap "Approve" to let it stand, or "Correct…" to set what the day was, with a reason they will read. The correction sits beside the original.',
+            ),
+            note(
+              'A late start notifies nobody: Today shows "N started late today" in amber, and the end-of-day report names who and why.',
+            ),
+          ],
+          link: { href: "/approvals", label: "Open Approvals" },
+          keywords: ["leave early", "early leave", "stay", "left early", "not answered"],
+        },
+        {
+          id: "owner-stay-until",
+          title: "Ask someone to stay late",
+          summary: "Set Stay until on a person's row; they are told at once.",
+          blocks: [
+            steps(
+              'Open Today, then "Attendance ›" for everyone today.',
+              "Tap ⋯ at the end of the person's row. It shows only while their day is started and not ended.",
+              'Pick a time later today, after the end time, and tap "Set 8:00 pm" (the button names the time). "Keep 6:00 pm" leaves it as it is.',
+            ),
+            next(
+              'They are told at once and their day ends at that time; the row reads "Stay until 8:00 pm". To take it back, tap ⋯ again and "Back to 6:00 pm".',
+            ),
+          ],
+          link: { href: "/today/people", label: "Open everyone today" },
+          keywords: ["stay late", "stay until", "overtime", "end time", "work late"],
         },
         {
           id: "owner-decide-leave",
@@ -285,12 +326,12 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open People, tap the person, then the Attendance tab. It lists the month's days.",
               "Tap the day that is wrong. Its day opens, with what happened and when.",
-              'Tap "Correct this day…".',
+              'Tap "Correct…".',
               'Enter the right details and save. Times use the 12-hour clock, such as "9:30 am"; an empty time reads "Choose a time".',
             ),
             next("The original stays in the history. A correction sits alongside it."),
             text(
-              'A day still waiting for you has an outlined "Approve" on its row, and the green "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
+              'Rows carry no buttons: tap a day to open it. A day still waiting for you shows the green "Approve as present" (or absent) beside "Correct…": the same approval as on Approvals. A row also says "Late 22 min · “Traffic”" or "Left early, not answered" when that happened. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
             ),
             note("Only you can correct a recorded day."),
           ],
@@ -741,6 +782,9 @@ export const OWNER_GUIDE: Guide = {
               text: 'Tap "Month" (highlighted).',
               shot: "owner/reports",
             }),
+            text(
+              'Each person\'s row also shows four counts: Late, Left early (not answered), Early approved and Half days; a zero shows as "—" and Late is amber. A person\'s Month tab lists them as rows: "Late days" (with the minutes in all), "Left early, not answered", "Early leaves approved" and "Half days" (morning and afternoon).',
+            ),
             note("The Month report does not show salary."),
           ],
           link: { href: "/reports/month", label: "Open Month" },
@@ -751,7 +795,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Read the End of day report",
           summary: "Today and yesterday are live; older days are saved.",
           blocks: [
-            text("End of day shows how each day closed."),
+            text(
+              'End of day shows how each day closed. The attendance line counts who started late and who left early, and each person\'s row says it: "Late 22 min: “Traffic”", "Left early, approved" or "Left early, not answered".',
+            ),
             steps("Open Reports.", "Tap End of day."),
             note("Today and yesterday are live. Earlier days are saved the morning after."),
           ],
@@ -1745,7 +1791,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "How soon MaxOff nudges, escalates and goes quiet.",
           blocks: [
             text(
-              'Thresholds holds the timings that drive reminders, in four groups: Working day, Tasks, Client work and Notifications. Each group is one row with a line saying its current values, such as "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h".',
+              'Thresholds holds the timings that drive reminders, in five groups: Working day, Approvals, Tasks, Client work and Notifications. Each group is one row with a line saying its current values, such as "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h".',
             ),
             steps(
               "Open Settings, then Thresholds.",
@@ -1755,7 +1801,7 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/thresholds",
               },
               'Set "Escalate to the Admin after (hours)", "Escalate to the Owner after (hours)", "Overdue escalation (hours)", "Workload warning (tasks due that day)" and the Default reminders.',
-              'In "Working day": "End-of-day reminder" and "Late End day until". In "Client work": the two escalations to you. In "Notifications": quiet hours, the email cap and the weekly summary\'s day.',
+              'In "Working day": the "Working hours" switch (late starts, the end time and "Ask to leave early"; off, Start day and End day work as before), "Work starts", "Work ends", "Late after (minutes)" (it says, for example, "Started at 10:16 am counts as late"), how long an early-leave request waits for you, "End-of-day reminder" and "Late End day until". In "Approvals": how often urgent tasks remind you, the times for high priority and the daily time for medium and low. In "Client work": the two escalations to you. In "Notifications": quiet hours, the email cap and the weekly summary\'s day.',
               'Tap "Save thresholds". It stays at the bottom of the screen and saves every group\'s changes at once.',
             ),
             next("A group with a value to fix opens by itself, with the message under the field."),

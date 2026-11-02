@@ -179,7 +179,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Your attendance strip has one button. Before you start it says “Start your day”, and Start day shows the time it will record. On an approved leave day the strip says “You’re on leave today” with an outline “I’m working today”, and on a day off “I worked today”.",
+              text: "Your attendance strip has one button. Before you start it says “Start your day · work starts 10:00 am”, and Start day shows the time it will record. On an approved leave day the strip says “You’re on leave today” with an outline “I’m working today”, and on a day off “I worked today”. The working hours apply to you as to everyone who records attendance: a start more than 15 minutes late asks for one line (“You’re starting 22 minutes late”, shown after as an amber “Late 22 min”), and before your end time (6:00 pm, or later on a shoot day) End day reads “Ask to leave early”.",
             },
             {
               kind: "steps",
@@ -187,6 +187,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Today.",
                 "Tap Start day when you begin work.",
                 "When you finish, tap End day.",
+                "Before your end time, tap “Ask to leave early”, say why and tap “Ask the Owner”. Only the Owner answers: approved, your day ends at the time you asked; “Stay”, carry on until your end time. With no answer in 30 minutes, End day comes back and the day is marked “Left early, not answered”.",
                 "Read “End your day?” and confirm. It is final.",
                 "Answer “Any expenses to claim today?” with No or Yes.",
               ],
@@ -201,7 +202,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Only the Owner decides attendance. You never decide anyone else’s day, and your own is never overwritten: a correction sits beside the original.",
+              text: "Only the Owner decides attendance, early leave and “Stay until”. You never decide anyone else’s day and get no one else’s late or early-leave alerts, and your own is never overwritten: a correction sits beside the original. On leave, a half day asks “Morning off” or “Afternoon off”.",
             },
           ],
           link: { href: "/leave/attendance", label: "See your attendance" },

@@ -121,7 +121,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work.",
+              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work. Work starts at 10:00 am; the line says so before you start. If you start more than 15 minutes after that, MaxOff asks for a short reason first (see Starting late).",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -142,6 +142,7 @@ export const CREW_GUIDE: Guide = {
                 'Tap "Start day" if you are working.',
                 'Or tap "On leave today? Choose leave".',
                 "Pick Leave (the whole day off) or Half day, and add a reason if you like.",
+                'For a half day, choose "Morning off" (start your day after lunch; you won\'t be marked late) or "Afternoon off" (end your day after lunch; no need to ask to leave early).',
                 'Tap "Record leave".',
               ],
             },
@@ -183,11 +184,71 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'The end time is now, and it is final for today: there is no resume. If you choose Yes for expenses, the button reads "End day, add expenses" and the claim form opens.',
+              text: 'The end time is now, and it is final for today: there is no resume. If you choose Yes for expenses, the button reads "End day, add expenses" and the claim form opens. Before your day\'s end time (6:00 pm, or later on a shoot day) the button reads "Ask to leave early" instead: see Leaving before your end time.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
           keywords: ["finish", "check out", "clock out", "overtime", "expenses", "leave work"],
+        },
+        {
+          id: "late-start",
+          title: "Starting late",
+          summary: "A late start asks for one line for the Owner. It never stops you working.",
+          blocks: [
+            {
+              kind: "text",
+              text: 'Work starts at 10:00 am. If you tap Start day more than 15 minutes after that, MaxOff opens "You\'re starting 22 minutes late" before it records the start.',
+            },
+            {
+              kind: "steps",
+              steps: [
+                'Tap "Start day".',
+                'Read "You\'re starting … late". If you have a shoot later today, the reason already says "Shoot at 2:00 pm" (marked "Suggested from your calendar"): keep it or change it.',
+                "Add one line for the Owner if you like. It is optional.",
+                'Tap "Start day" in the sheet. The start time is that tap.',
+              ],
+            },
+            {
+              kind: "next",
+              text: 'My Day shows an amber "Late 22 min" chip with your reason, and when your day ends. With no reason yet, tap "Add a reason" beside the chip.',
+            },
+            {
+              kind: "note",
+              text: "Nobody is notified of a late start. The Owner sees it on Today and in the end-of-day report. A morning half day is never late.",
+            },
+          ],
+          link: { href: "/my-day", label: "Open My Day" },
+          keywords: ["late", "late start", "reason", "shoot", "traffic"],
+        },
+        {
+          id: "leave-early",
+          title: "Leaving before your end time",
+          summary: "Ask the Owner to leave early, then wait for the answer.",
+          blocks: [
+            {
+              kind: "text",
+              text: 'Your day ends at 6:00 pm, later when a shoot runs on ("Your shoot runs till 7:30 pm, so today ends at 7:30 pm") or when the Owner asks you to stay. Before then, End day reads "Ask to leave early".',
+            },
+            {
+              kind: "steps",
+              steps: [
+                'Tap "Ask to leave early". "Leave at" shows the time now: the time you ask is the time recorded.',
+                'Under "Why", say what it is for. It is required.',
+                'Tap "Ask the Owner".',
+                'While you wait, My Day shows "Waiting · Asked to leave at 4:30 pm · 12 min ago. You can end your day at 5:00 pm if there\'s no answer." You stay checked in.',
+              ],
+            },
+            {
+              kind: "next",
+              text: 'If the Owner approves, your day ends at the time you asked. If the Owner says stay, carry on until your end time; you are reminded then, and you can ask again. With no answer after 30 minutes, End day comes back; ending your day then is marked "Left early, not answered" for the Owner to review.',
+            },
+            {
+              kind: "note",
+              text: 'An afternoon half day never needs to ask. If you simply leave without ending your day, it stays "End of day not recorded".',
+            },
+          ],
+          link: { href: "/my-day", label: "Open My Day" },
+          keywords: ["leave early", "go home", "end time", "stay", "permission", "early"],
         },
         {
           id: "forgot-end-day",
@@ -267,7 +328,7 @@ export const CREW_GUIDE: Guide = {
                   text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
                   shot: "staff/request-leave",
                 },
-                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date".',
+                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date", and asks "Which half?": "Morning off" or "Afternoon off"; its button reads "Request half day".',
                 'Under the dates MaxOff shows how long it is, such as "2 days".',
                 "Add a reason if you like. It is optional.",
                 'Tap "Request leave".',

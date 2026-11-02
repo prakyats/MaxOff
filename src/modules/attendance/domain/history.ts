@@ -55,7 +55,30 @@ export type HistoryDay = {
   overtimeFlag: boolean;
   overtimeReason: string | null;
   events: HistoryEvent[];
+  /** v1.9 W4: a Late start (minutes after the start time) and its one-line reason. */
+  lateMinutes?: number | null;
+  lateReason?: string | null;
+  /** v1.9 W4: how the day's last early-leave request ended, when it is one the day shows. */
+  earlyLeave?: "approved" | "left_unanswered" | "corrected" | null;
 };
+
+/** "Late 22 min · “Traffic”": a Late start's flag (v1.9 W4; the screens sample §6). */
+function lateFlag(day: Pick<HistoryDay, "lateMinutes" | "lateReason">): string | null {
+  if (day.lateMinutes == null) return null;
+  const minutes =
+    day.lateMinutes < 60
+      ? `${day.lateMinutes} min`
+      : day.lateMinutes % 60 === 0
+        ? `${Math.floor(day.lateMinutes / 60)} h`
+        : `${Math.floor(day.lateMinutes / 60)} h ${day.lateMinutes % 60} min`;
+  return day.lateReason ? `Late ${minutes} · “${day.lateReason}”` : `Late ${minutes}`;
+}
+
+const EARLY_FLAGS = {
+  approved: "Left early, approved",
+  left_unanswered: "Left early, not answered",
+  corrected: "Left early, corrected",
+} as const;
 
 /**
  * The day's start and end, as the history shows them: the Start day and End day taps (a day
@@ -281,6 +304,9 @@ export function describeHistoryDay(
 ): HistoryDaySummary {
   const w = words(viewpoint);
   const flags: string[] = [];
+  const late = lateFlag(day);
+  if (late) flags.push(late);
+  if (day.earlyLeave) flags.push(EARLY_FLAGS[day.earlyLeave]);
   const worked = (day.finalStatus ?? day.submittedChoice) === "present";
   if (day.isDayOff && worked) flags.push("Worked on a day off");
   if (day.workedOnLeave) flags.push("1 day worked");

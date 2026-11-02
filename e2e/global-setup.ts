@@ -60,6 +60,20 @@ export default async function globalSetup(): Promise<void> {
     );
   }
 
+  // 4. v1.9 W4: the working hours are on by default (migration working_hours_on). Every other spec
+  //    starts and ends days at whatever time the run happens, so the suite runs with them off;
+  //    `working-hours.spec.ts` turns them on, alone, after every other project.
+  const off = await fetch(`${url}/rest/v1/org_settings?working_hours_on=eq.true`, {
+    method: "PATCH",
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ working_hours_on: false }),
+  });
+  if (!off.ok) throw new Error(`e2e: could not switch the working hours off (${off.status})`);
+
   writeFileSync(RUN_STATE_FILE, JSON.stringify({ startedOnIST: istDate(now) }));
 }
 

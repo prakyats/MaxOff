@@ -7,6 +7,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(236);
+-- v1.9 W4: these checks are of the day without working hours (on by default since migration
+-- working_hours_on; its rules are pgTAP 121's), so End day is not refused before the end time.
+update public.org_settings set working_hours_on = false;
 
 -- The local seed holds an organization (with its org_settings and job titles) and five sign-ins.
 -- Keep the organization; replace the people with fixtures. Rolled back at the end.

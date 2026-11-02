@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { istInstant } from "@/core/time";
 
 import {
+  eodReportSchema,
   approvalDetail,
   attendanceLine,
   cutoffWords,
@@ -52,6 +53,8 @@ function report(patch: Partial<EodReport> = {}): EodReport {
         waiting: 1,
         end_not_recorded: 1,
         overtime: 1,
+        late: 0,
+        left_early: 0,
       },
       people: [
         {
@@ -65,6 +68,9 @@ function report(patch: Partial<EodReport> = {}): EodReport {
           end_not_recorded: false,
           overtime: true,
           overtime_reason: "Late shoot",
+          late_minutes: null,
+          late_reason: null,
+          left_early: null,
         },
       ],
     },
@@ -276,6 +282,41 @@ describe("words", () => {
     ).toBe("Started 9:30 am · End of day not recorded");
   });
 
+  it("names a late start with its reason and how an early leave ended (v1.9 W4)", () => {
+    const [kiran] = report().attendance.people;
+    expect(
+      personDetail({
+        ...kiran!,
+        overtime: false,
+        late_minutes: 22,
+        late_reason: "Traffic",
+        left_early: "left_unanswered",
+      }),
+    ).toBe("Started 9:30 am · Ended 8:00 pm · Late 22 min: “Traffic” · Left early, not answered");
+    expect(
+      personDetail({ ...kiran!, overtime: false, late_minutes: 65, left_early: "approved" }),
+    ).toBe("Started 9:30 am · Ended 8:00 pm · Late 1 h 5 min · Left early, approved");
+    expect(attendanceLine({ ...report().attendance.counts, late: 2, left_early: 1 })).toContain(
+      "1 waiting · 2 late · 1 left early · 1 end not recorded",
+    );
+  });
+
+  it("reads a report saved before v1.9: no late or early-leave fields", () => {
+    const saved = JSON.parse(JSON.stringify(report())) as {
+      attendance: { counts: Record<string, unknown>; people: Record<string, unknown>[] };
+    };
+    delete saved.attendance.counts.late;
+    delete saved.attendance.counts.left_early;
+    for (const person of saved.attendance.people) {
+      delete person.late_minutes;
+      delete person.late_reason;
+      delete person.left_early;
+    }
+    const parsed = eodReportSchema.parse(saved);
+    expect(parsed.attendance.counts.late).toBe(0);
+    expect(parsed.attendance.people[0]?.late_minutes).toBeNull();
+  });
+
   it("sums the attendance, lists the decisions, counts freelancers apart", () => {
     expect(attendanceLine(report().attendance.counts)).toBe(
       "2 present · 1 on leave · 1 absent (1 proposed) · 1 waiting · 1 end not recorded · 1 overtime",
@@ -324,6 +365,8 @@ describe("words", () => {
               waiting: 0,
               end_not_recorded: 0,
               overtime: 0,
+              late: 0,
+              left_early: 0,
             },
             people: [],
           },

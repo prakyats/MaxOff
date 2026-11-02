@@ -3,18 +3,27 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
-import { addISTDays } from "@/core/time";
+import { addISTDays, formatTime, systemClock } from "@/core/time";
 
 import { FollowUpHost } from "@/core/ui/composites/follow-up";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { getOwnToday } from "../data/attendance";
+import { getOwnHours } from "../data/hours";
 import { getNoteDays, hasOvertimeNote } from "../data/notes";
+import {
+  type HoursStrip,
+  hoursStrip,
+  type LateRule,
+  lateRule,
+  type OwnHours,
+} from "../domain/hours";
 import type { NoteDay } from "../domain/notes";
 import { describeTodayStrip, type StripAction } from "../domain/today";
 
 import { EndDayButton, StartDayButton } from "./day-actions";
+import { AskLeaveEarlyButton, LateReasonButton, RefreshAt } from "./hours-buttons";
 import { AddNoteButton } from "./add-note-button";
 import { WorkingTodayButton } from "./working-today-button";
 
@@ -35,8 +44,18 @@ export async function TodayAttendanceStrip({
   /** The expense claim form End day opens after "Yes" (3b.3; the page hands it over). */
   endDayFollowUp?: ReactNode;
 } = {}) {
-  const today = await getOwnToday();
-  const strip = describeTodayStrip(today);
+  const [today, ownHours] = await Promise.all([getOwnToday(), getOwnHours()]);
+  const base = describeTodayStrip(today);
+  // v1.9 W4 (the working-hours sample §1–2): the rules on, the start time joins "Start your day";
+  // a started day carries Late, its end time and an early-leave request's status in a second row.
+  const hours = ownHours && ownHours.workDate === today.workDate ? ownHours : null;
+  const late = lateRule(hours);
+  const open = base.kind === "started" || (base.kind === "half_day" && base.action?.kind === "end");
+  const facts = hoursStrip(hours, open, systemClock());
+  const strip =
+    base.kind === "start" && late
+      ? { ...base, text: `${base.text} · work starts ${formatTime(late.startAt)}` }
+      : base;
   // A day off offers the "I worked today" note (3b.2), whose dialog needs the last 8 days' kinds.
   const noteDays = strip.action?.kind === "worked_day_off" ? await getNoteDays(today.workDate) : [];
   // End day offers the overtime note only while the day it ends has none: a second note would
@@ -89,9 +108,14 @@ export async function TodayAttendanceStrip({
             yesterday={strip.kind === "end_yesterday"}
             noteTaken={noteTaken}
             endsOn={endsOn}
+            late={late}
+            hours={hours}
+            facts={facts}
           />
         </div>
       ) : null}
+      <HoursRow facts={facts} hours={hours} />
+      {facts.refreshAt ? <RefreshAt at={facts.refreshAt} /> : null}
     </div>
   );
   // The host keeps End day's follow-up (the expense claim form) mounted and open across the
@@ -106,8 +130,16 @@ function StripActionButton({
   yesterday,
   noteTaken,
   endsOn,
+  late,
+  hours,
+  facts,
 }: {
   action: StripAction;
+  /** Today's Late rule: Start day asks the reason first when the tap is late (v1.9 W4). */
+  late: LateRule | null;
+  hours: OwnHours | null;
+  /** End day, Ask to leave early, or nothing while the Owner's answer is awaited (v1.9 W4). */
+  facts: HoursStrip;
   workDate: string;
   noteDays: NoteDay[];
   /** The open day is yesterday's (worked past midnight): End day's copy says so. */
@@ -119,8 +151,16 @@ function StripActionButton({
   switch (action.kind) {
     case "start":
       // The one solid commit action on the screen: the tap records the start (§14.1).
-      return <StartDayButton size="sm" showTime statusClassName="basis-full px-3 pb-2" />;
+      return (
+        <StartDayButton size="sm" showTime statusClassName="basis-full px-3 pb-2" late={late} />
+      );
     case "end":
+      if (!yesterday && hours && facts.endAction === "ask") {
+        return (
+          <AskLeaveEarlyButton size="sm" endAt={hours.endAt} waitMinutes={hours.waitMinutes} />
+        );
+      }
+      if (!yesterday && facts.endAction === "none") return null;
       return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} endsOn={endsOn} />;
     case "working":
       return <WorkingTodayButton size="sm" />;
@@ -129,6 +169,68 @@ function StripActionButton({
         <AddNoteButton days={noteDays} initialDate={workDate} label={action.label} size="sm" />
       );
   }
+}
+
+/** The tone of an early-leave status chip (sample §2): amber waiting, green approved. */
+const EARLY_TONE = {
+  waiting: "attention",
+  unanswered: "attention",
+  approved: "success",
+  stay: "neutral",
+} as const;
+
+/**
+ * The strip's second row (v1.9 W4, the working-hours sample §1–2): the amber **Late** chip with
+ * the reason (or "Add a reason"), the day's end time and why it is later, and an early-leave
+ * request's status. Nothing with the rules off, so the strip is then exactly as before.
+ */
+function HoursRow({ facts, hours }: { facts: HoursStrip; hours: OwnHours | null }) {
+  if (!facts.late && !facts.endLine && !facts.early) return null;
+  return (
+    <div
+      data-slot="attendance-hours"
+      className="flex basis-full flex-col gap-1.5 px-3 pb-2.5 text-sm"
+    >
+      {facts.late || facts.endLine ? (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {facts.late ? (
+            <>
+              <StatusBadge status="late" tone="attention" label={facts.late.chip} />
+              {facts.late.reason ? (
+                <span data-slot="attendance-late-reason" className="text-muted-foreground">
+                  “{facts.late.reason}”
+                </span>
+              ) : hours?.lateMinutes != null ? (
+                <LateReasonButton
+                  minutes={hours.lateMinutes}
+                  suggestion={hours.lateReasonSuggestion}
+                />
+              ) : null}
+            </>
+          ) : null}
+          {facts.endLine ? (
+            <span data-slot="attendance-end-line" className="text-muted-foreground">
+              {facts.endLine}
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+      {facts.early ? (
+        <p
+          data-slot="attendance-early"
+          data-tone={facts.early.tone}
+          className="bg-muted/60 flex flex-wrap items-start gap-x-2 gap-y-1 rounded-md px-2.5 py-2"
+        >
+          <StatusBadge
+            status={`early_${facts.early.tone}`}
+            tone={EARLY_TONE[facts.early.tone]}
+            label={facts.early.label}
+          />
+          <span className="min-w-0 flex-1">{facts.early.text}</span>
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /**

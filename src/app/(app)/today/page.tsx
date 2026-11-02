@@ -5,7 +5,7 @@ import { requireMember } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
-import { getOwnToday, getTodayPeople } from "@/modules/attendance";
+import { getHoursToday, getOwnHours, getOwnToday, getTodayPeople } from "@/modules/attendance";
 import { getClaimSetup } from "@/modules/expenses";
 
 import { readDirectory, readOpenTasks } from "../tasks/reads";
@@ -31,6 +31,9 @@ export default async function TodayPage() {
   startEarly(
     getTodayPeople(),
     getOwnToday(),
+    // v1.9 W4: an Admin's own working hours (the strip), the Owner's everyone's (the Late line).
+    getOwnHours(),
+    getHoursToday(),
     getClaimSetup(),
     readOpenTasks(),
     readDirectory(),

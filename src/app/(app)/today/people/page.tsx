@@ -5,12 +5,14 @@ import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
+  getHoursToday,
   getTodayPeople,
   getUnendedYesterday,
   PeopleBoard,
   summariseToday,
 } from "@/modules/attendance";
 import { boardForGroup, parsePeopleGroup } from "@/modules/dashboards";
+import { getSettings } from "@/modules/settings";
 
 import { PEOPLE_DESCRIPTION, PeopleFilter } from "./people-filter";
 import { showsYesterday, YESTERDAY_LINE_CLASS, yesterdayLine } from "./yesterday";
@@ -33,9 +35,16 @@ export default async function TodayPeoplePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [, [today, unended, params]] = await checkThenRead(
+  const [, [today, unended, params, hoursToday, settings]] = await checkThenRead(
     requirePermission("attendance.view_all"),
-    Promise.all([getTodayPeople(), getUnendedYesterday(), searchParams]),
+    Promise.all([
+      getTodayPeople(),
+      getUnendedYesterday(),
+      searchParams,
+      // v1.9 W4: Late, Stay until and early leave on each row, and Stay until behind the ⋯.
+      getHoursToday(),
+      getSettings(),
+    ]),
   );
   const group = parsePeopleGroup(params.group);
   const summary = summariseToday(today.people, today.isDayOff, unended);
@@ -59,6 +68,12 @@ export default async function TodayPeoplePage({
       ) : null}
       <PeopleBoard
         summary={shown}
+        {...(yesterday
+          ? {}
+          : {
+              hours: Object.fromEntries(hoursToday.map((row) => [row.memberId, row])),
+              workEnd: settings.workEndTime,
+            })}
         empty={yesterday ? "Every day yesterday was ended or decided." : undefined}
       />
     </>

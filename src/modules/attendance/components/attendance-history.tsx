@@ -97,21 +97,16 @@ export function AttendanceHistory({
   };
 
   /** The member's own row action: Add note on the last 7 days (3b.2). */
-  const noteAction = (day: HistoryDay, size: "sm" | "default") => {
+  const noteAction = (day: HistoryDay) => {
     if (owner) return null;
     if (!canAddNote(day.workDate, today) || !noteDays.some((d) => d.date === day.workDate)) {
       return null;
     }
+    // A1 (v1.9 W4): only where it applies, never on a day of leave (no overtime on a day away).
+    const status = day.finalStatus ?? day.submittedChoice;
+    if (status === "leave" || status === "comp_leave") return null;
     return (
-      <Button
-        variant="secondary"
-        size={size}
-        onClick={(event) => {
-          // On the laptop row, which opens the day: the note's dialog alone.
-          event.stopPropagation();
-          setNoteDate(day.workDate);
-        }}
-      >
+      <Button variant="secondary" onClick={() => setNoteDate(day.workDate)}>
         {day.isDayOff ? "I worked that day" : "Add overtime note"}
       </Button>
     );
@@ -119,7 +114,7 @@ export function AttendanceHistory({
 
   /** The day sheet's actions: the Owner's Approve (a waiting day) and Correct; the member's note. */
   const sheetActions = (day: HistoryDay) => {
-    if (!owner) return noteAction(day, "default");
+    if (!owner) return noteAction(day);
     const approveLabel = approveDayLabel(day);
     return (
       <>
@@ -135,7 +130,7 @@ export function AttendanceHistory({
           </Button>
         ) : null}
         <Button variant="secondary" data-slot="history-correct" onClick={() => correctDay(day)}>
-          Correct this day…
+          Correct…
         </Button>
       </>
     );
@@ -200,35 +195,16 @@ export function AttendanceHistory({
     },
     {
       id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => <span className="sr-only">Opens the day</span>,
       enableSorting: false,
-      cell: ({ row }) => {
-        const day = row.original;
-        if (!owner) return <div className="flex justify-end">{noteAction(day, "sm")}</div>;
-        return (
-          <div className="flex items-center justify-end gap-2">
-            {/* Only a waiting day carries a button: Approve, as in Approvals (V5b-D). Outlined:
-                a list never repeats a solid button; the day's sheet holds the solid Forest one
-                (PP-person-4). */}
-            {approveDayLabel(day) ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                commits
-                data-slot="history-row-approve"
-                disabled={approve.pending}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  approve.run(day);
-                }}
-              >
-                Approve
-              </Button>
-            ) : null}
-            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-          </div>
-        );
-      },
+      // A1 (v1.9 W4, the screens sample §6): no button on a row; a tap opens the day, whose sheet
+      // holds only the actions that apply (Approve beside Correct for the Owner, A4; the member's
+      // note on the last 7 days, never on leave).
+      cell: () => (
+        <div className="flex items-center justify-end">
+          <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        </div>
+      ),
     },
   ];
 

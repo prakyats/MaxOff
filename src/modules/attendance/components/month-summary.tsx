@@ -14,6 +14,7 @@ import {
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { type MonthHours, monthHoursCounts } from "../domain/hours";
 import { dayFigure, type MonthSummary, pendingText, summaryLines } from "../domain/summary";
 
 /**
@@ -65,13 +66,79 @@ export function MonthSummaryCard({ summary }: { summary: MonthSummary }) {
             </dd>
           </div>
         ))}
+        {summary.hours
+          ? monthHoursCounts(summary.hours).map((count) => (
+              <div
+                key={count.key}
+                data-slot="month-line"
+                data-line={`hours-${count.key}`}
+                className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2"
+              >
+                <dt className={cn("flex flex-col", CARD_ROW_TITLE)}>
+                  <span className="text-sm">{count.label}</span>
+                  {count.detail ? (
+                    <span className="text-muted-foreground text-xs">{count.detail}</span>
+                  ) : null}
+                </dt>
+                <dd
+                  data-tone={count.tone ?? undefined}
+                  className={cn(
+                    "text-base font-medium tabular-nums",
+                    CARD_ROW_TRAILING,
+                    count.tone === "attention" && "text-attention",
+                  )}
+                >
+                  {count.value}
+                </dd>
+              </div>
+            ))
+          : null}
       </dl>
     </section>
   );
 }
 
+/**
+ * The month counts on a row of the Month report (v1.9 W4; the screens sample §5; owner 2026-10-22):
+ * Late, Left early (not answered), Early approved and Half days, each with its label, "—" for zero
+ * and Late in amber. Four columns on a laptop, two rows of two on a phone. Plain figures: there is
+ * no filtered list of days for a count to open yet; the row opens the person's month.
+ */
+function MonthHoursFigures({ hours }: { hours: MonthHours }) {
+  return (
+    <span
+      data-slot="team-month-counts"
+      className="order-last grid basis-full grid-cols-2 gap-x-4 gap-y-1 text-sm md:order-none md:basis-auto md:grid-cols-4 md:gap-x-3"
+    >
+      {monthHoursCounts(hours).map((count) => (
+        <span
+          key={count.key}
+          data-slot="team-month-count"
+          data-count={count.key}
+          className="flex min-w-0 items-baseline justify-between gap-2 md:w-28 md:flex-col md:items-end md:justify-start md:gap-0 md:text-right"
+        >
+          <span className="text-muted-foreground text-xs leading-tight md:w-full">
+            {count.short}
+          </span>
+          <span
+            data-tone={count.tone ?? undefined}
+            className={cn(
+              "font-medium tabular-nums",
+              count.tone === "attention" && "text-attention",
+            )}
+          >
+            {count.value}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** Which of the ten lines carry a detail line under the label (`summaryLines`). */
 const LINES_WITH_DETAIL = [false, true, false, false, false, false, true, false, true, true];
+/** v1.9 W4: the four month counts under them (each detail line only above zero: not reserved). */
+const COUNT_LINES = 4;
 
 /**
  * The card's tracing for `loading.tsx`: the ten lines, label left and figure right, with the
@@ -85,15 +152,17 @@ export function MonthSummarySkeleton() {
       data-slot="loading-month-summary"
       className="border-border bg-card divide-border divide-y rounded-lg border"
     >
-      {LINES_WITH_DETAIL.map((detail, i) => (
-        <div key={i} className="flex min-h-12 items-center gap-3 px-4 py-2">
-          <span className="flex flex-1 flex-col gap-1">
-            <Skeleton className="h-4 w-2/5" />
-            {detail ? <Skeleton className="h-3 w-3/5" /> : null}
-          </span>
-          <Skeleton className="h-4 w-10" />
-        </div>
-      ))}
+      {[...LINES_WITH_DETAIL, ...Array.from({ length: COUNT_LINES }, () => false)].map(
+        (detail, i) => (
+          <div key={i} className="flex min-h-12 items-center gap-3 px-4 py-2">
+            <span className="flex flex-1 flex-col gap-1">
+              <Skeleton className="h-4 w-2/5" />
+              {detail ? <Skeleton className="h-3 w-3/5" /> : null}
+            </span>
+            <Skeleton className="h-4 w-10" />
+          </div>
+        ),
+      )}
     </div>
   );
 }
@@ -123,50 +192,53 @@ export function TeamMonthList({
     );
   }
   return (
-    <ul
-      data-slot="team-month"
-      className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
-    >
-      {summaries.map((summary) => (
-        <li key={summary.memberId} data-slot="team-month-row">
-          <DrillLink
-            href={`/people/${summary.memberId}/month?month=${month}`}
-            className={cn(
-              "active:bg-muted/60 focus-visible:ring-ring flex flex-wrap items-center gap-x-3 gap-y-1 outline-none focus-visible:ring-2 focus-visible:ring-inset",
-              CARD_ROW_MIN_H,
-              CARD_ROW_PADDING,
-            )}
-          >
-            <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
-              <span className="truncate font-medium">{summary.fullName}</span>
-              <span className="text-muted-foreground text-sm tabular-nums">
-                Worked {dayFigure(summary.daysWorked)} of {summary.workingDays} · additional leave{" "}
-                {dayFigure(summary.additionalLeave)}
-              </span>
-              {summary.pendingDays > 0 ? (
-                <StatusDot
-                  status="pending_review"
-                  label={pendingText(summary.pendingDays) ?? ""}
-                  className="text-sm"
-                />
-              ) : null}
-            </span>
-            {/* The trailing part may wrap (phase 4 review A-S3): at 130% / 200% text a long
-                unpaid line ("₹1,200.50 to pay · 1 claim") takes a line of its own and wraps
-                inside it instead of reaching past the phone's edge. */}
-            <span
+    <>
+      <ul
+        data-slot="team-month"
+        className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border"
+      >
+        {summaries.map((summary) => (
+          <li key={summary.memberId} data-slot="team-month-row">
+            <DrillLink
+              href={`/people/${summary.memberId}/month?month=${month}`}
               className={cn(
-                "flex max-w-full min-w-0 items-center gap-2 text-sm",
-                CARD_ROW_TRAILING,
-                "shrink",
+                "active:bg-muted/60 focus-visible:ring-ring flex flex-wrap items-center gap-x-3 gap-y-1 outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                CARD_ROW_MIN_H,
+                CARD_ROW_PADDING,
               )}
             >
-              <span className="min-w-0 text-right">{extra?.[summary.memberId] ?? null}</span>
-              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-            </span>
-          </DrillLink>
-        </li>
-      ))}
-    </ul>
+              <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
+                <span className="truncate font-medium">{summary.fullName}</span>
+                <span className="text-muted-foreground text-sm tabular-nums">
+                  Worked {dayFigure(summary.daysWorked)} of {summary.workingDays} · additional leave{" "}
+                  {dayFigure(summary.additionalLeave)}
+                </span>
+                {summary.pendingDays > 0 ? (
+                  <StatusDot
+                    status="pending_review"
+                    label={pendingText(summary.pendingDays) ?? ""}
+                    className="text-sm"
+                  />
+                ) : null}
+              </span>
+              {/* The trailing part may wrap (phase 4 review A-S3): at 130% / 200% text a long
+                unpaid line ("₹1,200.50 to pay · 1 claim") takes a line of its own and wraps
+                inside it instead of reaching past the phone's edge. */}
+              {summary.hours ? <MonthHoursFigures hours={summary.hours} /> : null}
+              <span
+                className={cn(
+                  "flex max-w-full min-w-0 items-center gap-2 text-sm",
+                  CARD_ROW_TRAILING,
+                  "shrink",
+                )}
+              >
+                <span className="min-w-0 text-right">{extra?.[summary.memberId] ?? null}</span>
+                <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              </span>
+            </DrillLink>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

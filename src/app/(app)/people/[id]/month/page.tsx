@@ -60,7 +60,7 @@ export default async function PersonMonthPage({
   });
   const seesExpenses = can(viewer.role, "expenses.decide");
   const [summaries, claims] = await Promise.all([
-    getMonthSummary(month, person.id),
+    getMonthSummary(month, person.id, { hours: true }),
     seesExpenses ? listMemberMonthClaims(person.id, monthRange(month)) : Promise.resolve(null),
   ]);
   const summary = summaries[0] ?? null;

@@ -3,12 +3,13 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { SETTINGS_HEADERS } from "../headers";
 
-/** The four groups' summary widths: the page's lines, near enough, at a phone's width. */
-const GROUPS = ["w-24", "w-16", "w-24", "w-28"];
+/** The five groups' summary widths (Working day, Approvals since v1.9 W4, Tasks, Client work,
+ * Notifications): the page's lines, near enough, at a phone's width. */
+const GROUPS = ["w-24", "w-20", "w-16", "w-24", "w-28"];
 
 /**
  * Traces `page.tsx` (ARCHITECTURE §14.1), the Thresholds groups (6b.6): the one-line intro, then
- * the four closed groups, each a bordered row with the name over its summary line beside the
+ * the five closed groups, each a bordered row with the name over its summary line beside the
  * chevron, then Save (the phone's bar; the form's last row on a laptop).
  */
 export default function Loading() {

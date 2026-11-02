@@ -3,6 +3,7 @@
 import { Suspense, use, useEffect, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -49,6 +50,22 @@ import {
 } from "../domain/requests";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
+
+type Half = "morning" | "afternoon";
+
+/** Morning off / Afternoon off (v1.9 W4, the working-hours sample §4). */
+const HALF_OPTIONS: readonly { value: Half; label: string; hint: string }[] = [
+  {
+    value: "morning",
+    label: "Morning off",
+    hint: "Start your day after lunch. You won't be marked late",
+  },
+  {
+    value: "afternoon",
+    label: "Afternoon off",
+    hint: "End your day after lunch. No need to ask to leave early",
+  },
+];
 
 /** What the "Kind of leave" select offers: the three leave types, plus comp leave with a credit. */
 type Kind = LeaveType | CompLeaveKind;
@@ -154,8 +171,12 @@ function LeaveForm({
   const [startDate, setStartDate] = useState(original?.startDate ?? today);
   const [endDate, setEndDate] = useState(original?.endDate ?? today);
   const [reason, setReason] = useState("");
+  // v1.9 W4 (the working-hours sample §4): a new half day asks which half; the first card is
+  // chosen, as the sample shows it. A change keeps the original's half (none is sent).
+  const [half, setHalf] = useState<Half>("morning");
   const [error, setError] = useState<ResultError | null>(null);
   const isComp = kind === "comp_full" || kind === "comp_half";
+  const asksHalf = !original && (kind === "half_day" || kind === "comp_half");
   const singleDate = kind === "half_day" || isComp;
   // Comp leave picks from the working days it can cover (3b review): a weekly day off or a
   // holiday is never offered. Without the list (it failed to load) the date field stays.
@@ -163,7 +184,12 @@ function LeaveForm({
   const action = useAction(
     async () => {
       const result = isComp
-        ? await requestCompLeave({ date: startDate, halfDay: kind === "comp_half", reason })
+        ? await requestCompLeave({
+            date: startDate,
+            halfDay: kind === "comp_half",
+            reason,
+            half: kind === "comp_half" ? half : null,
+          })
         : original
           ? await requestLeaveChange({
               type: kind as MemberLeaveType,
@@ -178,6 +204,7 @@ function LeaveForm({
               startDate,
               ...(singleDate ? {} : { endDate }),
               reason,
+              half: kind === "half_day" ? half : null,
             });
       if (result.ok) {
         toastResult(result, {
@@ -315,6 +342,35 @@ function LeaveForm({
           </p>
         ) : null}
       </div>
+      {asksHalf ? (
+        <fieldset className="flex flex-col gap-2" data-slot="half-choice">
+          <legend className="mb-1 text-sm font-medium">Which half?</legend>
+          {HALF_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              data-slot="half-option"
+              className={cn(
+                "border-border bg-card flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border px-4 py-2.5",
+                "has-[:checked]:border-strong has-[:checked]:bg-strong/5 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-3",
+              )}
+            >
+              <input
+                type="radio"
+                name="half"
+                value={option.value}
+                checked={half === option.value}
+                onChange={() => setHalf(option.value)}
+                className="accent-strong mt-0.5 size-5 shrink-0"
+              />
+              <span className="flex flex-col">
+                <span className="font-medium">{option.label}</span>
+                <span className="text-muted-foreground text-sm">{option.hint}</span>
+              </span>
+            </label>
+          ))}
+          {fieldErrors.half ? <ErrorText alert={false}>{fieldErrors.half[0]}</ErrorText> : null}
+        </fieldset>
+      ) : null}
       <FormField label="Reason (optional)" error={fieldErrors.reason}>
         {(control) => (
           <Textarea
@@ -345,7 +401,7 @@ function LeaveForm({
           pending={pending}
           pendingLabel={original ? "Sending change…" : "Sending request…"}
         >
-          {original ? "Send change" : "Request leave"}
+          {original ? "Send change" : asksHalf ? "Request half day" : "Request leave"}
         </Button>
       </DialogFooter>
     </form>

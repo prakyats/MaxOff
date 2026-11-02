@@ -6,8 +6,10 @@ import { addISTDays, systemClock, todayIST, type ISODate } from "@/core/time";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
+  getHoursToday,
   getTodayPeople,
   getUnendedYesterday,
+  hoursTodayCounts,
   pendingDayRows,
   summariseToday,
   TodayAttendanceCard,
@@ -131,6 +133,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     unended,
     types,
     overdueItems,
+    hoursToday,
   ] = await Promise.all([
     getTodayPeople(),
     readOpenTasks(),
@@ -150,6 +153,8 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     readTaskTypes(),
     // Client work (kickoff 7 amendment C E1, decision 24): one count line, hidden at zero.
     can(viewer.role, "items.tick") ? readOverdueItems(today) : Promise.resolve(0),
+    // v1.9 W4: who started Late and who ended after their end time (two lines, hidden at zero).
+    getHoursToday(),
   ]);
   const [days, requests, notes, claims, toDecide] = approvals;
   const now = systemClock();
@@ -333,7 +338,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
               </DashSection>
             )}
 
-            <TodayAttendanceCard summary={summary} />
+            <TodayAttendanceCard summary={summary} hours={hoursTodayCounts(hoursToday)} />
 
             {sections.mine ? (
               <DashSection

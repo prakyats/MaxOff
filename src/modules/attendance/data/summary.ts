@@ -3,21 +3,35 @@ import "server-only";
 import { createServerSupabase } from "@/core/db/server";
 import { displayName } from "@/core/lib/display-name";
 
+import type { MonthHours } from "../domain/hours";
 import type { MonthSummary } from "../domain/summary";
+
+import { getMonthHours } from "./hours";
 
 /**
  * The month summary (DATA-MODEL §7b, 3b.4): `month_summary()` decides who is in it and every
  * figure, and answers FORBIDDEN to anyone but `attendance.view_all` (the Owner). `month` is
  * `yyyy-MM`; the function takes any date of it.
  */
-export async function getMonthSummary(month: string, memberId?: string): Promise<MonthSummary[]> {
+export async function getMonthSummary(
+  month: string,
+  memberId?: string,
+  /** v1.9 W4: also read the month counts (the Month report and a person's Month tab only). */
+  options: { hours?: boolean } = {},
+): Promise<MonthSummary[]> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("month_summary", {
-    month: `${month}-01`,
-    ...(memberId ? { member_id: memberId } : {}),
-  });
+  // v1.9 W4: the month counts (late days, early leaves, half days by half; owner 2026-10-22) come
+  // from `month_summary_hours()`, read beside it; the same people, the Owner only.
+  const [{ data, error }, hours] = await Promise.all([
+    supabase.rpc("month_summary", {
+      month: `${month}-01`,
+      ...(memberId ? { member_id: memberId } : {}),
+    }),
+    options.hours ? getMonthHours(month, memberId) : Promise.resolve({}),
+  ]);
   if (error) throw error;
   return data.map((row) => ({
+    hours: (hours as Partial<Record<string, MonthHours>>)[row.id] ?? null,
     memberId: row.id,
     fullName: displayName(row.full_name),
     role: row.role,

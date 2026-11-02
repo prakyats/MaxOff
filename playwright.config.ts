@@ -26,6 +26,13 @@ const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
 const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
+/**
+ * v1.9 W4: the working hours turn on an organisation-wide switch (`org_settings.working_hours_on`)
+ * and set the day's start and end around the run's own clock, which every Start day and End day
+ * of the other specs would feel. So the suite runs with the switch off (`global-setup.ts`) and
+ * these specs run alone, one file at a time, after every other project (like owner-bulk).
+ */
+const WORKING_HOURS_SPECS = /working-hours\.spec\.ts$/;
 // The push and email dispatch through the cron route (owner decision 29): the dispatcher is
 // organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
 // one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).
@@ -151,7 +158,14 @@ export default defineConfig({
       name: "desktop",
       dependencies: ["setup"],
       // The mobile standard is about phone widths; running it at 1280px proves nothing.
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS, OWNER_BULK_SPECS, PUSH_CRON_SPECS],
+      testIgnore: [
+        PRODUCTION_SPECS,
+        SETUP_SPECS,
+        MOBILE_SPECS,
+        OWNER_BULK_SPECS,
+        PUSH_CRON_SPECS,
+        WORKING_HOURS_SPECS,
+      ],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -159,7 +173,13 @@ export default defineConfig({
       // phone of the two widths the standard is checked at.
       name: "mobile",
       dependencies: ["setup"],
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, OWNER_BULK_SPECS, PUSH_CRON_SPECS],
+      testIgnore: [
+        PRODUCTION_SPECS,
+        SETUP_SPECS,
+        OWNER_BULK_SPECS,
+        PUSH_CRON_SPECS,
+        WORKING_HOURS_SPECS,
+      ],
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
@@ -268,6 +288,33 @@ export default defineConfig({
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      // v1.9 W4 (WORKING_HOURS_SPECS above): alone, after owner-bulk, one test at a time, at the
+      // laptop width, then 375 px, then 430 px. CI runs the three after push-cron with
+      // `--no-deps` (ci.yml).
+      name: "working-hours",
+      dependencies: ["owner-bulk"],
+      testMatch: WORKING_HOURS_SPECS,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "working-hours-375",
+      dependencies: ["working-hours"],
+      testMatch: WORKING_HOURS_SPECS,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
+    },
+    {
+      name: "working-hours-430",
+      dependencies: ["working-hours-375"],
+      testMatch: WORKING_HOURS_SPECS,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
     {
       name: "production",

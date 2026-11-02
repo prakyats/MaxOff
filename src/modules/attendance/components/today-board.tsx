@@ -2,6 +2,7 @@ import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 
 import { cn } from "@/core/lib/utils";
+import { toISTTime } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import {
   CARD_ROW_MIN_H,
@@ -28,6 +29,15 @@ import {
   type TodayPerson,
   type TodaySummary,
 } from "../domain/review";
+import {
+  afterEndLineWords,
+  boardHoursDetail,
+  canSetStayUntil,
+  type HoursToday,
+  lateLineWords,
+} from "../domain/hours";
+
+import { StayUntilButton } from "./stay-until-button";
 
 /** The dot follows the bucket, so the board reads at a glance and matches the card. */
 const BUCKET_DOT: Record<BoardBucket, string> = {
@@ -79,11 +89,24 @@ const COUNT_CELL =
  * never a fifth cell: each is one red line under the strip, "1 didn't end their day yesterday ›",
  * "2 are absent today ›", hidden at zero, opening the same filtered board as the count did.
  */
-export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
+export function TodayAttendanceCard({
+  summary,
+  hours,
+}: {
+  summary: TodaySummary;
+  /**
+   * v1.9 W4 (the working-hours sample §3): who started Late today (an amber line) and who ended
+   * after their end time (a quiet line), each hidden at zero, each opening the board, whose rows
+   * say it. Absent with the working hours off.
+   */
+  hours?: { late: number; afterEnd: number } | undefined;
+}) {
   const lines = TODAY_CARD_LINES.flatMap((line) => {
     const words = cardLineWords(line, summary.counts[line]);
     return words ? [{ line, words }] : [];
   });
+  const late = hours ? lateLineWords(hours.late) : null;
+  const afterEnd = hours ? afterEndLineWords(hours.afterEnd) : null;
   return (
     <section
       aria-labelledby="today-attendance-title"
@@ -164,6 +187,32 @@ export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
           <ChevronRightIcon className="size-4 shrink-0" aria-hidden />
         </DrillLink>
       ))}
+      {late ? (
+        <DrillLink
+          href="/today/people"
+          data-slot="today-hours-line"
+          data-line="late"
+          data-tone="attention"
+          className="focus-visible:ring-ring text-attention -my-1 flex min-h-11 min-w-0 items-center gap-2 rounded-md text-sm outline-none focus-visible:ring-2"
+        >
+          <span aria-hidden className="bg-attention size-2 shrink-0 rounded-full" />
+          <span className="min-w-0 break-words">{late}</span>
+          <ChevronRightIcon className="size-4 shrink-0" aria-hidden />
+        </DrillLink>
+      ) : null}
+      {afterEnd ? (
+        <DrillLink
+          href="/today/people"
+          data-slot="today-hours-line"
+          data-line="after_end"
+          data-tone="neutral"
+          className="focus-visible:ring-ring text-muted-foreground -my-1 flex min-h-11 min-w-0 items-center gap-2 rounded-md text-sm outline-none focus-visible:ring-2"
+        >
+          <span aria-hidden className="bg-neutral size-2 shrink-0 rounded-full" />
+          <span className="min-w-0 break-words">{afterEnd}</span>
+          <ChevronRightIcon className="size-4 shrink-0" aria-hidden />
+        </DrillLink>
+      ) : null}
     </section>
   );
 }
@@ -178,9 +227,19 @@ export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
 export function PeopleBoard({
   summary,
   empty,
+  hours,
+  workEnd,
 }: {
   summary: TodaySummary;
   empty?: string | undefined;
+  /**
+   * v1.9 W4 (the working-hours sample §3): each person's working hours today, by member id. A row
+   * then says Late, Stay until and an early leave, and an open day carries the ⋯ for **Stay until**
+   * (the Owner's only). Absent: the rows are as before.
+   */
+  hours?: Readonly<Record<string, HoursToday>> | undefined;
+  /** `org_settings.work_end_time` (`HH:MM`): Stay until must be after it. */
+  workEnd?: string | undefined;
 }) {
   if (summary.board.length === 0) {
     return (
@@ -198,32 +257,50 @@ export function PeopleBoard({
             {TODAY_BUCKET_LABELS[bucket]} <span className="tabular-nums">{people.length}</span>
           </h2>
           <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
-            {people.map((person) => (
-              <li key={person.memberId}>
-                <DrillLink
-                  href={`/people/${person.memberId}/leave`}
-                  data-slot="board-row"
-                  className={cn(
-                    "focus-visible:ring-ring active:bg-muted/60 flex flex-wrap items-center gap-3 outline-none focus-visible:ring-2",
-                    CARD_ROW_MIN_H,
-                    CARD_ROW_PADDING,
-                  )}
-                >
-                  <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
-                    <span className="truncate font-medium">{person.name}</span>
-                    <span className="text-muted-foreground truncate text-xs">
-                      {boardDetail(person)}
+            {people.map((person) => {
+              const own = hours?.[person.memberId];
+              const extra = boardHoursDetail(own);
+              const detail = boardDetail(person);
+              return (
+                <li key={person.memberId} className="flex items-center">
+                  <DrillLink
+                    href={`/people/${person.memberId}/leave`}
+                    data-slot="board-row"
+                    className={cn(
+                      "focus-visible:ring-ring active:bg-muted/60 flex min-w-0 flex-1 flex-wrap items-center gap-3 outline-none focus-visible:ring-2",
+                      CARD_ROW_MIN_H,
+                      CARD_ROW_PADDING,
+                    )}
+                  >
+                    <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
+                      <span className="truncate font-medium">{person.name}</span>
+                      <span className="text-muted-foreground truncate text-xs">
+                        {extra ? (detail ? `${detail} · ${extra}` : extra) : detail}
+                      </span>
                     </span>
-                  </span>
-                  <StatusDot
-                    status={BUCKET_DOT[bucket]}
-                    label={boardStatus(person, bucket)}
-                    className={CARD_ROW_TRAILING}
-                  />
-                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                </DrillLink>
-              </li>
-            ))}
+                    <StatusDot
+                      status={BUCKET_DOT[bucket]}
+                      label={boardStatus(person, bucket)}
+                      className={CARD_ROW_TRAILING}
+                    />
+                    <ChevronRightIcon
+                      className="text-muted-foreground size-4 shrink-0"
+                      aria-hidden
+                    />
+                  </DrillLink>
+                  {own && workEnd && canSetStayUntil(own) ? (
+                    <StayUntilButton
+                      target={{
+                        memberId: person.memberId,
+                        name: person.name,
+                        workEnd,
+                        current: own.stayUntil ? toISTTime(own.stayUntil) : null,
+                      }}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}

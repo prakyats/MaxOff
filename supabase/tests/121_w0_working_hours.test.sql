@@ -15,7 +15,7 @@
 --    Owner's read, and the switch off. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(132);
+select plan(134);
 
 delete from public.approval_reminder_sends;
 delete from public.early_leave_requests;
@@ -167,8 +167,12 @@ select pg_temp.as_system();
 
 -- A. 1. Settings ------------------------------------------------------------------------------------
 select is((select row(s.working_hours_on, s.late_grace_minutes, s.early_leave_wait_minutes)::text
-           from public.org_settings s where s.org_id = pg_temp.fx('org')), row(false, 15, 30)::text,
-  'working hours are off by default, with a 15-minute grace and a 30-minute wait');
+           from public.org_settings s where s.org_id = pg_temp.fx('org')), row(true, 15, 30)::text,
+  'working hours are on by default (v1.9 W4, migration working_hours_on), with a 15-minute grace and a 30-minute wait');
+select col_default_is('public', 'org_settings', 'working_hours_on', 'true',
+  'migration working_hours_on: the switch defaults to on');
+select is((select count(*)::integer from public.org_settings s where not s.working_hours_on), 0,
+  'migration working_hours_on: every organisation has working hours on');
 select throws_ok($$ update public.org_settings set late_grace_minutes = 200 where org_id = pg_temp.fx('org') $$, '23514', null,
   'a grace over two hours is refused');
 select throws_ok($$ update public.org_settings set early_leave_wait_minutes = 1 where org_id = pg_temp.fx('org') $$, '23514', null,
@@ -176,19 +180,21 @@ select throws_ok($$ update public.org_settings set early_leave_wait_minutes = 1 
 select pg_temp.as_member('owner');
 update public.org_settings set late_grace_minutes = 10, early_leave_wait_minutes = 20 where org_id = pg_temp.fx('org');
 select pg_temp.as_member('admin1');
-update public.org_settings set working_hours_on = true, late_grace_minutes = 60 where org_id = pg_temp.fx('org');
+update public.org_settings set working_hours_on = false, late_grace_minutes = 60 where org_id = pg_temp.fx('org');
 select pg_temp.as_member('staff1');
-update public.org_settings set working_hours_on = true, early_leave_wait_minutes = 5 where org_id = pg_temp.fx('org');
+update public.org_settings set working_hours_on = false, early_leave_wait_minutes = 5 where org_id = pg_temp.fx('org');
 select pg_temp.as_system();
 select is((select row(s.working_hours_on, s.late_grace_minutes, s.early_leave_wait_minutes)::text
-           from public.org_settings s where s.org_id = pg_temp.fx('org')), row(false, 10, 20)::text,
+           from public.org_settings s where s.org_id = pg_temp.fx('org')), row(true, 10, 20)::text,
   'the Owner edits them; an Admin''s and a Crew member''s updates match no row');
 select pg_temp.as_anon();
-select throws_ok($$ update public.org_settings set working_hours_on = true $$, '42501', null, 'anon has no privilege on the switch');
+select throws_ok($$ update public.org_settings set working_hours_on = false $$, '42501', null, 'anon has no privilege on the switch');
 select pg_temp.as_system();
 update public.org_settings set late_grace_minutes = 15, early_leave_wait_minutes = 30 where org_id = pg_temp.fx('org');
 
 -- A. 2. The hours of a day (Wed 4 Nov 2026 and around it) -------------------------------------------
+-- The switch is on by default since W4: turned off here to keep the "switch off" checks.
+update public.org_settings set working_hours_on = false where org_id = pg_temp.fx('org');
 select is(pg_temp.h('staff1', '2026-11-04'), row(false, false, false, null::text, 'work'::text),
   'with the switch off no rule applies');
 update public.org_settings set working_hours_on = true where org_id = pg_temp.fx('org');

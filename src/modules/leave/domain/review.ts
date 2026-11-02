@@ -34,6 +34,8 @@ export type PendingLeave = {
   creditDays: number | null;
   /** The approved leave this one changes or cancels, as it stands now. */
   original: { type: LeaveType; startDate: string; endDate: string; state: LeaveState } | null;
+  /** v1.9 W4: which half of a half day (older requests: none). */
+  half?: "morning" | "afternoon" | null;
 };
 
 /** "Leave · 3 days", "Cancel leave · 2 days", "Change to half day". */
@@ -45,8 +47,12 @@ export function pendingLeaveTitle(request: PendingLeave): string {
 
 /** "Asha · 12 – 14 Oct 2026". */
 export function pendingLeaveSubtitle(request: PendingLeave): string {
-  return `${request.memberName} · ${leaveDates(request.startDate, request.endDate)}`;
+  const half = request.half ? ` · ${HALF_WORDS[request.half]}` : "";
+  return `${request.memberName} · ${leaveDates(request.startDate, request.endDate)}${half}`;
 }
+
+/** v1.9 W4: a half day's half, as the Owner reads it. */
+const HALF_WORDS = { morning: "morning off", afternoon: "afternoon off" } as const;
 
 /**
  * The Owner's Today compact row's first meta line, what and when (owner 2026-10-09): "Leave · Mon
@@ -63,7 +69,8 @@ export function pendingLeaveDetail(request: PendingLeave): string {
     : request.original
       ? `Change to ${kind.toLowerCase()}`
       : kind;
-  return `${what} · ${shortDates(request.startDate, request.endDate)}`;
+  const half = request.half ? ` (${HALF_WORDS[request.half]})` : "";
+  return `${what}${half} · ${shortDates(request.startDate, request.endDate)}`;
 }
 
 /** "Mon 12 Oct", "Mon 12 – Wed 14 Oct", or "Fri 30 Oct – Mon 2 Nov" across a month. */

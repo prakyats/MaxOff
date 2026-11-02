@@ -29,6 +29,14 @@ const input = {
   weeklyDigestDay: "1",
   itemOverdueEscalateHours: "24",
   cycleDecideEscalateDays: "2",
+  workingHoursOn: "on",
+  workStartTime: "10:00",
+  workEndTime: "18:00",
+  lateGraceMinutes: "15",
+  earlyLeaveWaitMinutes: "30",
+  approvalReminderUrgentMinutes: "60",
+  approvalReminderHighTimes: ["14:00", "11:00", "17:00"],
+  approvalReminderDailyTime: "11:00",
 };
 
 /**
