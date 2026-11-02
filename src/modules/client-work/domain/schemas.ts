@@ -258,6 +258,28 @@ export type UpdateItemInput = z.input<typeof updateItemSchema>;
 export const itemIdSchema = z.object({ itemId: id });
 export type ItemIdInput = z.input<typeof itemIdSchema>;
 
+/**
+ * A project's resume (v1.9 W8, `project_resume`): one entry per deliverable of the resume list (a
+ * new date, or a choice with its date, reason and close kind), and an optional new delivery date.
+ * The rules (`resumeProblems`) run on the sheet and again in the database.
+ */
+export const resumeProjectSchema = z.object({
+  projectId: id,
+  items: z
+    .array(
+      z.object({
+        itemId: id,
+        plannedDate: isoDate.nullable().optional(),
+        decision: z.enum(["carry_forward", "close", "leave_pending"]).nullable().optional(),
+        reason: z.string().trim().max(REASON_MAX).nullable().optional(),
+        closeKind: z.enum(CLOSE_KINDS).nullable().optional(),
+      }),
+    )
+    .max(BULK_MAX),
+  newDeliveryDate: isoDate.nullable(),
+});
+export type ResumeProjectInput = z.input<typeof resumeProjectSchema>;
+
 export const itemReasonSchema = z.object({ itemId: id, reason });
 export type ItemReasonInput = z.input<typeof itemReasonSchema>;
 

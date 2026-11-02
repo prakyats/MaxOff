@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { istInstant } from "@/core/time";
+import { type ISODate, istInstant } from "@/core/time";
 
-import type { CalendarDay, EventItem, LeaveItem } from "../domain/calendar";
+import { type CalendarDay, dueCount, type EventItem, type LeaveItem } from "../domain/calendar";
 import {
   directionOf,
   grow,
@@ -544,5 +544,48 @@ describe("the phone's day in the page (PP-light-4, V5b): the hours around its bl
     expect(spanOf([{ start: 0, end: 30 }])).toEqual({ from: 0, to: h(2) });
     expect(spanOf([{ start: h(23), end: h(24) }])).toEqual({ from: h(22), to: h(24) });
     expect(spanOf([])).toEqual({ from: h(8), to: h(10) });
+  });
+});
+
+describe("On hold on the calendar (v1.9 W8)", () => {
+  it("shows a held task and a held deliverable with their chip, never overdue or counted late", () => {
+    const day: CalendarDay = {
+      date: "2026-10-01" as ISODate,
+      holiday: null,
+      weeklyOff: false,
+      leave: [],
+      events: [],
+      busy: [],
+      due: [
+        {
+          kind: "due" as const,
+          id: "t",
+          title: "Edit",
+          dueAt: "2026-10-01T12:30:00Z",
+          owner: "Asha",
+          color: "#0284c7",
+          held: true,
+        },
+      ],
+      items: [
+        {
+          kind: "item" as const,
+          id: "i",
+          title: "Reel 2",
+          project: "Monthly",
+          client: "Acme",
+          href: "/x",
+          done: false,
+          held: true,
+        },
+      ],
+    };
+    expect(dueCount(day)).toBe(0);
+    const strips = allStrips(day, "2026-10-08" as ISODate);
+    expect(strips.find((strip) => strip.kind === "due")).toMatchObject({ tone: "due", held: true });
+    expect(strips.find((strip) => strip.kind === "item")).toMatchObject({
+      late: false,
+      held: true,
+    });
   });
 });

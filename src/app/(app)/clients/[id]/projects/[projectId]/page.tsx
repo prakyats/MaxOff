@@ -11,10 +11,10 @@ import {
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
-import { todayIST } from "@/core/time";
+import { formatIST, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { DetailHeader } from "@/core/ui/composites/page-header";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, StatusBadge } from "@/core/ui/composites/status-badge";
 import { ViewLink } from "@/core/ui/composites/view-link";
 import {
   activeStages,
@@ -35,6 +35,7 @@ import {
   listItems,
   listItemStages,
   listLastChanges,
+  listResumeRows,
   listReviews,
   listStages,
   needsYouPills,
@@ -51,6 +52,7 @@ import {
 import { CycleItems } from "@/modules/client-work/components/cycle-items";
 import { CycleProgress } from "@/modules/client-work/components/cycle-progress";
 import { KeepExtrasPrompt } from "@/modules/client-work/components/keep-extras-prompt";
+import { ProjectHoldBanner } from "@/modules/client-work/components/project-hold-banner";
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
@@ -138,6 +140,9 @@ export default async function ProjectPage({
   const next = index >= 0 ? ordered[index + 1] : undefined;
 
   const working = project.state === "open" || project.state === "in_progress";
+  // v1.9 W8 (ADR-0016): a held project keeps its state; its deliverables read On hold and wait.
+  const held = working && project.heldAt !== null;
+  const canComplete = can(viewer.role, "projects.complete");
   const canManage = can(viewer.role, "projects.manage");
   // 6b.16 (d): the cycle whose extras are asked about at the month's end (whichever is shown):
   // the month ending or the one just ended, the latest that has extras.
@@ -163,21 +168,25 @@ export default async function ProjectPage({
       items.flatMap((item) => (item.originCycleId !== item.cycleId ? [item.originCycleId] : [])),
     ),
   ];
-  const [itemStages, reviews, origins, unfinished, projectFields, changes] = await Promise.all([
-    listItemStages(itemIds),
-    listReviews(itemIds),
-    listCyclesById(originIds),
-    unfinishedRead,
-    fieldsRead,
-    listLastChanges(itemIds),
-  ]);
+  const [itemStages, reviews, origins, unfinished, projectFields, changes, resumeRows] =
+    await Promise.all([
+      listItemStages(itemIds),
+      listReviews(itemIds),
+      listCyclesById(originIds),
+      unfinishedRead,
+      fieldsRead,
+      listLastChanges(itemIds),
+      // The resume sheet's list, read only while held and for whoever may resume (v1.9 W8).
+      held && canComplete ? listResumeRows(project.id) : Promise.resolve(null),
+    ]);
   const { contactName, templateName } = project;
 
   const permissions = {
     manage: canManage && working,
-    tick: can(viewer.role, "items.tick") && working,
+    // While held nothing is ticked, marked done or sent back (each view's rules say so too).
+    tick: can(viewer.role, "items.tick") && working && !held,
     // Amendment D3: items.approve is the send-back (the Owner) or reopen (the client's Admin).
-    reopen: can(viewer.role, "items.approve") && working,
+    reopen: can(viewer.role, "items.approve") && working && !held,
     owner: viewer.role === "owner",
   };
   const active = activeStages(stages);
@@ -206,10 +215,12 @@ export default async function ProjectPage({
       cycleLabels: Object.fromEntries(origins.map((cycle) => [cycle.id, cycle.label])),
       cycleLabel: chosen?.label ?? null,
       recurrence: project.recurrence,
+      held,
     }),
   );
   const ended = chosen ? cycleEnded(chosen, today) : false;
-  const toDecide = ended ? items.filter((item) => item.state === "open").length : 0;
+  // A held project's ended months are settled by its resume, never the carry screen (W7).
+  const toDecide = ended && !held ? items.filter((item) => item.state === "open").length : 0;
   const nextCycle = nextStartable(
     project.recurrence,
     today,
@@ -225,17 +236,29 @@ export default async function ProjectPage({
   const definitions = projectFields.filter((definition) => definition.archivedAt === null);
   const base = `/clients/${client.id}/projects/${project.id}`;
   // PP-client-2: a working one-time project with every deliverable done reads "Ready to complete".
-  const stateChip =
-    working &&
+  const stateChip = held ? (
+    <OnHoldBadge />
+  ) : working &&
     readyToComplete(
       project.recurrence,
       items.map((item) => item.state),
     ) ? (
-      <StatusBadge status="ready" tone="attention" label="Ready to complete" />
-    ) : (
-      <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
-    );
+    <StatusBadge status="ready" tone="attention" label="Ready to complete" />
+  ) : (
+    <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
+  );
   const cycleHref = (cycleId: string) => `${base}?cycle=${cycleId}`;
+  const resume =
+    held && resumeRows
+      ? {
+          projectId: project.id,
+          projectName: project.name,
+          rows: resumeRows,
+          today,
+          recurrence: project.recurrence,
+          deliveryDate: project.deliveryDate,
+        }
+      : null;
   const meta = [
     client.name,
     RECURRENCE_LABELS[project.recurrence],
@@ -285,7 +308,9 @@ export default async function ProjectPage({
               presets={presets}
               definitions={definitions}
               canManage={canManage}
-              canComplete={can(viewer.role, "projects.complete")}
+              canComplete={canComplete}
+              held={held}
+              resume={resume}
               unfinished={unfinished.length}
               nextCycleLabel={nextCycle?.label ?? null}
               itemList={itemList}
@@ -306,6 +331,13 @@ export default async function ProjectPage({
             {stateChip}
             <span>{meta.join(" · ")}</span>
           </p>
+          {held && project.heldAt ? (
+            <ProjectHoldBanner
+              since={`On hold since ${formatIST(project.heldAt, "d MMM")}`}
+              reason={project.holdReason}
+              resume={resume}
+            />
+          ) : null}
           {!working ? (
             <p
               role="status"
@@ -390,7 +422,7 @@ export default async function ProjectPage({
               meter={cycleMeter(views, today)}
               cancelledAt={project.state === "cancelled" ? project.cancelledAt : null}
               // Owner and Admin only (the page's roles); never Crew, who never see client work.
-              needsYou={working && canManage ? needsYouPills(views, today) : null}
+              needsYou={working && canManage && !held ? needsYouPills(views, today) : null}
             />
           ) : null}
           {toDecide > 0 && can(viewer.role, "cycles.carry_decide") ? (

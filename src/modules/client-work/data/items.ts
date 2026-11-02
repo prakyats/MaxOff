@@ -15,13 +15,14 @@ import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
  * 1000-row limit, 6A mechanics (1)); a count is a head request.
  */
 
-const ROW_SELECT = `${ITEM_COLUMNS}, project:projects!project_items_project_id_fkey!inner(name, recurrence, client_id, client:clients!projects_client_id_fkey!inner(name, admin_id, state)), cycle:project_cycles!project_items_cycle_id_fkey!inner(label, period_end)`;
+const ROW_SELECT = `${ITEM_COLUMNS}, project:projects!project_items_project_id_fkey!inner(name, recurrence, client_id, held_at, client:clients!projects_client_id_fkey!inner(name, admin_id, state)), cycle:project_cycles!project_items_cycle_id_fkey!inner(label, period_end)`;
 
 type Embedded = {
   project: {
     name: string;
     recurrence: Recurrence;
     client_id: string;
+    held_at: string | null;
     client: { name: string; admin_id: string | null; state: ClientState };
   };
   cycle: { label: string | null; period_end: string | null };
@@ -38,6 +39,7 @@ function toRow(row: Parameters<typeof toItem>[0] & Embedded): ItemRow {
     clientState: row.project.client.state,
     cycleLabel: row.cycle.label,
     cyclePeriodEnd: row.cycle.period_end,
+    projectHeldAt: row.project.held_at,
   };
 }
 

@@ -92,7 +92,7 @@ export {
   isCloseKind,
   type CloseKind,
 } from "./domain/close-kinds";
-// v1.9 W7: On hold (the screens are W8's).
+// v1.9 W7 / W8: On hold.
 export {
   PROJECT_HOLD_REASON_MAX,
   RESUME_DECISIONS,
@@ -101,6 +101,7 @@ export {
   onHoldDeliverablesLine,
   resumeItemsPayload,
   resumeProblems,
+  splitHeldItems,
   type ResumeDecision,
   type ResumeEntry,
   type ResumeProblem,
@@ -152,7 +153,9 @@ export {
   listItemsById,
   listItemStages,
   listLastChanges,
+  listOnHold,
   listProjectsActivity,
+  listResumeRows,
   listReviews,
   listStages,
   listStagesOf,

@@ -104,6 +104,8 @@ export type ItemView = {
   cycleLabel: string | null;
   /** "Done by Ravi, 8 Oct" (and, for an item approved apart before amendment D3, its approval). */
   history: string[];
+  /** An open deliverable of a held project (v1.9 W8): the amber "On hold" chip. */
+  onHold: boolean;
   /** What may change (the viewer's keys are applied by the screen). */
   rules: {
     ticks: boolean;
@@ -131,6 +133,12 @@ export type ItemViewContext = {
   cycleLabel: string | null;
   /** The project's repeat (v1.9 W1: "Not needed this month" / "this week" / "Not needed"). */
   recurrence: Recurrence;
+  /**
+   * The project is On hold (v1.9 W8, ADR-0016): its open deliverables read On hold, never late,
+   * and nothing is ticked, marked done or sent back until the resume (`app.on_hold_guard`);
+   * edits and Close stay (W7's open question 7 on #89).
+   */
+  held?: boolean;
 };
 
 const WHEN = "d MMM";
@@ -145,6 +153,7 @@ function sentBackNote(
 }
 
 export function itemView(item: Item, context: ItemViewContext): ItemView {
+  const held = context.held === true;
   const name = (id: string | null) => (id ? (context.names[id] ?? "Someone") : "Someone");
   const stages = activeStages(context.stages.filter((stage) => stage.itemId === item.id)).map(
     (stage) => ({
@@ -171,7 +180,7 @@ export function itemView(item: Item, context: ItemViewContext): ItemView {
     position: item.position,
     state: item.state,
     stateLabel: ITEM_STATE_LABELS[item.state],
-    planned: plannedLine(item, context.today),
+    planned: plannedLine(item, context.today, held),
     carriedFrom:
       item.carriedFromItemId !== null && item.originCycleId !== item.cycleId
         ? carriedFromLabel(context.cycleLabels[item.originCycleId] ?? null, context.cycleLabel)
@@ -207,10 +216,11 @@ export function itemView(item: Item, context: ItemViewContext): ItemView {
     recurrence: context.recurrence,
     cycleLabel: context.cycleLabel,
     history,
+    onHold: held && item.state === "open",
     rules: {
-      ticks: ITEM_RULES.ticks(item.state),
-      markDone: ITEM_RULES.markDone(item.state),
-      reopen: ITEM_RULES.reopen(item.state),
+      ticks: !held && ITEM_RULES.ticks(item.state),
+      markDone: !held && ITEM_RULES.markDone(item.state),
+      reopen: !held && ITEM_RULES.reopen(item.state),
       cancel: ITEM_RULES.cancel(item.state),
       editAll: ITEM_RULES.editAll(item.state),
     },
@@ -236,6 +246,8 @@ export type ItemRowView = {
   plannedDate: string | null;
   /** The deliverable's own stages as a miniature (6b.11 (5)); null when it has none. */
   meter: { done: number; next: number; total: number } | null;
+  /** Its project is On hold (v1.9 W8): the "On hold" chip, never overdue. */
+  onHold: boolean;
 };
 
 export function itemRowView(
@@ -245,6 +257,7 @@ export function itemRowView(
     clientName: string;
     adminId: string | null;
     cycleLabel: string | null;
+    projectHeldAt?: string | null;
   },
   today: ISODate,
   /** The deliverable's own stages (active ones, ticked or not), for its miniature. */
@@ -264,9 +277,10 @@ export function itemRowView(
     cycleLabel: row.cycleLabel,
     state: row.state,
     stateLabel: ITEM_STATE_LABELS[row.state],
-    planned: plannedLine(row, today),
+    planned: plannedLine(row, today, Boolean(row.projectHeldAt)),
     plannedDate: row.plannedDate,
     meter: meter.total > 0 ? meter : null,
+    onHold: Boolean(row.projectHeldAt) && (row.state === "open" || row.state === "done"),
   };
 }
 

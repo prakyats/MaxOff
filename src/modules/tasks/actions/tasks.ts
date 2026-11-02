@@ -24,6 +24,8 @@ import {
   remindSchema,
   type RemoveStageInput,
   removeStageSchema,
+  type ResumeInput,
+  resumeSchema,
   type ReviewInput,
   reviewSchema,
   type SetApproverInput,
@@ -157,6 +159,29 @@ export const cancelTask = action(async (input: ReasonInput): Promise<Result<null
   refresh();
   dispatchPushSoon();
   return ok(null);
+});
+
+/**
+ * Put on hold (v1.9 W8; WORKFLOWS §3.1a): the task's creator or the Owner, with a reason.
+ * `task_hold` decides who, which states, and notifies the people on it quietly.
+ */
+export const holdTask = action(async (input: ReasonInput): Promise<Result<null>> => {
+  const data = reasonSchema.parse(input);
+  await assertPermission("tasks.create");
+  await repo.rpcHold(data.taskId, data.reason);
+  refresh();
+  dispatchPushSoon();
+  return ok(null);
+});
+
+/** Resume (v1.9 W8): a new deadline when the old one passed (`task_resume` requires it then). */
+export const resumeTask = action(async (input: ResumeInput): Promise<Result<{ dueAt: string }>> => {
+  const data = resumeSchema.parse(input);
+  await assertPermission("tasks.create");
+  const dueAt = await repo.rpcResume(data.taskId, data.newDueAt);
+  refresh();
+  dispatchPushSoon();
+  return ok({ dueAt });
 });
 
 export const reopenTask = action(async (input: ReasonInput): Promise<Result<null>> => {

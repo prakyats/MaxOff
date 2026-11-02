@@ -84,3 +84,34 @@ export function splitOnHold<T extends { heldAt?: string | null }>(
 export function onHoldLine(count: number): string | null {
   return count > 0 ? `On hold · ${count}` : null;
 }
+
+/** What the task's ⋯ offers about a hold (W8): "Put on hold…" or "Resume…", for whoever may. */
+export function holdActions(
+  viewer: { id: string; role: MemberRole; canCreateTasks: boolean },
+  task: { createdBy: string; state: TaskState; heldAt?: string | null },
+): { hold: boolean; resume: boolean } {
+  const may = mayHoldOrResume(viewer, task);
+  return { hold: may && canHold(task), resume: may && isOnHold(task) };
+}
+
+/**
+ * The task page's hold line (the sample §1): "On hold since 24 Oct" and who put it on hold with
+ * the reason, "Prishit: "Client hasn't sent the footage"". `since` is the IST day, worded by the
+ * caller (`formatIST(heldAt, "d MMM")`).
+ */
+export function holdLine(input: { since: string; by: string | null; reason: string | null }): {
+  title: string;
+  reason: string | null;
+} {
+  const reason = input.reason?.trim() ? `"${input.reason.trim()}"` : null;
+  return {
+    title: `On hold since ${input.since}`,
+    reason: reason && input.by ? `${input.by}: ${reason}` : reason,
+  };
+}
+
+/**
+ * Why the work controls wait on a held task, in plain words (the database refuses Start, Done and
+ * the stage ticks until the resume: W7's open question 1 on #89).
+ */
+export const HELD_WORK_NOTE = "Start, Done and the stage ticks wait until the task is resumed.";

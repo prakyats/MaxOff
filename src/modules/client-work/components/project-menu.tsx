@@ -15,6 +15,7 @@ import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 
 import type { GroupedStageRow } from "./grouped-stages-sheet";
 import type { MenuEntry } from "./project-menu-dropdown";
+import type { ProjectResumeProps } from "./project-hold-banner";
 import type { MenuBlueprint, MenuLayer, MenuProject } from "./project-menu-layers";
 import { ProjectMenuTrigger } from "./project-menu-trigger";
 
@@ -61,7 +62,13 @@ export function ProjectMenu({
   nextCycleLabel,
   itemList,
   schedule = null,
+  held = false,
+  resume = null,
 }: {
+  /** On hold (v1.9 W8): "Resume…" instead of "Put on hold…", and no next cycle. */
+  held?: boolean;
+  /** The resume sheet's facts (held, and the viewer may resume); null otherwise. */
+  resume?: ProjectResumeProps | null;
   /** The shown cycle's schedule as text ("Copy schedule as text"); null: no cycle. */
   schedule?: string | null;
   project: MenuProject & { state: ProjectState; recurrence: Recurrence };
@@ -93,13 +100,16 @@ export function ProjectMenu({
     canManage && working ? { key: "edit", label: "Edit details" } : null,
     canManage && working ? { key: "stages", label: "Default stages" } : null,
     canManage && working && recurring ? { key: "items", label: "Deliverables list" } : null,
-    canManage && working && recurring && nextCycleLabel
+    canManage && working && recurring && nextCycleLabel && !held
       ? { key: "next", label: `Start ${nextCycleLabel}` }
       : null,
     // 6b Release 2: in any state, a well-set-up project becomes the next one's starting point.
     canManage ? { key: "template", label: "Save as template" } : null,
   ].filter((entry): entry is MenuEntry => entry !== null);
   const lifecycle = [
+    // v1.9 W8 (the sample §2): the Owner and the client's Admin hold and resume.
+    canComplete && working && !held ? { key: "hold", label: "Put on hold…" } : null,
+    canComplete && working && held && resume ? { key: "resume", label: "Resume…" } : null,
     canComplete && working ? { key: "complete", label: "Complete project" } : null,
     canComplete && working ? { key: "cancel", label: "Cancel project…" } : null,
     canComplete && !working ? { key: "reopen", label: "Reopen project…" } : null,
@@ -152,6 +162,7 @@ export function ProjectMenu({
           unfinished={unfinished}
           nextCycleLabel={nextCycleLabel}
           itemList={itemList}
+          resume={resume}
         />
       ) : null}
     </>

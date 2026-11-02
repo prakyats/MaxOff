@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { ON_HOLD_CHIP, StatusDot } from "@/core/ui/composites/status-badge";
 import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
@@ -23,11 +23,13 @@ import type { ItemRowView } from "../domain/views";
 import { PlannedWords } from "./planned-words";
 
 /** Amendment D3: done is approved at once, so the list holds open items (overdue or not). */
-export type ItemListFilter = "live" | "overdue";
+export type ItemListFilter = "live" | "overdue" | "on_hold";
 
 const FILTERS: readonly { value: ItemListFilter; label: string }[] = [
   { value: "live", label: "Open" },
   { value: "overdue", label: "Overdue" },
+  // v1.9 W8: a held project's deliverables, apart (the Reports' "On hold · n deliverables").
+  { value: "on_hold", label: "On hold" },
 ];
 const ALL = "all";
 
@@ -36,6 +38,9 @@ type View = { filter: ItemListFilter; client: string; project: string };
 function matches(row: ItemRowView, view: View): boolean {
   if (view.client !== ALL && row.clientId !== view.client) return false;
   if (view.project !== ALL && row.projectId !== view.project) return false;
+  // A held project's deliverables show with their On hold chip; never Overdue (their clock is
+  // stopped, `plannedLine`), and apart under On hold.
+  if (view.filter === "on_hold") return row.onHold;
   return view.filter === "overdue" ? row.planned?.overdue === true : true;
 }
 
@@ -218,7 +223,16 @@ export function ItemList({
                         {row.cycleLabel ? ` · ${row.cycleLabel}` : ""}
                       </span>
                       <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                        <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
+                        {row.onHold ? (
+                          // v1.9 W8: a held project's deliverable reads On hold (amber).
+                          <StatusDot
+                            status={ON_HOLD_CHIP.status}
+                            tone={ON_HOLD_CHIP.tone}
+                            label={ON_HOLD_CHIP.label}
+                          />
+                        ) : (
+                          <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
+                        )}
                         {row.planned ? (
                           <span data-slot="item-list-planned">
                             <PlannedWords planned={row.planned} />

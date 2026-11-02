@@ -189,6 +189,11 @@ export type ItemRow = Item & {
   clientState: ClientState;
   cycleLabel: string | null;
   cyclePeriodEnd: string | null;
+  /**
+   * Its project is On hold since (v1.9 W8, ADR-0016; null: not held): the deliverable reads On
+   * hold, never overdue, and waits for the project's resume.
+   */
+  projectHeldAt: string | null;
 };
 
 /**

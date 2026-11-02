@@ -15,12 +15,13 @@ import {
 } from "@/core/ui/primitives/dropdown-menu";
 import { toastResult } from "@/core/ui/toast";
 
-import { cancelTask, reopenTask } from "../actions/tasks";
+import { cancelTask, holdTask, reopenTask } from "../actions/tasks";
 import type { MoreStep } from "../domain/page";
 import type { TaskActions } from "../domain/task";
 import type { AdminOption, Task, TaskAssignee } from "../domain/types";
 
 import type { TaskFormSetup } from "./task-form-dialog";
+import { type ResumeFacts, useResumeTask } from "./task-hold";
 import { useTaskView } from "./task-view";
 
 const TaskFormDialog = dynamic(
@@ -34,13 +35,14 @@ const ApproverDialog = dynamic(
   { ssr: false },
 );
 
-type Open = "edit" | "approver" | "cancel" | "reopen" | null;
+type Open = "edit" | "approver" | "cancel" | "reopen" | "hold" | null;
 
 /**
  * The task page's ⋯ (4.4; PERMISSIONS §3; Kickoff 4 decision 26: "everything else under ⋯"):
  * the viewer's other work beside the next step (Mark done while Start work is the step; the
  * Owner's "Decide it yourself" at a waiting Admin step), then Edit, Change approver (the Owner),
- * Cancel and Reopen for the task's creator, its approving Admin and the Owner. Occasional actions,
+ * Cancel and Reopen for the task's creator, its approving Admin and the Owner; **Put on hold…** and
+ * **Resume…** for its creator and the Owner (v1.9 W8, the sample §1). Occasional actions,
  * one tap deeper than the next step (PRODUCT §2). A layer like every menu (§14.2 a); each item
  * hands off to its own dialog (the work's live beside the next step, `TaskNextStep`).
  */
@@ -54,6 +56,7 @@ export function TaskMenu({
   changeApprover,
   more,
   doneLabel,
+  hold,
 }: {
   task: Task;
   assignees: TaskAssignee[];
@@ -65,10 +68,17 @@ export function TaskMenu({
   more: MoreStep[];
   /** "Mark done", "Mark done again", "Mark done for Asha". */
   doneLabel: string;
+  /**
+   * On hold (v1.9 W8): "Put on hold…" and "Resume…" for whoever may (`holdActions`), whom the
+   * hold tells ("Asha is told quietly.") and what a resume needs.
+   */
+  hold: { hold: boolean; resume: boolean; told: string; facts: ResumeFacts };
 }) {
   const [open, setOpen] = useState<Open>(null);
   const { setDialog } = useTaskView();
-  const managing = manage.edit || manage.cancel || manage.reopen || changeApprover;
+  const resume = useResumeTask(hold.facts);
+  const managing =
+    manage.edit || manage.cancel || manage.reopen || changeApprover || hold.hold || hold.resume;
   if (!managing && more.length === 0) return null;
 
   return (
@@ -106,6 +116,16 @@ export function TaskMenu({
           {manage.reopen ? (
             <DropdownMenuItem onSelect={() => setOpen("reopen")}>Reopen task</DropdownMenuItem>
           ) : null}
+          {hold.hold ? (
+            <DropdownMenuItem data-slot="task-menu-hold" onSelect={() => setOpen("hold")}>
+              Put on hold…
+            </DropdownMenuItem>
+          ) : null}
+          {hold.resume ? (
+            <DropdownMenuItem data-slot="task-menu-resume" onSelect={resume.start}>
+              {hold.facts.needsDeadline ? "Resume…" : "Resume"}
+            </DropdownMenuItem>
+          ) : null}
           {manage.cancel ? (
             <>
               <DropdownMenuSeparator />
@@ -142,6 +162,20 @@ export function TaskMenu({
         cancelLabel="Keep it"
         onSubmit={async (reason) =>
           toastResult(await cancelTask({ taskId: task.id, reason }), { success: "Task cancelled" })
+        }
+      />
+      <ReasonDialog
+        open={open === "hold"}
+        onOpenChange={(next) => setOpen(next ? "hold" : null)}
+        title={`Put "${task.title}" on hold?`}
+        description={`Reminders and the deadline pause until you resume it. ${hold.told}`}
+        label="Why"
+        placeholder="Say why it is paused. Everyone on the task sees this."
+        submitLabel="Put on hold"
+        pendingLabel="Putting on hold…"
+        cancelLabel="Keep working"
+        onSubmit={async (reason) =>
+          toastResult(await holdTask({ taskId: task.id, reason }), { success: "Task put on hold" })
         }
       />
       <ReasonDialog

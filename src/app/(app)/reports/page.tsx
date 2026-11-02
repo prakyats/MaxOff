@@ -10,8 +10,9 @@ import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 import { parsePeriod } from "@/modules/reports";
-import { todayIST } from "@/core/time";
+import { type ISODate, todayIST } from "@/core/time";
 import { getMonthSummary, monthLabel, monthOf, monthRange } from "@/modules/attendance";
+import { listOnHold } from "@/modules/client-work";
 import { formatRupees, listApprovedInMonth } from "@/modules/expenses";
 import type { MonthSummary } from "@/modules/attendance";
 
@@ -19,6 +20,7 @@ import { AdminReport } from "./admin-report";
 import { REPORTS_DESCRIPTION } from "./copy";
 import { monthStrip } from "./month-strip";
 import { MonthStripSkeleton, MonthStripView } from "./month-strip-view";
+import { type HeldProject, OnHoldLine } from "./on-hold-line";
 import {
   OWNER_REPORTS,
   REPORT_LINES_CLASS,
@@ -57,12 +59,18 @@ export default async function ReportsPage({
   const approved = can(viewer.role, "expenses.decide")
     ? listApprovedInMonth(monthRange(month))
     : Promise.resolve(null);
-  startEarly(summaries, approved);
+  // v1.9 W8: "On hold · n deliverables" this month (every client's, a count: never money).
+  const range = monthRange(month);
+  const held = listOnHold(range.first as ISODate, range.last as ISODate);
+  startEarly(summaries, approved, held);
   return (
     <>
       <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
       <Suspense fallback={<MonthStripSkeleton />}>
         <MonthStripSection summaries={summaries} approved={approved} month={monthLabel(month)} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <OnHoldSection held={held} />
       </Suspense>
       <ul data-slot="reports-list" className={REPORTS_LIST_CLASS}>
         {OWNER_REPORTS.map((report) => (
@@ -110,4 +118,15 @@ async function MonthStripSection({
     claims === null ? null : { paise, count: claims.length, words: formatRupees(paise / 100) },
   );
   return <MonthStripView strip={strip} month={month} />;
+}
+
+/** "On hold · n deliverables" (v1.9 W8), streamed: nothing at all when no project is on hold. */
+async function OnHoldSection({ held }: { held: Promise<HeldProject[]> }) {
+  const projects = await held;
+  if (projects.every((project) => project.deliverables === 0)) return null;
+  return (
+    <div className="mb-4">
+      <OnHoldLine held={projects} />
+    </div>
+  );
 }

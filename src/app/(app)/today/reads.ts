@@ -14,6 +14,7 @@ import {
   listLastChanges,
   listReviews,
   listSentBack,
+  splitHeldItems,
   weekEnd,
 } from "@/modules/client-work";
 import { listClients } from "@/modules/clients";
@@ -77,7 +78,12 @@ export const readAdminClientWork = cache(async (today: ISODate, viewerId: string
     listSentBack(viewerId),
     countItemsToDecide(today),
   ]);
-  return { due, sentBack, toDecide };
+  // v1.9 W8: a held project's deliverables wait for its resume: never due, late or sent back here.
+  return {
+    due: splitHeldItems(due).active,
+    sentBack: splitHeldItems(sentBack).active,
+    toDecide,
+  };
 });
 
 /** The own stages, reviews and last changes of the items Today shows (at most a handful). */

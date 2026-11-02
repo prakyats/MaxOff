@@ -116,18 +116,20 @@ export function DayAgenda({
                   href={`/tasks/${item.id}`}
                   data-slot="calendar-due"
                   data-task={item.id}
-                  data-tone={tone}
+                  data-tone={item.held ? "due" : tone}
+                  data-held={item.held ? "" : undefined}
                   className={cn(
                     "focus-visible:ring-ring flex min-h-9 items-center gap-1.5 rounded-md px-2 py-1 text-sm outline-none hover:brightness-95 focus-visible:ring-2",
-                    DUE_TONE[tone],
+                    DUE_TONE[item.held ? "due" : tone],
                   )}
                 >
                   <TypeDot color={item.color} />
-                  <DueIcon tone={tone} />
+                  <DueIcon tone={item.held ? "due" : tone} />
                   <span className="min-w-0 break-words">
                     <span className="font-medium">{item.title}</span>
                     <span className="tabular-nums"> · {formatTime(item.dueAt)}</span>
                     <span> · {item.owner}</span>
+                    {item.held ? <span className="font-medium"> · On hold</span> : null}
                   </span>
                 </OverlayLink>
               </li>

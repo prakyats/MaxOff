@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
+import { OnHoldBadge } from "@/core/ui/composites/status-badge";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -420,7 +421,7 @@ export function DayDetail({
                   <span
                     className={cn(
                       "w-16 shrink-0 pt-px text-xs tabular-nums",
-                      day.date < today ? "text-danger" : "text-muted-foreground",
+                      day.date < today && !item.held ? "text-danger" : "text-muted-foreground",
                     )}
                   >
                     {formatTime(item.dueAt)}
@@ -429,6 +430,7 @@ export function DayDetail({
                     <span className="font-medium break-words">{item.title}</span>
                     <span className="text-muted-foreground text-xs break-words">{item.owner}</span>
                   </span>
+                  {item.held ? <OnHoldBadge className="shrink-0" /> : null}
                   <ChevronRightIcon
                     className="text-muted-foreground mt-0.5 size-4 shrink-0"
                     aria-hidden
@@ -567,9 +569,12 @@ export function ClientItemsList({
                 <span className="text-muted-foreground text-xs break-words">
                   {item.title} · {item.project}
                   {item.done ? " · done" : ""}
-                  {late && !item.done ? <span className="text-danger"> · late</span> : null}
+                  {late && !item.done && !item.held ? (
+                    <span className="text-danger"> · late</span>
+                  ) : null}
                 </span>
               </span>
+              {item.held ? <OnHoldBadge className="shrink-0" /> : null}
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </OverlayLink>
           </li>

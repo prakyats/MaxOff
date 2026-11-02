@@ -32,6 +32,8 @@ import {
   projectIdSchema,
   type ProjectReasonInput,
   projectReasonSchema,
+  type ResumeProjectInput,
+  resumeProjectSchema,
   type StageIdInput,
   stageIdSchema,
   type UpdateBlueprintInput,
@@ -41,6 +43,7 @@ import {
   type UpdateStageInput,
   updateStageSchema,
 } from "../domain/schemas";
+import { resumeItemsPayload } from "../domain/hold";
 import type { ProjectState } from "../domain/types";
 
 /**
@@ -158,6 +161,48 @@ export const reopenProject = action(
     revalidate();
     dispatchPushSoon();
     return ok(state);
+  },
+);
+
+/**
+ * Put a project on hold (v1.9 W8; WORKFLOWS §5.5): the Owner or the client's Admin, with a reason.
+ * `project_hold` decides the scope and the state and tells the client's Admin when the Owner acts.
+ */
+export const holdProject = action(async (input: ProjectReasonInput): Promise<Result<null>> => {
+  const data = projectReasonSchema.parse(input);
+  await assertPermission("projects.complete");
+  await repo.holdProject(data.projectId, data.reason);
+  revalidate();
+  dispatchPushSoon();
+  return ok(null);
+});
+
+/**
+ * Resume a project in one go (v1.9 W8): every passed date and every ended month's choice from the
+ * resume sheet, in one `project_resume` call (one transaction; a refusal changes nothing).
+ */
+export const resumeProject = action(
+  async (
+    input: ResumeProjectInput,
+  ): Promise<Result<{ dates: number; carried: number; closed: number; leftPending: number }>> => {
+    const data = resumeProjectSchema.parse(input);
+    await assertPermission("projects.complete");
+    const settled = await repo.resumeProject(
+      data.projectId,
+      resumeItemsPayload(
+        data.items.map((entry) => ({
+          itemId: entry.itemId,
+          plannedDate: entry.plannedDate ?? null,
+          decision: entry.decision ?? null,
+          reason: entry.reason ?? null,
+          closeKind: entry.closeKind ?? null,
+        })),
+      ),
+      data.newDeliveryDate,
+    );
+    revalidate();
+    dispatchPushSoon();
+    return ok(settled);
   },
 );
 

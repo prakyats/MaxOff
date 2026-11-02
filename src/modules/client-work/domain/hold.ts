@@ -141,3 +141,42 @@ export function resumeItemsPayload(entries: readonly ResumeEntry[]): Record<stri
     ...(entry.closeKind ? { close_kind: entry.closeKind } : {}),
   }));
 }
+
+/**
+ * A cross-client list without the deliverables of held projects, and those apart (v1.9 W8;
+ * ADR-0016): held work is never overdue, never in Needs you or Today's Client work, never on the
+ * carry screen (its resume settles it). Order is kept.
+ */
+export function splitHeldItems<T extends { projectHeldAt: string | null }>(
+  rows: readonly T[],
+): { active: T[]; held: T[] } {
+  const active: T[] = [];
+  const held: T[] = [];
+  for (const row of rows) (row.projectHeldAt === null ? active : held).push(row);
+  return { active, held };
+}
+
+/**
+ * The resume sheet's lede, in the sample's words (§2): "3 deliverables passed their planned date
+ * while on hold. Give each a new date.", and the ended months' choice.
+ */
+export function resumeWords(dated: number, choosing: number): string {
+  const parts: string[] = [];
+  if (dated > 0) {
+    parts.push(
+      dated === 1
+        ? "1 deliverable passed its planned date while on hold. Give it a new date."
+        : `${dated} deliverables passed their planned date while on hold. Give each a new date.`,
+    );
+  }
+  if (choosing > 0) {
+    parts.push(
+      choosing === 1
+        ? "1 is from a month that has ended: carry it forward, close it or leave it pending."
+        : `${choosing} are from a month that has ended: carry each forward, close it or leave it pending.`,
+    );
+  }
+  return parts.length > 0
+    ? parts.join(" ")
+    : "Nothing passed its date while it was on hold, so it carries on as it was.";
+}

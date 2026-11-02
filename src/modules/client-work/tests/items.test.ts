@@ -35,7 +35,7 @@ import {
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
-import { itemView } from "../domain/views";
+import { itemRowView, itemView } from "../domain/views";
 
 const TODAY = "2026-10-08"; // a Thursday
 
@@ -940,5 +940,56 @@ describe("dueByClient (PP-admin-10)", () => {
       late: 0,
       next: "2026-10-22",
     });
+  });
+});
+
+describe("a held project's deliverables (v1.9 W8, ADR-0016)", () => {
+  const context = {
+    today: TODAY,
+    names: {},
+    ownerId: null,
+    stages: [stage({ id: "s1" })],
+    reviews: [],
+    cycleLabels: {},
+    cycleLabel: "October 2026",
+    recurrence: "monthly" as const,
+  };
+
+  it("reads On hold, never late, and waits: no tick, Mark done or send-back; Close stays", () => {
+    const late = item({ plannedDate: "2026-10-01" });
+    expect(itemView(late, context).planned?.overdue).toBe(true);
+    const view = itemView(late, { ...context, held: true });
+    expect(view.onHold).toBe(true);
+    expect(view.planned).toEqual({
+      text: "Planned 1 Oct",
+      overdue: false,
+      date: "Planned 1 Oct",
+      late: null,
+    });
+    expect(view.rules).toMatchObject({
+      ticks: false,
+      markDone: false,
+      reopen: false,
+      cancel: true,
+      editAll: true,
+    });
+    // A finished deliverable is not "On hold".
+    expect(itemView(item({ state: "cancelled" }), { ...context, held: true }).onHold).toBe(false);
+  });
+
+  it("marks a cross-client row On hold from its project, out of Overdue", () => {
+    const row = {
+      ...item({ plannedDate: "2026-10-01" }),
+      projectName: "Monthly Social",
+      clientId: "c",
+      clientName: "Yamuna",
+      adminId: null,
+      cycleLabel: "October 2026",
+    };
+    expect(itemRowView(row, TODAY).onHold).toBe(false);
+    expect(itemRowView(row, TODAY).planned?.overdue).toBe(true);
+    const held = itemRowView({ ...row, projectHeldAt: "2026-10-05T04:00:00Z" }, TODAY);
+    expect(held.onHold).toBe(true);
+    expect(held.planned?.overdue).toBe(false);
   });
 });

@@ -16,6 +16,8 @@ import {
 import type { ISODate } from "@/core/time";
 import { deletedTemplateLabel } from "@/core/lib/owner-delete";
 
+import type { ResumeRow } from "../domain/hold";
+
 import type {
   Blueprint,
   CarryDecision,
@@ -682,6 +684,79 @@ export async function reopenProject(projectId: string, reason: string): Promise<
   const { data, error } = await supabase.rpc("project_reopen", { project_id: projectId, reason });
   if (error) throw error;
   return data as ProjectState;
+}
+
+/** Put on hold (v1.9 W8, `project_hold`): the reason is required; returns when it was held. */
+export async function holdProject(projectId: string, reason: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_hold", { project_id: projectId, reason });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * What the resume must settle today (v1.9 W8, `project_resume_list`): the deliverables whose
+ * planned date passed (a new date) and those of an ended month (a choice), oldest cycle first.
+ */
+export async function listResumeRows(projectId: string): Promise<ResumeRow[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_resume_list", { project_id: projectId });
+  if (error) throw error;
+  return data.map((row) => ({
+    itemId: row.item_id,
+    title: row.title,
+    cycleLabel: row.cycle_label,
+    plannedDate: (row.planned_date as ISODate | null) ?? null,
+    monthEnded: row.month_ended,
+    needsDate: row.needs_date,
+    leftPending: row.left_pending,
+    carryForwardAllowed: row.carry_forward_allowed,
+  }));
+}
+
+/** Resume in one transaction (v1.9 W8, `project_resume`); returns what it settled. */
+export async function resumeProject(
+  projectId: string,
+  items: Record<string, unknown>[],
+  newDeliveryDate: ISODate | null,
+): Promise<{ dates: number; carried: number; closed: number; leftPending: number }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_resume", {
+    project_id: projectId,
+    items: items as Json,
+    ...(newDeliveryDate ? { new_delivery_date: newDeliveryDate } : {}),
+  });
+  if (error) throw error;
+  const result = (data ?? {}) as Record<string, unknown>;
+  const count = (key: string) => (typeof result[key] === "number" ? (result[key] as number) : 0);
+  return {
+    dates: count("dates"),
+    carried: count("carried"),
+    closed: count("closed"),
+    leftPending: count("left_pending"),
+  };
+}
+
+/**
+ * The reports' "On hold · n deliverables" (v1.9 W8, `client_work_on_hold`): each held project the
+ * viewer sees (RLS: the Owner every client, an Admin theirs, Crew none) with its unfinished
+ * deliverables in the cycles overlapping the range. A count, never an amount.
+ */
+export async function listOnHold(
+  from: ISODate | null,
+  to: ISODate | null,
+): Promise<{ clientId: string; projectId: string; deliverables: number }[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("client_work_on_hold", {
+    ...(from ? { from_date: from } : {}),
+    ...(to ? { to_date: to } : {}),
+  });
+  if (error) throw error;
+  return data.map((row) => ({
+    clientId: row.client_id,
+    projectId: row.project_id,
+    deliverables: row.deliverables,
+  }));
 }
 
 export async function startNextCycle(projectId: string): Promise<string> {

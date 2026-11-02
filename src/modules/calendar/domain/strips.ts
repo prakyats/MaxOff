@@ -50,6 +50,8 @@ export type Strip =
       /** The task's or the deliverable's title. */
       label: string;
       tone: "due" | "overdue";
+      /** On hold (v1.9 W8): amber "due", never overdue, and it says "On hold". */
+      held?: boolean;
       /** The task type's colour; null for a deliverable (no type: the tone's colour). */
       color: string | null;
     }
@@ -66,6 +68,8 @@ export type Strip =
       client: string;
       title: string;
       late: boolean;
+      /** Its project is On hold (v1.9 W8): never late, and it says "On hold". */
+      held?: boolean;
     }
   | {
       /**
@@ -212,7 +216,14 @@ export function allStrips(day: CalendarDay, today: ISODate, mode: StripMode = "n
   const badge = mode === "counts" ? dueBadge(day, today) : null;
   if (badge) strips.push({ kind: "tasks", key: "tasks", ...badge });
   for (const due of mode === "counts" ? [] : day.due) {
-    strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
+    strips.push({
+      kind: "due",
+      key: `due-${due.id}`,
+      label: due.title,
+      tone: due.held === true ? "due" : tone,
+      color: due.color,
+      ...(due.held === true ? { held: true } : {}),
+    });
   }
   // Client work after the tasks (SCOPE §6: timed tasks, due tasks, client work, "+N more").
   for (const item of mode === "counts" ? [] : day.items) {
@@ -223,7 +234,8 @@ export function allStrips(day: CalendarDay, today: ISODate, mode: StripMode = "n
       label: `${item.client} · ${item.title}`,
       client: item.client,
       title: item.title,
-      late: day.date < today,
+      late: day.date < today && item.held !== true,
+      ...(item.held === true ? { held: true } : {}),
     });
   }
   if (day.holiday) strips.push({ kind: "holiday", key: "holiday", label: day.holiday });

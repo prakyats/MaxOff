@@ -117,6 +117,8 @@ export default async function CalendarPage({
       taskTypeId: task.taskTypeId,
       primaryOwnerId: task.primaryOwnerId,
       assigneeIds: task.assignees.filter((a) => a.removedAt === null).map((a) => a.memberId),
+      // v1.9 W8: a held task shows with its chip, never overdue.
+      held: Boolean(task.heldAt),
     })),
     types: typeRows,
     clients: labels.map((label) => ({ id: label.id, name: label.name })),
@@ -139,6 +141,7 @@ export default async function CalendarPage({
               clientId: item.clientId,
               clientName: item.clientName,
               href: `/clients/${item.clientId}/projects/${item.projectId}?cycle=${item.cycleId}&item=${item.id}`,
+              held: item.projectHeldAt !== null,
             },
           ]
         : [],

@@ -132,6 +132,7 @@ function StripLine({
         </span>{" "}
         · {strip.title}
         {strip.late ? " · late" : ""}
+        {strip.held ? " · On hold" : ""}
       </span>
     );
   }
@@ -143,6 +144,7 @@ function StripLine({
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
+        data-held={strip.held ? "" : undefined}
         className={cn(
           "block rounded-sm px-1 font-medium",
           LINE[density],
@@ -153,6 +155,7 @@ function StripLine({
         {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
         {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
         {strip.label}
+        {strip.held ? " · On hold" : ""}
       </span>
     );
   }

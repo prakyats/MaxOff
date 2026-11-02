@@ -4,6 +4,8 @@ import { describeTaskActivity, type TaskActivityEntry } from "../domain/activity
 import {
   HOLD_REASON_MAX,
   canHold,
+  holdActions,
+  holdLine,
   holdReasonProblem,
   isOnHold,
   mayHoldOrResume,
@@ -12,8 +14,17 @@ import {
   resumeNeedsDeadline,
   splitOnHold,
 } from "../domain/hold";
-import { badgeCount, needsYou, type TaskListRow } from "../domain/lists";
-import { isOverdue, lateLabel } from "../domain/task";
+import { matchesState } from "../domain/list-filters";
+import {
+  badgeCount,
+  heldOpen,
+  myTaskGroups,
+  needsYou,
+  openByDeadline,
+  type TaskListRow,
+} from "../domain/lists";
+import { relativeDeadline } from "../domain/page";
+import { isOverdue, lateLabel, taskActions } from "../domain/task";
 
 /** On hold, for tasks (v1.9 W7; WORKFLOWS §3.1a, ADR-0016). */
 
@@ -173,5 +184,110 @@ describe("History says the hold and the resume", () => {
         context,
       )?.text,
     ).toMatch(/^resumed the task and moved the deadline from .*26 Oct.* to .*30 Oct/);
+  });
+});
+
+describe("the screens (W8)", () => {
+  const row: TaskListRow = {
+    id: "t",
+    title: "Reel edit",
+    state: "in_progress",
+    adminStep: "required",
+    priority: "medium",
+    dueAt: PAST,
+    clientId: null,
+    taskTypeId: "normal",
+    primaryOwnerId: "asha",
+    approvingAdminId: null,
+    createdBy: "admin",
+    submittedAt: null,
+    createdAt: PAST,
+    assignees: [
+      {
+        memberId: "asha",
+        isPrimary: true,
+        assignedAt: PAST,
+        acknowledgedAt: null,
+        removedAt: null,
+      },
+    ],
+  };
+  const heldRow = { ...row, id: "h", heldAt: PAST, holdReason: "Footage" };
+  const asha = { id: "asha", role: "staff" as const, coordinates: [] };
+
+  it("offers Put on hold or Resume only to the creator and the Owner", () => {
+    const admin = { id: "admin", role: "admin" as const, canCreateTasks: true };
+    expect(holdActions(admin, row)).toEqual({ hold: true, resume: false });
+    expect(holdActions(admin, heldRow)).toEqual({ hold: false, resume: true });
+    expect(holdActions({ ...admin, id: "admin2" }, heldRow)).toEqual({
+      hold: false,
+      resume: false,
+    });
+    expect(holdActions({ id: "asha", role: "staff", canCreateTasks: false }, heldRow)).toEqual({
+      hold: false,
+      resume: false,
+    });
+    expect(holdActions({ id: "o", role: "owner", canCreateTasks: true }, row).hold).toBe(true);
+  });
+
+  it("says since when, who and why", () => {
+    expect(holdLine({ since: "24 Oct", by: "Prishit", reason: " Client hasn't sent it " })).toEqual(
+      { title: "On hold since 24 Oct", reason: 'Prishit: "Client hasn\'t sent it"' },
+    );
+    expect(holdLine({ since: "24 Oct", by: null, reason: null }).reason).toBeNull();
+  });
+
+  it("takes Start, Done, ticks and Remind away from a held task; Task Noted stays", () => {
+    const people = {
+      asha: { name: "Asha", engagement: "permanent" as const, coordinatorId: null },
+    };
+    const todo = { ...row, state: "todo" as const };
+    const assignees = row.assignees.map((a) => ({ ...a, acknowledgedBy: null }));
+    const free = taskActions(todo, assignees, people, asha);
+    expect(free.start).not.toBeNull();
+    expect(free.done).not.toBeNull();
+    expect(free.tick).not.toBeNull();
+    const held = taskActions({ ...todo, heldAt: PAST }, assignees, people, asha);
+    expect(held.start).toBeNull();
+    expect(held.done).toBeNull();
+    expect(held.tick).toBeNull();
+    expect(held.note).toEqual([{ onBehalfOf: null }]);
+    const owner = taskActions({ ...todo, heldAt: PAST }, assignees, people, {
+      id: "o",
+      role: "owner",
+      coordinates: [],
+    });
+    expect(owner.remind).toBe(false);
+    expect(owner.manage.edit).toBe(true);
+    expect(owner.manage.cancel).toBe(true);
+  });
+
+  it("drops the distance and the overdue from a held task's deadline", () => {
+    expect(relativeDeadline(row, NOW).overdue).toBe(true);
+    const held = relativeDeadline(heldRow, NOW);
+    expect(held.overdue).toBe(false);
+    expect(held.relative).toBeNull();
+  });
+
+  it("leaves held tasks out of My tasks, Open tasks and the work state filters", () => {
+    const groups = myTaskGroups([row, heldRow], asha, NOW, "2026-10-27");
+    expect(
+      Object.values(groups)
+        .flat()
+        .map((item) => item.row.id),
+    ).toEqual(["t"]);
+    expect(openByDeadline([row, heldRow], new Set()).map((one) => one.id)).toEqual(["t"]);
+    expect(heldOpen([row, heldRow]).map((one) => one.id)).toEqual(["h"]);
+    expect(heldOpen([heldRow], { id: "ravi", role: "staff", coordinates: [] })).toEqual([]);
+    const filterable = (held: boolean) => ({
+      state: "in_progress" as const,
+      held,
+    });
+    expect(matchesState(filterable(true), "on_hold")).toBe(true);
+    expect(matchesState(filterable(true), "open")).toBe(false);
+    expect(matchesState(filterable(true), "in_progress")).toBe(false);
+    expect(matchesState(filterable(true), "all")).toBe(true);
+    expect(matchesState(filterable(false), "on_hold")).toBe(false);
+    expect(matchesState(filterable(false), "open")).toBe(true);
   });
 });

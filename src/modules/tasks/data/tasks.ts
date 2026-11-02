@@ -741,6 +741,28 @@ export async function rpcRemind(taskId: string): Promise<string> {
   return data;
 }
 
+/** Put on hold (v1.9 W8, `task_hold`): the reason is required; returns when it was held. */
+export async function rpcHold(taskId: string, reason: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("task_hold", { task_id: taskId, reason });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Resume (v1.9 W8, `task_resume`): a new deadline when the old one passed (the function refuses
+ * otherwise); returns the deadline now in force.
+ */
+export async function rpcResume(taskId: string, newDueAt: string | null): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc(
+    "task_resume",
+    newDueAt ? { task_id: taskId, new_due_at: newDueAt } : { task_id: taskId },
+  );
+  if (error) throw error;
+  return data;
+}
+
 export async function rpcCancel(taskId: string, reason: string): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("task_cancel", { task_id: taskId, reason });

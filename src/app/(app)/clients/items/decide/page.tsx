@@ -1,10 +1,13 @@
+import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { startEarly } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
+import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { listItemRows, shortDate, sortItemRows } from "@/modules/client-work";
+import { OnHoldBadge } from "@/core/ui/composites/status-badge";
+import { listItemRows, shortDate, sortItemRows, splitHeldItems } from "@/modules/client-work";
 import { CarryDecider, type DecideGroup } from "@/modules/client-work/components/carry-decider";
 
 export const metadata: Metadata = { title: "Unfinished deliverables" };
@@ -34,7 +37,21 @@ export default async function DecidePage({
   });
   startEarly(reads);
   await requirePermission("cycles.carry_decide");
-  const rows = sortItemRows(await reads);
+  // v1.9 W8: a held project's ended months wait for its resume (no carry decision while held).
+  const { active: rows, held } = splitHeldItems(sortItemRows(await reads));
+  const heldProjects = [
+    ...new Map(
+      held.map((row) => [
+        row.projectId,
+        {
+          href: `/clients/${row.clientId}/projects/${row.projectId}`,
+          name: row.projectName,
+          client: row.clientName,
+          count: held.filter((other) => other.projectId === row.projectId).length,
+        },
+      ]),
+    ).values(),
+  ];
   const groups = new Map<string, DecideGroup>();
   const ends = new Map<string, string>();
   for (const row of rows) {
@@ -75,7 +92,36 @@ export default async function DecidePage({
         help={DESCRIPTION}
         back={{ href: "/today", label: "Today" }}
       />
-      <div className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-4">
+        {heldProjects.length > 0 ? (
+          <ul
+            aria-label="On hold"
+            data-slot="decide-on-hold"
+            className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
+          >
+            {heldProjects.map((project) => (
+              <li key={project.href}>
+                <DrillLink
+                  href={project.href}
+                  className="focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="font-medium break-words">
+                      {project.name} · {project.client}
+                    </span>
+                    <span className="text-muted-foreground text-xs break-words">
+                      {project.count === 1
+                        ? "1 unfinished deliverable waits: its resume settles it."
+                        : `${project.count} unfinished deliverables wait: its resume settles them.`}
+                    </span>
+                  </span>
+                  <OnHoldBadge className="shrink-0" />
+                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                </DrillLink>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <CarryDecider groups={ordered} />
       </div>
     </>

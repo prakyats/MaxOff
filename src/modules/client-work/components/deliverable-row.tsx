@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { ErrorText } from "@/core/ui/composites/error-text";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
@@ -84,14 +84,18 @@ function PlannedText({
   /** The laptop's Planned column: "15 Oct · 1 day late", without the word "Planned". */
   short?: boolean;
 }) {
+  // v1.9 W8: a held project's open deliverable says "On hold" (amber), never late (the sample §2).
+  const held = item.onHold ? <OnHoldBadge className="ml-1.5 align-middle" /> : null;
   if (!item.planned) {
     return (
       <span
         data-slot="item-planned"
         data-planned="none"
+        data-held={item.onHold ? "" : undefined}
         className={cn("text-muted-foreground", className)}
       >
         Not planned
+        {held}
       </span>
     );
   }
@@ -100,10 +104,12 @@ function PlannedText({
       data-slot="item-planned"
       data-planned={item.planned.overdue ? "late" : "planned"}
       data-tone={item.planned.overdue ? "danger" : undefined}
+      data-held={item.onHold ? "" : undefined}
       className={cn("text-muted-foreground", className)}
     >
       {/* The date, then the lateness as a red chip (the design gate, 23 Oct). */}
       <PlannedWords planned={item.planned} short={short} />
+      {held}
     </span>
   );
 }

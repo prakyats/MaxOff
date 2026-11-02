@@ -18,6 +18,7 @@ import {
   countRequestsToDecide,
   countTasks,
   forLabel,
+  heldOpen,
   lateLabel,
   listUnreadCounts,
   MY_GROUP_TITLES,
@@ -26,6 +27,7 @@ import {
   needsYou,
   needsYouSummary,
   type NeedsYouItem,
+  onHoldLine,
   openByDeadline,
   PRIORITY_LABELS,
   rowMeta,
@@ -44,6 +46,9 @@ import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../reads";
 
 export const metadata: Metadata = { title: "Tasks" };
+
+/** Where "On hold · n" leads: the full list on its On hold state (v1.9 W8, a drill-down). */
+const ON_HOLD_HREF = "/tasks/all?state=on_hold";
 
 /** The open tasks shown on the first screen before "See all tasks" (PRODUCT §2: depth one tap). */
 const OPEN_ON_FIRST_SCREEN = 15;
@@ -122,6 +127,7 @@ export default async function TasksPage() {
         <TasksFreshOnReturn renderId={crypto.randomUUID()} />
         <MyTasks
           groups={groups}
+          held={heldOpen(rows, listViewer).length}
           week={week}
           viewer={listViewer}
           context={context}
@@ -139,6 +145,8 @@ export default async function TasksPage() {
   // B2: the heading counts the rows shown; the approvals link only for tasks not already rows (B3).
   const summary = needsYouSummary({ needs, toDecide: counts.toDecide, links: [requests] });
   const nothingNeeded = summary.count === 0;
+  // v1.9 W8: held tasks leave Needs you and Open tasks; one line opens them (the sample §1).
+  const held = onHoldLine(heldOpen(rows).length);
 
   return (
     <>
@@ -234,6 +242,11 @@ export default async function TasksPage() {
         )}
 
         <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
+          {held ? (
+            <MoreLink href={ON_HOLD_HREF} slot="tasks-on-hold">
+              {held}
+            </MoreLink>
+          ) : null}
           <MoreLink href="/tasks/all" slot="tasks-see-all">
             {open.length > OPEN_ON_FIRST_SCREEN
               ? `See all ${open.length + needs.length} open tasks, and finished ones`
@@ -251,6 +264,7 @@ export default async function TasksPage() {
 /** Staff "My tasks" (decision 17), a coordinator's freelancers mixed in "for Asha". */
 function MyTasks({
   groups,
+  held,
   week,
   viewer,
   context,
@@ -259,6 +273,8 @@ function MyTasks({
   unread,
 }: {
   groups: ReturnType<typeof myTaskGroups>;
+  /** The viewer's own held tasks (v1.9 W8): left out of the groups, one line opens them. */
+  held: number;
   week: ReturnType<typeof ownWeek>;
   viewer: { id: string; role: "owner" | "admin" | "staff"; coordinates: string[] };
   context: Parameters<typeof rowMeta>[1];
@@ -329,6 +345,11 @@ function MyTasks({
               )
             )}
             <nav aria-label="More tasks" className="flex flex-col gap-2" data-slot="tasks-more">
+              {held > 0 ? (
+                <MoreLink href={ON_HOLD_HREF} slot="tasks-on-hold">
+                  {onHoldLine(held)}
+                </MoreLink>
+              ) : null}
               {reviewing > 0 ? (
                 // view-link: navigation (the full list is another page, opened on this filter)
                 <MoreLink href="/tasks/all?state=review" slot="tasks-with-reviewers">

@@ -33,10 +33,13 @@ function dayDistance(from: string, to: string): number {
 /**
  * The deadline as the first glance says it (decision 26: "Due today 6:00 pm · in 3 h", red when
  * overdue). The day is named relative to today in IST (today, tomorrow, yesterday, the weekday
- * within the week ahead), else the date, with the year when it is not this one. A completed or
- * cancelled task keeps the date and drops the distance.
+ * within the week ahead), else the date, with the year when it is not this one. A completed,
+ * cancelled or held task keeps the date and drops the distance.
  */
-export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date): RelativeDeadline {
+export function relativeDeadline(
+  task: Pick<Task, "dueAt" | "state"> & { heldAt?: string | null },
+  now: Date,
+): RelativeDeadline {
   const today = toISTDate(now);
   const day = toISTDate(task.dueAt);
   const days = dayDistance(today, day);
@@ -54,7 +57,8 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
               ? `${formatIST(task.dueAt, "EEE d MMM")}, ${time}`
               : `${formatIST(task.dueAt, "EEE d MMM yyyy")}, ${time}`;
   const label = `Due ${when}`;
-  if (isFinal(task.state)) return { label, relative: null, overdue: false };
+  // A held task's clock is stopped (v1.9 W8): the date stays, never a distance or "overdue".
+  if (isFinal(task.state) || task.heldAt) return { label, relative: null, overdue: false };
   const left = Date.parse(task.dueAt) - now.getTime();
   if (left >= 0)
     return { label, relative: left < MINUTE ? "now" : `in ${spanWords(left)}`, overdue: false };

@@ -11,6 +11,8 @@ import {
   resumeProblems,
   type ResumeEntry,
   type ResumeRow,
+  resumeWords,
+  splitHeldItems,
 } from "../domain/hold";
 
 /** On hold, for projects (v1.9 W7; WORKFLOWS §5.5): the resume sheet's rules, as project_resume's. */
@@ -212,5 +214,31 @@ describe("the project's history says the hold and the resume", () => {
         context,
       )?.text,
     ).toBe("resumed the project and moved the delivery date to 9 Nov");
+  });
+});
+
+describe("the screens' On hold (v1.9 W8)", () => {
+  it("keeps a held project's deliverables apart, in order", () => {
+    const rows = [
+      { id: "a", projectHeldAt: null },
+      { id: "b", projectHeldAt: "2026-10-20T04:00:00Z" },
+      { id: "c", projectHeldAt: null },
+    ];
+    expect(splitHeldItems(rows)).toEqual({
+      active: [rows[0], rows[2]],
+      held: [rows[1]],
+    });
+  });
+
+  it("words the resume sheet's lede as the sample", () => {
+    expect(resumeWords(3, 0)).toBe(
+      "3 deliverables passed their planned date while on hold. Give each a new date.",
+    );
+    expect(resumeWords(1, 1)).toBe(
+      "1 deliverable passed its planned date while on hold. Give it a new date. 1 is from a month that has ended: carry it forward, close it or leave it pending.",
+    );
+    expect(resumeWords(0, 0)).toBe(
+      "Nothing passed its date while it was on hold, so it carries on as it was.",
+    );
   });
 });

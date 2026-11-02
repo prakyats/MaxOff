@@ -252,14 +252,19 @@ export type TaskActions = {
  * includes removed rows (ignored here).
  */
 export function taskActions(
-  task: Pick<Task, "state" | "primaryOwnerId" | "approvingAdminId" | "createdBy">,
+  task: Pick<Task, "state" | "primaryOwnerId" | "approvingAdminId" | "createdBy"> & {
+    heldAt?: string | null;
+  },
   assignees: readonly TaskAssignee[],
   people: PeopleIndex,
   viewer: TaskViewer,
 ): TaskActions {
   const active = activeAssignees(assignees);
   const final = isFinal(task.state);
-  const locked = isLocked(task.state);
+  // v1.9 W8: a held task's work waits (Start, Done, ticks and Remind are refused until the
+  // resume, `app.on_hold_guard`); Task Noted, comments, edits and Cancel stay.
+  const held = Boolean(task.heldAt);
+  const locked = isLocked(task.state) || held;
   const own = active.find((a) => a.memberId === viewer.id) ?? null;
   // The freelancers on this task the viewer coordinates now, the primary owner first.
   const coordinated = active
@@ -313,7 +318,7 @@ export function taskActions(
 
   return {
     note,
-    start: task.state === "todo" ? worker : null,
+    start: task.state === "todo" && !held ? worker : null,
     done,
     tick: locked ? null : worker,
     review,
