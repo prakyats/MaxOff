@@ -1,18 +1,23 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
 
 import { formatIST, istDayStart, systemClock, type ISODate } from "@/core/time";
 import { CalendarScreen } from "@/modules/calendar/components/calendar-screen";
-import type { DayActionLook } from "@/modules/calendar/components/day-action-row";
 import { canStartTaskOnDate, NewTaskOnDayButton } from "@/modules/tasks/components/new-task-button";
-import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog";
 
-/** "Fri 30 Oct": a calendar day as its action names it (the approved v1.9 sample, W5). */
-function dayWords(date: ISODate): string {
-  return formatIST(istDayStart(date), "EEE d MMM");
-}
+/**
+ * Crew's "Suggest a task on ‹day›" in its own chunk (v1.9 W5): rendered on the server like the rest
+ * (in the first paint, nothing moves), but out of the calendar's first-load JS, which the Owner and
+ * Admins (who never get it) share; the route's budget is never raised (ARCHITECTURE §19).
+ */
+const SuggestTaskButton = dynamic(() =>
+  import("@/modules/tasks/components/suggest-task-button").then(
+    (module) => module.SuggestTaskButton,
+  ),
+);
 
 /**
  * The calendar with its day action (6.4b; Kickoff 6 decision 25 D), composed by the route from the
@@ -37,28 +42,30 @@ export function CalendarClient({
   // with no valid deadline left, a day before today (IST) or today from 11:59 pm IST, where the
   // form could only refuse its own prefill. Crew's suggestion follows the same days (v1.9 W5).
   const open = (date: ISODate) => date >= screen.today && canStartTaskOnDate(date, systemClock());
-  // The laptop month's "+" in a day's box (PP-calendar-13) is the same button, icon only.
-  const newTask = (date: ISODate, look: DayActionLook | "icon") =>
+  // "Fri 30 Oct": the day as its action names it (the approved v1.9 sample, W5).
+  const words = (date: ISODate) => formatIST(istDayStart(date), "EEE d MMM");
+  // `row`: the pinned row; `icon`: the laptop month's "+" in a day's box (PP-calendar-13).
+  const newTask = (date: ISODate, row?: boolean, icon?: boolean) =>
     create && open(date) ? (
       <NewTaskOnDayButton
         setup={create}
         date={date}
-        icon={look === "icon"}
-        row={look === "row"}
-        label={`New task on ${dayWords(date)}`}
+        icon={icon}
+        row={row}
+        label={`New task on ${words(date)}`}
       />
     ) : null;
   const dayAction = create
-    ? (date: ISODate, look: DayActionLook) => newTask(date, look)
+    ? newTask
     : suggest
-      ? (date: ISODate, look: DayActionLook) =>
+      ? (date: ISODate, row?: boolean) =>
           open(date) ? (
             <SuggestTaskButton
               clients={suggest}
-              details={`For ${dayWords(date)}.`}
-              label={`Suggest a task on ${dayWords(date)}`}
-              row={look === "row"}
-              {...(look === "row" ? {} : { className: "max-w-full rounded-full" })}
+              details={`For ${words(date)}.`}
+              label={`Suggest a task on ${words(date)}`}
+              row={row}
+              className={row ? undefined : "max-w-full rounded-full"}
             />
           ) : null
       : null;
@@ -66,7 +73,7 @@ export function CalendarClient({
     <CalendarScreen
       {...screen}
       dayAction={dayAction}
-      quickAdd={create ? (date: ISODate) => newTask(date, "icon") : null}
+      quickAdd={create ? (date: ISODate) => newTask(date, false, true) : null}
     />
   );
 }

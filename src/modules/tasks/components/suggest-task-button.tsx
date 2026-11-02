@@ -7,9 +7,7 @@ import { useState } from "react";
 import { cn } from "@/core/lib/utils";
 import { Button } from "@/core/ui/primitives/button";
 
-import { DAY_ROW_BUTTON } from "./new-task-button";
-
-const DEFAULT_LABEL = "Suggest a task";
+import { DAY_ROW_BUTTON } from "./day-row-button";
 
 /** The form (a select, a textarea) loads when it first opens (§19), as "New task" does. */
 const SuggestTaskDialog = dynamic(
@@ -28,7 +26,7 @@ export function SuggestTaskButton({
   clients,
   variant = "strong",
   details,
-  label = DEFAULT_LABEL,
+  label = "Suggest a task",
   row,
   className,
 }: {
@@ -48,8 +46,8 @@ export function SuggestTaskButton({
   /** "Suggest a task on Fri 30 Oct" in a calendar day (v1.9 W5); "Suggest a task" elsewhere. */
   label?: string;
   /** The pinned row at the foot of a calendar day (v1.9 W5): the whole row is the button. */
-  row?: boolean;
-  className?: string;
+  row?: boolean | undefined;
+  className?: string | undefined;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -59,6 +57,7 @@ export function SuggestTaskButton({
         onClick={() => setOpen(true)}
         data-slot="suggest-task"
         data-quiet={variant === "quiet" ? "" : undefined}
+        data-row={row ? "" : undefined}
         className={cn(
           variant === "quiet" &&
             "text-muted-foreground hover:text-foreground -ml-2 px-2 underline-offset-4 hover:bg-transparent hover:underline",
@@ -69,7 +68,7 @@ export function SuggestTaskButton({
         <LightbulbIcon aria-hidden />
         {/* A calendar day's longer label ellipsises at a very large text size, never wider than
             its row (as "New task on ‹day›"). */}
-        {label === DEFAULT_LABEL ? label : <span className="min-w-0 truncate">{label}</span>}
+        <span className="min-w-0 truncate">{label}</span>
       </Button>
       {open ? (
         <SuggestTaskDialog

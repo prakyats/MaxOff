@@ -9,6 +9,7 @@ import type { ISODate } from "@/core/time";
 import { Button } from "@/core/ui/primitives/button";
 
 import { canStartTaskOnDate } from "../domain/start-on-date";
+import { DAY_ROW_BUTTON } from "./day-row-button";
 import type { TaskFormSetup } from "./task-form-dialog";
 
 /**
@@ -25,14 +26,6 @@ const TaskFormDialog = dynamic(
 );
 
 const CREATE = { kind: "create" } as const;
-
-/**
- * The look of a calendar day's pinned action row (v1.9 W5, the approved sample's "+ New task on
- * Fri 30 Oct" at the foot of a day): the whole row is the button, quiet (a trigger that opens a
- * form, never a second solid on the layer), its words left-aligned, a 44 px target.
- */
-export const DAY_ROW_BUTTON =
-  "h-auto min-h-11 w-full max-w-full justify-start rounded-none px-3 text-sm font-medium";
 
 /**
  * "+ New task on Fri 30 Oct" in a calendar day (6.4b; Kickoff 6 decision 25 D; `tasks.create`):
@@ -52,8 +45,8 @@ export function NewTaskOnDayButton({
   setup: Promise<TaskFormSetup | null>;
   date: ISODate;
   label: string;
-  icon?: boolean;
-  row?: boolean;
+  icon?: boolean | undefined;
+  row?: boolean | undefined;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -65,6 +58,7 @@ export function NewTaskOnDayButton({
         onClick={() => setOpen(true)}
         data-slot={icon ? "calendar-add-task" : "new-task-on-day"}
         data-date={date}
+        data-row={row ? "" : undefined}
         aria-label={icon ? label : undefined}
         // Never wider than its row: at a very large text size the label ellipsises (the owner's
         // phone walk found "New task on 13 Nov" past a 375 px screen's edge at 200 %).

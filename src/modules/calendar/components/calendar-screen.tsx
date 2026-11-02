@@ -60,7 +60,6 @@ import {
   showsSwitch,
 } from "../domain/show";
 import { dayLabel } from "../domain/strips";
-import { type DayActionLook, pinnedAction } from "./day-action-row";
 import { AllDayChips, DayDetail, eventLink } from "./day-detail";
 import type { FilterChoices } from "./filters-sheet";
 import { useHeaderFit, useLeaveFit } from "./leave-fit";
@@ -153,7 +152,7 @@ export function CalendarScreen({
    * phone's day and the laptop's day dialog, the pinned row (`row`) at the foot of the laptop's Day
    * and a phone's day sheet (v1.9 W5).
    */
-  dayAction: ((date: ISODate, look: DayActionLook) => ReactNode) | null;
+  dayAction: ((date: ISODate, row?: boolean) => ReactNode) | null;
   /** The laptop month's "+" in a day's box (PP-calendar-13: New task on it), or none. */
   quickAdd: ((date: ISODate) => ReactNode) | null;
 }) {
@@ -299,8 +298,7 @@ export function CalendarScreen({
     return () => window.removeEventListener("keydown", listener);
   }, [desktop]);
 
-  const action = (date: ISODate, look: DayActionLook = "pill") =>
-    dayAction ? dayAction(date, look) : null;
+  const action = (date: ISODate, row?: boolean) => (dayAction ? dayAction(date, row) : null);
   const freeOf = (date: ISODate) => (free ? (free[date] ?? null) : null);
 
   // The phone's swipes, on the calendar (the grid or the strip) and on the handle under it:
@@ -800,7 +798,7 @@ export function CalendarScreen({
               laptop
               // v1.9 W5: the day's action pinned at the foot of its timeline, under the hours'
               // scroll; none on a past day or on today from 11:59 pm IST.
-              footer={pinnedAction(action(selected, "row"))}
+              footer={action(selected, true)}
               className="border-border rounded-lg border"
             />
             {/* The day's side panel: the timeline's height, its own scroll when the day is full. */}
@@ -826,7 +824,7 @@ export function CalendarScreen({
           scope={scope}
           free={freeOf(sheetDate)}
           action={action(sheetDate)}
-          pinned={pinnedAction(action(sheetDate, "row"))}
+          pinned={action(sheetDate, true)}
           footer={
             <button
               type="button"

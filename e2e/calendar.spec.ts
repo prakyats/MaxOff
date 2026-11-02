@@ -2518,8 +2518,8 @@ const WIDTHS_CREW = [768, 900, 1024, 1180, 1280, 1440] as const;
  * today (nor on today from 11:59 pm IST: `canStartTaskOnDate`, unit-tested).
  */
 test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
-  /** The pinned row: the laptop Day's timeline foot, or the phone's day sheet foot. */
-  const pinned = (page: Page) => page.locator('[data-slot="calendar-day-action"]:visible');
+  /** The pinned row (the button is the row): the laptop Day's timeline foot, or the sheet's foot. */
+  const pinned = (page: Page) => page.locator("[data-row]:visible");
 
   /** Opens `date` where its pinned row lives: the laptop's Day, or the phone's full month's sheet. */
   async function openDay(page: Page, info: TestInfo, date: string) {
@@ -2555,7 +2555,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       const scroll = element.querySelector<HTMLElement>(
         '[data-slot="calendar-day-body"], [data-slot="calendar-hours"]',
       );
-      const action = element.querySelector<HTMLElement>('[data-slot="calendar-day-action"]');
+      const action = element.querySelector<HTMLElement>("[data-row]");
       return {
         below:
           (action?.getBoundingClientRect().top ?? 0) -
@@ -2574,11 +2574,11 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       const day = workingDay(3);
       await openDay(page, info, day);
       await expectPinnedAtFoot(page, info);
-      const button = pinned(page).locator('[data-slot="new-task-on-day"]');
+      const button = pinned(page).and(page.locator('[data-slot="new-task-on-day"]'));
       await expect(button).toHaveText(`New task on ${shortDay(day)}`);
       // A trigger that opens a form: quiet, never a second solid on the layer (ADR-0015).
       await expect(button).toHaveAttribute("data-variant", "ghost");
-      await expect(pinned(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
+      await expect(pinned(page).and(page.locator('[data-slot="suggest-task"]'))).toHaveCount(0);
       await button.click();
       const form = page.locator('[data-slot="task-form-dialog"]');
       await expect(form).toBeVisible();
@@ -2589,7 +2589,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
 
       const past = addISTDays(todayIST(), -1);
       await openDay(page, info, past);
-      await expect(page.locator('[data-slot="calendar-day-action"]')).toHaveCount(0);
+      await expect(page.locator("[data-row]")).toHaveCount(0);
       await expect(page.locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
     });
 
@@ -2611,7 +2611,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       }
       await dayBox(page, day).click();
       await expect(daySheet(page)).toHaveAttribute("data-date", day);
-      await pinned(page).locator('[data-slot="new-task-on-day"]').click();
+      await pinned(page).and(page.locator('[data-slot="new-task-on-day"]')).click();
       const form = page.locator('[data-slot="task-form-dialog"]');
       await expect(form).toBeVisible();
       await expectBackStack(page, [
@@ -2633,7 +2633,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       );
       await openDay(page, info, today);
       await expectPinnedAtFoot(page, info);
-      const button = pinned(page).locator('[data-slot="new-task-on-day"]');
+      const button = pinned(page).and(page.locator('[data-slot="new-task-on-day"]'));
       await expect(button).toHaveText(`New task on ${shortDay(today)}`);
       await button.click();
       const form = page.locator('[data-slot="task-form-dialog"]');
@@ -2653,9 +2653,9 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       const day = workingDay(3);
       await openDay(page, info, day);
       await expectPinnedAtFoot(page, info);
-      const button = pinned(page).locator('[data-slot="suggest-task"]');
+      const button = pinned(page).and(page.locator('[data-slot="suggest-task"]'));
       await expect(button).toHaveText(`Suggest a task on ${shortDay(day)}`);
-      await expect(pinned(page).locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+      await expect(pinned(page).and(page.locator('[data-slot="new-task-on-day"]'))).toHaveCount(0);
       await button.click();
       const dialog = page.getByRole("dialog", { name: "Suggest a task" });
       await expect(dialog).toBeVisible();
@@ -2667,7 +2667,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
 
       const past = addISTDays(todayIST(), -1);
       await openDay(page, info, past);
-      await expect(page.locator('[data-slot="calendar-day-action"]')).toHaveCount(0);
+      await expect(page.locator("[data-row]")).toHaveCount(0);
       await expect(page.locator('[data-slot="suggest-task"]')).toHaveCount(0);
     });
   });

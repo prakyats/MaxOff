@@ -45,7 +45,7 @@ export function DaySheet({
   scope: CalendarScope;
   free: string | null;
   action: ReactNode;
-  /** The phone's pinned row for the day's action (`pinnedAction`), or none. */
+  /** The phone's pinned row for the day's action (v1.9 W5), or none. */
   pinned: ReactNode;
   /** "Open day" on the laptop. */
   footer?: ReactNode;
@@ -118,7 +118,7 @@ export function DaySheet({
             />
           </div>
           {/* The row spans the sheet; its words line up with the day's rows above. */}
-          {pinned ? <div className="-mx-4 min-w-0 shrink-0 [&_button]:px-4">{pinned}</div> : null}
+          {pinned ? <div className="-mx-4 flex shrink-0">{pinned}</div> : null}
         </DialogContent>
       )}
     </Dialog>
