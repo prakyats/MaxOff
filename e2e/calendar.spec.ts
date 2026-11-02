@@ -1637,6 +1637,13 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
           cut: chip.scrollWidth > chip.clientWidth,
           wraps: style.whiteSpace !== "nowrap",
           text: chip.textContent ?? "",
+          // How many "…" the chip draws: itself and every part inside it cut with an ellipsis
+          // (v1.9 W10: one at most, never "Ya… …").
+          ellipses: [chip, ...chip.querySelectorAll<HTMLElement>("*")].filter(
+            (part) =>
+              getComputedStyle(part).textOverflow === "ellipsis" &&
+              part.scrollWidth > part.clientWidth,
+          ).length,
         };
       }),
     );
@@ -1671,6 +1678,8 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
       }
       expect(lines[0]?.cut, `the event's long title ends in "…"`).toBe(true);
       expect(lines[1]?.cut, "the count reads whole").toBe(false);
+      for (const line of lines)
+        expect(line.ellipses, `${line.kind}: one "…" at most`).toBeLessThanOrEqual(1);
       await expect(
         box.locator(
           '[data-slot="calendar-strip"][data-kind="due"], [data-slot="calendar-strip"][data-kind="item"]',
@@ -1684,6 +1693,9 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
       for (const line of lines) {
         expect(line, `${line.kind} is one line`).toMatchObject({ oneLine: true, wraps: false });
         expect(line.cut, `${line.kind}'s long words end in "…"`).toBe(true);
+        // One ellipsis at most (v1.9 W10), its own text never a typed "…".
+        expect(line.ellipses, `${line.kind} draws one "…"`).toBe(1);
+        expect(line.text, `${line.kind}'s words are whole`).not.toContain("…");
       }
       // The client first, outlined (not filled).
       const item = box.locator('[data-slot="calendar-strip"][data-kind="item"]');
@@ -1879,7 +1891,8 @@ test.describe("today's mark", () => {
  * at its own width (nothing shrinks: the view control keeps its 288 px and each segment its word,
  * never "DWMonth"), no two controls' boxes overlap, nothing reaches past the toolbar or is
  * clipped inside its own box, the laptop's 32 px controls keep their height, and the controls are
- * neutral (the colour rule: no red in the toolbar). The rows are read by measurement: a row break
+ * neutral (the colour rule: no red in the toolbar but the outline of a view that hides work, v1.9
+ * W9, whose fill and words stay neutral). The rows are read by measurement: a row break
  * is allowed only where the parts on either side of it would not have fitted the toolbar's width
  * together. Returns how many rows it found.
  */
@@ -1915,7 +1928,11 @@ async function expectToolbar(page: Page, label: string): Promise<number> {
           ...box(node),
           visible: node.checkVisibility({ opacityProperty: false }),
           clipped: node.scrollWidth > node.clientWidth + 0.5,
-          colours: [style.backgroundColor, style.borderTopColor, style.color],
+          // A view that hides work is outlined red (v1.9 W9, the ADR-0015 amendment of
+          // 2026-10-23): its border is checked by the W9 spec; its fill and words stay neutral.
+          colours: node.hasAttribute("data-narrowed")
+            ? [style.backgroundColor, style.color]
+            : [style.backgroundColor, style.borderTopColor, style.color],
         };
       });
     const gap = parseFloat(getComputedStyle(element).columnGap) || 0;
@@ -2190,13 +2207,33 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await expect(menu).toHaveCount(0);
     await expect.poll(() => shownLabel(trigger)).toBe("Client work");
     await expect(trigger).toHaveAttribute("data-current", "client");
-    // A subtle neutral selected state, never red: the Filters button's own active look.
-    const look = await trigger.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { background: style.backgroundColor, border: style.borderTopColor, ink: style.color };
-    });
-    expect(look.background, "a neutral fill").not.toBe("rgba(0, 0, 0, 0)");
-    for (const colour of Object.values(look)) {
+    // A view that hides work is outlined red (v1.9 W9, the ADR-0015 amendment of 2026-10-23,
+    // replacing v1.8's neutral selected look); its fill and words stay neutral. The colours ease
+    // for 120 ms (`pressable`): read once they have settled.
+    const lookOf = () =>
+      trigger.evaluate((element) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--destructive)";
+        document.body.append(probe);
+        const red = getComputedStyle(probe).color;
+        probe.remove();
+        const style = getComputedStyle(element);
+        return {
+          red,
+          border: style.borderTopColor,
+          background: style.backgroundColor,
+          ink: style.color,
+        };
+      });
+    await expect
+      .poll(async () => {
+        const drawn = await lookOf();
+        return drawn.border === drawn.red;
+      })
+      .toBe(true);
+    const look = await lookOf();
+    expect(look.border, "the red outline").toBe(look.red);
+    for (const colour of [look.background, look.ink]) {
       const [r = 0, g = 0, b = 0] = (colour.match(/[\d.]+/g) ?? []).map(Number);
       expect(Math.max(r, g, b) - Math.min(r, g, b), `${colour} is neutral`).toBeLessThan(24);
     }
@@ -2330,10 +2367,10 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     // No switch row of its own, no laptop toolbar.
     await expect(page.locator('[data-slot="calendar-show"]')).toHaveCount(0);
     await expect(page.locator('[data-slot="calendar-controls"]:visible')).toHaveCount(0);
-    // Filters is an icon: its name says it; a dot while a filter is on.
+    // Filters is an icon: its name says it; "·n" beside it while a filter is on (v1.9 W9).
     const filters = header.locator('[data-slot="calendar-filters-button"]');
     await expect(filters).toHaveAccessibleName("Filters");
-    await expect(filters.locator('[data-slot="calendar-filters-dot"]')).toHaveCount(0);
+    await expect(filters.locator('[data-slot="calendar-filters-count"]')).toHaveCount(0);
     // The longest label.
     await chooseShow(page, "client");
     await expect(trigger).toHaveAttribute("data-current", "client");
@@ -2408,11 +2445,11 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await page.setViewportSize({ width: 430, height: 932 });
     await expect.poll(() => shownLabel(trigger)).toBe("Client work");
     await chooseShow(page, "all");
-    // A filter on: the dot, and the name says how many.
+    // A filter on: "·1" beside the icon (v1.9 W9, which replaced v1.8's dot), and the name says how many.
     await page.goto(`/calendar?date=${day}&status=done`);
     await hydrated(page);
     await expect(filters).toHaveAccessibleName("Filters · 1 on");
-    await expect(filters.locator('[data-slot="calendar-filters-dot"]')).toBeVisible();
+    await expect(filters.locator('[data-slot="calendar-filters-count"]')).toHaveText("·1");
     // The phone's full-month leave bar picks its wording as the laptop's does (owner, #89 comment
     // 6370526089; "a leave bar never truncates" checks each wording).
     await page.goto(`/calendar?date=${day}`);
@@ -2671,4 +2708,135 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       await expect(page.locator('[data-slot="suggest-task"]')).toHaveCount(0);
     });
   });
+});
+
+/**
+ * v1.9 W9 (owner 2026-10-23; the ADR-0015 amendment of that day; the approved v1.9 sample §9): a
+ * view that hides work is outlined red. `All ▾` on Tasks or Client work, and Filters with real
+ * filters on ("Filters · 2" on a laptop, "·2" beside the phone's icon), take the thin
+ * `--destructive` outline, their text neutral; All and no filters stay neutral. At 375, 430 and
+ * 1280 (the three projects), in both themes. View controls: the address never changes for All ▾
+ * (the toolbar's and header's own tests prove they add no history).
+ */
+test.describe("v1.9 W9: a narrowed calendar view is outlined red", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  const filtersButton = (page: Page) =>
+    page.locator('[data-slot="calendar-filters-button"]:visible');
+
+  /** The outline as drawn: its colour, `--destructive` resolved, and the text's colour. */
+  async function outline(button: Locator) {
+    return button.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--destructive)";
+      document.body.append(probe);
+      const red = getComputedStyle(probe).color;
+      probe.remove();
+      const style = getComputedStyle(element);
+      return {
+        narrowed: element.hasAttribute("data-narrowed"),
+        red,
+        border: style.borderTopColor,
+        width: parseFloat(style.borderTopWidth),
+        text: style.color,
+      };
+    });
+  }
+
+  // The border's colour eases for 120 ms (`pressable`): polled until it settles.
+  async function expectRed(button: Locator, what: string) {
+    await expect
+      .poll(
+        async () => {
+          const drawn = await outline(button);
+          return drawn.border === drawn.red;
+        },
+        { message: `${what}: the red outline` },
+      )
+      .toBe(true);
+    const drawn = await outline(button);
+    expect(drawn.narrowed, `${what}: marked narrowed`).toBe(true);
+    expect(drawn.width, `${what}: a thin outline`).toBeGreaterThanOrEqual(1);
+    expect(drawn.text, `${what}: the words stay neutral`).not.toBe(drawn.red);
+  }
+
+  async function expectNeutral(button: Locator, what: string) {
+    await expect
+      .poll(
+        async () => {
+          const drawn = await outline(button);
+          return drawn.border !== drawn.red;
+        },
+        { message: `${what}: no red outline` },
+      )
+      .toBe(true);
+    expect((await outline(button)).narrowed, `${what}: not narrowed`).toBe(false);
+  }
+
+  for (const theme of ["light", "dark"] as const) {
+    test(`${theme}: All neutral, Tasks and Client work outlined; Filters · n outlined, none neutral`, async ({
+      page,
+    }, info) => {
+      if (!isPhone(info)) await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto("/calendar");
+      await page.evaluate((value) => {
+        window.localStorage.setItem("theme", value);
+        window.localStorage.removeItem("maxoff.calendar.show");
+      }, theme);
+      await page.goto("/calendar");
+      await hydrated(page);
+      if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+      else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+
+      const shows = showControl(page);
+      const filters = filtersButton(page);
+      await expect(shows).toHaveAttribute("data-current", "all");
+      await expectNeutral(shows, "All");
+      await expectNeutral(filters, "no filters");
+      if (isPhone(info)) {
+        await expect(filters).toHaveAccessibleName("Filters");
+        await expect(filters.locator('[data-slot="calendar-filters-count"]')).toHaveCount(0);
+      } else {
+        await expect.poll(() => shownLabel(filters)).toBe("Filters");
+      }
+
+      const address = page.url();
+      for (const show of ["tasks", "client"] as const) {
+        await chooseShow(page, show);
+        await expect(showControl(page)).toHaveAttribute("data-current", show);
+        await expectRed(showControl(page), show);
+      }
+      expect(page.url(), "a view control: the address is unchanged").toBe(address);
+      await chooseShow(page, "all");
+      await expectNeutral(showControl(page), "All again");
+
+      // Two real filters: a status and a type.
+      const type = await taskTypeId("Normal");
+      for (const [query, count] of [
+        [`status=done&type=${type}`, 2],
+        ["status=open", 1],
+      ] as const) {
+        await page.goto(`/calendar?${query}`);
+        await hydrated(page);
+        const on = filtersButton(page);
+        await expect(on).toHaveAttribute("data-count", String(count));
+        await expectRed(on, `${count} filters`);
+        if (isPhone(info)) {
+          await expect(on).toHaveAccessibleName(`Filters · ${count} on`);
+          await expect(on.locator('[data-slot="calendar-filters-count"]')).toHaveText(`·${count}`);
+          // The same 44 px icon button, on the header's one row.
+          const box = await on.boundingBox();
+          expect(box?.width).toBeGreaterThanOrEqual(44);
+          expect(box?.height).toBeGreaterThanOrEqual(44);
+          const header = phone(page).locator('[data-slot="calendar-header"]');
+          expect(await header.evaluate((row) => row.scrollWidth <= row.clientWidth)).toBe(true);
+        } else {
+          await expect.poll(() => shownLabel(on)).toBe(`Filters · ${count}`);
+        }
+        // All ▾ keeps its own state: All is neutral with filters on.
+        await expectNeutral(showControl(page), `All with ${count} filters`);
+        await expectNoHorizontalScroll(page);
+      }
+    });
+  }
 });
