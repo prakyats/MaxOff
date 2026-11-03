@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
+import { GUIDE_SHOTS } from "../src/modules/guide/domain/shots.generated";
 import { type DemoIds, GUIDE_SHOT_LIST, type GuideRole, type GuideShot } from "./guide-shots";
 import {
   memberIdOf,
@@ -37,6 +38,11 @@ import {
  * writes `public/guide/<role>/<name>.webp` and the manifest
  * `src/modules/guide/domain/shots.generated.ts`. The registry is the source: a release re-runs this
  * to refresh every picture.
+ *
+ * `GUIDE_ONLY=owner/task-hold-menu,staff/task-on-hold pnpm guide:screenshots` makes only the listed
+ * pictures (a comma-separated list of ids, or of prefixes ending in `*`: `owner/task-hold*`); every
+ * other picture and its manifest entry stay as they are. For a release's new topics, when the rest
+ * would be retaken at a time of day that changes them (End day, the working hours).
  */
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -60,6 +66,19 @@ const ACCENT = "#2563eb";
 const MANIFEST = "src/modules/guide/domain/shots.generated.ts";
 
 const { owner, admin, staff } = USERS;
+
+/** The pictures this run makes: `GUIDE_ONLY`'s ids and `prefix*`es, or every one. */
+const ONLY = (process.env.GUIDE_ONLY ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter((entry) => entry !== "");
+const matches = (entry: string, id: string) =>
+  entry.endsWith("*") ? id.startsWith(entry.slice(0, -1)) : id === entry;
+const wanted = (id: string) => ONLY.length === 0 || ONLY.some((entry) => matches(entry, id));
+const unknown = ONLY.filter((entry) => !GUIDE_SHOT_LIST.some((shot) => matches(entry, shot.id)));
+if (unknown.length > 0) {
+  throw new Error(`GUIDE_ONLY names no picture in e2e/guide-shots.ts: ${unknown.join(", ")}`);
+}
 
 /** The names the pictures show for the three seeded sign-ins: roles, never a person. */
 const DISPLAY_NAMES = {
@@ -174,8 +193,37 @@ const CLIENT = "Sample Client";
 const PRESET = "Video steps";
 const TEMPLATE = "Monthly reels";
 /** Every task the demo makes starts with one of these; earlier copies are removed by them. */
-const TASK_TITLES = ["Reel 1 edit", "Reel 2 edit", "Reel 3 edit", "Reel 4 edit", "Post 1 design"];
+const TASK_TITLES = [
+  "Reel 1 edit",
+  "Reel 2 edit",
+  "Reel 3 edit",
+  "Reel 4 edit",
+  "Post 1 design",
+  "Post 2 design",
+];
+/** Why the demo's held task and held project wait (v1.9 On hold). */
+const HOLD_REASON = "Client hasn't sent the footage";
+const PROJECT_HOLD_REASON = "Client paused content for Diwali week";
 const REQUEST = "Refresh the studio backdrop";
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+/** "October 2026", as a monthly cycle is labelled. */
+function monthLabel(day: string): string {
+  return `${MONTHS[Number(day.slice(5, 7)) - 1]} ${day.slice(0, 4)}`;
+}
 
 function workingDay(offset: number): string {
   let day = addISTDays(todayIST(), offset);
@@ -370,6 +418,56 @@ async function makeDemo(): Promise<DemoIds> {
     decision: "approved",
   });
 
+  // On hold (v1.9): the Admin's "Post 2 design", noted by the Crew member and held, its deadline
+  // passed meanwhile (so Resume asks for a new one); and a monthly project held with a deliverable
+  // whose date passed and one left in last month (the resume sheet's two kinds of row).
+  const held = await createTask({
+    title: "Post 2 design",
+    by: admin,
+    approver: adminId,
+    stages: cut,
+    day: 2,
+    ...crew,
+  });
+  await rpc(staff, "task_acknowledge", { task_id: held });
+  await rpc(admin, "task_hold", { task_id: held, reason: HOLD_REASON });
+  await rpc(owner, "task_update_assignment", {
+    task_id: held,
+    changes: { due_at: istInstant(addISTDays(todayIST(), -1), "18:00") },
+  });
+  const heldProjectId = await rpc<string>(admin, "project_create_grouped", {
+    client_id: client.id,
+    name: "Festive campaign",
+    recurrence: "monthly",
+    stage_groups: [{ label: null, stages: ["Edit", "Review"] }],
+    deliverables: [{ title: "Festive reel", stage_groups: null }],
+  });
+  const [festiveReel] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${heldProjectId}&select=id`,
+  );
+  await serviceUpdate(`project_items?id=eq.${festiveReel?.id}`, {
+    planned_date: addISTDays(todayIST(), -1),
+  });
+  const monthStart = `${todayIST().slice(0, 8)}01` as ReturnType<typeof todayIST>;
+  const lastMonthEnd = addISTDays(monthStart, -1);
+  const lastMonth = await serviceInsert<{ id: string }>("project_cycles", {
+    org_id: orgId,
+    project_id: heldProjectId,
+    period_start: `${lastMonthEnd.slice(0, 8)}01`,
+    period_end: lastMonthEnd,
+    label: monthLabel(lastMonthEnd),
+    generated_by: "schedule",
+  });
+  await serviceInsert("project_items", {
+    org_id: orgId,
+    project_id: heldProjectId,
+    cycle_id: lastMonth.id,
+    origin_cycle_id: lastMonth.id,
+    title: "Teaser cut",
+    position: "a0",
+  });
+  await rpc(admin, "project_hold", { project_id: heldProjectId, reason: PROJECT_HOLD_REASON });
+
   // The Crew member's waiting requests.
   await rpc(staff, "leave_submit", {
     type: "leave",
@@ -391,8 +489,9 @@ async function makeDemo(): Promise<DemoIds> {
   return {
     clientId: client.id,
     projectId,
+    heldProjectId,
     staffId,
-    tasks: { notNoted, started, handedIn, checked, ownerOnly },
+    tasks: { notNoted, started, handedIn, checked, ownerOnly, held },
   };
 }
 
@@ -710,7 +809,10 @@ for (const role of ["staff", "admin", "owner"] as const satisfies readonly Guide
     try {
       const page = await signInAs(context, role);
       const converter = await context.newPage();
-      for (const shot of GUIDE_SHOT_LIST.filter((entry) => entry.id.startsWith(`${role}/`))) {
+      const shots = GUIDE_SHOT_LIST.filter(
+        (entry) => entry.id.startsWith(`${role}/`) && wanted(entry.id),
+      );
+      for (const shot of shots) {
         try {
           await capture(page, converter, shot);
         } catch (error) {
@@ -732,10 +834,13 @@ test.afterAll(() => {
   }
 });
 
-/** `src/modules/guide/domain/shots.generated.ts`: every picture made, in the registry's order. */
+/**
+ * `src/modules/guide/domain/shots.generated.ts`: every picture made, in the registry's order. A
+ * `GUIDE_ONLY` run keeps the entries of the pictures it did not make.
+ */
 function writeManifest(): void {
   const lines = GUIDE_SHOT_LIST.flatMap((shot) => {
-    const entry = produced.get(shot.id);
+    const entry = produced.get(shot.id) ?? (wanted(shot.id) ? undefined : GUIDE_SHOTS[shot.id]);
     if (!entry) return [];
     return [
       `  ${JSON.stringify(shot.id)}: {`,

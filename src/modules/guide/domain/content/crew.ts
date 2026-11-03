@@ -527,8 +527,14 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "On My tasks, tap “On hold · n” to see your held tasks.",
-                "Open one to read why it is on hold. You can still note it and chat.",
+                {
+                  text: "On My tasks, tap “On hold · n” (highlighted) to see your held tasks.",
+                  shot: "staff/tasks-on-hold",
+                },
+                {
+                  text: "Open one to read why it is on hold (highlighted). You can still note it and chat.",
+                  shot: "staff/task-on-hold",
+                },
               ],
             },
             {

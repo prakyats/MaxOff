@@ -582,10 +582,22 @@ export const OWNER_GUIDE: Guide = {
               "When a task cannot go on for now (the client has not sent the footage, say), put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. You can hold any task that is still with its people; an Admin can hold the tasks they created.",
             ),
             steps(
-              'Open the task, tap the ⋯ menu and tap "Put on hold…".',
-              'Write why, then tap "Put on hold". "Keep working" closes the question.',
-              'To go on, tap "Resume" on the amber "On hold since ‹date›" line (or "Resume…" in ⋯).',
-              "If the deadline passed while it was on hold, choose a new deadline and time, then tap Resume.",
+              {
+                text: 'Open the task, tap the ⋯ menu and tap "Put on hold…" (highlighted).',
+                shot: "owner/task-hold-menu",
+              },
+              {
+                text: 'Write why, then tap "Put on hold" (highlighted). "Keep working" closes the question.',
+                shot: "owner/task-hold-sheet",
+              },
+              {
+                text: 'To go on, tap "Resume" (highlighted) on the amber "On hold since ‹date›" line (or "Resume…" in ⋯).',
+                shot: "owner/task-hold-line",
+              },
+              {
+                text: 'If the deadline passed while it was on hold, choose a new deadline (highlighted) and time, then tap "Resume".',
+                shot: "owner/task-resume-sheet",
+              },
             ),
             next(
               'The people on it are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
@@ -1398,10 +1410,22 @@ export const OWNER_GUIDE: Guide = {
               'When a client pauses work, put the project on hold. No new monthly or weekly cycles are made and no escalations or reminders go out. Its open deliverables show an amber "On hold" chip, never late, and wait: nothing is ticked, marked done or sent back until it resumes.',
             ),
             steps(
-              'Open the project\'s ⋯ menu and tap "Put on hold…".',
-              'Write why, then tap "Put on hold". The client\'s Admin is told.',
-              'To go on, tap "Resume…" on the amber "On hold since ‹date›" banner (or in ⋯).',
-              "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending.",
+              {
+                text: 'Open the project\'s ⋯ menu and tap "Put on hold…" (highlighted).',
+                shot: "owner/project-hold-menu",
+              },
+              {
+                text: 'Write why, then tap "Put on hold" (highlighted). The client\'s Admin is told.',
+                shot: "owner/project-hold-sheet",
+              },
+              {
+                text: 'To go on, tap "Resume…" (highlighted) on the amber "On hold since ‹date›" banner (or in ⋯).',
+                shot: "owner/project-hold-banner",
+              },
+              {
+                text: "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending (the list, highlighted).",
+                shot: "owner/project-resume-sheet",
+              },
               'Tap "Resume project": everything is settled in one go.',
             ),
             next(

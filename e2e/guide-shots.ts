@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { addISTDays, todayIST } from "../src/core/time";
 import { openMoreOptions } from "./helpers";
 
 /**
@@ -21,6 +22,8 @@ export type GuideRole = "owner" | "admin" | "staff";
 export type DemoIds = {
   clientId: string;
   projectId: string;
+  /** "Festive campaign": a monthly project On hold, one deliverable's date passed, one from last month. */
+  heldProjectId: string;
   staffId: string;
   tasks: {
     /** "Reel 1 edit": assigned to the Crew member, not noted yet; made by the Admin. */
@@ -33,6 +36,8 @@ export type DemoIds = {
     checked: string;
     /** "Post 1 design": handed in, straight to the Owner. */
     ownerOnly: string;
+    /** "Post 2 design": made by the Admin, noted, On hold; its deadline passed while held. */
+    held: string;
   };
 };
 
@@ -154,6 +159,111 @@ async function newProjectWithDeliverables(page: Page): Promise<void> {
   });
 }
 
+/** The task's ⋯ open (the Owner, or the Admin who created it, sees Put on hold…). */
+const openTaskMenu = (page: Page) => tap(page, "Task actions");
+
+/** A hold's reason sheet from ⋯, its reason written, not sent. */
+async function holdSheet(page: Page, menu: () => Promise<void>): Promise<void> {
+  await menu();
+  await page.getByRole("menuitem", { name: "Put on hold…" }).click();
+  await layer(page).getByLabel("Why").fill("Client hasn't sent the footage");
+}
+
+/** A held task's Resume, its deadline passed: the new-deadline sheet, a date and time chosen. */
+async function resumeTaskSheet(page: Page): Promise<void> {
+  await slot(page, "task-resume").click();
+  const sheet = layer(page);
+  await sheet.getByLabel("New deadline").fill(addISTDays(todayIST(), 1));
+  await sheet.getByLabel("Time").fill("17:30");
+}
+
+/** The held project's resume sheet open, its rows listed. */
+async function resumeProjectSheet(page: Page): Promise<void> {
+  await slot(page, "project-resume").click();
+  await layer(page).locator('[data-slot="resume-row"]').first().waitFor();
+}
+
+const heldTask = (demo: DemoIds) => `/tasks/${demo.tasks.held}`;
+const heldProject = (demo: DemoIds) => `/clients/${demo.clientId}/projects/${demo.heldProjectId}`;
+
+/**
+ * On hold (v1.9), the same eight pictures for the Owner and the Admin (who created the tasks and
+ * runs the client): Put on hold… in ⋯, the reason sheet, the amber line or banner with Resume, and
+ * the resume sheet, for a task and for a project.
+ */
+function holdShots(role: "owner" | "admin"): GuideShot[] {
+  return [
+    {
+      id: `${role}/task-hold-menu`,
+      path: (demo) => `/tasks/${demo.tasks.started}`,
+      prepare: openTaskMenu,
+      highlight: (page) => page.getByRole("menuitem", { name: "Put on hold…" }),
+      crop: main,
+      alt: "A task's ⋯ menu open with Put on hold… highlighted.",
+    },
+    {
+      id: `${role}/task-hold-sheet`,
+      path: (demo) => `/tasks/${demo.tasks.started}`,
+      prepare: (page) => holdSheet(page, () => openTaskMenu(page)),
+      highlight: (page) => layer(page).getByRole("button", { name: "Put on hold", exact: true }),
+      crop: layer,
+      badge: 2,
+      alt: "The Put on hold sheet with its reason written and the Put on hold button highlighted.",
+    },
+    {
+      id: `${role}/task-hold-line`,
+      path: heldTask,
+      highlight: (page) => slot(page, "task-resume"),
+      crop: main,
+      badge: 3,
+      alt: "A task On hold: the amber chip, the On hold since line with the reason and its Resume button highlighted.",
+    },
+    {
+      id: `${role}/task-resume-sheet`,
+      path: heldTask,
+      prepare: resumeTaskSheet,
+      highlight: (page) => layer(page).getByLabel("New deadline"),
+      crop: layer,
+      badge: 4,
+      alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
+    },
+    {
+      id: `${role}/project-hold-menu`,
+      path: project,
+      prepare: (page) => tap(page, "Actions for Monthly retainer"),
+      highlight: (page) => page.getByRole("menuitem", { name: "Put on hold…" }),
+      crop: main,
+      alt: "The project's ⋯ menu open with Put on hold… highlighted.",
+    },
+    {
+      id: `${role}/project-hold-sheet`,
+      path: project,
+      prepare: (page) => holdSheet(page, () => tap(page, "Actions for Monthly retainer")),
+      highlight: (page) => layer(page).getByRole("button", { name: "Put on hold", exact: true }),
+      crop: layer,
+      badge: 2,
+      alt: "The project's Put on hold sheet with its reason written and the Put on hold button highlighted.",
+    },
+    {
+      id: `${role}/project-hold-banner`,
+      path: heldProject,
+      highlight: (page) => slot(page, "project-resume"),
+      crop: main,
+      badge: 3,
+      alt: "A project On hold: the amber banner with the reason, its deliverables On hold, and Resume… highlighted.",
+    },
+    {
+      id: `${role}/project-resume-sheet`,
+      path: heldProject,
+      prepare: resumeProjectSheet,
+      highlight: (page) => layer(page).locator('[data-slot="resume-rows"]'),
+      crop: layer,
+      badge: 4,
+      alt: "The Resume sheet listing a deliverable that needs a new date and one from an ended month with its choices, highlighted.",
+    },
+  ];
+}
+
 // ── The pictures ───────────────────────────────────────────────────────────────────────────────
 
 export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
@@ -239,6 +349,21 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => layer(page).getByLabel("Note (optional)"),
     crop: layer,
     alt: "The Mark done dialog with its Note field highlighted.",
+  },
+  {
+    id: "staff/tasks-on-hold",
+    path: "/tasks",
+    highlight: (page) => slot(page, "tasks-on-hold"),
+    crop: main,
+    alt: "Tasks with the On hold line highlighted under the lists.",
+  },
+  {
+    id: "staff/task-on-hold",
+    path: heldTask,
+    highlight: (page) => slot(page, "task-hold-line"),
+    crop: main,
+    badge: 2,
+    alt: "A task On hold: the amber chip and the On hold since line with the reason, highlighted.",
   },
   {
     id: "staff/suggest-task",
@@ -435,6 +560,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: main,
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
+  ...holdShots("admin"),
   {
     id: "admin/stage-presets",
     path: "/settings/templates#presets",
@@ -684,6 +810,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: main,
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
+  ...holdShots("owner"),
   {
     id: "owner/send-back",
     path: project,

@@ -507,10 +507,22 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the task, tap ⋯ and choose Put on hold….",
-                "Write why, then tap Put on hold. Keep working closes the question.",
-                "To go on, tap Resume on the amber “On hold since ‹date›” line (or Resume in ⋯).",
-                "If the deadline passed while it was on hold, choose a new deadline and time, then tap Resume.",
+                {
+                  text: "Open the task, tap ⋯ and choose Put on hold… (highlighted).",
+                  shot: "admin/task-hold-menu",
+                },
+                {
+                  text: "Write why, then tap Put on hold (highlighted). Keep working closes the question.",
+                  shot: "admin/task-hold-sheet",
+                },
+                {
+                  text: "To go on, tap Resume (highlighted) on the amber “On hold since ‹date›” line (or Resume in ⋯).",
+                  shot: "admin/task-hold-line",
+                },
+                {
+                  text: "If the deadline passed while it was on hold, choose a new deadline (highlighted) and time, then tap Resume.",
+                  shot: "admin/task-resume-sheet",
+                },
               ],
             },
             {
@@ -1465,10 +1477,22 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the project, tap ⋯ and choose Put on hold….",
-                "Write why, then tap Put on hold.",
-                "To go on, tap Resume… on the amber “On hold since ‹date›” banner (or in ⋯).",
-                "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending.",
+                {
+                  text: "Open the project, tap ⋯ and choose Put on hold… (highlighted).",
+                  shot: "admin/project-hold-menu",
+                },
+                {
+                  text: "Write why, then tap Put on hold (highlighted).",
+                  shot: "admin/project-hold-sheet",
+                },
+                {
+                  text: "To go on, tap Resume… (highlighted) on the amber “On hold since ‹date›” banner (or in ⋯).",
+                  shot: "admin/project-hold-banner",
+                },
+                {
+                  text: "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending (the list, highlighted).",
+                  shot: "admin/project-resume-sheet",
+                },
                 "Tap Resume project: everything is settled in one go.",
               ],
             },
