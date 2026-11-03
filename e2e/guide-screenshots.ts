@@ -643,6 +643,10 @@ test.describe.configure({ mode: "serial" });
  * 6:00 pm end. So the run is between 11:15 am and 5:30 pm IST, and refuses to start otherwise.
  */
 function assertDaytime(): void {
+  // A run-once escape (owner, 3 Nov 2026 evening: "the guide pictures may be taken at night"):
+  // `GUIDE_ANYTIME=1` skips this guard for one run; the default stays daytime only. A working-hours
+  // picture that cannot show its daytime state at night is then kept from the last daytime run.
+  if (process.env.GUIDE_ANYTIME === "1") return;
   const [hours, minutes] = systemClock()
     .toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })
     .split(":")
