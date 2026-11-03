@@ -32,7 +32,8 @@
 // table's Gate column says PASS / FAIL / SKIP with the reason, a summary line follows, each
 // failing route is a `::error::` annotation, and the process exits 1. The compare:
 //   --pair <base>        (the workflow's way) staging is probed in the same run, request by
-//                        request after this base, and the gate judges this base against it
+//                        request beside this base (which of the two goes first alternates per
+//                        sample, 2026-11-03), and the gate judges this base against it
 //                        (staging's own rows are printed for reference, not gated);
 //   --compare-to <file>  this run is the candidate; the file is staging's `--out`;
 //   --candidate <file>   this run is staging; the file is the candidate's `--out`, and the gate
@@ -53,6 +54,9 @@
 // `/diagnostics/timing` (member-only JSON, numbers only) adds the layout's own chain measured on
 // the Worker: claims, then the one wave (P2): the member row, the push status, the counts (`session_bundle()`)
 // and the own-day read, each from the wave's start, and the wave itself, in ms.
+// Since 2026-11-03 every `/diagnostics/timing` sample of the fresh and kept-alive passes keeps its
+// answer too, and a table sets each sample's TTFB beside the Worker's own `total`: whether a slow
+// sample's time went in the chain or outside it. Observation only: the gate judges what it did.
 //
 // Where this runs matters: a GitHub runner sits in the US, so every Worker → Supabase (Mumbai)
 // round trip costs ~200 ms there against a few tens from India. That exaggerates a waterfall
@@ -373,7 +377,11 @@ function statusOk(route, status) {
  */
 function diagnose(sample, route, at, kind) {
   const { head, ...rest } = sample;
-  if (sample.status !== 0 && statusOk(route, sample.status)) return rest;
+  if (sample.status !== 0 && statusOk(route, sample.status)) {
+    // `/diagnostics/timing` answers its own Worker-side chain: kept for every sample, so a slow
+    // one shows whether the time went in the chain or outside it (advisor 2026-11-03).
+    return route.path === TIMING_PATH ? { ...rest, body: timingBody(head) } : rest;
+  }
   const failure = { ray: sample.ray, body: head, ...(sample.error ? { error: sample.error } : {}) };
   process.stderr.write(
     `sample ${sample.status === 0 ? "failed" : `HTTP ${sample.status}`}: ${route.name} (${kind}) ${at}${
@@ -381,6 +389,18 @@ function diagnose(sample, route, at, kind) {
     } cf-ray=${sample.ray || "none"}${sample.error ? ` error=${sample.error}` : ""} body=${JSON.stringify(head)}\n`,
   );
   return { ...rest, failure };
+}
+
+const TIMING_PATH = "/diagnostics/timing";
+
+/** A `/diagnostics/timing` answer's numbers (it holds nothing else but the role), or null. */
+function timingBody(text) {
+  try {
+    const parsed = JSON.parse(text);
+    return Object.fromEntries(Object.entries(parsed).filter(([, v]) => typeof v === "number"));
+  } catch {
+    return null;
+  }
 }
 
 async function json(url, headers) {
@@ -465,11 +485,15 @@ async function main() {
   const Agent = transport.Agent;
 
   const results = [];
+  // Which base goes first alternates per sample (advisor 2026-11-03): with `--pair`, a fixed order
+  // always put the branch's request right after the route before it and staging's right after the
+  // branch's, so neither side met the same neighbour. Observation only: nothing judged changes.
+  const turn = (i) => (i % 2 === 0 ? bases : [...bases].reverse());
   // Fresh connections, routes interleaved so no route gets every warm isolate or every cold one;
   // with `--pair`, each request goes to every base in turn.
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      for (const at of bases) {
+      for (const at of turn(i)) {
         const agent = new Agent({ keepAlive: false });
         const r = await request(at + route.path, { agent, headers: headersFor(route) }).catch(
           failed,
@@ -494,7 +518,7 @@ async function main() {
   }
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      for (const at of bases) {
+      for (const at of turn(i)) {
         const r = await request(at + route.path, {
           agent: keep.get(at),
           headers: headersFor(route),
@@ -515,7 +539,7 @@ async function main() {
   if (cookie) {
     const reads = new Map(bases.map((at) => [at, []]));
     for (let i = 0; i < samples; i++) {
-      for (const at of bases) {
+      for (const at of turn(i)) {
         reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
       }
     }
@@ -661,6 +685,27 @@ function report({ plan, who, base, label, results, chain }, { compare, out, gate
     lines.push(`| ${keys.map((k) => ms(median(chain.map((r) => r[k])))).join(" | ")} |`);
     const info = Object.entries(chain[0]).filter(([, v]) => typeof v !== "number");
     if (info.length) lines.push("", info.map(([k, v]) => `${k}: \`${String(v)}\``).join(" · "));
+  }
+  const timed = results.filter((r) => r.route === TIMING_PATH && r.body && r.body.total >= 0);
+  if (timed.length > 0) {
+    lines.push("");
+    lines.push(
+      "**`/diagnostics/timing`, every sample** (TTFB here; `total`: the Worker's own chain from the same answer; outside: TTFB − total, the hop, the proxy and anything before or after the handler):",
+    );
+    lines.push("");
+    lines.push("| Conn | TTFB p50 | Worker total p50 | Outside p50 | Samples (TTFB/total) |");
+    lines.push("|---|---|---|---|---|");
+    for (const kind of ["fresh", "reused"]) {
+      const rows = timed.filter((r) => r.kind === kind);
+      if (rows.length === 0) continue;
+      lines.push(
+        `| ${kind === "reused" ? "warm" : "fresh"} | ${ms(median(rows.map((r) => r.ttfb)))} | ${ms(
+          median(rows.map((r) => r.body.total)),
+        )} | ${ms(median(rows.map((r) => r.ttfb - r.body.total)))} | ${rows
+          .map((r) => `${ms(r.ttfb)}/${ms(r.body.total)}`)
+          .join(" · ")} |`,
+      );
+    }
   }
   lines.push("");
   const text = lines.join("\n");
