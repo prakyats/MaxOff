@@ -59,12 +59,19 @@ export function TaskStages({
   tick,
   canManage,
   lockedNote,
+  held = false,
 }: {
   taskId: string;
   stages: StageRow[];
   tick: ActingFor | null;
   canManage: boolean;
   lockedNote: string | null;
+  /**
+   * The task is on hold (v1.9 W8): no stage can be ticked, so the rows read disabled (muted names,
+   * `aria-disabled`, the checkbox out of the tab order) and nobody taps one to be refused (advisor
+   * design pass). Editors still add, remove and move stages.
+   */
+  held?: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const online = useOnline();
@@ -172,6 +179,7 @@ export function TaskStages({
               className="border-border flex items-center gap-1 border-t pr-1 first:border-t-0"
             >
               <label
+                aria-disabled={held || undefined}
                 className={cn(
                   "flex min-h-12 min-w-0 flex-1 items-center gap-3 py-2 pl-3",
                   tick ? "cursor-pointer" : "cursor-default",
@@ -195,7 +203,8 @@ export function TaskStages({
                   <span
                     className={cn(
                       "text-sm break-words",
-                      stage.done && "text-muted-foreground line-through",
+                      (stage.done || held) && "text-muted-foreground",
+                      stage.done && "line-through",
                     )}
                   >
                     {stage.name}

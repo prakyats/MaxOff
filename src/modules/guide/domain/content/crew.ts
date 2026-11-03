@@ -554,7 +554,7 @@ export const CREW_GUIDE: Guide = {
                   shot: "staff/tasks-on-hold",
                 },
                 {
-                  text: "Open one to read why it is on hold (highlighted). You can still note it and chat.",
+                  text: "Open one to read why it is on hold (highlighted). Its stages are greyed out until it is resumed. You can still note it and chat.",
                   shot: "staff/task-on-hold",
                 },
               ],

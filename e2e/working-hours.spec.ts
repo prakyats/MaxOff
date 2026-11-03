@@ -210,6 +210,8 @@ test("Crew: a late Start day asks the reason; the strip shows Late, the reason a
   await expect(hours.locator('[data-slot="attendance-end-line"]')).toHaveText(
     /^Your day ends at \d{1,2}:\d{2} [ap]m$/,
   );
+  // The usual " · " between the late part and the day's end (the design pass).
+  await expect(hours.locator('[data-slot="attendance-hours-sep"]')).toHaveText("·");
   // Before the end time End day is "Ask to leave early".
   await expect(strip(page).getByRole("button", { name: "Ask to leave early" })).toBeVisible();
   await expect(strip(page).getByRole("button", { name: "End day" })).toHaveCount(0);

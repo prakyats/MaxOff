@@ -271,6 +271,13 @@ test.describe("Crew on a held task", () => {
     await expect(page.getByRole("button", { name: "Start work" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Mark done/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Task actions" })).toHaveCount(0);
+    // The stage reads disabled: nobody taps a tick to be refused (the design pass).
+    const stage = page.locator('[data-slot="task-stage"]').filter({ hasText: "Cut" });
+    await expect(stage.locator("label")).toHaveAttribute("aria-disabled", "true");
+    await expect(stage.getByRole("checkbox", { name: "Cut" })).toBeDisabled();
+    await expect(page.locator('[data-slot="task-stages-locked"]')).toHaveText(
+      "On hold: the stages wait until the task is resumed.",
+    );
     await expectNoHorizontalScroll(page);
     const refused = await rpcRefusedAs(staff.email, staff.password, "task_start", {
       task_id: taskId,
@@ -330,6 +337,12 @@ test.describe("a project on hold", () => {
     const banner = page.locator('[data-slot="project-hold-banner"]');
     await expect(banner).toContainText("On hold since");
     await expect(banner).toContainText("Client paused content for Diwali week");
+    // The ring claims no pace while held: the amber On hold chip, never On track (design pass).
+    await expect(page.locator('[data-slot="cycle-pace"]')).toHaveText("On hold");
+    await expect(page.locator('[data-slot="cycle-pace"]')).toHaveAttribute(
+      "data-tone",
+      "attention",
+    );
     const reel3Row = rows.filter({ hasText: "Reel 3" });
     await expect(reel3Row.locator('[data-status="on_hold"]:visible').first()).toHaveText("On hold");
     await expect(reel3Row.locator('[data-planned="late"]')).toHaveCount(0);

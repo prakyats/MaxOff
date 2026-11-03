@@ -473,15 +473,19 @@ function workPanel({
 }): ReactNode {
   const latest = data.submissions[0] ?? null;
   const locked = isLocked(task.state);
+  // v1.9 W8: a held task's ticks wait for the resume (the hold line above says why).
+  const held = isOnHold(task);
   const lockedNote = isFinal(task.state)
     ? task.state === "completed"
       ? "The task is complete."
       : "The task is cancelled."
-    : locked
-      ? "Locked while it's with the reviewers. Chat stays open."
-      : actions.tick
-        ? null
-        : "The people on the task tick its stages.";
+    : held
+      ? "On hold: the stages wait until the task is resumed."
+      : locked
+        ? "Locked while it's with the reviewers. Chat stays open."
+        : actions.tick
+          ? null
+          : "The people on the task tick its stages.";
   const event = eventLabel(task);
 
   const brief =
@@ -524,6 +528,7 @@ function workPanel({
         tick={actions.tick}
         canManage={actions.manage.stages}
         lockedNote={lockedNote}
+        held={held}
       />
     ) : null;
 

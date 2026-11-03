@@ -593,7 +593,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Pause any task with a reason; resume it when it can go on.",
           blocks: [
             text(
-              "When a task cannot go on for now (the client has not sent the footage, say), put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. You can hold any task that is still with its people; an Admin can hold the tasks they created.",
+              "When a task cannot go on for now (the client has not sent the footage, say), put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. Its stages are greyed out: nobody can tick one until it resumes. You can hold any task that is still with its people; an Admin can hold the tasks they created.",
             ),
             steps(
               {
@@ -1431,7 +1431,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Pause a client's project with a reason; settle its dates when it resumes.",
           blocks: [
             text(
-              'When a client pauses work, put the project on hold. No new monthly or weekly cycles are made and no escalations or reminders go out. Its open deliverables show an amber "On hold" chip, never late, and wait: nothing is ticked, marked done or sent back until it resumes.',
+              'When a client pauses work, put the project on hold. No new monthly or weekly cycles are made and no escalations or reminders go out. Its open deliverables show an amber "On hold" chip, never late, and wait: nothing is ticked, marked done or sent back until it resumes. The progress ring keeps its numbers, and its chip reads "On hold" instead of "On track" or "behind plan".',
             ),
             steps(
               {

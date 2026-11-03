@@ -227,6 +227,12 @@ function HoursRow({
               ) : null}
             </>
           ) : null}
+          {facts.late && facts.endLine ? (
+            // The usual separator between the late part and the day's end (advisor design pass).
+            <span aria-hidden data-slot="attendance-hours-sep" className="text-muted-foreground">
+              ·
+            </span>
+          ) : null}
           {facts.endLine ? (
             <span data-slot="attendance-end-line" className="text-muted-foreground">
               {facts.endLine}

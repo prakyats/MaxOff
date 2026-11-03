@@ -505,7 +505,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "When a task you created cannot go on for now, put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. The Owner can hold any task; you can hold the tasks you created while they are with their people.",
+              text: "When a task you created cannot go on for now, put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. Its stages are greyed out: nobody can tick one until it resumes. The Owner can hold any task; you can hold the tasks you created while they are with their people.",
             },
             {
               kind: "steps",
@@ -1475,7 +1475,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "When your client pauses work, put the project on hold. No new cycles are made and no escalations or reminders go out. Its open deliverables show an amber “On hold” chip, never late, and wait: nothing is ticked or marked done until it resumes. The Owner can hold your clients’ projects too; you are told when he does.",
+              text: "When your client pauses work, put the project on hold. No new cycles are made and no escalations or reminders go out. Its open deliverables show an amber “On hold” chip, never late, and wait: nothing is ticked or marked done until it resumes. The progress ring keeps its numbers, and its chip reads On hold instead of On track or “behind plan”. The Owner can hold your clients’ projects too; you are told when he does.",
             },
             {
               kind: "steps",

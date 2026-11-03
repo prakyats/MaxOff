@@ -426,6 +426,7 @@ export default async function ProjectPage({
               // A held project's clock is stopped: never "behind plan" (v1.9 W8).
               meter={held ? { ...cycleMeter(views, today), behind: 0 } : cycleMeter(views, today)}
               cancelledAt={project.state === "cancelled" ? project.cancelledAt : null}
+              held={held}
               // Owner and Admin only (the page's roles); never Crew, who never see client work.
               needsYou={working && canManage && !held ? needsYouPills(views, today) : null}
             />
