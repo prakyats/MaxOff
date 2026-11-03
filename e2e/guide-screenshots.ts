@@ -78,6 +78,8 @@ const MANIFEST = "src/modules/guide/domain/shots.generated.ts";
 const { owner, admin, staff } = USERS;
 
 /** The pictures this run makes: `GUIDE_ONLY`'s ids and `prefix*`es, or every one. */
+/** `GUIDE_ANYTIME=1`: a run-once escape from the daytime guard (`assertDaytime`). */
+const ANYTIME = process.env.GUIDE_ANYTIME === "1";
 const ONLY = (process.env.GUIDE_ONLY ?? "")
   .split(",")
   .map((entry) => entry.trim())
@@ -553,9 +555,18 @@ async function buildDay(
   });
   if (late) await rpc(person, "attendance_late_reason", { reason: LATE_REASON });
   if (stage === "late" || stage === "started") return;
-  const requestId = await rpc<string>(person, "attendance_ask_leave_early", {
-    reason: late ? "Doctor's appointment at 5" : "Bank closes at 4",
-  });
+  let requestId: string;
+  try {
+    requestId = await rpc<string>(person, "attendance_ask_leave_early", {
+      reason: late ? "Doctor's appointment at 5" : "Bank closes at 4",
+    });
+  } catch (error) {
+    // A night run (GUIDE_ANYTIME, always with GUIDE_ONLY): after 6:00 pm the day has ended and
+    // no ask can be made, so this day stays started. Only the early-leave pictures need the ask,
+    // and a night run keeps their daytime pictures (it never names them in GUIDE_ONLY).
+    if (ANYTIME && String(error).includes("Your day ended")) return;
+    throw error;
+  }
   const ago = stage === "asked" && !late ? 8 : ASKED_AGO[stage];
   await serviceUpdate(`early_leave_requests?id=eq.${requestId}`, {
     requested_at: new Date(systemClock().getTime() - ago * 60_000).toISOString(),
@@ -646,7 +657,11 @@ function assertDaytime(): void {
   // A run-once escape (owner, 3 Nov 2026 evening: "the guide pictures may be taken at night"):
   // `GUIDE_ANYTIME=1` skips this guard for one run; the default stays daytime only. A working-hours
   // picture that cannot show its daytime state at night is then kept from the last daytime run.
-  if (process.env.GUIDE_ANYTIME === "1") return;
+  if (ANYTIME) {
+    // Night runs retake named pictures only: the working-hours ones need the daytime state.
+    if (ONLY.length === 0) throw new Error("GUIDE_ANYTIME=1 needs GUIDE_ONLY: name the pictures.");
+    return;
+  }
   const [hours, minutes] = systemClock()
     .toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })
     .split(":")
