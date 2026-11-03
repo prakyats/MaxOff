@@ -52,8 +52,10 @@ export const metadata: Metadata = { title: "My Day" };
  * it updates live through the bell's Realtime connection (`LiveUpdates`, decision 8).
  */
 export default async function MyDayPage() {
-  // The strip's day and End day's claim setup start with the session read, not after it (§19).
-  startEarly(getOwnToday(), getOwnHours(), getClaimSetup());
+  // The strip's day and hours start with the session read, not after it (§19). End day's claim
+  // setup does not: it is read only after a Yes, so it starts with the render, after the first
+  // wave, which stays within two of the Worker's six-at-a-time batches (v1.9 speed gate).
+  startEarly(getOwnToday(), getOwnHours());
   const today = todayIST();
   const openRows = readOpenTasks();
   const [viewer, [rows, directory, labels, own, unread, weekRead]] = await checkThenRead(

@@ -10,7 +10,7 @@ import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { getOwnToday } from "../data/attendance";
-import { getOwnHours } from "../data/hours";
+import { getEarlyLeaveWait, getOwnHours } from "../data/hours";
 import { getNoteDays, hasOvertimeNote } from "../data/notes";
 import {
   type HoursStrip,
@@ -161,8 +161,14 @@ function StripActionButton({
       );
     case "end":
       if (!yesterday && hours && facts.endAction === "ask") {
+        // The wait is started here, after the page's reads, and streamed to the sheet: it never
+        // holds the screen (v1.9 speed gate, ARCHITECTURE §19).
         return (
-          <AskLeaveEarlyButton size="sm" endAt={hours.endAt} waitMinutes={hours.waitMinutes} />
+          <AskLeaveEarlyButton
+            size="sm"
+            endAt={hours.endAt}
+            waitMinutes={getEarlyLeaveWait().catch(() => null)}
+          />
         );
       }
       if (!yesterday && facts.endAction === "none") return null;

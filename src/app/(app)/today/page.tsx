@@ -6,7 +6,6 @@ import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { getHoursToday, getOwnHours, getOwnToday, getTodayPeople } from "@/modules/attendance";
-import { getClaimSetup } from "@/modules/expenses";
 
 import { readDirectory, readOpenTasks } from "../tasks/reads";
 
@@ -24,9 +23,10 @@ export const metadata: Metadata = { title: "Today" };
  * the bell's Realtime connection (`LiveUpdates`, decision 8).
  */
 export default async function TodayPage() {
-  // The Owner's board, an Admin's own day, End day's claim setup and the open tasks start with
-  // the session read, not after it (§19): the role is not known yet, and what this viewer doesn't
-  // need is dropped.
+  // The Owner's board, an Admin's own day and the open tasks start with the session read, not
+  // after it (§19): the role is not known yet, and what this viewer doesn't need is dropped. End
+  // day's claim setup (read only after a Yes) starts with the render instead, so the first wave
+  // stays within two of the Worker's six-at-a-time batches (v1.9 speed gate).
   const today = todayIST();
   startEarly(
     getTodayPeople(),
@@ -34,7 +34,6 @@ export default async function TodayPage() {
     // v1.9 W4: an Admin's own working hours (the strip), the Owner's everyone's (the Late line).
     getOwnHours(),
     getHoursToday(),
-    getClaimSetup(),
     readOpenTasks(),
     readDirectory(),
     readEventTasks(today, eventsHorizon(today)),

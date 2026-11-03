@@ -41,8 +41,6 @@ export type OwnHours = {
     endFrom: string | null;
   } | null;
   canEndNow: boolean;
-  /** `org_settings.early_leave_wait_minutes`: how long an unanswered ask waits (the ask sheet). */
-  waitMinutes: number | null;
 };
 
 const MINUTE = 60_000;

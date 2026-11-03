@@ -32,14 +32,8 @@ const half = (value: string | null): Half | null =>
 /** The caller's own hours today (`attendance_own_hours()`), once per request. */
 export const getOwnHours = cache(async (): Promise<OwnHours | null> => {
   const supabase = await createServerSupabase();
-  // The wait is said in the ask sheet ("If there's no answer in 30 minutes"); every member reads
-  // their organisation's settings (RLS `org_settings_select`).
-  const [{ data, error }, settings] = await Promise.all([
-    supabase.rpc("attendance_own_hours"),
-    supabase.from("org_settings").select("early_leave_wait_minutes").maybeSingle(),
-  ]);
+  const { data, error } = await supabase.rpc("attendance_own_hours");
   if (error) throw error;
-  if (settings.error) throw settings.error;
   const row = data[0] as Nullable<(typeof data)[number]> | undefined;
   if (!row || !row.work_date || !row.start_at || !row.late_after || !row.end_at) return null;
   return {
@@ -67,8 +61,24 @@ export const getOwnHours = cache(async (): Promise<OwnHours | null> => {
           }
         : null,
     canEndNow: Boolean(row.can_end_now),
-    waitMinutes: settings.data?.early_leave_wait_minutes ?? null,
   };
+});
+
+/**
+ * How long an unanswered ask waits (`org_settings.early_leave_wait_minutes`), said in the ask sheet
+ * ("If there's no answer in 30 minutes"); every member reads their organisation's settings (RLS
+ * `org_settings_select`). Not part of `getOwnHours`: the strip starts it only while it offers Ask
+ * to leave early, after the page's own reads, and hands the sheet the promise, so it never takes a
+ * place in the first wave (v1.9 speed gate, ARCHITECTURE §19). Unread, the sentence is left out.
+ */
+export const getEarlyLeaveWait = cache(async (): Promise<number | null> => {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("org_settings")
+    .select("early_leave_wait_minutes")
+    .maybeSingle();
+  if (error) throw error;
+  return data?.early_leave_wait_minutes ?? null;
 });
 
 /** The person's one-line reason for today's late start (`attendance_late_reason`). */

@@ -41,7 +41,6 @@ const HOURS: OwnHours = {
   lateReasonSuggestion: null,
   earlyLeave: null,
   canEndNow: false,
-  waitMinutes: 30,
 };
 const hours = (patch: Partial<OwnHours>): OwnHours => ({ ...HOURS, ...patch });
 

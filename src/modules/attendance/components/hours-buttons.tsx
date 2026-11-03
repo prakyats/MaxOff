@@ -22,7 +22,8 @@ export function AskLeaveEarlyButton({
 }: {
   size?: "default" | "sm";
   endAt: string;
-  waitMinutes: number | null;
+  /** The ask's wait, read after the page (`getEarlyLeaveWait`); the sheet says it once known. */
+  waitMinutes: Promise<number | null>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);

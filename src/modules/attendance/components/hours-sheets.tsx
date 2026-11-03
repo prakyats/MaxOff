@@ -1,7 +1,7 @@
 "use client";
 
 import { RotateCcwIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { systemClock } from "@/core/time/clock";
@@ -192,7 +192,7 @@ export function AskLeaveEarlySheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   endAt: string;
-  waitMinutes: number | null;
+  waitMinutes: Promise<number | null>;
   onDone: () => void;
 }) {
   return (
@@ -211,6 +211,16 @@ export function AskLeaveEarlySheet({
   );
 }
 
+function AskDescription({
+  endAt,
+  waitMinutes,
+}: {
+  endAt: string;
+  waitMinutes: Promise<number | null>;
+}) {
+  return askSheetDescription(endAt, use(waitMinutes));
+}
+
 function AskForm({
   endAt,
   waitMinutes,
@@ -218,7 +228,7 @@ function AskForm({
   onCancel,
 }: {
   endAt: string;
-  waitMinutes: number | null;
+  waitMinutes: Promise<number | null>;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -248,7 +258,13 @@ function AskForm({
     >
       <DialogHeader>
         <DialogTitle>Ask to leave early</DialogTitle>
-        <DialogDescription>{askSheetDescription(endAt, waitMinutes)}</DialogDescription>
+        <DialogDescription>
+          {/* The wait is read after the page and has long arrived by the time the sheet opens;
+              until it has, the sentence without it. */}
+          <Suspense fallback={askSheetDescription(endAt, null)}>
+            <AskDescription endAt={endAt} waitMinutes={waitMinutes} />
+          </Suspense>
+        </DialogDescription>
       </DialogHeader>
       {summary ? (
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
