@@ -77,6 +77,7 @@ const PREFETCH_LIKELY_SPECS = /prefetch-likely\.spec\.ts$/;
 const GUIDE_SPECS = /guide\.spec\.ts$/;
 // v1.9 W8: On hold's sheets and chips, installed back at both phone widths.
 const ON_HOLD_SPECS = /on-hold\.spec\.ts$/;
+const VIEW_SCROLL_SPECS = /view-scroll\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
 const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
@@ -221,6 +222,7 @@ export default defineConfig({
       // And the project template builder (6b Release 1): its layers on back and the drag at 430px.
       // And the instant skeleton (P2, ADR-0014): a tap on a cold Worker, installed, at both widths.
       // And the likely-next prefetch (P2 item 6): rows prefetched near the top, at both widths.
+      // And a view switch then a live refresh keeps the scroll (v1.9, the Next patch): both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -270,6 +272,7 @@ export default defineConfig({
         PREFETCH_LIKELY_SPECS,
         GUIDE_SPECS,
         ON_HOLD_SPECS,
+        VIEW_SCROLL_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

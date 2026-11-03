@@ -164,6 +164,7 @@ settings:
 
 patchedDependencies:
   '@opennextjs/cloudflare@1.20.6': 734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11
+  next@16.3.5: 4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b
 
 importers:
 
@@ -171,7 +172,7 @@ importers:
     dependencies:
       '@sentry/nextjs':
         specifier: ^10.75.0
-        version: 10.75.0(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(webpack@5.111.1(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@24.13.6))(uglify-js@3.19.3))
+        version: 10.75.0(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(webpack@5.111.1(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@24.13.6))(uglify-js@3.19.3))
       '@supabase/ssr':
         specifier: ^0.12.7
         version: 0.12.7(@supabase/supabase-js@2.116.0(@opentelemetry/api@1.9.1))
@@ -204,7 +205,7 @@ importers:
         version: 1.47.0(react@19.2.8)
       next:
         specifier: 16.3.5
-        version: 16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -235,7 +236,7 @@ importers:
     devDependencies:
       '@opennextjs/cloudflare':
         specifier: 1.20.6
-        version: 1.20.6(patch_hash=734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11)(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))
+        version: 1.20.6(patch_hash=734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11)(next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -7618,7 +7619,7 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
-  '@opennextjs/aws@4.1.4(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)':
+  '@opennextjs/aws@4.1.4(next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@aws-sdk/client-cloudfront': 3.984.0
@@ -7634,24 +7635,24 @@ snapshots:
       cookie: 1.1.1
       esbuild: 0.25.4
       express: 5.2.1(supports-color@7.2.0)
-      next: 16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       path-to-regexp: 6.3.0
       urlpattern-polyfill: 10.1.0
       yaml: 2.9.1
     transitivePeerDependencies:
       - supports-color
 
-  '@opennextjs/cloudflare@1.20.6(patch_hash=734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11)(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))':
+  '@opennextjs/cloudflare@1.20.6(patch_hash=734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11)(next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@dotenvx/dotenvx': 1.31.0
-      '@opennextjs/aws': 4.1.4(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)
+      '@opennextjs/aws': 4.1.4(next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)
       ci-info: 4.4.0
       cloudflare: 4.5.0
       comment-json: 4.6.2
       enquirer: 2.4.1
       glob: 12.0.0
-      next: 16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       ts-tqdm: 0.8.6
       wrangler: 4.135.0(@types/node@24.13.6)
       yargs: 18.2.0
@@ -8712,7 +8713,7 @@ snapshots:
     dependencies:
       '@sentry/core': 10.75.0
 
-  '@sentry/nextjs@10.75.0(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(webpack@5.111.1(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@24.13.6))(uglify-js@3.19.3))':
+  '@sentry/nextjs@10.75.0(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(webpack@5.111.1(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@24.13.6))(uglify-js@3.19.3))':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@rollup/plugin-commonjs': 28.0.1(rollup@4.63.4)
@@ -8726,7 +8727,7 @@ snapshots:
       '@sentry/server-utils': 10.75.0
       '@sentry/vercel-edge': 10.75.0
       '@sentry/webpack-plugin': 5.4.0(rollup@4.63.4)(supports-color@7.2.0)(webpack@5.111.1(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@24.13.6))(uglify-js@3.19.3))
-      next: 16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       rollup: 4.63.4
       stacktrace-parser: 0.1.11
     transitivePeerDependencies:
@@ -11377,7 +11378,7 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
 
-  next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  next@16.3.5(patch_hash=4f7fb8a470f46536af0246f36aa10f6547f7a16fa4a3acd2f18b89790e3cf81b)(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.3.5
       '@swc/helpers': 0.5.23

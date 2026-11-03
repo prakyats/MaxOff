@@ -1,0 +1,222 @@
+MaxOff patch of next@16.3.5 (v1.9, owner option (b) of 3 Nov 2026, issue #89 in prakyats/MaxOff).
+pnpm applies everything from the first "diff --git" line down; this header is for people.
+
+WHAT IT CHANGES (the same three edits in dist/client and dist/esm/client):
+  segment-cache/navigation.js     navigateToKnownRoute keeps the navigation's scrollBehavior on its
+                                  `accumulation`.
+  router-reducer/ppr-navigations  spawnDynamicRequests -> finishNavigationTask ->
+                                  dispatchRetryDueToTreeMismatch carry it onto the soft retry's
+                                  ACTION_SERVER_PATCH action (`scrollBehavior`).
+  reducers/server-patch-reducer   the retry navigates with NoScroll when the mismatched navigation
+                                  asked for NoScroll (router.refresh(), scroll={false}); anything
+                                  else (undefined: a normal navigation, a history restore) is
+                                  ScrollBehavior.Default exactly as before.
+Nothing else: no fetch, no history write, no hard-navigation rule is changed (two mismatches in a
+row still fall back to an MPA navigation, as upstream).
+
+REMOVE IT when upstream fixes the issue below. On every Next upgrade: pnpm refuses to install while
+this names a version that is not installed, so drop the entry in pnpm-workspace.yaml, upgrade,
+and run `pnpm exec playwright test e2e/view-scroll.spec.ts` (desktop, mobile, mobile-lg) with a
+fresh build: green without the patch = fixed upstream, delete this file; red = re-make the patch
+with `pnpm patch next@<version>` (check server-patch-reducer.js still hard-codes Default).
+
+READY-TO-FILE UPSTREAM ISSUE (github.com/vercel/next.js/issues/new, "Bug report"):
+  Title: router.refresh() scrolls to the top when its response mismatches the tree
+         (server-patch retry ignores the refresh's NoScroll)
+  Next.js: 16.3.5 (App Router, segment cache; also read in 16.3.8's source)
+  Repro (minimal):
+    1. app/page.tsx: a long page (height 3000px) with a client component that
+       a) switches a view with `history.replaceState(null, "", "?tab=b")` (a view control that
+          must not fetch), and b) has a button that calls `router.refresh()`.
+    2. Load `/`, click the view switch (the URL is now `/?tab=b`), scroll to the bottom.
+    3. Click "refresh".
+    Expected: the page stays where it is (a refresh asks for ScrollBehavior.NoScroll).
+    Actual: the page jumps to the top (document.documentElement.scrollTop = 0).
+  Cause: after the hand-written replaceState the router "restores" with the tree it has, whose
+    page segment is still keyed `__PAGE__`. The refresh's answer is keyed `__PAGE__?{"tab":"b"}`,
+    so finishNavigationTask sees a tree mismatch and dispatchRetryDueToTreeMismatch sends
+    ACTION_SERVER_PATCH. serverPatchReducer hard-codes `ScrollBehavior.Default`; in the retry the
+    page segment differs by search params (segmentMatchKind 2), accumulateScrollRef assigns a
+    ScrollRef, and the layout router scrolls. The refresh's NoScroll is lost on the retry.
+  Suggested fix (this patch): carry the original navigation's scrollBehavior through
+    spawnDynamicRequests/finishNavigationTask onto the retry action and use it in
+    serverPatchReducer (NoScroll stays NoScroll, Default stays Default).
+  Related, not changed here: two overlapping refreshes in that state both mismatch and the
+    second becomes a hard (MPA) navigation via `previousNavigationDidMismatch`.
+
+diff --git a/dist/client/components/router-reducer/ppr-navigations.js b/dist/client/components/router-reducer/ppr-navigations.js
+index 4d7571b5e7ee3e644659ec919652314f710554c1..2140612a993c22342f04675a3e3600ecdf2f98e7 100644
+--- a/dist/client/components/router-reducer/ppr-navigations.js
++++ b/dist/client/components/router-reducer/ppr-navigations.js
+@@ -928,12 +928,12 @@ map, signal) {
+     }
+     // Further async operations are moved into this separate function to
+     // discourage sequential network requests.
+-    const voidPromise = finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType);
++    const voidPromise = finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType, accumulation.scrollBehavior); // MaxOff patch (see patches/next@16.3.5.patch's header)
+     // `finishNavigationTask` is responsible for error handling, so we can attach
+     // noop callbacks to this promise.
+     voidPromise.then(noop, noop);
+ }
+-async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType) {
++async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType, scrollBehavior /* MaxOff patch (see patches/next@16.3.5.patch's header) */) {
+     // Wait for all the requests to finish, or for the first one to fail.
+     let exitStatus = await waitForRequestsToFinish(primaryRequestPromise, refreshRequestPromises);
+     // Once the all the requests have finished, check the tree for any remaining
+@@ -970,7 +970,7 @@ async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refres
+                 // happen in a row, fall back to a hard retry.
+                 const isHardRetry = false;
+                 const primaryRequestResult = await primaryRequestPromise;
+-                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 3);
++                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 3, scrollBehavior);
+                 return;
+             }
+         case 3:
+@@ -981,7 +981,7 @@ async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refres
+                 // (HistoryTraversal) instead of re-fetching it. See issue #95195.
+                 const isHardRetry = false;
+                 const primaryRequestResult = await primaryRequestPromise;
+-                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 2);
++                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 2, scrollBehavior);
+                 return;
+             }
+         case 2:
+@@ -1053,7 +1053,8 @@ originalNavigateType, // Freshness policy for the retry navigation. `RefreshAll`
+ // tree's dynamic data (used for genuine tree mismatches). `HistoryTraversal`
+ // reuses the data already in the tree (used when only the URL needs
+ // correcting after a redirect).
+-retryFreshnessPolicy) {
++retryFreshnessPolicy, // MaxOff patch (see patches/next@16.3.5.patch's header): the original navigation's scroll intent.
++retryScrollBehavior) {
+     // If the navigation used a route prediction, mark it as having a dynamic
+     // rewrite since it resulted in a mismatch.
+     if (routeCacheEntry !== null) {
+@@ -1102,7 +1103,8 @@ retryFreshnessPolicy) {
+         seed,
+         mpa: isHardRetry,
+         navigateType: retryNavigateType,
+-        freshnessPolicy: retryFreshnessPolicy
++        freshnessPolicy: retryFreshnessPolicy,
++        scrollBehavior: retryScrollBehavior
+     };
+     (0, _useactionqueue.dispatchAppRouterAction)(retryAction);
+ }
+diff --git a/dist/client/components/router-reducer/reducers/server-patch-reducer.js b/dist/client/components/router-reducer/reducers/server-patch-reducer.js
+index 0da35753dba6c74795f19210b82d7a08d876cc72..c36aad16fe12f8f311f42c9494675a439cc65072 100644
+--- a/dist/client/components/router-reducer/reducers/server-patch-reducer.js
++++ b/dist/client/components/router-reducer/reducers/server-patch-reducer.js
+@@ -47,7 +47,9 @@ function serverPatchReducer(state, action) {
+     // (`HistoryTraversal`), since the data we received is correct.
+     const retryCanonicalUrl = (0, _createhreffromurl.createHrefFromUrl)(retryUrl);
+     const retryNextUrl = action.nextUrl;
+-    const scrollBehavior = _routerreducertypes.ScrollBehavior.Default;
++    // MaxOff patch (see patches/next@16.3.5.patch's header): a retry keeps the mismatched navigation's NoScroll (a refresh,
++    // scroll={false}); anything else scrolls as before.
++    const scrollBehavior = action.scrollBehavior === _routerreducertypes.ScrollBehavior.NoScroll ? _routerreducertypes.ScrollBehavior.NoScroll : _routerreducertypes.ScrollBehavior.Default;
+     const navigationLock = (0, _pprnavigations.getCurrentNavigationLock)();
+     const now = Date.now();
+     return (0, _navigation.navigateToKnownRoute)(now, state, retryUrl, retryCanonicalUrl, retrySeed, currentUrl, currentRenderedSearch, state.cache, state.tree, action.freshnessPolicy, retryNextUrl, scrollBehavior, navigateType, navigationLock, // A server-patch retry navigation is bound to the shared map.
+diff --git a/dist/client/components/segment-cache/navigation.js b/dist/client/components/segment-cache/navigation.js
+index c10676759cfdfaeb8987d7d9c9da9d24bae04439..b6a9f8c35e8b6d3dfbe8c8a36998ae031eb8e7a0 100644
+--- a/dist/client/components/segment-cache/navigation.js
++++ b/dist/client/components/segment-cache/navigation.js
+@@ -175,7 +175,10 @@ routeCacheEntry, signal) {
+     }
+     const accumulation = {
+         separateRefreshUrls: null,
+-        scrollRef: null
++        scrollRef: null,
++        // MaxOff patch (see patches/next@16.3.5.patch's header): the navigation's scroll intent, so a retry after a tree
++        // mismatch keeps it (a refresh's NoScroll must not become a scroll).
++        scrollBehavior
+     };
+     // We special case navigations to the exact same URL as the current location.
+     // It's a common UI pattern for apps to refresh when you click a link to the
+diff --git a/dist/esm/client/components/router-reducer/ppr-navigations.js b/dist/esm/client/components/router-reducer/ppr-navigations.js
+index 52a7ef34198049dbacbd2d5784daa0dc3ddbc9d7..f52c7eba6ce64bdd818c7a007cf448b497805339 100644
+--- a/dist/esm/client/components/router-reducer/ppr-navigations.js
++++ b/dist/esm/client/components/router-reducer/ppr-navigations.js
+@@ -926,12 +926,12 @@ map, signal) {
+     }
+     // Further async operations are moved into this separate function to
+     // discourage sequential network requests.
+-    const voidPromise = finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType);
++    const voidPromise = finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType, accumulation.scrollBehavior); // MaxOff patch (see patches/next@16.3.5.patch's header)
+     // `finishNavigationTask` is responsible for error handling, so we can attach
+     // noop callbacks to this promise.
+     voidPromise.then(noop, noop);
+ }
+-async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType) {
++async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refreshRequestPromises, routeCacheEntry, navigateType, scrollBehavior /* MaxOff patch (see patches/next@16.3.5.patch's header) */) {
+     // Wait for all the requests to finish, or for the first one to fail.
+     let exitStatus = await waitForRequestsToFinish(primaryRequestPromise, refreshRequestPromises);
+     // Once the all the requests have finished, check the tree for any remaining
+@@ -968,7 +968,7 @@ async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refres
+                 // happen in a row, fall back to a hard retry.
+                 const isHardRetry = false;
+                 const primaryRequestResult = await primaryRequestPromise;
+-                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 3);
++                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 3, scrollBehavior);
+                 return;
+             }
+         case 3:
+@@ -979,7 +979,7 @@ async function finishNavigationTask(task, nextUrl, primaryRequestPromise, refres
+                 // (HistoryTraversal) instead of re-fetching it. See issue #95195.
+                 const isHardRetry = false;
+                 const primaryRequestResult = await primaryRequestPromise;
+-                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 2);
++                dispatchRetryDueToTreeMismatch(isHardRetry, primaryRequestResult.url, nextUrl, primaryRequestResult.seed, task.route, routeCacheEntry, navigateType, 2, scrollBehavior);
+                 return;
+             }
+         case 2:
+@@ -1051,7 +1051,8 @@ originalNavigateType, // Freshness policy for the retry navigation. `RefreshAll`
+ // tree's dynamic data (used for genuine tree mismatches). `HistoryTraversal`
+ // reuses the data already in the tree (used when only the URL needs
+ // correcting after a redirect).
+-retryFreshnessPolicy) {
++retryFreshnessPolicy, // MaxOff patch (see patches/next@16.3.5.patch's header): the original navigation's scroll intent.
++retryScrollBehavior) {
+     // If the navigation used a route prediction, mark it as having a dynamic
+     // rewrite since it resulted in a mismatch.
+     if (routeCacheEntry !== null) {
+@@ -1100,7 +1101,8 @@ retryFreshnessPolicy) {
+         seed,
+         mpa: isHardRetry,
+         navigateType: retryNavigateType,
+-        freshnessPolicy: retryFreshnessPolicy
++        freshnessPolicy: retryFreshnessPolicy,
++        scrollBehavior: retryScrollBehavior
+     };
+     dispatchAppRouterAction(retryAction);
+ }
+diff --git a/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js b/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js
+index 3f84aefbe7d97362de1001e9c091422b9103a787..abbfcdd7e88d1fee045b056cd0b8a9fc0964e2c5 100644
+--- a/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js
++++ b/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js
+@@ -37,7 +37,9 @@ export function serverPatchReducer(state, action) {
+     // (`HistoryTraversal`), since the data we received is correct.
+     const retryCanonicalUrl = createHrefFromUrl(retryUrl);
+     const retryNextUrl = action.nextUrl;
+-    const scrollBehavior = ScrollBehavior.Default;
++    // MaxOff patch (see patches/next@16.3.5.patch's header): a retry keeps the mismatched navigation's NoScroll (a refresh,
++    // scroll={false}); anything else scrolls as before.
++    const scrollBehavior = action.scrollBehavior === ScrollBehavior.NoScroll ? ScrollBehavior.NoScroll : ScrollBehavior.Default;
+     const navigationLock = getCurrentNavigationLock();
+     const now = Date.now();
+     return navigateToKnownRoute(now, state, retryUrl, retryCanonicalUrl, retrySeed, currentUrl, currentRenderedSearch, state.cache, state.tree, action.freshnessPolicy, retryNextUrl, scrollBehavior, navigateType, navigationLock, // A server-patch retry navigation is bound to the shared map.
+diff --git a/dist/esm/client/components/segment-cache/navigation.js b/dist/esm/client/components/segment-cache/navigation.js
+index a45973f81829c57411e20d73df846f91bd7c8f84..a563984a37d0357a1081102a931019019451714e 100644
+--- a/dist/esm/client/components/segment-cache/navigation.js
++++ b/dist/esm/client/components/segment-cache/navigation.js
+@@ -144,7 +144,10 @@ routeCacheEntry, signal) {
+     }
+     const accumulation = {
+         separateRefreshUrls: null,
+-        scrollRef: null
++        scrollRef: null,
++        // MaxOff patch (see patches/next@16.3.5.patch's header): the navigation's scroll intent, so a retry after a tree
++        // mismatch keeps it (a refresh's NoScroll must not become a scroll).
++        scrollBehavior
+     };
+     // We special case navigations to the exact same URL as the current location.
+     // It's a common UI pattern for apps to refresh when you click a link to the
