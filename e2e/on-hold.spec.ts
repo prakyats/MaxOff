@@ -430,3 +430,82 @@ test.describe("a project on hold", () => {
     await removeClientFixture(other);
   });
 });
+
+test.describe("a one-time project resumed after its delivery date", () => {
+  test.use({ storageState: storageStateFor("admin") });
+
+  test("a passed delivery date must move: the field is required, the database refuses without it", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "delivery client");
+    const clientId = await workClient(client, admin.email);
+    const name = "Launch film";
+    const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: clientId,
+      name,
+      recurrence: "one_time",
+      delivery_date: addISTDays(todayIST(), 10),
+      stages: ["Edit"],
+      items: ["Film"],
+    });
+    const passed = addISTDays(todayIST(), -1);
+    await serviceUpdate(`projects?id=eq.${projectId}`, { delivery_date: passed });
+    await rpcAs(admin.email, admin.password, "project_hold", {
+      project_id: projectId,
+      reason: "Client paused the launch",
+    });
+    // Owner 2026-11-03 (W7 Q5): the transaction refuses a resume that leaves the passed date.
+    const refused = await rpcRefusedAs(admin.email, admin.password, "project_resume", {
+      project_id: projectId,
+      items: [],
+    });
+    expect(refused.message).toBe("VALIDATION");
+    expect(refused.details).toMatch(
+      /^The delivery date \(.+\) has passed: choose a new one from today on\.$/,
+    );
+
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects`);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    await page.locator('[data-slot="project-resume"]').click();
+    const sheet = page.getByRole("dialog", { name: `Resume “${name}”` });
+    await expect(sheet).toBeVisible();
+    // Required, so no "(optional)"; the hint says it passed.
+    const field = sheet.getByLabel("New delivery date", { exact: true });
+    await expect(field).toBeVisible();
+    await expect(sheet.getByText("New delivery date (optional)")).toHaveCount(0);
+    await expect(sheet).toContainText("now passed. Choose a date from today on.");
+    await expectNoHorizontalScroll(page);
+
+    // Sent empty: the field says why and the project stays on hold.
+    await sheet.getByRole("button", { name: "Resume project" }).click();
+    await expect(sheet).toContainText("has passed: choose a new one from today on.");
+    await expect(sheet).toBeVisible();
+    const [still] = await serviceSelect<{ held_at: string | null }>(
+      `projects?id=eq.${projectId}&select=held_at`,
+    );
+    expect(still?.held_at).not.toBeNull();
+
+    // Back closes the sheet (§14.2), the page stays.
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+
+    const day = addISTDays(todayIST(), 3);
+    await page.locator('[data-slot="project-resume"]').click();
+    await field.fill(day);
+    await sheet.getByRole("button", { name: "Resume project" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.locator('[data-slot="project-hold-banner"]')).toBeHidden();
+    await expect
+      .poll(async () => {
+        const [row] = await serviceSelect<{ held_at: string | null; delivery_date: string }>(
+          `projects?id=eq.${projectId}&select=held_at,delivery_date`,
+        );
+        return row && row.held_at === null ? row.delivery_date : null;
+      })
+      .toBe(day);
+    await removeClientFixture(client);
+  });
+});

@@ -25,6 +25,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 import { resumeProject } from "../actions/projects";
 import type { CloseKind } from "../domain/close-kinds";
 import {
+  deliveryDateRequired,
   needsNewDate,
   type ResumeDecision,
   type ResumeEntry,
@@ -90,6 +91,8 @@ export function ProjectResumeSheet({
   const [problems, setProblems] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState<ResultError | null>(null);
   const oneTime = recurrence === "one_time";
+  // A one-time project whose delivery date passed while held takes a new one (owner 2026-11-03).
+  const deliveryRequired = deliveryDateRequired({ recurrence, deliveryDate }, today);
   const draftOf = (itemId: string) => drafts[itemId] ?? EMPTY;
   const change = (itemId: string, next: Partial<Draft>) => {
     setDrafts((current) => ({ ...current, [itemId]: { ...(current[itemId] ?? EMPTY), ...next } }));
@@ -116,10 +119,15 @@ export function ProjectResumeSheet({
   }
 
   function check(): boolean {
-    const found = resumeProblems(rows, entries(), today);
+    const found = resumeProblems(rows, entries(), today, {
+      recurrence,
+      deliveryDate,
+      newDeliveryDate: oneTime && delivery !== "" ? (delivery as ISODate) : null,
+    });
     const byItem: Record<string, string[]> = {};
     for (const problem of found) {
-      const key = problem.itemId ?? "";
+      // The project's own problem (its delivery date) shows under the delivery field.
+      const key = problem.itemId ?? "delivery";
       byItem[key] = [...(byItem[key] ?? []), problem.message];
     }
     // The W1 rule: a Close says which kind (the database takes none, as before W1; the sheet asks).
@@ -127,9 +135,6 @@ export function ProjectResumeSheet({
       if (entry.decision === "close" && !entry.closeKind) {
         byItem[entry.itemId] = [...(byItem[entry.itemId] ?? []), "Choose why it is closed."];
       }
-    }
-    if (delivery !== "" && delivery < today) {
-      byItem.delivery = ["Choose a delivery date from today on."];
     }
     setProblems(byItem);
     return Object.keys(byItem).length === 0;
@@ -181,7 +186,8 @@ export function ProjectResumeSheet({
   const dated = rows.filter((row) => !row.monthEnded).length;
   const choosing = rows.length - dated;
   const summary = formError ? describeError(formError) : null;
-  const invalid = Object.keys(problems).length;
+  // Deliverables still unanswered (the delivery date's own problem shows under its field).
+  const invalid = Object.keys(problems).filter((key) => key !== "delivery").length;
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -220,11 +226,13 @@ export function ProjectResumeSheet({
           ) : null}
           {oneTime ? (
             <FormField
-              label="New delivery date (optional)"
+              label={deliveryRequired ? "New delivery date" : "New delivery date (optional)"}
               hint={
-                deliveryDate
-                  ? `It is ${shortDate(deliveryDate)}. Leave it empty to keep it.`
-                  : "Leave it empty to keep the project without one."
+                deliveryRequired && deliveryDate
+                  ? `It was ${shortDate(deliveryDate)}, now passed. Choose a date from today on.`
+                  : deliveryDate
+                    ? `It is ${shortDate(deliveryDate)}. Leave it empty to keep it.`
+                    : "Leave it empty to keep the project without one."
               }
               error={problems.delivery}
             >
@@ -232,6 +240,7 @@ export function ProjectResumeSheet({
                 <DateInput
                   {...control}
                   name="deliveryDate"
+                  required={deliveryRequired}
                   min={today}
                   value={delivery}
                   onChange={(event) => {

@@ -1423,7 +1423,7 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/project-hold-banner",
               },
               {
-                text: "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending (the list, highlighted).",
+                text: "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending (the list, highlighted). If a one-time project's delivery date passed while it was on hold, choose a new delivery date too: it is required.",
                 shot: "owner/project-resume-sheet",
               },
               'Tap "Resume project": everything is settled in one go.',

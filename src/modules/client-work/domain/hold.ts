@@ -1,6 +1,7 @@
 import type { ISODate } from "@/core/time";
 
 import { isCloseKind, type CloseKind } from "./close-kinds";
+import { shortDate } from "./items";
 import type { Recurrence } from "./types";
 
 /**
@@ -68,16 +69,40 @@ export function needsNewDate(
   return decision === "leave_pending" && row.plannedDate !== null && row.plannedDate < today;
 }
 
+/** A one-time project's delivery date, and the new one the resume sheet holds (null: none given). */
+export type ResumeDelivery = {
+  recurrence: Recurrence;
+  deliveryDate: ISODate | null;
+  newDeliveryDate: ISODate | null;
+};
+
+/**
+ * Whether the resume must move the delivery date (owner 2026-11-03, W7 Q5): a one-time project whose
+ * delivery date is before today. Otherwise a new one is optional (or, recurring, there is none).
+ */
+export function deliveryDateRequired(
+  delivery: Pick<ResumeDelivery, "recurrence" | "deliveryDate">,
+  today: ISODate,
+): boolean {
+  return (
+    delivery.recurrence === "one_time" &&
+    delivery.deliveryDate !== null &&
+    delivery.deliveryDate < today
+  );
+}
+
 /**
  * Every reason the resume would be refused, in the database's order (`project_resume`): an entry
  * for a deliverable not listed, twice, or with an unknown choice; then each listed deliverable left
  * without its choice or its new date, a date before today, a closed one with a date or no reason,
- * a choice on a running month's deliverable. Empty: the resume may be sent.
+ * a choice on a running month's deliverable; then the delivery date (`itemId` null): a passed one
+ * left as it is, or a new one before today. Empty: the resume may be sent.
  */
 export function resumeProblems(
   rows: readonly ResumeRow[],
   entries: readonly ResumeEntry[],
   today: ISODate,
+  delivery?: ResumeDelivery,
 ): ResumeProblem[] {
   const problems: ResumeProblem[] = [];
   const listed = new Set(rows.map((row) => row.itemId));
@@ -127,6 +152,21 @@ export function resumeProblems(
       if (decision !== null)
         problem(`${row.title}: its period has not ended, so it takes a new date only.`);
       if (row.needsDate && date === null) problem(`${row.title}: give it a new date.`);
+    }
+  }
+  if (delivery) {
+    const { deliveryDate, newDeliveryDate } = delivery;
+    if (
+      newDeliveryDate === null &&
+      deliveryDate !== null &&
+      deliveryDateRequired(delivery, today)
+    ) {
+      problems.push({
+        itemId: null,
+        message: `The delivery date (${shortDate(deliveryDate)}) has passed: choose a new one from today on.`,
+      });
+    } else if (newDeliveryDate !== null && newDeliveryDate < today) {
+      problems.push({ itemId: null, message: "Choose a delivery date from today on." });
     }
   }
   return problems;

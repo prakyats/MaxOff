@@ -4,6 +4,7 @@ import type { ISODate } from "@/core/time";
 
 import { describeProjectActivity, type ActivityEntry } from "../domain/activity";
 import {
+  deliveryDateRequired,
   isProjectOnHold,
   needsNewDate,
   onHoldDeliverablesLine,
@@ -15,6 +16,7 @@ import {
   resumeWords,
   splitHeldItems,
 } from "../domain/hold";
+import type { Recurrence } from "../domain/types";
 
 /** On hold, for projects (v1.9 W7; WORKFLOWS §5.5): the resume sheet's rules, as project_resume's. */
 
@@ -156,6 +158,55 @@ describe("resumeProblems (the transaction refuses the same)", () => {
     expect(messages([...GOOD, { itemId: "Reel 3", plannedDate: "2026-11-05" as ISODate }])).toEqual(
       ["A deliverable is listed twice."],
     );
+  });
+});
+
+describe("a one-time project's passed delivery date (owner 2026-11-03, W7 Q5)", () => {
+  const oneTime = (deliveryDate: string | null, newDeliveryDate: string | null = null) => ({
+    recurrence: "one_time" as const,
+    deliveryDate: deliveryDate as ISODate | null,
+    newDeliveryDate: newDeliveryDate as ISODate | null,
+  });
+  const deliveryMessages = (
+    delivery: ReturnType<typeof oneTime>,
+    recurrence: Recurrence = delivery.recurrence,
+  ) => resumeProblems([], [], TODAY, { ...delivery, recurrence }).map((problem) => problem.message);
+
+  it("is required once the date has passed, and refused without one", () => {
+    expect(deliveryDateRequired(oneTime("2026-11-01"), TODAY)).toBe(true);
+    expect(resumeProblems([], [], TODAY, oneTime("2026-11-01"))).toEqual([
+      {
+        itemId: null,
+        message: "The delivery date (1 Nov) has passed: choose a new one from today on.",
+      },
+    ]);
+  });
+
+  it("accepts a new date from today on, refuses one in the past", () => {
+    expect(deliveryMessages(oneTime("2026-11-01", "2026-11-02"))).toEqual([]);
+    expect(deliveryMessages(oneTime("2026-11-01", "2026-11-09"))).toEqual([]);
+    expect(deliveryMessages(oneTime("2026-11-01", "2026-10-31"))).toEqual([
+      "Choose a delivery date from today on.",
+    ]);
+  });
+
+  it("stays optional when the date is today or later, or there is none", () => {
+    expect(deliveryDateRequired(oneTime("2026-11-02"), TODAY)).toBe(false);
+    expect(deliveryMessages(oneTime("2026-11-02"))).toEqual([]);
+    expect(deliveryMessages(oneTime(null))).toEqual([]);
+  });
+
+  it("leaves a recurring project alone", () => {
+    expect(
+      deliveryDateRequired({ recurrence: "monthly", deliveryDate: "2026-10-01" as ISODate }, TODAY),
+    ).toBe(false);
+    expect(deliveryMessages(oneTime("2026-10-01"), "monthly")).toEqual([]);
+  });
+
+  it("comes after the deliverables' problems, as the transaction checks", () => {
+    const found = resumeProblems(ROWS, [], TODAY, oneTime("2026-11-01"));
+    expect(found.at(-1)?.itemId).toBeNull();
+    expect(found.length).toBeGreaterThan(1);
   });
 });
 
