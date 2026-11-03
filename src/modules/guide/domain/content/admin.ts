@@ -707,7 +707,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Sample Client · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
             },
             {
               kind: "text",
@@ -944,7 +944,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Shetty”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
+              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Sample Client”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
             },
             {
               kind: "steps",
@@ -1190,7 +1190,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date (“24 Oct”, or Not planned), its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”). Edit stages sits at the right of the Stages heading. The actions at the foot (Open the project, Close deliverable…, Next: ‹stage› or Mark done) move onto a second row when the sheet is narrow, never cut off.",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date (“24 Oct”, or Not planned), its last change in one short line (“Last change · Sample Admin ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”). Edit stages sits at the right of the Stages heading. The actions at the foot (Open the project, Close deliverable…, Next: ‹stage› or Mark done) move onto a second row when the sheet is narrow, never cut off.",
             },
             {
               kind: "steps",
@@ -1749,7 +1749,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Prakyat · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Sample Admin · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",

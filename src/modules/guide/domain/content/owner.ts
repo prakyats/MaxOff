@@ -211,12 +211,12 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open Approvals.",
               {
-                text: 'Read the row under "Leaving early" (highlighted): "PShetty · leave at 4:30 pm", the reason and how long it has waited.',
+                text: 'Read the row under "Leaving early" (highlighted): "Sample Admin · leave at 4:30 pm", the reason and how long it has waited.',
                 shot: "owner/early-leave",
               },
               'Tap "Approve": their day ends at the time they asked. Or tap "Stay": they carry on until their end time and are reminded then.',
               {
-                text: 'With no answer after 30 minutes they may end their day. It then waits under "Left early, not answered" (highlighted; "Prakyat · ended 4:05 pm"): tap "Approve" to let it stand, or "Correct…" to set what the day was, with a reason they will read. The correction sits beside the original.',
+                text: 'With no answer after 30 minutes they may end their day. It then waits under "Left early, not answered" (highlighted; "Sample Member · ended 4:05 pm"): tap "Approve" to let it stand, or "Correct…" to set what the day was, with a reason they will read. The correction sits beside the original.',
                 shot: "owner/left-early-unanswered",
               },
             ),
@@ -737,7 +737,7 @@ export const OWNER_GUIDE: Guide = {
               "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due, on a laptop each by name, amber (red with an alert when overdue), and on a phone’s full month as one count, “3 due” in amber, or a red alert with the count when overdue (tap the day to see them); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a day is narrow, on a laptop or a phone’s full month; where even that has no room, their photo and “Leave”, and on a phone, where that has no room either, their photo alone; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             ),
             text(
-              "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+              "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Sample Client · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
             ),
             text(
               "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice. While it is not All, the button names it, “Client work ▾”, and has a red outline, so you can see the calendar is not showing everything. Filters works the same way: with filters on it reads “Filters · 2” (how many are on) with a red outline; with none it is a plain “Filters”. On a phone the same “All ▾” sits in the header, just before Filters, an icon that shows the count, “·2”, with a red outline while a filter is on. This phone or laptop remembers your All ▾ choice, and leave and holidays always show.",
@@ -1015,7 +1015,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Name it, choose how often it repeats, list the deliverables.",
           blocks: [
             text(
-              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Shetty"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
+              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Sample Client"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
             ),
             steps(
               'Open the client, tap the Projects tab, then tap "New project".',
