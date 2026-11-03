@@ -187,7 +187,10 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Today.",
                 "Tap Start day when you begin work.",
                 "When you finish, tap End day.",
-                "Before your end time, tap “Ask to leave early”, say why and tap “Ask the Owner”. Only the Owner answers: approved, your day ends at the time you asked and the strip offers “Any expenses to claim today?”; “Stay”, carry on until your end time. With no answer in 30 minutes, End day comes back and the day is marked “Left early, not answered”.",
+                {
+                  text: "Before your end time, tap “Ask to leave early” (highlighted), say why and tap “Ask the Owner”. Only the Owner answers: approved, your day ends at the time you asked and the strip offers “Any expenses to claim today?”; “Stay”, carry on until your end time. With no answer in 30 minutes, End day comes back and the day is marked “Left early, not answered”.",
+                  shot: "admin/start-end-day",
+                },
                 "Read “End your day?” and confirm. It is final.",
                 "Answer “Any expenses to claim today?” with No or Yes.",
               ],

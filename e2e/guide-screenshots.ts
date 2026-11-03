@@ -5,7 +5,16 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { GUIDE_SHOTS } from "../src/modules/guide/domain/shots.generated";
-import { type DemoIds, GUIDE_SHOT_LIST, type GuideRole, type GuideShot } from "./guide-shots";
+import {
+  type AdminDay,
+  type CrewDay,
+  type DemoIds,
+  GUIDE_SHOT_LIST,
+  type GuideDays,
+  type GuideRole,
+  type GuideShot,
+  ROLE_DAYS,
+} from "./guide-shots";
 import {
   memberIdOf,
   removeClientFixture,
@@ -42,7 +51,8 @@ import {
  * `GUIDE_ONLY=owner/task-hold-menu,staff/task-on-hold pnpm guide:screenshots` makes only the listed
  * pictures (a comma-separated list of ids, or of prefixes ending in `*`: `owner/task-hold*`); every
  * other picture and its manifest entry stay as they are. For a release's new topics, when the rest
- * would be retaken at a time of day that changes them (End day, the working hours).
+ * would be retaken at a time of day that changes them. The run itself is refused outside 11:15 am to
+ * 5:30 pm IST (`assertDaytime`): every picture's day is built for daytime.
  */
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -495,6 +505,125 @@ async function makeDemo(): Promise<DemoIds> {
   };
 }
 
+// ── Today's working day (v1.9 W4) ──────────────────────────────────────────────────────────────
+
+/** The Crew member's shoot today, whose start the late sheet suggests as the reason. */
+const SHOOT = "Product shoot";
+const LATE_REASON = "Traffic on the way";
+/** How long ago each ask was made, in minutes (the wait for an answer is 30). */
+const ASKED_AGO = { asked: 12, no_answer: 35, approved: 20, left_unanswered: 40 } as const;
+
+/** The stage each person's day was last built to: a picture rebuilds only what it changes. */
+const built: { crew?: CrewDay; admin?: AdminDay } = {};
+
+/** Today's day of a person gone: its early-leave asks, its events and the day itself. */
+async function clearToday(memberId: string): Promise<void> {
+  const today = todayIST();
+  await serviceRest(`early_leave_requests?member_id=eq.${memberId}`, { method: "DELETE" });
+  const days = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&work_date=eq.${today}&select=id`,
+  );
+  for (const day of days) {
+    await serviceRest(`attendance_events?attendance_day_id=eq.${day.id}`, { method: "DELETE" });
+  }
+  await serviceRest(`attendance_days?member_id=eq.${memberId}&work_date=eq.${today}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * A person's day today, built with the app's own functions (Start day, the late reason, Ask to
+ * leave early, the Owner's answer, End day), then a few fixed times written as service role: the
+ * start (10:22 am, Late 22 min; the Admin 9:58 am, on time) and when an ask was made (dated back
+ * from now), so every run shows the same states whatever the hour between 11:15 am and 5:30 pm.
+ */
+async function buildDay(
+  person: Person,
+  memberId: string,
+  stage: CrewDay | AdminDay,
+  late: boolean,
+): Promise<void> {
+  const today = todayIST();
+  await clearToday(memberId);
+  if (stage === "not_started" || stage === "not_started_shoot") return;
+  await rpc(person, "attendance_start_day", {});
+  await serviceUpdate(`attendance_days?member_id=eq.${memberId}&work_date=eq.${today}`, {
+    started_at: istInstant(today, late ? "10:22" : "09:58"),
+    late_minutes: late ? 22 : null,
+  });
+  if (late) await rpc(person, "attendance_late_reason", { reason: LATE_REASON });
+  if (stage === "late" || stage === "started") return;
+  const requestId = await rpc<string>(person, "attendance_ask_leave_early", {
+    reason: late ? "Doctor's appointment at 5" : "Bank closes at 4",
+  });
+  const ago = stage === "asked" && !late ? 8 : ASKED_AGO[stage];
+  await serviceUpdate(`early_leave_requests?id=eq.${requestId}`, {
+    requested_at: new Date(systemClock().getTime() - ago * 60_000).toISOString(),
+  });
+  if (stage === "approved") {
+    await rpc(owner, "early_leave_decide", { request_id: requestId, decision: "approve" });
+  }
+  if (stage === "left_unanswered") await rpc(person, "attendance_end_day", {});
+}
+
+/** The Crew member's shoot at 3:00 pm today, there only while a picture needs it. */
+async function setShoot(on: boolean, staffId: string): Promise<void> {
+  const shoots = await serviceSelect<{ id: string }>(
+    `tasks?title=eq.${encodeURIComponent(SHOOT)}&select=id`,
+  );
+  // Its "new task" alert goes with it: Alerts never lists a task that is gone.
+  for (const shoot of shoots) {
+    await serviceRest(`notifications?entity_id=eq.${shoot.id}`, { method: "DELETE" });
+  }
+  await removeTasksTitled(SHOOT);
+  if (!on) return;
+  const today = todayIST();
+  await rpc(owner, "task_create", {
+    title: SHOOT,
+    description: null,
+    task_type_id: await taskTypeId("Shoot / Site Visit"),
+    client_id: null,
+    priority: "medium",
+    due_at: istInstant(today, "18:00"),
+    assignee_ids: [staffId],
+    primary_owner_id: staffId,
+    approving_admin_id: null,
+    stages: [],
+    event_date: today,
+    event_start_at: istInstant(today, "15:00"),
+    event_end_at: istInstant(today, "17:00"),
+    location: "Studio B",
+  });
+}
+
+/**
+ * When work starts: 10:00 am, except for the late sheet's picture, where it is 22 minutes and 10
+ * seconds before now so the sheet reads "You're starting 22 minutes late" like the strip's "Late
+ * 22 min" (the sheet's picture shows the sheet alone, never the start time).
+ */
+async function setWorkStart(lateSheet: boolean): Promise<void> {
+  const start = lateSheet
+    ? new Date(systemClock().getTime() - (22 * 60 + 10) * 1000).toLocaleTimeString("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour12: false,
+      })
+    : "10:00:00";
+  await serviceUpdate("org_settings?org_id=not.is.null", { work_start_time: start });
+}
+
+async function buildDays(days: GuideDays): Promise<void> {
+  if (days.crew && days.crew !== built.crew) {
+    await setWorkStart(days.crew === "not_started_shoot");
+    await setShoot(days.crew === "not_started_shoot", demo.staffId);
+    await buildDay(staff, demo.staffId, days.crew, true);
+    built.crew = days.crew;
+  }
+  if (days.admin && days.admin !== built.admin) {
+    await buildDay(admin, await memberIdOf(admin.email), days.admin, false);
+    built.admin = days.admin;
+  }
+}
+
 // ── The pictures ───────────────────────────────────────────────────────────────────────────────
 
 type Produced = { src: string; width: number; height: number; alt: string };
@@ -508,7 +637,26 @@ let demo: DemoIds;
 
 test.describe.configure({ mode: "serial" });
 
+/**
+ * The pictures show a working day as it is lived (v1.9 W4): a Crew member started at 10:22 am and
+ * asks to leave early, at the latest, 40 minutes before now; every ask must still be before the
+ * 6:00 pm end. So the run is between 11:15 am and 5:30 pm IST, and refuses to start otherwise.
+ */
+function assertDaytime(): void {
+  const [hours, minutes] = systemClock()
+    .toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })
+    .split(":")
+    .map(Number);
+  const now = (hours ?? 0) * 60 + (minutes ?? 0);
+  if (now < 11 * 60 + 15 || now > 17 * 60 + 30) {
+    throw new Error(
+      "guide:screenshots runs between 11:15 am and 5:30 pm IST: its pictures show a working day (late starts, asks to leave early) with the working hours on.",
+    );
+  }
+}
+
 test.beforeAll(async () => {
+  assertDaytime();
   demo = await makeDemo();
 });
 
@@ -728,19 +876,10 @@ async function toWebP(
   return { data, width: result.width, height: result.height };
 }
 
-/** The organisation's working-hours switch (v1.9: on by default), for a `hoursOff` picture. */
-async function setWorkingHours(on: boolean): Promise<void> {
-  await serviceUpdate(`org_settings?working_hours_on=eq.${!on}`, { working_hours_on: on });
-}
-
 async function capture(page: Page, converter: Page, shot: GuideShot): Promise<void> {
-  if (!shot.hoursOff) return captureNow(page, converter, shot);
-  await setWorkingHours(false);
-  try {
-    await captureNow(page, converter, shot);
-  } finally {
-    await setWorkingHours(true);
-  }
+  const [role] = shot.id.split("/") as [GuideRole];
+  await buildDays(shot.days ?? ROLE_DAYS[role]);
+  await captureNow(page, converter, shot);
 }
 
 async function captureNow(page: Page, converter: Page, shot: GuideShot): Promise<void> {
@@ -807,6 +946,8 @@ for (const role of ["staff", "admin", "owner"] as const satisfies readonly Guide
       }
     });
     try {
+      // Signed in with the day built: a Start-day prompt left open would cover every screen.
+      await buildDays(ROLE_DAYS[role]);
       const page = await signInAs(context, role);
       const converter = await context.newPage();
       const shots = GUIDE_SHOT_LIST.filter(

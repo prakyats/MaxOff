@@ -11,17 +11,47 @@ export const GUIDE_SHOTS: Readonly<
     height: 272,
     alt: "The Started working? prompt with the Start day button highlighted.",
   },
+  "staff/start-prompt-half": {
+    src: "/guide/staff/start-prompt-half.webp",
+    width: 448,
+    height: 714,
+    alt: "The On leave today? view with Half day chosen and its Morning off and Afternoon off cards highlighted.",
+  },
+  "staff/late-sheet": {
+    src: "/guide/staff/late-sheet.webp",
+    width: 448,
+    height: 354,
+    alt: "The You're starting late sheet: Suggested from your calendar, with the reason Shoot at 3:00 pm highlighted.",
+  },
   "staff/my-day": {
     src: "/guide/staff/my-day.webp",
     width: 1222,
     height: 427,
     alt: "My Day with today's attendance strip highlighted at the top.",
   },
+  "staff/late-chip": {
+    src: "/guide/staff/late-chip.webp",
+    width: 1192,
+    height: 113,
+    alt: "The attendance strip with the amber Late 22 min chip, the reason and Your day ends at 6:00 pm highlighted.",
+  },
   "staff/alerts": {
     src: "/guide/staff/alerts.webp",
     width: 1190,
-    height: 602,
+    height: 667,
     alt: "Alerts, the list of notifications, with Mark all read highlighted.",
+  },
+  "staff/leave-early-sheet": {
+    src: "/guide/staff/leave-early-sheet.webp",
+    width: 432,
+    height: 442,
+    alt: "The Ask to leave early sheet with Leave at the time now, the reason written, and Ask the Owner highlighted.",
+  },
+  "staff/leave-early-waiting": {
+    src: "/guide/staff/leave-early-waiting.webp",
+    width: 1179,
+    height: 150,
+    alt: "The attendance strip with the Waiting line highlighted: asked to leave, how long ago, and when End day comes back.",
   },
   "staff/end-day": {
     src: "/guide/staff/end-day.webp",
@@ -29,11 +59,23 @@ export const GUIDE_SHOTS: Readonly<
     height: 330,
     alt: "The End your day? confirmation with the End day button highlighted.",
   },
+  "staff/leave-early-approved": {
+    src: "/guide/staff/leave-early-approved.webp",
+    width: 1169,
+    height: 178,
+    alt: "The attendance strip after the Owner approved: the day ended at the time asked, with Any expenses to claim today? highlighted.",
+  },
   "staff/request-leave": {
     src: "/guide/staff/request-leave.webp",
     width: 448,
     height: 478,
     alt: "The Request leave form with the Kind of leave field highlighted.",
+  },
+  "staff/request-half": {
+    src: "/guide/staff/request-half.webp",
+    width: 448,
+    height: 690,
+    alt: "The Request leave form for a half day, with Which half? and its Morning off and Afternoon off cards highlighted.",
   },
   "staff/leave-list": {
     src: "/guide/staff/leave-list.webp",
@@ -50,7 +92,7 @@ export const GUIDE_SHOTS: Readonly<
   "staff/my-tasks": {
     src: "/guide/staff/my-tasks.webp",
     width: 1216,
-    height: 524,
+    height: 580,
     alt: "Tasks with the Not noted group highlighted at the top.",
   },
   "staff/task-noted": {
@@ -124,6 +166,12 @@ export const GUIDE_SHOTS: Readonly<
     width: 1216,
     height: 535,
     alt: "Today with the Needs you card highlighted.",
+  },
+  "admin/start-end-day": {
+    src: "/guide/admin/start-end-day.webp",
+    width: 1161,
+    height: 117,
+    alt: "Today's attendance strip, started on time, with Your day ends at 6:00 pm and the Ask to leave early button highlighted.",
   },
   "admin/approvals": {
     src: "/guide/admin/approvals.webp",
@@ -308,7 +356,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/client-deliverables": {
     src: "/guide/admin/client-deliverables.webp",
     width: 1212,
-    height: 791,
+    height: 800,
     alt: "Client deliverables with the filter open and Overdue highlighted.",
   },
   "admin/settings": {
@@ -320,14 +368,20 @@ export const GUIDE_SHOTS: Readonly<
   "owner/today": {
     src: "/guide/owner/today.webp",
     width: 1216,
-    height: 694,
+    height: 738,
     alt: "Today with the Needs you card highlighted, listing what waits for a decision.",
   },
   "owner/attendance-board": {
     src: "/guide/owner/attendance-board.webp",
     width: 1216,
-    height: 700,
+    height: 738,
     alt: "Today with the attendance counts highlighted.",
+  },
+  "owner/today-late-line": {
+    src: "/guide/owner/today-late-line.webp",
+    width: 850,
+    height: 192,
+    alt: "Today's Attendance card with the amber 1 started late today line highlighted.",
   },
   "owner/everyone-today": {
     src: "/guide/owner/everyone-today.webp",
@@ -340,6 +394,30 @@ export const GUIDE_SHOTS: Readonly<
     width: 1184,
     height: 800,
     alt: "Approvals grouped by kind, with the first task's Approve button highlighted.",
+  },
+  "owner/early-leave": {
+    src: "/guide/owner/early-leave.webp",
+    width: 1222,
+    height: 800,
+    alt: "Approvals with the Leaving early group highlighted: who, the time asked, the reason, Stay and Approve.",
+  },
+  "owner/left-early-unanswered": {
+    src: "/guide/owner/left-early-unanswered.webp",
+    width: 1222,
+    height: 800,
+    alt: "Approvals with the Left early, not answered group highlighted, its row with Approve.",
+  },
+  "owner/stay-until-sheet": {
+    src: "/guide/owner/stay-until-sheet.webp",
+    width: 432,
+    height: 282,
+    alt: "The Stay until sheet for a person, its time two hours after the end time, with the Set 8:00 pm button highlighted.",
+  },
+  "owner/person-attendance": {
+    src: "/guide/owner/person-attendance.webp",
+    width: 1220,
+    height: 441,
+    alt: "A person's Attendance tab with today's row highlighted: started late, Late 22 min with the reason, Left early, not answered.",
   },
   "owner/approve-all": {
     src: "/guide/owner/approve-all.webp",
@@ -533,10 +611,34 @@ export const GUIDE_SHOTS: Readonly<
     height: 800,
     alt: "Thresholds with the Acknowledgement reminder (hours) field highlighted.",
   },
+  "owner/thresholds-working-day": {
+    src: "/guide/owner/thresholds-working-day.webp",
+    width: 1199,
+    height: 800,
+    alt: "Thresholds with Working day open and the Working hours switch highlighted, above Work starts, Work ends and Late after.",
+  },
+  "owner/thresholds-approvals": {
+    src: "/guide/owner/thresholds-approvals.webp",
+    width: 1199,
+    height: 800,
+    alt: "Thresholds with Approvals open and the Urgent tasks: remind every (minutes) field highlighted.",
+  },
   "owner/reports": {
     src: "/guide/owner/reports.webp",
     width: 1220,
-    height: 441,
+    height: 515,
     alt: "Reports with the Month report highlighted.",
+  },
+  "owner/report-month-counts": {
+    src: "/guide/owner/report-month-counts.webp",
+    width: 1182,
+    height: 139,
+    alt: "The Month report with a person's four counts highlighted: Late, Left early, Early approved and Half days.",
+  },
+  "owner/report-eod": {
+    src: "/guide/owner/report-eod.webp",
+    width: 1222,
+    height: 800,
+    alt: "Today's End of day report with the Attendance section highlighted: the count line and each person's row with Late and Left early.",
   },
 };

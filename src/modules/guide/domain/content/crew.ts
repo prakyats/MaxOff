@@ -142,7 +142,10 @@ export const CREW_GUIDE: Guide = {
                 'Tap "Start day" if you are working.',
                 'Or tap "On leave today? Choose leave".',
                 "Pick Leave (the whole day off) or Half day, and add a reason if you like.",
-                'For a half day, choose "Morning off" (start your day after lunch; you won\'t be marked late) or "Afternoon off" (end your day after lunch; no need to ask to leave early).',
+                {
+                  text: 'For a half day, choose "Morning off" (start your day after lunch; you won\'t be marked late) or "Afternoon off" (end your day after lunch; no need to ask to leave early) (highlighted).',
+                  shot: "staff/start-prompt-half",
+                },
                 'Tap "Record leave".',
               ],
             },
@@ -203,14 +206,20 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 'Tap "Start day".',
-                'Read "You\'re starting … late". If you have a shoot later today, the reason already says "Shoot at 2:00 pm" (marked "Suggested from your calendar"): keep it or change it.',
+                {
+                  text: 'Read "You\'re starting … late". If you have a shoot later today, the reason (highlighted) already says "Shoot at 3:00 pm" (marked "Suggested from your calendar"): keep it or change it.',
+                  shot: "staff/late-sheet",
+                },
                 "Add one line for the Owner if you like. It is optional.",
-                'Tap "Start day" in the sheet. The start time is that tap.',
+                {
+                  text: 'Tap "Start day" in the sheet. The start time is that tap. My Day then shows an amber "Late 22 min" chip with your reason, and when your day ends (highlighted).',
+                  shot: "staff/late-chip",
+                },
               ],
             },
             {
               kind: "next",
-              text: 'My Day shows an amber "Late 22 min" chip with your reason, and when your day ends. With no reason yet, tap "Add a reason" beside the chip.',
+              text: 'With no reason yet, tap "Add a reason" beside the chip.',
             },
             {
               kind: "note",
@@ -234,13 +243,23 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 'Tap "Ask to leave early". "Leave at" shows the time now: the time you ask is the time recorded.',
                 'Under "Why", say what it is for. It is required.',
-                'Tap "Ask the Owner".',
-                'While you wait, My Day shows "Waiting · Asked to leave at 4:30 pm · 12 min ago. You can end your day at 5:00 pm if there\'s no answer." You stay checked in.',
+                {
+                  text: 'Tap "Ask the Owner" (highlighted).',
+                  shot: "staff/leave-early-sheet",
+                },
+                {
+                  text: 'While you wait, My Day shows "Waiting · Asked to leave at 4:30 pm · 12 min ago. You can end your day at 5:00 pm if there\'s no answer." (highlighted). You stay checked in.',
+                  shot: "staff/leave-early-waiting",
+                },
+                {
+                  text: 'If the Owner approves, your day ends at the time you asked, and the strip shows "Any expenses to claim today?" (highlighted) to add your claims for the day.',
+                  shot: "staff/leave-early-approved",
+                },
               ],
             },
             {
               kind: "next",
-              text: 'If the Owner approves, your day ends at the time you asked, and the strip shows "Any expenses to claim today?" to add your claims for the day. If the Owner says stay, carry on until your end time; you are reminded then, and you can ask again. With no answer after 30 minutes, End day comes back; ending your day then is marked "Left early, not answered" for the Owner to review.',
+              text: 'If the Owner says stay, carry on until your end time; you are reminded then, and you can ask again. With no answer after 30 minutes, End day comes back; ending your day then is marked "Left early, not answered" for the Owner to review.',
             },
             {
               kind: "note",
@@ -328,7 +347,10 @@ export const CREW_GUIDE: Guide = {
                   text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
                   shot: "staff/request-leave",
                 },
-                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date", and asks "Which half?": "Morning off" or "Afternoon off"; its button reads "Request half day".',
+                {
+                  text: 'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date", and asks "Which half?" (highlighted): "Morning off" or "Afternoon off"; its button reads "Request half day".',
+                  shot: "staff/request-half",
+                },
                 'Under the dates MaxOff shows how long it is, such as "2 days".',
                 "Add a reason if you like. It is optional.",
                 'Tap "Request leave".',
