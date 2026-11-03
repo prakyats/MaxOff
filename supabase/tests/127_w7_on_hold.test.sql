@@ -278,7 +278,7 @@ select ok(public.task_hold(pg_temp.fx('tx'), 'Waiting for the client') is not nu
 select is(pg_temp.n('admin', 'task_held', 'tx'), 1, 'its creator Admin is told');
 select is(pg_temp.n('staff', 'task_held', 'tx'), 1, 'and its assignee');
 select ok(public.task_hold(pg_temp.fx('to'), 'Owner pause') is not null, 'the Owner holds their own task');
-select is(pg_temp.n('admin2', 'task_held', 'to'), 0, 'its approving Admin (not the creator) is not told');
+select is(pg_temp.n('admin2', 'task_held', 'to'), 1, 'its approving Admin (not the creator) is told (owner 2026-11-03, migration task_hold_tells_approver)');
 select is(pg_temp.n('staff', 'task_held', 'to'), 1, 'its assignee is');
 
 -- Only a task with its people is held.

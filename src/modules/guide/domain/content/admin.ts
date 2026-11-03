@@ -527,11 +527,11 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The people on it are told quietly, and the task shows an amber “On hold” chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
+              text: "The people on it and its approving Admin are told quietly, and the task shows an amber “On hold” chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
             },
             {
               kind: "note",
-              text: "Only the task’s creator and the Owner can hold or resume it, never its approving Admin. A task handed in, completed or cancelled cannot be held.",
+              text: "Only the task’s creator and the Owner can hold or resume it, never its approving Admin. If you approve a task someone else holds or resumes, you get a quiet note. A task handed in, completed or cancelled cannot be held.",
             },
           ],
           link: { href: "/tasks/all?state=on_hold", label: "See tasks on hold" },

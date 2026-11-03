@@ -600,7 +600,7 @@ export const OWNER_GUIDE: Guide = {
               },
             ),
             next(
-              'The people on it are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
+              'The people on it and its approving Admin are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
             ),
             note(
               "A task that is handed in, completed or cancelled cannot be put on hold. Cancelling a held task ends the hold. History keeps the reason and the old deadline.",
