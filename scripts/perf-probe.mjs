@@ -57,6 +57,9 @@
 // Since 2026-11-03 every `/diagnostics/timing` sample of the fresh and kept-alive passes keeps its
 // answer too, and a table sets each sample's TTFB beside the Worker's own `total`: whether a slow
 // sample's time went in the chain or outside it. Observation only: the gate judges what it did.
+// `/diagnostics/approvals-timing` (same rules: members only, numbers only) adds the Approvals
+// screen's own wave the same way: each read's answer time on the Worker, so a read that queued
+// behind the six open connections names itself (2026-11-03; removed with the route later).
 //
 // Where this runs matters: a GitHub runner sits in the US, so every Worker → Supabase (Mumbai)
 // round trip costs ~200 ms there against a few tens from India. That exaggerates a waterfall
@@ -392,6 +395,7 @@ function diagnose(sample, route, at, kind) {
 }
 
 const TIMING_PATH = "/diagnostics/timing";
+const APPROVALS_TIMING_PATH = "/diagnostics/approvals-timing";
 
 /** A `/diagnostics/timing` answer's numbers (it holds nothing else but the role), or null. */
 function timingBody(text) {
@@ -536,11 +540,17 @@ async function main() {
 
   // The layout's chain as the Worker itself timed it.
   const chains = new Map(bases.map((at) => [at, null]));
+  // The Approvals screen's reads as the Worker timed them (`/diagnostics/approvals-timing`, v1.9
+  // speed gate, advisor 2026-11-03): observation only, never judged. A base without the route
+  // (staging before it shipped) answers 404 and simply has no table.
+  const approvals = new Map(bases.map((at) => [at, null]));
   if (cookie) {
     const reads = new Map(bases.map((at) => [at, []]));
+    const waves = new Map(bases.map((at) => [at, []]));
     for (let i = 0; i < samples; i++) {
       for (const at of turn(i)) {
         reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
+        waves.get(at).push(await json(at + APPROVALS_TIMING_PATH, headersFor({ auth: true })));
       }
     }
     for (const at of bases) {
@@ -548,12 +558,24 @@ async function main() {
         at,
         reads.get(at).filter((r) => r && typeof r.total === "number"),
       );
+      approvals.set(
+        at,
+        waves.get(at).filter((r) => r && typeof r.page === "number"),
+      );
     }
   }
 
   const ofBase = (at) => results.filter((r) => r.base === at);
   const own = report(
-    { plan, who, base, label, results: ofBase(base), chain: chains.get(base) },
+    {
+      plan,
+      who,
+      base,
+      label,
+      results: ofBase(base),
+      chain: chains.get(base),
+      approvals: approvals.get(base),
+    },
     { compare, out: args.out, gateLine: !pairBase },
   );
   // With `--pair`, staging's run prints its own rows for reference and judges this one.
@@ -566,6 +588,7 @@ async function main() {
           label: pairLabel,
           results: ofBase(pairBase),
           chain: chains.get(pairBase),
+          approvals: approvals.get(pairBase),
         },
         { compare: { candidate: { label, summary: own.summary } }, out: args["pair-out"] },
       )
@@ -582,7 +605,10 @@ async function main() {
  * One base's table (and, with a compare, the gate's): printed, added to the job summary and
  * written to `out`. Returns the run's route summary and the gate's judgements.
  */
-function report({ plan, who, base, label, results, chain }, { compare, out, gateLine = true }) {
+function report(
+  { plan, who, base, label, results, chain, approvals = null },
+  { compare, out, gateLine = true },
+) {
   // Per route: did every sample answer with the route's own status, and the warm TTFB p50.
   const summary = plan.map((route) => {
     if (route.skip !== undefined) return { name: route.name, skip: route.skip };
@@ -686,6 +712,17 @@ function report({ plan, who, base, label, results, chain }, { compare, out, gate
     const info = Object.entries(chain[0]).filter(([, v]) => typeof v !== "number");
     if (info.length) lines.push("", info.map(([k, v]) => `${k}: \`${String(v)}\``).join(" · "));
   }
+  if (approvals && approvals.length > 0) {
+    lines.push("");
+    lines.push(
+      `**The Approvals screen's reads, timed on the Worker** (\`${APPROVALS_TIMING_PATH}\`, ms from the wave's start to each answer, p50 of ${approvals.length}; \`shell\`: the layout's awaited reads, the first byte's floor; \`page\`: the page's last read):`,
+    );
+    lines.push("");
+    const keys = Object.keys(approvals[0]).filter((k) => typeof approvals[0][k] === "number");
+    lines.push(`| ${keys.join(" | ")} |`);
+    lines.push(`|${keys.map(() => "---").join("|")}|`);
+    lines.push(`| ${keys.map((k) => ms(median(approvals.map((r) => r[k])))).join(" | ")} |`);
+  }
   const timed = results.filter((r) => r.route === TIMING_PATH && r.body && r.body.total >= 0);
   if (timed.length > 0) {
     lines.push("");
@@ -714,7 +751,7 @@ function report({ plan, who, base, label, results, chain }, { compare, out, gate
   if (out) {
     writeFileSync(
       out,
-      JSON.stringify({ label, base, samples, who, summary, results, chain }, null, 2),
+      JSON.stringify({ label, base, samples, who, summary, results, chain, approvals }, null, 2),
     );
   }
 
