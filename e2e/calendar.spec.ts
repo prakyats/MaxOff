@@ -2644,7 +2644,9 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       await page.locator('[data-slot="bottom-nav"] [data-nav="calendar"]').click();
       await expect(page).toHaveURL(/\/calendar$/);
       await hydrated(page);
-      await page.locator('[data-slot="calendar-handle"]').click();
+      // The real handle is a button: the loading skeleton draws a div with the same slot, and
+      // after a client-side move from Today a tap could land on it (CI 41635363757).
+      await page.locator('button[data-slot="calendar-handle"]').click();
       await expect(phone(page)).toHaveAttribute("data-size", "3");
       if (!(await dayBox(page, day).isVisible())) {
         await page.locator('[data-slot="calendar-next"]').click();

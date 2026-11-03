@@ -7,6 +7,7 @@ import {
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
+  expectSettled,
   expectSheetAboveKeyboard,
   hydrated,
   memberIdOf,
@@ -1271,6 +1272,9 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     ]) {
       await page.goto(path);
       await hydrated(page);
+      // The screen, not its loading skeleton still on screen after goto (CI 41635363757 measured
+      // the skeleton at 200%; `expectSettled`).
+      await expectSettled(page);
       for (const scale of [130, 200]) {
         await page.evaluate((percent) => {
           document.documentElement.style.fontSize = `${percent}%`;
