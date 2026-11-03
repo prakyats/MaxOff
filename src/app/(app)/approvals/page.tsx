@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { withSessionUserId } from "@/core/auth/server";
+import { getSessionBundle } from "@/core/auth/session-bundle";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
@@ -51,7 +52,15 @@ export default async function ApprovalsPage() {
     listPendingClaims(),
     listDirectory(),
     // v1.9 W4: early-leave requests (waiting, and left without an answer); RLS: the Owner's.
-    listEarlyLeaveRequests(),
+    // Read only once the shell's counts (`session_bundle()`, the layout's own read, shared through
+    // `cache()`) say one is waiting: the same two states under the same RLS, so a count of 0 is an
+    // empty list. That keeps this wave at eleven reads, as on `main`: a twelfth put the first byte
+    // in the Worker's second batch (§19 "Six connections", v1.9 speed gate 2026-11-03). Counts
+    // that could not be read ask the usual way, so a failed bundle never hides the group.
+    getSessionBundle().then(
+      (bundle) => (bundle.pending.earlyLeaves > 0 ? listEarlyLeaveRequests() : []),
+      () => listEarlyLeaveRequests(),
+    ),
   ]);
   const finalTasks = listTasksToDecide({ final: true });
   const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));

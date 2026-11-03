@@ -72,7 +72,11 @@ describe("GET /diagnostics/approvals-timing", () => {
     vi.clearAllMocks();
     reads.getSessionState.mockResolvedValue(member("owner"));
     reads.withSessionUserId.mockImplementation((read: (id: string) => unknown) => read("m-1"));
-    reads.getSessionBundle.mockResolvedValue({ unread: 3, label: SECRET });
+    reads.getSessionBundle.mockResolvedValue({
+      unread: 3,
+      pending: { earlyLeaves: 1 },
+      label: SECRET,
+    });
     reads.readOwnPushStatus.mockResolvedValue({
       endpoints: ["https://push.example/x"],
       band: null,

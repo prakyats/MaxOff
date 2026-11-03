@@ -57,7 +57,8 @@ export async function GET(): Promise<Response> {
 
   // The layout's wave, in its order (`src/app/(app)/layout.tsx`).
   const member = timed(getSessionState());
-  const bundle = quiet(getSessionBundle());
+  const counts = getSessionBundle();
+  const bundle = quiet(counts);
   const today = quiet(getOwnToday());
   const push = quiet(readOwnPushStatus());
   // The page's first wave, in its order (`src/app/(app)/approvals/page.tsx`).
@@ -66,7 +67,14 @@ export async function GET(): Promise<Response> {
   const notes = quiet(listPendingNotes());
   const claims = quiet(listPendingClaims());
   const directory = quiet(listDirectory());
-  const early = quiet(listEarlyLeaveRequests());
+  // As the page: the early-leave rows only once the counts say one is waiting (a 0 is an empty
+  // list under the same RLS; counts that could not be read ask the usual way).
+  const early = quiet(
+    counts.then(
+      (read) => (read.pending.earlyLeaves > 0 ? listEarlyLeaveRequests() : []),
+      () => listEarlyLeaveRequests(),
+    ),
+  );
   // Timed from the start, so a task step that answers before the member row still reads true.
   const finalTasks = timed(listTasksToDecide({ final: true }).catch(() => []));
   const checkTasks = timed(
