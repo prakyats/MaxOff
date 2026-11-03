@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { readBeforeCheck } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 
 import type { PromptLeaveChoice } from "../domain/choices";
@@ -21,8 +22,9 @@ import type { OwnToday } from "../domain/today";
  * again, and Next renders the two in parallel.
  */
 export const getOwnToday = cache(async (): Promise<OwnToday> => {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("attendance_own_today");
+  // Started before the JWT check (`readBeforeCheck`): an Admin's or Crew's first byte waits for
+  // it (the layout's Start-day prompt), so it must never queue behind the page's reads.
+  const { data, error } = await readBeforeCheck((supabase) => supabase.rpc("attendance_own_today"));
   if (error) throw error;
   // `returns table`: PostgREST hands back a one-row array.
   const row = data[0];
