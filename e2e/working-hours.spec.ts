@@ -85,17 +85,25 @@ function wall(minutes: number): string {
  * The working hours on, the day starting `startAgo` minutes ago and ending in `endIn` minutes (the
  * run's own clock), the grace 15 minutes and the wait 30.
  */
-async function hoursAround(startAgo: number, endIn: number): Promise<{ end: number }> {
+async function hoursAround(
+  startAgo: number,
+  endIn: number,
+): Promise<{ end: number; startedAgo: number }> {
   const now = istNow();
   const end = Math.min(now + endIn, 23 * 60 + 59);
+  // The start cannot be before midnight: in the first `startAgo` minutes of the IST day (where CI
+  // runs, just after `wait-for-ist-day`) it is 00:00, so the day is only `now` minutes old.
+  // `startedAgo` is what was really set, and what a late start measures (CI 41689282991: 20 at
+  // 00:20 IST, against a fixed 39).
+  const start = Math.max(now - startAgo, 0);
   await serviceUpdate("org_settings?org_id=not.is.null", {
     working_hours_on: true,
-    work_start_time: hhmm(now - startAgo),
+    work_start_time: hhmm(start),
     work_end_time: hhmm(end),
     late_grace_minutes: 15,
     early_leave_wait_minutes: 30,
   });
-  return { end };
+  return { end, startedAgo: now - start };
 }
 
 /** Back to the suite's settings: the switch off and the launch hours. */
@@ -181,7 +189,10 @@ test("Crew: a late Start day asks the reason; the strip shows Late, the reason a
 }, info) => {
   const email = person("staff", info);
   await resetAttendanceAndLeaveOf(email);
-  await hoursAround(40, 120);
+  const { startedAgo } = await hoursAround(40, 120);
+  // A late start needs the day to be past the 15-minute grace: only the first 16 minutes after
+  // midnight IST cannot hold one, and then this says why instead of failing further down.
+  expect(startedAgo, "minutes since work started (the IST day is younger)").toBeGreaterThan(15);
   await signIn(page, email, PASSWORD, { day: "stop" });
   const prompt = startPrompt(page);
   await expect(prompt).toBeVisible();
@@ -216,7 +227,8 @@ test("Crew: a late Start day asks the reason; the strip shows Late, the reason a
   await expect(strip(page).getByRole("button", { name: "Ask to leave early" })).toBeVisible();
   await expect(strip(page).getByRole("button", { name: "End day" })).toHaveCount(0);
   const day = await dayOf(email);
-  expect(day?.late_minutes ?? 0).toBeGreaterThanOrEqual(39);
+  // As late as the start that was set (a minute may pass between setting it and the tap).
+  expect(day?.late_minutes ?? 0).toBeGreaterThanOrEqual(startedAgo - 1);
   expect(day?.late_reason).toBe("Traffic");
   // The strip's second row fits the phone (the toast's own list slides in from the edge: gone first).
   await expect(page.getByText("Your day has started")).toBeHidden();
