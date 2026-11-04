@@ -8,7 +8,7 @@ import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import type { DataTableFilter, DataTableFilterOption } from "@/core/ui/composites/data-table-view";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { ON_HOLD_CHIP, StatusDot } from "@/core/ui/composites/status-badge";
 
 import {
   ALL,
@@ -198,7 +198,9 @@ export function TaskListTable({
         .filter(Boolean)
         .join(" · "),
     trailing: (task) =>
-      task.overdue ? (
+      task.held ? (
+        <HeldDot />
+      ) : task.overdue ? (
         <StatusDot status="overdue" tone="danger" label={task.lateLabel ?? "Overdue"} />
       ) : (
         <StatusDot status={task.state} label={task.stateLabel} />
@@ -233,7 +235,15 @@ export function TaskListTable({
   );
 }
 
+/** A held task's state (v1.9 W8): amber "On hold", never its overdue (its clock is stopped). */
+function HeldDot() {
+  return (
+    <StatusDot status={ON_HOLD_CHIP.status} tone={ON_HOLD_CHIP.tone} label={ON_HOLD_CHIP.label} />
+  );
+}
+
 function TaskState({ task }: { task: TaskListItem }) {
+  if (task.held) return <HeldDot />;
   return (
     <span className="flex flex-wrap items-center gap-2">
       {task.overdue ? (

@@ -35,7 +35,7 @@ import {
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
-import { itemView } from "../domain/views";
+import { itemRowView, itemView } from "../domain/views";
 
 const TODAY = "2026-10-08"; // a Thursday
 
@@ -55,6 +55,9 @@ function item(over: Partial<Item> = {}): Item {
     approvedAt: null,
     approvedBy: null,
     cancelledReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    closeKind: null,
     carryDecision: null,
     carriedFromItemId: null,
     originCycleId: "c1",
@@ -195,7 +198,12 @@ describe("the Item list's words (amendment D4)", () => {
 
   it("names the running cycle and the period a new line starts from", () => {
     const periods = itemListPeriods("monthly", TODAY, [october], true);
-    expect(periods).toEqual({ unit: "month", from: "November 2026", running: "October 2026" });
+    expect(periods).toEqual({
+      unit: "month",
+      from: "November 2026",
+      running: "October 2026",
+      fromIsNext: true,
+    });
     const words = itemListCopy(periods!);
     expect(words.description).toBe(
       "Every month starts with these, from November 2026. To add something to October 2026, use + Add deliverable on the project page.",
@@ -217,7 +225,12 @@ describe("the Item list's words (amendment D4)", () => {
     // reopened (the night after): no cycle holds today yet.
     for (const canAddNow of [true, false]) {
       const periods = itemListPeriods("monthly", TODAY, [], canAddNow);
-      expect(periods).toEqual({ unit: "month", from: "October 2026", running: null });
+      expect(periods).toEqual({
+        unit: "month",
+        from: "October 2026",
+        running: null,
+        fromIsNext: false,
+      });
       expect(itemListCopy(periods!).description).toBe("Every month starts with these.");
       expect(itemListCopy(periods!).added("Reel 4")).toBe("Reel 4 added from October 2026");
       expect(itemListCopy(periods!).removeDescription).toBe("October 2026 starts without it.");
@@ -230,7 +243,12 @@ describe("the Item list's words (amendment D4)", () => {
   it("names this period when a carry made its cycle without the list (Q4 (a))", () => {
     const carried = cycle("2026-10-01", "2026-10-31", "October 2026", false);
     const periods = itemListPeriods("monthly", TODAY, [carried], true);
-    expect(periods).toEqual({ unit: "month", from: "October 2026", running: null });
+    expect(periods).toEqual({
+      unit: "month",
+      from: "October 2026",
+      running: null,
+      fromIsNext: false,
+    });
     expect(itemListCopy(periods!).removeDescription).toBe("October 2026 starts without it.");
     // A next period begun by a carry is likewise still to take the list.
     const carriedNext = cycle("2026-11-01", "2026-11-30", "November 2026", false);
@@ -255,7 +273,12 @@ describe("the Item list's words (amendment D4)", () => {
   it("speaks of weeks on a weekly project, and has no item list on a one-time one", () => {
     const week = cycle("2026-10-05", "2026-10-11", "5–11 Oct 2026");
     const periods = itemListPeriods("weekly", TODAY, [week], true);
-    expect(periods).toEqual({ unit: "week", from: "12–18 Oct 2026", running: "5–11 Oct 2026" });
+    expect(periods).toEqual({
+      unit: "week",
+      from: "12–18 Oct 2026",
+      running: "5–11 Oct 2026",
+      fromIsNext: true,
+    });
     expect(itemListCopy(periods!).description).toBe(
       "Every week starts with these, from 12–18 Oct 2026. To add something to 5–11 Oct 2026, use + Add deliverable on the project page.",
     );
@@ -307,6 +330,9 @@ describe("the Projects tab", () => {
     createdAt: "2026-10-01T00:00:00Z",
     cancelledAt: null,
     cancelledReason: null,
+    heldAt: null,
+    heldBy: null,
+    holdReason: null,
     ...over,
   });
 
@@ -404,6 +430,7 @@ describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
     ],
     cycleLabels: { old: "September 2026" },
     cycleLabel: "October 2026",
+    recurrence: "monthly" as const,
   };
 
   it("shows a send-back, its own active stages in order with ticks, a carried-in mark", () => {
@@ -752,6 +779,9 @@ describe("every entry the activity reads return is a line (the 7B rework's revie
     ["projects", "completed", {}],
     ["projects", "cancelled", {}],
     ["projects", "reopened", {}],
+    // v1.9 W7 (migration on_hold).
+    ["projects", "held", {}],
+    ["projects", "resumed", {}],
     ["projects", "update", { delivery_date: "2026-11-01" }],
     ["projects", "update", { name: "Reels" }],
     ["projects", "update", { description: "Five" }],
@@ -910,5 +940,56 @@ describe("dueByClient (PP-admin-10)", () => {
       late: 0,
       next: "2026-10-22",
     });
+  });
+});
+
+describe("a held project's deliverables (v1.9 W8, ADR-0016)", () => {
+  const context = {
+    today: TODAY,
+    names: {},
+    ownerId: null,
+    stages: [stage({ id: "s1" })],
+    reviews: [],
+    cycleLabels: {},
+    cycleLabel: "October 2026",
+    recurrence: "monthly" as const,
+  };
+
+  it("reads On hold, never late, and waits: no tick, Mark done or send-back; Close stays", () => {
+    const late = item({ plannedDate: "2026-10-01" });
+    expect(itemView(late, context).planned?.overdue).toBe(true);
+    const view = itemView(late, { ...context, held: true });
+    expect(view.onHold).toBe(true);
+    expect(view.planned).toEqual({
+      text: "Planned 1 Oct",
+      overdue: false,
+      date: "Planned 1 Oct",
+      late: null,
+    });
+    expect(view.rules).toMatchObject({
+      ticks: false,
+      markDone: false,
+      reopen: false,
+      cancel: true,
+      editAll: true,
+    });
+    // A finished deliverable is not "On hold".
+    expect(itemView(item({ state: "cancelled" }), { ...context, held: true }).onHold).toBe(false);
+  });
+
+  it("marks a cross-client row On hold from its project, out of Overdue", () => {
+    const row = {
+      ...item({ plannedDate: "2026-10-01" }),
+      projectName: "Monthly Social",
+      clientId: "c",
+      clientName: "Yamuna",
+      adminId: null,
+      cycleLabel: "October 2026",
+    };
+    expect(itemRowView(row, TODAY).onHold).toBe(false);
+    expect(itemRowView(row, TODAY).planned?.overdue).toBe(true);
+    const held = itemRowView({ ...row, projectHeldAt: "2026-10-05T04:00:00Z" }, TODAY);
+    expect(held.onHold).toBe(true);
+    expect(held.planned?.overdue).toBe(false);
   });
 });

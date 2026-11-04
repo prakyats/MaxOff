@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { readBeforeCheck } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { systemClock } from "@/core/time";
@@ -87,8 +88,10 @@ export async function listOwnPushSubscriptions(): Promise<OwnPushSubscription[]>
  */
 export const readOwnPushStatus = cache(
   async (): Promise<{ endpoints: string[]; band: BandReason | null }> => {
-    const supabase = await createServerSupabase();
-    const { data, error } = await supabase.rpc("push_status_own").maybeSingle();
+    // Started before the JWT check (`readBeforeCheck`): the layout's first byte waits for it.
+    const { data, error } = await readBeforeCheck((supabase) =>
+      supabase.rpc("push_status_own").maybeSingle(),
+    );
     if (error) throw error;
     return { endpoints: data?.endpoints ?? [], band: toBandReason(data?.band ?? null) };
   },

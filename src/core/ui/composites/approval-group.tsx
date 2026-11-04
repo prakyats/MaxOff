@@ -29,6 +29,14 @@ export function ApprovalScreen({ groups, children }: { groups: number; children:
   return <ApprovalGroupsShown value={groups}>{children}</ApprovalGroupsShown>;
 }
 
+/**
+ * How many groups on the screen have rows (`ApprovalScreen`), for a group drawn outside
+ * `ApprovalGroup` (v1.9 W4's early leave): its one row's Approve is solid only when it is alone.
+ */
+export function useApprovalGroupsShown(): number {
+  return use(ApprovalGroupsShown);
+}
+
 /** One row waiting for a decision: what it is, whose, and where it stands. */
 export type ApprovalRow = {
   id: string;
@@ -65,7 +73,13 @@ export type ApprovalWaiting = { label: string; tone: "muted" | "attention" | "da
  * How long a row has waited (B4): muted words under a day; from a day **a dot plus the word**,
  * amber, and red from three (FINAL 4: text colour alone never carries a state).
  */
-function WaitingWords({ waiting, className }: { waiting: ApprovalWaiting; className?: string }) {
+export function WaitingWords({
+  waiting,
+  className,
+}: {
+  waiting: ApprovalWaiting;
+  className?: string;
+}) {
   return (
     <span
       data-slot="approval-waiting"

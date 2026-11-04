@@ -121,7 +121,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work.",
+              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work. Work starts at 10:00 am; the line says so before you start. If you start more than 15 minutes after that, MaxOff asks for a short reason first (see Starting late).",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -142,6 +142,10 @@ export const CREW_GUIDE: Guide = {
                 'Tap "Start day" if you are working.',
                 'Or tap "On leave today? Choose leave".',
                 "Pick Leave (the whole day off) or Half day, and add a reason if you like.",
+                {
+                  text: 'For a half day, choose "Morning off" (start your day after lunch; you won\'t be marked late) or "Afternoon off" (end your day after lunch; no need to ask to leave early) (highlighted).',
+                  shot: "staff/start-prompt-half",
+                },
                 'Tap "Record leave".',
               ],
             },
@@ -183,11 +187,87 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'The end time is now, and it is final for today: there is no resume. If you choose Yes for expenses, the button reads "End day, add expenses" and the claim form opens.',
+              text: 'The end time is now, and it is final for today: there is no resume. If you choose Yes for expenses, the button reads "End day, add expenses" and the claim form opens. Before your day\'s end time (6:00 pm, or later on a shoot day) the button reads "Ask to leave early" instead: see Leaving before your end time.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
           keywords: ["finish", "check out", "clock out", "overtime", "expenses", "leave work"],
+        },
+        {
+          id: "late-start",
+          title: "Starting late",
+          summary: "A late start asks for one line for the Owner. It never stops you working.",
+          blocks: [
+            {
+              kind: "text",
+              text: 'Work starts at 10:00 am. If you tap Start day more than 15 minutes after that, MaxOff opens "You\'re starting 22 minutes late" before it records the start.',
+            },
+            {
+              kind: "steps",
+              steps: [
+                'Tap "Start day".',
+                {
+                  text: 'Read "You\'re starting … late". If you have a shoot later today, the reason (highlighted) already says "Shoot at 3:00 pm" (marked "Suggested from your calendar"): keep it or change it.',
+                  shot: "staff/late-sheet",
+                },
+                "Add one line for the Owner if you like. It is optional.",
+                {
+                  text: 'Tap "Start day" in the sheet. The start time is that tap. My Day then shows an amber "Late 22 min" chip with your reason, and when your day ends (highlighted).',
+                  shot: "staff/late-chip",
+                },
+              ],
+            },
+            {
+              kind: "next",
+              text: 'With no reason yet, tap "Add a reason" beside the chip.',
+            },
+            {
+              kind: "note",
+              text: "Nobody is notified of a late start. The Owner sees it on Today and in the end-of-day report. A morning half day is never late.",
+            },
+          ],
+          link: { href: "/my-day", label: "Open My Day" },
+          keywords: ["late", "late start", "reason", "shoot", "traffic"],
+        },
+        {
+          id: "leave-early",
+          title: "Leaving before your end time",
+          summary: "Ask the Owner to leave early, then wait for the answer.",
+          blocks: [
+            {
+              kind: "text",
+              text: 'Your day ends at 6:00 pm, later when a shoot runs on ("Your shoot runs till 7:30 pm, so today ends at 7:30 pm") or when the Owner asks you to stay. Before then, End day reads "Ask to leave early".',
+            },
+            {
+              kind: "steps",
+              steps: [
+                'Tap "Ask to leave early". "Leave at" shows the time now: the time you ask is the time recorded.',
+                'Under "Why", say what it is for. It is required.',
+                {
+                  text: 'Tap "Ask the Owner" (highlighted).',
+                  shot: "staff/leave-early-sheet",
+                },
+                {
+                  text: 'While you wait, My Day shows "Waiting · Asked to leave at 4:30 pm · 12 min ago. You can end your day at 5:00 pm if there\'s no answer." (highlighted). You stay checked in.',
+                  shot: "staff/leave-early-waiting",
+                },
+                {
+                  text: 'If the Owner approves, your day ends at the time you asked, and the strip shows "Any expenses to claim today?" (highlighted) to add your claims for the day.',
+                  shot: "staff/leave-early-approved",
+                },
+              ],
+            },
+            {
+              kind: "next",
+              text: 'If the Owner says stay, carry on until your end time; you are reminded then, and you can ask again. With no answer after 30 minutes, End day comes back; ending your day then is marked "Left early, not answered" for the Owner to review.',
+            },
+            {
+              kind: "note",
+              text: 'An afternoon half day never needs to ask. If you simply leave without ending your day, it stays "End of day not recorded".',
+            },
+          ],
+          link: { href: "/my-day", label: "Open My Day" },
+          keywords: ["leave early", "go home", "end time", "stay", "permission", "early"],
         },
         {
           id: "forgot-end-day",
@@ -267,7 +347,10 @@ export const CREW_GUIDE: Guide = {
                   text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
                   shot: "staff/request-leave",
                 },
-                'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date".',
+                {
+                  text: 'If you have comp leave, the line above the dates says how much is left. Pick the "First day" and "Last day" (an empty one reads "Choose a date"; tap it to open the calendar). A half day has a single "Date", and asks "Which half?" (highlighted): "Morning off" or "Afternoon off"; its button reads "Request half day".',
+                  shot: "staff/request-half",
+                },
                 'Under the dates MaxOff shows how long it is, such as "2 days".',
                 "Add a reason if you like. It is optional.",
                 'Tap "Request leave".',
@@ -453,6 +536,40 @@ export const CREW_GUIDE: Guide = {
           ],
           link: { href: "/tasks", label: "Open Tasks" },
           keywords: ["brief", "details", "status", "due", "priority", "activity"],
+        },
+        {
+          id: "task-on-hold",
+          title: "A task on hold",
+          summary: "Paused by the person who gave it: nothing is due until it resumes.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Whoever gave you a task can put it on hold, for example while the footage it needs is on its way. You get a quiet note with the reason. The task shows an amber “On hold” chip and a line with why.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "On My tasks, tap “On hold · n” (highlighted) to see your held tasks.",
+                  shot: "staff/tasks-on-hold",
+                },
+                {
+                  text: "Open one to read why it is on hold (highlighted). Its stages are greyed out until it is resumed. You can still note it and chat.",
+                  shot: "staff/task-on-hold",
+                },
+              ],
+            },
+            {
+              kind: "next",
+              text: "When it is resumed you get a note with its deadline, and it is back in your list.",
+            },
+            {
+              kind: "note",
+              text: "While it is on hold, Start, Done and the stage ticks wait, and it is never late. Nothing to do until it is resumed.",
+            },
+          ],
+          link: { href: "/tasks", label: "Open My tasks" },
+          keywords: ["on hold", "paused", "hold", "resumed"],
         },
         {
           id: "task-noted",
@@ -687,7 +804,7 @@ export const CREW_GUIDE: Guide = {
                 },
                 "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue; on a phone’s full month one count, “2 due”, or a red alert with the count when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. A day with more than fits ends in “+N more”; tap it to see the whole day.",
                 'Use the "Type" filter to show fewer things.',
-                'Open a day and tap "Suggest a task". The day is filled in for you.',
+                'Open a day and tap "Suggest a task on ‹day›" at the bottom. The day is filled in for you. There is none on a past day, or on today after 11:59 pm.',
               ],
             },
             {
@@ -711,9 +828,9 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "On a phone, swipe, or tap the handle, to change size.",
-                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters" (an icon, with a dot while a filter is on).',
-                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right.',
-                'On a phone, a day of the full month opens in a sheet with its timeline and "Suggest a task". On a laptop a day opens in a dialog with "Open day".',
+                'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters", an icon that shows the count, "·1", with a red outline while a filter is on, so you can see the calendar is not showing everything.',
+                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right, reading "Filters · 1" with a red outline while a filter is on.',
+                'On a phone, a day of the full month opens in a sheet with its timeline, and "Suggest a task on ‹day›" stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog with "Open day"; in the Day view "Suggest a task on ‹day›" sits at the bottom of the day\'s timeline.',
               ],
             },
             {

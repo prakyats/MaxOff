@@ -420,7 +420,7 @@ export function DayDetail({
                   <span
                     className={cn(
                       "w-16 shrink-0 pt-px text-xs tabular-nums",
-                      day.date < today ? "text-danger" : "text-muted-foreground",
+                      day.date < today && !item.held ? "text-danger" : "text-muted-foreground",
                     )}
                   >
                     {formatTime(item.dueAt)}
@@ -429,6 +429,7 @@ export function DayDetail({
                     <span className="font-medium break-words">{item.title}</span>
                     <span className="text-muted-foreground text-xs break-words">{item.owner}</span>
                   </span>
+                  {item.held ? <HeldWord /> : null}
                   <ChevronRightIcon
                     className="text-muted-foreground mt-0.5 size-4 shrink-0"
                     aria-hidden
@@ -567,14 +568,32 @@ export function ClientItemsList({
                 <span className="text-muted-foreground text-xs break-words">
                   {item.title} · {item.project}
                   {item.done ? " · done" : ""}
-                  {late && !item.done ? <span className="text-danger"> · late</span> : null}
+                  {late && !item.done && !item.held ? (
+                    <span className="text-danger"> · late</span>
+                  ) : null}
                 </span>
               </span>
+              {item.held ? <HeldWord /> : null}
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </OverlayLink>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * "On hold" on a held task's or deliverable's row (v1.9 W8): the amber chip's look in plain
+ * markup, so the calendar's first load carries no badge component (its JS budget).
+ */
+function HeldWord() {
+  return (
+    <span
+      data-status="on_hold"
+      className="bg-attention-soft text-attention shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+    >
+      On hold
+    </span>
   );
 }

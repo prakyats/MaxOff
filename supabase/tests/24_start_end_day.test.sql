@@ -9,6 +9,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(111);
+-- v1.9 W4: these checks are of the day without working hours (on by default since migration
+-- working_hours_on; its rules are pgTAP 121's), so End day is not refused before the end time.
+update public.org_settings set working_hours_on = false;
 
 -- Fixtures as 13: keep the organization, replace the people. Rolled back at the end.
 delete from public.attendance_events;
@@ -193,7 +196,7 @@ select throws_ok(
   '23514', null, 'an end without a start is refused by the check constraint');
 select has_function('public', 'attendance_own_today', '{}'::text[], 'attendance_own_today exists');
 select has_function('public', 'attendance_start_day', '{}'::text[], 'attendance_start_day exists');
-select has_function('public', 'attendance_choose_leave_today', array['attendance_choice', 'text'], 'attendance_choose_leave_today exists');
+select has_function('public', 'attendance_choose_leave_today', array['attendance_choice', 'text', 'text'], 'attendance_choose_leave_today exists (v1.9 W0 added the half)');
 select has_function('public', 'attendance_end_day', array['text', 'integer'], 'attendance_end_day exists (3b.2 added the optional overtime note)');
 select has_function('public', 'session_sign_out', array['text', 'text'], 'session_sign_out exists');
 select has_function('public', 'attendance_today_detail', '{}'::text[], 'attendance_today_detail exists');

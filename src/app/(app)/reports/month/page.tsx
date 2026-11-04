@@ -47,7 +47,7 @@ export default async function TeamMonthPage({
   });
   const seesExpenses = can(viewer.role, "expenses.decide");
   const [summaries, approved] = await Promise.all([
-    getMonthSummary(month),
+    getMonthSummary(month, undefined, { hours: true }),
     seesExpenses ? listApprovedInMonth(monthRange(month)) : Promise.resolve([]),
   ]);
 

@@ -1560,6 +1560,7 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
       expect(Math.round(headBox.x + headBox.width - (enlargeBox.x + enlargeBox.width))).toBe(6);
       expect(enlargeBox.y).toBeGreaterThanOrEqual(headBox.y);
       expect(enlargeBox.y + enlargeBox.height).toBeLessThanOrEqual(headBox.y + headBox.height);
+      const bandBox = await box(band(page));
       // Whole pixels, rounded down (`chatSpace`): the foot is within a pixel of the page's own.
       // The bands fixed at the screen's foot (notifications off, offline) cover the page's end.
       const foot = async () => {
@@ -1608,14 +1609,15 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
           return Math.round(rect.y - (stuck.y + stuck.height));
         })
         .toBe(16);
+      await expect.poll(foot).toBeGreaterThanOrEqual(0);
+      expect(await foot()).toBeLessThan(1);
       expect(fullLoads, "the page loaded once: no full load during the walk").toBe(1);
-      // The panel's size once scrolled (its growth, its foot) is not asserted (owner decision
-      // 2026-10-24, after testing it by hand: CI caught it at its opening height, then 39 px past
-      // the foot at 1280, never locally; to look at again in v1.9, see PROGRESS). The stuck bar
-      // and the gap under it still are.
+      expect((await box(chatPanel(page))).height).toBeGreaterThan(opening.height);
       await expect(composer).toBeInViewport();
       await expect(page.locator('[data-slot="page-header"] h1')).not.toBeInViewport();
-      // How far the page scrolled is not asserted either: it rests on the same opening measure.
+      // The page scrolled exactly as far as the bar's sticking needed, no further.
+      const scrolled = await page.evaluate(() => window.scrollY);
+      expect(Math.round(scrolled)).toBe(Math.round(opening.y - (TOP_BAR + bandBox.height + 16)));
 
       // Back at the top, the header is there again and the bar is not stuck.
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -1640,9 +1642,13 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
     const prefix = `Enlarge ${info.project.name} `;
     const taskId = await chatTask(info, prefix, 51);
     await runInstalled(page);
-    await page.goto("/tasks");
+    // Drilled into from All tasks, found through its search: the Owner's Tasks tab shows only the
+    // 15 soonest open tasks, and a run's other tasks fall due before this one (working day 51), so
+    // on a shared database it was not on that first screen (the click timed out).
+    await page.goto("/tasks/all");
     await hydrated(page);
-    await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
+    await page.getByRole("searchbox", { name: "Search tasks" }).fill(`${prefix}edit`);
+    await page.locator(`a[href="/tasks/${taskId}"]`).filter({ visible: true }).first().click();
     const url = new RegExp(`/tasks/${taskId}(\\?tab=chat)?$`);
     await expect(page).toHaveURL(url);
     await hydrated(page);
@@ -1713,7 +1719,7 @@ test.describe("the laptop's chat space (task chat height, owner 23 Oct)", () => 
     );
 
     // No layer left behind and no view in history: one back leaves the task.
-    await expectBackStack(page, [{ url: /\/tasks$/ }]);
+    await expectBackStack(page, [{ url: /\/tasks\/all$/ }]);
   });
 });
 

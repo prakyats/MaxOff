@@ -93,3 +93,10 @@ export function attendanceStatus(day: { status: string | null; undecided: boolea
 export function statusTone(status: string): StatusTone {
   return (STATUS_TONES as Record<string, StatusTone>)[status] ?? "neutral";
 }
+
+/**
+ * On hold (v1.9 W8; ADR-0016): not an enum value but a pause beside the state, so it has no key in
+ * `STATUS_TONES`. Every On hold chip (a task's, a project's, a deliverable's, the calendar's) is
+ * this one: amber `attention`, never red (the approved sample §1–2; ADR-0015's colour rule).
+ */
+export const ON_HOLD_CHIP = { status: "on_hold", tone: "attention", label: "On hold" } as const;

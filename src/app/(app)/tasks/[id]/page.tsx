@@ -10,11 +10,11 @@ import { startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { formatDateTime, systemClock, todayIST } from "@/core/time";
+import { formatDateTime, formatIST, systemClock, todayIST } from "@/core/time";
 import { HistorySheet } from "@/core/ui/composites/history-sheet";
 import { DetailHeader } from "@/core/ui/composites/page-header";
 import { AvatarStack, type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
-import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import {
   activeAssignees,
   chatEvents,
@@ -27,7 +27,11 @@ import {
   firstUnreadId,
   getTaskTitle,
   handInFirst,
+  HELD_WORK_NOTE,
   HISTORY_ARRIVAL,
+  holdActions,
+  holdLine,
+  isOnHold,
   reopenAfterHandIn,
   isFinal,
   isLocked,
@@ -44,6 +48,7 @@ import {
   remindAgainAt,
   remindAgainLabel,
   remindWho,
+  resumeNeedsDeadline,
   reviewerName,
   routeLine,
   stateLabel,
@@ -53,6 +58,7 @@ import {
 } from "@/modules/tasks";
 import { TaskActivityList } from "@/modules/tasks/components/task-activity-list";
 import { TaskChat } from "@/modules/tasks/components/task-chat";
+import { TaskHoldLine } from "@/modules/tasks/components/task-hold";
 import { TaskMenu } from "@/modules/tasks/components/task-menu";
 import { TaskNextStep } from "@/modules/tasks/components/task-next-step";
 import { TaskRemind } from "@/modules/tasks/components/task-remind";
@@ -178,8 +184,36 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     remindNames.every((one) => one !== undefined) ? (remindNames as string[]) : [],
   );
 
-  const stateWords = stateLabel(task, { finalApprover: can(viewer.role, "tasks.approve_final") });
-  const state = <StatusBadge status={task.state} label={stateWords} />;
+  // v1.9 W8: On hold stands for the state while held (the sample §1); Crew read it and the reason.
+  const held = isOnHold(task);
+  const stateWords = held
+    ? "On hold"
+    : stateLabel(task, { finalApprover: can(viewer.role, "tasks.approve_final") });
+  const state = held ? <OnHoldBadge /> : <StatusBadge status={task.state} label={stateWords} />;
+  const holds = holdActions(
+    { id: viewer.id, role: viewer.role, canCreateTasks: can(viewer.role, "tasks.create") },
+    task,
+  );
+  const resumeFacts = {
+    taskId: task.id,
+    title: task.title,
+    dueAt: task.dueAt,
+    dueLabel: formatDateTime(task.dueAt, "EEE d MMM"),
+    needsDeadline: resumeNeedsDeadline(task, systemClock()),
+  };
+  // Whom a hold tells: everyone on the task but the viewer (WORKFLOWS §9 "Task put on hold").
+  const told = remindNames.filter((one): one is string => one !== undefined);
+  const holdTold =
+    told.length === 0
+      ? "Nobody else is on it to tell."
+      : `${remindWho(told)} ${told.length === 1 ? "is" : "are"} told quietly.`;
+  const hold = task.heldAt
+    ? holdLine({
+        since: formatIST(task.heldAt, "d MMM"),
+        by: task.heldBy ? name(task.heldBy) : null,
+        reason: task.holdReason,
+      })
+    : null;
   // PP-crew-8: the one next step is the header's primary action on a laptop and the sticky bar
   // at a phone's foot: one element (`primaryOwnBar`), so its dialogs mount once.
   const stepBar = (
@@ -248,6 +282,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                   changeApprover={actions.changeApprover}
                   more={more}
                   doneLabel={doneLabel}
+                  hold={{ ...holds, told: holdTold, facts: resumeFacts }}
                 />
               </>
             }
@@ -316,28 +351,46 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             {/* PP-task-2: what is needed now, as a calm callout above the actions. On a laptop
                 Remind sits inside it, at its right end (task chat height); a phone keeps Remind
                 on its own row under it (`max-md:contents`). One Remind either way. */}
-            <div
-              data-slot="task-next-box"
-              className={cn(
-                "md:border-border md:bg-muted/50 max-md:contents md:flex md:min-h-[2.875rem] md:min-w-0 md:items-center md:gap-2.5 md:rounded-lg md:border md:py-0 md:pl-3",
-                actions.remind ? "md:pr-1" : "md:pr-3",
-              )}
-            >
-              <p
-                data-slot="task-needed"
-                className="border-border bg-muted/50 rounded-lg border px-3 py-2.5 text-sm font-medium break-words md:min-w-0 md:flex-1 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5"
+            {hold ? (
+              <TaskHoldLine
+                title={hold.title}
+                reason={
+                  task.holdReason
+                    ? { by: task.heldBy ? name(task.heldBy) : null, text: `"${task.holdReason}"` }
+                    : null
+                }
+                note={selfOnTask || actions.commentFor.length > 0 ? HELD_WORK_NOTE : null}
+                facts={resumeFacts}
+                canResume={holds.resume}
+                solid={next === null}
+              />
+            ) : null}
+            {/* The hold line replaces "Nothing needed from you now" (the sample §1); a step the
+                viewer still has on a held task (Task Noted) keeps its line. */}
+            {hold && next === null ? null : (
+              <div
+                data-slot="task-next-box"
+                className={cn(
+                  "md:border-border md:bg-muted/50 max-md:contents md:flex md:min-h-[2.875rem] md:min-w-0 md:items-center md:gap-2.5 md:rounded-lg md:border md:py-0 md:pl-3",
+                  actions.remind ? "md:pr-1" : "md:pr-3",
+                )}
               >
-                {needed}
-              </p>
-              {actions.remind ? (
-                <TaskRemind
-                  taskId={task.id}
-                  againAt={remindAt}
-                  againLabel={remindAt ? remindAgainLabel(remindAt) : null}
-                  who={remindTo}
-                />
-              ) : null}
-            </div>
+                <p
+                  data-slot="task-needed"
+                  className="border-border bg-muted/50 rounded-lg border px-3 py-2.5 text-sm font-medium break-words md:min-w-0 md:flex-1 md:rounded-none md:border-0 md:bg-transparent md:px-0 md:py-1.5"
+                >
+                  {needed}
+                </p>
+                {actions.remind ? (
+                  <TaskRemind
+                    taskId={task.id}
+                    againAt={remindAt}
+                    againLabel={remindAt ? remindAgainLabel(remindAt) : null}
+                    who={remindTo}
+                  />
+                ) : null}
+              </div>
+            )}
             {changeRequest?.reason ? (
               <div
                 data-slot="task-change-request"
@@ -420,15 +473,19 @@ function workPanel({
 }): ReactNode {
   const latest = data.submissions[0] ?? null;
   const locked = isLocked(task.state);
+  // v1.9 W8: a held task's ticks wait for the resume (the hold line above says why).
+  const held = isOnHold(task);
   const lockedNote = isFinal(task.state)
     ? task.state === "completed"
       ? "The task is complete."
       : "The task is cancelled."
-    : locked
-      ? "Locked while it's with the reviewers. Chat stays open."
-      : actions.tick
-        ? null
-        : "The people on the task tick its stages.";
+    : held
+      ? "On hold: the stages wait until the task is resumed."
+      : locked
+        ? "Locked while it's with the reviewers. Chat stays open."
+        : actions.tick
+          ? null
+          : "The people on the task tick its stages.";
   const event = eventLabel(task);
 
   const brief =
@@ -471,6 +528,7 @@ function workPanel({
         tick={actions.tick}
         canManage={actions.manage.stages}
         lockedNote={lockedNote}
+        held={held}
       />
     ) : null;
 

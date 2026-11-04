@@ -11,8 +11,11 @@ import {
   chooseLeaveTodaySchema,
   type EndDayInput,
   endDaySchema,
+  type StartDayInput,
+  startDaySchema,
 } from "../domain/schemas";
 import * as repo from "../data/attendance";
+import { getOwnHours, rpcLateReason } from "../data/hours";
 
 /**
  * Attendance actions (ARCHITECTURE §4.2): zod → `assertPermission()` → transition function →
@@ -32,13 +35,21 @@ function revalidateDay(): void {
  * there is none and refuses a day off, a second start or a day already on leave. The home hint's
  * daily refresh (2.7, `core/auth/home-hint.ts`) rides on it, as it rode on the day gate's pass.
  */
-export const startDay = action(async (): Promise<Result<{ dayId: string }>> => {
-  const member = await assertPermission("attendance.self");
-  const dayId = await repo.rpcStartDay();
-  await setHomeHint(member.id, member.role);
-  revalidateDay();
-  return ok({ dayId });
-});
+export const startDay = action(
+  async (input: StartDayInput = {}): Promise<Result<{ dayId: string }>> => {
+    const data = startDaySchema.parse(input);
+    const member = await assertPermission("attendance.self");
+    const dayId = await repo.rpcStartDay();
+    // v1.9 W4 (sample §1): the late sheet's reason goes with the start. Only when the database marked
+    // the day Late: a tap the phone thought late but the server did not (its clock) sends nothing.
+    if (data.lateReason && (await getOwnHours())?.lateMinutes != null) {
+      await rpcLateReason(data.lateReason);
+    }
+    await setHomeHint(member.id, member.role);
+    revalidateDay();
+    return ok({ dayId });
+  },
+);
 
 /**
  * End day: final for the day; after midnight it lands on yesterday's started day. The
@@ -59,7 +70,7 @@ export const chooseLeaveToday = action(
   async (input: ChooseLeaveTodayInput): Promise<Result<null>> => {
     const data = chooseLeaveTodaySchema.parse(input);
     await assertPermission("attendance.self");
-    await repo.rpcChooseLeaveToday(data.choice, data.reason);
+    await repo.rpcChooseLeaveToday(data.choice, data.reason, data.half);
     revalidateDay();
     dispatchPushSoon();
     return ok(null);

@@ -136,8 +136,8 @@ async function chooseShow(page: Page, show: "all" | "tasks" | "client") {
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 
-/** "8 Oct", as the New-task pill says it. */
-const shortDay = (date: string) => formatIST(istDayStart(date), "d MMM");
+/** "Fri 30 Oct", as a day's action names it (the approved v1.9 sample, W5). */
+const shortDay = (date: string) => formatIST(istDayStart(date), "EEE d MMM");
 
 /** The laptop month's "+" of a day (PP-calendar-13) and the box that shows or hides it. */
 const plusOf = (page: Page, date: string) =>
@@ -543,9 +543,10 @@ test.describe("the calendar, as an Admin", () => {
       await expect(free).not.toContainText("On leave");
       await expect(free).toContainText(/^(Busy all day: |Everyone is available$)/);
     }
-    // An Admin creates tasks: the pill, not "Suggest a task".
-    await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
-    await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
+    // An Admin creates tasks: "+ New task on ‹day›" (the phone's pill, the laptop Day's pinned
+    // row since v1.9 W5), not "Suggest a task".
+    await expect(page.locator('[data-slot="new-task-on-day"]:visible')).toBeVisible();
+    await expect(page.locator('[data-slot="suggest-task"]')).toHaveCount(0);
     await page.locator('[data-slot="calendar-filters-button"]:visible').click();
     const sheet = page.locator('[data-calendar="filters-sheet"]');
     for (const kind of ["client", "person", "type", "status"]) {
@@ -613,8 +614,11 @@ test.describe("the calendar, as the Owner", () => {
     if (!isPhone(info)) {
       await expect(page.locator('[data-slot="calendar-day-view"]')).toBeVisible();
     }
-    // + New task on that day: the form opens with the deadline on it (decision 25 D).
-    const pill = detail(page).locator('[data-slot="new-task-on-day"]');
+    // + New task on that day: the form opens with the deadline on it (decision 25 D); on the
+    // laptop's Day it is the row pinned at the foot of the timeline (v1.9 W5).
+    const pill = isPhone(info)
+      ? detail(page).locator('[data-slot="new-task-on-day"]')
+      : page.locator('[data-slot="calendar-timeline"] [data-slot="new-task-on-day"]');
     await expect(pill).toHaveText(`New task on ${shortDay(day)}`);
     await pill.click();
     const form = page.locator('[data-slot="task-form-dialog"]');
@@ -1633,6 +1637,13 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
           cut: chip.scrollWidth > chip.clientWidth,
           wraps: style.whiteSpace !== "nowrap",
           text: chip.textContent ?? "",
+          // How many "…" the chip draws: itself and every part inside it cut with an ellipsis
+          // (v1.9 W10: one at most, never "Ya… …").
+          ellipses: [chip, ...chip.querySelectorAll<HTMLElement>("*")].filter(
+            (part) =>
+              getComputedStyle(part).textOverflow === "ellipsis" &&
+              part.scrollWidth > part.clientWidth,
+          ).length,
         };
       }),
     );
@@ -1667,6 +1678,8 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
       }
       expect(lines[0]?.cut, `the event's long title ends in "…"`).toBe(true);
       expect(lines[1]?.cut, "the count reads whole").toBe(false);
+      for (const line of lines)
+        expect(line.ellipses, `${line.kind}: one "…" at most`).toBeLessThanOrEqual(1);
       await expect(
         box.locator(
           '[data-slot="calendar-strip"][data-kind="due"], [data-slot="calendar-strip"][data-kind="item"]',
@@ -1680,6 +1693,9 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
       for (const line of lines) {
         expect(line, `${line.kind} is one line`).toMatchObject({ oneLine: true, wraps: false });
         expect(line.cut, `${line.kind}'s long words end in "…"`).toBe(true);
+        // One ellipsis at most (v1.9 W10), its own text never a typed "…".
+        expect(line.ellipses, `${line.kind} draws one "…"`).toBe(1);
+        expect(line.text, `${line.kind}'s words are whole`).not.toContain("…");
       }
       // The client first, outlined (not filled).
       const item = box.locator('[data-slot="calendar-strip"][data-kind="item"]');
@@ -1782,8 +1798,8 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     const width = (await box.boundingBox())?.width ?? 0;
     expect(width, "a seventh of the screen").toBeLessThan((page.viewportSize()?.width ?? 375) / 6);
     await expectNoHorizontalScroll(page);
-    // The day sheet: the day's detail with its hour timeline, the day's action inside it; no
-    // list-and-footer popup, and "Open day" is the laptop's alone.
+    // The day sheet: the day's detail with its hour timeline, the day's action pinned under it (v1.9
+    // W5); no list-and-footer popup, and "Open day" is the laptop's alone.
     await box.click();
     const sheet = daySheet(page);
     await expect(sheet).toBeVisible();
@@ -1875,7 +1891,8 @@ test.describe("today's mark", () => {
  * at its own width (nothing shrinks: the view control keeps its 288 px and each segment its word,
  * never "DWMonth"), no two controls' boxes overlap, nothing reaches past the toolbar or is
  * clipped inside its own box, the laptop's 32 px controls keep their height, and the controls are
- * neutral (the colour rule: no red in the toolbar). The rows are read by measurement: a row break
+ * neutral (the colour rule: no red in the toolbar but the outline of a view that hides work, v1.9
+ * W9, whose fill and words stay neutral). The rows are read by measurement: a row break
  * is allowed only where the parts on either side of it would not have fitted the toolbar's width
  * together. Returns how many rows it found.
  */
@@ -1911,7 +1928,11 @@ async function expectToolbar(page: Page, label: string): Promise<number> {
           ...box(node),
           visible: node.checkVisibility({ opacityProperty: false }),
           clipped: node.scrollWidth > node.clientWidth + 0.5,
-          colours: [style.backgroundColor, style.borderTopColor, style.color],
+          // A view that hides work is outlined red (v1.9 W9, the ADR-0015 amendment of
+          // 2026-10-23): its border is checked by the W9 spec; its fill and words stay neutral.
+          colours: node.hasAttribute("data-narrowed")
+            ? [style.backgroundColor, style.color]
+            : [style.backgroundColor, style.borderTopColor, style.color],
         };
       });
     const gap = parseFloat(getComputedStyle(element).columnGap) || 0;
@@ -2186,13 +2207,33 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await expect(menu).toHaveCount(0);
     await expect.poll(() => shownLabel(trigger)).toBe("Client work");
     await expect(trigger).toHaveAttribute("data-current", "client");
-    // A subtle neutral selected state, never red: the Filters button's own active look.
-    const look = await trigger.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { background: style.backgroundColor, border: style.borderTopColor, ink: style.color };
-    });
-    expect(look.background, "a neutral fill").not.toBe("rgba(0, 0, 0, 0)");
-    for (const colour of Object.values(look)) {
+    // A view that hides work is outlined red (v1.9 W9, the ADR-0015 amendment of 2026-10-23,
+    // replacing v1.8's neutral selected look); its fill and words stay neutral. The colours ease
+    // for 120 ms (`pressable`): read once they have settled.
+    const lookOf = () =>
+      trigger.evaluate((element) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--destructive)";
+        document.body.append(probe);
+        const red = getComputedStyle(probe).color;
+        probe.remove();
+        const style = getComputedStyle(element);
+        return {
+          red,
+          border: style.borderTopColor,
+          background: style.backgroundColor,
+          ink: style.color,
+        };
+      });
+    await expect
+      .poll(async () => {
+        const drawn = await lookOf();
+        return drawn.border === drawn.red;
+      })
+      .toBe(true);
+    const look = await lookOf();
+    expect(look.border, "the red outline").toBe(look.red);
+    for (const colour of [look.background, look.ink]) {
       const [r = 0, g = 0, b = 0] = (colour.match(/[\d.]+/g) ?? []).map(Number);
       expect(Math.max(r, g, b) - Math.min(r, g, b), `${colour} is neutral`).toBeLessThan(24);
     }
@@ -2326,10 +2367,10 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     // No switch row of its own, no laptop toolbar.
     await expect(page.locator('[data-slot="calendar-show"]')).toHaveCount(0);
     await expect(page.locator('[data-slot="calendar-controls"]:visible')).toHaveCount(0);
-    // Filters is an icon: its name says it; a dot while a filter is on.
+    // Filters is an icon: its name says it; "·n" beside it while a filter is on (v1.9 W9).
     const filters = header.locator('[data-slot="calendar-filters-button"]');
     await expect(filters).toHaveAccessibleName("Filters");
-    await expect(filters.locator('[data-slot="calendar-filters-dot"]')).toHaveCount(0);
+    await expect(filters.locator('[data-slot="calendar-filters-count"]')).toHaveCount(0);
     // The longest label.
     await chooseShow(page, "client");
     await expect(trigger).toHaveAttribute("data-current", "client");
@@ -2404,11 +2445,11 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     await page.setViewportSize({ width: 430, height: 932 });
     await expect.poll(() => shownLabel(trigger)).toBe("Client work");
     await chooseShow(page, "all");
-    // A filter on: the dot, and the name says how many.
+    // A filter on: "·1" beside the icon (v1.9 W9, which replaced v1.8's dot), and the name says how many.
     await page.goto(`/calendar?date=${day}&status=done`);
     await hydrated(page);
     await expect(filters).toHaveAccessibleName("Filters · 1 on");
-    await expect(filters.locator('[data-slot="calendar-filters-dot"]')).toBeVisible();
+    await expect(filters.locator('[data-slot="calendar-filters-count"]')).toHaveText("·1");
     // The phone's full-month leave bar picks its wording as the laptop's does (owner, #89 comment
     // 6370526089; "a leave bar never truncates" checks each wording).
     await page.goto(`/calendar?date=${day}`);
@@ -2505,3 +2546,302 @@ test.describe("the calendar's All ▾, as Crew", () => {
 });
 
 const WIDTHS_CREW = [768, 900, 1024, 1180, 1280, 1440] as const;
+
+/**
+ * v1.9 W5 (6b.4 (1), the approved v1.9 sample §4): "+ New task on ‹day›" pinned at the foot of a
+ * day, in the laptop's Day (under the timeline's one scroll) and a phone's day sheet (under the
+ * sheet's one scroll): the Owner's and an Admin's opens New task on that date, Crew's reads
+ * "Suggest a task on ‹day›" and opens a suggestion with the day in its details. None on a day before
+ * today (nor on today from 11:59 pm IST: `canStartTaskOnDate`, unit-tested).
+ */
+test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
+  /** The pinned row (the button is the row): the laptop Day's timeline foot, or the sheet's foot. */
+  const pinned = (page: Page) => page.locator("[data-row]:visible");
+
+  /** Opens `date` where its pinned row lives: the laptop's Day, or the phone's full month's sheet. */
+  async function openDay(page: Page, info: TestInfo, date: string) {
+    if (!isPhone(info)) {
+      await page.goto(`/calendar?view=day&date=${date}`);
+      await hydrated(page);
+      await expect(page.locator('[data-slot="calendar-day-view"]')).toBeVisible();
+      return;
+    }
+    await page.goto(`/calendar?date=${date}`);
+    await hydrated(page);
+    await page.locator('button[data-slot="calendar-handle"]').click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await dayBox(page, date).click();
+    await expect(daySheet(page)).toHaveAttribute("data-date", date);
+    // The sheet slides up for 200 ms: its row is where it rests only once that is over (CI run
+    // 41524114062 measured it 19 px low, mid-slide; at rest it ends 16 px above a 932 px screen).
+    await animationsSettled(page);
+  }
+
+  /** The row is the last thing in its layer, under the scroll, and on screen. */
+  async function expectPinnedAtFoot(page: Page, info: TestInfo) {
+    const row = pinned(page);
+    await expect(row).toHaveCount(1);
+    const box = await row.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y + box!.height, "the row is on screen").toBeLessThanOrEqual(
+      page.viewportSize()!.height + 1,
+    );
+    // 44 px target (ARCHITECTURE §14.1).
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    const layer = isPhone(info)
+      ? daySheet(page)
+      : page.locator('[data-slot="calendar-day-view"] [data-slot="calendar-timeline"]');
+    const foot = await layer.evaluate((element) => {
+      const scroll = element.querySelector<HTMLElement>(
+        '[data-slot="calendar-day-body"], [data-slot="calendar-hours"]',
+      );
+      const action = element.querySelector<HTMLElement>("[data-row]");
+      return {
+        below:
+          (action?.getBoundingClientRect().top ?? 0) -
+          (scroll?.getBoundingClientRect().bottom ?? 0),
+      };
+    });
+    expect(foot.below, "under the day's scroll, never in it").toBeGreaterThanOrEqual(-1);
+  }
+
+  test.describe("the Owner", () => {
+    test.use({ storageState: storageStateFor("owner") });
+
+    test("a later day's row opens New task on that date; none on a past day", async ({
+      page,
+    }, info) => {
+      const day = workingDay(3);
+      await openDay(page, info, day);
+      await expectPinnedAtFoot(page, info);
+      const button = pinned(page).and(page.locator('[data-slot="new-task-on-day"]'));
+      await expect(button).toHaveText(`New task on ${shortDay(day)}`);
+      // A trigger that opens a form: quiet, never a second solid on the layer (ADR-0015).
+      await expect(button).toHaveAttribute("data-variant", "ghost");
+      await expect(pinned(page).and(page.locator('[data-slot="suggest-task"]'))).toHaveCount(0);
+      await button.click();
+      const form = page.locator('[data-slot="task-form-dialog"]');
+      await expect(form).toBeVisible();
+      await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+      await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
+      await page.keyboard.press("Escape");
+      await expect(form).toHaveCount(0);
+
+      const past = addISTDays(todayIST(), -1);
+      await openDay(page, info, past);
+      await expect(page.locator("[data-row]")).toHaveCount(0);
+      await expect(page.locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+    });
+
+    test("installed: back closes New task, then the day sheet, then leaves the calendar", async ({
+      page,
+    }, info) => {
+      test.skip(!isPhone(info), "the installed app is a phone");
+      const day = workingDay(3);
+      await runInstalled(page);
+      await page.goto("/today");
+      await hydrated(page);
+      await page.locator('[data-slot="bottom-nav"] [data-nav="calendar"]').click();
+      await expect(page).toHaveURL(/\/calendar$/);
+      await hydrated(page);
+      // The real handle is a button: the loading skeleton draws a div with the same slot, and
+      // after a client-side move from Today a tap could land on it (CI 41635363757).
+      await page.locator('button[data-slot="calendar-handle"]').click();
+      await expect(phone(page)).toHaveAttribute("data-size", "3");
+      if (!(await dayBox(page, day).isVisible())) {
+        await page.locator('[data-slot="calendar-next"]').click();
+      }
+      await dayBox(page, day).click();
+      await expect(daySheet(page)).toHaveAttribute("data-date", day);
+      await pinned(page).and(page.locator('[data-slot="new-task-on-day"]')).click();
+      const form = page.locator('[data-slot="task-form-dialog"]');
+      await expect(form).toBeVisible();
+      await expectBackStack(page, [
+        { closes: form, url: /\/calendar(\?.*)?$/ },
+        { closes: daySheet(page), url: /\/calendar(\?.*)?$/ },
+        { url: /\/today$/ },
+      ]);
+    });
+  });
+
+  test.describe("an Admin", () => {
+    test.use({ storageState: storageStateFor("admin") });
+
+    test("today's row opens New task on today", async ({ page }, info) => {
+      const today = todayIST();
+      test.skip(
+        toISTTime(systemClock().toISOString()) >= "23:59",
+        "from 11:59 pm IST today has no row (the rule under test elsewhere)",
+      );
+      await openDay(page, info, today);
+      await expectPinnedAtFoot(page, info);
+      const button = pinned(page).and(page.locator('[data-slot="new-task-on-day"]'));
+      await expect(button).toHaveText(`New task on ${shortDay(today)}`);
+      await button.click();
+      const form = page.locator('[data-slot="task-form-dialog"]');
+      await expect(form).toBeVisible();
+      await expect(form.locator('input[name="dueDate"]')).toHaveValue(today);
+      await page.keyboard.press("Escape");
+      await expect(form).toHaveCount(0);
+    });
+  });
+
+  test.describe("Crew", () => {
+    test.use({ storageState: storageStateFor("staff") });
+
+    test("Suggest a task on ‹day› with the day in its details; none on a past day", async ({
+      page,
+    }, info) => {
+      const day = workingDay(3);
+      await openDay(page, info, day);
+      await expectPinnedAtFoot(page, info);
+      const button = pinned(page).and(page.locator('[data-slot="suggest-task"]'));
+      await expect(button).toHaveText(`Suggest a task on ${shortDay(day)}`);
+      await expect(pinned(page).and(page.locator('[data-slot="new-task-on-day"]'))).toHaveCount(0);
+      await button.click();
+      const dialog = page.getByRole("dialog", { name: "Suggest a task" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("textbox", { name: /Details/ })).toHaveValue(
+        `For ${shortDay(day)}.`,
+      );
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+
+      const past = addISTDays(todayIST(), -1);
+      await openDay(page, info, past);
+      await expect(page.locator("[data-row]")).toHaveCount(0);
+      await expect(page.locator('[data-slot="suggest-task"]')).toHaveCount(0);
+    });
+  });
+});
+
+/**
+ * v1.9 W9 (owner 2026-10-23; the ADR-0015 amendment of that day; the approved v1.9 sample §9): a
+ * view that hides work is outlined red. `All ▾` on Tasks or Client work, and Filters with real
+ * filters on ("Filters · 2" on a laptop, "·2" beside the phone's icon), take the thin
+ * `--destructive` outline, their text neutral; All and no filters stay neutral. At 375, 430 and
+ * 1280 (the three projects), in both themes. View controls: the address never changes for All ▾
+ * (the toolbar's and header's own tests prove they add no history).
+ */
+test.describe("v1.9 W9: a narrowed calendar view is outlined red", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  const filtersButton = (page: Page) =>
+    page.locator('[data-slot="calendar-filters-button"]:visible');
+
+  /** The outline as drawn: its colour, `--destructive` resolved, and the text's colour. */
+  async function outline(button: Locator) {
+    return button.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--destructive)";
+      document.body.append(probe);
+      const red = getComputedStyle(probe).color;
+      probe.remove();
+      const style = getComputedStyle(element);
+      return {
+        narrowed: element.hasAttribute("data-narrowed"),
+        red,
+        border: style.borderTopColor,
+        width: parseFloat(style.borderTopWidth),
+        text: style.color,
+      };
+    });
+  }
+
+  // The border's colour eases for 120 ms (`pressable`): polled until it settles.
+  async function expectRed(button: Locator, what: string) {
+    await expect
+      .poll(
+        async () => {
+          const drawn = await outline(button);
+          return drawn.border === drawn.red;
+        },
+        { message: `${what}: the red outline` },
+      )
+      .toBe(true);
+    const drawn = await outline(button);
+    expect(drawn.narrowed, `${what}: marked narrowed`).toBe(true);
+    expect(drawn.width, `${what}: a thin outline`).toBeGreaterThanOrEqual(1);
+    expect(drawn.text, `${what}: the words stay neutral`).not.toBe(drawn.red);
+  }
+
+  async function expectNeutral(button: Locator, what: string) {
+    await expect
+      .poll(
+        async () => {
+          const drawn = await outline(button);
+          return drawn.border !== drawn.red;
+        },
+        { message: `${what}: no red outline` },
+      )
+      .toBe(true);
+    expect((await outline(button)).narrowed, `${what}: not narrowed`).toBe(false);
+  }
+
+  for (const theme of ["light", "dark"] as const) {
+    test(`${theme}: All neutral, Tasks and Client work outlined; Filters · n outlined, none neutral`, async ({
+      page,
+    }, info) => {
+      if (!isPhone(info)) await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto("/calendar");
+      await page.evaluate((value) => {
+        window.localStorage.setItem("theme", value);
+        window.localStorage.removeItem("maxoff.calendar.show");
+      }, theme);
+      await page.goto("/calendar");
+      await hydrated(page);
+      if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+      else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+
+      const shows = showControl(page);
+      const filters = filtersButton(page);
+      await expect(shows).toHaveAttribute("data-current", "all");
+      await expectNeutral(shows, "All");
+      await expectNeutral(filters, "no filters");
+      if (isPhone(info)) {
+        await expect(filters).toHaveAccessibleName("Filters");
+        await expect(filters.locator('[data-slot="calendar-filters-count"]')).toHaveCount(0);
+      } else {
+        await expect.poll(() => shownLabel(filters)).toBe("Filters");
+      }
+
+      const address = page.url();
+      for (const show of ["tasks", "client"] as const) {
+        await chooseShow(page, show);
+        await expect(showControl(page)).toHaveAttribute("data-current", show);
+        await expectRed(showControl(page), show);
+      }
+      expect(page.url(), "a view control: the address is unchanged").toBe(address);
+      await chooseShow(page, "all");
+      await expectNeutral(showControl(page), "All again");
+
+      // Two real filters: a status and a type.
+      const type = await taskTypeId("Normal");
+      for (const [query, count] of [
+        [`status=done&type=${type}`, 2],
+        ["status=open", 1],
+      ] as const) {
+        await page.goto(`/calendar?${query}`);
+        await hydrated(page);
+        const on = filtersButton(page);
+        await expect(on).toHaveAttribute("data-count", String(count));
+        await expectRed(on, `${count} filters`);
+        if (isPhone(info)) {
+          await expect(on).toHaveAccessibleName(`Filters · ${count} on`);
+          await expect(on.locator('[data-slot="calendar-filters-count"]')).toHaveText(`·${count}`);
+          // The same 44 px icon button, on the header's one row.
+          const box = await on.boundingBox();
+          expect(box?.width).toBeGreaterThanOrEqual(44);
+          expect(box?.height).toBeGreaterThanOrEqual(44);
+          const header = phone(page).locator('[data-slot="calendar-header"]');
+          expect(await header.evaluate((row) => row.scrollWidth <= row.clientWidth)).toBe(true);
+        } else {
+          await expect.poll(() => shownLabel(on)).toBe(`Filters · ${count}`);
+        }
+        // All ▾ keeps its own state: All is neutral with filters on.
+        await expectNeutral(showControl(page), `All with ${count} filters`);
+        await expectNoHorizontalScroll(page);
+      }
+    });
+  }
+});

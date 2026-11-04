@@ -57,10 +57,16 @@ export type ItemListPeriods = {
   from: string;
   /** The running cycle that takes new items through + Add item ("October 2026"), or null. */
   running: string | null;
+  /** That running cycle's id (v1.9 W1, "Also add"), when the cycles carried their ids. */
+  runningCycleId?: string;
+  /** True when `from` is the period right after today's (a weekly "From next week", v1.9 W1). */
+  fromIsNext?: boolean;
 };
 
 /** The cycle facts the Item list's words read (`project_cycles`). */
 export type ItemListCycle = {
+  /** The cycle's id: "Also add" adds to the running one (v1.9 W1). */
+  id?: string;
   periodStart: string | null;
   periodEnd: string | null;
   label: string | null;
@@ -99,6 +105,9 @@ export function itemListPeriods(
     unit: recurrence === "monthly" ? "month" : "week",
     from: cycleLabel(recurrence, from),
     running: canAddNow && running ? (running.label ?? cycleLabel(recurrence, current)) : null,
+    fromIsNext: from === periodNext(recurrence, current),
+    // "Also add ‹title› to ‹period›?" (v1.9 W1) adds to this cycle: its id, when the caller gave ids.
+    ...(canAddNow && running?.id ? { runningCycleId: running.id } : {}),
   };
 }
 
@@ -120,4 +129,61 @@ export function itemListCopy(periods: ItemListPeriods): {
         added: (title) => `${title} added from ${periods.from}`,
         removeDescription: `${periods.from} starts without it.`,
       };
+}
+
+/**
+ * "Also add ‹title› to ‹October 2026›?" (v1.9 W1-db, ROADMAP 6b.4 D4 in full; WORKFLOWS §5.3): asked when a
+ * line is added to the deliverables list while the running cycle can take it (`periods.running`, D4's
+ * ‹October 2026›). **Add to ‹October› too** (the default) is `project_blueprint_add_to_cycle` (the
+ * line and an open deliverable with its stages, one transaction); **From ‹November›** (weekly: "From next
+ * week"; the buttons use the sample's short labels, owner) is
+ * `project_blueprint_add`. Null when there is no running cycle: the line is added from ‹from› without
+ * asking (D4's words). Titles are trimmed as the database stores them.
+ */
+/** "October 2026" → "October": the sample's short button labels (owner, v1.9 W1). */
+function monthName(label: string): string {
+  return label.replace(/\s+\d{4}$/, "");
+}
+
+export function alsoAddCopy(
+  periods: ItemListPeriods,
+  title: string,
+  /** The line's stages (the project's default stages it starts with) and how many lines ("× N"). */
+  options: { stages?: number; count?: number } = {},
+): {
+  question: string;
+  detail: string;
+  addToo: string;
+  listOnly: string;
+  addedBoth: string;
+  addedListOnly: string;
+} | null {
+  if (!periods.running) return null;
+  const name = title.trim();
+  const count = Math.max(1, options.count ?? 1);
+  const stages = Math.max(0, options.stages ?? 0);
+  const many = count > 1;
+  const label = many ? `${count} deliverables` : name;
+  const staged =
+    stages === 0
+      ? ""
+      : `, ${many ? "each with" : "with its"} ${stages} ${stages === 1 ? "stage" : "stages"}`;
+  return {
+    question: many
+      ? `Also add ${label} to ${periods.running}?`
+      : `Also add "${name}" to ${periods.running}?`,
+    detail: `${many ? "They join" : "It joins"} the list for every ${periods.unit}. Add ${many ? "them" : "it"} to this ${periods.unit} too${staged}?`,
+    addToo:
+      periods.unit === "month"
+        ? `Add to ${monthName(periods.running)} too`
+        : "Add to this week too",
+    listOnly:
+      periods.unit === "month"
+        ? `From ${monthName(periods.from)}`
+        : periods.fromIsNext
+          ? "From next week"
+          : `From ${periods.from}`,
+    addedBoth: `${label} added to ${periods.running} and every ${periods.unit} from ${periods.from}`,
+    addedListOnly: `${label} added from ${periods.from}`,
+  };
 }

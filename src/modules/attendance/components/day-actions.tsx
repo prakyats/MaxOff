@@ -16,7 +16,10 @@ import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
 import { endDay, startDay } from "../actions/attendance";
+import { type LateRule, lateMinutesAt } from "../domain/hours";
 import type { DURATION_OPTIONS } from "../domain/notes";
+
+import { LateSheetLazy } from "./hours-sheets-lazy";
 
 /**
  * The overtime fields (a select and a note) load when "Worked late? Add an overtime note" is
@@ -41,6 +44,7 @@ export function StartDayButton({
   onStarted,
   statusClassName,
   showTime = false,
+  late = null,
 }: {
   size?: "default" | "sm";
   /**
@@ -55,8 +59,15 @@ export function StartDayButton({
   onStarted?: () => void;
   /** Where the slow or failed line goes in the caller's layout (the strip: a row of its own). */
   statusClassName?: string;
+  /**
+   * Today's Late rule (v1.9 W4, sample §1): a tap after the start time and the grace opens "You're
+   * starting N minutes late" first, whose Start day records the start with the reason. Without it
+   * (or before the grace) the tap is the start, as before.
+   */
+  late?: LateRule | null;
 }) {
   const router = useRouter();
+  const [lateMinutes, setLateMinutes] = useState<number | null>(null);
   // One request per tap, "Starting…" at once, and a slow or lost connection said under it
   // (ARCHITECTURE §14.1): the tap is the start, so it must never be sent twice.
   const action = useAction(async () => {
@@ -81,12 +92,30 @@ export function StartDayButton({
         pending={action.pending}
         pendingLabel="Starting…"
         data-slot="start-day"
-        onClick={() => action.run()}
+        onClick={() => {
+          const minutes = lateMinutesAt(late, systemClock());
+          if (minutes === null) action.run();
+          else setLateMinutes(minutes);
+        }}
       >
         {label}
         {showTime ? <NowTime /> : null}
       </Button>
       <ActionStatus action={action} className={statusClassName} />
+      {late ? (
+        <LateSheetLazy
+          open={lateMinutes !== null}
+          onOpenChange={(open) => (open ? null : setLateMinutes(null))}
+          mode="start"
+          minutes={lateMinutes ?? 0}
+          suggestion={late.suggestion}
+          onDone={() => {
+            setLateMinutes(null);
+            if (onStarted) onStarted();
+            else router.refresh();
+          }}
+        />
+      ) : null}
     </>
   );
 }

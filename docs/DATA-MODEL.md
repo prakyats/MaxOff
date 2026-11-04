@@ -59,6 +59,16 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    push, never email); item_rejected*, cycle_generated* (actionable).
                    6b.2 (migration tasks_for_owner, v1.7.1): task_asked_about (info: in-app and
                    push, never email): "<name> is asking about <task>", task_remind's row.
+                   v1.9 W0 (6b.1, migration working_hours; all in-app and push, never email):
+                   early_leave_requested (the Owner), early_leave_decided, stay_until_set,
+                   start_day_reminder, end_time_reminder (the person).
+                   v1.9 W3 (6b.5, migration approval_reminders): approval_reminder (info: in-app and
+                   push, never email, the Owner only): an urgent task's hourly "<task> is waiting for
+                   your approval" (entity the task) or the grouped "N tasks waiting for your approval ·
+                   oldest D days" (the leave and attendance waiting as one line each at the daily time).
+                   v1.9 W7 (migration on_hold; all in-app and push, never email): task_held, task_resumed
+                   (a task's assignees, quietly; its creator when the Owner acts on an Admin's task),
+                   project_held, project_resumed (the client's Admin, when the Owner acts).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -71,6 +81,13 @@ Schema **`app`** holds the helpers every module uses. It's not exposed through t
 app.set_updated_at()            BEFORE UPDATE row trigger: every table with updated_at attaches it
 app.to_ist_date(timestamptz)    -> date in Asia/Kolkata (stable, strict; null in -> null out)
 app.today_ist()                 -> app.to_ist_date(now())
+app.now()                       -> now(); v1.9 W0 review (migration w0_test_clock): the clock of the
+                                   working-hours functions only (attendance_start_day / _end_day /
+                                   _late_reason / _stay_until / _ask_leave_early / _own_hours,
+                                   early_leave_decide, attendance_hours_today). A transaction-local
+                                   app.test_now overrides it on a non-API session (pgTAP runs W0 on
+                                   fixed instants); the API role (authenticator) always gets now().
+                                   service_role only. today_ist() and everything else keep now().
 app.fail(code, detail)          raises SQLSTATE P0001 with message = code, detail = the human reason
                                 (ARCHITECTURE 4.3). Every transition function raises through it
 app.is_working_day(date)        (1.4) false when the date's weekday is in org_settings.weekly_off_days
@@ -248,6 +265,27 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- period end and the Admin's prompt before undecided items escalate to the Owner); both in
                      -- the API UPDATE grant, settings.manage through the existing UPDATE policy (the Owner; pgTAP
                      -- 71 per role), Settings -> Thresholds (7B). WORKFLOWS §5.4 item 21, §8 client_work_alerts.
+                     -- v1.9 W0 (6b.1, migration working_hours, expand-only): working_hours_on boolean not
+                     -- null default false (the switch: every W0 rule, the late mark, the end-time refusal,
+                     -- the reminders, applies only while true; the release turns it on with W4),
+                     -- late_grace_minutes int not null default 15 (check 0..120) and
+                     -- early_leave_wait_minutes int not null default 30 (check 5..240); settings.manage
+                     -- through the existing policy and a column grant (the Owner; pgTAP 121 per role).
+                     -- v1.9 W4 (migration working_hours_on, owner-approved 2026-10-29): the switch's
+                     -- default is now true and every existing organisation was switched on (audited
+                     -- per row, action 'working_hours_on', meta source 'migration'); the Owner turns it
+                     -- off in Settings -> Thresholds (Working day). pgTAP 121.
+                     -- v1.9 W3 (6b.5, kickoff 6b decision 2, owner 2026-10-16; migration approval_reminders,
+                     -- expand-only): work_start_time time not null default '10:00' and work_end_time time not
+                     -- null default '18:00' (check start < end; the working hours, which W0's late start and
+                     -- end time read too), approval_reminder_urgent_minutes int not null default 60 (check
+                     -- 15..480: an urgent task waiting for the Owner is reminded this often within the working
+                     -- hours), approval_reminder_high_times time[] not null default '{11:00,14:00,17:00}'
+                     -- (check 1..8 times: the grouped reminders for high-priority tasks) and
+                     -- approval_reminder_daily_time time not null default '11:00' (the grouped reminder for
+                     -- medium and low tasks, with the leave and attendance waiting); all in the API UPDATE
+                     -- grant, settings.manage through the existing UPDATE policy (the Owner; pgTAP 120 per
+                     -- role), Settings -> Thresholds "Working day" and "Approvals" (the screen is W4).
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
                      -- 48 h "can't be reached" clock starts before it (null: no floor).
@@ -461,6 +499,8 @@ app.local_flags      flag text pk check (flag in ('push_loopback_endpoints')), s
 
 **P2 session reads (v1.7.1, 2026-10-15, migration `p2_session_bundle`, expand-only; ARCHITECTURE §19):** `public.session_bundle()` → one row `(not_noted, changes_requested, badge, to_decide, unread, pending_days, pending_requests, pending_notes, pending_claims)`: the signed-in shell's counts in one round trip instead of up to six, most of which waited for the member row. **Security invoker** (RLS decides every row it counts, exactly as the separate API reads did); stable; execute granted to `authenticated` only (revoked from `public`, `anon`, `service_role`). The four task columns are `task_counts()`'s; `unread` is the caller's notifications with `read_at` null; `pending_days` (attendance days `pending_review`), `pending_requests` (leave requests `submitted`, `source <> 'attendance'`) and `pending_notes` (extra-work notes `submitted`) only for a caller holding `attendance.decide`, `pending_claims` (expense claims `submitted`, a count, never an amount: invariant 2) only for one holding `attendance.decide` and `expenses.decide`, else null. One row for any authenticated caller, zeros and nulls for anyone who is not an active member. The member row (`getSessionState`: the auth decision, also every action's and route handler's) and `push_status_own()` (the band, which the shell draws) stay their own reads, started in the same wave; the counts stream. pgTAP `81_session_bundle` (renumbered from 79 on 2026-10-16: 79 is `client_work_bulk_and_rounds`) (each role, deactivated, invited, anon refused, every number against the read it replaced).
 
+**v1.9 W4 Q2 (2026-11-02, migration `session_bundle_early_leaves`, expand-only; owner-approved via the advisor):** `public.session_bundle()` is re-created from its P2 definition (dropped first: its result columns grow; same name, no arguments, same grants and security invoker) with one more column at the end, **`pending_early_leaves`**: the early-leave requests waiting for the Owner (`early_leave_requests.state` `waiting`, or `left_unanswered`, which is not yet decided: deciding moves it to `approved` / `corrected`), counted only for a caller holding `attendance.decide` (the Owner), **0 for anyone else**. The Approvals badge adds it (the shared layout, no new read: it rides in the bundle) and the Owner's Today "Needs you" lists both groups ("Leaving early", "Left early, not answered") from the read Approvals already makes. The released v1.8 app reads the columns it knows by name, so the extra one is harmless. pgTAP `126_session_bundle_early_leaves` (each role, each state).
+
 ## 2. Configuration (customization as data)
 ```
 list_items           id, org_id, list_key ('job_title'|...), name, description, color, icon,
@@ -622,6 +662,24 @@ attendance_days      id, member_id, work_date date (IST), is_day_off bool,
                      -- is_day_off is decided when the row is created and never re-derived from
                      -- today's holidays / weekly_off_days. Every time is the server clock (now());
                      -- session_events.user_agent / ip_hash are caller-supplied and are not evidence
+                     -- v1.9 W0 (6b.1, migration working_hours, expand-only): late_minutes int null (check
+                     -- > 0: minutes after org_settings.work_start_time at the Start day tap, set by
+                     -- attendance_start_day() past the grace while working_hours_on; never on a day off, a
+                     -- full or comp leave day or a morning half day), late_reason text null (<= 200; the
+                     -- person's one line, attendance_late_reason()), stay_until timestamptz null and
+                     -- stay_until_by null → members (the Owner's "Stay until" for that day,
+                     -- attendance_stay_until()). Written by transition functions only, audited.
+early_leave_requests id, org_id, member_id → members, day_id → attendance_days, requested_at (the "Ask to
+                     leave early" tap), reason (1-300), end_at (the day's end time when asked), state
+                     ('waiting'|'approved'|'stay'|'left_unanswered'|'corrected'|'lapsed'), left_at null
+                     (the End day tap after the wait, unanswered), decided_by null → members, decided_at,
+                     decision_reason null (<= 500), stay_reminded_at null, created_at, updated_at
+                     -- v1.9 W0 (6b.1; owner 2026-10-22: the Owner alone decides, Admins get nothing).
+                     -- One waiting request per day (unique partial index on day_id where state =
+                     -- 'waiting'); check decided_by set exactly for approved, stay and corrected;
+                     -- left_unanswered needs left_at. RLS: SELECT own rows, or attendance.view_all in the
+                     -- org (the Owner); no API INSERT / UPDATE / DELETE (attendance_ask_leave_early(),
+                     -- early_leave_decide(), attendance_end_day() write it). Audited (audit_row_change).
 attendance_events    id bigint identity, attendance_day_id, action ('submitted'|'proposed_absent'|'derived_from_leave'|
                      'approved'|'corrected'|'overtime_flagged'|'started'|'ended'), from_status, to_status, reason,
                      -- started | ended (3b.1): the Start day and End day taps (actor = the member).
@@ -631,6 +689,10 @@ attendance_events    id bigint identity, attendance_day_id, action ('submitted'|
                      -- readable with the parent day. Not audited: it is the history
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
                      state leave_state, source ('form'|'attendance'|'owner'), supersedes_id null,
+                     half text null ('morning' | 'afternoon'; v1.9 W0, expand-only: which half of a
+                     half day is off; check only with type half_day; older half days stay null and
+                     carry no Late or early-leave rule; given by leave_submit(…, half),
+                     leave_submit_comp(…, half), attendance_choose_leave_today(…, half))
                      requests_cancellation bool, decided_by null, decided_at, decision_reason,
                      created_at, updated_at
                      -- RLS and grants as attendance_days. Audited. Half day: start_date = end_date.
@@ -1161,6 +1223,20 @@ projects             id, org_id, client_id (required), name, description, recurr
                      -- + delivery_armed_at timestamptz null (the 7A review of d9caeab, M1, migration
                      -- client_work_alerts_armed): stamped by the delivery_armed_at trigger on creation, a
                      -- changed delivery date or a reopen; E3 waits for the first 08:00 IST after it
+                     -- v1.9 W7 On hold (migration on_hold, ADR-0016: columns beside the state, not a
+                     -- project_state value): + held_at timestamptz null, held_by uuid null → members,
+                     -- hold_reason text null (1..1000), resumed_at timestamptz null. Checks: the three
+                     -- hold columns are null together (projects_hold_pair); held only while open or
+                     -- in_progress (projects_hold_state). Set by project_hold, cleared by project_resume
+                     -- (resumed_at stamped) and by a complete or cancel (app.on_hold_guard clears them;
+                     -- the history keeps them). protect_columns on the four. While held_at is set:
+                     -- no project_cycles insert, no project_items state change but to cancelled and no
+                     -- carry_decision change, no project_item_stage_list tick (app.on_hold_guard,
+                     -- INVALID_STATE); the jobs and reads skip it (WORKFLOWS §5.5, §8). Indexes:
+                     -- projects_held_idx (org_id) where held_at is not null; projects_held_by_idx.
+                     -- Reads: project_resume_list(project) (what a resume settles: needs_date /
+                     -- needs_choice), client_work_on_hold(from, to) (held projects with their count of
+                     -- unfinished deliverables, security invoker; never an amount)
 project_stages       id, org_id, project_id, name, position, archived_at null, created_at, updated_at
                      -- copied from a preset or typed; may be empty; at most 12 active (as presets and
                      -- templates, decision 22 / 23)
@@ -1207,7 +1283,10 @@ project_items        id, org_id, project_id, cycle_id, title, position, planned_
                      search tsvector (generated: title, notes), created_at, updated_at,
                      reopened_at null (Q8, migration client_work_alerts_answers: the last return to open, by trigger),
                      overdue_armed_at null (M1, migration client_work_alerts_armed: the insert, the last planned-date
-                     change or return to open, by trigger; E1 waits for the first 08:00 IST after it)
+                     change or return to open, by trigger; E1 waits for the first 08:00 IST after it),
+                     close_kind text null (v1.9 W1-db, migration w1_close_kinds: 'not_needed' | 'not_delivered';
+                     only on a cancelled item; null = a close made before W1, a project_cancel or a close
+                     without a kind; §5b "Close kinds")
                      -- kickoff 7 (WORKFLOWS §5.4): at most 100 items per cycle; new items only in a cycle
                      -- whose period has not ended (or a one-time project's); planned_date any date
                      -- (overdue = planned_date < today IST and state open); item_unmark_done clears
@@ -1342,6 +1421,23 @@ project_cycles  + extras_decided_at timestamptz null, extras_decided_by → memb
 - Internal helpers `app.client_work_bulk_items(uuid[])` and `app.cycle_extras(uuid)` (`service_role` only; the core grants test lists them). **`app.client_work_bulk_items` since migration `20261016090349_r2_review_fixes` (Release 2 review, 2026-10-16, expand-only, same signature and grants):** it locks the selection's projects and then its deliverables **in id order** first (only rows the caller may see: their organization, a client they may see), then checks and returns them **in the order given** (`items_rename` numbers in that order), so two overlapping selections made in opposite orders wait for each other instead of deadlocking; the checks and their errors are unchanged (pgTAP 79: the order given is honoured both ways round). The TypeScript twins (`domain/extras.ts` `cycleExtras`, `domain/bulk.ts` `renamePreview`) follow the same rules: change both together.
 - "Copy schedule as text" (6b.16 (g)) reads only; no SQL.
 
+#### Close kinds and "Also add ‹title› to ‹period›?" (v1.9 W1-db; ROADMAP 6b.4 (3), (4); OPEN 4 answered as recommended)
+> Migration `w1_close_kinds` (pgTAP 123). **Expand-only, works on the team's existing data:** one nullable column with two checks every existing row meets (null), two functions re-created with one more optional argument (the old signatures dropped first so calls without it resolve to the new ones; grants and comments re-made exactly as before), two new functions. No row is rewritten; every close made before stays without a kind. **No money anywhere:** the kind is a word about the close, never an amount (kickoff 9 decision 24 reads it later, in the Owner-only revenue module).
+
+```
+project_items  + close_kind text null
+                 check project_items_close_kind_values (close_kind is null or close_kind in ('not_needed', 'not_delivered'))
+                 check project_items_close_kind_cancelled (close_kind is null or state = 'cancelled')
+                 -- 'not_needed' = "Not needed this ‹month/week›" (the scope changed); 'not_delivered' = "Not
+                 -- delivered" (we missed it). Written only by item_cancel, cycle_carry_decide (close) and
+                 -- item_set_close_kind (which may also clear it; protect_close_kind trigger: no API write; the API role has no UPDATE
+                 -- on project_items anyway). Audited by the row trigger.
+```
+- `item_cancel(item_id uuid, reason text, close_kind text default null) returns item_state` (was `(uuid, text)`): as before (`projects.manage`; the Owner on any client, the client's Admin on theirs, another Admin `NOT_FOUND`, Crew `FORBIDDEN`), plus the kind stored with the close; an unknown kind is `VALIDATION`. Audited `cancelled` with meta `{from_state, close_kind}`. The Owner's `item_cancelled` notice body names the kind when there is one ("… Not delivered. Reason: …").
+- `cycle_carry_decide(item_ids uuid[], decision carry_decision, reason text default null, close_kind text default null) returns jsonb` (was `(uuid[], carry_decision, text)`): as before; `close_kind` is taken with `close` only (`VALIDATION` with carry forward or leave pending, and for an unknown kind). The client's Admin's `carry_decided` body names the kind when there is one.
+- `item_set_close_kind(item_id uuid, close_kind text) returns boolean` (new): **the Owner only** (OPEN 4: the closed deliverable's sheet, ⋯ "Set close kind"; the screen comes in W4/W5). `projects.manage` first (Crew `FORBIDDEN`), then the Owner (an Admin, on any client, `FORBIDDEN`); the item found in the caller's organization (`NOT_FOUND` otherwise); **any project state** (owner 2026-10-22: a completed or cancelled project's closed deliverables too; only the kind changes, the project stays read-only otherwise); the deliverable `cancelled` (`INVALID_STATE` otherwise); the kind one of the two (`VALIDATION`) or **null to clear it** (owner 2026-10-22). Sets, changes or clears the kind; returns false when it already held that value (nothing written). Audited `close_kind_set` or `close_kind_cleared` with meta `{from}`, both shown in the project's history. No notification (WORKFLOWS §9 names none).
+- `project_blueprint_add_to_cycle(project_id uuid, title text, cycle_id uuid) returns jsonb` (new): "Also add ‹title› to ‹period›?" answered **Add to ‹period› too**, ONE transaction: the deliverables-list line (exactly `project_blueprint_add`: `projects.manage`, a recurring project open or in progress, at most 100 active lines, the project's default stages in their groups) **and** an open deliverable at the end of the cycle with the line's stages in their groups (the `item_add` rules: the client not Inactive, at most 100 live deliverables). The cycle must be this project's (`NOT_FOUND`), the one whose period holds today IST (`INVALID_STATE`: a past or a future cycle) and have its list already in (`item_list_copied`; `INVALID_STATE` otherwise, since the line will join it with the list). Any refusal leaves neither row. Returns `{blueprint_id, item_id}`. Audited by the row triggers (`insert` on the line and the deliverable, `initial` on its stages). No notification (as `project_blueprint_add` and `item_add`). "From ‹next period› only" stays `project_blueprint_add`.
+
 ## 6. Staff tasks
 ```
 tasks                id, org_id, title, description, task_type_id, client_id null (label only),
@@ -1369,6 +1465,18 @@ tasks                id, org_id, title, description, task_type_id, client_id nul
                      -- labelled with an assigned client; a coordinator sees their current freelancers'
                      -- tasks). Audited through app.audit_override; a task's history is every activity_log
                      -- row with entity_id = the task (the child tables audit with entity_id = task_id)
+                     -- v1.9 W7 On hold (migration on_hold, ADR-0016: columns beside the state, not a
+                     -- task_state value, so the state is the one it resumes to): + held_at timestamptz
+                     -- null, held_by uuid null → members, hold_reason text null (1..1000), resumed_at
+                     -- timestamptz null (the acknowledgement clock's start after a resume). Checks:
+                     -- tasks_hold_pair (the three together), tasks_hold_state (held only in todo,
+                     -- in_progress, changes_requested). Set by task_hold, cleared by task_resume (a new
+                     -- due_at with it when the old one passed) and by a cancel (app.on_hold_guard; the
+                     -- history keeps them). protect_columns on the four. While held: no state change but
+                     -- to cancelled, no task_stages tick (app.on_hold_guard, INVALID_STATE); no deadline
+                     -- reminder armed (app.task_arm_reminders; the tasks_reminders_hold trigger re-arms on
+                     -- hold and resume); never overdue. Indexes: tasks_held_idx (org_id) where held_at is
+                     -- not null; tasks_held_by_idx. Read under the task's RLS (its people see the reason)
 task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
                      -- kickoff 4: member_id is never the Owner (refused by task_create / task_update_assignment)
                      acknowledged_at null, acknowledged_by null (the coordinator when on behalf; else = member_id),
@@ -1719,6 +1827,14 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- `6:00 pm` (lower-case, 12-hour, IST): app.ist_time(timestamptz), app.wall_time(time)
                      -- and app.notify_when ("19 Oct, 6:00 pm"), the same as core/time's formatTime;
                      -- service_role only. Rows already written keep their words.
+                     -- no_email boolean not null default false (v1.9 W3, 6b.9, migration approval_reminders,
+                     -- expand-only): set by app.notify() when the row is an attendance_decided, leave_decided
+                     -- or expense_decided about a record the same transaction audited 'approved' (an approved
+                     -- day, leave, comp leave or expense claim); email_claim() never emails such a row, even
+                     -- with no working push. Rejected and corrected keep the email fallback (actionable).
+                     -- Owner's answer 2026-10-22 (migration decision_emails_owner_answer): also on
+                     -- comp_leave_granted, extra_work_decided with payload decision grant and expense_decided
+                     -- with payload decision paid; a declined note and a revoked grant keep the fallback.
                      -- 5.1 as built: written only by app.notify() (service_role only, called inside the
                      -- transition or job that caused it, ADR-0006): one row per remaining recipient after
                      -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
@@ -1907,6 +2023,15 @@ activity_log         id bigint identity, org_id, actor_id null (system), on_beha
                      -- deactivated entry (the reason is the Owner's note). Scope is per entity, never per
                      -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
+approval_reminder_sends  id, org_id, recipient_id → members (cascade), slot_at timestamptz (the slot's instant),
+                     slot text ('urgent' | 'grouped'), task_id null → tasks (cascade; an urgent slot's task; null for a
+                     grouped slot), notified bool (false: the slot was decided and nothing was waiting),
+                     created_at
+                     -- v1.9 W3 (6b.5, migration approval_reminders): the record that each slot was handled
+                     -- once. Unique (org_id, slot_at, slot) where task_id is null; unique (org_id, slot_at,
+                     -- task_id) where task_id is not null. Written only by app.approval_reminders() (pg_cron
+                     -- every 5 minutes); RLS enabled with no policy and every API grant revoked: no role reads
+                     -- or writes it (pgTAP 120). Not audited (a job's own bookkeeping, like client_work_alerts).
 eod_reports          id, org_id, report_date, data jsonb (check: an object), generated_at, created_at,
                      unique(org_id, report_date)
                      -- kickoff 6 (owner decision 2026-10-01, built in 6.5, migration

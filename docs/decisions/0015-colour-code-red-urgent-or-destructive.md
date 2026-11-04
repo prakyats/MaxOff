@@ -96,3 +96,35 @@ the holiday green (`--holiday`) is the same hue but only ever a calendar date, n
 counts `approve` as a commit and an `approve` with `data-opens` as a trigger. Specs that asserted
 `strong` on Approve or Mark done, or the red outline on Request changes, assert the plan's
 variant instead. DESIGN.md §4 holds the tables.
+
+## Amendment 2026-10-23: a view that hides work is an attention state (owner decision)
+
+**Status:** accepted. The owner decided it on 2026-10-23 (ROADMAP v1.9 W9; "Filters" too, the
+same day: "yes") and approved the look in the v1.9 screens sample on 2026-10-29
+(`docs/design/v19-screens-sample.html` §9). Built in v1.9 unit W9.
+
+**Context.** Decision 1 keeps a selected view control neutral: "red is never decoration, never a
+selected state". On the calendar that hid a risk: whoever switched `All ▾` to Tasks or Client
+work, or set a filter, could forget it and read a narrowed calendar as the whole picture
+("nothing due Friday" while the client work was switched off).
+
+**Decision.**
+1. **A view that hides work is an attention state, like the count badge.** A view control whose
+   current choice leaves work out of sight takes a **thin red outline** (`border-destructive`,
+   ≥ 3:1 on the page in both themes); its text stays neutral, it is never filled, and it is never
+   colour alone (the control names what it shows: "Tasks ▾", "Client work ▾", "Filters · 2").
+2. **Where it applies (the calendar, laptop and phone, both themes):** the `All ▾` button while it
+   is on **Tasks** or **Client work** (All stays neutral), and the **Filters** button while real
+   filters are applied (`filterCount` > 0: a client, a person, a type or a status), reading
+   "Filters · n" with the count in use (on the phone's icon button, "·n" beside the icon and the
+   name "Filters · n on"). With none it is neutral and reads "Filters".
+3. **Nothing else changes.** Red still never decorates; a selected tab, a chosen size or day, a
+   segmented control whose choices all show the same work, the active nav item and the focus ring
+   stay neutral. Another screen's view control takes the outline only by a new owner decision
+   recorded here.
+
+**Consequences.** The calendar's subtle neutral selected look for `All ▾` (`border-foreground
+bg-muted`) and Filters' neutral border and dot give way to the red outline and the "·n" count.
+The view controls stay view state (ARCHITECTURE §14.2: no history, the device remembers All ▾).
+`e2e/calendar.spec.ts` checks the outline's computed colour against `--destructive` at 375, 430
+and 1280 in both themes. DESIGN.md §4 lists it under "Red elsewhere".

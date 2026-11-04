@@ -7,6 +7,7 @@ import {
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
+  expectSettled,
   expectSheetAboveKeyboard,
   hydrated,
   memberIdOf,
@@ -440,9 +441,15 @@ test("⋯ Deliverables list: a new line starts next month; this month's delivera
     `Every month starts with these, from ${next}. To add something to ${current}, use + Add deliverable on the project page.`,
   );
 
-  // A line added: the toast names the month it starts from; this month's list is unchanged.
+  // A line added "From ‹next month›" (v1.9 W1: the add asks "Also add …?" first): the toast names
+  // the month it starts from; this month's list is unchanged.
   await list.getByLabel("New deliverable").fill("Story 2");
   await list.getByRole("button", { name: "Add", exact: true }).click();
+  const also = page.getByRole("dialog", { name: `Also add "Story 2" to ${current}?` });
+  await also
+    .getByRole("button", { name: `From ${next.replace(/\s+\d{4}$/, "")}`, exact: true })
+    .click();
+  await expect(also).toBeHidden();
   await expect(page.getByText(`Story 2 added from ${next}`)).toBeVisible();
   await expect(list.getByLabel("Name of Story 2")).toBeVisible();
   await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
@@ -456,6 +463,10 @@ test("⋯ Deliverables list: a new line starts next month; this month's delivera
   await page.route("**/*", dropAdd);
   await list.getByLabel("New deliverable").fill("Story 3");
   await list.getByRole("button", { name: "Add", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: `Also add "Story 3" to ${current}?` })
+    .getByRole("button", { name: `From ${next.replace(/\s+\d{4}$/, "")}`, exact: true })
+    .click();
   await expect(list.getByText(NETWORK_ERROR_CREATE_MESSAGE)).toBeVisible();
   await expect(list.getByLabel("New deliverable")).toHaveValue("Story 3");
   await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
@@ -1261,6 +1272,9 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     ]) {
       await page.goto(path);
       await hydrated(page);
+      // The screen, not its loading skeleton still on screen after goto (CI 41635363757 measured
+      // the skeleton at 200%; `expectSettled`).
+      await expectSettled(page);
       for (const scale of [130, 200]) {
         await page.evaluate((percent) => {
           document.documentElement.style.fontSize = `${percent}%`;

@@ -181,6 +181,8 @@ export type DueSource = {
   primaryOwnerId: string;
   /** The active assignees. */
   assigneeIds: readonly string[];
+  /** On hold (v1.9 W8): shown with its chip, never overdue. */
+  held?: boolean;
 };
 
 /**
@@ -197,6 +199,8 @@ export type ClientItemSource = {
   clientName: string;
   /** The project on the item's cycle, with the item's sheet open. */
   href: string;
+  /** Its project is On hold (v1.9 W8): shown with the chip, never late. */
+  held?: boolean;
 };
 
 export type LeaveSource = {
@@ -308,6 +312,8 @@ export type DueItem = {
   owner: string;
   /** Its type's colour (decision 25), the due chip's edge (PP-calendar-5, V5b). */
   color: string;
+  /** On hold (v1.9 W8): the "On hold" chip, never the overdue tone. */
+  held?: boolean;
 };
 
 /** A client item on its planned day: "Client items · N" (7.3); done ones are muted. */
@@ -319,6 +325,8 @@ export type ClientItemEntry = {
   client: string;
   href: string;
   done: boolean;
+  /** Its project is On hold (v1.9 W8). */
+  held?: boolean;
 };
 
 export type CalendarDay = {
@@ -464,6 +472,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         dueAt: task.dueAt,
         owner: nameOf(task.primaryOwnerId),
         color: typeOf.get(task.taskTypeId)?.color ?? DEFAULT_EVENT_COLOR,
+        ...(task.held === true ? { held: true } : {}),
       });
     }
   }
@@ -492,6 +501,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         client: item.clientName,
         href: item.href,
         done: item.state === "done",
+        ...(item.held === true ? { held: true } : {}),
       });
     }
   }
@@ -652,8 +662,12 @@ export function emptyDay(date: ISODate): CalendarDay {
  * that day and the open client items planned for it, together; a done item is listed, muted, but
  * not counted.
  */
+/** What is due that day: open tasks and deliverables, never held ones (v1.9 W8: never overdue). */
 export function dueCount(day: Pick<CalendarDay, "due" | "items">): number {
-  return day.due.length + day.items.filter((item) => !item.done).length;
+  return (
+    day.due.filter((item) => item.held !== true).length +
+    day.items.filter((item) => !item.done && item.held !== true).length
+  );
 }
 
 /** Whether a day has nothing to show at all (holiday and weekly off count as something). */

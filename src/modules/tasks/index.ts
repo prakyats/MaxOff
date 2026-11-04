@@ -53,10 +53,26 @@ export {
   type TaskTypeColor,
   type TaskTypeSetting,
 } from "./domain/task-types";
+// v1.9 W7 / W8: On hold.
+export {
+  HELD_WORK_NOTE,
+  HOLD_REASON_MAX,
+  canHold,
+  holdActions,
+  holdLine,
+  holdReasonProblem,
+  isOnHold,
+  mayHoldOrResume,
+  onHoldLine,
+  resumeDeadlineProblem,
+  resumeNeedsDeadline,
+  splitOnHold,
+} from "./domain/hold";
 export {
   badgeCount,
   byDeadline,
   forLabel,
+  heldOpen,
   isOwnWork,
   managesTask,
   MY_GROUP_TITLES,

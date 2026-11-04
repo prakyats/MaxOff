@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { readBeforeCheck } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 
 import type { PromptLeaveChoice } from "../domain/choices";
@@ -21,8 +22,9 @@ import type { OwnToday } from "../domain/today";
  * again, and Next renders the two in parallel.
  */
 export const getOwnToday = cache(async (): Promise<OwnToday> => {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("attendance_own_today");
+  // Started before the JWT check (`readBeforeCheck`): an Admin's or Crew's first byte waits for
+  // it (the layout's Start-day prompt), so it must never queue behind the page's reads.
+  const { data, error } = await readBeforeCheck((supabase) => supabase.rpc("attendance_own_today"));
   if (error) throw error;
   // `returns table`: PostgREST hands back a one-row array.
   const row = data[0];
@@ -91,17 +93,35 @@ export async function rpcEndDay(
 export async function rpcChooseLeaveToday(
   choice: PromptLeaveChoice,
   reason: string | null,
+  half: "morning" | "afternoon" | null = null,
 ): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("attendance_choose_leave_today", {
     choice,
     ...(reason ? { reason } : {}),
+    // v1.9 W4: a half day says which half (WORKFLOWS §1).
+    ...(half ? { half } : {}),
   });
   if (error) throw error;
 }
 
 const HISTORY_COLUMNS =
-  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
+  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, late_minutes, late_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at), early:early_leave_requests(state, requested_at)";
+
+/** v1.9 W4: the early leave a day shows, its latest request that ended it (or was answered). */
+function earlyLeaveOf(
+  requests: readonly { state: string; requested_at: string }[],
+): NonNullable<HistoryDay["earlyLeave"]> | null {
+  const shown = [...requests]
+    .filter(
+      (request) =>
+        request.state === "approved" ||
+        request.state === "left_unanswered" ||
+        request.state === "corrected",
+    )
+    .sort((a, b) => b.requested_at.localeCompare(a.requested_at))[0];
+  return (shown?.state as NonNullable<HistoryDay["earlyLeave"]> | undefined) ?? null;
+}
 
 /**
  * One member's days in one IST month, newest first, each with its events in the order they
@@ -135,6 +155,9 @@ export async function listDays(memberId: string, month: Month): Promise<HistoryD
     endNotRecorded: row.end_not_recorded,
     overtimeFlag: row.overtime_flag,
     overtimeReason: row.overtime_reason,
+    lateMinutes: row.late_minutes,
+    lateReason: row.late_reason,
+    earlyLeave: earlyLeaveOf(row.early),
     events: row.events.flatMap((event) =>
       isEventAction(event.action)
         ? [

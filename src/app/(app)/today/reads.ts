@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
-import { listPendingDays, listPendingNotes } from "@/modules/attendance";
+import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
   countItemsToDecide,
   countOverdueItems,
@@ -14,6 +14,7 @@ import {
   listLastChanges,
   listReviews,
   listSentBack,
+  splitHeldItems,
   weekEnd,
 } from "@/modules/client-work";
 import { listClients } from "@/modules/clients";
@@ -57,6 +58,9 @@ export const readApprovals = cache(() =>
     listPendingNotes(),
     listPendingClaims(),
     listTasksToDecide({ final: true }),
+    // v1.9 W4 Q2: the early-leave requests waiting for the Owner (RLS: his; the page asks only
+    // for `attendance.decide`).
+    listEarlyLeaveRequests(),
   ]),
 );
 
@@ -74,7 +78,12 @@ export const readAdminClientWork = cache(async (today: ISODate, viewerId: string
     listSentBack(viewerId),
     countItemsToDecide(today),
   ]);
-  return { due, sentBack, toDecide };
+  // v1.9 W8: a held project's deliverables wait for its resume: never due, late or sent back here.
+  return {
+    due: splitHeldItems(due).active,
+    sentBack: splitHeldItems(sentBack).active,
+    toDecide,
+  };
 });
 
 /** The own stages, reviews and last changes of the items Today shows (at most a handful). */

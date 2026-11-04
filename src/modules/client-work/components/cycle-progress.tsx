@@ -1,5 +1,6 @@
 "use client";
 
+import { ON_HOLD_CHIP } from "@/core/lib/status-tones";
 import { cn } from "@/core/lib/utils";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { ProgressRing } from "@/core/ui/progress/segmented-meter";
@@ -27,6 +28,7 @@ export function CycleProgress({
   label,
   meter,
   cancelledAt = null,
+  held = false,
   needsYou = null,
 }: {
   /**
@@ -40,6 +42,11 @@ export function CycleProgress({
   meter: CycleMeter;
   /** A cancelled project's cancel time: the line says "Cancelled 21 Oct · …" (B8). */
   cancelledAt?: string | null;
+  /**
+   * The project is on hold (v1.9 W8, ADR-0016): its clock is stopped, so the chip claims no pace
+   * and reads the amber On hold instead; the ring and its numbers stay (advisor design pass).
+   */
+  held?: boolean;
 }) {
   const line = meterLine(meter, cancelledAt);
   const pace = cancelledAt ? null : meterPace(meter);
@@ -74,6 +81,10 @@ export function CycleProgress({
           <p className="flex min-h-5 items-center text-xs">
             {complete ? (
               <CycleCompleteMoment cycleId={cycleId} words={completeWords(label)} />
+            ) : held && !cancelledAt ? (
+              <span data-slot="cycle-pace" data-tone={ON_HOLD_CHIP.tone} className="inline-flex">
+                <StatusBadge {...ON_HOLD_CHIP} />
+              </span>
             ) : pace ? (
               // A chip, never coloured text alone (the design gate, 23 Oct): "1 behind plan" red,
               // "On track" green.

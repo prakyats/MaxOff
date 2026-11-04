@@ -12,6 +12,8 @@ import * as repo from "../data/projects";
 import {
   type AddBlueprintInput,
   addBlueprintSchema,
+  type AddBlueprintToCycleInput,
+  addBlueprintToCycleSchema,
   type AddProjectStageGroupInput,
   addProjectStageGroupSchema,
   type ArchiveProjectStageGroupInput,
@@ -30,6 +32,8 @@ import {
   projectIdSchema,
   type ProjectReasonInput,
   projectReasonSchema,
+  type ResumeProjectInput,
+  resumeProjectSchema,
   type StageIdInput,
   stageIdSchema,
   type UpdateBlueprintInput,
@@ -39,6 +43,7 @@ import {
   type UpdateStageInput,
   updateStageSchema,
 } from "../domain/schemas";
+import { resumeItemsPayload } from "../domain/hold";
 import type { ProjectState } from "../domain/types";
 
 /**
@@ -159,6 +164,48 @@ export const reopenProject = action(
   },
 );
 
+/**
+ * Put a project on hold (v1.9 W8; WORKFLOWS §5.5): the Owner or the client's Admin, with a reason.
+ * `project_hold` decides the scope and the state and tells the client's Admin when the Owner acts.
+ */
+export const holdProject = action(async (input: ProjectReasonInput): Promise<Result<null>> => {
+  const data = projectReasonSchema.parse(input);
+  await assertPermission("projects.complete");
+  await repo.holdProject(data.projectId, data.reason);
+  revalidate();
+  dispatchPushSoon();
+  return ok(null);
+});
+
+/**
+ * Resume a project in one go (v1.9 W8): every passed date and every ended month's choice from the
+ * resume sheet, in one `project_resume` call (one transaction; a refusal changes nothing).
+ */
+export const resumeProject = action(
+  async (
+    input: ResumeProjectInput,
+  ): Promise<Result<{ dates: number; carried: number; closed: number; leftPending: number }>> => {
+    const data = resumeProjectSchema.parse(input);
+    await assertPermission("projects.complete");
+    const settled = await repo.resumeProject(
+      data.projectId,
+      resumeItemsPayload(
+        data.items.map((entry) => ({
+          itemId: entry.itemId,
+          plannedDate: entry.plannedDate ?? null,
+          decision: entry.decision ?? null,
+          reason: entry.reason ?? null,
+          closeKind: entry.closeKind ?? null,
+        })),
+      ),
+      data.newDeliveryDate,
+    );
+    revalidate();
+    dispatchPushSoon();
+    return ok(settled);
+  },
+);
+
 /** "Start next cycle" (decision 3): the next period's cycle, at most 7 days early. */
 export const startNextCycle = action(
   async (input: ProjectIdInput): Promise<Result<{ cycleId: string }>> => {
@@ -241,6 +288,20 @@ export const addBlueprint = action(
     const id = await repo.addBlueprint(data.projectId, data.title);
     revalidate();
     return ok({ id });
+  },
+);
+
+/**
+ * "Also add ‹title› to ‹period›?" answered **Add to ‹period› too** (v1.9 W1, D4 in full): the line
+ * and an open deliverable with its stages in the running cycle, one transaction. No notification.
+ */
+export const addBlueprintToCycle = action(
+  async (input: AddBlueprintToCycleInput): Promise<Result<{ id: string; itemId: string }>> => {
+    const data = addBlueprintToCycleSchema.parse(input);
+    await assertPermission("projects.manage");
+    const added = await repo.addBlueprintToCycle(data.projectId, data.title, data.cycleId);
+    revalidate();
+    return ok({ id: added.blueprintId, itemId: added.itemId });
   },
 );
 

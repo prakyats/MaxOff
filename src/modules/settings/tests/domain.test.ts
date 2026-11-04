@@ -11,6 +11,7 @@ import {
   holidaysByYear,
   canRemoveHoliday,
   isUpcoming,
+  lateExample,
   thresholdGroupSummaries,
   type Thresholds,
   weeklyOffChoices,
@@ -77,6 +78,14 @@ describe("updateThresholdsSchema", () => {
     weeklyDigestDay: "1",
     itemOverdueEscalateHours: "24",
     cycleDecideEscalateDays: "2",
+    workingHoursOn: true,
+    workStartTime: "10:00",
+    workEndTime: "18:00",
+    lateGraceMinutes: "15",
+    earlyLeaveWaitMinutes: "30",
+    approvalReminderUrgentMinutes: "60",
+    approvalReminderHighTimes: ["17:00", "11:00", "14:00", "11:00"],
+    approvalReminderDailyTime: "11:00",
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -95,7 +104,54 @@ describe("updateThresholdsSchema", () => {
       weeklyDigestDay: 1,
       itemOverdueEscalateHours: 24,
       cycleDecideEscalateDays: 2,
+      workingHoursOn: true,
+      workStartTime: "10:00",
+      workEndTime: "18:00",
+      lateGraceMinutes: 15,
+      earlyLeaveWaitMinutes: 30,
+      approvalReminderUrgentMinutes: 60,
+      approvalReminderHighTimes: ["11:00", "14:00", "17:00"],
+      approvalReminderDailyTime: "11:00",
     });
+  });
+
+  it("takes the working hours and the approval reminders in their bounds (v1.9 W4)", () => {
+    expect(updateThresholdsSchema.parse({ ...valid, workingHoursOn: false }).workingHoursOn).toBe(
+      false,
+    );
+    expect(updateThresholdsSchema.parse({ ...valid, workingHoursOn: "on" }).workingHoursOn).toBe(
+      true,
+    );
+    for (const [field, bad] of [
+      ["lateGraceMinutes", "-1"],
+      ["lateGraceMinutes", "121"],
+      ["earlyLeaveWaitMinutes", "4"],
+      ["earlyLeaveWaitMinutes", "241"],
+      ["approvalReminderUrgentMinutes", "14"],
+      ["approvalReminderUrgentMinutes", "481"],
+      ["workStartTime", "25:00"],
+      ["approvalReminderDailyTime", "noon"],
+    ] as const) {
+      expect(updateThresholdsSchema.safeParse({ ...valid, [field]: bad }).success).toBe(false);
+    }
+    const ends = updateThresholdsSchema.safeParse({ ...valid, workEndTime: "09:00" });
+    expect(ends.success).toBe(false);
+    expect(ends.error?.issues[0]?.message).toBe("Work has to end after it starts.");
+    expect(
+      updateThresholdsSchema.safeParse({ ...valid, approvalReminderHighTimes: [] }).success,
+    ).toBe(false);
+    expect(
+      updateThresholdsSchema.safeParse({
+        ...valid,
+        approvalReminderHighTimes: Array.from({ length: 9 }, (_, i) => `1${i}:00`),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("says Late after as the time it means (sample §7)", () => {
+    expect(lateExample("10:00", 15)).toBe("Started at 10:16 am counts as late");
+    expect(lateExample("10:00", 0)).toBe("Started at 10:01 am counts as late");
+    expect(lateExample("1", 15)).toBeNull();
   });
 
   it("takes the client-work escalations in their bounds (kickoff 7 amendment C E5)", () => {
@@ -368,11 +424,30 @@ describe("thresholdGroupSummaries (6b.6)", () => {
     weeklyDigestDay: 1,
     itemOverdueEscalateHours: 24,
     cycleDecideEscalateDays: 1,
+    workingHoursOn: true,
+    workStartTime: "10:00",
+    workEndTime: "18:00",
+    lateGraceMinutes: 15,
+    earlyLeaveWaitMinutes: 30,
+    approvalReminderUrgentMinutes: 60,
+    approvalReminderHighTimes: ["11:00", "14:00", "17:00"],
+    approvalReminderDailyTime: "11:00",
   };
+
+  it("says the working hours are off when they are", () => {
+    expect(thresholdGroupSummaries({ ...thresholds, workingHoursOn: false })["working-day"]).toBe(
+      "Working hours off · end-of-day reminder 8:30 pm",
+    );
+    expect(
+      thresholdGroupSummaries({ ...thresholds, approvalReminderUrgentMinutes: 90 }).approvals,
+    ).toMatch(/^Urgent every 90 min/);
+  });
 
   it("says each group's saved values in one line, the escalation order as one line", () => {
     expect(thresholdGroupSummaries(thresholds)).toEqual({
-      "working-day": "End-of-day reminder 8:30 pm · late End day until 6:00 am",
+      "working-day": "10:00 am – 6:00 pm · late after 15 min · end-of-day reminder 8:30 pm",
+      approvals:
+        "Urgent every hour · high at 11:00 am, 2:00 pm, 5:00 pm · medium and low at 11:00 am",
       tasks:
         "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h · overdue → 24 h · warn at 4 tasks a day",
       "client-work": "Overdue deliverable → you after 24 h · undecided period → you after 1 day",

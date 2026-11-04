@@ -6,8 +6,10 @@ import { addISTDays, systemClock, todayIST, type ISODate } from "@/core/time";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
+  getHoursToday,
   getTodayPeople,
   getUnendedYesterday,
+  hoursTodayCounts,
   pendingDayRows,
   summariseToday,
   TodayAttendanceCard,
@@ -60,6 +62,7 @@ import { readDirectory, readOpenTasks, readTaskTypes } from "../tasks/reads";
 
 import {
   PreviewClaims,
+  PreviewEarly,
   PreviewDays,
   PreviewLeave,
   PreviewNotes,
@@ -131,6 +134,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     unended,
     types,
     overdueItems,
+    hoursToday,
   ] = await Promise.all([
     getTodayPeople(),
     readOpenTasks(),
@@ -150,8 +154,16 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     readTaskTypes(),
     // Client work (kickoff 7 amendment C E1, decision 24): one count line, hidden at zero.
     can(viewer.role, "items.tick") ? readOverdueItems(today) : Promise.resolve(0),
+    // v1.9 W4: who started Late and who ended after their end time (two lines, hidden at zero).
+    getHoursToday(),
   ]);
-  const [days, requests, notes, claims, toDecide] = approvals;
+  const [days, requests, notes, claims, toDecide, earlyLeave] = approvals;
+  // v1.9 W4 Q2: "Leaving early" first (it is decided within the hour), then "Left early, not
+  // answered", both in Needs you's one list; Approvals has their Stay and Correct….
+  const early = [
+    ...earlyLeave.filter((request) => request.state === "waiting"),
+    ...earlyLeave.filter((request) => request.state === "left_unanswered"),
+  ];
   const now = systemClock();
   const summary = summariseToday(people.people, people.isDayOff, unended);
   const names = new Map(directory.map((member) => [member.id, member]));
@@ -174,12 +186,18 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   // L8: a person's several waiting days are one row ("PShetty · 5 days proposed absent · Review").
   const dayRows = pendingDayRows(days);
   // B2: the heading counts rows, the folded ones once; "See all N" counts what Approvals lists.
-  const total = days.length + requests.length + notes.length + claims.length + toDecide.length;
+  const total =
+    early.length + days.length + requests.length + notes.length + claims.length + toDecide.length;
   const rowCount =
-    dayRows.length + requests.length + notes.length + claims.length + toDecide.length;
+    early.length +
+    dayRows.length +
+    requests.length +
+    notes.length +
+    claims.length +
+    toDecide.length;
   const shownRows = firstInGroupOrder(
-    { days: dayRows, requests, notes, claims, toDecide },
-    ["days", "requests", "notes", "claims", "toDecide"],
+    { early, days: dayRows, requests, notes, claims, toDecide },
+    ["early", "days", "requests", "notes", "claims", "toDecide"],
     OWNER_APPROVALS_SHOWN,
   );
   const shown = {
@@ -188,6 +206,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   };
   const folded = shownRows.days.flatMap((row) => (row.kind === "person" ? [row.person] : []));
   const shownCount =
+    shownRows.early.length +
     shownRows.days.length +
     shown.requests.length +
     shown.notes.length +
@@ -217,6 +236,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
         return [person.memberId, waited(oldest.submittedAt ?? oldest.updatedAt)];
       }),
     ),
+    early: waitingMap(shown.early, (request) => waited(request.requestedAt)),
     requests: waitingMap(shown.requests, (request) => waited(request.createdAt)),
     notes: waitingMap(shown.notes, (note) => waited(note.createdAt)),
     claims: waitingMap(shown.claims, (claim) => waited(claim.createdAt)),
@@ -287,6 +307,9 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                     data-slot="today-approval-rows"
                     className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
                   >
+                    {shown.early.length > 0 ? (
+                      <PreviewEarly requests={shown.early} waiting={waiting.early} />
+                    ) : null}
                     {folded.map((person) => (
                       <ApprovalPersonRow
                         key={person.memberId}
@@ -333,7 +356,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
               </DashSection>
             )}
 
-            <TodayAttendanceCard summary={summary} />
+            <TodayAttendanceCard summary={summary} hours={hoursTodayCounts(hoursToday)} />
 
             {sections.mine ? (
               <DashSection
@@ -528,5 +551,7 @@ function toRiskTask(row: TaskListRow) {
     createdBy: row.createdBy,
     approvingAdminId: row.approvingAdminId,
     assigneeIds: activeAssignees(row.assignees).map((a) => a.memberId),
+    // v1.9 W7: a held task is never an overdue risk.
+    heldAt: row.heldAt ?? null,
   };
 }

@@ -109,6 +109,43 @@ export const updateThresholdsSchema = z
       .int("The undecided cycle escalation is a whole number of days.")
       .min(1, "The undecided cycle escalation has to be at least 1 day.")
       .max(30, "The undecided cycle escalation has to be 30 days or less."),
+    // v1.9 working hours (W0, W4; WORKFLOWS §1): the switch, the day's start and end (IST), the
+    // Late grace (0-120 min) and the early-leave wait (5-240 min); the columns' checks agree.
+    workingHoursOn: z.preprocess(
+      (value) => value === true || value === "on" || value === "true",
+      z.boolean(),
+    ),
+    workStartTime: z
+      .string()
+      .trim()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 10:00."),
+    workEndTime: z
+      .string()
+      .trim()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 18:00."),
+    lateGraceMinutes: z.coerce
+      .number({ error: "Late after is a number of minutes." })
+      .int("Late after is a whole number of minutes.")
+      .min(0, "Late after can't be negative.")
+      .max(120, "Late after has to be 120 minutes or less."),
+    earlyLeaveWaitMinutes: z.coerce
+      .number({ error: "The wait is a number of minutes." })
+      .int("The wait is a whole number of minutes.")
+      .min(5, "The wait has to be at least 5 minutes.")
+      .max(240, "The wait has to be 240 minutes or less."),
+    // v1.9 W3 approval reminders (WORKFLOWS §8): urgent every 15-480 minutes, 1-8 high-priority
+    // times, one daily time for medium and low.
+    approvalReminderUrgentMinutes: z.coerce
+      .number({ error: "The urgent reminder is a number of minutes." })
+      .int("The urgent reminder is a whole number of minutes.")
+      .min(15, "Remind about urgent tasks every 15 minutes at the most.")
+      .max(480, "Remind about urgent tasks at least every 480 minutes (8 hours)."),
+    approvalReminderHighTimes: z
+      .array(clockTime)
+      .min(1, "Add at least one time for high-priority tasks.")
+      .max(8, "Up to 8 times a day for high-priority tasks.")
+      .transform((times) => [...new Set(times)].sort()),
+    approvalReminderDailyTime: clockTime,
     // The weekly digest's day (6.5, kickoff 6 decision 23): 0 = Sunday .. 6 = Saturday.
     weeklyDigestDay: z.coerce
       .number({ error: "Pick a weekday for the weekly summary." })
@@ -127,5 +164,10 @@ export const updateThresholdsSchema = z
   .refine((values) => values.quietHoursEnd !== values.quietHoursStart, {
     path: ["quietHoursEnd"],
     message: "Quiet hours can’t start and end at the same time. Choose a different end time.",
+  })
+  // The working day starts before it ends (org_settings_work_hours_order).
+  .refine((values) => values.workStartTime < values.workEndTime, {
+    path: ["workEndTime"],
+    message: "Work has to end after it starts.",
   });
 export type UpdateThresholdsInput = z.input<typeof updateThresholdsSchema>;

@@ -29,6 +29,10 @@ import {
   updateItemStageGroupSchema,
   type CarryDecideInput,
   carryDecideSchema,
+  type CloseItemInput,
+  closeItemSchema,
+  type SetCloseKindInput,
+  setCloseKindSchema,
   type GroupItemStagesInput,
   groupItemStagesSchema,
   type ItemIdInput,
@@ -110,12 +114,25 @@ export const updateItem = action(async (input: UpdateItemInput): Promise<Result<
   return ok(null);
 });
 
-export const cancelItem = action(async (input: ItemReasonInput): Promise<Result<null>> => {
-  const data = itemReasonSchema.parse(input);
+/** Close a deliverable with why (v1.9 W1: "Not needed this ‹month›" / "Not delivered") and a reason. */
+export const cancelItem = action(async (input: CloseItemInput): Promise<Result<null>> => {
+  const data = closeItemSchema.parse(input);
   await assertPermission("projects.manage");
-  await repo.cancelItem(data.itemId, data.reason);
+  await repo.cancelItem(data.itemId, data.reason, data.closeKind);
   revalidate();
   dispatchPushSoon();
+  return ok(null);
+});
+
+/**
+ * The Owner's "Set close kind" on a closed deliverable (v1.9 W1, OPEN 4): set, change or clear
+ * (null). `item_set_close_kind` refuses every Admin (`FORBIDDEN`); no notification.
+ */
+export const setCloseKind = action(async (input: SetCloseKindInput): Promise<Result<null>> => {
+  const data = setCloseKindSchema.parse(input);
+  await assertPermission("projects.manage");
+  await repo.setCloseKind(data.itemId, data.closeKind);
+  revalidate();
   return ok(null);
 });
 
@@ -260,7 +277,12 @@ export const carryDecide = action(async (input: CarryDecideInput): Promise<Resul
   const data = carryDecideSchema.parse(input);
   await assertPermission("cycles.carry_decide");
   const outcome = outcomeOf(
-    await repo.carryDecide(data.itemIds, data.decision, data.reason ?? null),
+    await repo.carryDecide(
+      data.itemIds,
+      data.decision,
+      data.reason ?? null,
+      data.closeKind ?? null,
+    ),
   );
   revalidate();
   dispatchPushSoon();

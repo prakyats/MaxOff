@@ -76,6 +76,10 @@ function toTask(row: Tables<"tasks">): Task {
     createdAt: row.created_at,
     reminderRules: parseReminderRules(row.reminder_rules),
     templateId: row.template_id,
+    heldAt: row.held_at,
+    heldBy: row.held_by,
+    holdReason: row.hold_reason,
+    resumedAt: row.resumed_at,
   };
 }
 
@@ -303,7 +307,7 @@ export async function listTaskActivity(taskId: string): Promise<ActivityEntry[]>
 // Lists (4.5) --------------------------------------------------------------------------------------
 
 const LIST_COLUMNS =
-  "id, title, state, admin_step, priority, due_at, client_id, task_type_id, primary_owner_id, approving_admin_id, created_by, submitted_at, created_at, task_assignees(member_id, is_primary, assigned_at, acknowledged_at, removed_at)";
+  "id, title, state, admin_step, priority, due_at, client_id, task_type_id, primary_owner_id, approving_admin_id, created_by, submitted_at, created_at, held_at, hold_reason, task_assignees(member_id, is_primary, assigned_at, acknowledged_at, removed_at)";
 
 type ListRowData = {
   id: string;
@@ -319,6 +323,8 @@ type ListRowData = {
   created_by: string;
   submitted_at: string | null;
   created_at: string;
+  held_at: string | null;
+  hold_reason: string | null;
   task_assignees: {
     member_id: string;
     is_primary: boolean;
@@ -343,6 +349,8 @@ function toListRow(row: ListRowData): TaskListRow {
     createdBy: row.created_by,
     submittedAt: row.submitted_at,
     createdAt: row.created_at,
+    heldAt: row.held_at,
+    holdReason: row.hold_reason,
     assignees: row.task_assignees.map((a) => ({
       memberId: a.member_id,
       isPrimary: a.is_primary,
@@ -729,6 +737,28 @@ export async function rpcReview(
 export async function rpcRemind(taskId: string): Promise<string> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("task_remind", { task_id: taskId });
+  if (error) throw error;
+  return data;
+}
+
+/** Put on hold (v1.9 W8, `task_hold`): the reason is required; returns when it was held. */
+export async function rpcHold(taskId: string, reason: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("task_hold", { task_id: taskId, reason });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Resume (v1.9 W8, `task_resume`): a new deadline when the old one passed (the function refuses
+ * otherwise); returns the deadline now in force.
+ */
+export async function rpcResume(taskId: string, newDueAt: string | null): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc(
+    "task_resume",
+    newDueAt ? { task_id: taskId, new_due_at: newDueAt } : { task_id: taskId },
+  );
   if (error) throw error;
   return data;
 }

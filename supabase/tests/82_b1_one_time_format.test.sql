@@ -6,6 +6,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(14);
+-- v1.9 W4: these checks are of the day without working hours (on by default since migration
+-- working_hours_on; its rules are pgTAP 121's), so End day is not refused before the end time.
+update public.org_settings set working_hours_on = false;
 
 -- The helpers -----------------------------------------------------------------------------------
 select is(app.ist_time('2026-10-19 12:30:00+00'), '6:00 pm', 'ist_time: 12:30 UTC is 6:00 pm IST');

@@ -7,6 +7,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(104);
+-- v1.9 W4: these checks are of the day without working hours (on by default since migration
+-- working_hours_on; its rules are pgTAP 121's), so End day is not refused before the end time.
+update public.org_settings set working_hours_on = false;
 
 -- Keep the seeded organization; replace the people with fixtures. Rolled back at the end.
 delete from public.attendance_events;
@@ -188,19 +191,19 @@ insert into public.members (id, org_id, full_name, email, role, status, joined_a
 delete from public.activity_log; -- the fixture writes are not under test
 
 -- Structure and grants ---------------------------------------------------------------------------
-select has_function('public', 'attendance_submit', array['attendance_choice', 'text', 'date'], 'attendance_submit takes for_date');
+select has_function('public', 'attendance_submit', array['attendance_choice', 'text', 'date', 'text'], 'attendance_submit takes for_date (and since v1.9 W0 the half)');
 select hasnt_function('public', 'attendance_submit', array['attendance_choice', 'text'], 'the two-argument attendance_submit is gone');
 select is(pg_get_function_result('public.leave_decide(uuid, text, text)'::regprocedure),
   'TABLE(state leave_state, kept_dates date[])', 'leave_decide returns the state and the kept dates');
 select is(pg_get_function_result('app.attendance_apply_leave(public.leave_requests)'::regprocedure),
   'date[]', 'apply_leave returns the dates it kept');
 select ok(
-  has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
+  has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_decide(uuid, text, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
   'authenticated may execute the re-created functions');
 select ok(
-  not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
+  not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_decide(uuid, text, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
   'anon may execute none of them');

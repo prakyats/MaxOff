@@ -247,6 +247,12 @@ describe("the task KPIs, split by engagement (6.3, PRODUCT §4.13)", () => {
     expect(loadWords({ memberId: "x", open: 2, overdue: 1 })).toBe("2 open · 1 overdue");
     expect(loadWords({ memberId: "x", open: 1, overdue: 0 })).toBe("1 open");
     expect(countWords(1)).toBe("1 task");
+    // v1.9 W8: a held task is never overdue now, nor in the load's overdue.
+    const held = open.map((task) => ({ ...task, heldAt: "2026-10-01T00:00:00.000Z" }));
+    expect(overdueNow(held, NOW, engagementOf)).toEqual({ permanent: 0, freelance: 0 });
+    expect(
+      loadThisWeek(held, TODAY, NOW, engagementOf, (id) => id).freelance[0]?.overdue ?? 0,
+    ).toBe(0);
   });
 
   it("takes the median of an even list as the mean of its middle two", () => {

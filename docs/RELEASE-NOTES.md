@@ -4,6 +4,146 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.9.0: working hours, On hold, two kinds of Close, approval reminders, the calendar's day row
+
+**Not released yet** (branch `claude/lucid-turing-sfdv10` → `phase-6b-r4` → `main`; the Owner tags after his walk).
+Written in W6 (2 Nov 2026); the speed-probe table and the CI run are added by the integrator in the READY post.
+
+### What ships
+- **Working hours (W0, W4), on from the release:** work starts 10:00, ends 18:00, 15 minutes' grace (Settings →
+  Thresholds → Working day). A Start day after the grace is **Late** and asks for one line for the Owner (never
+  blocks); the strip says "Your day ends at 6:00 pm" (later on a shoot day or with the Owner's **Stay until**).
+  Before the end time End day becomes **Ask to leave early**: the Owner approves or says stay; no answer in the
+  wait (30 min) lets the person end the day as "Left early, not answered" for the Owner to approve or correct.
+  **Half days are Morning off / Afternoon off** (a morning half is never Late, an afternoon one never an early
+  leave). Late and early leaves show on the Owner's Today, the end-of-day report, the Month report and a person's
+  Month tab (all from the one recorded figure, set at the start).
+- **Approval reminders and the email policy (W3):** the Owner gets reminders for tasks waiting for approval
+  (urgent hourly in working hours; high at 11, 14 and 17; medium and low at 11, grouped), in-app and push, never
+  email. Early-leave requests count on the Approvals badge and lead Today's "Needs you".
+- **Two kinds of Close (W1):** closing a deliverable asks why: "Not needed this month/week" (the client dropped
+  or moved it) or "Not delivered" (we didn't). The Owner can set the kind later on older closes. "Also add to
+  this period?" when a recurring deliverable is added mid-period.
+- **On hold (W7, W8):** a task (its creator, or the Owner) or a project (the Owner, or the client's Admin) can be
+  put **On hold** with a reason. While held: no overdue, reminders or escalations, no new cycles; amber "On hold"
+  chips everywhere; Resume asks for a new deadline or dates when they passed (and the carry choices for a month
+  that ended). Reports show "On hold · n deliverables" (a count, no money).
+- **Calendar (W5, W9, W10):** "+ New task on ‹day›" (Crew: "+ Suggest a task on ‹day›") pinned at the foot of a
+  day, never on a past day; a narrowed view (Tasks or Client work only, or filters on) is outlined red so hidden
+  work is never a surprise; one ellipsis at most on a month chip.
+- **The guide** ("How MaxOff works") covers every change for each role; every picture re-shot for v1.9.
+
+### What the Owner will notice
+- Today: amber "N started late today", a quiet "N ended after the end time", and "Leaving early" / "Left early"
+  first in Needs you; Approvals has the two early-leave groups (Approve / Stay; Approve / Correct…).
+- ⋯ on Everyone today: **Stay until** for one person today.
+- Thresholds: the Working day group (switch, times, grace, the early-leave wait) and an Approvals group (reminders).
+- The end-of-day report and the Month report: Late and Left early columns.
+- Hold / Resume in a task's and a project's ⋯; "On hold" lines on Tasks and in Reports.
+- Close asks the kind; older closes can be given one ("Set close kind").
+- Reminders about tasks waiting for approval.
+
+### What Admins will notice
+- Their own day follows the same working hours (Late, Ask to leave early) as the Crew's.
+- Hold / Resume on tasks they created and on their clients' projects; held work leaves Overdue and Needs you.
+- Close asks the kind; the carry screen's Close too.
+- The calendar's pinned "+ New task on ‹day›" row and the red outline on a narrowed view.
+
+### What the Crew will notice
+- **Late:** starting more than 15 minutes after 10:00 asks "You're starting N minutes late" for one line for the
+  Owner; it never stops them working. The strip shows "Late N min".
+- **Ask to leave early:** before 6:00 pm End day is "Ask to leave early" with a reason; the Owner approves or asks
+  them to stay; with no answer in 30 minutes they can end their day.
+- **Half days:** "Morning off" or "Afternoon off" when asking for a half day.
+- **On hold:** a task can show an amber "On hold" line with the reason; Start, Done and the stage ticks wait until
+  it is resumed.
+- **The calendar row:** "+ Suggest a task on ‹day›" at the foot of a day (not on past days).
+
+### Deploying
+- **Deploy outside 10:00–18:00 IST.** The release's migrations switch the working hours on (`working_hours_on`):
+  a deploy during the working day would change Start day and End day under people who are mid-day.
+- **During the deploy window** (database migrated, the old Worker still serving): with the hours on, a v1.8 End day
+  tapped before 6:00 pm is refused inside its confirmation, which stays open and shows the database's words in its
+  red error line ("Your day ends at 6:00 pm. Ask to leave early instead."); nothing crashes and the day is not
+  ended (checked against `origin/main`: `endDay` → `action()` → `mapPostgresError` maps `app.fail`'s INVALID_STATE
+  detail to the message; `EndDayButton` keeps the dialog open with it). v1.8 has no Ask to leave early, which is why
+  the deploy is outside working hours. Start day is not refused (Late never blocks).
+
+### Migrations (expand-only, in order)
+1. `20261022085108_approval_reminders` (W3)
+2. `20261022090443_working_hours` (W0; every rule behind `working_hours_on`, off)
+3. `20261022090843_decision_emails_owner_answer` (W3 follow-up)
+4. `20261022091951_w1_close_kinds` (W1)
+5. `20261022121645_w0_test_clock` (W0 review: one clock, `app.now()`)
+6. `20261022124744_month_summary_hours_counts` (month counts per person)
+7. `20261102124015_working_hours_on` (W4: the switch on, every organisation, audited)
+8. `20261102144808_session_bundle_early_leaves` (W4 Q2: the badge counts early leaves)
+9. `20261102171704_on_hold` (W7)
+
+All expand-only: new nullable columns, tables with RLS, re-created functions with defaulted new arguments; no
+drop, rename or rewrite of data (`working_hours_on` flips a setting per organisation, audited).
+
+### Rolling back to v1.8
+The v1.9 database stays (every migration is expand-only); only the Worker goes back. With the working hours ON,
+v1.8's End day would be refused before the day's end time ("Your day ends at 6:00 pm. Ask to leave early
+instead.") and v1.8 has no "Ask to leave early", so **before rolling the Worker back, the Owner turns the working
+hours OFF in v1.9's Settings → Thresholds** (Working day). The switch is stored in the database, so it stays off
+under v1.8, and v1.8 then behaves exactly as today. Verified against the code (builder, 2 Nov):
+- **End day:** v1.8 calls `attendance_end_day(overtime_note, overtime_minutes)`, the same signature v1.9 re-created.
+  With the switch off, `app.attendance_hours()` reports no rules (`early_applies` false), so End day ends the day at
+  once, as in v1.8; a request still waiting is closed as `lapsed` (nobody is told).
+- **Start day:** `attendance_start_day()` marks Late only while the rules apply; off, nothing is marked.
+- **The v1.9 jobs:** `attendance_hours_tick` (the "Start your day" and end-time reminders) runs only for an
+  organisation with the switch on, so it sends nothing.
+- **Independent of the switch, harmless under v1.8:** the approval reminders (`app.approval_reminders`, W3) keep
+  reaching the Owner in-app and by push (the rows carry their own title and body, which v1.8's Alerts shows; the
+  kind is neither actionable nor always-emailed, so `email_claim()` never emails it); the decision-email policy
+  (`notifications.no_email`, set by `app.notify()` and read by `email_claim()`) is in the database, which v1.8
+  calls the same way.
+- **The functions v1.9 re-created with a new last argument** (`leave_submit`, `leave_submit_comp`,
+  `attendance_submit`, `attendance_choose_leave_today` with `half`; `item_cancel`, `cycle_carry_decide` with
+  `close_kind`) default it to null, so v1.8's calls resolve; `session_bundle()` gained a last column
+  (`pending_early_leaves`), which v1.8 does not read.
+- **Fix forward, not rollback, for one thing:** early-leave requests already "Left early, not answered" when the
+  Worker goes back stay undecided until v1.9 returns (v1.8 has no screen for them and does not count them on its
+  badge); the attendance day itself is unaffected and the Owner can still correct it from the person's history.
+
+### The Owner's phone walk (installed app at 375 and 430, then the laptop)
+Signed in as each role on the phase preview (never production); the Crew and Admin parts with the test people.
+1. **Crew, morning, before 10:15:** Start day → the strip: "Started … · Your day ends at 6:00 pm". After 10:15 (or
+   with the start time moved in Thresholds): Start day → "You're starting N minutes late" → one line → the strip's
+   amber "Late N min · reason". Back closes the sheet.
+2. **Crew, before 6:00 pm:** the strip's **Ask to leave early** → reason → "Waiting for the Owner". Then, as the
+   Owner: Approvals → "Leaving early" → Approve (and once, Stay). Back on the Crew phone: "The Owner approved. Your
+   day ended at …" and "Any expenses to claim today?".
+3. **Owner:** Today → the Late line and "Leaving early" first in Needs you; ⋯ on Everyone today → **Stay until**;
+   Settings → Thresholds → Working day and Approvals groups (Save sticks at the foot).
+4. **Owner:** Reports → End of day (Late / Left early) and Month (the counts); a person's Month tab.
+5. **Crew:** Request leave → Half day → **Morning off / Afternoon off**; the Owner's leave row says the half.
+6. **On hold:** a task's ⋯ → Put on hold… → reason; the amber line and the chip on Tasks, My Day (Crew sees "On
+   hold" and no Start/Done); Resume (with a new deadline once it passed). A project's ⋯ → Put on hold… → the
+   banner; Resume… → the one sheet (New date / Carry forward / Close / Leave). Reports → "On hold · n".
+7. **Close kinds:** a deliverable's sheet → Close deliverable… → the two kinds → reason → closed label; the carry
+   screen's Close…; an older close → Set close kind.
+8. **Calendar:** open a future day → "+ New task on ‹day›" pinned at the foot (Crew: "+ Suggest a task on ‹day›");
+   a past day has none; All ▾ → Tasks → the red outline; Filters with a filter → "Filters · 1" red. Back order:
+   the day sheet closes first.
+9. **Laptop (1280):** the same Today, Approvals, Thresholds, a task's ⋯ hold and the calendar's Day footer.
+10. **The guide:** Me → How MaxOff works → open, for the role walked: Starting late, Leaving before your end time,
+    Start / End your day, Request leave, On hold (task, project), the calendar's day, Close a deliverable; the
+    Owner's Today, Approvals' early leaves, Stay until, Thresholds, the reports. Each says what the screen shows.
+
+### The team message (WhatsApp, after the deploy)
+> MaxOff update (v1.9), live tonight:
+> • **Working hours are on:** work starts 10:00 and ends 6:00 pm. If you start more than 15 minutes late, MaxOff
+>   asks for one line for me. It never stops you working.
+> • **Leaving early?** Before 6:00 pm, the End day button is "Ask to leave early". Give a reason; I'll approve or
+>   ask you to stay. If I don't answer in 30 minutes, you can end your day.
+> • **Half days** are now "Morning off" or "Afternoon off".
+> • **On hold:** a paused task shows an amber "On hold" line. Don't start or finish it until it's resumed.
+> • **Calendar:** tap a day to "Suggest a task" for that day.
+> Everything is in Me → How MaxOff works.
+
 ## v1.7.1: projects polish, Owner tasks, fresh data, drag reorder, faster pages, in-app guide (phase 6b, Release 2)
 
 **Released 2026-10-16 ~19:30 IST** (the owner's tag `v1.7.1` on `36b4b95`; production Deploy green, eight expand-only migrations applied in order).

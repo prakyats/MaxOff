@@ -27,16 +27,25 @@ export function isLocked(state: TaskState): boolean {
   return !WORK_STATES.includes(state);
 }
 
-/** Overdue is derived, never a state: past the deadline and not completed or cancelled. */
-export function isOverdue(task: Pick<Task, "dueAt" | "state">, now: Date): boolean {
-  return !isFinal(task.state) && now.getTime() > Date.parse(task.dueAt);
+/**
+ * Overdue is derived, never a state: past the deadline, not completed or cancelled, and not On hold
+ * (v1.9 W7: a held task's clocks stop; it reads On hold, never overdue).
+ */
+export function isOverdue(
+  task: Pick<Task, "dueAt" | "state"> & { heldAt?: string | null },
+  now: Date,
+): boolean {
+  return !isFinal(task.state) && !task.heldAt && now.getTime() > Date.parse(task.dueAt);
 }
 
 /**
  * A late task's chip, "3 h late" / "2 days late" (PP-tasks-2: the words of the Owner's Today
  * risks, never a bare "Overdue"), or null when it is not overdue.
  */
-export function lateLabel(task: Pick<Task, "dueAt" | "state">, now: Date): string | null {
+export function lateLabel(
+  task: Pick<Task, "dueAt" | "state"> & { heldAt?: string | null },
+  now: Date,
+): string | null {
   return isOverdue(task, now) ? lateWords(now.getTime() - Date.parse(task.dueAt)) : null;
 }
 
@@ -243,14 +252,19 @@ export type TaskActions = {
  * includes removed rows (ignored here).
  */
 export function taskActions(
-  task: Pick<Task, "state" | "primaryOwnerId" | "approvingAdminId" | "createdBy">,
+  task: Pick<Task, "state" | "primaryOwnerId" | "approvingAdminId" | "createdBy"> & {
+    heldAt?: string | null;
+  },
   assignees: readonly TaskAssignee[],
   people: PeopleIndex,
   viewer: TaskViewer,
 ): TaskActions {
   const active = activeAssignees(assignees);
   const final = isFinal(task.state);
-  const locked = isLocked(task.state);
+  // v1.9 W8: a held task's work waits (Start, Done, ticks and Remind are refused until the
+  // resume, `app.on_hold_guard`); Task Noted, comments, edits and Cancel stay.
+  const held = Boolean(task.heldAt);
+  const locked = isLocked(task.state) || held;
   const own = active.find((a) => a.memberId === viewer.id) ?? null;
   // The freelancers on this task the viewer coordinates now, the primary owner first.
   const coordinated = active
@@ -304,7 +318,7 @@ export function taskActions(
 
   return {
     note,
-    start: task.state === "todo" ? worker : null,
+    start: task.state === "todo" && !held ? worker : null,
     done,
     tick: locked ? null : worker,
     review,

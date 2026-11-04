@@ -102,7 +102,9 @@ a Dark/Light toggle).
   count. Per-item chips there were never v1.7.1's nor owner-approved; the laptop month keeps
   naming each one (PP-calendar-5, SCOPE §6).
 - **Audit:** every ellipsis in the app sits on something that opens to the full text. An ellipsis
-  on an element that opens nothing is a bug. (This replaces "two lines, then an ellipsis" in §2 and
+  on an element that opens nothing is a bug. **One ellipsis at most** (v1.9 W10): a chip is one
+  text flow cut once at its end, never a cut part inside a cut line ("Ya… …" was a bug); the month's
+  client-work chip ("Shetty · Reel 1") is cut once, the day popup shows it whole. (This replaces "two lines, then an ellipsis" in §2 and
   §6 where they disagree.)
 
 ### The nine major changes, all approved (comments 6331638458, 6331819942, 6331870421)
@@ -290,7 +292,8 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   and Admins' **All · Tasks · Client work** switch (`calendar-show`, a segmented control beside
   Filters, a full-width row under the phone's header) is view state remembered per device
   (`localStorage`, read after mount), never the address; leave, holidays and the weekly off always
-  show. Their day popup is "Tasks · n", then "Client work · n" grouped by client, then who is away,
+  show. On Tasks or Client work the button is outlined red (a view that hides work, ADR-0015
+  amendment 2026-10-23), as is Filters with real filters on. Their day popup is "Tasks · n", then "Client work · n" grouped by client, then who is away,
   then "Open day" and "+ New task on ‹day›". Crew's calendar is unchanged. **Today** is dimmed
   (`aria-disabled`, out of the tab order) while the shown day, week or month holds today. The
   Day and Week hour rail reads "10 am", "12 pm" (`formatHour`, `core/time`).
@@ -369,8 +372,12 @@ Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by
   red.
 - **Red elsewhere, only where it means "act now":** error text, always with an icon (`ErrorText`);
   the navigation count badges; the Owner's Today problem lines ("2 are absent today ›") and a risk
-  row's "overdue by …" line, each with a dot and words; an approval waiting three days or more.
-  Red is never decorative, never a selected state, never the focus ring.
+  row's "overdue by …" line, each with a dot and words; an approval waiting three days or more;
+  **a view that hides work** (ADR-0015 amendment 2026-10-23, v1.9 W9): the calendar's `All ▾` on
+  Tasks or Client work and its Filters with real filters on ("Filters · 2"; the phone's icon "·2")
+  take a thin red outline (`border-destructive`), the text neutral, never filled; All and no
+  filters stay neutral. Red is never decorative, never a selected state (a view that hides work
+  is the one exception, and only where ADR-0015 lists it), never the focus ring.
 - **Neutral, always:** the focus ring (`ring` = `foreground`, 2 px with an offset), caret,
   `accent-color` and `::selection`, selected tabs, the active nav item, a selected radio or
   checkbox (`strong`), a ticked stage.

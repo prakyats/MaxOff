@@ -1,6 +1,8 @@
 import { groupStageLabel } from "@/core/lib/stage-groups";
 import { formatIST, istDayStart } from "@/core/time";
 
+import { closeKindWords, isCloseKind } from "./close-kinds";
+
 /**
  * A project's history (7.3; PRODUCT §4.14, WORKFLOWS §5; amendment D): each audit entry about the
  * project, its default stages, its item list, its cycles, its items and their own stages as one
@@ -115,6 +117,19 @@ function describeProject(
     case "reopened": {
       const reason = text(entry.meta.reason);
       return { text: `reopened ${project}`, ...(reason ? { note: reason } : {}) };
+    }
+    case "held": {
+      // v1.9 W7: On hold, with the reason (kept here after the resume, invariant 9).
+      const reason = text(entry.meta.reason);
+      return { text: `put ${project} on hold`, ...(reason ? { note: reason } : {}) };
+    }
+    case "resumed": {
+      // v1.9 W7: the resume; a one-time project's delivery date may move with it (its old and new
+      // dates are in the entry). The deliverables' new dates are their own entries.
+      const to = date(entry.new.delivery_date);
+      return {
+        text: to ? `resumed ${project} and moved the delivery date to ${to}` : `resumed ${project}`,
+      };
     }
     case "saved_as_template": {
       // 6b Release 2: a copy as a project template; nothing on the project changed.
@@ -363,8 +378,23 @@ function describeItem(
     case "reopened":
       return { text: `reopened ${title}`, ...(reason ? { note: reason } : {}) };
     case "cancelled":
-    case "closed":
-      return { text: `closed ${title}`, ...(reason ? { note: reason } : {}) };
+    case "closed": {
+      // v1.9 W1-db: a close with a kind says it ("closed Reel 2 as not delivered").
+      const kind = entry.new.close_kind ?? entry.meta.close_kind;
+      const as = isCloseKind(kind) ? ` as ${closeKindWords(kind)}` : "";
+      return { text: `closed ${title}${as}`, ...(reason ? { note: reason } : {}) };
+    }
+    case "close_kind_set": {
+      // v1.9 W1-db: the Owner sets or changes the kind of a close.
+      const kind = entry.new.close_kind;
+      return {
+        text: isCloseKind(kind)
+          ? `marked ${title}'s close as ${closeKindWords(kind)}`
+          : `changed why ${title} was closed`,
+      };
+    }
+    case "close_kind_cleared":
+      return { text: `cleared why ${title} was closed` };
     case "carried":
       return { text: `carried ${title} forward` };
     case "carried_in":

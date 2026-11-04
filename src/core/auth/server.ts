@@ -84,21 +84,54 @@ function readMemberRow(supabase: Pick<ServerSupabase, "from">, id: string) {
 
 type MemberRowRead = Awaited<ReturnType<typeof readMemberRow>>;
 
+/** What a read started before the JWT check gets: a client and the id the token claims. */
+type EarlyClient = Pick<ServerSupabase, "from" | "rpc">;
+
 /**
- * The member row's read, started before the JWT check settles (see `getSessionState`): with the
- * session cookie's access token and keyed by the `sub` it claims, both unverified. Null without
- * a token. Never rejects: a failure is the read's `error`, looked at only once the session has
- * verified.
+ * A read started before the JWT check settles (see `getSessionState`): with the session cookie's
+ * access token and keyed by the `sub` it claims, both unverified. Null without a token. Never
+ * rejects: a failure is the read's `error`, looked at only once the session has verified.
  */
-async function startMemberRowRead(): Promise<{ id: string; result: MemberRowRead } | null> {
+async function startTokenRead<R>(
+  read: (supabase: EarlyClient, claimedId: string) => PromiseLike<R>,
+): Promise<{ id: string; result: R } | null> {
   try {
     const token = await accessTokenFrom((await cookies()).getAll());
     const id = token ? unverifiedSubject(token) : null;
     if (!token || !id) return null;
-    return { id, result: await readMemberRow(createTokenSupabase(token), id) };
+    return { id, result: await read(createTokenSupabase(token), id) };
   } catch {
     return null;
   }
+}
+
+/** The member row's read, started before the JWT check settles. */
+function startMemberRowRead(): Promise<{ id: string; result: MemberRowRead } | null> {
+  return startTokenRead((supabase, id) => readMemberRow(supabase, id));
+}
+
+/**
+ * A read the layout's first byte waits for, started **before** the JWT check and the auth
+ * client's session load, the way the member row is (6b.19; ARCHITECTURE §19 "Six connections"):
+ * the band's push status and the Start-day prompt's own day. Started the usual way they left
+ * behind the page's own reads, so on a screen with a wide first wave (/tasks: nine page reads)
+ * they sat seventh or later in the Worker's six-at-a-time queue and the first byte took a second
+ * round trip (v1.9 speed gate, 2026-11-03). The same guarantees as the member row: PostgREST
+ * verifies the token and RLS decides the answer, which is used only once `getClaims()` has
+ * verified the session and only when the verified id is the one the token claimed; otherwise
+ * (no session, another id, a token PostgREST refused, an early read that threw) the read runs
+ * again the usual way, exactly as before. Any other answer is the read's own, its error included
+ * (the Owner's `attendance_own_today` refuses him: asked twice, that cost a second round trip).
+ */
+export async function readBeforeCheck<R extends { error: unknown; status: number }>(
+  read: (supabase: EarlyClient) => PromiseLike<R>,
+): Promise<R> {
+  const early = startTokenRead((supabase) => read(supabase));
+  const userId = await getSessionUserId();
+  const started = await early;
+  return started && userId && started.id === userId && started.result.status !== 401
+    ? started.result
+    : read(await createServerSupabase());
 }
 
 /**

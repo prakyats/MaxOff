@@ -106,12 +106,16 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               {
-                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting rows, in this order: attendance days, leave requests, extra-work notes, expense claims, tasks. A person with several days waiting is one row, such as "Asha · 5 days proposed absent · Review", which opens Approvals. The count beside "Needs you" is the number of rows. "See all N" opens Approvals.',
+                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting rows, in this order: requests to leave early ("Leaving early", then "Left early"), attendance days, leave requests, extra-work notes, expense claims, tasks. A person with several days waiting is one row, such as "Asha · 5 days proposed absent · Review", which opens Approvals. The count beside "Needs you" is the number of rows. "See all N" opens Approvals.',
                 shot: "owner/today",
               },
               {
                 text: 'Read "Attendance" (highlighted): four counts, Not started, Waiting, Present and On leave. Red lines appear only when something is wrong, such as someone absent.',
                 shot: "owner/attendance-board",
+              },
+              {
+                text: 'An amber line, "1 started late today" (highlighted), and a quiet one, "2 ended after the end time", appear only above zero and open everyone today, whose rows say who and why.',
+                shot: "owner/today-late-line",
               },
               'Read "My tasks": your own tasks, overdue or due today. Tap one to open it (each row ends in a ›). When there are more than it shows, "See all N of my tasks" opens them all in All tasks.',
               'Read "Today\'s tasks": one line, "N due today · M handed in".',
@@ -195,6 +199,54 @@ export const OWNER_GUIDE: Guide = {
           ],
           link: { href: "/approvals", label: "Open Approvals" },
           keywords: ["attendance", "present", "correct", "approve day"],
+        },
+        {
+          id: "owner-early-leave",
+          title: "Answer a request to leave early",
+          summary: "Approve it, or ask them to stay. Only you decide.",
+          blocks: [
+            text(
+              `Before their day's end time (6:00 pm, later on a shoot day or after "Stay until"), an Admin or ${CREW} member asks to leave early with a reason. You get a push, the Approvals badge counts it, and it waits at the top of Approvals, under "Leaving early", and first in Today's "Needs you" (tap "Approve" there, or the row for Stay).`,
+            ),
+            steps(
+              "Open Approvals.",
+              {
+                text: 'Read the row under "Leaving early" (highlighted): "Sample Admin · leave at 4:30 pm", the reason and how long it has waited.',
+                shot: "owner/early-leave",
+              },
+              'Tap "Approve": their day ends at the time they asked. Or tap "Stay": they carry on until their end time and are reminded then.',
+              {
+                text: 'With no answer after 30 minutes they may end their day. It then waits under "Left early, not answered" (highlighted; "Sample Member · ended 4:05 pm"): tap "Approve" to let it stand, or "Correct…" to set what the day was, with a reason they will read. The correction sits beside the original.',
+                shot: "owner/left-early-unanswered",
+              },
+            ),
+            next("They are told your answer at once."),
+            note(
+              'A late start notifies nobody: Today shows "N started late today" in amber, and the end-of-day report names who and why.',
+            ),
+          ],
+          link: { href: "/approvals", label: "Open Approvals" },
+          keywords: ["leave early", "early leave", "stay", "left early", "not answered"],
+        },
+        {
+          id: "owner-stay-until",
+          title: "Ask someone to stay late",
+          summary: "Set Stay until on a person's row; they are told at once.",
+          blocks: [
+            steps(
+              'Open Today, then "Attendance ›" for everyone today.',
+              "Tap ⋯ at the end of the person's row. It shows only while their day is started and not ended.",
+              {
+                text: 'Pick a time later today, after the end time, and tap "Set 8:00 pm" (highlighted; the button names the time). "Keep 6:00 pm" leaves it as it is.',
+                shot: "owner/stay-until-sheet",
+              },
+            ),
+            next(
+              'They are told at once and their day ends at that time; the row reads "Stay until 8:00 pm". To take it back, tap ⋯ again and "Back to 6:00 pm".',
+            ),
+          ],
+          link: { href: "/today/people", label: "Open everyone today" },
+          keywords: ["stay late", "stay until", "overtime", "end time", "work late"],
         },
         {
           id: "owner-decide-leave",
@@ -283,14 +335,17 @@ export const OWNER_GUIDE: Guide = {
           summary: "Fix a recorded day, or approve a waiting one, from the Attendance tab.",
           blocks: [
             steps(
-              "Open People, tap the person, then the Attendance tab. It lists the month's days.",
+              {
+                text: "Open People, tap the person, then the Attendance tab. It lists the month's days; today's row (highlighted) here says Late and Left early, not answered.",
+                shot: "owner/person-attendance",
+              },
               "Tap the day that is wrong. Its day opens, with what happened and when.",
-              'Tap "Correct this day…".',
+              'Tap "Correct…".',
               'Enter the right details and save. Times use the 12-hour clock, such as "9:30 am"; an empty time reads "Choose a time".',
             ),
             next("The original stays in the history. A correction sits alongside it."),
             text(
-              'A day still waiting for you has an outlined "Approve" on its row, and the green "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
+              'Rows carry no buttons: tap a day to open it. A day still waiting for you shows the green "Approve as present" (or absent) beside "Correct…": the same approval as on Approvals. A row also says "Late 22 min · “Traffic”" or "Left early, not answered" when that happened. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
             ),
             note("Only you can correct a recorded day."),
           ],
@@ -533,6 +588,42 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["edit", "cancel", "reopen", "change approver", "menu"],
         },
         {
+          id: "owner-task-hold",
+          title: "Put a task on hold, and resume it",
+          summary: "Pause any task with a reason; resume it when it can go on.",
+          blocks: [
+            text(
+              "When a task cannot go on for now (the client has not sent the footage, say), put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. Its stages are greyed out: nobody can tick one until it resumes. You can hold any task that is still with its people; an Admin can hold the tasks they created.",
+            ),
+            steps(
+              {
+                text: 'Open the task, tap the ⋯ menu and tap "Put on hold…" (highlighted).',
+                shot: "owner/task-hold-menu",
+              },
+              {
+                text: 'Write why, then tap "Put on hold" (highlighted). "Keep working" closes the question.',
+                shot: "owner/task-hold-sheet",
+              },
+              {
+                text: 'To go on, tap "Resume" (highlighted) on the amber "On hold since ‹date›" line (or "Resume…" in ⋯).',
+                shot: "owner/task-hold-line",
+              },
+              {
+                text: 'If the deadline passed while it was on hold, choose a new deadline (highlighted) and time, then tap "Resume".',
+                shot: "owner/task-resume-sheet",
+              },
+            ),
+            next(
+              'The people on it and its approving Admin are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
+            ),
+            note(
+              "A task that is handed in, completed or cancelled cannot be put on hold. Cancelling a held task ends the hold. History keeps the reason and the old deadline.",
+            ),
+          ],
+          link: { href: "/tasks/all?state=on_hold", label: "See tasks on hold" },
+          keywords: ["on hold", "hold", "pause", "resume", "paused"],
+        },
+        {
           id: "owner-all-tasks",
           title: "Filter all tasks",
           summary: "Find any task by state, deadline, client, type or person.",
@@ -646,10 +737,10 @@ export const OWNER_GUIDE: Guide = {
               "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due, on a laptop each by name, amber (red with an alert when overdue), and on a phone’s full month as one count, “3 due” in amber, or a red alert with the count when overdue (tap the day to see them); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a day is narrow, on a laptop or a phone’s full month; where even that has no room, their photo and “Leave”, and on a phone, where that has no room either, their photo alone; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             ),
             text(
-              "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+              "Tasks and client work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Sample Client · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
             ),
             text(
-              "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone the same “All ▾” sits in the header, just before Filters, which is an icon with a dot while a filter is on. This phone or laptop remembers your choice, and leave and holidays always show.",
+              "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice. While it is not All, the button names it, “Client work ▾”, and has a red outline, so you can see the calendar is not showing everything. Filters works the same way: with filters on it reads “Filters · 2” (how many are on) with a red outline; with none it is a plain “Filters”. On a phone the same “All ▾” sits in the header, just before Filters, an icon that shows the count, “·2”, with a red outline while a filter is on. This phone or laptop remembers your All ▾ choice, and leave and holidays always show.",
             ),
             steps("Open Calendar.", {
               text: 'Tap "Filters" (highlighted) to narrow by Client, Person, Type or Status.',
@@ -666,7 +757,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline and "+ New task on" the date; on a laptop a day opens in the middle of the screen, with "Open day".',
+              'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and "+ New task on" the date stays at the bottom of the sheet while you scroll. On a laptop a day opens in the middle of the screen, with "Open day"; in the Day view "+ New task on" the date sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.',
             ),
             steps(
               "Open Calendar and tap a day.",
@@ -737,10 +828,20 @@ export const OWNER_GUIDE: Guide = {
             text(
               'Reports opens with this month so far: Days worked (team, with leave and absence), Days waiting for you, Overtime notes and Expenses to pay, each tappable. One with nothing in it folds into one quiet line ("So far: no overtime notes and no expenses to pay."). Under it are two rows. Month shows each person\'s IST month, live.',
             ),
-            steps("Open Reports.", {
-              text: 'Tap "Month" (highlighted).',
-              shot: "owner/reports",
-            }),
+            steps(
+              "Open Reports.",
+              {
+                text: 'Tap "Month" (highlighted).',
+                shot: "owner/reports",
+              },
+              {
+                text: 'Read each person\'s four counts (highlighted): Late, Left early (not answered), Early approved and Half days; a zero shows as "—" and Late is amber.',
+                shot: "owner/report-month-counts",
+              },
+            ),
+            text(
+              'A person\'s Month tab lists them as rows: "Late days" (with the minutes in all), "Left early, not answered", "Early leaves approved" and "Half days" (morning and afternoon).',
+            ),
             note("The Month report does not show salary."),
           ],
           link: { href: "/reports/month", label: "Open Month" },
@@ -751,8 +852,13 @@ export const OWNER_GUIDE: Guide = {
           title: "Read the End of day report",
           summary: "Today and yesterday are live; older days are saved.",
           blocks: [
-            text("End of day shows how each day closed."),
-            steps("Open Reports.", "Tap End of day."),
+            text(
+              'End of day shows how each day closed. The attendance line counts who started late and who left early, and each person\'s row says it: "Late 22 min: “Traffic”", "Left early, approved" or "Left early, not answered".',
+            ),
+            steps("Open Reports.", "Tap End of day, then the day you want.", {
+              text: 'Read "Attendance" (highlighted): the count line, then each person\'s day with Late and how they left.',
+              shot: "owner/report-eod",
+            }),
             note("Today and yesterday are live. Earlier days are saved the morning after."),
           ],
           link: { href: "/reports/end-of-day", label: "Open End of day" },
@@ -909,7 +1015,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Name it, choose how often it repeats, list the deliverables.",
           blocks: [
             text(
-              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Shetty"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
+              'New project has three steps: 1 Basics, 2 Deliverables & stages, 3 Preview & create. Its title names the client ("New project · Sample Client"); on a phone the steps read "1 Basics, 2 Deliverables, 3 Preview" on one line, and Back and Next sit side by side.',
             ),
             steps(
               'Open the client, tap the Projects tab, then tap "New project".',
@@ -1199,14 +1305,37 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open an open or done deliverable.",
               'Tap "Close deliverable…".',
-              'Write "Why close it".',
+              'Pick why: "Not needed this month" (the client dropped or moved it; "this week" on a weekly project, "Not needed" on a one-time one) or "Not delivered" (we didn\'t deliver it).',
+              'Write "Why close it", then tap "Close deliverable".',
             ),
-            next("It stays in the cycle as closed, not done, and is not counted in progress."),
+            next(
+              "It stays in the cycle as closed, not done, and is not counted in progress. Its sheet shows the kind above the reason.",
+            ),
             note(
               "Closing cannot be undone. If you only want to redo the work, use Send back instead.",
             ),
           ],
-          keywords: ["close", "drop", "cancel deliverable"],
+          keywords: ["close", "drop", "cancel deliverable", "not needed", "not delivered"],
+        },
+        {
+          id: "owner-set-close-kind",
+          title: "Set or change a close kind",
+          summary: "Say why an older deliverable was closed, or correct it.",
+          blocks: [
+            text(
+              "Closes made before the kinds came in have none. Only you can set, change or clear a closed deliverable's kind, on any project, a completed or cancelled one's included.",
+            ),
+            steps(
+              "Open the closed deliverable (Done and closed on the project page).",
+              'Tap ⋯, then "Set close kind".',
+              'Pick "Not needed this month" or "Not delivered" (or "No kind" to clear one), then tap "Save".',
+            ),
+            next(
+              "The kind shows on the deliverable's sheet, and the project's Activity says, for example, \"marked Reel 1's close as not delivered\". Nobody is notified.",
+            ),
+            note("Admins see the kind but cannot change it after the close."),
+          ],
+          keywords: ["close kind", "not needed", "not delivered", "older close", "set close kind"],
         },
         {
           id: "owner-bulk",
@@ -1295,6 +1424,43 @@ export const OWNER_GUIDE: Guide = {
             note('"Reopen it from ⋯ to change anything."'),
           ],
           keywords: ["complete", "cancel", "reopen", "read-only", "finish project"],
+        },
+        {
+          id: "owner-project-hold",
+          title: "Put a project on hold, and resume it",
+          summary: "Pause a client's project with a reason; settle its dates when it resumes.",
+          blocks: [
+            text(
+              'When a client pauses work, put the project on hold. No new monthly or weekly cycles are made and no escalations or reminders go out. Its open deliverables show an amber "On hold" chip, never late, and wait: nothing is ticked, marked done or sent back until it resumes. The progress ring keeps its numbers, and its chip reads "On hold" instead of "On track" or "behind plan".',
+            ),
+            steps(
+              {
+                text: 'Open the project\'s ⋯ menu and tap "Put on hold…" (highlighted).',
+                shot: "owner/project-hold-menu",
+              },
+              {
+                text: 'Write why, then tap "Put on hold" (highlighted). The client\'s Admin is told.',
+                shot: "owner/project-hold-sheet",
+              },
+              {
+                text: 'To go on, tap "Resume…" (highlighted) on the amber "On hold since ‹date›" banner (or in ⋯).',
+                shot: "owner/project-hold-banner",
+              },
+              {
+                text: "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending (the list, highlighted). If a one-time project's delivery date passed while it was on hold, choose a new delivery date too: it is required.",
+                shot: "owner/project-resume-sheet",
+              },
+              'Tap "Resume project": everything is settled in one go.',
+            ),
+            next(
+              'Reports show "On hold · n deliverables" for this month: tap it to see them. They are neither done nor closed, and never money.',
+            ),
+            note(
+              'While a project is on hold there is no carry-forward and no "decide these" reminder at the month\'s end; the resume asks instead. Edits and Close still work.',
+            ),
+          ],
+          link: { href: "/clients/items?filter=on_hold", label: "See deliverables on hold" },
+          keywords: ["on hold", "hold", "pause", "resume", "paused project"],
         },
         {
           id: "owner-copy-schedule",
@@ -1613,6 +1779,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               'Open the repeating project\'s ⋯ menu and tap "Deliverables list".',
               "Add lines with × N, or rename them.",
+              'While this month is running, an add asks "Also add ‹title› to ‹October 2026›?": "Add to ‹October› too" also adds it to this month with its stages; "From ‹November›" starts it next month.',
               'Tap "Stages" on a line to set its stages.',
             ),
             next("Every month starts with these, from the next period."),
@@ -1654,7 +1821,7 @@ export const OWNER_GUIDE: Guide = {
               "Open the link, then select the deliverables, or none to act on all rows.",
               'Tap "Carry N forward" to move them into the next cycle.',
               'Tap "Leave N pending" to leave them where they are.',
-              'Tap "Close…" on a row to close it. It asks "Why close it".',
+              'Tap "Close…" on a row to close it. Pick "Not needed this month" or "Not delivered", then write "Why close it".',
             ),
             next('Empty screen: "Nothing to decide."'),
             note(
@@ -1721,7 +1888,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "How soon MaxOff nudges, escalates and goes quiet.",
           blocks: [
             text(
-              'Thresholds holds the timings that drive reminders, in four groups: Working day, Tasks, Client work and Notifications. Each group is one row with a line saying its current values, such as "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h".',
+              'Thresholds holds the timings that drive reminders, in five groups: Working day, Approvals, Tasks, Client work and Notifications. Each group is one row with a line saying its current values, such as "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h".',
             ),
             steps(
               "Open Settings, then Thresholds.",
@@ -1731,7 +1898,15 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/thresholds",
               },
               'Set "Escalate to the Admin after (hours)", "Escalate to the Owner after (hours)", "Overdue escalation (hours)", "Workload warning (tasks due that day)" and the Default reminders.',
-              'In "Working day": "End-of-day reminder" and "Late End day until". In "Client work": the two escalations to you. In "Notifications": quiet hours, the email cap and the weekly summary\'s day.',
+              {
+                text: 'In "Working day": the "Working hours" switch (highlighted; late starts, the end time and "Ask to leave early"; off, Start day and End day work as before), "Work starts", "Work ends", "Late after (minutes)" (it says, for example, "Started at 10:16 am counts as late"), how long an early-leave request waits for you, "End-of-day reminder" and "Late End day until".',
+                shot: "owner/thresholds-working-day",
+              },
+              {
+                text: 'In "Approvals": how often urgent tasks remind you (highlighted), the times for high priority and the daily time for medium and low.',
+                shot: "owner/thresholds-approvals",
+              },
+              'In "Client work": the two escalations to you. In "Notifications": quiet hours, the email cap and the weekly summary\'s day.',
               'Tap "Save thresholds". It stays at the bottom of the screen and saves every group\'s changes at once.',
             ),
             next("A group with a value to fix opens by itself, with the message under the field."),

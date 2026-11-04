@@ -4,7 +4,17 @@ import { dirname, join } from "node:path";
 import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
-import { type DemoIds, GUIDE_SHOT_LIST, type GuideRole, type GuideShot } from "./guide-shots";
+import { GUIDE_SHOTS } from "../src/modules/guide/domain/shots.generated";
+import {
+  type AdminDay,
+  type CrewDay,
+  type DemoIds,
+  GUIDE_SHOT_LIST,
+  type GuideDays,
+  type GuideRole,
+  type GuideShot,
+  ROLE_DAYS,
+} from "./guide-shots";
 import {
   memberIdOf,
   removeClientFixture,
@@ -37,6 +47,12 @@ import {
  * writes `public/guide/<role>/<name>.webp` and the manifest
  * `src/modules/guide/domain/shots.generated.ts`. The registry is the source: a release re-runs this
  * to refresh every picture.
+ *
+ * `GUIDE_ONLY=owner/task-hold-menu,staff/task-on-hold pnpm guide:screenshots` makes only the listed
+ * pictures (a comma-separated list of ids, or of prefixes ending in `*`: `owner/task-hold*`); every
+ * other picture and its manifest entry stay as they are. For a release's new topics, when the rest
+ * would be retaken at a time of day that changes them. The run itself is refused outside 11:15 am to
+ * 5:30 pm IST (`assertDaytime`): every picture's day is built for daytime.
  */
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -60,6 +76,21 @@ const ACCENT = "#2563eb";
 const MANIFEST = "src/modules/guide/domain/shots.generated.ts";
 
 const { owner, admin, staff } = USERS;
+
+/** The pictures this run makes: `GUIDE_ONLY`'s ids and `prefix*`es, or every one. */
+/** `GUIDE_ANYTIME=1`: a run-once escape from the daytime guard (`assertDaytime`). */
+const ANYTIME = process.env.GUIDE_ANYTIME === "1";
+const ONLY = (process.env.GUIDE_ONLY ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter((entry) => entry !== "");
+const matches = (entry: string, id: string) =>
+  entry.endsWith("*") ? id.startsWith(entry.slice(0, -1)) : id === entry;
+const wanted = (id: string) => ONLY.length === 0 || ONLY.some((entry) => matches(entry, id));
+const unknown = ONLY.filter((entry) => !GUIDE_SHOT_LIST.some((shot) => matches(entry, shot.id)));
+if (unknown.length > 0) {
+  throw new Error(`GUIDE_ONLY names no picture in e2e/guide-shots.ts: ${unknown.join(", ")}`);
+}
 
 /** The names the pictures show for the three seeded sign-ins: roles, never a person. */
 const DISPLAY_NAMES = {
@@ -174,8 +205,37 @@ const CLIENT = "Sample Client";
 const PRESET = "Video steps";
 const TEMPLATE = "Monthly reels";
 /** Every task the demo makes starts with one of these; earlier copies are removed by them. */
-const TASK_TITLES = ["Reel 1 edit", "Reel 2 edit", "Reel 3 edit", "Reel 4 edit", "Post 1 design"];
+const TASK_TITLES = [
+  "Reel 1 edit",
+  "Reel 2 edit",
+  "Reel 3 edit",
+  "Reel 4 edit",
+  "Post 1 design",
+  "Post 2 design",
+];
+/** Why the demo's held task and held project wait (v1.9 On hold). */
+const HOLD_REASON = "Client hasn't sent the footage";
+const PROJECT_HOLD_REASON = "Client paused content for Diwali week";
 const REQUEST = "Refresh the studio backdrop";
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+/** "October 2026", as a monthly cycle is labelled. */
+function monthLabel(day: string): string {
+  return `${MONTHS[Number(day.slice(5, 7)) - 1]} ${day.slice(0, 4)}`;
+}
 
 function workingDay(offset: number): string {
   let day = addISTDays(todayIST(), offset);
@@ -370,6 +430,56 @@ async function makeDemo(): Promise<DemoIds> {
     decision: "approved",
   });
 
+  // On hold (v1.9): the Admin's "Post 2 design", noted by the Crew member and held, its deadline
+  // passed meanwhile (so Resume asks for a new one); and a monthly project held with a deliverable
+  // whose date passed and one left in last month (the resume sheet's two kinds of row).
+  const held = await createTask({
+    title: "Post 2 design",
+    by: admin,
+    approver: adminId,
+    stages: cut,
+    day: 2,
+    ...crew,
+  });
+  await rpc(staff, "task_acknowledge", { task_id: held });
+  await rpc(admin, "task_hold", { task_id: held, reason: HOLD_REASON });
+  await rpc(owner, "task_update_assignment", {
+    task_id: held,
+    changes: { due_at: istInstant(addISTDays(todayIST(), -1), "18:00") },
+  });
+  const heldProjectId = await rpc<string>(admin, "project_create_grouped", {
+    client_id: client.id,
+    name: "Festive campaign",
+    recurrence: "monthly",
+    stage_groups: [{ label: null, stages: ["Edit", "Review"] }],
+    deliverables: [{ title: "Festive reel", stage_groups: null }],
+  });
+  const [festiveReel] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${heldProjectId}&select=id`,
+  );
+  await serviceUpdate(`project_items?id=eq.${festiveReel?.id}`, {
+    planned_date: addISTDays(todayIST(), -1),
+  });
+  const monthStart = `${todayIST().slice(0, 8)}01` as ReturnType<typeof todayIST>;
+  const lastMonthEnd = addISTDays(monthStart, -1);
+  const lastMonth = await serviceInsert<{ id: string }>("project_cycles", {
+    org_id: orgId,
+    project_id: heldProjectId,
+    period_start: `${lastMonthEnd.slice(0, 8)}01`,
+    period_end: lastMonthEnd,
+    label: monthLabel(lastMonthEnd),
+    generated_by: "schedule",
+  });
+  await serviceInsert("project_items", {
+    org_id: orgId,
+    project_id: heldProjectId,
+    cycle_id: lastMonth.id,
+    origin_cycle_id: lastMonth.id,
+    title: "Teaser cut",
+    position: "a0",
+  });
+  await rpc(admin, "project_hold", { project_id: heldProjectId, reason: PROJECT_HOLD_REASON });
+
   // The Crew member's waiting requests.
   await rpc(staff, "leave_submit", {
     type: "leave",
@@ -391,9 +501,138 @@ async function makeDemo(): Promise<DemoIds> {
   return {
     clientId: client.id,
     projectId,
+    heldProjectId,
     staffId,
-    tasks: { notNoted, started, handedIn, checked, ownerOnly },
+    tasks: { notNoted, started, handedIn, checked, ownerOnly, held },
   };
+}
+
+// ── Today's working day (v1.9 W4) ──────────────────────────────────────────────────────────────
+
+/** The Crew member's shoot today, whose start the late sheet suggests as the reason. */
+const SHOOT = "Product shoot";
+const LATE_REASON = "Traffic on the way";
+/** How long ago each ask was made, in minutes (the wait for an answer is 30). */
+const ASKED_AGO = { asked: 12, no_answer: 35, approved: 20, left_unanswered: 40 } as const;
+
+/** The stage each person's day was last built to: a picture rebuilds only what it changes. */
+const built: { crew?: CrewDay; admin?: AdminDay } = {};
+
+/** Today's day of a person gone: its early-leave asks, its events and the day itself. */
+async function clearToday(memberId: string): Promise<void> {
+  const today = todayIST();
+  await serviceRest(`early_leave_requests?member_id=eq.${memberId}`, { method: "DELETE" });
+  const days = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&work_date=eq.${today}&select=id`,
+  );
+  for (const day of days) {
+    await serviceRest(`attendance_events?attendance_day_id=eq.${day.id}`, { method: "DELETE" });
+  }
+  await serviceRest(`attendance_days?member_id=eq.${memberId}&work_date=eq.${today}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * A person's day today, built with the app's own functions (Start day, the late reason, Ask to
+ * leave early, the Owner's answer, End day), then a few fixed times written as service role: the
+ * start (10:22 am, Late 22 min; the Admin 9:58 am, on time) and when an ask was made (dated back
+ * from now), so every run shows the same states whatever the hour between 11:15 am and 5:30 pm.
+ */
+async function buildDay(
+  person: Person,
+  memberId: string,
+  stage: CrewDay | AdminDay,
+  late: boolean,
+): Promise<void> {
+  const today = todayIST();
+  await clearToday(memberId);
+  if (stage === "not_started" || stage === "not_started_shoot") return;
+  await rpc(person, "attendance_start_day", {});
+  await serviceUpdate(`attendance_days?member_id=eq.${memberId}&work_date=eq.${today}`, {
+    started_at: istInstant(today, late ? "10:22" : "09:58"),
+    late_minutes: late ? 22 : null,
+  });
+  if (late) await rpc(person, "attendance_late_reason", { reason: LATE_REASON });
+  if (stage === "late" || stage === "started") return;
+  let requestId: string;
+  try {
+    requestId = await rpc<string>(person, "attendance_ask_leave_early", {
+      reason: late ? "Doctor's appointment at 5" : "Bank closes at 4",
+    });
+  } catch (error) {
+    // A night run (GUIDE_ANYTIME, always with GUIDE_ONLY): after 6:00 pm the day has ended and
+    // no ask can be made, so this day stays started. Only the early-leave pictures need the ask,
+    // and a night run keeps their daytime pictures (it never names them in GUIDE_ONLY).
+    if (ANYTIME && String(error).includes("Your day ended")) return;
+    throw error;
+  }
+  const ago = stage === "asked" && !late ? 8 : ASKED_AGO[stage];
+  await serviceUpdate(`early_leave_requests?id=eq.${requestId}`, {
+    requested_at: new Date(systemClock().getTime() - ago * 60_000).toISOString(),
+  });
+  if (stage === "approved") {
+    await rpc(owner, "early_leave_decide", { request_id: requestId, decision: "approve" });
+  }
+  if (stage === "left_unanswered") await rpc(person, "attendance_end_day", {});
+}
+
+/** The Crew member's shoot at 3:00 pm today, there only while a picture needs it. */
+async function setShoot(on: boolean, staffId: string): Promise<void> {
+  const shoots = await serviceSelect<{ id: string }>(
+    `tasks?title=eq.${encodeURIComponent(SHOOT)}&select=id`,
+  );
+  // Its "new task" alert goes with it: Alerts never lists a task that is gone.
+  for (const shoot of shoots) {
+    await serviceRest(`notifications?entity_id=eq.${shoot.id}`, { method: "DELETE" });
+  }
+  await removeTasksTitled(SHOOT);
+  if (!on) return;
+  const today = todayIST();
+  await rpc(owner, "task_create", {
+    title: SHOOT,
+    description: null,
+    task_type_id: await taskTypeId("Shoot / Site Visit"),
+    client_id: null,
+    priority: "medium",
+    due_at: istInstant(today, "18:00"),
+    assignee_ids: [staffId],
+    primary_owner_id: staffId,
+    approving_admin_id: null,
+    stages: [],
+    event_date: today,
+    event_start_at: istInstant(today, "15:00"),
+    event_end_at: istInstant(today, "17:00"),
+    location: "Studio B",
+  });
+}
+
+/**
+ * When work starts: 10:00 am, except for the late sheet's picture, where it is 22 minutes and 10
+ * seconds before now so the sheet reads "You're starting 22 minutes late" like the strip's "Late
+ * 22 min" (the sheet's picture shows the sheet alone, never the start time).
+ */
+async function setWorkStart(lateSheet: boolean): Promise<void> {
+  const start = lateSheet
+    ? new Date(systemClock().getTime() - (22 * 60 + 10) * 1000).toLocaleTimeString("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour12: false,
+      })
+    : "10:00:00";
+  await serviceUpdate("org_settings?org_id=not.is.null", { work_start_time: start });
+}
+
+async function buildDays(days: GuideDays): Promise<void> {
+  if (days.crew && days.crew !== built.crew) {
+    await setWorkStart(days.crew === "not_started_shoot");
+    await setShoot(days.crew === "not_started_shoot", demo.staffId);
+    await buildDay(staff, demo.staffId, days.crew, true);
+    built.crew = days.crew;
+  }
+  if (days.admin && days.admin !== built.admin) {
+    await buildDay(admin, await memberIdOf(admin.email), days.admin, false);
+    built.admin = days.admin;
+  }
 }
 
 // ── The pictures ───────────────────────────────────────────────────────────────────────────────
@@ -409,7 +648,34 @@ let demo: DemoIds;
 
 test.describe.configure({ mode: "serial" });
 
+/**
+ * The pictures show a working day as it is lived (v1.9 W4): a Crew member started at 10:22 am and
+ * asks to leave early, at the latest, 40 minutes before now; every ask must still be before the
+ * 6:00 pm end. So the run is between 11:15 am and 5:30 pm IST, and refuses to start otherwise.
+ */
+function assertDaytime(): void {
+  // A run-once escape (owner, 3 Nov 2026 evening: "the guide pictures may be taken at night"):
+  // `GUIDE_ANYTIME=1` skips this guard for one run; the default stays daytime only. A working-hours
+  // picture that cannot show its daytime state at night is then kept from the last daytime run.
+  if (ANYTIME) {
+    // Night runs retake named pictures only: the working-hours ones need the daytime state.
+    if (ONLY.length === 0) throw new Error("GUIDE_ANYTIME=1 needs GUIDE_ONLY: name the pictures.");
+    return;
+  }
+  const [hours, minutes] = systemClock()
+    .toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })
+    .split(":")
+    .map(Number);
+  const now = (hours ?? 0) * 60 + (minutes ?? 0);
+  if (now < 11 * 60 + 15 || now > 17 * 60 + 30) {
+    throw new Error(
+      "guide:screenshots runs between 11:15 am and 5:30 pm IST: its pictures show a working day (late starts, asks to leave early) with the working hours on.",
+    );
+  }
+}
+
 test.beforeAll(async () => {
+  assertDaytime();
   demo = await makeDemo();
 });
 
@@ -630,6 +896,12 @@ async function toWebP(
 }
 
 async function capture(page: Page, converter: Page, shot: GuideShot): Promise<void> {
+  const [role] = shot.id.split("/") as [GuideRole];
+  await buildDays(shot.days ?? ROLE_DAYS[role]);
+  await captureNow(page, converter, shot);
+}
+
+async function captureNow(page: Page, converter: Page, shot: GuideShot): Promise<void> {
   const path = typeof shot.path === "function" ? shot.path(demo) : shot.path;
   await page.goto(path);
   await expect(page.locator('[data-slot="page-header"]:visible')).toBeVisible();
@@ -693,9 +965,14 @@ for (const role of ["staff", "admin", "owner"] as const satisfies readonly Guide
       }
     });
     try {
+      // Signed in with the day built: a Start-day prompt left open would cover every screen.
+      await buildDays(ROLE_DAYS[role]);
       const page = await signInAs(context, role);
       const converter = await context.newPage();
-      for (const shot of GUIDE_SHOT_LIST.filter((entry) => entry.id.startsWith(`${role}/`))) {
+      const shots = GUIDE_SHOT_LIST.filter(
+        (entry) => entry.id.startsWith(`${role}/`) && wanted(entry.id),
+      );
+      for (const shot of shots) {
         try {
           await capture(page, converter, shot);
         } catch (error) {
@@ -717,10 +994,13 @@ test.afterAll(() => {
   }
 });
 
-/** `src/modules/guide/domain/shots.generated.ts`: every picture made, in the registry's order. */
+/**
+ * `src/modules/guide/domain/shots.generated.ts`: every picture made, in the registry's order. A
+ * `GUIDE_ONLY` run keeps the entries of the pictures it did not make.
+ */
 function writeManifest(): void {
   const lines = GUIDE_SHOT_LIST.flatMap((shot) => {
-    const entry = produced.get(shot.id);
+    const entry = produced.get(shot.id) ?? (wanted(shot.id) ? undefined : GUIDE_SHOTS[shot.id]);
     if (!entry) return [];
     return [
       `  ${JSON.stringify(shot.id)}: {`,

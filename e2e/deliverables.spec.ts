@@ -558,6 +558,15 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await list.getByLabel("New deliverable").fill("Line");
     await list.getByLabel("How many").fill("3");
     await list.getByRole("button", { name: "Add", exact: true }).click();
+    // v1.9 W1: the add asks "Also add 3 deliverables to ‹this month›?" once; one back closes it
+    // and sends nothing, the name kept; "From ‹next month›" adds the lines alone.
+    const also = page.getByRole("dialog", { name: /^Also add 3 deliverables to / });
+    await expect(also).toBeVisible();
+    await expectBackStack(page, [{ closes: also, url: here }]);
+    await expect(list).toBeVisible();
+    await expect(list.getByLabel("New deliverable")).toHaveValue("Line");
+    await list.getByRole("button", { name: "Add", exact: true }).click();
+    await also.getByRole("button", { name: /^From [A-Z][a-z]+$/ }).click();
     for (const title of ["Line 1", "Line 2", "Line 3"]) {
       await expect(list.getByLabel(`Name of ${title}`)).toBeVisible();
     }
@@ -827,6 +836,380 @@ test.describe("Save as template's layers, installed (ARCHITECTURE §14.2)", () =
     const add = page.getByRole("dialog", { name: "Add a deliverable" });
     await expect(add).toBeVisible();
     await expectBackStack(page, [{ closes: add, url: here }]);
+    await removeClientFixture(client);
+  });
+});
+
+/* -------------------------------------------------------------------------------------------------
+ * v1.9 W1 (ROADMAP 6b.4 (3), (4); WORKFLOWS §5.3 "As built (v1.9 W1-db)", OPEN 4): the two kinds
+ * of Close on the deliverable sheet and the carry screen, the Owner's ⋯ "Set close kind" on a
+ * closed deliverable (set, change, clear; never an Admin's), and the deliverables list's "Also add
+ * ‹title› to ‹period›?" adding the line and this month's deliverable, or the line alone.
+ * ---------------------------------------------------------------------------------------------- */
+
+type ClosedRow = { state: string; close_kind: string | null };
+
+async function closedOf(projectId: string, title: string): Promise<ClosedRow | undefined> {
+  const [row] = await serviceSelect<ClosedRow>(
+    `project_items?project_id=eq.${projectId}&title=eq.${encodeURIComponent(title)}&select=state,close_kind&order=created_at.desc`,
+  );
+  return row;
+}
+
+/** Opens a deliverable's sheet from its row (a closed one from "Done and closed"). */
+async function openItem(page: Page, title: string): Promise<Locator> {
+  const toggle = page.locator('[data-slot="finished-toggle"]');
+  const row = page.locator('[data-slot="item-row"]', { hasText: title });
+  if (
+    !(await row.isVisible()) &&
+    (await toggle.count()) > 0 &&
+    (await toggle.getAttribute("aria-expanded")) !== "true"
+  ) {
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  }
+  await row.locator('[data-slot="item-open"]').click();
+  const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: title });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/** The sheet's Close with a kind and a reason. */
+async function closeWithKind(page: Page, sheet: Locator, title: string, kind: string) {
+  await sheet.getByRole("button", { name: "Close deliverable…" }).click();
+  const dialog = page.getByRole("dialog", { name: `Close ${title}?` });
+  await expect(dialog.getByRole("radio", { name: /^Not needed this month/ })).toBeChecked();
+  await expect(dialog.getByText("The client dropped or moved it")).toBeVisible();
+  await expect(dialog.getByText("We didn't deliver it")).toBeVisible();
+  await dialog.getByRole("radio", { name: new RegExp(`^${kind}`) }).check();
+  await dialog.getByLabel("Why close it").fill("The client moved it");
+  await dialog.getByRole("button", { name: "Close deliverable" }).click();
+  await expect(dialog).toBeHidden();
+}
+
+test("Close asks why: each kind is kept, the closed sheet shows it, and an Admin has no Set close kind", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "close kinds");
+  const clientId = await workClient(client);
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Kind work",
+    recurrence: "monthly",
+    stages: [],
+    items: ["Reel A", "Reel B"],
+  });
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const month = (await page.locator('[data-slot="cycle-label"]').textContent()) ?? "";
+
+  let sheet = await openItem(page, "Reel A");
+  await sheet.getByRole("button", { name: "Close deliverable…" }).click();
+  const ask = page.getByRole("dialog", { name: "Close Reel A?" });
+  await expect(ask).toContainText(`It stays in ${month} as closed, not done.`);
+  await expectLayerFits(page, ask);
+  await ask.getByRole("button", { name: "Keep it" }).click();
+  await closeWithKind(page, sheet, "Reel A", "Not needed this month");
+  await expect
+    .poll(() => closedOf(projectId, "Reel A"))
+    .toEqual({
+      state: "cancelled",
+      close_kind: "not_needed",
+    });
+
+  sheet = await openItem(page, "Reel B");
+  await closeWithKind(page, sheet, "Reel B", "Not delivered");
+  await expect
+    .poll(() => closedOf(projectId, "Reel B"))
+    .toEqual({
+      state: "cancelled",
+      close_kind: "not_delivered",
+    });
+
+  // The closed deliverable's sheet: the kind, quietly, over the reason; no Set close kind for an
+  // Admin (OPEN 4: the Owner's alone).
+  await page.reload();
+  await hydrated(page);
+  sheet = await openItem(page, "Reel B");
+  await expect(sheet.locator('[data-slot="item-close-kind"]')).toHaveText("Not delivered");
+  await expect(sheet.getByText("Closed: The client moved it")).toBeVisible();
+  await sheet.getByRole("button", { name: "More for Reel B" }).click();
+  await expect(page.getByRole("menuitem", { name: "Save as template" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Set close kind" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expectNoHorizontalScroll(page);
+  await removeClientFixture(client);
+});
+
+test.describe("the Owner's Set close kind (OPEN 4)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("sets, changes and clears the kind of an older close, on a completed project too", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "set kind");
+    const clientId = await workClient(client);
+    const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: clientId,
+      name: "Older close",
+      recurrence: "monthly",
+      stages: [],
+      items: ["Reel 1"],
+    });
+    // A close from before v1.9: no kind. Then the project is completed (read-only).
+    const [item] = await serviceSelect<{ id: string }>(
+      `project_items?project_id=eq.${projectId}&title=eq.Reel%201&select=id`,
+    );
+    await rpcAs(admin.email, admin.password, "item_cancel", {
+      item_id: item?.id,
+      reason: "Client moved it",
+    });
+    await rpcAs(owner.email, owner.password, "project_complete", { project_id: projectId });
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    await expect(page.locator('[data-slot="project-read-only"]')).toBeVisible();
+
+    let sheet = await openItem(page, "Reel 1");
+    await expect(sheet.locator('[data-slot="item-close-kind"]')).toHaveCount(0);
+    await sheet.getByRole("button", { name: "More for Reel 1" }).click();
+    await page.getByRole("menuitem", { name: "Set close kind" }).click();
+    const dialog = page.getByRole("dialog", { name: "Set close kind · Reel 1" });
+    await expect(dialog).toContainText(
+      /Closed \d{1,2} \w{3} by .+: "Client moved it"\. Only the Owner can change this\./,
+    );
+    await expect(dialog.getByRole("radio", { name: /^Not needed this month/ })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: /^No kind/ })).toHaveCount(0);
+    await expectLayerFits(page, dialog);
+    await dialog.getByRole("radio", { name: /^Not delivered/ }).check();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect
+      .poll(() => closedOf(projectId, "Reel 1"))
+      .toEqual({
+        state: "cancelled",
+        close_kind: "not_delivered",
+      });
+    await expect(sheet.locator('[data-slot="item-close-kind"]')).toHaveText("Not delivered");
+
+    // Changed, then cleared ("No kind" shows once a kind is set).
+    await sheet.getByRole("button", { name: "More for Reel 1" }).click();
+    await page.getByRole("menuitem", { name: "Set close kind" }).click();
+    await expect(dialog.getByRole("radio", { name: /^Not delivered/ })).toBeChecked();
+    await dialog.getByRole("radio", { name: /^No kind/ }).check();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect
+      .poll(() => closedOf(projectId, "Reel 1"))
+      .toEqual({
+        state: "cancelled",
+        close_kind: null,
+      });
+    await page.reload();
+    await hydrated(page);
+    sheet = await openItem(page, "Reel 1");
+    await expect(sheet.locator('[data-slot="item-close-kind"]')).toHaveCount(0);
+    await removeClientFixture(client);
+  });
+});
+
+test("the carry screen's Close asks the kind too", async ({ page }, info) => {
+  const client = nameOf(info, "carry kind");
+  const clientId = await workClient(client);
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Carry kind",
+    recurrence: "monthly",
+    stages: [],
+    items: ["Post"],
+  });
+  const [project] = await serviceSelect<{ org_id: string }>(
+    `projects?id=eq.${projectId}&select=org_id`,
+  );
+  const today = istDate(wallClock());
+  const firstOfMonth = new Date(`${today.slice(0, 8)}01T00:00:00Z`);
+  firstOfMonth.setUTCDate(0);
+  const end = firstOfMonth.toISOString().slice(0, 10);
+  const cycle = await serviceInsert<{ id: string }>("project_cycles", {
+    org_id: project?.org_id,
+    project_id: projectId,
+    period_start: `${end.slice(0, 8)}01`,
+    period_end: end,
+    label: "Last month",
+    generated_by: "schedule",
+  });
+  const title = nameOf(info, "missed");
+  await serviceInsert("project_items", {
+    org_id: project?.org_id,
+    project_id: projectId,
+    cycle_id: cycle.id,
+    origin_cycle_id: cycle.id,
+    title,
+    position: "a0",
+  });
+  await page.goto(`/clients/items/decide?project=${projectId}`);
+  await hydrated(page);
+  await page
+    .locator('[data-slot="carry-row"]', { hasText: title })
+    .getByRole("button", { name: "Close…" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: `Close ${title}?` });
+  await expect(dialog.getByRole("radio", { name: /^Not needed this month/ })).toBeChecked();
+  await expectLayerFits(page, dialog);
+  await dialog.getByRole("radio", { name: /^Not delivered/ }).check();
+  await dialog.getByLabel("Why close it").fill("We ran out of time");
+  await dialog.getByRole("button", { name: "Close deliverable" }).click();
+  await expect
+    .poll(() => closedOf(projectId, title))
+    .toEqual({
+      state: "cancelled",
+      close_kind: "not_delivered",
+    });
+  await removeClientFixture(client);
+});
+
+test('"Also add ‹title› to ‹this month›?": Add too adds the line and the deliverable; From next only the line', async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "also add");
+  const clientId = await workClient(client);
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Also work",
+    recurrence: "monthly",
+    stages: ["Script", "Edit"],
+    items: ["Reel"],
+  });
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const month = (await page.locator('[data-slot="cycle-label"]').textContent()) ?? "";
+  const lines = async () =>
+    (
+      await serviceSelect<{ title: string }>(
+        `project_item_blueprints?project_id=eq.${projectId}&archived_at=is.null&select=title&order=position`,
+      )
+    ).map((line) => line.title);
+  const items = async () =>
+    (
+      await serviceSelect<{ title: string }>(
+        `project_items?project_id=eq.${projectId}&select=title&order=position`,
+      )
+    ).map((row) => row.title);
+
+  await page.getByRole("button", { name: "Actions for Also work" }).click();
+  await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+  const list = page.locator('[data-slot="review-sheet"]', { hasText: "Deliverables list" });
+  await list.getByLabel("New deliverable").fill("Reel 5");
+  await list.getByRole("button", { name: "Add", exact: true }).click();
+  const also = page.getByRole("dialog", { name: `Also add "Reel 5" to ${month}?` });
+  await expect(also).toContainText(
+    "It joins the list for every month. Add it to this month too, with its 2 stages?",
+  );
+  await expectLayerFits(page, also);
+  const monthName = month.replace(/\s+\d{4}$/, "");
+  await also.getByRole("button", { name: `Add to ${monthName} too` }).click();
+  await expect(
+    page.getByText(new RegExp(`^Reel 5 added to ${month} and every month from `)),
+  ).toBeVisible();
+  await expect.poll(lines).toEqual(["Reel", "Reel 5"]);
+  await expect.poll(items).toEqual(["Reel", "Reel 5"]);
+  const [added] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${projectId}&title=eq.Reel%205&select=id`,
+  );
+  await expect.poll(async () => stagesOf(added?.id ?? "")).toEqual(["Script", "Edit"]);
+
+  await list.getByLabel("New deliverable").fill("Reel 6");
+  await list.getByRole("button", { name: "Add", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: `Also add "Reel 6" to ${month}?` })
+    .getByRole("button", { name: /^From [A-Z][a-z]+$/ })
+    .click();
+  await expect(page.getByText(/^Reel 6 added from /)).toBeVisible();
+  await expect.poll(lines).toEqual(["Reel", "Reel 5", "Reel 6"]);
+  expect(await items()).toEqual(["Reel", "Reel 5"]);
+
+  // The project page shows this month's new deliverable once the list closes.
+  await page.goBack();
+  await expect(list).toBeHidden();
+  await expect(page.locator('[data-slot="item-row"]', { hasText: "Reel 5" })).toBeVisible();
+  await expect(page.locator('[data-slot="item-row"]', { hasText: "Reel 6" })).toHaveCount(0);
+  await removeClientFixture(client);
+});
+
+test.describe("the close kinds' layers, installed (ARCHITECTURE §14.2)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.beforeEach(({}, info) => {
+    test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
+  });
+
+  test("Close's kind, Set close kind and the Also add question close one per back", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "kind layers");
+    const clientId = await workClient(client);
+    const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: clientId,
+      name: "Kind layers",
+      recurrence: "monthly",
+      stages: [],
+      items: ["Open one", "Closed one"],
+    });
+    const [item] = await serviceSelect<{ id: string }>(
+      `project_items?project_id=eq.${projectId}&title=eq.Closed%20one&select=id`,
+    );
+    await rpcAs(admin.email, admin.password, "item_cancel", {
+      item_id: item?.id,
+      reason: "Older close",
+    });
+    const here = new RegExp(`/projects/${projectId}$`);
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+
+    // The Close with its kind: a bottom sheet over the item's sheet; back closes it, then the sheet.
+    let sheet = await openItem(page, "Open one");
+    await sheet.getByRole("button", { name: "Close deliverable…" }).click();
+    const close = page.getByRole("dialog", { name: "Close Open one?" });
+    await expect(close.getByRole("radio", { name: /^Not delivered/ })).toBeVisible();
+    await expectLayerFits(page, close);
+    await expectBackStack(page, [
+      { closes: close, url: here },
+      { closes: sheet, url: here },
+    ]);
+
+    // Set close kind: back closes it, the closed deliverable's sheet stays, then it closes.
+    sheet = await openItem(page, "Closed one");
+    await sheet.getByRole("button", { name: "More for Closed one" }).click();
+    await page.getByRole("menuitem", { name: "Set close kind" }).click();
+    const set = page.getByRole("dialog", { name: "Set close kind · Closed one" });
+    await expect(set).toBeVisible();
+    await expectLayerFits(page, set);
+    await expectBackStack(page, [{ closes: set, url: here }]);
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
+    expect(await closedOf(projectId, "Closed one")).toEqual({
+      state: "cancelled",
+      close_kind: null,
+    });
+
+    // "Also add …?": back closes the question and sends nothing; the name stays in the field.
+    await page.getByRole("button", { name: "Actions for Kind layers" }).click();
+    await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Deliverables list" });
+    await list.getByLabel("New deliverable").fill("Extra");
+    await list.getByRole("button", { name: "Add", exact: true }).click();
+    const also = page.getByRole("dialog", { name: /^Also add "Extra" to / });
+    await expect(also).toBeVisible();
+    await expectLayerFits(page, also);
+    await expectBackStack(page, [{ closes: also, url: here }]);
+    await expect(list).toBeVisible();
+    await expect(list.getByLabel("New deliverable")).toHaveValue("Extra");
+    await list.getByLabel("New deliverable").fill("");
+    await expectBackStack(page, [{ closes: list, url: here }]);
+    expect(
+      await serviceSelect<{ id: string }>(
+        `project_item_blueprints?project_id=eq.${projectId}&title=eq.Extra&select=id`,
+      ),
+    ).toEqual([]);
     await removeClientFixture(client);
   });
 });

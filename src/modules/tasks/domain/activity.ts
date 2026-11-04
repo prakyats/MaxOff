@@ -204,6 +204,19 @@ function describe(
           const reason = text(meta.reason);
           return { text: "cancelled the task", ...(reason ? { note: reason } : {}) };
         }
+        case "held": {
+          // v1.9 W7: On hold, with the reason (kept here after the resume, invariant 9).
+          const reason = text(meta.reason);
+          return { text: "put the task on hold", ...(reason ? { note: reason } : {}) };
+        }
+        case "resumed": {
+          // v1.9 W7: the old and new deadline are in the entry when a new one was set.
+          const moved =
+            "due_at" in entry.new
+              ? ` and ${fieldClause("due_at", entry.old.due_at, entry.new.due_at, context) ?? "moved the deadline"}`
+              : "";
+          return { text: `resumed the task${moved}` };
+        }
         case "approver_changed": {
           const from = typeof meta.from === "string" ? meta.from : null;
           const to = typeof meta.to === "string" ? meta.to : null;

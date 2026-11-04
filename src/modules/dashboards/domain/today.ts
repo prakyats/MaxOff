@@ -116,6 +116,7 @@ export function ownerMyTasks<
     id: string;
     state: string;
     dueAt: string;
+    heldAt?: string | null;
     assignees: readonly { memberId: string; removedAt: string | null }[];
   },
 >(open: readonly T[], ownerId: string, now: Date, today: ISODate): { rows: T[]; total: number } {
@@ -123,6 +124,8 @@ export function ownerMyTasks<
     .filter(
       (task) =>
         WITH_PEOPLE.includes(task.state) &&
+        // v1.9 W7: a held task leaves the Owner's to-do rows (its clocks stopped).
+        !task.heldAt &&
         task.assignees.some((a) => a.memberId === ownerId && a.removedAt === null) &&
         (Date.parse(task.dueAt) < now.getTime() || toISTDate(task.dueAt) === today),
     )
@@ -202,6 +205,8 @@ export type RiskTask = {
   assigneeIds: readonly string[];
   /** The event day, when the task is an event. */
   eventDate?: ISODate | null;
+  /** On hold since (v1.9 W7): a held task is never an overdue risk. */
+  heldAt?: string | null;
 };
 
 const REVIEW_STATES = ["submitted", "admin_approved"];
@@ -217,6 +222,7 @@ export function overdueRisks(tasks: readonly RiskTask[], now: Date): Risk[] {
       (task) =>
         !FINAL_STATES.includes(task.state) &&
         !REVIEW_STATES.includes(task.state) &&
+        !task.heldAt &&
         Date.parse(task.dueAt) < now.getTime(),
     )
     .map((task) => ({
@@ -433,11 +439,17 @@ export const ADMIN_NEEDS_YOU_EMPTY = "Nothing needs you right now.";
 
 /**
  * Each assigned client's open and overdue labelled tasks (decision 9; cycle progress in 7.3), in
- * the clients' order. Open = not completed or cancelled; overdue = open and past its deadline.
+ * the clients' order. Open = not completed or cancelled; overdue = open, past its deadline and not
+ * On hold (v1.9 W7).
  */
 export function clientCounts<C extends { id: string }>(
   clients: readonly C[],
-  open: readonly { clientId: string | null; state: string; dueAt: string }[],
+  open: readonly {
+    clientId: string | null;
+    state: string;
+    dueAt: string;
+    heldAt?: string | null;
+  }[],
   now: Date,
 ): { client: C; open: number; overdue: number }[] {
   return clients.map((client) => {
@@ -447,7 +459,8 @@ export function clientCounts<C extends { id: string }>(
     return {
       client,
       open: tasks.length,
-      overdue: tasks.filter((task) => Date.parse(task.dueAt) < now.getTime()).length,
+      overdue: tasks.filter((task) => !task.heldAt && Date.parse(task.dueAt) < now.getTime())
+        .length,
     };
   });
 }

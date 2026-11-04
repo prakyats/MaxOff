@@ -30,6 +30,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
   addBlueprint,
+  addBlueprintToCycle,
   addStage,
   addStageGroup,
   archiveBlueprint,
@@ -37,6 +38,7 @@ import {
   archiveStageGroup,
   cancelProject,
   completeProject,
+  holdProject,
   reopenProject,
   startNextCycle,
   updateBlueprint,
@@ -52,20 +54,31 @@ import {
 } from "../domain/schemas";
 import type { Recurrence } from "../domain/types";
 
-import { itemListCopy, type ItemListPeriods } from "../domain/periods";
+import { alsoAddCopy, itemListCopy, type ItemListPeriods } from "../domain/periods";
 
 import { saveProjectAsTemplate } from "../actions/templates";
 
 import { GroupedStagesSheet, type GroupedStageRow } from "./grouped-stages-sheet";
 import { LineStagesSheet } from "./line-stages-sheet";
 import { ListEditorSheet, type ListRow } from "./list-editor-sheet";
+import type { ProjectResumeProps } from "./project-hold-banner";
+import { ProjectResumeSheet } from "./project-resume-sheet";
 import { SaveAsTemplateDialog } from "./save-as-template-dialog";
 
 /** A deliverables-list line with its own stages, in groups (amendment D2; 6b). */
 export type MenuBlueprint = ListRow & { stageGroups: readonly StageGroup[] };
 
 export type MenuLayer =
-  "edit" | "stages" | "items" | "next" | "template" | "complete" | "cancel" | "reopen";
+  | "edit"
+  | "stages"
+  | "items"
+  | "next"
+  | "template"
+  | "complete"
+  | "cancel"
+  | "reopen"
+  | "hold"
+  | "resume";
 
 export type MenuProject = {
   id: string;
@@ -93,7 +106,10 @@ export function ProjectMenuLayers({
   unfinished,
   nextCycleLabel,
   itemList,
+  resume = null,
 }: {
+  /** The resume sheet's facts while the project is on hold (v1.9 W8); null otherwise. */
+  resume?: ProjectResumeProps | null;
   layer: MenuLayer | null;
   onClose: () => void;
   project: MenuProject;
@@ -111,6 +127,18 @@ export function ProjectMenuLayers({
   const line = blueprints.find((row) => row.id === lineId) ?? null;
   const itemWords = itemList ? itemListCopy(itemList) : null;
   const projectId = project.id;
+  // "Also add ‹title› to ‹period›?" (v1.9 W1, D4 in full): while the running cycle can take it,
+  // each add asks; the new line starts with the project's default stages.
+  const runningCycleId = itemList?.runningCycleId;
+  const alsoAdd =
+    itemList && runningCycleId
+      ? {
+          words: (name: string, count: number) =>
+            alsoAddCopy(itemList, name, { stages: stages.length, count }),
+          onAddToo: (title: string) =>
+            addBlueprintToCycle({ projectId, title, cycleId: runningCycleId }),
+        }
+      : undefined;
   return (
     <>
       {layer === "edit" ? (
@@ -174,6 +202,7 @@ export function ProjectMenuLayers({
         quantity
         onAdd={(title) => addBlueprint({ projectId: project.id, title })}
         addedMessage={itemWords?.added}
+        alsoAdd={alsoAdd}
         onRename={(blueprintId, title) => updateBlueprint({ blueprintId, title })}
         onMove={(blueprintId, position) => updateBlueprint({ blueprintId, position })}
         onRemove={(blueprintId) => archiveBlueprint({ blueprintId })}
@@ -215,6 +244,25 @@ export function ProjectMenuLayers({
           })
         }
       />
+      <ReasonDialog
+        open={layer === "hold"}
+        onOpenChange={close}
+        title={`Put "${project.name}" on hold?`}
+        description="No new cycles are made and no escalations or reminders go out. Its deliverables show On hold until you resume it."
+        label="Why"
+        placeholder="Say why it is paused. It shows on the project."
+        submitLabel="Put on hold"
+        pendingLabel="Putting on hold…"
+        cancelLabel="Keep working"
+        onSubmit={async (reason) =>
+          toastResult(await holdProject({ projectId: project.id, reason }), {
+            success: "Project put on hold",
+          })
+        }
+      />
+      {resume ? (
+        <ProjectResumeSheet open={layer === "resume"} onOpenChange={close} {...resume} />
+      ) : null}
       <ReasonDialog
         open={layer === "cancel"}
         onOpenChange={close}

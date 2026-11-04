@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { addISTDays, todayIST } from "../src/core/time";
 import { openMoreOptions } from "./helpers";
 
 /**
@@ -21,6 +22,8 @@ export type GuideRole = "owner" | "admin" | "staff";
 export type DemoIds = {
   clientId: string;
   projectId: string;
+  /** "Festive campaign": a monthly project On hold, one deliverable's date passed, one from last month. */
+  heldProjectId: string;
   staffId: string;
   tasks: {
     /** "Reel 1 edit": assigned to the Crew member, not noted yet; made by the Admin. */
@@ -33,6 +36,8 @@ export type DemoIds = {
     checked: string;
     /** "Post 1 design": handed in, straight to the Owner. */
     ownerOnly: string;
+    /** "Post 2 design": made by the Admin, noted, On hold; its deadline passed while held. */
+    held: string;
   };
 };
 
@@ -53,8 +58,51 @@ export type GuideShot = {
   readonly badge?: number;
   /** What the picture shows, in plain words (the image's alt text). */
   readonly alt: string;
-  /** Leave the Start-day prompt open (only the picture of the prompt itself). */
+  /** Leave the Start-day prompt open (the pictures of the prompt and of the sheets it opens). */
   readonly keepStartPrompt?: boolean;
+  /**
+   * The working day this picture needs (v1.9 W4, the working hours on): the script builds it before
+   * the picture, with the app's own functions and a few fixed times (`e2e/guide-screenshots.ts`),
+   * only when it differs from the day already built. Absent: the role's day (`ROLE_DAYS`).
+   */
+  readonly days?: GuideDays;
+};
+
+/**
+ * Today's attendance for the Crew member and the Admin, as a picture needs it. The times are
+ * fixed (a start at 10:22 am is 22 minutes late; the Admin starts at 9:58 am) and the asks are
+ * dated back from the run's own clock, so a run at any time between 11:15 am and 5:30 pm shows the
+ * same states.
+ */
+export type CrewDay =
+  /** Not started: the Started working? prompt. */
+  | "not_started"
+  /** Not started, with a shoot at 3:00 pm today: the late sheet suggests "Shoot at 3:00 pm". */
+  | "not_started_shoot"
+  /** Started at 10:22 am, Late 22 min with a reason. */
+  | "late"
+  /** Late, and asked to leave early 12 minutes ago: Waiting. */
+  | "asked"
+  /** Late, and asked 35 minutes ago with no answer: End day is back. */
+  | "no_answer"
+  /** Late, and the Owner approved an ask of 20 minutes ago: the day ended then. */
+  | "approved"
+  /** Late, asked 40 minutes ago and ended the day with no answer: Left early, not answered. */
+  | "left_unanswered";
+export type AdminDay =
+  /** Started at 9:58 am, on time. */
+  | "started"
+  /** Started on time and asked to leave early 8 minutes ago: Leaving early on the Owner's Approvals. */
+  | "asked";
+export type GuideDays = { readonly crew?: CrewDay; readonly admin?: AdminDay };
+
+/** The day each role's pictures start from (a picture's own `days` changes it). */
+export const ROLE_DAYS: Readonly<Record<GuideRole, GuideDays>> = {
+  staff: { crew: "late" },
+  admin: { admin: "started" },
+  // The Owner decides: the Admin waits under Leaving early, the Crew member under Left early, not
+  // answered; Today, the reports and the person's Attendance show the Late start.
+  owner: { crew: "left_unanswered", admin: "asked" },
 };
 
 // ── Locators the entries share ─────────────────────────────────────────────────────────────────
@@ -148,6 +196,111 @@ async function newProjectWithDeliverables(page: Page): Promise<void> {
   });
 }
 
+/** The task's ⋯ open (the Owner, or the Admin who created it, sees Put on hold…). */
+const openTaskMenu = (page: Page) => tap(page, "Task actions");
+
+/** A hold's reason sheet from ⋯, its reason written, not sent. */
+async function holdSheet(page: Page, menu: () => Promise<void>): Promise<void> {
+  await menu();
+  await page.getByRole("menuitem", { name: "Put on hold…" }).click();
+  await layer(page).getByLabel("Why").fill("Client hasn't sent the footage");
+}
+
+/** A held task's Resume, its deadline passed: the new-deadline sheet, a date and time chosen. */
+async function resumeTaskSheet(page: Page): Promise<void> {
+  await slot(page, "task-resume").click();
+  const sheet = layer(page);
+  await sheet.getByLabel("New deadline").fill(addISTDays(todayIST(), 1));
+  await sheet.getByLabel("Time").fill("17:30");
+}
+
+/** The held project's resume sheet open, its rows listed. */
+async function resumeProjectSheet(page: Page): Promise<void> {
+  await slot(page, "project-resume").click();
+  await layer(page).locator('[data-slot="resume-row"]').first().waitFor();
+}
+
+const heldTask = (demo: DemoIds) => `/tasks/${demo.tasks.held}`;
+const heldProject = (demo: DemoIds) => `/clients/${demo.clientId}/projects/${demo.heldProjectId}`;
+
+/**
+ * On hold (v1.9), the same eight pictures for the Owner and the Admin (who created the tasks and
+ * runs the client): Put on hold… in ⋯, the reason sheet, the amber line or banner with Resume, and
+ * the resume sheet, for a task and for a project.
+ */
+function holdShots(role: "owner" | "admin"): GuideShot[] {
+  return [
+    {
+      id: `${role}/task-hold-menu`,
+      path: (demo) => `/tasks/${demo.tasks.started}`,
+      prepare: openTaskMenu,
+      highlight: (page) => page.getByRole("menuitem", { name: "Put on hold…" }),
+      crop: main,
+      alt: "A task's ⋯ menu open with Put on hold… highlighted.",
+    },
+    {
+      id: `${role}/task-hold-sheet`,
+      path: (demo) => `/tasks/${demo.tasks.started}`,
+      prepare: (page) => holdSheet(page, () => openTaskMenu(page)),
+      highlight: (page) => layer(page).getByRole("button", { name: "Put on hold", exact: true }),
+      crop: layer,
+      badge: 2,
+      alt: "The Put on hold sheet with its reason written and the Put on hold button highlighted.",
+    },
+    {
+      id: `${role}/task-hold-line`,
+      path: heldTask,
+      highlight: (page) => slot(page, "task-resume"),
+      crop: main,
+      badge: 3,
+      alt: "A task On hold: the amber chip, the On hold since line with the reason and its Resume button highlighted.",
+    },
+    {
+      id: `${role}/task-resume-sheet`,
+      path: heldTask,
+      prepare: resumeTaskSheet,
+      highlight: (page) => layer(page).getByLabel("New deadline"),
+      crop: layer,
+      badge: 4,
+      alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
+    },
+    {
+      id: `${role}/project-hold-menu`,
+      path: project,
+      prepare: (page) => tap(page, "Actions for Monthly retainer"),
+      highlight: (page) => page.getByRole("menuitem", { name: "Put on hold…" }),
+      crop: main,
+      alt: "The project's ⋯ menu open with Put on hold… highlighted.",
+    },
+    {
+      id: `${role}/project-hold-sheet`,
+      path: project,
+      prepare: (page) => holdSheet(page, () => tap(page, "Actions for Monthly retainer")),
+      highlight: (page) => layer(page).getByRole("button", { name: "Put on hold", exact: true }),
+      crop: layer,
+      badge: 2,
+      alt: "The project's Put on hold sheet with its reason written and the Put on hold button highlighted.",
+    },
+    {
+      id: `${role}/project-hold-banner`,
+      path: heldProject,
+      highlight: (page) => slot(page, "project-resume"),
+      crop: main,
+      badge: 3,
+      alt: "A project On hold: the amber banner with the reason, its deliverables On hold, and Resume… highlighted.",
+    },
+    {
+      id: `${role}/project-resume-sheet`,
+      path: heldProject,
+      prepare: resumeProjectSheet,
+      highlight: (page) => layer(page).locator('[data-slot="resume-rows"]'),
+      crop: layer,
+      badge: 4,
+      alt: "The Resume sheet listing a deliverable that needs a new date and one from an ended month with its choices, highlighted.",
+    },
+  ];
+}
+
 // ── The pictures ───────────────────────────────────────────────────────────────────────────────
 
 export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
@@ -155,10 +308,44 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "staff/start-day",
     path: "/my-day",
+    days: { crew: "not_started" },
     keepStartPrompt: true,
     highlight: (page) => slot(page, "start-day-prompt").getByRole("button", { name: "Start day" }),
     crop: (page) => slot(page, "start-day-prompt"),
+    badge: 2,
     alt: "The Started working? prompt with the Start day button highlighted.",
+  },
+  {
+    id: "staff/start-prompt-half",
+    path: "/my-day",
+    days: { crew: "not_started" },
+    keepStartPrompt: true,
+    prepare: async (page) => {
+      await slot(page, "start-day-prompt")
+        .getByRole("button", { name: "On leave today? Choose leave" })
+        .click();
+      await slot(page, "start-day-prompt")
+        .getByRole("radio", { name: /^Half day/ })
+        .check();
+    },
+    highlight: (page) => slot(page, "half-choice"),
+    crop: (page) => slot(page, "start-day-prompt"),
+    badge: 4,
+    alt: "The On leave today? view with Half day chosen and its Morning off and Afternoon off cards highlighted.",
+  },
+  {
+    id: "staff/late-sheet",
+    path: "/my-day",
+    days: { crew: "not_started_shoot" },
+    keepStartPrompt: true,
+    prepare: async (page) => {
+      await slot(page, "start-day-prompt").getByRole("button", { name: "Start day" }).click();
+      await slot(page, "late-sheet").waitFor();
+    },
+    highlight: (page) => slot(page, "late-sheet").getByLabel("Reason (optional)"),
+    crop: (page) => slot(page, "late-sheet"),
+    badge: 2,
+    alt: "The You're starting late sheet: Suggested from your calendar, with the reason Shoot at 3:00 pm highlighted.",
   },
   {
     id: "staff/my-day",
@@ -168,6 +355,15 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "My Day with today's attendance strip highlighted at the top.",
   },
   {
+    id: "staff/late-chip",
+    path: "/my-day",
+    highlight: (page) => slot(page, "attendance-hours"),
+    crop: (page) => slot(page, "attendance-strip"),
+    cropPadding: 12,
+    badge: 4,
+    alt: "The attendance strip with the amber Late 22 min chip, the reason and Your day ends at 6:00 pm highlighted.",
+  },
+  {
     id: "staff/alerts",
     path: "/notifications",
     highlight: (page) => slot(page, "mark-all-read"),
@@ -175,12 +371,48 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "Alerts, the list of notifications, with Mark all read highlighted.",
   },
   {
+    id: "staff/leave-early-sheet",
+    path: "/my-day",
+    prepare: async (page) => {
+      await slot(page, "ask-leave-early").click();
+      await layer(page).getByLabel("Why").fill("Doctor's appointment at 5");
+    },
+    highlight: (page) => slot(page, "ask-the-owner"),
+    crop: layer,
+    badge: 3,
+    alt: "The Ask to leave early sheet with Leave at the time now, the reason written, and Ask the Owner highlighted.",
+  },
+  {
+    id: "staff/leave-early-waiting",
+    path: "/my-day",
+    days: { crew: "asked" },
+    highlight: (page) => slot(page, "attendance-early"),
+    crop: (page) => slot(page, "attendance-strip"),
+    cropPadding: 12,
+    badge: 4,
+    alt: "The attendance strip with the Waiting line highlighted: asked to leave, how long ago, and when End day comes back.",
+  },
+  {
     id: "staff/end-day",
     path: "/my-day",
+    // End day before the end time: the ask had no answer in 30 minutes, so End day is back. The
+    // confirmation is the one every End day opens.
+    days: { crew: "no_answer" },
     prepare: (page) => tap(page, "End day"),
     highlight: (page) => layer(page).getByRole("button", { name: "End day", exact: true }),
     crop: layer,
+    badge: 4,
     alt: "The End your day? confirmation with the End day button highlighted.",
+  },
+  {
+    id: "staff/leave-early-approved",
+    path: "/my-day",
+    days: { crew: "approved" },
+    highlight: (page) => slot(page, "early-leave-claim"),
+    crop: (page) => slot(page, "attendance-strip"),
+    cropPadding: 12,
+    badge: 5,
+    alt: "The attendance strip after the Owner approved: the day ended at the time asked, with Any expenses to claim today? highlighted.",
   },
   {
     id: "staff/request-leave",
@@ -188,7 +420,22 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     prepare: (page) => tap(page, "Request leave"),
     highlight: (page) => layer(page).getByLabel("Kind of leave"),
     crop: layer,
+    badge: 2,
     alt: "The Request leave form with the Kind of leave field highlighted.",
+  },
+  {
+    id: "staff/request-half",
+    path: "/leave",
+    prepare: async (page) => {
+      await tap(page, "Request leave");
+      await layer(page).getByLabel("Kind of leave").click();
+      await page.getByRole("option", { name: "Half day", exact: true }).click();
+      await layer(page).locator('[data-slot="half-choice"]').waitFor();
+    },
+    highlight: (page) => slot(page, "half-choice"),
+    crop: layer,
+    badge: 3,
+    alt: "The Request leave form for a half day, with Which half? and its Morning off and Afternoon off cards highlighted.",
   },
   {
     id: "staff/leave-list",
@@ -232,6 +479,21 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => layer(page).getByLabel("Note (optional)"),
     crop: layer,
     alt: "The Mark done dialog with its Note field highlighted.",
+  },
+  {
+    id: "staff/tasks-on-hold",
+    path: "/tasks",
+    highlight: (page) => slot(page, "tasks-on-hold"),
+    crop: main,
+    alt: "Tasks with the On hold line highlighted under the lists.",
+  },
+  {
+    id: "staff/task-on-hold",
+    path: heldTask,
+    highlight: (page) => slot(page, "task-hold-line"),
+    crop: main,
+    badge: 2,
+    alt: "A task On hold: the amber chip and the On hold since line with the reason, highlighted.",
   },
   {
     id: "staff/suggest-task",
@@ -286,6 +548,15 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => slot(page, "today-needs-you"),
     crop: main,
     alt: "Today with the Needs you card highlighted.",
+  },
+  {
+    id: "admin/start-end-day",
+    path: "/today",
+    highlight: (page) => slot(page, "ask-leave-early"),
+    crop: (page) => slot(page, "attendance-strip"),
+    cropPadding: 12,
+    badge: 4,
+    alt: "Today's attendance strip, started on time, with Your day ends at 6:00 pm and the Ask to leave early button highlighted.",
   },
   {
     id: "admin/approvals",
@@ -428,6 +699,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: main,
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
+  ...holdShots("admin"),
   {
     id: "admin/stage-presets",
     path: "/settings/templates#presets",
@@ -501,7 +773,16 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     path: "/today",
     highlight: (page) => slot(page, "today-strip"),
     crop: main,
+    badge: 2,
     alt: "Today with the attendance counts highlighted.",
+  },
+  {
+    id: "owner/today-late-line",
+    path: "/today",
+    highlight: (page) => page.locator('[data-slot="today-hours-line"][data-line="late"]:visible'),
+    crop: (page) => slot(page, "today-attendance-card"),
+    badge: 3,
+    alt: "Today's Attendance card with the amber 1 started late today line highlighted.",
   },
   {
     id: "owner/everyone-today",
@@ -520,6 +801,43 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
         .first(),
     crop: main,
     alt: "Approvals grouped by kind, with the first task's Approve button highlighted.",
+  },
+  {
+    id: "owner/early-leave",
+    path: "/approvals",
+    highlight: (page) => page.locator('[data-slot="approval-group"][data-group="early-leave"]'),
+    crop: main,
+    badge: 2,
+    alt: "Approvals with the Leaving early group highlighted: who, the time asked, the reason, Stay and Approve.",
+  },
+  {
+    id: "owner/left-early-unanswered",
+    path: "/approvals",
+    highlight: (page) =>
+      page.locator('[data-slot="approval-group"][data-group="early-leave-unanswered"]'),
+    crop: main,
+    badge: 4,
+    alt: "Approvals with the Left early, not answered group highlighted, its row with Approve.",
+  },
+  {
+    id: "owner/stay-until-sheet",
+    path: "/today/people",
+    prepare: async (page) => {
+      await slot(page, "stay-until-open").click();
+      await slot(page, "stay-until-sheet").waitFor();
+    },
+    highlight: (page) => slot(page, "stay-until-set"),
+    crop: (page) => slot(page, "stay-until-sheet"),
+    badge: 3,
+    alt: "The Stay until sheet for a person, its time two hours after the end time, with the Set 8:00 pm button highlighted.",
+  },
+  {
+    id: "owner/person-attendance",
+    path: (demo) => `/people/${demo.staffId}/attendance`,
+    highlight: (page) =>
+      main(page).getByRole("row").filter({ hasText: "Left early, not answered" }).first(),
+    crop: main,
+    alt: "A person's Attendance tab with today's row highlighted: started late, Late 22 min with the reason, Left early, not answered.",
   },
   {
     id: "owner/approve-all",
@@ -677,6 +995,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: main,
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
+  ...holdShots("owner"),
   {
     id: "owner/send-back",
     path: project,
@@ -715,13 +1034,53 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     prepare: (page) => page.locator("summary").getByText("Tasks", { exact: true }).click(),
     highlight: (page) => page.getByLabel("Acknowledgement reminder (hours)"),
     crop: main,
+    badge: 3,
     alt: "Thresholds with the Acknowledgement reminder (hours) field highlighted.",
+  },
+  {
+    id: "owner/thresholds-working-day",
+    path: "/settings/thresholds",
+    prepare: (page) => page.locator("summary").getByText("Working day", { exact: true }).click(),
+    highlight: (page) => slot(page, "working-hours-switch"),
+    crop: main,
+    badge: 5,
+    alt: "Thresholds with Working day open and the Working hours switch highlighted, above Work starts, Work ends and Late after.",
+  },
+  {
+    id: "owner/thresholds-approvals",
+    path: "/settings/thresholds",
+    prepare: (page) => page.locator("summary").getByText("Approvals", { exact: true }).click(),
+    highlight: (page) => page.getByLabel("Urgent tasks: remind every (minutes)"),
+    crop: main,
+    badge: 6,
+    alt: "Thresholds with Approvals open and the Urgent tasks: remind every (minutes) field highlighted.",
   },
   {
     id: "owner/reports",
     path: "/reports",
     highlight: (page) => page.getByRole("link", { name: /^Month/ }),
     crop: main,
+    badge: 2,
     alt: "Reports with the Month report highlighted.",
+  },
+  {
+    id: "owner/report-month-counts",
+    path: "/reports/month",
+    highlight: (page) =>
+      page
+        .locator('[data-slot="team-month-row"]', { hasText: "Sample Member" })
+        .locator('[data-slot="team-month-counts"]'),
+    // The person's row alone: the month also lists people who have left (the flow tests' fixtures).
+    crop: (page) => page.locator('[data-slot="team-month-row"]', { hasText: "Sample Member" }),
+    badge: 3,
+    alt: "The Month report with a person's four counts highlighted: Late, Left early, Early approved and Half days.",
+  },
+  {
+    id: "owner/report-eod",
+    path: () => `/reports/end-of-day/${todayIST()}`,
+    highlight: (page) => slot(page, "eod-attendance"),
+    crop: main,
+    badge: 3,
+    alt: "Today's End of day report with the Attendance section highlighted: the count line and each person's row with Late and Left early.",
   },
 ];

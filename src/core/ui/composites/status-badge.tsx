@@ -1,5 +1,10 @@
 import { cn } from "@/core/lib/utils";
-import { type KnownStatus, type StatusTone, statusTone } from "@/core/lib/status-tones";
+import {
+  type KnownStatus,
+  ON_HOLD_CHIP,
+  type StatusTone,
+  statusTone,
+} from "@/core/lib/status-tones";
 import { Badge } from "@/core/ui/primitives/badge";
 
 /**
@@ -11,6 +16,7 @@ import { Badge } from "@/core/ui/primitives/badge";
 export {
   attendanceStatus,
   type KnownStatus,
+  ON_HOLD_CHIP,
   STATUS_TONES,
   STATUS_TONES_LIST,
   type StatusTone,
@@ -119,5 +125,17 @@ export function StatusDot({
       />
       {label ?? statusLabel(status)}
     </span>
+  );
+}
+
+/** The one "On hold" chip (v1.9 W8): amber, beside or instead of the state (`ON_HOLD_CHIP`). */
+export function OnHoldBadge({ className }: { className?: string }) {
+  return (
+    <StatusBadge
+      status={ON_HOLD_CHIP.status}
+      tone={ON_HOLD_CHIP.tone}
+      label={ON_HOLD_CHIP.label}
+      {...(className ? { className } : {})}
+    />
   );
 }

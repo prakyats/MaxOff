@@ -11,7 +11,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 /**
  * The team's month (3b.4): the header with its back, the month switcher row, then one row per
  * person traced as `TeamMonthList` draws it (3b review): the name over the days line on the
- * left, the unpaid figure and the chevron on the right. A row with days waiting adds one line.
+ * left, the four month counts (v1.9 W4), the unpaid figure and the chevron on the right. A row
+ * with days waiting adds one line.
  */
 export default function Loading() {
   return (
@@ -44,6 +45,19 @@ export default function Loading() {
               <span className={cn("flex flex-col gap-1.5", CARD_ROW_TITLE)}>
                 <Skeleton className="h-4 w-2/5" />
                 <Skeleton className="h-3.5 w-3/4" />
+              </span>
+              {/* v1.9 W4: the four month counts, two rows of two on a phone, four labelled
+                  columns on a laptop (`MonthHoursFigures`). */}
+              <span className="order-last grid basis-full grid-cols-2 gap-x-4 gap-y-1 md:order-none md:basis-auto md:grid-cols-4 md:gap-x-3">
+                {[0, 1, 2, 3].map((cell) => (
+                  <span
+                    key={cell}
+                    className="flex h-5 items-center justify-between gap-2 md:h-auto md:w-28 md:flex-col md:items-end md:gap-1"
+                  >
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-3.5 w-4" />
+                  </span>
+                ))}
               </span>
               <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
                 <Skeleton className="h-3.5 w-32" />

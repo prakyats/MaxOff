@@ -12,3 +12,7 @@ allowBuilds:
 # to install while a patch names a version that is not installed.
 patchedDependencies:
   "@opennextjs/cloudflare@1.20.6": patches/@opennextjs__cloudflare@1.20.6.patch
+  # A refresh whose answer mismatches the router tree (after a view control's hand-written
+  # address) must not scroll the page to its top (v1.9, issue #89; ARCHITECTURE §14.2 d). The
+  # patch file's header has the upstream issue to file and how to check it on every Next upgrade.
+  next@16.3.5: patches/next@16.3.5.patch

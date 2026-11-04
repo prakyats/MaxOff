@@ -99,6 +99,14 @@ export type Task = {
   reminderRules: ReminderRule[];
   /** The template it started from (4.6), whose reminders it follows while it has none. */
   templateId: string | null;
+  /**
+   * On hold (v1.9 W7, ADR-0016): since when, by whom and why; all null when not held. The state is
+   * the one it resumes to. `resumedAt` is the last resume (the acknowledgement clock's start).
+   */
+  heldAt: string | null;
+  heldBy: string | null;
+  holdReason: string | null;
+  resumedAt: string | null;
 };
 
 /** One person on a task (WORKFLOWS §3.2). `acknowledgedBy` is the coordinator when on behalf. */

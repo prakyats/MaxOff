@@ -59,6 +59,7 @@ export {
   type ProjectSummary,
 } from "./domain/projects";
 export {
+  alsoAddCopy,
   cycleLabel,
   itemListPeriods,
   type ItemListPeriods,
@@ -84,6 +85,28 @@ export {
   type ItemViewContext,
   type LastChange,
 } from "./domain/views";
+export {
+  CLOSE_KINDS,
+  closeKindLabel,
+  closeKindWords,
+  isCloseKind,
+  type CloseKind,
+} from "./domain/close-kinds";
+// v1.9 W7 / W8: On hold.
+export {
+  PROJECT_HOLD_REASON_MAX,
+  RESUME_DECISIONS,
+  isProjectOnHold,
+  needsNewDate,
+  onHoldDeliverablesLine,
+  resumeItemsPayload,
+  resumeProblems,
+  splitHeldItems,
+  type ResumeDecision,
+  type ResumeEntry,
+  type ResumeProblem,
+  type ResumeRow,
+} from "./domain/hold";
 export { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "./domain/extras";
 export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
 export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";
@@ -130,7 +153,9 @@ export {
   listItemsById,
   listItemStages,
   listLastChanges,
+  listOnHold,
   listProjectsActivity,
+  listResumeRows,
   listReviews,
   listStages,
   listStagesOf,
@@ -147,6 +172,7 @@ export {
 } from "./data/items";
 export {
   addBlueprint,
+  addBlueprintToCycle,
   addStage,
   addStageGroup,
   archiveBlueprint,
@@ -174,6 +200,7 @@ export {
   markItemDone,
   markItemsDone,
   reopenItem,
+  setCloseKind,
   tickItemStage,
   tickStages,
   updateItem,

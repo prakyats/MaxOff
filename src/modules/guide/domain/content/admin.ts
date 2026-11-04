@@ -179,7 +179,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Your attendance strip has one button. Before you start it says “Start your day”, and Start day shows the time it will record. On an approved leave day the strip says “You’re on leave today” with an outline “I’m working today”, and on a day off “I worked today”.",
+              text: "Your attendance strip has one button. Before you start it says “Start your day · work starts 10:00 am”, and Start day shows the time it will record. On an approved leave day the strip says “You’re on leave today” with an outline “I’m working today”, and on a day off “I worked today”. The working hours apply to you as to everyone who records attendance: a start more than 15 minutes late asks for one line (“You’re starting 22 minutes late”, shown after as an amber “Late 22 min”), and before your end time (6:00 pm, or later on a shoot day) End day reads “Ask to leave early”.",
             },
             {
               kind: "steps",
@@ -187,6 +187,10 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Today.",
                 "Tap Start day when you begin work.",
                 "When you finish, tap End day.",
+                {
+                  text: "Before your end time, tap “Ask to leave early” (highlighted), say why and tap “Ask the Owner”. Only the Owner answers: approved, your day ends at the time you asked and the strip offers “Any expenses to claim today?”; “Stay”, carry on until your end time. With no answer in 30 minutes, End day comes back and the day is marked “Left early, not answered”.",
+                  shot: "admin/start-end-day",
+                },
                 "Read “End your day?” and confirm. It is final.",
                 "Answer “Any expenses to claim today?” with No or Yes.",
               ],
@@ -201,7 +205,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Only the Owner decides attendance. You never decide anyone else’s day, and your own is never overwritten: a correction sits beside the original.",
+              text: "Only the Owner decides attendance, early leave and “Stay until”. You never decide anyone else’s day and get no one else’s late or early-leave alerts, and your own is never overwritten: a correction sits beside the original. On leave, a half day asks “Morning off” or “Afternoon off”.",
             },
           ],
           link: { href: "/leave/attendance", label: "See your attendance" },
@@ -495,6 +499,48 @@ export const ADMIN_GUIDE: Guide = {
           keywords: ["edit task", "cancel task", "reopen task"],
         },
         {
+          id: "admin-task-hold",
+          title: "Put a task on hold, and resume it",
+          summary: "Pause a task you created with a reason; resume it when it can go on.",
+          blocks: [
+            {
+              kind: "text",
+              text: "When a task you created cannot go on for now, put it on hold. Its reminders, escalations and deadline stop, and it leaves the to-do and overdue lists. Its stages are greyed out: nobody can tick one until it resumes. The Owner can hold any task; you can hold the tasks you created while they are with their people.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "Open the task, tap ⋯ and choose Put on hold… (highlighted).",
+                  shot: "admin/task-hold-menu",
+                },
+                {
+                  text: "Write why, then tap Put on hold (highlighted). Keep working closes the question.",
+                  shot: "admin/task-hold-sheet",
+                },
+                {
+                  text: "To go on, tap Resume (highlighted) on the amber “On hold since ‹date›” line (or Resume in ⋯).",
+                  shot: "admin/task-hold-line",
+                },
+                {
+                  text: "If the deadline passed while it was on hold, choose a new deadline (highlighted) and time, then tap Resume.",
+                  shot: "admin/task-resume-sheet",
+                },
+              ],
+            },
+            {
+              kind: "next",
+              text: "The people on it and its approving Admin are told quietly, and the task shows an amber “On hold” chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
+            },
+            {
+              kind: "note",
+              text: "Only the task’s creator and the Owner can hold or resume it, never its approving Admin. If you approve a task someone else holds or resumes, you get a quiet note. A task handed in, completed or cancelled cannot be held.",
+            },
+          ],
+          link: { href: "/tasks/all?state=on_hold", label: "See tasks on hold" },
+          keywords: ["on hold", "hold", "pause", "resume", "paused"],
+        },
+        {
           id: "admin-task-remind",
           title: "Remind the people on a task",
           summary: "Nudge everyone on a task, once an hour.",
@@ -661,11 +707,11 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Shetty · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Sample Client · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
             },
             {
               kind: "text",
-              text: "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice, and while it is not All the button names it, “Client work ▾”. On a phone the same “All ▾” sits in the header, just before Filters, which is an icon with a dot while a filter is on. This phone or laptop remembers your choice, and leave and holidays always show.",
+              text: "On a laptop, the menu beside Filters reads “All ▾”: choose All, Tasks or Client work to show both kinds or only one. A tick marks the current choice. While it is not All, the button names it, “Client work ▾”, and has a red outline, so you can see the calendar is not showing everything. Filters works the same way: with filters on it reads “Filters · 2” (how many are on) with a red outline; with none it is a plain “Filters”. On a phone the same “All ▾” sits in the header, just before Filters, an icon that shows the count, “·2”, with a red outline while a filter is on. This phone or laptop remembers your All ▾ choice, and leave and holidays always show.",
             },
             {
               kind: "steps",
@@ -695,7 +741,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline and “+ New task on ‹day›”; on a laptop a day opens in a dialog, with “Open day”.",
+              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and “+ New task on ‹day›” stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog, with “Open day”; in the Day view “+ New task on ‹day›” sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.",
             },
             {
               kind: "steps",
@@ -898,7 +944,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Shetty”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
+              text: "New project has three steps. 1 Basics: Start from a template, Project name, Repeats (One-time, Weekly or Monthly), Delivery date (one-time only), Description and any custom fields. 2 Deliverables & stages: the Deliverables and the Default stage groups. 3 Preview & create. Its title names the client (“New project · Sample Client”); on a phone the steps read “1 Basics, 2 Deliverables, 3 Preview” on one line, and Back and Next sit side by side.",
             },
             {
               kind: "steps",
@@ -1144,7 +1190,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date (“24 Oct”, or Not planned), its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”). Edit stages sits at the right of the Stages heading. The actions at the foot (Open the project, Close deliverable…, Next: ‹stage› or Mark done) move onto a second row when the sheet is narrow, never cut off.",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date (“24 Oct”, or Not planned), its last change in one short line (“Last change · Sample Admin ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”). Edit stages sits at the right of the Stages heading. The actions at the foot (Open the project, Close deliverable…, Next: ‹stage› or Mark done) move onto a second row when the sheet is narrow, never cut off.",
             },
             {
               kind: "steps",
@@ -1275,13 +1321,14 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Reopen… sends a done deliverable back to open. Close deliverable… keeps it in the cycle as closed, not done.",
+              text: "Reopen… sends a done deliverable back to open. Close deliverable… keeps it in the cycle as closed, not done, and asks why: “Not needed this month” (the client dropped or moved it; “this week” on a weekly project, “Not needed” on a one-time one) or “Not delivered” (we didn’t deliver it).",
             },
             {
               kind: "steps",
               steps: [
                 "Open the deliverable.",
                 "Tap Reopen… (done ones) or Close deliverable….",
+                "To close, pick Not needed or Not delivered.",
                 "Write the reason.",
                 "Confirm.",
               ],
@@ -1292,10 +1339,10 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Closing cannot be undone. Use Reopen… if you only need more changes.",
+              text: "Closing cannot be undone. Use Reopen… if you only need more changes. The kind shows on the closed deliverable’s sheet; only the Owner can change it afterwards.",
             },
           ],
-          keywords: ["reopen", "close", "send back", "reason"],
+          keywords: ["reopen", "close", "send back", "reason", "not needed", "not delivered"],
         },
         {
           id: "admin-bulk-actions",
@@ -1420,6 +1467,49 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           keywords: ["complete", "cancel", "read-only", "reopen project"],
+        },
+        {
+          id: "admin-project-hold",
+          title: "Put a project on hold, and resume it",
+          summary: "Pause your client's project with a reason; settle its dates when it resumes.",
+          blocks: [
+            {
+              kind: "text",
+              text: "When your client pauses work, put the project on hold. No new cycles are made and no escalations or reminders go out. Its open deliverables show an amber “On hold” chip, never late, and wait: nothing is ticked or marked done until it resumes. The progress ring keeps its numbers, and its chip reads On hold instead of On track or “behind plan”. The Owner can hold your clients’ projects too; you are told when he does.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "Open the project, tap ⋯ and choose Put on hold… (highlighted).",
+                  shot: "admin/project-hold-menu",
+                },
+                {
+                  text: "Write why, then tap Put on hold (highlighted).",
+                  shot: "admin/project-hold-sheet",
+                },
+                {
+                  text: "To go on, tap Resume… (highlighted) on the amber “On hold since ‹date›” banner (or in ⋯).",
+                  shot: "admin/project-hold-banner",
+                },
+                {
+                  text: "Give each deliverable whose planned date passed a new date. For any from a month that has ended, choose Carry forward, Close (with why and its kind) or Leave pending (the list, highlighted). If a one-time project's delivery date passed while it was on hold, choose a new delivery date too: it is required.",
+                  shot: "admin/project-resume-sheet",
+                },
+                "Tap Resume project: everything is settled in one go.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "Your report shows “On hold · n deliverables” for the period: tap it to see them.",
+            },
+            {
+              kind: "note",
+              text: "A held project’s deliverables stay out of Today, the overdue list and the carry screen; its resume settles them. Edits and Close still work.",
+            },
+          ],
+          link: { href: "/clients/items?filter=on_hold", label: "See deliverables on hold" },
+          keywords: ["on hold", "hold", "pause", "resume", "paused project"],
         },
         {
           id: "admin-copy-schedule",
@@ -1659,7 +1749,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Prakyat · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Sample Admin · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1830,7 +1920,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open the link, or Unfinished deliverables from Today.",
                 "Select the rows, or select none to act on all.",
                 "Tap Carry N forward, or Leave N pending.",
-                "For one row, tap Close… and say why.",
+                "For one row, tap Close…, pick Not needed or Not delivered, and say why.",
               ],
             },
             {
@@ -1886,6 +1976,10 @@ export const ADMIN_GUIDE: Guide = {
               text: "On a recurring project, ⋯ then Deliverables list holds one row per line. Every month starts with these. Open Stages on a line to change its stage groups, and add lines with × N.",
             },
             {
+              kind: "text",
+              text: "While this month is running, an add asks “Also add ‹title› to ‹October 2026›?”. Add to ‹October› too also adds it to this month, with its stages; From ‹November› starts it next month.",
+            },
+            {
               kind: "note",
               text: "Add deliverable on the project page adds to the running month only. The list stays as it is.",
             },
@@ -1899,7 +1993,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Unfinished deliverables says: carry forward, leave pending or close what an ended cycle left open. Each cycle has Carry N forward and Leave N pending. Each row has Close…. A carried deliverable shows “Carried from …” in the next cycle. When nothing is waiting it says “Nothing to decide.”",
+              text: "Unfinished deliverables says: carry forward, leave pending or close what an ended cycle left open. Each cycle has Carry N forward and Leave N pending. Each row has Close…, which asks Not needed or Not delivered, then why. A carried deliverable shows “Carried from …” in the next cycle. When nothing is waiting it says “Nothing to decide.”",
             },
           ],
           link: { href: "/clients/items/decide", label: "Open Unfinished deliverables" },

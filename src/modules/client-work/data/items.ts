@@ -3,7 +3,7 @@ import "server-only";
 import { createServerSupabase } from "@/core/db/server";
 import { addISTDays, type ISODate } from "@/core/time";
 
-import type { ClientState, ItemRow, ItemState } from "../domain/types";
+import type { ClientState, ItemRow, ItemState, Recurrence } from "../domain/types";
 
 import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
 
@@ -15,12 +15,14 @@ import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
  * 1000-row limit, 6A mechanics (1)); a count is a head request.
  */
 
-const ROW_SELECT = `${ITEM_COLUMNS}, project:projects!project_items_project_id_fkey!inner(name, client_id, client:clients!projects_client_id_fkey!inner(name, admin_id, state)), cycle:project_cycles!project_items_cycle_id_fkey!inner(label, period_end)`;
+const ROW_SELECT = `${ITEM_COLUMNS}, project:projects!project_items_project_id_fkey!inner(name, recurrence, client_id, held_at, client:clients!projects_client_id_fkey!inner(name, admin_id, state)), cycle:project_cycles!project_items_cycle_id_fkey!inner(label, period_end)`;
 
 type Embedded = {
   project: {
     name: string;
+    recurrence: Recurrence;
     client_id: string;
+    held_at: string | null;
     client: { name: string; admin_id: string | null; state: ClientState };
   };
   cycle: { label: string | null; period_end: string | null };
@@ -30,12 +32,14 @@ function toRow(row: Parameters<typeof toItem>[0] & Embedded): ItemRow {
   return {
     ...toItem(row),
     projectName: row.project.name,
+    recurrence: row.project.recurrence,
     clientId: row.project.client_id,
     clientName: row.project.client.name,
     adminId: row.project.client.admin_id,
     clientState: row.project.client.state,
     cycleLabel: row.cycle.label,
     cyclePeriodEnd: row.cycle.period_end,
+    projectHeldAt: row.project.held_at,
   };
 }
 
@@ -72,16 +76,20 @@ export async function listItemRows(query: ItemQuery): Promise<ItemRow[]> {
   return (rows as unknown as (Parameters<typeof toItem>[0] & Embedded)[]).map(toRow);
 }
 
-/** How many items match, with no rows read. */
+/** How many items match, with no rows read (a held project's left out). */
 async function countItems(query: ItemQuery): Promise<number> {
   const supabase = await createServerSupabase();
+  // v1.9 W7: a held project's deliverables are On hold, never overdue or waiting for a decision
+  // (WORKFLOWS §5.5), so both counts leave them out.
+  const project = "project:projects!project_items_project_id_fkey!inner(held_at)";
   const embed = query.cycleEndedBefore
-    ? "id, cycle:project_cycles!project_items_cycle_id_fkey!inner(period_end)"
-    : "id";
+    ? `id, ${project}, cycle:project_cycles!project_items_cycle_id_fkey!inner(period_end)`
+    : `id, ${project}`;
   let request = supabase
     .from("project_items")
     .select(embed, { count: "exact", head: true })
-    .in("state", [...query.states]);
+    .in("state", [...query.states])
+    .is("project.held_at", null);
   if (query.plannedTo) request = request.lte("planned_date", query.plannedTo);
   if (query.cycleEndedBefore) request = request.lt("cycle.period_end", query.cycleEndedBefore);
   const { count, error } = await request;

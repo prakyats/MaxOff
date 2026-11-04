@@ -22,7 +22,7 @@ import { barStuck } from "../domain/chat-space";
 import { chatLabel, parseTaskView, shownView, type TaskView, viewQuery } from "../domain/page";
 
 /** The dialogs of the task's work, opened from the next-step bar or from ⋯. */
-export type StepDialog = "done" | "approve" | "reject" | "takeOver";
+export type StepDialog = "done" | "approve" | "reject" | "takeOver" | "resume";
 
 type TaskViewState = {
   /** The view chosen (the URL's `?tab=`); what a screen shows of it is `shownView`. */

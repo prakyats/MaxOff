@@ -24,6 +24,7 @@ import {
   isOverdue,
   itemCount,
   listItemRows,
+  listOnHold,
   listPlannedItems,
   listItemStages,
   onTime,
@@ -38,6 +39,7 @@ import { readClientProgress } from "../today/reads";
 
 import { ADMIN_REPORT_DESCRIPTION } from "./copy";
 import { CustomRange } from "./custom-range";
+import { OnHoldLine } from "./on-hold-line";
 import { PeriodControls } from "./period-controls";
 
 /** "A", "A and B", "A, B and C". */
@@ -65,13 +67,15 @@ function words<T>(split: Split<T>, say: (value: T) => string): Split<string> {
 export async function AdminReport({ viewer, period }: { viewer: CurrentMember; period: Period }) {
   const before = previousPeriod(period);
   const today = todayIST();
-  const [facts, open, directory, planned, current, openItems] = await Promise.all([
+  const [facts, open, directory, planned, current, openItems, held] = await Promise.all([
     listKpiFacts(before.from, period.to),
     readOpenTasks(),
     readDirectory(),
     listPlannedItems(before.from, period.to),
     readClientProgress(today),
     listItemRows({ states: ["open"] }),
+    // v1.9 W8: "On hold · n deliverables" for the period, the clients this Admin runs (RLS).
+    listOnHold(period.from, period.to),
   ]);
   const now = systemClock();
   const people = new Map(directory.map((member) => [member.id, member]));
@@ -92,7 +96,10 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
       { total: 0, done: 0 },
     );
   // Overdue now (PRODUCT §4.13): the open items past their planned date, beside the tasks.
-  const overdueItems = openItems.filter((item) => isOverdue(item, today)).length;
+  // A held project's deliverables are never overdue (v1.9 W8).
+  const overdueItems = openItems.filter(
+    (item) => item.projectHeldAt === null && isOverdue(item, today),
+  ).length;
   const waiting = openItems.filter((item) => currentIds.has(item.cycleId));
   // Amendment D2: each open item's own stages and ticks.
   const stages = await listItemStages(waiting.map((item) => item.id));
@@ -111,6 +118,7 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
     dueAt: row.dueAt,
     primaryOwnerId: row.primaryOwnerId,
     assigneeIds: activeAssignees(row.assignees).map((a) => a.memberId),
+    heldAt: row.heldAt ?? null,
   }));
 
   return (
@@ -198,6 +206,7 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
               />
             ) : null}
           </div>
+          <OnHoldLine held={held} />
           {/* PP-admin-5: the metrics with nothing to show fold into one quiet line. */}
           {empty.length > 0 ? (
             <p className="text-muted-foreground text-sm" data-slot="report-items-empty">

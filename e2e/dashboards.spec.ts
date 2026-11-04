@@ -26,6 +26,7 @@ import {
   USERS,
 } from "./helpers";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
+import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
 
 /**
  * The day screens (6A; Kickoff 6 decisions 1–12, 22, 23): Crew's My Day under the attendance
@@ -453,11 +454,24 @@ test.describe("the Owner's Today (6.2)", () => {
     }
     const todayBlock = week.locator(`[data-slot="week-day"][data-date="${todayIST()}"]`);
     await expect(todayBlock.locator('[data-slot="week-day-label"]')).toHaveText("Today");
-    const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]').first();
-    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText(/^\d{1,2}:\d{2} (am|pm)$/);
-    await expect(due.locator('[data-slot="week-row-title"]')).not.toHaveText(/^\d+ tasks? due$/);
-    await expect(due.locator('[data-slot="badge"]')).toHaveText("Due");
-    await expect(due.getByRole("link")).toHaveAttribute("href", /^\/tasks\//);
+    // This test's task due today is a row by name (PP-today-4), unless the shared week is already
+    // at its cap: a day lists its holiday, leave and events before its deadlines, and the week
+    // shows at most WEEK_ROWS_SHOWN rows (`week.ts`), so on a database where other specs put
+    // eight or more people on leave today, today's deadlines are behind "See the week" (proved
+    // 2 Nov: nine approved leaves today hid the row). The cut is then what is checked.
+    const due = todayBlock
+      .locator('[data-slot="week-row"][data-kind="due"]')
+      .filter({ hasText: `${prefix}due today` });
+    if ((await due.count()) === 0) {
+      await expect(todayBlock.locator('[data-slot="week-row"]')).toHaveCount(WEEK_ROWS_SHOWN);
+      await expect(week.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+    } else {
+      await expect(due).toHaveCount(1);
+      await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("11:00 pm");
+      await expect(due.locator('[data-slot="week-row-title"]')).toHaveText(`${prefix}due today`);
+      await expect(due.locator('[data-slot="badge"]')).toHaveText("Due");
+      await expect(due.getByRole("link")).toHaveAttribute("href", `/tasks/${dueToday}`);
+    }
     const rows = week.locator('[data-slot="week-row"]');
     for (let index = 0; index < (await rows.count()); index++) {
       const row = rows.nth(index);
@@ -526,7 +540,16 @@ test.describe("the Owner's Today (6.2)", () => {
       for (let index = 0; index < shown; index++) {
         const row = rows.nth(index);
         const kind = (await row.locator('[data-slot="approval-kind"]').innerText()).trim();
-        expect(["Attendance", "Leave", "Extra work", "Expense", "Task"]).toContain(kind);
+        // v1.9 W4 Q2: early-leave requests too ("Leaving early", "Left early"), first.
+        expect([
+          "Leaving early",
+          "Left early",
+          "Attendance",
+          "Leave",
+          "Extra work",
+          "Expense",
+          "Task",
+        ]).toContain(kind);
         // One button: Approve, or Review where the decision needs the review (as on Approvals).
         // Outlined and neutral in every row, Approve and Review alike: no solid button repeated
         // down the list (owner 2026-10-09, ARCHITECTURE §14.1), and a 44px target on a phone.
@@ -580,8 +603,15 @@ test.describe("the Owner's Today (6.2)", () => {
       );
 
       if (isPhone(info)) {
-        // A tap on the row opens its review; back closes it and stays on Today (§14.2 a).
-        await rows.first().locator('[data-slot="approval-row-open"]').click();
+        // A tap on the row opens its review; back closes it and stays on Today (§14.2 a). (An
+        // early-leave row opens Approvals instead: the first row of another kind.)
+        await needs
+          .locator(
+            '[data-slot="today-approval-rows"] [data-slot="approval-row"]:not([data-group^="early-leave"])',
+          )
+          .first()
+          .locator('[data-slot="approval-row-open"]')
+          .click();
         const sheet = page.locator('[data-slot="review-sheet"]');
         await expect(sheet).toBeVisible();
         await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);

@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import type { ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
-import type { Json, Tables } from "@/core/db";
+import type { Database, Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import {
   type Deliverable,
@@ -15,6 +15,8 @@ import {
 } from "@/core/lib/stage-groups";
 import type { ISODate } from "@/core/time";
 import { deletedTemplateLabel } from "@/core/lib/owner-delete";
+
+import type { ResumeRow } from "../domain/hold";
 
 import type {
   Blueprint,
@@ -31,6 +33,12 @@ import type {
   Stage,
 } from "../domain/types";
 import type { ActivityKind } from "../domain/activity";
+import { type CloseKind, isCloseKind } from "../domain/close-kinds";
+
+type Functions = Database["public"]["Functions"];
+
+/** The generated argument types mark some nullable parameters as plain strings: null is valid. */
+type Nullable<T, K extends keyof T> = Omit<T, K> & { [P in K]: T[P] | null };
 
 /**
  * The client-work repository (CLAUDE.md rule 3): every database call of the module. Reads run
@@ -86,7 +94,7 @@ export function asObject(value: Json | null | undefined): Record<string, unknown
 }
 
 export const PROJECT_COLUMNS =
-  "id, client_id, name, description, recurrence, state, delivery_date, custom_fields, template_id, created_by, created_at, cancelled_at, cancelled_reason";
+  "id, client_id, name, description, recurrence, state, delivery_date, custom_fields, template_id, created_by, created_at, cancelled_at, cancelled_reason, held_at, held_by, hold_reason";
 
 export function toProject(
   row: Pick<
@@ -104,6 +112,9 @@ export function toProject(
     | "created_at"
     | "cancelled_at"
     | "cancelled_reason"
+    | "held_at"
+    | "held_by"
+    | "hold_reason"
   >,
 ): Project {
   return {
@@ -120,6 +131,9 @@ export function toProject(
     createdAt: row.created_at,
     cancelledAt: row.cancelled_at,
     cancelledReason: row.cancelled_reason,
+    heldAt: row.held_at,
+    heldBy: row.held_by,
+    holdReason: row.hold_reason,
   };
 }
 
@@ -152,7 +166,7 @@ export function toCycle(
 }
 
 export const ITEM_COLUMNS =
-  "id, project_id, cycle_id, title, position, planned_date, notes, custom_fields, state, done_at, done_by, approved_at, approved_by, cancelled_reason, carry_decision, carried_from_item_id, origin_cycle_id, created_at";
+  "id, project_id, cycle_id, title, position, planned_date, notes, custom_fields, state, done_at, done_by, approved_at, approved_by, cancelled_reason, cancelled_at, cancelled_by, close_kind, carry_decision, carried_from_item_id, origin_cycle_id, created_at";
 
 type ItemColumns = Pick<
   Tables<"project_items">,
@@ -170,6 +184,9 @@ type ItemColumns = Pick<
   | "approved_at"
   | "approved_by"
   | "cancelled_reason"
+  | "cancelled_at"
+  | "cancelled_by"
+  | "close_kind"
   | "carry_decision"
   | "carried_from_item_id"
   | "origin_cycle_id"
@@ -192,6 +209,9 @@ export function toItem(row: ItemColumns): Item {
     approvedAt: row.approved_at,
     approvedBy: row.approved_by,
     cancelledReason: row.cancelled_reason,
+    cancelledAt: row.cancelled_at,
+    cancelledBy: row.cancelled_by,
+    closeKind: isCloseKind(row.close_kind) ? row.close_kind : null,
     carryDecision: row.carry_decision as CarryDecision | null,
     carriedFromItemId: row.carried_from_item_id,
     originCycleId: row.origin_cycle_id,
@@ -666,6 +686,79 @@ export async function reopenProject(projectId: string, reason: string): Promise<
   return data as ProjectState;
 }
 
+/** Put on hold (v1.9 W8, `project_hold`): the reason is required; returns when it was held. */
+export async function holdProject(projectId: string, reason: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_hold", { project_id: projectId, reason });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * What the resume must settle today (v1.9 W8, `project_resume_list`): the deliverables whose
+ * planned date passed (a new date) and those of an ended month (a choice), oldest cycle first.
+ */
+export async function listResumeRows(projectId: string): Promise<ResumeRow[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_resume_list", { project_id: projectId });
+  if (error) throw error;
+  return data.map((row) => ({
+    itemId: row.item_id,
+    title: row.title,
+    cycleLabel: row.cycle_label,
+    plannedDate: (row.planned_date as ISODate | null) ?? null,
+    monthEnded: row.month_ended,
+    needsDate: row.needs_date,
+    leftPending: row.left_pending,
+    carryForwardAllowed: row.carry_forward_allowed,
+  }));
+}
+
+/** Resume in one transaction (v1.9 W8, `project_resume`); returns what it settled. */
+export async function resumeProject(
+  projectId: string,
+  items: Record<string, unknown>[],
+  newDeliveryDate: ISODate | null,
+): Promise<{ dates: number; carried: number; closed: number; leftPending: number }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_resume", {
+    project_id: projectId,
+    items: items as Json,
+    ...(newDeliveryDate ? { new_delivery_date: newDeliveryDate } : {}),
+  });
+  if (error) throw error;
+  const result = (data ?? {}) as Record<string, unknown>;
+  const count = (key: string) => (typeof result[key] === "number" ? (result[key] as number) : 0);
+  return {
+    dates: count("dates"),
+    carried: count("carried"),
+    closed: count("closed"),
+    leftPending: count("left_pending"),
+  };
+}
+
+/**
+ * The reports' "On hold · n deliverables" (v1.9 W8, `client_work_on_hold`): each held project the
+ * viewer sees (RLS: the Owner every client, an Admin theirs, Crew none) with its unfinished
+ * deliverables in the cycles overlapping the range. A count, never an amount.
+ */
+export async function listOnHold(
+  from: ISODate | null,
+  to: ISODate | null,
+): Promise<{ clientId: string; projectId: string; deliverables: number }[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("client_work_on_hold", {
+    ...(from ? { from_date: from } : {}),
+    ...(to ? { to_date: to } : {}),
+  });
+  if (error) throw error;
+  return data.map((row) => ({
+    clientId: row.client_id,
+    projectId: row.project_id,
+    deliverables: row.deliverables,
+  }));
+}
+
 export async function startNextCycle(projectId: string): Promise<string> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("cycle_start_next", { project_id: projectId });
@@ -748,6 +841,26 @@ export async function archiveStage(stageId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * "Also add ‹title› to ‹period›?" answered Add too (v1.9 W1): the deliverables-list line and an open
+ * deliverable in the running cycle, one transaction (`project_blueprint_add_to_cycle`).
+ */
+export async function addBlueprintToCycle(
+  projectId: string,
+  title: string,
+  cycleId: string,
+): Promise<{ blueprintId: string; itemId: string }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_blueprint_add_to_cycle", {
+    project_id: projectId,
+    title,
+    cycle_id: cycleId,
+  });
+  if (error) throw error;
+  const row = asObject(data);
+  return { blueprintId: String(row.blueprint_id ?? ""), itemId: String(row.item_id ?? "") };
+}
+
 export async function addBlueprint(projectId: string, title: string): Promise<string> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("project_blueprint_add", {
@@ -800,10 +913,37 @@ export async function updateItem(itemId: string, changes: Record<string, unknown
   return data;
 }
 
-export async function cancelItem(itemId: string, reason: string): Promise<void> {
+/** Close a deliverable with its kind and reason (v1.9 W1: `item_cancel(…, close_kind)`). */
+export async function cancelItem(
+  itemId: string,
+  reason: string,
+  closeKind: CloseKind,
+): Promise<void> {
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("item_cancel", { item_id: itemId, reason });
+  const { error } = await supabase.rpc("item_cancel", {
+    item_id: itemId,
+    reason,
+    close_kind: closeKind,
+  });
   if (error) throw error;
+}
+
+/**
+ * The Owner sets, changes or clears (null) a closed deliverable's kind (v1.9 W1, OPEN 4:
+ * `item_set_close_kind`; the function refuses anyone else). False: it already held that value.
+ */
+export async function setCloseKind(itemId: string, closeKind: CloseKind | null): Promise<boolean> {
+  const supabase = await createServerSupabase();
+  const args: Nullable<Functions["item_set_close_kind"]["Args"], "close_kind"> = {
+    item_id: itemId,
+    close_kind: closeKind,
+  };
+  const { data, error } = await supabase.rpc(
+    "item_set_close_kind",
+    args as unknown as Functions["item_set_close_kind"]["Args"],
+  );
+  if (error) throw error;
+  return data;
 }
 
 export async function markItemDone(itemId: string): Promise<void> {
@@ -936,12 +1076,15 @@ export async function carryDecide(
   itemIds: readonly string[],
   decision: CarryDecision,
   reason: string | null,
+  closeKind: CloseKind | null = null,
 ): Promise<BulkRow[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("cycle_carry_decide", {
     item_ids: [...itemIds],
     decision,
     ...(reason ? { reason } : {}),
+    // v1.9 W1: why it is closed, with a close only.
+    ...(closeKind ? { close_kind: closeKind } : {}),
   });
   if (error) throw error;
   return bulkRows(data);

@@ -71,6 +71,7 @@ export default async function AllTasksPage() {
       overdue: isOverdue(row, now),
       lateLabel: lateLabel(row, now),
       dueToday: toISTDate(row.dueAt) === today,
+      held: Boolean(row.heldAt),
       owner:
         row.primaryOwnerId === viewer.id
           ? "You"

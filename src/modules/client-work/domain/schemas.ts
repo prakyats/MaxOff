@@ -8,6 +8,8 @@ import {
   stageGroupsIssue,
 } from "@/core/lib/stage-groups";
 
+import { CLOSE_KINDS } from "./close-kinds";
+
 /**
  * What the client-work actions accept (ARCHITECTURE §4.2: zod first). The transition functions
  * (7A, ADR-0006) check every rule again in the database; these keep a malformed request away and
@@ -216,6 +218,10 @@ export type StageIdInput = z.input<typeof stageIdSchema>;
 export const addBlueprintSchema = z.object({ projectId: id, title: itemTitle });
 export type AddBlueprintInput = z.input<typeof addBlueprintSchema>;
 
+/** "Also add ‹title› to ‹period›?" answered Add too (v1.9 W1): the line and the running cycle's deliverable. */
+export const addBlueprintToCycleSchema = z.object({ projectId: id, title: itemTitle, cycleId: id });
+export type AddBlueprintToCycleInput = z.input<typeof addBlueprintToCycleSchema>;
+
 export const updateBlueprintSchema = z.object({
   blueprintId: id,
   title: itemTitle.optional(),
@@ -252,8 +258,41 @@ export type UpdateItemInput = z.input<typeof updateItemSchema>;
 export const itemIdSchema = z.object({ itemId: id });
 export type ItemIdInput = z.input<typeof itemIdSchema>;
 
+/**
+ * A project's resume (v1.9 W8, `project_resume`): one entry per deliverable of the resume list (a
+ * new date, or a choice with its date, reason and close kind), and an optional new delivery date.
+ * The rules (`resumeProblems`) run on the sheet and again in the database.
+ */
+export const resumeProjectSchema = z.object({
+  projectId: id,
+  items: z
+    .array(
+      z.object({
+        itemId: id,
+        plannedDate: isoDate.nullable().optional(),
+        decision: z.enum(["carry_forward", "close", "leave_pending"]).nullable().optional(),
+        reason: z.string().trim().max(REASON_MAX).nullable().optional(),
+        closeKind: z.enum(CLOSE_KINDS).nullable().optional(),
+      }),
+    )
+    .max(BULK_MAX),
+  newDeliveryDate: isoDate.nullable(),
+});
+export type ResumeProjectInput = z.input<typeof resumeProjectSchema>;
+
 export const itemReasonSchema = z.object({ itemId: id, reason });
 export type ItemReasonInput = z.input<typeof itemReasonSchema>;
+
+/** The two kinds of Close (v1.9 W1; `domain/close-kinds.ts`, the database's check). */
+const closeKind = z.enum(CLOSE_KINDS, { error: "Pick why it was closed." });
+
+/** The deliverable sheet's Close: the kind and the reason (v1.9 W1, `item_cancel`). */
+export const closeItemSchema = z.object({ itemId: id, reason, closeKind });
+export type CloseItemInput = z.input<typeof closeItemSchema>;
+
+/** The Owner's "Set close kind" on a closed deliverable: a kind, or null to clear it (OPEN 4). */
+export const setCloseKindSchema = z.object({ itemId: id, closeKind: closeKind.nullable() });
+export type SetCloseKindInput = z.input<typeof setCloseKindSchema>;
 
 export const itemIdsSchema = z.object({ itemIds: ids });
 export type ItemIdsInput = z.input<typeof itemIdsSchema>;
@@ -336,6 +375,8 @@ export const carryDecideSchema = z
     itemIds: ids,
     decision: z.enum(["carry_forward", "close", "leave_pending"]),
     reason: reason.optional(),
+    /** v1.9 W1: why it is closed, with `close` only (the database refuses it otherwise). */
+    closeKind: closeKind.optional(),
   })
   .superRefine((value, context) => {
     // Decision 16: close is one item at a time, with a reason.
@@ -344,6 +385,13 @@ export const carryDecideSchema = z
         code: "custom",
         path: ["reason"],
         message: "Close one deliverable at a time, with a reason.",
+      });
+    }
+    if (value.closeKind !== undefined && value.decision !== "close") {
+      context.addIssue({
+        code: "custom",
+        path: ["closeKind"],
+        message: "Only a close says why it was closed.",
       });
     }
   });

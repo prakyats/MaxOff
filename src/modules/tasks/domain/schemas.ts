@@ -191,6 +191,13 @@ export type ReviewInput = z.input<typeof reviewSchema>;
 export const reasonSchema = z.object({ taskId: z.uuid(), reason });
 export type ReasonInput = z.input<typeof reasonSchema>;
 
+/** Resume (v1.9 W8): a new deadline (an instant) when the old one has passed, else none. */
+export const resumeSchema = z.object({
+  taskId: z.uuid(),
+  newDueAt: z.iso.datetime({ offset: true }).nullable(),
+});
+export type ResumeInput = z.input<typeof resumeSchema>;
+
 export const setApproverSchema = z.object({
   taskId: z.uuid(),
   approvingAdminId: z.uuid().nullable(),

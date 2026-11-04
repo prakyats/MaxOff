@@ -29,7 +29,8 @@ import { StartDayPromptLazy } from "@/modules/attendance/components/start-day-pr
  * tasks the viewer, or a freelancer they coordinate, has not noted, plus those with changes
  * requested (`task_counts()`). **Approvals** (2.4): the attendance days, leave requests, extra
  * work notes (3b.2) and expense claims (3b.3, `expenses.decide`) waiting for whoever decides them
- * (the Owner), plus the tasks at the step the viewer decides (4.5: the Owner's final approvals, an
+ * (the Owner), the early-leave requests waiting for him (v1.9 W4 Q2: "Leaving early" and "Left
+ * early, not answered"), plus the tasks at the step the viewer decides (4.5: the Owner's final approvals, an
  * Admin's checks); client items take no approval step since amendment D3 (done is the approval).
  * **Alerts** (5.1, kickoff 5 decision 4): the viewer's unread notifications, on every role's bell.
  * The role picks which counts are added up, exactly as each was read before the bundle.
@@ -40,12 +41,17 @@ function navBadges(role: Parameters<typeof can>[0], bundle: SessionBundle): NavB
   if (!can(role, "attendance.decide")) {
     return { tasks: tasks?.badge ?? 0, approvals: tasks?.toDecide ?? 0, alerts };
   }
-  const { days, requests, notes, claims } = bundle.pending;
+  const { days, requests, notes, claims, earlyLeaves } = bundle.pending;
   const claimsToDecide = can(role, "expenses.decide") ? (claims ?? 0) : 0;
   return {
     tasks: tasks?.badge ?? 0,
     approvals:
-      (days ?? 0) + (requests ?? 0) + (notes ?? 0) + claimsToDecide + (tasks?.toDecide ?? 0),
+      (days ?? 0) +
+      (requests ?? 0) +
+      (notes ?? 0) +
+      claimsToDecide +
+      earlyLeaves +
+      (tasks?.toDecide ?? 0),
     alerts,
   };
 }

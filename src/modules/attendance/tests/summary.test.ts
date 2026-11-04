@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { dayFigure, type MonthSummary, pendingText, summaryLines } from "../domain/summary";
 
 const SUMMARY: MonthSummary = {
+  hours: null,
   memberId: "m",
   fullName: "Asha",
   role: "staff",

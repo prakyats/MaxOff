@@ -94,9 +94,25 @@ export async function updateThresholds(
     weeklyDigestDay: number;
     itemOverdueEscalateHours: number;
     cycleDecideEscalateDays: number;
+    workingHoursOn: boolean;
+    workStartTime: string;
+    workEndTime: string;
+    lateGraceMinutes: number;
+    earlyLeaveWaitMinutes: number;
+    approvalReminderUrgentMinutes: number;
+    approvalReminderHighTimes: string[];
+    approvalReminderDailyTime: string;
   },
 ): Promise<void> {
   await updateSettings(orgId, {
+    working_hours_on: patch.workingHoursOn,
+    work_start_time: patch.workStartTime,
+    work_end_time: patch.workEndTime,
+    late_grace_minutes: patch.lateGraceMinutes,
+    early_leave_wait_minutes: patch.earlyLeaveWaitMinutes,
+    approval_reminder_urgent_minutes: patch.approvalReminderUrgentMinutes,
+    approval_reminder_high_times: patch.approvalReminderHighTimes,
+    approval_reminder_daily_time: patch.approvalReminderDailyTime,
     weekly_digest_day: patch.weeklyDigestDay,
     item_overdue_escalate_hours: patch.itemOverdueEscalateHours,
     cycle_decide_escalate_days: patch.cycleDecideEscalateDays,

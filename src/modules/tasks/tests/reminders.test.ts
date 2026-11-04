@@ -102,6 +102,10 @@ function task(reminderRules: ReminderRule[]): Task {
     createdAt: "2026-10-01T00:00:00Z",
     reminderRules,
     templateId: null,
+    heldAt: null,
+    heldBy: null,
+    holdReason: null,
+    resumedAt: null,
   };
 }
 

@@ -20,6 +20,8 @@ export type FilterableTask = {
   overdue: boolean;
   /** Its deadline falls on today's IST date, at render (Today's "N due today" opens this, 6.2). */
   dueToday: boolean;
+  /** On hold (v1.9 W8): only the "On hold" state shows it (the Tasks tab's "On hold · n" opens it). */
+  held?: boolean;
 };
 
 const FINAL: readonly TaskState[] = ["completed", "cancelled"];
@@ -31,6 +33,7 @@ export const STATE_FILTERS = [
   "in_progress",
   "review",
   "changes_requested",
+  "on_hold",
   "completed",
   "cancelled",
   "all",
@@ -43,6 +46,7 @@ export const STATE_FILTER_LABELS: Record<StateFilter, string> = {
   in_progress: "In progress",
   review: "With the reviewers",
   changes_requested: "Changes requested",
+  on_hold: "On hold",
   completed: "Completed",
   cancelled: "Cancelled",
   all: "Any state",
@@ -74,10 +78,15 @@ export function filterDefaultLabels(team: boolean): string[] {
     : [labels.state, labels.overdue, labels.type];
 }
 
-export function matchesState(task: Pick<FilterableTask, "state">, value: string): boolean {
+/**
+ * A state filter. A held task (v1.9 W8, ADR-0016: a pause beside the state) is in "On hold" and
+ * "Any state" only: Open and the work states are the to-do views it leaves.
+ */
+export function matchesState(task: Pick<FilterableTask, "state" | "held">, value: string): boolean {
+  if (value === "all") return true;
+  if (value === "on_hold") return task.held === true && !FINAL.includes(task.state);
+  if (task.held && !FINAL.includes(task.state)) return false;
   switch (value) {
-    case "all":
-      return true;
     case "open":
       return !FINAL.includes(task.state);
     case "review":

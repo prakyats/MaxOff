@@ -66,9 +66,12 @@ export type PlannedLine = { text: string; overdue: boolean; date: string; late: 
 export function plannedLine(
   item: Pick<Item, "state" | "plannedDate">,
   today: ISODate,
+  /** Its project is On hold (v1.9 W8): its clock is stopped, so never late. */
+  held = false,
 ): PlannedLine | null {
   if (item.plannedDate === null) return null;
   const date = `Planned ${shortDate(item.plannedDate)}`;
+  if (held) return { text: date, overdue: false, date, late: null };
   if (isOverdue(item, today)) {
     const days = daysBetween(item.plannedDate, today);
     const late = `${days} ${days === 1 ? "day" : "days"} late`;

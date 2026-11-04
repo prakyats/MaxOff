@@ -30,8 +30,18 @@ const answers: Record<"token" | "session", () => Promise<Answer>> = {
 const tokens: string[] = [];
 const getClaims = vi.fn();
 
+type RpcAnswer = { data: unknown; error: { message: string } | null; status: number };
+const rpcAnswers: Record<"token" | "session", () => Promise<RpcAnswer>> = {
+  token: async () => ({ data: "early", error: null, status: 200 }),
+  session: async () => ({ data: "usual", error: null, status: 200 }),
+};
+
 function client(kind: "token" | "session") {
   return {
+    rpc: (fn: string) => {
+      reads.push({ client: kind, table: fn, id: null });
+      return rpcAnswers[kind]();
+    },
     from: (table: string) => ({
       select: () => ({
         eq: (_column: string, id: unknown) => ({
@@ -53,7 +63,7 @@ vi.mock("@/core/db/server", () => ({
   },
 }));
 
-const { getSessionState } = await import("./server");
+const { getSessionState, readBeforeCheck } = await import("./server");
 
 const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const tokenFor = (sub: string) => `${b64({ alg: "ES256", kid: "k" })}.${b64({ sub })}.sig`;
@@ -83,6 +93,8 @@ beforeEach(() => {
   getClaims.mockReset();
   answers.token = async () => ({ data: row("m-1"), error: null });
   answers.session = async () => ({ data: row("m-1"), error: null });
+  rpcAnswers.token = async () => ({ data: "early", error: null, status: 200 });
+  rpcAnswers.session = async () => ({ data: "usual", error: null, status: 200 });
 });
 
 describe("getSessionState: the member row's request leaves first (6b.19)", () => {
@@ -137,5 +149,68 @@ describe("getSessionState: the member row's request leaves first (6b.19)", () =>
     getClaims.mockResolvedValue({ data: null, error: null });
     await expect(getSessionState()).resolves.toEqual({ kind: "none" });
     expect(reads).toEqual([]);
+  });
+});
+
+/**
+ * The reads the layout's first byte waits for besides the row (the push status, the own day) leave
+ * the same way (v1.9 speed gate, 2026-11-03): before the check, counted only once it verified.
+ */
+describe("readBeforeCheck: a first-byte read leaves before the JWT check", () => {
+  type EarlyClient = Parameters<Parameters<typeof readBeforeCheck>[0]>[0];
+  // The mock client answers `RpcAnswer` (above), not the generated builder type.
+  const ownDay = (supabase: EarlyClient) =>
+    supabase.rpc("attendance_own_today") as unknown as Promise<RpcAnswer>;
+
+  it("sends the read before the check settles, with the cookie's token, and keeps its answer", async () => {
+    const token = tokenFor("m-1");
+    signIn(token);
+    let verify: (value: unknown) => void = () => undefined;
+    getClaims.mockReturnValue(new Promise((resolve) => (verify = resolve)));
+
+    const answer = readBeforeCheck(ownDay);
+    await settle();
+    expect(reads).toEqual([{ client: "token", table: "attendance_own_today", id: null }]);
+    expect(tokens).toEqual([token]);
+
+    verify({ data: { claims: { sub: "m-1" } }, error: null });
+    await expect(answer).resolves.toMatchObject({ data: "early" });
+    expect(reads).toHaveLength(1);
+  });
+
+  it("asks again the usual way when PostgREST refused the token (401)", async () => {
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    rpcAnswers.token = async () => ({ data: null, error: { message: "JWT expired" }, status: 401 });
+    await expect(readBeforeCheck(ownDay)).resolves.toMatchObject({ data: "usual" });
+    expect(reads.map((read) => read.client)).toEqual(["token", "session"]);
+  });
+
+  it("asks again the usual way when the token claims someone the check did not verify", async () => {
+    signIn(tokenFor("someone-else"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    await expect(readBeforeCheck(ownDay)).resolves.toMatchObject({ data: "usual" });
+    expect(reads.map((read) => read.client)).toEqual(["token", "session"]);
+  });
+
+  it("never counts the early answer for a session that does not verify", async () => {
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: null, error: null });
+    await expect(readBeforeCheck(ownDay)).resolves.toMatchObject({ data: "usual" });
+    expect(reads.map((read) => read.client)).toEqual(["token", "session"]);
+  });
+
+  it("keeps any other answer, its error included, without asking twice", async () => {
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    rpcAnswers.token = async () => ({ data: null, error: { message: "no day" }, status: 400 });
+    await expect(readBeforeCheck(ownDay)).resolves.toMatchObject({ error: { message: "no day" } });
+    expect(reads).toHaveLength(1);
+  });
+
+  it("makes no early read without a session cookie", async () => {
+    getClaims.mockResolvedValue({ data: null, error: null });
+    await expect(readBeforeCheck(ownDay)).resolves.toMatchObject({ data: "usual" });
+    expect(reads.map((read) => read.client)).toEqual(["session"]);
   });
 });

@@ -25,6 +25,7 @@ import {
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError, toastResult } from "@/core/ui/toast";
 
+import { decideEarlyLeave } from "../actions/hours";
 import { correctDay } from "../actions/review";
 import { compLeaveOption, DAY_STATUSES, type DayStatus, STATUS_LABELS } from "../domain/choices";
 import { historyDate } from "../domain/history";
@@ -45,6 +46,11 @@ export type CorrectTarget = {
    * (Approvals): comp leave draws a credit (3c review), so with none the option is greyed out.
    */
   compDays: number | null;
+  /**
+   * A day left early without an answer (v1.9 W4): the correction goes through
+   * `early_leave_decide(correct)`, which corrects the day beside the original and closes the request.
+   */
+  earlyLeaveId?: string;
 };
 
 /**
@@ -99,7 +105,14 @@ function CorrectForm({
   const action = useAction(
     async () => {
       // An empty choice goes to the schema, which answers with the field's own message.
-      const result = await correctDay({ dayId: target.dayId, status: status as DayStatus, reason });
+      const result = target.earlyLeaveId
+        ? await decideEarlyLeave({
+            requestId: target.earlyLeaveId,
+            decision: "correct",
+            status: status as DayStatus,
+            reason,
+          })
+        : await correctDay({ dayId: target.dayId, status: status as DayStatus, reason });
       if (result.ok) {
         toastResult(result, {
           success: `${name}'s day is now ${status ? STATUS_LABELS[status].toLowerCase() : "corrected"}`,

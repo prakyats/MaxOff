@@ -232,11 +232,16 @@ export type OpenTask = {
   primaryOwnerId: string;
   /** Active assignees. */
   assigneeIds: readonly string[];
+  /** On hold since (v1.9 W8): its clock is stopped, so never overdue. */
+  heldAt?: string | null;
 };
 
 const FINAL = ["completed", "cancelled"];
 
-/** **Overdue now**: open tasks past their deadline, by the primary owner's engagement. */
+/**
+ * **Overdue now**: open tasks past their deadline, by the primary owner's engagement; never a held
+ * one (v1.9 W8).
+ */
 export function overdueNow(
   open: readonly OpenTask[],
   now: Date,
@@ -244,7 +249,7 @@ export function overdueNow(
 ): Split<number> {
   const result = split(() => 0);
   for (const task of open) {
-    if (!FINAL.includes(task.state) && Date.parse(task.dueAt) < now.getTime()) {
+    if (!FINAL.includes(task.state) && !task.heldAt && Date.parse(task.dueAt) < now.getTime()) {
       result[engagementOf(task.primaryOwnerId)] += 1;
     }
   }
@@ -269,7 +274,7 @@ export function loadThisWeek(
   const rows = new Map<string, LoadRow>();
   for (const task of open) {
     if (FINAL.includes(task.state) || toISTDate(task.dueAt) > weekEnd) continue;
-    const overdue = Date.parse(task.dueAt) < now.getTime();
+    const overdue = !task.heldAt && Date.parse(task.dueAt) < now.getTime();
     for (const memberId of task.assigneeIds) {
       const row = rows.get(memberId) ?? { memberId, open: 0, overdue: 0 };
       row.open += 1;

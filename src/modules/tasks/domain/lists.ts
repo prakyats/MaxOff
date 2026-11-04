@@ -25,6 +25,10 @@ export type TaskListRow = {
   createdBy: string;
   submittedAt: string | null;
   createdAt: string;
+  /** On hold since (v1.9 W7; null or absent: not held). A held task is never overdue. */
+  heldAt?: string | null;
+  /** Why it is on hold, shown on the row (v1.9 W7). */
+  holdReason?: string | null;
   assignees: Pick<
     TaskAssignee,
     "memberId" | "isPrimary" | "assignedAt" | "acknowledgedAt" | "removedAt"
@@ -108,6 +112,8 @@ export function myGroupOf(
   today: ISODate,
 ): MyGroup | null {
   if (isFinal(row.state) || !isOwnWork(part)) return null;
+  // v1.9 W8: a held task leaves "My tasks" and My Day's lists; the "On hold · n" line opens it.
+  if (row.heldAt) return null;
   if (part.notNoted.length > 0) return "not_noted";
   if (row.state === "changes_requested") return "changes_requested";
   if (REVIEW_STATES.includes(row.state)) return "with_reviewers";
@@ -136,7 +142,8 @@ export function myTaskGroups(
 /** The Tasks badge's own arithmetic (decision 16), for the tests to hold it against the SQL. */
 export function badgeCount(rows: readonly TaskListRow[], viewer: ListViewer): number {
   return rows.filter((row) => {
-    if (isFinal(row.state)) return false;
+    // v1.9 W7: a held task leaves the badge (task_counts() too).
+    if (isFinal(row.state) || row.heldAt) return false;
     const part = ownPart(row, viewer);
     return part.notNoted.length > 0 || (isOwnWork(part) && row.state === "changes_requested");
   }).length;
@@ -188,7 +195,8 @@ export function needsYou(
     viewer.role === "owner" ? escalation.ackEscalateOwnerHours : escalation.ackEscalateHours;
   const items: NeedsYouItem[] = [];
   for (const row of byDeadline(rows)) {
-    if (isFinal(row.state)) continue;
+    // v1.9 W7: a held task leaves Needs you (its clocks stopped; the On hold line opens it).
+    if (isFinal(row.state) || row.heldAt) continue;
     const part = ownPart(row, viewer);
     if (part.notNoted.length > 0) {
       items.push({ row, reason: "your_note", waitingOn: [], part });
@@ -250,12 +258,29 @@ export function needsYouSummary(input: {
   return { approvalsLink, count: input.needs.length + linkRows + (input.otherRows ?? 0) };
 }
 
-/** The open tasks by deadline, without the ones "Needs you" already shows. */
+/**
+ * The open tasks by deadline, without the ones "Needs you" already shows and without the held ones
+ * (v1.9 W8: they are counted on the "On hold · n" line, `heldOpen`).
+ */
 export function openByDeadline(
   rows: readonly TaskListRow[],
   shown: ReadonlySet<string>,
 ): TaskListRow[] {
-  return byDeadline(rows).filter((row) => !isFinal(row.state) && !shown.has(row.id));
+  return byDeadline(rows).filter((row) => !isFinal(row.state) && !row.heldAt && !shown.has(row.id));
+}
+
+/**
+ * The held tasks a list leaves out (v1.9 W8): for the "On hold · n" line, the viewer's own work
+ * only when `own` (Crew's "My tasks"), every held task they see otherwise.
+ */
+export function heldOpen(
+  rows: readonly TaskListRow[],
+  own: ListViewer | null = null,
+): TaskListRow[] {
+  return rows.filter(
+    (row) =>
+      !isFinal(row.state) && Boolean(row.heldAt) && (own === null || isOwnWork(ownPart(row, own))),
+  );
 }
 
 export function byDeadline(rows: readonly TaskListRow[]): TaskListRow[] {

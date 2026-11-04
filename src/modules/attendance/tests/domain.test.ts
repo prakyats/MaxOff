@@ -277,7 +277,17 @@ describe("schemas", () => {
   it("offers Leave and Half day at the prompt, never Present or comp leave (decision 16)", () => {
     expect(PROMPT_LEAVE_CHOICES).toEqual(["leave", "half_day"]);
     expect(chooseLeaveTodaySchema.safeParse({ choice: "leave" }).success).toBe(true);
-    expect(chooseLeaveTodaySchema.parse({ choice: "half_day", reason: "  " }).reason).toBeNull();
+    expect(
+      chooseLeaveTodaySchema.parse({ choice: "half_day", reason: "  ", half: "morning" }).reason,
+    ).toBeNull();
+    // v1.9 W4: a half day says which half; only a half day does.
+    expect(chooseLeaveTodaySchema.safeParse({ choice: "half_day" }).success).toBe(false);
+    expect(chooseLeaveTodaySchema.parse({ choice: "half_day", half: "afternoon" }).half).toBe(
+      "afternoon",
+    );
+    expect(chooseLeaveTodaySchema.safeParse({ choice: "leave", half: "morning" }).success).toBe(
+      false,
+    );
     for (const choice of ["", "present", "comp_leave", "absent"]) {
       expect(chooseLeaveTodaySchema.safeParse({ choice }).success, choice).toBe(false);
     }

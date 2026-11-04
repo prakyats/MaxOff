@@ -96,12 +96,14 @@ export async function rpcSubmitComp(input: {
   date: string;
   halfDay: boolean;
   reason: string | null;
+  half?: "morning" | "afternoon" | null;
 }): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("leave_submit_comp", {
     start_date: input.date,
     half_day: input.halfDay,
     ...(input.reason ? { reason: input.reason } : {}),
+    ...(input.halfDay && input.half ? { half: input.half } : {}),
   });
   if (error) throw error;
 }
@@ -111,6 +113,7 @@ export async function rpcSubmit(input: {
   startDate: string;
   endDate: string;
   reason: string | null;
+  half?: "morning" | "afternoon" | null;
 }): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("leave_submit", {
@@ -118,6 +121,8 @@ export async function rpcSubmit(input: {
     start_date: input.startDate,
     end_date: input.endDate,
     ...(input.reason ? { reason: input.reason } : {}),
+    // v1.9 W4: which half of a half day (WORKFLOWS §1).
+    ...(input.type === "half_day" && input.half ? { half: input.half } : {}),
   });
   if (error) throw error;
 }

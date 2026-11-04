@@ -78,6 +78,68 @@ export type Database = {
           },
         ];
       };
+      approval_reminder_sends: {
+        Row: {
+          created_at: string;
+          id: string;
+          notified: boolean;
+          org_id: string;
+          recipient_id: string;
+          slot: string;
+          slot_at: string;
+          task_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          notified: boolean;
+          org_id: string;
+          recipient_id: string;
+          slot: string;
+          slot_at: string;
+          task_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          notified?: boolean;
+          org_id?: string;
+          recipient_id?: string;
+          slot?: string;
+          slot_at?: string;
+          task_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "approval_reminder_sends_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_reminder_sends_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_reminder_sends_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_reminder_sends_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       attendance_days: {
         Row: {
           created_at: string;
@@ -89,6 +151,8 @@ export type Database = {
           final_status: Database["public"]["Enums"]["day_status"] | null;
           id: string;
           is_day_off: boolean;
+          late_minutes: number | null;
+          late_reason: string | null;
           leave_request_id: string | null;
           member_id: string;
           overtime_flag: boolean;
@@ -96,6 +160,8 @@ export type Database = {
           proposed_by_system: boolean;
           started_at: string | null;
           state: Database["public"]["Enums"]["attendance_state"];
+          stay_until: string | null;
+          stay_until_by: string | null;
           submitted_at: string | null;
           submitted_choice: Database["public"]["Enums"]["attendance_choice"] | null;
           updated_at: string;
@@ -112,6 +178,8 @@ export type Database = {
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           id?: string;
           is_day_off?: boolean;
+          late_minutes?: number | null;
+          late_reason?: string | null;
           leave_request_id?: string | null;
           member_id: string;
           overtime_flag?: boolean;
@@ -119,6 +187,8 @@ export type Database = {
           proposed_by_system?: boolean;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
+          stay_until?: string | null;
+          stay_until_by?: string | null;
           submitted_at?: string | null;
           submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
           updated_at?: string;
@@ -135,6 +205,8 @@ export type Database = {
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           id?: string;
           is_day_off?: boolean;
+          late_minutes?: number | null;
+          late_reason?: string | null;
           leave_request_id?: string | null;
           member_id?: string;
           overtime_flag?: boolean;
@@ -142,6 +214,8 @@ export type Database = {
           proposed_by_system?: boolean;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
+          stay_until?: string | null;
+          stay_until_by?: string | null;
           submitted_at?: string | null;
           submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
           updated_at?: string;
@@ -180,6 +254,20 @@ export type Database = {
           {
             foreignKeyName: "attendance_days_member_id_fkey";
             columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_stay_until_by_fkey";
+            columns: ["stay_until_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_stay_until_by_fkey";
+            columns: ["stay_until_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -924,6 +1012,103 @@ export type Database = {
           },
         ];
       };
+      early_leave_requests: {
+        Row: {
+          created_at: string;
+          day_id: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          end_at: string;
+          id: string;
+          left_at: string | null;
+          member_id: string;
+          org_id: string;
+          reason: string;
+          requested_at: string;
+          state: string;
+          stay_reminded_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          day_id: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          end_at: string;
+          id?: string;
+          left_at?: string | null;
+          member_id: string;
+          org_id: string;
+          reason: string;
+          requested_at?: string;
+          state?: string;
+          stay_reminded_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          day_id?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          end_at?: string;
+          id?: string;
+          left_at?: string | null;
+          member_id?: string;
+          org_id?: string;
+          reason?: string;
+          requested_at?: string;
+          state?: string;
+          stay_reminded_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "early_leave_requests_day_id_fkey";
+            columns: ["day_id"];
+            isOneToOne: false;
+            referencedRelation: "attendance_days";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       eod_reports: {
         Row: {
           created_at: string;
@@ -1415,6 +1600,7 @@ export type Database = {
           decided_by: string | null;
           decision_reason: string | null;
           end_date: string;
+          half: string | null;
           id: string;
           member_id: string;
           reason: string | null;
@@ -1433,6 +1619,7 @@ export type Database = {
           decided_by?: string | null;
           decision_reason?: string | null;
           end_date: string;
+          half?: string | null;
           id?: string;
           member_id: string;
           reason?: string | null;
@@ -1451,6 +1638,7 @@ export type Database = {
           decided_by?: string | null;
           decision_reason?: string | null;
           end_date?: string;
+          half?: string | null;
           id?: string;
           member_id?: string;
           reason?: string | null;
@@ -1934,6 +2122,7 @@ export type Database = {
           id: string;
           kind: string;
           link: string | null;
+          no_email: boolean;
           org_id: string;
           payload: Json;
           read_at: string | null;
@@ -1950,6 +2139,7 @@ export type Database = {
           id?: string;
           kind: string;
           link?: string | null;
+          no_email?: boolean;
           org_id: string;
           payload?: Json;
           read_at?: string | null;
@@ -1966,6 +2156,7 @@ export type Database = {
           id?: string;
           kind?: string;
           link?: string | null;
+          no_email?: boolean;
           org_id?: string;
           payload?: Json;
           read_at?: string | null;
@@ -2022,14 +2213,19 @@ export type Database = {
           ack_escalate_hours: number;
           ack_escalate_owner_hours: number;
           ack_repeat_hours: number;
+          approval_reminder_daily_time: string;
+          approval_reminder_high_times: string[];
+          approval_reminder_urgent_minutes: number;
           created_at: string;
           cycle_decide_escalate_days: number;
           default_task_reminders: Json;
+          early_leave_wait_minutes: number;
           email_daily_cap_org: number;
           email_daily_cap_per_member: number;
           end_day_cutoff_time: string;
           expense_receipt_above: number;
           item_overdue_escalate_hours: number;
+          late_grace_minutes: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
@@ -2039,20 +2235,28 @@ export type Database = {
           updated_at: string;
           weekly_digest_day: number;
           weekly_off_days: number[];
+          work_end_time: string;
+          work_start_time: string;
+          working_hours_on: boolean;
           workload_warning_threshold: number | null;
         };
         Insert: {
           ack_escalate_hours?: number;
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
+          approval_reminder_daily_time?: string;
+          approval_reminder_high_times?: string[];
+          approval_reminder_urgent_minutes?: number;
           created_at?: string;
           cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
+          early_leave_wait_minutes?: number;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           item_overdue_escalate_hours?: number;
+          late_grace_minutes?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
@@ -2062,20 +2266,28 @@ export type Database = {
           updated_at?: string;
           weekly_digest_day?: number;
           weekly_off_days?: number[];
+          work_end_time?: string;
+          work_start_time?: string;
+          working_hours_on?: boolean;
           workload_warning_threshold?: number | null;
         };
         Update: {
           ack_escalate_hours?: number;
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
+          approval_reminder_daily_time?: string;
+          approval_reminder_high_times?: string[];
+          approval_reminder_urgent_minutes?: number;
           created_at?: string;
           cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
+          early_leave_wait_minutes?: number;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           item_overdue_escalate_hours?: number;
+          late_grace_minutes?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
@@ -2085,6 +2297,9 @@ export type Database = {
           updated_at?: string;
           weekly_digest_day?: number;
           weekly_off_days?: number[];
+          work_end_time?: string;
+          work_start_time?: string;
+          working_hours_on?: boolean;
           workload_warning_threshold?: number | null;
         };
         Relationships: [
@@ -2450,6 +2665,7 @@ export type Database = {
           carry_decided_at: string | null;
           carry_decided_by: string | null;
           carry_decision: Database["public"]["Enums"]["carry_decision"] | null;
+          close_kind: string | null;
           created_at: string;
           created_by: string | null;
           custom_fields: Json;
@@ -2480,6 +2696,7 @@ export type Database = {
           carry_decided_at?: string | null;
           carry_decided_by?: string | null;
           carry_decision?: Database["public"]["Enums"]["carry_decision"] | null;
+          close_kind?: string | null;
           created_at?: string;
           created_by?: string | null;
           custom_fields?: Json;
@@ -2510,6 +2727,7 @@ export type Database = {
           carry_decided_at?: string | null;
           carry_decided_by?: string | null;
           carry_decision?: Database["public"]["Enums"]["carry_decision"] | null;
+          close_kind?: string | null;
           created_at?: string;
           created_by?: string | null;
           custom_fields?: Json;
@@ -2800,10 +3018,14 @@ export type Database = {
           delivery_armed_at: string | null;
           delivery_date: string | null;
           description: string | null;
+          held_at: string | null;
+          held_by: string | null;
+          hold_reason: string | null;
           id: string;
           name: string;
           org_id: string;
           recurrence: Database["public"]["Enums"]["recurrence"];
+          resumed_at: string | null;
           search: unknown;
           state: Database["public"]["Enums"]["project_state"];
           template_id: string | null;
@@ -2823,10 +3045,14 @@ export type Database = {
           delivery_armed_at?: string | null;
           delivery_date?: string | null;
           description?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           name: string;
           org_id: string;
           recurrence: Database["public"]["Enums"]["recurrence"];
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["project_state"];
           template_id?: string | null;
@@ -2846,10 +3072,14 @@ export type Database = {
           delivery_armed_at?: string | null;
           delivery_date?: string | null;
           description?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           name?: string;
           org_id?: string;
           recurrence?: Database["public"]["Enums"]["recurrence"];
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["project_state"];
           template_id?: string | null;
@@ -2908,6 +3138,20 @@ export type Database = {
           {
             foreignKeyName: "projects_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_held_by_fkey";
+            columns: ["held_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_held_by_fkey";
+            columns: ["held_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -3969,6 +4213,9 @@ export type Database = {
           event_date: string | null;
           event_end_at: string | null;
           event_start_at: string | null;
+          held_at: string | null;
+          held_by: string | null;
+          hold_reason: string | null;
           id: string;
           late_reason: string | null;
           location: string | null;
@@ -3977,6 +4224,7 @@ export type Database = {
           priority: Database["public"]["Enums"]["priority"];
           purpose: string | null;
           reminder_rules: Json;
+          resumed_at: string | null;
           search: unknown;
           state: Database["public"]["Enums"]["task_state"];
           submitted_at: string | null;
@@ -4004,6 +4252,9 @@ export type Database = {
           event_date?: string | null;
           event_end_at?: string | null;
           event_start_at?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           late_reason?: string | null;
           location?: string | null;
@@ -4012,6 +4263,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["priority"];
           purpose?: string | null;
           reminder_rules?: Json;
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["task_state"];
           submitted_at?: string | null;
@@ -4039,6 +4291,9 @@ export type Database = {
           event_date?: string | null;
           event_end_at?: string | null;
           event_start_at?: string | null;
+          held_at?: string | null;
+          held_by?: string | null;
+          hold_reason?: string | null;
           id?: string;
           late_reason?: string | null;
           location?: string | null;
@@ -4047,6 +4302,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["priority"];
           purpose?: string | null;
           reminder_rules?: Json;
+          resumed_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["task_state"];
           submitted_at?: string | null;
@@ -4096,6 +4352,20 @@ export type Database = {
           {
             foreignKeyName: "tasks_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_held_by_fkey";
+            columns: ["held_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_held_by_fkey";
+            columns: ["held_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -4365,9 +4635,11 @@ export type Database = {
         Args: { is_standalone: boolean; platform: string };
         Returns: boolean;
       };
+      attendance_ask_leave_early: { Args: { reason: string }; Returns: string };
       attendance_choose_leave_today: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
+          half?: string;
           reason?: string;
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
@@ -4418,6 +4690,52 @@ export type Database = {
         Args: { reason?: string };
         Returns: string;
       };
+      attendance_hours_today: {
+        Args: never;
+        Returns: {
+          early_leave_id: string;
+          early_leave_reason: string;
+          early_leave_requested_at: string;
+          early_leave_state: string;
+          end_at: string;
+          end_source: string;
+          ended_after_end: boolean;
+          ended_at: string;
+          full_name: string;
+          late_minutes: number;
+          late_reason: string;
+          left_early: boolean;
+          member_id: string;
+          rules_on: boolean;
+          started_at: string;
+          stay_until: string;
+        }[];
+      };
+      attendance_late_reason: { Args: { reason: string }; Returns: string };
+      attendance_own_hours: {
+        Args: never;
+        Returns: {
+          can_end_now: boolean;
+          early_applies: boolean;
+          early_leave_end_from: string;
+          early_leave_id: string;
+          early_leave_reason: string;
+          early_leave_requested_at: string;
+          early_leave_state: string;
+          end_at: string;
+          end_source: string;
+          half: string;
+          late_after: string;
+          late_applies: boolean;
+          late_minutes: number;
+          late_reason: string;
+          late_reason_suggestion: string;
+          rules_on: boolean;
+          start_at: string;
+          stay_until: string;
+          work_date: string;
+        }[];
+      };
       attendance_own_today: {
         Args: never;
         Returns: {
@@ -4445,10 +4763,15 @@ export type Database = {
         }[];
       };
       attendance_start_day: { Args: never; Returns: string };
+      attendance_stay_until: {
+        Args: { member_id: string; until: string };
+        Returns: string;
+      };
       attendance_submit: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
           for_date?: string;
+          half?: string;
           reason?: string;
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
@@ -4520,6 +4843,17 @@ export type Database = {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
       };
+      client_work_on_hold: {
+        Args: { from_date?: string; to_date?: string };
+        Returns: {
+          client_id: string;
+          deliverables: number;
+          held_at: string;
+          held_by: string;
+          hold_reason: string;
+          project_id: string;
+        }[];
+      };
       client_work_summary: {
         Args: { on_date?: string };
         Returns: {
@@ -4560,6 +4894,7 @@ export type Database = {
       };
       cycle_carry_decide: {
         Args: {
+          close_kind?: string;
           decision: Database["public"]["Enums"]["carry_decision"];
           item_ids: string[];
           reason?: string;
@@ -4591,6 +4926,15 @@ export type Database = {
       };
       digest_daily: { Args: { p_now?: string }; Returns: number };
       digest_weekly: { Args: { p_now?: string }; Returns: number };
+      early_leave_decide: {
+        Args: {
+          decision: string;
+          reason?: string;
+          request_id: string;
+          status?: Database["public"]["Enums"]["day_status"];
+        };
+        Returns: string;
+      };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
@@ -4759,7 +5103,7 @@ export type Database = {
       item_add_revision_round: { Args: { item_id: string }; Returns: string };
       item_approve: { Args: { item_ids: string[] }; Returns: Json };
       item_cancel: {
-        Args: { item_id: string; reason: string };
+        Args: { close_kind?: string; item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
       };
       item_last_changes: {
@@ -4790,6 +5134,10 @@ export type Database = {
       item_save_as_template: {
         Args: { item_id: string; name: string };
         Returns: string;
+      };
+      item_set_close_kind: {
+        Args: { close_kind: string; item_id: string };
+        Returns: boolean;
       };
       item_stage_add:
         | { Args: { item_id: string; name: string }; Returns: string }
@@ -4893,6 +5241,7 @@ export type Database = {
       leave_submit: {
         Args: {
           end_date: string;
+          half?: string;
           reason?: string;
           start_date: string;
           type: Database["public"]["Enums"]["leave_type"];
@@ -4900,7 +5249,12 @@ export type Database = {
         Returns: string;
       };
       leave_submit_comp: {
-        Args: { half_day?: boolean; reason?: string; start_date: string };
+        Args: {
+          half?: string;
+          half_day?: boolean;
+          reason?: string;
+          start_date: string;
+        };
         Returns: string;
       };
       leave_withdraw: {
@@ -4989,6 +5343,19 @@ export type Database = {
           working_days: number;
         }[];
       };
+      month_summary_hours: {
+        Args: { member_id?: string; month: string };
+        Returns: {
+          early_leaves: number;
+          early_leaves_approved: number;
+          half_days_afternoon: number;
+          half_days_morning: number;
+          id: string;
+          late_days: number;
+          late_minutes: number;
+          left_unanswered: number;
+        }[];
+      };
       notifications_inbox: {
         Args: { p_limit: number; p_offset: number; p_unread_only: boolean };
         Returns: {
@@ -5065,6 +5432,10 @@ export type Database = {
         Args: { project_id: string; title: string };
         Returns: string;
       };
+      project_blueprint_add_to_cycle: {
+        Args: { cycle_id: string; project_id: string; title: string };
+        Returns: Json;
+      };
       project_blueprint_archive: {
         Args: { blueprint_id: string };
         Returns: undefined;
@@ -5109,9 +5480,33 @@ export type Database = {
         };
         Returns: string;
       };
+      project_hold: {
+        Args: { project_id: string; reason: string };
+        Returns: string;
+      };
       project_reopen: {
         Args: { project_id: string; reason: string };
         Returns: Database["public"]["Enums"]["project_state"];
+      };
+      project_resume: {
+        Args: { items?: Json; new_delivery_date?: string; project_id: string };
+        Returns: Json;
+      };
+      project_resume_list: {
+        Args: { project_id: string };
+        Returns: {
+          carry_forward_allowed: boolean;
+          cycle_id: string;
+          cycle_label: string;
+          item_id: string;
+          left_pending: boolean;
+          month_ended: boolean;
+          needs_choice: boolean;
+          needs_date: boolean;
+          period_end: string;
+          planned_date: string;
+          title: string;
+        }[];
       };
       project_save_as_template: {
         Args: { name: string; project_id: string };
@@ -5246,6 +5641,7 @@ export type Database = {
           not_noted: number;
           pending_claims: number;
           pending_days: number;
+          pending_early_leaves: number;
           pending_notes: number;
           pending_requests: number;
           to_decide: number;
@@ -5301,6 +5697,7 @@ export type Database = {
         };
         Returns: string;
       };
+      task_hold: { Args: { reason: string; task_id: string }; Returns: string };
       task_mark_read: {
         Args: { task_id: string; up_to?: string };
         Returns: string;
@@ -5346,6 +5743,10 @@ export type Database = {
       task_request_withdraw: {
         Args: { request_id: string };
         Returns: Database["public"]["Enums"]["request_state"];
+      };
+      task_resume: {
+        Args: { new_due_at?: string; task_id: string };
+        Returns: string;
       };
       task_review: {
         Args: {

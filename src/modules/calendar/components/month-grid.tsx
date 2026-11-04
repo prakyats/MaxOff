@@ -124,14 +124,12 @@ function StripLine({
         )}
       >
         <ItemIcon className="mr-0.5 size-2.5" />
-        {/* An inline block cut on its own, so a long client never reaches past the box: narrower
-            than the line by the icon and the box's own "…" (an atomic block reaching into the
-            ellipsis's room would be hidden whole, leaving "…" alone on a phone). */}
-        <span className="inline-block max-w-[calc(100%-1.5rem)] truncate align-top font-semibold">
-          {strip.client}
-        </span>{" "}
-        · {strip.title}
+        {/* One text flow cut once, at the line's end (v1.9 W10: one ellipsis at most, never "Ya… …";
+            the day's popup shows it whole): the client is plain inline text, never a block cut on
+            its own. */}
+        <span className="font-semibold">{strip.client}</span> · {strip.title}
         {strip.late ? " · late" : ""}
+        {strip.held ? " · On hold" : ""}
       </span>
     );
   }
@@ -143,6 +141,7 @@ function StripLine({
         data-slot="calendar-strip"
         data-kind="due"
         data-tone={strip.tone}
+        data-held={strip.held ? "" : undefined}
         className={cn(
           "block rounded-sm px-1 font-medium",
           LINE[density],
@@ -153,6 +152,7 @@ function StripLine({
         {strip.color ? <TypeDot color={strip.color} className="mr-1" /> : null}
         {strip.tone === "overdue" ? <DueIcon tone="overdue" className="mr-0.5 size-2.5" /> : null}
         {strip.label}
+        {strip.held ? " · On hold" : ""}
       </span>
     );
   }

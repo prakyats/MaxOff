@@ -209,6 +209,15 @@ jobs:
         run: |
           pnpm test:e2e --project=push-cron --no-deps --reporter=github,blob
           mv blob-report-push-cron/*.zip blob-report/report-push-cron.zip
+      # v1.9 W4: the working hours switch the whole organisation's rules on, so alone, at the end,
+      # one test at a time at each width (playwright.config.ts WORKING_HOURS_SPECS).
+      - name: Working hours (working-hours at 1280, 375 and 430), alone, after push-cron
+        if: matrix.shard == 4
+        env:
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-working-hours
+        run: |
+          pnpm test:e2e --project=working-hours --project=working-hours-375 --project=working-hours-430 --no-deps --workers=1 --reporter=github,blob
+          mv blob-report-working-hours/*.zip blob-report/report-working-hours.zip
       - if: always()
         run: pnpm supabase stop --no-backup
       - if: always()

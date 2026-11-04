@@ -19,7 +19,7 @@ import { itemsDescription } from "./copy";
 
 export const metadata: Metadata = { title: "Client deliverables" };
 
-const FILTERS: readonly ItemListFilter[] = ["live", "overdue"];
+const FILTERS: readonly ItemListFilter[] = ["live", "overdue", "on_hold"];
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;

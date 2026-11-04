@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { ListRow, ListRowSkeleton } from "@/core/ui/composites/list-row";
 import { type AvatarPerson, PersonAvatar } from "@/core/ui/composites/person-avatar";
-import { type StatusTone, StatusBadge } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, type StatusTone, StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { UnreadMarker } from "./unread-marker";
@@ -28,6 +28,7 @@ export function TaskRow({
   note,
   unread = 0,
   person,
+  onHold = false,
 }: {
   id: string;
   title: string;
@@ -45,6 +46,8 @@ export function TaskRow({
   unread?: number;
   /** The primary owner, from the directory the page already read: their photo leads (#89). */
   person?: AvatarPerson | undefined;
+  /** On hold (v1.9 W8): the amber "On hold" chip stands for the state, and no flag shows. */
+  onHold?: boolean;
 }) {
   return (
     <ListRow
@@ -68,8 +71,14 @@ export function TaskRow({
       note={note ? <span data-slot="task-row-note">{note}</span> : undefined}
       chips={
         <>
-          {flag ? <StatusBadge status={flag.label} tone={flag.tone} label={flag.label} /> : null}
-          <StatusBadge status={status} label={statusLabel} {...(tone ? { tone } : {})} />
+          {flag && !onHold ? (
+            <StatusBadge status={flag.label} tone={flag.tone} label={flag.label} />
+          ) : null}
+          {onHold ? (
+            <OnHoldBadge />
+          ) : (
+            <StatusBadge status={status} label={statusLabel} {...(tone ? { tone } : {})} />
+          )}
         </>
       }
     />

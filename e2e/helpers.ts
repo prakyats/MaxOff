@@ -379,6 +379,8 @@ export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
   }
   await serviceRest(`comp_leave_credits?member_id=eq.${memberId}`, { method: "DELETE" });
   await serviceRest(`extra_work_notes?member_id=eq.${memberId}`, { method: "DELETE" });
+  // v1.9 W4: early-leave requests point at the person's days.
+  await serviceRest(`early_leave_requests?member_id=eq.${memberId}`, { method: "DELETE" });
   const days = await serviceSelect<{ id: string }>(
     `attendance_days?member_id=eq.${memberId}&select=id`,
   );

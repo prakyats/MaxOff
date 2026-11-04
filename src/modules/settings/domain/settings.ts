@@ -59,6 +59,23 @@ export type Thresholds = {
   itemOverdueEscalateHours: number;
   /** Kickoff 7 amendment C E5: an undecided ended cycle reaches the Owner after this (days). */
   cycleDecideEscalateDays: number;
+  /**
+   * v1.9 working hours (W0, W4; WORKFLOWS §1): the rules' switch (on since the v1.9 release), the
+   * day's start and end (IST, `HH:MM`), the Late grace and how long an unanswered early-leave
+   * request waits (minutes).
+   */
+  workingHoursOn: boolean;
+  workStartTime: string;
+  workEndTime: string;
+  lateGraceMinutes: number;
+  earlyLeaveWaitMinutes: number;
+  /**
+   * v1.9 W3 approval reminders (WORKFLOWS §8): urgent tasks every N minutes within the working
+   * hours, high-priority ones at these times (`HH:MM`), medium and low once at the daily time.
+   */
+  approvalReminderUrgentMinutes: number;
+  approvalReminderHighTimes: string[];
+  approvalReminderDailyTime: string;
 };
 
 /** Kickoff 4 decision 11: four open tasks due the same IST day. */
@@ -94,6 +111,16 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     weeklyDigestDay: isWeekdayIndex(row.weekly_digest_day) ? row.weekly_digest_day : 1,
     itemOverdueEscalateHours: row.item_overdue_escalate_hours,
     cycleDecideEscalateDays: row.cycle_decide_escalate_days,
+    workingHoursOn: row.working_hours_on,
+    workStartTime: row.work_start_time.slice(0, 5),
+    workEndTime: row.work_end_time.slice(0, 5),
+    lateGraceMinutes: row.late_grace_minutes,
+    earlyLeaveWaitMinutes: row.early_leave_wait_minutes,
+    approvalReminderUrgentMinutes: row.approval_reminder_urgent_minutes,
+    approvalReminderHighTimes: [...row.approval_reminder_high_times]
+      .map((time) => time.slice(0, 5))
+      .sort(),
+    approvalReminderDailyTime: row.approval_reminder_daily_time.slice(0, 5),
   };
 }
 
@@ -162,9 +189,27 @@ export function canRemoveHoliday(holiday: Holiday, today: ISODate): boolean {
 }
 
 /** The Thresholds page's groups (6b.6, v1.8 V4), in order. */
-export type ThresholdGroupKey = "working-day" | "tasks" | "client-work" | "notifications";
+export type ThresholdGroupKey =
+  "working-day" | "approvals" | "tasks" | "client-work" | "notifications";
 
 const hours = (n: number) => `${n} h`;
+
+/** "hour", "2 hours", "30 min": how often the urgent reminder repeats. */
+function minutesSummary(minutes: number): string {
+  if (minutes === 60) return "hour";
+  if (minutes % 60 === 0) return `${minutes / 60} hours`;
+  return `${minutes} min`;
+}
+
+/** "Started at 10:16 counts as late": the Late grace in the time it means (v1.9, sample §7). */
+export function lateExample(startTime: string, graceMinutes: number): string | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(startTime);
+  if (!match) return null;
+  const total = Number(match[1]) * 60 + Number(match[2]) + graceMinutes + 1;
+  if (total >= 24 * 60) return null;
+  const time = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  return `Started at ${formatWallTime(time)} counts as late`;
+}
 
 /**
  * Each Thresholds group's one-line summary of its saved values (6b.6: first glance, then depth),
@@ -174,7 +219,8 @@ const hours = (n: number) => `${n} h`;
  */
 export function thresholdGroupSummaries(t: Thresholds): Record<ThresholdGroupKey, string> {
   return {
-    "working-day": `End-of-day reminder ${formatWallTime(t.logoutReminderTime)} · late End day until ${formatWallTime(t.endDayCutoffTime)}`,
+    "working-day": `${t.workingHoursOn ? `${formatWallTime(t.workStartTime)} – ${formatWallTime(t.workEndTime)} · late after ${t.lateGraceMinutes} min` : "Working hours off"} · end-of-day reminder ${formatWallTime(t.logoutReminderTime)}`,
+    approvals: `Urgent every ${minutesSummary(t.approvalReminderUrgentMinutes)} · high at ${t.approvalReminderHighTimes.map(formatWallTime).join(", ")} · medium and low at ${formatWallTime(t.approvalReminderDailyTime)}`,
     tasks: `Not noted: remind every ${hours(t.ackRepeatHours)} → Admin at ${hours(t.ackEscalateHours)} → Owner at ${hours(t.ackEscalateOwnerHours)} · overdue → ${hours(t.overdueEscalateHours)} · warn at ${t.workloadWarningThreshold} tasks a day`,
     "client-work": `Overdue deliverable → you after ${hours(t.itemOverdueEscalateHours)} · undecided period → you after ${t.cycleDecideEscalateDays} ${t.cycleDecideEscalateDays === 1 ? "day" : "days"}`,
     notifications: `Quiet ${formatWallTime(t.quietHoursStart)} – ${formatWallTime(t.quietHoursEnd)} · up to ${t.emailDailyCapPerMember} emails a day · weekly summary on ${WEEKDAY_NAMES[t.weeklyDigestDay].long}`,

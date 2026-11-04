@@ -47,6 +47,7 @@ import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
 
+import { CLEAR_KIND, CloseKindChoice, type CloseKindValue } from "./close-kind-choice";
 import { SentBackNote } from "./sent-back-note";
 import { tickWithUndo } from "./tick-with-undo";
 import { PlannedWords } from "./planned-words";
@@ -63,6 +64,12 @@ const GroupedStagesSheet = dynamic(
 /** "Save as template" (6b Release 2), on its first pick. */
 const SaveAsTemplateDialog = dynamic(
   () => import("./save-as-template-dialog").then((module) => module.SaveAsTemplateDialog),
+  { ssr: false },
+);
+
+/** The Owner's "Set close kind" (v1.9 W1), on its first pick. */
+const SetCloseKindDialog = dynamic(
+  () => import("./set-close-kind-dialog").then((module) => module.SetCloseKindDialog),
   { ssr: false },
 );
 
@@ -140,6 +147,11 @@ export function ItemSheet({
   // A stage's tick on its way (its box waits; the toast offers Undo).
   const [ticking, setTicking] = useState<string | null>(null);
   const [reason, setReason] = useState<"reopen" | "close" | null>(null);
+  // The Close's kind (v1.9 W1): "Not needed this ‹month›" first, as the approved sample.
+  const [closeKind, setCloseKind] = useState<CloseKindValue>("not_needed");
+  // The Owner's "Set close kind" (v1.9 W1): mounted afresh on each opening (its key).
+  const [kindSetting, setKindSetting] = useState(0);
+  const [kindOpen, setKindOpen] = useState(false);
   // "Mark done…" from ⋯ before every stage is ticked (PP-sheet-2): its confirmation.
   const [early, setEarly] = useState(false);
   // "Save as template" from the ⋯ (6b Release 2): the item it was opened for.
@@ -273,6 +285,10 @@ export function ItemSheet({
   const lead = stageGroups[0];
   const leadStrip = lead?.group.label === null ? lead.strip : null;
   const reopenWord = permissions.owner ? "Send back" : "Reopen";
+  // OPEN 4 (v1.9 W1): only the Owner sets, changes or clears a closed deliverable's kind, on any
+  // project (a completed or cancelled one's too).
+  const canSetKind = permissions.owner && current.closed !== null;
+  const cycleWords = current.cycleLabel ?? "the cycle";
   // PP-sheet-2: until every stage is ticked the sheet's action is "Next: ‹stage›" (it ticks that
   // stage); Mark done is the solid Forest commit only once it is ready (or has no stages), and
   // before that it waits in ⋯ behind a confirmation that names what is left unticked.
@@ -305,7 +321,10 @@ export function ItemSheet({
         <Button
           variant="ghost"
           className="text-destructive hover:text-destructive"
-          onClick={() => setReason("close")}
+          onClick={() => {
+            setCloseKind("not_needed");
+            setReason("close");
+          }}
           data-slot="item-close"
         >
           Close deliverable…
@@ -453,7 +472,20 @@ export function ItemSheet({
                   className="border-border bg-muted/50 rounded-lg border px-3 py-2 text-sm"
                 />
               ) : null}
-              {current.closedReason ? (
+              {current.closed?.kindLabel ? (
+                // v1.9 W1: why it was closed, a quiet label over the reason.
+                <div className="flex flex-col gap-0.5" data-slot="item-closed">
+                  <p
+                    className="text-muted-foreground text-xs font-medium"
+                    data-slot="item-close-kind"
+                  >
+                    {current.closed.kindLabel}
+                  </p>
+                  {current.closedReason ? (
+                    <p className="text-muted-foreground">Closed: {current.closedReason}</p>
+                  ) : null}
+                </div>
+              ) : current.closedReason ? (
                 <p className="text-muted-foreground">Closed: {current.closedReason}</p>
               ) : null}
               <div className="flex flex-col gap-1">
@@ -462,7 +494,7 @@ export function ItemSheet({
                   {current.notes ?? <span className="text-muted-foreground">No notes.</span>}
                 </p>
               </div>
-              {permissions.manage || earlyDone ? (
+              {permissions.manage || earlyDone || canSetKind ? (
                 <div className="flex flex-wrap gap-2">
                   {permissions.manage ? (
                     <Button variant="secondary" onClick={startEdit} data-slot="item-edit">
@@ -527,6 +559,17 @@ export function ItemSheet({
                           onSelect={() => setTemplateFor({ id: current.id, title: current.title })}
                         >
                           Save as template
+                        </DropdownMenuItem>
+                      ) : null}
+                      {canSetKind ? (
+                        <DropdownMenuItem
+                          data-slot="item-set-close-kind"
+                          onSelect={() => {
+                            setKindSetting((count) => count + 1);
+                            setKindOpen(true);
+                          }}
+                        >
+                          Set close kind
                         </DropdownMenuItem>
                       ) : null}
                     </DropdownMenuContent>
@@ -682,7 +725,7 @@ export function ItemSheet({
         title={reason === "close" ? `Close ${current.title}?` : `${reopenWord} ${current.title}?`}
         description={
           reason === "close"
-            ? "It stays in the cycle as closed, not done. This can't be undone."
+            ? `It stays in ${cycleWords} as closed, not done. This can't be undone.`
             : "It goes back to open and stops counting as done until it is done again."
         }
         label={reason === "close" ? "Why close it" : "What needs to change"}
@@ -691,7 +734,11 @@ export function ItemSheet({
         onSubmit={async (text) => {
           const result =
             reason === "close"
-              ? await cancelItem({ itemId: current.id, reason: text })
+              ? await cancelItem({
+                  itemId: current.id,
+                  reason: text,
+                  closeKind: closeKind === CLEAR_KIND ? "not_needed" : closeKind,
+                })
               : await reopenItem({ itemId: current.id, reason: text });
           const done = toastResult(result, {
             success:
@@ -704,7 +751,18 @@ export function ItemSheet({
           if (done) onOpenChange(false);
           return done;
         }}
-      />
+      >
+        {/* v1.9 W1: a close says why ("Not needed this ‹month›" / "Not delivered"), then the
+            reason. */}
+        {reason === "close" ? (
+          <CloseKindChoice
+            name="item-close-kind"
+            recurrence={current.recurrence}
+            value={closeKind}
+            onChange={setCloseKind}
+          />
+        ) : null}
+      </ReasonDialog>
       {canEditStages && stagesUsed ? (
         <GroupedStagesSheet
           open={editingStages}
@@ -737,6 +795,21 @@ export function ItemSheet({
           what="deliverable"
           initialName={templateFor.title}
           save={(name) => saveItemAsTemplate({ itemId: templateFor.id, name })}
+        />
+      ) : null}
+      {canSetKind && kindSetting > 0 && current.closed ? (
+        <SetCloseKindDialog
+          key={kindSetting}
+          open={kindOpen}
+          onOpenChange={setKindOpen}
+          item={{
+            id: current.id,
+            title: current.title,
+            kind: current.closed.kind,
+            line: current.closed.line,
+            reason: current.closedReason,
+            recurrence: current.recurrence,
+          }}
         />
       ) : null}
       {history > 0 ? (

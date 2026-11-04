@@ -34,6 +34,9 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   task_changes_requested: "tasks",
   task_request_converted: "tasks",
   task_request_declined: "tasks",
+  // v1.9 W7: a task you are on was put on hold or resumed (quiet: in-app and push, never email).
+  task_held: "tasks",
+  task_resumed: "tasks",
   // Something waiting for the reader's decision.
   task_submitted: "approvals",
   task_admin_approved: "approvals",
@@ -42,6 +45,10 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   leave_requested: "approvals",
   extra_work_submitted: "approvals",
   expense_submitted: "approvals",
+  // v1.9 W3 (6b.5): the Owner's repeat reminder for what still waits for their approval.
+  approval_reminder: "approvals",
+  // v1.9 W0 (6b.1): someone asks the Owner to leave early.
+  early_leave_requested: "approvals",
   // Time off and the working day: the answers a member gets.
   leave_decided: "leave",
   attendance_decided: "leave",
@@ -49,8 +56,14 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   comp_leave_granted: "leave",
   comp_leave_revoked: "leave",
   extra_work_decided: "leave",
+  // v1.9 W0 (6b.1): the answer to "Ask to leave early", and the Owner's Stay until.
+  early_leave_decided: "leave",
+  stay_until_set: "leave",
   // Nudges and escalations (the end-day reminder; 5.3's reminders and escalations).
   end_day_reminder: "reminders",
+  // v1.9 W0 (6b.1): "Start your day" at the start time, and the end time after a Stay answer.
+  start_day_reminder: "reminders",
+  end_time_reminder: "reminders",
   reminder_before_due: "reminders",
   reminder_before_due_last: "reminders",
   reminder_due_now: "reminders",
@@ -83,6 +96,9 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   project_completed: "other",
   project_cancelled: "other",
   project_reopened: "other",
+  // v1.9 W7: the Owner put a project of your client on hold, or resumed it (information).
+  project_held: "other",
+  project_resumed: "other",
   item_cancelled: "other",
   carry_decided: "other",
   // 7A: the client's Admin decides unfinished items (issue #56 Q2): waiting for their decision.

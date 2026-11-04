@@ -11,6 +11,7 @@ import {
   type ReminderDraft,
   rulesFromDraft,
 } from "@/core/lib/reminder-rules";
+import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { StickyActions } from "@/core/ui/composites/sticky-actions";
@@ -28,7 +29,12 @@ import { isWeekdayIndex, type WeekdayIndex } from "@/core/time";
 
 import { updateThresholds } from "../actions/settings";
 import type { UpdateThresholdsInput } from "../domain/schemas";
-import { thresholdGroupSummaries, type Thresholds, weeklyDigestChoices } from "../domain/settings";
+import {
+  lateExample,
+  thresholdGroupSummaries,
+  type Thresholds,
+  weeklyDigestChoices,
+} from "../domain/settings";
 import { FormError } from "./form-error";
 
 /**
@@ -45,6 +51,12 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
   );
   const [remindersBlocked, setRemindersBlocked] = useState(false);
   const [digestDay, setDigestDay] = useState<WeekdayIndex>(thresholds.weeklyDigestDay);
+  // v1.9 W4: the working hours' switch and start (for "Started at 10:16 counts as late"), and the
+  // high-priority reminder times, a short list of times (1 to 8).
+  const [hoursOn, setHoursOn] = useState(thresholds.workingHoursOn);
+  const [startTime, setStartTime] = useState(thresholds.workStartTime);
+  const [grace, setGrace] = useState(String(thresholds.lateGraceMinutes));
+  const [highTimes, setHighTimes] = useState<string[]>(thresholds.approvalReminderHighTimes);
   const [state, formAction, pending] = useActionState(
     async (_previous: Result<null> | null, formData: FormData) => {
       const value = (name: string) => String(formData.get(name) ?? "");
@@ -63,6 +75,16 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         weeklyDigestDay: value("weeklyDigestDay"),
         itemOverdueEscalateHours: value("itemOverdueEscalateHours"),
         cycleDecideEscalateDays: value("cycleDecideEscalateDays"),
+        workingHoursOn: value("workingHoursOn") === "on",
+        workStartTime: value("workStartTime"),
+        workEndTime: value("workEndTime"),
+        lateGraceMinutes: value("lateGraceMinutes"),
+        earlyLeaveWaitMinutes: value("earlyLeaveWaitMinutes"),
+        approvalReminderUrgentMinutes: value("approvalReminderUrgentMinutes"),
+        approvalReminderHighTimes: formData
+          .getAll("approvalReminderHighTimes")
+          .map((time) => String(time)),
+        approvalReminderDailyTime: value("approvalReminderDailyTime"),
       });
       if (result.ok) toast.success("Thresholds saved");
       return result;
@@ -103,8 +125,100 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         id="working-day"
         title="Working day"
         summary={summaries["working-day"]}
-        forceOpen={hasError(["logoutReminderTime", "endDayCutoffTime"])}
+        forceOpen={hasError([
+          "logoutReminderTime",
+          "endDayCutoffTime",
+          "workStartTime",
+          "workEndTime",
+          "lateGraceMinutes",
+          "earlyLeaveWaitMinutes",
+        ])}
       >
+        <label
+          data-slot="working-hours-switch"
+          className="border-border flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5"
+        >
+          <input
+            type="checkbox"
+            name="workingHoursOn"
+            checked={hoursOn}
+            onChange={(event) => setHoursOn(event.target.checked)}
+            className="accent-strong mt-0.5 size-5 shrink-0"
+          />
+          <span className="flex flex-col">
+            <span className="text-sm font-medium">Working hours</span>
+            <span className="text-muted-foreground text-sm">
+              Late starts, the day&apos;s end time and &ldquo;Ask to leave early&rdquo;. Off, Start
+              day and End day work as they did before.
+            </span>
+          </span>
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Work starts" hint="IST." error={fieldErrors.workStartTime}>
+            {(control) => (
+              <TimeInput
+                {...control}
+                name="workStartTime"
+                value={startTime}
+                onChange={(event) => setStartTime(event.target.value)}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Work ends"
+            hint="IST. A later shoot or Stay until moves a person's end later."
+            error={fieldErrors.workEndTime}
+          >
+            {(control) => (
+              <TimeInput
+                {...control}
+                name="workEndTime"
+                defaultValue={thresholds.workEndTime}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Late after (minutes)"
+            hint={lateExample(startTime, Number(grace)) ?? "0 to 120."}
+            error={fieldErrors.lateGraceMinutes}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="lateGraceMinutes"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                value={grace}
+                onChange={(event) => setGrace(event.target.value)}
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="No answer to an early leave after (minutes)"
+            hint="Then the person can end their day; it's marked “Left early, not answered”."
+            error={fieldErrors.earlyLeaveWaitMinutes}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="earlyLeaveWaitMinutes"
+                type="number"
+                inputMode="numeric"
+                min={5}
+                max={240}
+                defaultValue={thresholds.earlyLeaveWaitMinutes}
+                required
+              />
+            )}
+          </FormField>
+        </div>
         <FormField
           label="End-of-day reminder"
           hint="IST. Anyone who started their day and hasn't ended it gets a nudge: end it, or carry on."
@@ -135,6 +249,99 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
             />
           )}
         </FormField>
+      </ThresholdGroup>
+
+      <ThresholdGroup
+        id="approvals"
+        title="Approvals"
+        summary={summaries.approvals}
+        description="Reminders about tasks waiting for your approval. Working days only; quiet hours respected; never emailed."
+        forceOpen={hasError([
+          "approvalReminderUrgentMinutes",
+          "approvalReminderHighTimes",
+          "approvalReminderDailyTime",
+        ])}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            label="Urgent tasks: remind every (minutes)"
+            hint="Within the working hours, one reminder per task. 15 to 480."
+            error={fieldErrors.approvalReminderUrgentMinutes}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="approvalReminderUrgentMinutes"
+                type="number"
+                inputMode="numeric"
+                min={15}
+                max={480}
+                defaultValue={thresholds.approvalReminderUrgentMinutes}
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Medium and low: once a day at"
+            hint="IST. Leave and attendance waiting join this one as a line each."
+            error={fieldErrors.approvalReminderDailyTime}
+          >
+            {(control) => (
+              <TimeInput
+                {...control}
+                name="approvalReminderDailyTime"
+                defaultValue={thresholds.approvalReminderDailyTime}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+        </div>
+        <fieldset className="flex flex-col gap-2" data-slot="high-times">
+          <legend className="mb-1 text-sm font-medium">High priority: remind at</legend>
+          <p className="text-muted-foreground -mt-1 text-sm">
+            IST, grouped into one reminder. 1 to 8 times.
+          </p>
+          {highTimes.map((time, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <TimeInput
+                name="approvalReminderHighTimes"
+                aria-label={`High-priority reminder ${index + 1}`}
+                value={time}
+                onChange={(event) =>
+                  setHighTimes((times) =>
+                    times.map((other, at) => (at === index ? event.target.value : other)),
+                  )
+                }
+                className="max-w-40"
+                required
+              />
+              {highTimes.length > 1 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setHighTimes((times) => times.filter((_, at) => at !== index))}
+                  aria-label={`Remove reminder ${index + 1}`}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+          ))}
+          {highTimes.length < 8 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="self-start"
+              onClick={() => setHighTimes((times) => [...times, "16:00"])}
+            >
+              Add a time
+            </Button>
+          ) : null}
+          {fieldErrors.approvalReminderHighTimes ? (
+            <ErrorText alert={false}>{fieldErrors.approvalReminderHighTimes[0]}</ErrorText>
+          ) : null}
+        </fieldset>
       </ThresholdGroup>
 
       <ThresholdGroup

@@ -221,6 +221,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
       reviews: details.reviews,
       cycleLabels: {},
       cycleLabel: row.cycleLabel,
+      recurrence: row.recurrence,
     }),
     where: `${row.projectName} · ${row.clientName}`,
     href: `/clients/${row.clientId}/projects/${row.projectId}?cycle=${row.cycleId}`,
@@ -480,6 +481,8 @@ function toRiskTask(row: TaskListRow) {
     createdBy: row.createdBy,
     approvingAdminId: row.approvingAdminId,
     assigneeIds: activeAssignees(row.assignees).map((a) => a.memberId),
+    // v1.9 W7: a held task is never an overdue risk.
+    heldAt: row.heldAt ?? null,
   };
 }
 
