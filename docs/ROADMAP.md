@@ -230,6 +230,20 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 **Later (not v1.9):**
 - Month counts open the filtered days (needs a filtered-days view). (W4 Q3, advisor 2026-11-02: W4 shows the month counts on the Month report and a person's Month tab as plain figures; no filtered-days view exists yet.)
 
+**v1.9.0 live 2026-11-05** (tag v1.9.0 on a7dafc62, PR #138; owner walk approved 2026-11-04). Owner exceptions to the speed gate for this release only: "a client" (unchanged since main; the start-order race) and any Crew routes still failing at deploy.
+
+**Next release (v1.10), owner 2026-11-04 after the v1.9 walk (note only until the owner says proceed):**
+- **On hold seen by everyone linked, up front.**
+  - The Crew assignees of a held task are told and see it as on hold.
+  - An Admin opening a project the Owner holds sees it as on hold. Today they see nothing.
+  - The on-hold message shows as soon as the task or project opens, for the Admin and everyone linked to it, not only the Owner and not only when a stage tick is refused.
+- **Phone:** the "Put on hold" wording keeps its normal size at 375/430. Today it shrinks.
+- **Speed:** the start-order race fix (`v19-first-reads`, the shell's first reads go out before the page's; standby patch measured 2026-11-03/04, advisor review before push). Re-probe the Crew routes still failing at the v1.9 deploy.
+- **Tests, fixed at the cause** (seen on PR #138's CI):
+  - `calendar.spec.ts:410` [mobile-lg];
+  - `notifications.spec.ts:483` [mobile]: a strict-mode locator matched two nav badges;
+  - `working-hours.spec.ts:187`: CI must not run it in the first 16 minutes of the IST day.
+
 ## Phase 7: Client work
 > **Launch order:** built **right after phase 6 (v1.5.x), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08; Owner and Admin; Crew never use it).
 Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks and approves items on their clients (the Owner on any), cycles roll over and carry-forward works (kickoff 7 amendment C, owner 2026-10-08).
@@ -244,6 +258,13 @@ Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks
 > **Launch order:** built after 7 and 6b since kickoff 7 amendment C, owner 2026-10-08 (it hangs off tasks, not projects).
 Exit: Staff submit photos and short videos from any device (iPhone included) and large videos as Drive links; the Owner and Admins review every version. (The company Drive archive and its cleanup, 8.3 and 8.4b, are **deferred past the launch**, owner 2026-09-27.)
 **Units:** **8A** [H] 8.1 + 8.2 · **8B** [C] 8.4a
+- [ ] **8.5** [H] **"Drive upload" task type** (owner 2026-11-04; note only, needs 8.3, a kickoff and a sample).
+  - The assigned Crew member pastes a cameraman's Drive link and names a folder.
+  - MaxOff checks access at once, walks the folder and copies every file and subfolder into the company Drive with server-side `files.copy` (ADR-0010; originals untouched), through the `drive_jobs` queue, with progress shown.
+  - **The task completes itself** once count, size and checksums are verified.
+  - **The Admin then sees the company-Drive folder link** to check it. Crew never get company Drive access.
+  - **Folder placement:** the owner tells us later.
+  - **Kickoff questions:** several links per task, a suggested folder name, quota warnings, a cameraman upload page.
 - [ ] **8.1** [H] Submissions: `submission_items`, resumable uploader (images ≤ 25 MB, video ≤ 100 MB), browser-side JPEG preview generation including **HEIC**, originals stored untouched, `task_submit_version`, reviews tied to a version, RLS + pgTAP
 - [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version, archive status badges
 - [ ] **8.4a** [C] Link submissions, the pilot half of 8.4 (owner, 2026-09-27): paste a Drive link as a version, basic `https://` validation, stored with the version, the Owner and Admins open it to review. No Drive API access check and no retention job (8.4b, deferred past the launch)
