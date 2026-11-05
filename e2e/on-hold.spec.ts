@@ -479,6 +479,11 @@ test.describe("a project on hold", () => {
       "The project is on hold: ticks and Mark done wait until it is resumed.",
     );
     await expect(sheet.getByRole("checkbox", { name: "Edit" })).toBeDisabled();
+    // Measured once the sheet has finished sliding in: on a laptop it enters from the right, and
+    // mid-slide it reaches past the edge (full CI 42016075320).
+    await sheet.evaluate((element) =>
+      Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+    );
     await expectNoHorizontalScroll(page);
     // A layer: back closes it, the project stays (§14.2).
     await page.goBack();

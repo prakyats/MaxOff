@@ -9,7 +9,7 @@ import { sessionCookieOptions } from "./cookies";
 import type { Database } from "./database.types";
 import { publicSupabaseEnv } from "./env";
 import { withExpiredJwtAsSessionUnavailable } from "./expired-jwt";
-import { FirstReads } from "./first-reads";
+import { FirstReads, type FirstReadsStats } from "./first-reads";
 import { assertNotInTokenRead, runAsTokenRead } from "./token-read-scope";
 
 export { runAsTokenRead };
@@ -30,6 +30,11 @@ const firstReads = cache((): FirstReads => new FirstReads());
  */
 export function holdReadsUntil(left: Promise<unknown>): void {
   firstReads().hold(left);
+}
+
+/** This request's hold counters (`/diagnostics/day-timing`): numbers only, never data. */
+export function firstReadsStats(): FirstReadsStats {
+  return { ...firstReads().stats };
 }
 
 /**

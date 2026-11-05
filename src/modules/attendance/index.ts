@@ -14,7 +14,13 @@ export {
 export { dayLabel, promptDue } from "./domain/today";
 export { getOwnToday, listDays } from "./data/attendance";
 /** Working hours (v1.9 W4): the reads behind the strip, Approvals, Today, the board and the month. */
-export { getHoursToday, getMonthHours, getOwnHours, listEarlyLeaveRequests } from "./data/hours";
+export {
+  getEarlyLeaveWait,
+  getHoursToday,
+  getMonthHours,
+  getOwnHours,
+  listEarlyLeaveRequests,
+} from "./data/hours";
 export {
   afterEndLineWords,
   boardHoursDetail,

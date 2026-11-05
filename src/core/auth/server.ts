@@ -12,6 +12,9 @@ import {
   type ServerSupabase,
 } from "@/core/db/server";
 import { once } from "@/core/db/first-reads";
+
+/** This request's first-read hold counters, for the diagnostics (numbers only). */
+export { firstReadsStats } from "@/core/db/server";
 import { systemClock } from "@/core/time";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";

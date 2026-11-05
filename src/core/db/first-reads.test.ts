@@ -85,6 +85,26 @@ describe("FirstReads", () => {
   });
 });
 
+describe("FirstReads stats (the diagnostics' numbers)", () => {
+  it("counts holds, waits, valve endings and the longest wait", async () => {
+    vi.useFakeTimers();
+    try {
+      const reads = new FirstReads();
+      expect(reads.stats).toEqual({ holds: 0, waits: 0, valve: 0, longest: 0, total: 0 });
+      await reads.wait();
+      expect(reads.stats.waits).toBe(0);
+      reads.hold(new Promise<void>(() => undefined));
+      const waiting = reads.wait();
+      await vi.advanceTimersByTimeAsync(FIRST_READS_WAIT_MS);
+      await waiting;
+      expect(reads.stats).toMatchObject({ holds: 1, waits: 1, valve: 1 });
+      expect(reads.stats.longest).toBeGreaterThanOrEqual(FIRST_READS_WAIT_MS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("once (a left told twice)", () => {
   it("runs the first call and ignores every later one", () => {
     const fn = vi.fn();
