@@ -60,11 +60,17 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
 export async function listOwnWeek(
   from: ISODate,
   to: ISODate,
-): Promise<{ events: EventTask[]; holidays: { id: string; date: ISODate; name: string }[] }> {
+): Promise<{
+  events: EventTask[];
+  holidays: { id: string; date: ISODate; name: string }[];
+  /** The caller's own approved leave touching the window; undefined from an older own_week. */
+  leave: { type: string; startDate: string; endDate: string }[] | undefined;
+}> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("own_week", { from_date: from, to_date: to });
   if (error) throw error;
   const week = data as {
+    leave?: { type: string; start_date: string; end_date: string }[];
     holidays: { id: string; date: string; name: string }[];
     events: {
       id: string;
@@ -81,6 +87,11 @@ export async function listOwnWeek(
     }[];
   };
   return {
+    leave: week.leave?.map((row) => ({
+      type: row.type,
+      startDate: row.start_date,
+      endDate: row.end_date,
+    })),
     holidays: week.holidays.map((row) => ({
       id: row.id,
       date: row.date as ISODate,

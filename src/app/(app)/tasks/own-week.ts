@@ -19,7 +19,12 @@ export function readOwnWeek(today: ISODate) {
   return Promise.all([
     week.then((answer) => answer.events),
     week.then((answer) => answer.holidays),
-    withSessionUserId((id) => listApprovedLeaveBetween(id, today, last)),
+    // The own approved leave rides in the same read; an older own_week is read the usual way.
+    week.then(
+      (answer) =>
+        (answer.leave as Awaited<ReturnType<typeof listApprovedLeaveBetween>> | undefined) ??
+        withSessionUserId((id) => listApprovedLeaveBetween(id, today, last)),
+    ),
   ]);
 }
 

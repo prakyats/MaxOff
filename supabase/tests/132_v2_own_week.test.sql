@@ -129,8 +129,8 @@ select throws_ok($$ select public.own_week((select today from d), (select today 
 select throws_ok($$ select public.own_week((select today from d) + 1, (select today from d)) $$, 'P0001', null,
   'to before from is refused');
 select throws_ok($$ select public.own_week(null, (select today from d)) $$, 'P0001', null, 'a missing date is refused');
-select is((select count(*)::int from jsonb_object_keys(public.own_week((select today from d), (select today from d)))),
-  2, 'two keys: holidays, events');
+select ok(public.own_week((select today from d), (select today from d)) ?& array['holidays', 'events'],
+  'the first two keys stay (the /my-day fold adds leave, 134): holidays, events');
 
 select * from finish();
 rollback;
