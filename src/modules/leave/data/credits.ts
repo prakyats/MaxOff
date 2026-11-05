@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
 
@@ -11,8 +13,12 @@ import type { CompBalance, CompCredit, CompDate } from "../domain/credits";
  * every write is a transition function.
  */
 
-/** The free days and the use-by date, for the caller or (the Owner) for a member. */
-export async function getCompBalance(memberId?: string): Promise<CompBalance> {
+/**
+ * The free days and the use-by date, for the caller or (the Owner) for a member. Once per request
+ * and member (`cache()`, v2.0 X3): /leave's layout and its page both ask, and each asking sent its
+ * own read in the same first wave.
+ */
+export const getCompBalance = cache(async (memberId?: string): Promise<CompBalance> => {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc(
     "comp_leave_balance",
@@ -21,7 +27,7 @@ export async function getCompBalance(memberId?: string): Promise<CompBalance> {
   if (error) throw error;
   const row = data[0];
   return { availableDays: Number(row?.available_days ?? 0), useBy: row?.use_by ?? null };
-}
+});
 
 /**
  * The caller's own dates for comp leave (`comp_leave_dates()`, 3b review): working days from

@@ -991,6 +991,63 @@ export async function watchReads(
 }
 
 /**
+ * Holds every database read of one browser session (`ownSession`) at the e2e server's proxy as a
+ * **wave** (v2.0 X3): PostgREST reads wait, unanswered, and each is reported; auth passes, so the
+ * JWT check runs. With nothing answered, what arrives is a request's **first wave**: the reads it
+ * starts before any answer could start another. `settled()` waits until no new read has come for
+ * `quietMs` and returns them (the server's only; a browser's own requests are left out);
+ * `release()` ends the hold, in `finally`: the hold is the open connection.
+ */
+export async function firstWave(
+  session: string,
+): Promise<{ settled: (quietMs?: number) => Promise<string[]>; release: () => void }> {
+  const seen: string[] = [];
+  let lastAt = performance.now();
+  const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  });
+  await new Promise<void>((resolve, reject) => {
+    request.on("error", reject);
+    request.on("response", (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`hold-proxy refused the wave: ${response.statusCode}`));
+        return;
+      }
+      let buffered = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        buffered += chunk;
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          const event = JSON.parse(line) as { hold?: number; caught?: string; agent?: string };
+          if (event.hold !== undefined) resolve();
+          if (event.caught !== undefined && !/Mozilla\//.test(event.agent ?? "")) {
+            seen.push(event.caught);
+            lastAt = performance.now();
+          }
+        }
+      });
+    });
+    request.end(JSON.stringify({ path: "*", session, answer: "wave" }));
+  });
+  return {
+    settled: async (quietMs = 1500) => {
+      const started = performance.now();
+      lastAt = Math.max(lastAt, started);
+      while (performance.now() - lastAt < quietMs) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return [...seen];
+    },
+    release: () => {
+      request.destroy();
+    },
+  };
+}
+
+/**
  * Removes the tasks a spec made (4B), by title prefix, with every child row, so the spec re-runs
  * on a used database. The audit rows about them stay (history; no foreign key). Service role,
  * local stack only: `tasks` has no API delete at all.

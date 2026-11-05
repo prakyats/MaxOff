@@ -43,6 +43,12 @@
  * every path of that session (a watch only), which is how a spec counts the database requests one
  * page request makes (`watchReads()` in `e2e/helpers.ts`).
  *
+ * **What can be counted as a wave** (v2.0 X3, the first wave ≤ 6): a hold registered with
+ * `{ path: "*", answer: "wave" }` holds **every** PostgREST read of that session (`/rest/v1/…`;
+ * auth passes, so the JWT check runs) and reports each one it catches. With nothing answered, the
+ * reads that arrive are exactly a request's first wave: the ones started before any answer could
+ * start another (`firstWave()` in `e2e/helpers.ts`). The page waits until the hold ends.
+ *
  * **What can be fenced** (phase 5 main CI, 2026-10-06): a person a spec is about to remove. A
  * spec's own person's open page still writes in the background (the app-open report, 5.4, audited
  * with them as the actor), and a write that lands between the cleanup's `activity_log` delete and
@@ -80,9 +86,11 @@ import { connect } from "node:net";
 import type { Duplex } from "node:stream";
 import { pathToFileURL } from "node:url";
 
-type HoldAnswer = "wait" | "jwt-expired" | "watch";
-/** A watch's path that covers every path of its session. */
+type HoldAnswer = "wait" | "jwt-expired" | "watch" | "wave";
+/** A watch's (or a wave's) path that covers every path of its session. */
 const EVERY_PATH = "*";
+/** What a wave holds: the database's reads (PostgREST), never auth (the JWT check passes). */
+const WAVE_PREFIX = "/rest/v1/";
 type Hold = {
   path: string;
   session: string;
@@ -151,11 +159,14 @@ export function createHoldProxy(upstream: URL): Server {
 
   const holdsFor = (path: string, session: string | null): Hold[] =>
     [...holds].filter(
-      (hold) => (hold.path === path || hold.path === EVERY_PATH) && hold.session === session,
+      (hold) =>
+        (hold.path === path ||
+          (hold.path === EVERY_PATH && (hold.answer !== "wave" || path.startsWith(WAVE_PREFIX)))) &&
+        hold.session === session,
     );
-  /** What keeps a request waiting: a "wait" hold on its path and session. */
+  /** What keeps a request waiting: a "wait" hold on its path, or a wave, and its session. */
   const waitsFor = (path: string, session: string | null): boolean =>
-    holdsFor(path, session).some((hold) => hold.answer === "wait");
+    holdsFor(path, session).some((hold) => hold.answer === "wait" || hold.answer === "wave");
 
   function forward(request: IncomingMessage, response: ServerResponse): void {
     const member = claimOf(request.headers.authorization, "sub");
@@ -222,13 +233,19 @@ export function createHoldProxy(upstream: URL): Server {
         return;
       }
       const answer = body.answer ?? "wait";
-      if (answer !== "wait" && answer !== "jwt-expired" && answer !== "watch") {
-        response.writeHead(400).end('answer is "wait", "jwt-expired" or "watch"');
+      if (
+        answer !== "wait" &&
+        answer !== "jwt-expired" &&
+        answer !== "watch" &&
+        answer !== "wave"
+      ) {
+        response.writeHead(400).end('answer is "wait", "jwt-expired", "watch" or "wave"');
         return;
       }
-      // Every path at once is only ever watched: holding it would hold the layout's reads too.
-      if (body.path === EVERY_PATH && answer !== "watch") {
-        response.writeHead(400).end('path "*" is only watched');
+      // Every path at once is watched, or held as a wave (a first-wave count, v2.0 X3): never
+      // "wait"ed on by path, which would hold the layout's reads in an ordinary hold test.
+      if ((body.path === EVERY_PATH) !== (answer === "watch" || answer === "wave")) {
+        response.writeHead(400).end('path "*" is only watched or waved, and a wave is "*"');
         return;
       }
       response.writeHead(200, {
