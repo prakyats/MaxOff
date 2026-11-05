@@ -19,6 +19,8 @@ try {
 const PRODUCTION_SPECS = /production\.spec\.ts$/;
 const SETUP_SPECS = /\.setup\.ts$/;
 const MOBILE_SPECS = /mobile\.spec\.ts$/;
+/** v2.0 X3: every route's first wave, counted at 1280, 375 and 430 (the advisor, #89). */
+const FIRST_WAVE_SPECS = /first-wave\.spec\.ts$/;
 // Bottom sheets follow the on-screen keyboard (phase 7 owner's walk): both phone widths.
 const SHEET_KEYBOARD_SPECS = /sheet-keyboard\.spec\.ts$/;
 const WORKING_DAY_SPECS = /working-day\.spec\.ts$/;
@@ -226,6 +228,7 @@ export default defineConfig({
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
+        FIRST_WAVE_SPECS,
         MOBILE_SPECS,
         WORKING_DAY_SPECS,
         LEAVE_SPECS,

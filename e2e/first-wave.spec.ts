@@ -22,6 +22,9 @@ import {
  */
 
 const LEADS = ["owner", "admin"] as const;
+/** `getSessionState`'s own member-row read (`readMemberRow`), the one `session_early()` replaces. */
+const MEMBER_ROW_READ =
+  /^\/rest\/v1\/members\?select=id,email,full_name,role,status,avatar_file_id,job_title/;
 type Role = "owner" | "admin" | "staff";
 
 const ROUTES: { path: string; roles: readonly Role[] }[] = [
@@ -80,7 +83,10 @@ for (const role of ["owner", "admin", "staff"] as const) {
     test.use({ storageState: storageStateFor(role) });
 
     test(`every route's first wave (${role})`, async ({ page }, info) => {
-      test.skip(info.project.name !== "desktop", "one width measures it: the server is the same");
+      test.skip(
+        !["desktop", "mobile", "mobile-lg"].includes(info.project.name),
+        "the three widths only",
+      );
       test.setTimeout(180_000);
       const session = await ownSession(page, USERS[role].email, USERS[role].password);
       const paths = [
@@ -95,6 +101,17 @@ for (const role of ["owner", "admin", "staff"] as const) {
           const answer = page.request.get(path, { maxRedirects: 0 }).catch(() => null);
           counts[path] = await wave.settled();
           const queries = wave.queries();
+          // v2.0 X3 (advisor, #89): a full page makes the shell's one early read, never a second
+          // one and never the member row's read beside it, whichever of the layout and the page
+          // asks first (`startShellRead`).
+          expect(
+            counts[path]?.filter((read) => read === "/rest/v1/rpc/session_early").length,
+            `${path}: one session_early`,
+          ).toBe(1);
+          expect(
+            queries.filter((query) => MEMBER_ROW_READ.test(decodeURIComponent(query))).length,
+            `${path}: no member-row read beside it`,
+          ).toBe(0);
           const twice = queries.filter((query, index) => queries.indexOf(query) !== index);
           if (twice.length > 0) duplicates.push(`${path}: ${twice.join(" ")}`);
           wave.release();
