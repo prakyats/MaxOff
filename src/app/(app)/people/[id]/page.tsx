@@ -15,7 +15,6 @@ import { Separator } from "@/core/ui/primitives/separator";
 import {
   type CoordinatorSpell,
   listCoordinatorHistory,
-  listDirectory,
   roleLabel,
   STATUS_LABELS,
   type TeamMember,
@@ -23,7 +22,7 @@ import {
 import { ChangeCoordinatorButton } from "@/modules/team/components/coordinator-dialogs";
 import { MemberProfile } from "@/modules/team/components/member-profile";
 
-import { loadPerson, showsHistory } from "./person";
+import { loadPerson, readPersonDirectory, showsHistory } from "./person";
 import { PersonSummary } from "./person-summary";
 
 /**
@@ -57,7 +56,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const othersRead = Promise.all([
     listItems("job_title", { includeArchived: true }),
     listCoordinatorHistory(id),
-    listDirectory(),
+    readPersonDirectory(),
   ]);
   startEarly(personRead, othersRead);
   // PP-person-3 (major change 8): for the Owner, the summary's reads (the month's days waiting
