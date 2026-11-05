@@ -83,7 +83,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More. More also has Appearance: tap it, then tap Light, Dark or System; the sheet closes with your choice ticked.",
             ),
             text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],

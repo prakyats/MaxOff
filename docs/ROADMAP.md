@@ -254,7 +254,8 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
   - The phone "Put on hold" wording keeps its size at 375/430.
   - Guide and pictures updated for every role.
   - Check against WORKFLOWS §9: a new recipient needs a pgTAP test.
-- [ ] **X2 [H] The start-order race fix** (the `v19-first-reads` standby patch: the shell's first-byte reads go out before the page's). Advisor review of the diff before push.
+- [x] **X1b [C] Appearance on a phone** (owner bug 2026-11-05, advisor #89): More → the appearance icon's Light / Dark / System menu flashed and closed. On a phone the More sheet's Appearance row opens an **Appearance** bottom sheet: three 44 px rows, the current one ticked, a tap applies it and closes the sheet, back closes it. The laptop is unchanged.
+- [x] **X2 [H] The start-order race fix** (the `v19-first-reads` standby patch: the shell's first-byte reads go out before the page's). Advisor review of the diff before push.
 - [ ] **X3 [H] Speed audit, every route × every role:**
   - (a) **First wave ≤ 6 reads** on every route for every role, enforced by a test that fails on a seventh, through the diagnostics timing.
   - (b) **The hot database functions:** `EXPLAIN (ANALYZE, BUFFERS)` on `session_bundle`, `task_counts`, the Today, My Day, Approvals and calendar reads on staging data. Add any missing index (expand-only, with pgTAP).

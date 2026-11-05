@@ -900,3 +900,37 @@ test.describe("on desktop too", () => {
     await expect(add).toBeHidden();
   });
 });
+
+/**
+ * v2.0 X1b (owner bug 2026-11-05): on a phone, More → Appearance is a sheet of its own, never a
+ * menu inside the More sheet. 375 and 430, installed.
+ */
+test.describe("installed: More → Appearance is its own sheet", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("More → Appearance: a sheet over the More sheet; back closes it, then More, then leaves", async ({
+    page,
+  }) => {
+    // v2.0 X1b (owner bug 2026-11-05): the chooser flashed and closed when it was a menu inside
+    // the More sheet. Now its own layer: back closes it and leaves the More sheet open.
+    await runInstalled(page);
+    await page.goto("/tasks");
+    await page.goto("/today");
+    await hydrated(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const more = page.locator('[data-slot="more-sheet"]');
+    await expect(more).toBeVisible();
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    const appearance = page.locator('[data-slot="appearance-sheet"]');
+    await expect(appearance).toBeVisible();
+    // It stays open: no flash.
+    await page.waitForTimeout(600);
+    await expect(appearance).toBeVisible();
+    await page.goBack();
+    await expect(appearance).toBeHidden();
+    await expect(more).toBeVisible();
+    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ closes: more, url: /\/today$/ }, { url: /\/tasks$/ }]);
+  });
+});

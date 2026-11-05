@@ -55,7 +55,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar. On a phone, More → Appearance opens a small sheet: tap Light, Dark or System and it closes with your choice ticked.",
             },
             {
               kind: "steps",
