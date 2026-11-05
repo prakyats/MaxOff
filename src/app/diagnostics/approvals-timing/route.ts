@@ -12,7 +12,7 @@ import {
 } from "@/modules/attendance";
 import { listPendingClaims } from "@/modules/expenses";
 import { listPendingRequests } from "@/modules/leave";
-import { listTasksToDecide, listUnreadCounts } from "@/modules/tasks";
+import { listTasksAtBothSteps, listUnreadCounts } from "@/modules/tasks";
 import { listDirectory } from "@/modules/team";
 
 // Evaluated per request, never at build time (see /diagnostics/sentry).
@@ -61,31 +61,37 @@ export async function GET(): Promise<Response> {
   const push = quiet(readOwnPushStatus());
   const counts = getSessionBundle();
   const bundle = quiet(counts);
-  // The page's first wave, in its order (`src/app/(app)/approvals/page.tsx`).
-  const days = quiet(listPendingDays());
-  const requests = quiet(listPendingRequests());
-  const notes = quiet(listPendingNotes());
-  const claims = quiet(listPendingClaims());
+  // The page's reads, as it starts them (`src/app/(app)/approvals/page.tsx`, v2.0 X3): both task
+  // steps in one read and the directory first; each of the Owner's lists only once the counts
+  // say one is waiting (counts that could not be read ask the usual way).
+  const steps = withSessionUserId(listTasksAtBothSteps);
   const directory = quiet(listDirectory());
-  // As the page: the early-leave rows only once the counts say one is waiting (a 0 is an empty
-  // list under the same RLS; counts that could not be read ask the usual way).
-  const early = quiet(
-    counts.then(
-      (read) => (read.pending.earlyLeaves > 0 ? listEarlyLeaveRequests() : []),
-      () => listEarlyLeaveRequests(),
-    ),
-  );
-  // Timed from the start, so a task step that answers before the member row still reads true.
-  const finalTasks = timed(listTasksToDecide({ final: true }).catch(() => []));
-  const checkTasks = timed(
-    withSessionUserId((id) => listTasksToDecide({ final: false, id })).catch(() => []),
-  );
+  const whenWaiting = <T>(
+    count: (pending: Awaited<typeof counts>["pending"]) => number | null,
+    read: () => Promise<T[]>,
+  ) =>
+    quiet(
+      counts.then(
+        (bundleRead) => ((count(bundleRead.pending) ?? 0) > 0 ? read() : []),
+        () => read(),
+      ),
+    );
+  const days = whenWaiting((pending) => pending.days, listPendingDays);
+  const requests = whenWaiting((pending) => pending.requests, listPendingRequests);
+  const notes = whenWaiting((pending) => pending.notes, listPendingNotes);
+  const claims = whenWaiting((pending) => pending.claims, listPendingClaims);
+  const early = whenWaiting((pending) => pending.earlyLeaves, listEarlyLeaveRequests);
+  const both = timed(steps.catch(() => ({ final: [], check: [] })));
 
   const state = await member;
   if (state.value.kind !== "member") notFound();
   const role = state.value.member.role;
   // As the page: the role picks the step once the member is known, then its rows' unread counts.
-  const tasks = await (can(role, "tasks.approve_final") ? finalTasks : checkTasks);
+  const stepsRead = await both;
+  const tasks = {
+    ms: stepsRead.ms,
+    value: can(role, "tasks.approve_final") ? stepsRead.value.final : stepsRead.value.check,
+  };
   const unread = await quiet(listUnreadCounts(tasks.value.map((item) => item.row.id)));
   const [pushRead, bundleRead, todayRead, ...lists] = await Promise.all([
     push,

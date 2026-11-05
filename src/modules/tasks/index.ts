@@ -35,6 +35,7 @@ export {
   listFinishedTaskRows,
   listOpenTaskRows,
   listOpenTaskRowsDueBetween,
+  listTasksAtBothSteps,
   listTasksToDecide,
   type TaskToDecide,
 } from "./data/tasks";

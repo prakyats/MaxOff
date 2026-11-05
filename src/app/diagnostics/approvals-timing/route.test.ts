@@ -11,7 +11,7 @@ const reads = vi.hoisted(() => ({
   listEarlyLeaveRequests: vi.fn(),
   listPendingClaims: vi.fn(),
   listPendingRequests: vi.fn(),
-  listTasksToDecide: vi.fn(),
+  listTasksAtBothSteps: vi.fn(),
   listUnreadCounts: vi.fn(),
   listDirectory: vi.fn(),
   notFound: vi.fn(() => {
@@ -37,7 +37,7 @@ vi.mock("@/modules/attendance", () => ({
 vi.mock("@/modules/expenses", () => ({ listPendingClaims: reads.listPendingClaims }));
 vi.mock("@/modules/leave", () => ({ listPendingRequests: reads.listPendingRequests }));
 vi.mock("@/modules/tasks", () => ({
-  listTasksToDecide: reads.listTasksToDecide,
+  listTasksAtBothSteps: reads.listTasksAtBothSteps,
   listUnreadCounts: reads.listUnreadCounts,
 }));
 vi.mock("@/modules/team", () => ({ listDirectory: reads.listDirectory }));
@@ -74,7 +74,7 @@ describe("GET /diagnostics/approvals-timing", () => {
     reads.withSessionUserId.mockImplementation((read: (id: string) => unknown) => read("m-1"));
     reads.getSessionBundle.mockResolvedValue({
       unread: 3,
-      pending: { earlyLeaves: 1 },
+      pending: { days: 1, requests: 1, notes: 1, claims: 1, earlyLeaves: 1 },
       label: SECRET,
     });
     reads.readOwnPushStatus.mockResolvedValue({
@@ -92,7 +92,10 @@ describe("GET /diagnostics/approvals-timing", () => {
     ]) {
       list.mockResolvedValue([{ id: "row-1", fullName: SECRET, reason: SECRET }]);
     }
-    reads.listTasksToDecide.mockResolvedValue([{ row: { id: "task-1", title: SECRET } }]);
+    reads.listTasksAtBothSteps.mockResolvedValue({
+      final: [{ row: { id: "task-1", title: SECRET } }],
+      check: [],
+    });
     reads.listUnreadCounts.mockResolvedValue({ "task-1": 2 });
   });
 

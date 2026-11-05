@@ -481,24 +481,53 @@ export type TaskToDecide = {
 export async function listTasksToDecide(
   viewer: { final: true } | { final: false; id: string },
 ): Promise<TaskToDecide[]> {
+  const rows = await readTasksToDecide((query) =>
+    viewer.final
+      ? query.eq("state", "admin_approved")
+      : query.eq("state", "submitted").eq("approving_admin_id", viewer.id),
+  );
+  return decidable(rows, viewer.final ? null : viewer.id);
+}
+
+/**
+ * Both steps in **one** read (v2.0 X3, ARCHITECTURE §19 "Six connections"): the tasks waiting for
+ * the final approval and the ones waiting for `id`'s check, before the viewer's role is known
+ * (Approvals starts its reads with the session read); the role then picks one. RLS decides every
+ * row, exactly as the two separate reads did.
+ */
+export async function listTasksAtBothSteps(
+  id: string,
+): Promise<{ final: TaskToDecide[]; check: TaskToDecide[] }> {
+  const rows = await readTasksToDecide((query) =>
+    query.or(`state.eq.admin_approved,and(state.eq.submitted,approving_admin_id.eq.${id})`),
+  );
+  return {
+    final: decidable(
+      rows.filter((item) => item.row.state === "admin_approved"),
+      null,
+    ),
+    check: decidable(
+      rows.filter((item) => item.row.state === "submitted" && item.row.approvingAdminId === id),
+      id,
+    ),
+  };
+}
+
+/** Never a task the checker is on: the step is skipped (WORKFLOWS §3.1). */
+function decidable(rows: TaskToDecide[], checker: string | null): TaskToDecide[] {
+  return rows.filter(
+    ({ row }) =>
+      checker === null ||
+      !row.assignees.some((a) => a.memberId === checker && a.removedAt === null),
+  );
+}
+
+async function readTasksToDecide(
+  // The builder's own type, which supabase-js does not export: the step's filter.
+  step: (query: ReturnType<typeof tasksToDecideQuery>) => ReturnType<typeof tasksToDecideQuery>,
+): Promise<TaskToDecide[]> {
   const supabase = await createServerSupabase();
-  const query = supabase
-    .from("tasks")
-    .select(
-      `${LIST_COLUMNS}, late_reason, task_submissions(id, version, note, submitted_by, on_behalf_of, at), task_reviews(at)`,
-    )
-    .order("submitted_at", { ascending: true })
-    .order("version", { referencedTable: "task_submissions", ascending: false })
-    .limit(1, { referencedTable: "task_submissions" })
-    // The approving Admin's latest approval: when a task waiting for the Owner reached them.
-    .eq("task_reviews.step", "admin")
-    .eq("task_reviews.decision", "approved")
-    .order("at", { referencedTable: "task_reviews", ascending: false })
-    .limit(1, { referencedTable: "task_reviews" });
-  const { data, error } = viewer.final
-    ? await query.eq("state", "admin_approved")
-    : await query.eq("state", "submitted").eq("approving_admin_id", viewer.id);
-  const checker = viewer.final ? null : viewer.id;
+  const { data, error } = await step(tasksToDecideQuery(supabase));
   if (error) throw error;
   type Row = ListRowData & {
     late_reason: string | null;
@@ -512,30 +541,42 @@ export async function listTasksToDecide(
     }[];
     task_reviews: { at: string }[];
   };
-  return (data as unknown as Row[])
-    .map((row) => {
-      const latest = row.task_submissions[0];
-      return {
-        row: toListRow(row),
-        lateReason: row.late_reason,
-        adminApprovedAt: row.task_reviews[0]?.at ?? null,
-        submission: latest
-          ? {
-              id: latest.id,
-              version: latest.version,
-              note: latest.note,
-              submittedBy: latest.submitted_by,
-              onBehalfOf: latest.on_behalf_of,
-              at: latest.at,
-            }
-          : null,
-      };
-    })
-    .filter(
-      ({ row }) =>
-        checker === null ||
-        !row.assignees.some((a) => a.memberId === checker && a.removedAt === null),
-    );
+  return (data as unknown as Row[]).map((row) => {
+    const latest = row.task_submissions[0];
+    return {
+      row: toListRow(row),
+      lateReason: row.late_reason,
+      adminApprovedAt: row.task_reviews[0]?.at ?? null,
+      submission: latest
+        ? {
+            id: latest.id,
+            version: latest.version,
+            note: latest.note,
+            submittedBy: latest.submitted_by,
+            onBehalfOf: latest.on_behalf_of,
+            at: latest.at,
+          }
+        : null,
+    };
+  });
+}
+
+function tasksToDecideQuery(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  return (
+    supabase
+      .from("tasks")
+      .select(
+        `${LIST_COLUMNS}, late_reason, task_submissions(id, version, note, submitted_by, on_behalf_of, at), task_reviews(at)`,
+      )
+      .order("submitted_at", { ascending: true })
+      .order("version", { referencedTable: "task_submissions", ascending: false })
+      .limit(1, { referencedTable: "task_submissions" })
+      // The approving Admin's latest approval: when a task waiting for the Owner reached them.
+      .eq("task_reviews.step", "admin")
+      .eq("task_reviews.decision", "approved")
+      .order("at", { referencedTable: "task_reviews", ascending: false })
+      .limit(1, { referencedTable: "task_reviews" })
+  );
 }
 
 // Warnings (4.3) -----------------------------------------------------------------------------------
