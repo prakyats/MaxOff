@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { readBeforeCheck } from "@/core/auth/server";
+import type { Database } from "@/core/db/database.types";
 import { createServerSupabase } from "@/core/db/server";
 import { displayName } from "@/core/lib/display-name";
 
@@ -29,12 +31,24 @@ const source = (value: string | null): "work" | "shoot" | "stay" =>
 const half = (value: string | null): Half | null =>
   value === "morning" || value === "afternoon" ? value : null;
 
+type OwnHoursRow = Database["public"]["Functions"]["attendance_own_hours"]["Returns"][number];
+
 /** The caller's own hours today (`attendance_own_hours()`), once per request. */
 export const getOwnHours = cache(async (): Promise<OwnHours | null> => {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("attendance_own_hours");
+  // Since v2.0 X3 the row rides in the shell's one early read (`session_early().own_hours`): the
+  // same row, or attendance_own_today()'s refusal (attendance_own_hours() refuses the same
+  // callers); an answer without the key is read the usual way.
+  const { data, error } = await readBeforeCheck<OwnHoursRow[]>(
+    (early) =>
+      early.own_hours === undefined
+        ? undefined
+        : early.own_day
+          ? { data: early.own_hours ? [early.own_hours as OwnHoursRow] : [], error: null }
+          : { data: null, error: new Error(early.own_day_refused ?? "FORBIDDEN") },
+    (supabase) => supabase.rpc("attendance_own_hours"),
+  );
   if (error) throw error;
-  const row = data[0] as Nullable<(typeof data)[number]> | undefined;
+  const row = (data ?? [])[0] as Nullable<OwnHoursRow> | undefined;
   if (!row || !row.work_date || !row.start_at || !row.late_after || !row.end_at) return null;
   return {
     workDate: row.work_date,

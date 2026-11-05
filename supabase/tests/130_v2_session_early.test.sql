@@ -124,9 +124,9 @@ select is(public.session_early()->>'own_day_refused', pg_temp.own_day_refusal(),
 
 -- 7. Own data only ------------------------------------------------------------------------------------
 select pg_temp.as_member('staff');
-select is(
-  (select count(*)::int from jsonb_object_keys(public.session_early())),
-  4, 'four keys: member, own_day, own_day_refused, push');
+select ok(
+  public.session_early() ?& array['member', 'own_day', 'own_day_refused', 'push'],
+  'the four first keys stay (v2.0 X3 step 3 adds own_hours, 131): member, own_day, own_day_refused, push');
 select pg_temp.as_system();
 select is(public.session_early()->'member', 'null'::jsonb, 'no session: no member row');
 

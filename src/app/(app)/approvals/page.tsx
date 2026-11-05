@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { withSessionUserId } from "@/core/auth/server";
-import { getSessionBundle, type SessionBundle } from "@/core/auth/session-bundle";
+import { getSessionBundle } from "@/core/auth/session-bundle";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { startEarly } from "@/core/lib/start-early";
+import { whenWaiting } from "@/core/lib/when-waiting";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
@@ -55,22 +56,14 @@ export default async function ApprovalsPage() {
   const steps = withSessionUserId(listTasksAtBothSteps);
   const directoryRead = listDirectory();
   const counts = getSessionBundle();
-  const whenWaiting = <T,>(
-    count: (pending: SessionBundle["pending"]) => number | null,
-    read: () => Promise<T[]>,
-  ): Promise<T[]> =>
-    counts.then(
-      (bundle) => ((count(bundle.pending) ?? 0) > 0 ? read() : []),
-      () => read(),
-    );
   const lists = Promise.all([
-    whenWaiting((pending) => pending.days, listPendingDays),
-    whenWaiting((pending) => pending.requests, listPendingRequests),
-    whenWaiting((pending) => pending.notes, listPendingNotes),
-    whenWaiting((pending) => pending.claims, listPendingClaims),
+    whenWaiting(counts, (bundle) => bundle.pending.days, listPendingDays),
+    whenWaiting(counts, (bundle) => bundle.pending.requests, listPendingRequests),
+    whenWaiting(counts, (bundle) => bundle.pending.notes, listPendingNotes),
+    whenWaiting(counts, (bundle) => bundle.pending.claims, listPendingClaims),
     directoryRead,
     // v1.9 W4: early-leave requests (waiting, and left without an answer); RLS: the Owner's.
-    whenWaiting((pending) => pending.earlyLeaves, listEarlyLeaveRequests),
+    whenWaiting(counts, (bundle) => bundle.pending.earlyLeaves, listEarlyLeaveRequests),
   ]);
   startEarly(lists, steps);
   const viewer = await requirePermission([

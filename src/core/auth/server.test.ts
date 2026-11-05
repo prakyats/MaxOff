@@ -351,6 +351,20 @@ describe("readBeforeCheck: a part of the early read, kept only once the check ve
     expect(reads.map((read) => read.client)).toEqual(["session"]);
   });
 
+  it("reads the usual way when the part is not in the answer (an older session_early)", async () => {
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    const hours = await readBeforeCheck<unknown>(
+      () => undefined,
+      (supabase) => supabase.rpc("attendance_own_hours") as unknown as Promise<RpcAnswer>,
+    );
+    expect(hours).toMatchObject({ data: "usual" });
+    expect(reads.map((read) => `${read.client}:${read.table}`)).toEqual([
+      "token:session_early",
+      "session:attendance_own_hours",
+    ]);
+  });
+
   it("shares the layout's shell read: the row, the own day and the push status are one request", async () => {
     signIn(tokenFor("m-1"));
     getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });

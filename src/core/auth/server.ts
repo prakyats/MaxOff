@@ -106,6 +106,8 @@ export type SessionEarly = {
   own_day: Record<string, unknown> | null;
   own_day_refused: string | null;
   push: { endpoints: string[] | null; band: string | null } | null;
+  /** `attendance_own_hours()`'s row where `own_day` is answered, else null (v2.0 X3 step 3). */
+  own_hours?: Record<string, unknown> | null;
 };
 
 /** What a read started before the JWT check gets: a client and the id the token claims. */
@@ -216,20 +218,23 @@ function startMemberRowRead() {
  * included (the Owner's own day: refused, never asked again).
  */
 export async function readBeforeCheck<T>(
-  pick: (early: SessionEarly) => { data: T | null; error: unknown },
+  // `undefined`: this part is not in the answer (an older `session_early()`): read the usual way.
+  pick: (early: SessionEarly) => { data: T | null; error: unknown } | undefined,
   read: (supabase: EarlyClient) => PromiseLike<{ data: T | null; error: unknown }>,
 ): Promise<{ data: T | null; error: unknown }> {
   const early = sessionEarly();
   const userId = await getSessionUserId();
   const started = await early;
-  return started &&
+  const picked =
+    started &&
     userId &&
     started.id === userId &&
     started.result.status !== 401 &&
     !started.result.error &&
     started.result.data
-    ? pick(started.result.data)
-    : read(await createServerSupabase());
+      ? pick(started.result.data)
+      : undefined;
+  return picked ?? read(await createServerSupabase());
 }
 
 /**

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getSessionState, withSessionUserId } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
+import { whenWaiting } from "@/core/lib/when-waiting";
 import { can } from "@/core/permissions";
 import {
   getOwnToday,
@@ -66,21 +67,19 @@ export async function GET(): Promise<Response> {
   // say one is waiting (counts that could not be read ask the usual way).
   const steps = withSessionUserId(listTasksAtBothSteps);
   const directory = quiet(listDirectory());
-  const whenWaiting = <T>(
-    count: (pending: Awaited<typeof counts>["pending"]) => number | null,
-    read: () => Promise<T[]>,
-  ) =>
-    quiet(
-      counts.then(
-        (bundleRead) => ((count(bundleRead.pending) ?? 0) > 0 ? read() : []),
-        () => read(),
-      ),
-    );
-  const days = whenWaiting((pending) => pending.days, listPendingDays);
-  const requests = whenWaiting((pending) => pending.requests, listPendingRequests);
-  const notes = whenWaiting((pending) => pending.notes, listPendingNotes);
-  const claims = whenWaiting((pending) => pending.claims, listPendingClaims);
-  const early = whenWaiting((pending) => pending.earlyLeaves, listEarlyLeaveRequests);
+  const days = quiet(whenWaiting(counts, (bundleRead) => bundleRead.pending.days, listPendingDays));
+  const requests = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.requests, listPendingRequests),
+  );
+  const notes = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.notes, listPendingNotes),
+  );
+  const claims = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.claims, listPendingClaims),
+  );
+  const early = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.earlyLeaves, listEarlyLeaveRequests),
+  );
   const both = timed(steps.catch(() => ({ final: [], check: [] })));
 
   const state = await member;
