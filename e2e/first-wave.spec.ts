@@ -4,10 +4,14 @@ import {
   firstWave,
   memberIdOf,
   ownSession,
+  rpcAs,
+  serviceInsert,
   serviceSelect,
   storageStateFor,
+  taskTypeId,
   USERS,
 } from "./helpers";
+import { addISTDays, istInstant, todayIST } from "../src/core/time";
 
 /**
  * The first wave of every route for every role (v2.0 X3 (a), ARCHITECTURE §19 "Six
@@ -46,31 +50,69 @@ const ROUTES: { path: string; roles: readonly Role[] }[] = [
   { path: "/notifications", roles: ["owner", "admin", "staff"] },
 ];
 
-/** A record of each kind the role can open, read with the service role (the seeded data). */
+/** This spec's own records (neutral names), made once and found again on a used database. */
+const FIXTURE = "First wave fixture";
+
+/**
+ * A task (the Owner's, for the seeded Crew member, approved through the seeded Admin) and an
+ * Active client of the seeded Admin's with one project: so every role's record pages are measured
+ * on any database, never only when an earlier spec left one behind (a reset seed has none).
+ */
+async function fixtures(): Promise<{ task: string; client: string; project: string }> {
+  const [task] = await serviceSelect<{ id: string }>(
+    `tasks?title=eq.${encodeURIComponent(FIXTURE)}&select=id&limit=1`,
+  );
+  const staff = await memberIdOf(USERS.staff.email);
+  const taskId =
+    task?.id ??
+    (await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title: FIXTURE,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(addISTDays(todayIST(), 20), "18:00"),
+      assignee_ids: [staff],
+      primary_owner_id: staff,
+      approving_admin_id: await memberIdOf(USERS.admin.email),
+      stages: [],
+    }));
+  const [client] = await serviceSelect<{ id: string }>(
+    `clients?name=eq.${encodeURIComponent(FIXTURE)}&select=id&limit=1`,
+  );
+  let clientId = client?.id;
+  if (!clientId) {
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const row = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name: FIXTURE,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", { client_id: row.id });
+    clientId = row.id;
+  }
+  const [project] = await serviceSelect<{ id: string }>(
+    `projects?client_id=eq.${clientId}&select=id&limit=1`,
+  );
+  const projectId =
+    project?.id ??
+    (await rpcAs<string>(USERS.admin.email, USERS.admin.password, "project_create", {
+      client_id: clientId,
+      name: FIXTURE,
+      recurrence: "monthly",
+      stages: [],
+      items: ["First wave item"],
+    }));
+  return { task: taskId, client: clientId, project: projectId };
+}
+
+/** A record of each kind the role can open: this spec's own task and client, and a person. */
 async function records(role: Role): Promise<string[]> {
   const id = await memberIdOf(USERS[role].email);
-  const paths: string[] = [];
-  const [task] = await serviceSelect<{ id: string }>(
-    role === "staff"
-      ? `tasks?primary_owner_id=eq.${id}&select=id&limit=1`
-      : role === "admin"
-        ? `tasks?or=(approving_admin_id.eq.${id},created_by.eq.${id})&select=id&limit=1`
-        : "tasks?select=id&limit=1",
-  );
-  if (task) paths.push(`/tasks/${task.id}`);
+  const own = await fixtures();
+  const paths = [`/tasks/${own.task}`];
   if (role === "staff") return paths;
-  const [client] = await serviceSelect<{ id: string }>(
-    role === "admin"
-      ? `clients?admin_id=eq.${id}&state=eq.active&select=id&limit=1`
-      : "clients?state=eq.active&select=id&limit=1",
-  );
-  if (client) {
-    paths.push(`/clients/${client.id}`);
-    const [project] = await serviceSelect<{ id: string }>(
-      `projects?client_id=eq.${client.id}&select=id&limit=1`,
-    );
-    if (project) paths.push(`/clients/${client.id}/projects/${project.id}`);
-  }
+  paths.push(`/clients/${own.client}`, `/clients/${own.client}/projects/${own.project}`);
   const [person] = await serviceSelect<{ id: string }>(
     `members?status=eq.active&id=neq.${id}&select=id&limit=1`,
   );
