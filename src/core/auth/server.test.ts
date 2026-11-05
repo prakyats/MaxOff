@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -11,6 +12,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const jar = new Map<string, string>();
+/**
+ * React's `cache()` as a request sees it: one value per request. Outside a render it memoises
+ * nothing, so each test is one request: every memo is cleared before it.
+ */
+const memos: Array<() => void> = [];
+vi.mock("react", async (original) => ({
+  ...(await original<typeof React>()),
+  cache: <A extends unknown[], R>(fn: (...args: A) => R) => {
+    let done = false;
+    let value: R;
+    memos.push(() => (done = false));
+    return (...args: A): R => {
+      if (!done) {
+        done = true;
+        value = fn(...args);
+      }
+      return value;
+    };
+  },
+}));
+
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     getAll: () => [...jar].map(([name, value]) => ({ name, value })),
@@ -82,7 +104,7 @@ vi.mock("@/core/db/server", () => ({
   },
 }));
 
-const { getSessionState, readBeforeCheck } = await import("./server");
+const { getSessionState, readBeforeCheck, startShellRead } = await import("./server");
 
 const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const tokenFor = (sub: string) => `${b64({ alg: "ES256", kid: "k" })}.${b64({ sub })}.sig`;
@@ -114,6 +136,7 @@ const settle = async () => {
 };
 
 beforeEach(() => {
+  for (const reset of memos) reset();
   jar.clear();
   reads.length = 0;
   tokens.length = 0;
@@ -128,6 +151,7 @@ beforeEach(() => {
 
 describe("getSessionState: the shell's one early read leaves first (6b.19, v2.0 X3)", () => {
   it("sends session_early before the JWT check settles, with the cookie's token, and takes its row", async () => {
+    startShellRead();
     const token = tokenFor("m-1");
     signIn(token);
     let verify: (value: unknown) => void = () => undefined;
@@ -151,6 +175,7 @@ describe("getSessionState: the shell's one early read leaves first (6b.19, v2.0 
   });
 
   it("is inactive when the early answer has no row (RLS showed none), without asking again", async () => {
+    startShellRead();
     signIn(tokenFor("m-1"));
     getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
     rpcAnswers.token = async () => ({
@@ -163,6 +188,7 @@ describe("getSessionState: the shell's one early read leaves first (6b.19, v2.0 
   });
 
   it("reads the row again the usual way when the early read failed", async () => {
+    startShellRead();
     signIn(tokenFor("m-1"));
     getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
     rpcAnswers.token = async () => ({ data: null, error: { message: "JWT expired" }, status: 401 });
@@ -176,12 +202,15 @@ describe("getSessionState: the shell's one early read leaves first (6b.19, v2.0 
   it("keeps a failure of the usual read a retryable error, never 'inactive'", async () => {
     signIn(tokenFor("m-1"));
     getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    // Whichever early read this request makes fails (the row alone, or the shell's).
+    answers.token = async () => ({ data: null, error: { message: "timeout" } });
     rpcAnswers.token = async () => ({ data: null, error: { message: "timeout" }, status: 500 });
     answers.session = async () => ({ data: null, error: { message: "timeout" } });
     await expect(getSessionState()).rejects.toMatchObject({ message: "timeout" });
   });
 
   it("uses only the verified id: a token claiming someone else is read again by the verified id", async () => {
+    startShellRead();
     signIn(tokenFor("someone-else"));
     getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
     rpcAnswers.token = async () => ({ data: early("someone-else"), error: null, status: 200 });
@@ -194,6 +223,16 @@ describe("getSessionState: the shell's one early read leaves first (6b.19, v2.0 
     await expect(getSessionState()).resolves.toEqual({ kind: "none" });
     expect(reads).toEqual([]);
   });
+
+  it("reads the member row alone when the layout started no shell read (a prefetch)", async () => {
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    await expect(getSessionState()).resolves.toMatchObject({
+      kind: "member",
+      member: { id: "m-1" },
+    });
+    expect(reads).toEqual([{ client: "token", table: "members", id: "m-1" }]);
+  });
 });
 
 /**
@@ -203,6 +242,7 @@ describe("getSessionState: the shell's one early read leaves first (6b.19, v2.0 
  */
 describe("the early read holds every later client until it has left", () => {
   it("registers the hold at once and settles it when the request goes out", async () => {
+    startShellRead();
     signIn(tokenFor("m-1"));
     let verify: (value: unknown) => void = () => undefined;
     getClaims.mockReturnValue(new Promise((resolve) => (verify = resolve)));
@@ -309,5 +349,14 @@ describe("readBeforeCheck: a part of the early read, kept only once the check ve
     getClaims.mockResolvedValue({ data: null, error: null });
     await expect(ownDay()).resolves.toMatchObject({ data: "usual" });
     expect(reads.map((read) => read.client)).toEqual(["session"]);
+  });
+
+  it("shares the layout's shell read: the row, the own day and the push status are one request", async () => {
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    startShellRead();
+    await expect(getSessionState()).resolves.toMatchObject({ kind: "member" });
+    await expect(ownDay()).resolves.toMatchObject({ data: { work_date: "2026-11-05" } });
+    expect(reads).toEqual([{ client: "token", table: "session_early", id: null }]);
   });
 });

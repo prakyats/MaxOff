@@ -59,7 +59,8 @@ export type SessionState =
  * way, whose failure is the retryable error as before.
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
-  const early = startSessionEarly();
+  // The shell's read when this request's layout started it; the member row alone otherwise.
+  const early = shellRead().early ?? startMemberRowRead();
   const userId = await getSessionUserId();
   if (!userId) return { kind: "none" };
   const started = await early;
@@ -152,19 +153,57 @@ function startTokenRead<R>(
 /**
  * The shell's **one** early read (v2.0 X3, ARCHITECTURE §19 "Six connections"):
  * `session_early()`, the member row, the own day and the push status in one round trip, started
- * before the JWT check settles, once per request (`cache()`). Every route's first wave was these
+ * before the JWT check settles, once per request (`cache()`). A request whose `(app)` layout does
+ * not render (a router prefetch) reads the member row alone (`startShellRead`). Every route's first wave was these
  * three plus the counts before the page's own; it is now one plus the counts.
  */
-const startSessionEarly = cache(() =>
-  startTokenRead(async (supabase) => {
+/** `session_early()` as one early token read. */
+function startSessionEarlyRead() {
+  return startTokenRead(async (supabase) => {
     const answer = await supabase.rpc("session_early");
     return {
       data: (answer.data as SessionEarly | null) ?? null,
       error: answer.error,
       status: answer.status,
     };
-  }),
-);
+  });
+}
+
+/** This request's shell read, once started (`startShellRead`, `sessionEarly`). */
+const shellRead = cache((): { early: ReturnType<typeof startSessionEarlyRead> | null } => ({
+  early: null,
+}));
+
+/**
+ * Starts the shell's early read for this request: the `(app)` layout's first line. Only a full
+ * page request renders that layout; a router prefetch renders the segments below it, so a
+ * prefetch never starts it and its `getSessionState` reads the member row alone, as it always did
+ * (prefetch-likely: every row in view is prefetched, and `session_early()` also works out the own
+ * day and the push status, which a loading boundary never needs).
+ */
+export function startShellRead(): void {
+  void sessionEarly();
+}
+
+function sessionEarly(): ReturnType<typeof startSessionEarlyRead> {
+  const state = shellRead();
+  state.early ??= startSessionEarlyRead();
+  return state.early;
+}
+
+/** The member row's read alone, started before the JWT check settles (a prefetch, an action). */
+function startMemberRowRead() {
+  return startTokenRead(async (supabase, id) => {
+    const row = await readMemberRow(supabase, id);
+    return {
+      data: row.error
+        ? null
+        : ({ member: row.data, own_day: null, own_day_refused: null, push: null } as SessionEarly),
+      error: row.error,
+      status: row.status,
+    };
+  });
+}
 
 /**
  * A part of the shell's early read (`session_early()`, v2.0 X3) that the layout's first byte
@@ -180,7 +219,7 @@ export async function readBeforeCheck<T>(
   pick: (early: SessionEarly) => { data: T | null; error: unknown },
   read: (supabase: EarlyClient) => PromiseLike<{ data: T | null; error: unknown }>,
 ): Promise<{ data: T | null; error: unknown }> {
-  const early = startSessionEarly();
+  const early = sessionEarly();
   const userId = await getSessionUserId();
   const started = await early;
   return started &&
