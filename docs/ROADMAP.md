@@ -232,7 +232,7 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 
 **v1.9.0 live 2026-11-05** (tag v1.9.0 on a7dafc62, PR #138; owner walk approved 2026-11-04). Owner exceptions to the speed gate for this release only: "a client" (unchanged since main; the start-order race) and any Crew routes still failing at deploy.
 
-**Next release (v1.10), owner 2026-11-04 after the v1.9 walk (note only until the owner says proceed):**
+**Next release: renamed v2.0 (owner 2026-11-05: "release as v2.0… ensure the app is extremely fast"; the items below plus the v2.0 units after this list). Owner notes from the v1.9 walk, 2026-11-04:**
 - **On hold seen by everyone linked, up front.**
   - The Crew assignees of a held task are told and see it as on hold.
   - An Admin opening a project the Owner holds sees it as on hold. Today they see nothing.
@@ -243,6 +243,42 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
   - `calendar.spec.ts:410` [mobile-lg];
   - `notifications.spec.ts:483` [mobile]: a strict-mode locator matched two nav badges;
   - `working-hours.spec.ts:187`: CI must not run it in the first 16 minutes of the IST day.
+
+### v2.0 "Fast and settled": units (advisor, 2026-11-05; owner: "proceed", one builder)
+Owner, 2026-11-05: after v2.0 there are no more big changes to the number of screens; only revenue (phase 9) and the Drive link (8.5) remain. v2.0 makes the app feel **extremely fast for day-to-day use**, and the speed gate is stricter for it.
+- [ ] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.
+- [ ] **X1 [C] On hold seen by everyone linked, up front** (the owner's notes above).
+  - The Crew assignees of a held task are told (a quiet notice) and see the hold line as soon as the task opens.
+  - An Admin opening a project the Owner holds sees the banner.
+  - The "waits until resumed" line shows when the task opens, for everyone linked.
+  - The phone "Put on hold" wording keeps its size at 375/430.
+  - Guide and pictures updated for every role.
+  - Check against WORKFLOWS §9: a new recipient needs a pgTAP test.
+- [ ] **X2 [H] The start-order race fix** (the `v19-first-reads` standby patch: the shell's first-byte reads go out before the page's). Advisor review of the diff before push.
+- [ ] **X3 [H] Speed audit, every route × every role:**
+  - (a) **First wave ≤ 6 reads** on every route for every role, enforced by a test that fails on a seventh, through the diagnostics timing.
+  - (b) **The hot database functions:** `EXPLAIN (ANALYZE, BUFFERS)` on `session_bundle`, `task_counts`, the Today, My Day, Approvals and calendar reads on staging data. Add any missing index (expand-only, with pgTAP).
+  - (c) **The client:** first-load JS, with every route's budget lowered to its measured size plus 5 %, the tap → skeleton time, and INP on a mid-range Android profile (4× CPU, Fast 4G) for each role's top 5 screens. Find and fix any long task over 200 ms.
+  - (d) **Caching and prefetch:** confirm the likely-next prefetch and the service-worker outlines hold for every role.
+- [ ] **X4 [H] Measure where the team is:**
+  - The CI probe runs from US runners, so every database trip it measures crosses an ocean. The team is in India and the database is in Mumbai.
+  - Add an **India probe**: the advisor runs `perf-probe` from the laptop in India against the preview and the main-preview, for all three roles.
+  - Evaluate **Cloudflare Smart Placement**, running the Worker beside the database. Measure it on the preview from India and from the US, and adopt it with an ADR only if it's faster for India. The owner approves anything that changes production config.
+- [ ] **X5 [C] Tests fixed at the cause:** `calendar.spec:410`, `notifications.spec:483` and the `working-hours` midnight window (above), plus any test that fails once during v2.0.
+- [ ] **X6 [C] Release review:**
+  - the guide, every role;
+  - the design pass;
+  - full CI twice, green with no reruns needed;
+  - **the v2.0 speed gate, below**;
+  - READY FOR OWNER, then the walk, then tag `v2.0.0`.
+
+**The v2.0 speed gate (advisor, 2026-11-05; stricter than CLAUDE.md, with no exceptions):**
+- Every route for every role, paired against a preview of v1.9.0, passes the two-run rule.
+- **No route's warm p50 above 450 ms** from the CI probe.
+- **India probe: warm p50 ≤ 300 ms** on every route.
+- **Tap → skeleton ≤ 200 ms.**
+- **INP ≤ 200 ms** on the phone profile.
+- No budget raised.
 
 ## Phase 7: Client work
 > **Launch order:** built **right after phase 6 (v1.5.x), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08; Owner and Admin; Crew never use it).
