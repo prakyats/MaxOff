@@ -5406,6 +5406,7 @@ export type Database = {
         }[];
       };
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
+      own_week: { Args: { from_date: string; to_date: string }; Returns: Json };
       owner_digest_preview: { Args: never; Returns: Json };
       owner_digest_weekly_preview: { Args: never; Returns: Json };
       project_activity: {

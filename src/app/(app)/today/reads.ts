@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { withSessionUserId } from "@/core/auth/server";
-import { addISTDays, type ISODate } from "@/core/time";
+import { addISTDays, type ISODate, todayIST } from "@/core/time";
 import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
   countItemsToDecide,
@@ -26,15 +26,21 @@ import {
 } from "@/modules/dashboards";
 import { listPendingClaims } from "@/modules/expenses";
 import { listPendingRequests } from "@/modules/leave";
-import { getSettings, listHolidays } from "@/modules/settings";
-import { countRequestsToDecide, listEventTasks, listTasksToDecide } from "@/modules/tasks";
+import { getSettings } from "@/modules/settings";
+import { countRequestsToDecide, listOwnWeek, listTasksToDecide } from "@/modules/tasks";
 
 /**
  * The reads Today's two screens use, once per request (`cache()`): the page starts the shared
  * ones with the session read (ARCHITECTURE §19), and the screen the role picks calls the same
  * reads again and gets the promises in flight.
  */
-export const readEventTasks = cache(listEventTasks);
+/**
+ * The week strip's event tasks and holidays in one read (v2.0 X3, `own_week()`), once per request:
+ * the page starts it with the session read and both screens get the same promise.
+ */
+const readWeek = cache((from: ISODate, to: ISODate) => listOwnWeek(from, to));
+export const readEventTasks = (from: ISODate, to: ISODate) =>
+  readWeek(from, to).then((week) => week.events);
 /**
  * How far the event tasks are read: 62 days (an Admin's Issues check an event's day that far,
  * `member_availability()`'s limit); the strip shows the first seven. One read for both screens.
@@ -42,7 +48,11 @@ export const readEventTasks = cache(listEventTasks);
 export function eventsHorizon(today: ISODate): ISODate {
   return addISTDays(today, 61);
 }
-export const readHolidays = cache(listHolidays);
+/** The holidays in Today's window (the week strip keeps its seven days), from the same read. */
+export const readHolidays = () => {
+  const today = todayIST();
+  return readWeek(today, eventsHorizon(today)).then((week) => week.holidays);
+};
 export const readSettings = cache(getSettings);
 export const readLeaveDays = cache(listLeaveDays);
 export const readNotNoted = cache(listNotNoted);

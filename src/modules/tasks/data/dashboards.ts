@@ -51,6 +51,57 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
   );
 }
 
+/**
+ * The week strip's two reads in one (v2.0 X3, `own_week()`; ARCHITECTURE §19 "Six connections"):
+ * the event tasks in [from, to] exactly as `listEventTasks` reads them, and the holidays in the
+ * same window (`listHolidays` read them all; every week strip keeps the window's). At most 62 days
+ * (the database refuses more). RLS decides every row, as for the two API reads.
+ */
+export async function listOwnWeek(
+  from: ISODate,
+  to: ISODate,
+): Promise<{ events: EventTask[]; holidays: { id: string; date: ISODate; name: string }[] }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("own_week", { from_date: from, to_date: to });
+  if (error) throw error;
+  const week = data as {
+    holidays: { id: string; date: string; name: string }[];
+    events: {
+      id: string;
+      title: string;
+      state: EventTask["state"];
+      event_date: string;
+      event_start_at: string | null;
+      event_end_at: string | null;
+      location: string | null;
+      client_id: string | null;
+      task_type_id: string;
+      primary_owner_id: string;
+      assignee_ids: string[];
+    }[];
+  };
+  return {
+    holidays: week.holidays.map((row) => ({
+      id: row.id,
+      date: row.date as ISODate,
+      name: row.name,
+    })),
+    events: week.events.map((row) => ({
+      id: row.id,
+      title: row.title,
+      state: row.state,
+      eventDate: row.event_date as ISODate,
+      eventStartAt: row.event_start_at,
+      eventEndAt: row.event_end_at,
+      location: row.location,
+      clientId: row.client_id,
+      taskTypeId: row.task_type_id,
+      primaryOwnerId: row.primary_owner_id,
+      assigneeIds: row.assignee_ids,
+    })),
+  };
+}
+
 /** PostgREST answers at most 1000 rows a call (`max_rows`): longer reads go page by page. */
 const PAGE = 1000;
 
