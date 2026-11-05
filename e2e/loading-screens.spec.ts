@@ -238,7 +238,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/today/people",
     marker: 'data-slot="loading-today-people"',
-    hold: "/rest/v1/rpc/attendance_today_detail",
+    // v2.0 X3: the board's people and hours are one read (`attendance_board_today()`).
+    hold: "/rest/v1/rpc/attendance_board_today",
     trace: {
       filter: {
         held: '[data-slot="people-filter"]',
@@ -260,7 +261,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/today/people?group=end_not_recorded",
     marker: 'data-slot="loading-today-people"',
-    hold: "/rest/v1/rpc/attendance_today_detail",
+    // v2.0 X3: the board's people and hours are one read (`attendance_board_today()`).
+    hold: "/rest/v1/rpc/attendance_board_today",
     trace: {
       "yesterday line": {
         held: '[data-slot="loading-people-yesterday"]',
@@ -277,7 +279,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "staff",
     path: "/my-day",
     marker: 'data-slot="loading-my-day"',
-    hold: "/rest/v1/holidays",
+    // v2.0 X3: the week's holidays, events, own leave and freelancers are one read (`own_week()`).
+    hold: "/rest/v1/rpc/own_week",
     fixture: "staff task",
     trace: {
       "attendance strip": {
@@ -573,7 +576,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/settings/templates",
     marker: 'data-slot="loading-templates"',
-    hold: "/rest/v1/task_templates",
+    // v2.0 X3: the five template lists are one read (`templates_library()`).
+    hold: "/rest/v1/rpc/templates_library",
     fixture: "template",
     trace: {
       "first row": {
@@ -587,7 +591,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "admin",
     path: "/settings/templates",
     marker: 'data-slot="loading-templates"',
-    hold: "/rest/v1/task_templates",
+    // v2.0 X3: the five template lists are one read (`templates_library()`).
+    hold: "/rest/v1/rpc/templates_library",
     fixture: "template",
     trace: {
       "first row": {
@@ -1031,7 +1036,8 @@ const WEEK_SCREENS = [
     role: "staff",
     path: "/my-day",
     marker: 'data-slot="loading-my-day"',
-    hold: "/rest/v1/holidays",
+    // v2.0 X3: the week's holidays, events, own leave and freelancers are one read (`own_week()`).
+    hold: "/rest/v1/rpc/own_week",
   },
   { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"', hold: "/rest/v1/tasks" },
 ] as const;

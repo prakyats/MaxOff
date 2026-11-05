@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Json } from "@/core/db";
+import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
 import { type TemplateUsage, usageFromJson } from "@/core/lib/owner-delete";
@@ -25,17 +25,24 @@ function asObject(value: Json): Record<string, unknown> {
     : {};
 }
 
-/** Every template the viewer may use, archived ones included (Settings lists them apart); never a deleted one. */
-export async function listTaskTemplates(): Promise<TaskTemplate[]> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase
-    .from("task_templates")
-    .select(COLUMNS)
-    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
-    .is("deleted_at", null)
-    .order("name");
-  if (error) throw error;
-  return data.map((row) => ({
+/** A task template's row as `COLUMNS` reads it. */
+export type TaskTemplateRow = Pick<
+  Tables<"task_templates">,
+  | "id"
+  | "name"
+  | "task_type_id"
+  | "description"
+  | "default_priority"
+  | "stages"
+  | "field_defaults"
+  | "archived_at"
+  | "created_by"
+  | "reminder_rules"
+>;
+
+/** Task templates from their rows (`COLUMNS`), as `listTaskTemplates` reads them or `templates_library()` carries them. */
+export function taskTemplatesFrom(rows: readonly TaskTemplateRow[]): TaskTemplate[] {
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
     taskTypeId: row.task_type_id,
@@ -47,6 +54,19 @@ export async function listTaskTemplates(): Promise<TaskTemplate[]> {
     createdBy: row.created_by,
     reminderRules: parseReminderRules(row.reminder_rules),
   }));
+}
+
+/** Every template the viewer may use, archived ones included (Settings lists them apart); never a deleted one. */
+export async function listTaskTemplates(): Promise<TaskTemplate[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("task_templates")
+    .select(COLUMNS)
+    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
+    .is("deleted_at", null)
+    .order("name");
+  if (error) throw error;
+  return taskTemplatesFrom(data);
 }
 
 export type TemplateValues = {

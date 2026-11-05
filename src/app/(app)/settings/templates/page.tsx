@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 
-import { listAllDefinitions } from "@/core/custom-fields/server";
+import { listAllDefinitionsOf } from "@/core/custom-fields/server";
 import { checkThenRead } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
-import { listStagePresets } from "@/modules/settings";
-import { listTaskTemplates, listTaskTypes } from "@/modules/tasks";
-import { listDeliverableTemplates, listProjectTemplates } from "@/modules/templates";
+import { readTemplatesLibrary } from "@/modules/templates";
 import { listDirectory } from "@/modules/team";
 
 import { SETTINGS_HEADERS } from "../headers";
@@ -25,34 +23,26 @@ export const metadata: Metadata = { title: "Templates" };
  * own, the Owner any; RLS decides again.
  */
 export default async function TemplatesSettingsPage() {
-  // Read together with the permission check, not after it (ARCHITECTURE §19).
-  const [
-    viewer,
-    [
-      templates,
-      types,
-      definitions,
-      directory,
-      settings,
-      projectTemplates,
-      presets,
-      projectFields,
-      deliverableTemplates,
-    ],
-  ] = await checkThenRead(
+  // Read together with the permission check, not after it (ARCHITECTURE §19). The five template
+  // lists are one read (`templates_library()`) and the task and project fields another (v2.0 X3),
+  // so the first wave is six with the shell's two.
+  const [viewer, [library, fields, directory, settings]] = await checkThenRead(
     requirePermission("templates.manage"),
     Promise.all([
-      listTaskTemplates(),
-      listTaskTypes(),
-      listAllDefinitions("task"),
+      readTemplatesLibrary(),
+      listAllDefinitionsOf(["task", "project"] as const),
       listDirectory(),
       getSettings(),
-      listProjectTemplates(),
-      listStagePresets(),
-      listAllDefinitions("project"),
-      listDeliverableTemplates(),
     ]),
   );
+  const {
+    taskTemplates: templates,
+    taskTypes: types,
+    projectTemplates,
+    deliverableTemplates,
+    stagePresets: presets,
+  } = library;
+  const { task: definitions, project: projectFields } = fields;
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
   const viewerRef = { id: viewer.id, role: viewer.role };
 

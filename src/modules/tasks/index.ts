@@ -29,6 +29,8 @@ export {
   listSubmissions,
   listTaskActivity,
   listTaskTypes,
+  taskTypesFrom,
+  type TaskTypeRow,
   countOpenAssignments,
   countOpenTasksForClient,
   countTasks,
@@ -45,7 +47,7 @@ export { listEventTasks, listKpiFacts, listOwnWeek } from "./data/dashboards";
 export { type EventTask, type KpiFacts } from "./domain/dashboards";
 export { type AvailabilityDay, type LeaveMark } from "./domain/warnings";
 export { countRequestsToDecide, listTaskRequests } from "./data/requests";
-export { listTaskTemplates } from "./data/templates";
+export { listTaskTemplates, taskTemplatesFrom, type TaskTemplateRow } from "./data/templates";
 export { listTaskTypeSettings } from "./data/task-types";
 export {
   DEFAULT_TASK_TYPE_COLOR,

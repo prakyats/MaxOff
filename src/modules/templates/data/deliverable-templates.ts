@@ -1,12 +1,32 @@
 import "server-only";
 
-import type { Json } from "@/core/db";
+import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
 import { type StageGroup, groupsFromJson, groupsToJson } from "@/core/lib/stage-groups";
 import { systemClock } from "@/core/time";
 
 import type { DeliverableTemplate } from "../domain/deliverable-templates";
+
+/** A deliverable template's row as `listDeliverableTemplates` reads it. */
+export type DeliverableTemplateRow = Pick<
+  Tables<"deliverable_templates">,
+  "id" | "name" | "stage_groups" | "archived_at" | "archived_reason" | "created_by"
+>;
+
+/** Deliverable templates from their rows, as `listDeliverableTemplates` reads them or `templates_library()` carries them. */
+export function deliverableTemplatesFrom(
+  rows: readonly DeliverableTemplateRow[],
+): DeliverableTemplate[] {
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    stageGroups: groupsFromJson(row.stage_groups, []),
+    archived: row.archived_at !== null,
+    archivedReason: row.archived_reason,
+    createdBy: row.created_by,
+  }));
+}
 
 /**
  * Deliverable templates (6b Release 2): plain edits under RLS (`templates.manage` reads every
@@ -23,14 +43,7 @@ export async function listDeliverableTemplates(): Promise<DeliverableTemplate[]>
     .is("deleted_at", null)
     .order("name");
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    stageGroups: groupsFromJson(row.stage_groups, []),
-    archived: row.archived_at !== null,
-    archivedReason: row.archived_reason,
-    createdBy: row.created_by,
-  }));
+  return deliverableTemplatesFrom(data);
 }
 
 export type DeliverableTemplateValues = { name: string; stageGroups: StageGroup[] };

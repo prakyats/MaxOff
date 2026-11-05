@@ -5808,6 +5808,7 @@ export type Database = {
         Args: { kind: string; template_id: string };
         Returns: Json;
       };
+      templates_library: { Args: never; Returns: Json };
       unused_delete: {
         Args: { kind: string; target_id: string };
         Returns: undefined;

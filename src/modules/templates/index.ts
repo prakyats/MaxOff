@@ -8,6 +8,7 @@
  */
 export { listProjectTemplates } from "./data/project-templates";
 export { listDeliverableTemplates } from "./data/deliverable-templates";
+export { readTemplatesLibrary } from "./data/library";
 export { type DeliverableTemplate } from "./domain/deliverable-templates";
 export {
   linesOf,

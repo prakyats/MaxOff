@@ -83,6 +83,34 @@ function toTask(row: Tables<"tasks">): Task {
   };
 }
 
+/** A task type's row as `listTaskTypes` reads it. */
+export type TaskTypeRow = Pick<
+  Tables<"task_types">,
+  | "id"
+  | "name"
+  | "kind"
+  | "has_location"
+  | "shows_on_calendar"
+  | "archived_at"
+  | "position"
+  | "default_reminders"
+  | "color"
+>;
+
+/** Task types from their rows, as `listTaskTypes` reads them or `templates_library()` carries them. */
+export function taskTypesFrom(rows: readonly TaskTypeRow[]): TaskType[] {
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    hasLocation: row.has_location,
+    showsOnCalendar: row.shows_on_calendar,
+    archived: row.archived_at !== null,
+    defaultReminders: parseReminderRules(row.default_reminders),
+    color: row.color,
+  }));
+}
+
 /** Every task type, archived ones included (a task keeps its type), in the Owner's order. */
 export async function listTaskTypes(): Promise<TaskType[]> {
   const supabase = await createServerSupabase();
@@ -93,16 +121,7 @@ export async function listTaskTypes(): Promise<TaskType[]> {
     )
     .order("position", { ascending: true });
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    kind: row.kind,
-    hasLocation: row.has_location,
-    showsOnCalendar: row.shows_on_calendar,
-    archived: row.archived_at !== null,
-    defaultReminders: parseReminderRules(row.default_reminders),
-    color: row.color,
-  }));
+  return taskTypesFrom(data);
 }
 
 /** One task, or null when it does not exist or the viewer may not see it (RLS). */

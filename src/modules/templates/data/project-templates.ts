@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Json } from "@/core/db";
+import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
 import {
@@ -33,18 +33,25 @@ function asObject(value: Json): Record<string, unknown> {
     : {};
 }
 
-export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase
-    .from("project_templates")
-    .select(
-      "id, name, description, recurrence, stages, items, stage_groups, deliverables, field_defaults, archived_at, created_by",
-    )
-    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
-    .is("deleted_at", null)
-    .order("name");
-  if (error) throw error;
-  return data.map((row) => {
+/** A project template's row as `listProjectTemplates` reads it. */
+export type ProjectTemplateRow = Pick<
+  Tables<"project_templates">,
+  | "id"
+  | "name"
+  | "description"
+  | "recurrence"
+  | "stages"
+  | "items"
+  | "stage_groups"
+  | "deliverables"
+  | "field_defaults"
+  | "archived_at"
+  | "created_by"
+>;
+
+/** Project templates from their rows, as `listProjectTemplates` reads them or `templates_library()` carries them. */
+export function projectTemplatesFrom(rows: readonly ProjectTemplateRow[]): ProjectTemplate[] {
+  return rows.map((row) => {
     const stageGroups = groupsFromJson(row.stage_groups, row.stages);
     return {
       id: row.id,
@@ -60,6 +67,20 @@ export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
       createdBy: row.created_by,
     };
   });
+}
+
+export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("project_templates")
+    .select(
+      "id, name, description, recurrence, stages, items, stage_groups, deliverables, field_defaults, archived_at, created_by",
+    )
+    // A deleted template (V5a 6b) is gone from every list and picker, archived ones included.
+    .is("deleted_at", null)
+    .order("name");
+  if (error) throw error;
+  return projectTemplatesFrom(data);
 }
 
 export type ProjectTemplateValues = {
