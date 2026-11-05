@@ -801,7 +801,14 @@ test.describe("the Owner's Today (6.2)", () => {
       await expect(
         needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}checked` }),
       ).toContainText("Waiting for your approval");
-      await expect(section(page, "tasks-open")).not.toContainText(`${prefix}checked`);
+      // Counted as rows, so the claim holds when Open tasks has nothing else and draws no section
+      // at all (FINAL 1): the old `not.toContainText` on a missing section failed whenever the
+      // database had no other open task (X5, dashboards:765).
+      await expect(
+        page
+          .locator('[data-slot="tasks-open"] [data-slot="task-row"]')
+          .filter({ hasText: `${prefix}checked` }),
+      ).toHaveCount(0);
       await expect
         .poll(async () => {
           await page.reload();
