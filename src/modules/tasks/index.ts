@@ -20,6 +20,7 @@ export {
 export {
   getTask,
   getTaskRead,
+  readTaskPage,
   getTaskTitle,
   listUnreadCounts,
   listAssignees,

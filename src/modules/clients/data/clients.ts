@@ -431,7 +431,12 @@ export async function listClientLabels(): Promise<ClientLabel[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("client_labels").select("*").order("name");
   if (error) throw error;
-  return data.map((row) => {
+  return clientLabelsFrom(data);
+}
+
+/** Labels from `client_labels` rows, as `listClientLabels` reads them or a page's one read carries them. */
+export function clientLabelsFrom(rows: readonly Tables<"client_labels">[]): ClientLabel[] {
+  return rows.map((row) => {
     // A security-definer view's columns are typed nullable; the base tables' are not.
     if (!row.id || !row.name || !row.state) {
       throw new AppError("INTERNAL", undefined, {

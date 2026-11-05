@@ -44,6 +44,7 @@ export {
   listAdminAssignments,
   listClientActivity,
   listClientLabels,
+  clientLabelsFrom,
   listClients,
   listClientsRunBy,
   listClientSummaries,

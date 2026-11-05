@@ -2,20 +2,11 @@ import "server-only";
 
 import { cache } from "react";
 
-import { listClientLabels } from "@/modules/clients";
-import {
-  getTask,
-  getTaskRead,
-  listAssignees,
-  listComments,
-  listReviews,
-  listStages,
-  listSubmissions,
-  listTaskActivity,
-} from "@/modules/tasks";
-import { listDirectoryOf, listOwnFreelancerIds, type TeamMember } from "@/modules/team";
+import { clientLabelsFrom } from "@/modules/clients";
+import { readTaskPage } from "@/modules/tasks";
+import { coordinatorsFrom, listDirectoryOf, type TeamMember } from "@/modules/team";
 
-import { readCoordinators, readDirectory, readTaskDefinitions, readTaskTypes } from "../reads";
+import { readDirectory, readTaskDefinitions, readTaskTypes } from "../reads";
 
 /**
  * The task page's back control (§14.2 k, 6b.12 (2)): its parent is Tasks, and it is drilled into
@@ -42,7 +33,8 @@ export const TASK_BACK = {
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Everything a task's page reads but the names, in one parallel wave (ARCHITECTURE §19): the task
+ * Everything a task's page reads but the names, in one parallel wave (ARCHITECTURE §19; since
+ * v2.0 X3 most of it in one read, `task_page()`): the task
  * and its children (RLS: `app.task_visible()`, so a task the viewer may not see comes back null),
  * its history, who coordinates whom (the Owner's and Admins' `member_coordinators`; the viewer's
  * own freelancers from `coordinated_freelancers`, ADR-0013), the client label (ADR-0005: a label
@@ -51,52 +43,31 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
  * shared with it (`../reads`). The names are `loadNames`.
  */
 export const loadTask = cache(async (id: string) => {
-  const [
-    task,
-    assignees,
-    stages,
-    chat,
-    submissions,
-    reviews,
-    activity,
-    types,
-    coordinators,
-    ownFreelancers,
-    labels,
-    definitions,
-    lastRead,
-  ] = await Promise.all([
-    getTask(id),
-    listAssignees(id),
-    listStages(id),
-    listComments(id),
-    listSubmissions(id),
-    listReviews(id),
-    listTaskActivity(id),
+  // v2.0 X3: the task, its children, its history, the viewer's own last read, who coordinates
+  // whom, the viewer's freelancers and the client labels are one read (`task_page()`), each part
+  // exactly as its own read gave it; the types and the task fields stay shared with the dialog.
+  const [page, types, definitions] = await Promise.all([
+    readTaskPage(id),
     readTaskTypes(),
-    readCoordinators(),
-    listOwnFreelancerIds(),
-    listClientLabels(),
     readTaskDefinitions(),
-    getTaskRead(id),
   ]);
-  const { comments, more: earlierComments } = chat;
+  const { comments, more: earlierComments } = page.chat;
   return {
-    task,
-    assignees,
-    stages,
+    task: page.task,
+    assignees: page.assignees,
+    stages: page.stages,
     comments,
     /** Earlier comments remain before the latest page (Chat's "Load earlier"). */
     earlierComments,
-    submissions,
-    reviews,
-    activity,
+    submissions: page.submissions,
+    reviews: page.reviews,
+    activity: page.activity,
     types,
-    coordinators,
-    ownFreelancers,
-    labels,
+    coordinators: coordinatorsFrom(page.coordinatorRows),
+    ownFreelancers: page.freelancers,
+    labels: clientLabelsFrom(page.labelRows),
     definitions,
-    lastRead,
+    lastRead: page.lastRead,
   };
 });
 

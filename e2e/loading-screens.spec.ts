@@ -399,30 +399,31 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     hold: "/rest/v1/coordinated_freelancers",
     trace: ME_WITH_PAGES,
   },
-  // A task's page (4.4): its skeleton streams before the page decides; an unknown id ends on the
+  // A task's page (4.4), held by its one read (v2.0 X3: `task_page()`): its skeleton streams
+  // before the page decides; an unknown id ends on the
   // not-found screen, so there is nothing to trace, only the fit (the Owner's ⋯ placeholder, and
   // Staff's none).
   {
     role: "owner",
     path: "/tasks/00000000-0000-4000-8000-000000000000",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/tasks",
+    hold: "/rest/v1/rpc/task_page",
     trace: {},
   },
   {
     role: "staff",
     path: "/tasks/00000000-0000-4000-8000-000000000000",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/tasks",
+    hold: "/rest/v1/rpc/task_page",
     trace: {},
   },
-  // The reworked task page (decisions 26–32): each view, held by a read only it waits for, and
-  // traced; Chat is the inline view on a desktop and the full-height sheet on a phone.
+  // The reworked task page (decisions 26–32): each view, held by the one read it waits for (v2.0
+  // X3: `task_page()`, the task and its children), and traced; Chat is the inline view on a desktop and the full-height sheet on a phone.
   {
     role: "staff",
     path: "/tasks/:task",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_stages",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     trace: TASK_WORK,
   },
@@ -430,7 +431,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/tasks/:task",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_stages",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     // The Owner's "needed" line names the Staff member and may take two lines on a phone.
     trace: TASK_GLANCE,
@@ -441,7 +442,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "staff",
     path: "/tasks/:task?tab=details",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_assignees",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     trace: {
       ...TASK_VIEWS,
@@ -460,7 +461,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "staff",
     path: "/tasks/:task?tab=chat",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_comments",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     settle: async (page) => {
       await expect(

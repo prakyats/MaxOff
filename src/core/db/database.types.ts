@@ -5705,6 +5705,10 @@ export type Database = {
         Args: { task_id: string; up_to?: string };
         Returns: string;
       };
+      task_page: {
+        Args: { p_activity: number; p_comments: number; p_task_id: string };
+        Returns: Json;
+      };
       task_remind: { Args: { task_id: string }; Returns: string };
       task_reopen: {
         Args: { reason: string; task_id: string };

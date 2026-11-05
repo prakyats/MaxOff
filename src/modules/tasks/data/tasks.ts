@@ -2,9 +2,9 @@ import "server-only";
 
 import { cache } from "react";
 
-import { listActivity } from "@/core/activity/server";
+import { activityFrom, type ActivityRow, listActivity } from "@/core/activity/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
-import type { ActivityEntry } from "@/core/activity";
+import { ACTIVITY_LIMIT, type ActivityEntry } from "@/core/activity";
 import type { Database, Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError } from "@/core/errors";
@@ -124,6 +124,28 @@ export async function listTaskTypes(): Promise<TaskType[]> {
   return taskTypesFrom(data);
 }
 
+/** The task-page rows, as their reads (and `task_page()`) carry them. */
+export type AssigneeRow = Pick<
+  Tables<"task_assignees">,
+  "member_id" | "is_primary" | "assigned_at" | "acknowledged_at" | "acknowledged_by" | "removed_at"
+>;
+export type StageRow = Pick<
+  Tables<"task_stages">,
+  "id" | "name" | "position" | "done_at" | "done_by" | "on_behalf_of"
+>;
+type CommentRow = Pick<
+  Tables<"task_comments">,
+  "id" | "author_id" | "on_behalf_of" | "body" | "created_at"
+>;
+export type SubmissionRow = Pick<
+  Tables<"task_submissions">,
+  "id" | "version" | "note" | "submitted_by" | "on_behalf_of" | "at"
+>;
+export type ReviewRow = Pick<
+  Tables<"task_reviews">,
+  "id" | "step" | "decision" | "reason" | "reviewer_id" | "at"
+>;
+
 /** One task, or null when it does not exist or the viewer may not see it (RLS). */
 export async function getTask(id: string): Promise<Task | null> {
   const supabase = await createServerSupabase();
@@ -149,6 +171,18 @@ export const getTaskTitle = cache(async (id: string): Promise<string | null> => 
   return data?.title ?? null;
 });
 
+/** Assignees from their rows, as `listAssignees` reads them or `task_page()` carries them. */
+export function assigneesFrom(rows: readonly AssigneeRow[]): TaskAssignee[] {
+  return rows.map((row) => ({
+    memberId: row.member_id,
+    isPrimary: row.is_primary,
+    assignedAt: row.assigned_at,
+    acknowledgedAt: row.acknowledged_at,
+    acknowledgedBy: row.acknowledged_by,
+    removedAt: row.removed_at,
+  }));
+}
+
 /** Everyone ever on the task, removed people included (the history names them). */
 export async function listAssignees(taskId: string): Promise<TaskAssignee[]> {
   const supabase = await createServerSupabase();
@@ -158,13 +192,18 @@ export async function listAssignees(taskId: string): Promise<TaskAssignee[]> {
     .eq("task_id", taskId)
     .order("assigned_at", { ascending: true });
   if (error) throw error;
-  return data.map((row) => ({
-    memberId: row.member_id,
-    isPrimary: row.is_primary,
-    assignedAt: row.assigned_at,
-    acknowledgedAt: row.acknowledged_at,
-    acknowledgedBy: row.acknowledged_by,
-    removedAt: row.removed_at,
+  return assigneesFrom(data);
+}
+
+/** Stages from their rows, as `listStages` reads them or `task_page()` carries them. */
+export function stagesFrom(rows: readonly StageRow[]): TaskStage[] {
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    position: row.position,
+    doneAt: row.done_at,
+    doneBy: row.done_by,
+    onBehalfOf: row.on_behalf_of,
   }));
 }
 
@@ -177,14 +216,7 @@ export async function listStages(taskId: string): Promise<TaskStage[]> {
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    position: row.position,
-    doneAt: row.done_at,
-    doneBy: row.done_by,
-    onBehalfOf: row.on_behalf_of,
-  }));
+  return stagesFrom(data);
 }
 
 /**
@@ -212,8 +244,16 @@ export async function listComments(
     .order("id", { ascending: false })
     .limit(CHAT_PAGE + 1);
   if (error) throw error;
-  const more = data.length > CHAT_PAGE;
-  const comments = data
+  return commentsPageFrom(data);
+}
+
+/**
+ * A page of comments from up to `CHAT_PAGE + 1` rows newest first (as `listComments` reads them or
+ * `task_page()` carries them): the page oldest first, and whether earlier ones remain.
+ */
+function commentsPageFrom(rows: readonly CommentRow[]): { comments: TaskComment[]; more: boolean } {
+  const more = rows.length > CHAT_PAGE;
+  const comments = rows
     .slice(0, CHAT_PAGE)
     .reverse()
     .map((row) => ({
@@ -270,6 +310,18 @@ export async function listUnreadCounts(
   return counts;
 }
 
+/** Hand-ins from their rows, as `listSubmissions` reads them or `task_page()` carries them. */
+export function submissionsFrom(rows: readonly SubmissionRow[]): TaskSubmission[] {
+  return rows.map((row) => ({
+    id: row.id,
+    version: row.version,
+    note: row.note,
+    submittedBy: row.submitted_by,
+    onBehalfOf: row.on_behalf_of,
+    at: row.at,
+  }));
+}
+
 /** The hand-ins, newest version first. */
 export async function listSubmissions(taskId: string): Promise<TaskSubmission[]> {
   const supabase = await createServerSupabase();
@@ -279,12 +331,17 @@ export async function listSubmissions(taskId: string): Promise<TaskSubmission[]>
     .eq("task_id", taskId)
     .order("version", { ascending: false });
   if (error) throw error;
-  return data.map((row) => ({
+  return submissionsFrom(data);
+}
+
+/** Reviews from their rows, as `listReviews` reads them or `task_page()` carries them. */
+export function reviewsFrom(rows: readonly ReviewRow[]): TaskReview[] {
+  return rows.map((row) => ({
     id: row.id,
-    version: row.version,
-    note: row.note,
-    submittedBy: row.submitted_by,
-    onBehalfOf: row.on_behalf_of,
+    step: row.step === "owner" ? "owner" : "admin",
+    decision: row.decision,
+    reason: row.reason,
+    reviewerId: row.reviewer_id,
     at: row.at,
   }));
 }
@@ -297,14 +354,7 @@ export async function listReviews(taskId: string): Promise<TaskReview[]> {
     .eq("task_id", taskId)
     .order("at", { ascending: false });
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    step: row.step === "owner" ? "owner" : "admin",
-    decision: row.decision,
-    reason: row.reason,
-    reviewerId: row.reviewer_id,
-    at: row.at,
-  }));
+  return reviewsFrom(data);
 }
 
 /**
@@ -321,6 +371,50 @@ const TASK_ENTITIES = ["tasks", "task_assignees", "task_stages", "task_warnings"
  */
 export async function listTaskActivity(taskId: string): Promise<ActivityEntry[]> {
   return listActivity(TASK_ENTITIES.map((entity) => ({ entity, ids: [taskId] })));
+}
+
+/**
+ * A task's page's reads in one (v2.0 X3, `task_page()`; ARCHITECTURE §19): the task, its people,
+ * stages, latest comments, hand-ins, reviews, history and the viewer's own last read, each exactly
+ * as its own read gives it (`getTask`, `listAssignees`, `listStages`, `listComments`,
+ * `listSubmissions`, `listReviews`, `listTaskActivity`, `getTaskRead`), under the same RLS
+ * (security invoker), plus the rows of three reads other modules map (who coordinates whom, the
+ * viewer's freelancers, the client labels), which the page maps with their own mappers.
+ */
+export async function readTaskPage(id: string) {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("task_page", {
+    p_task_id: id,
+    p_comments: CHAT_PAGE + 1,
+    p_activity: ACTIVITY_LIMIT,
+  });
+  if (error) throw error;
+  const page = data as {
+    task: Tables<"tasks"> | null;
+    assignees: AssigneeRow[];
+    stages: StageRow[];
+    comments: CommentRow[];
+    submissions: SubmissionRow[];
+    reviews: ReviewRow[];
+    activity: ActivityRow[];
+    last_read: string | null;
+    coordinators: { member_id: string | null; coordinator_id: string | null }[];
+    freelancers: string[];
+    labels: Tables<"client_labels">[];
+  };
+  return {
+    task: page.task ? toTask(page.task) : null,
+    assignees: assigneesFrom(page.assignees),
+    stages: stagesFrom(page.stages),
+    chat: commentsPageFrom(page.comments),
+    submissions: submissionsFrom(page.submissions),
+    reviews: reviewsFrom(page.reviews),
+    activity: activityFrom(page.activity),
+    lastRead: page.last_read,
+    coordinatorRows: page.coordinators,
+    freelancers: page.freelancers,
+    labelRows: page.labels,
+  };
 }
 
 // Lists (4.5) --------------------------------------------------------------------------------------
