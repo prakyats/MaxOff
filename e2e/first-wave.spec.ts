@@ -88,11 +88,15 @@ for (const role of ["owner", "admin", "staff"] as const) {
         ...(await records(role)),
       ];
       const counts: Record<string, string[]> = {};
+      const duplicates: string[] = [];
       for (const path of paths) {
         const wave = await firstWave(session);
         try {
           const answer = page.request.get(path, { maxRedirects: 0 }).catch(() => null);
           counts[path] = await wave.settled();
+          const queries = wave.queries();
+          const twice = queries.filter((query, index) => queries.indexOf(query) !== index);
+          if (twice.length > 0) duplicates.push(`${path}: ${twice.join(" ")}`);
           wave.release();
           const response = await answer;
           expect(response?.status(), `${path} answers once released`).toBe(200);
@@ -106,6 +110,8 @@ for (const role of ["owner", "admin", "staff"] as const) {
       info.annotations.push({ type: "first-wave", description: lines.join("\n") });
       // eslint-disable-next-line no-console -- the measuring run's table (X3), until the gate is on
       console.log(`first wave, ${role}:\n${lines.join("\n")}`);
+      // eslint-disable-next-line no-console -- the same read twice in one request (X3)
+      console.log(`duplicates, ${role}:\n${duplicates.join("\n") || "none"}`);
     });
   });
 }

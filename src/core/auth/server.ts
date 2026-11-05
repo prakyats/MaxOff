@@ -59,13 +59,13 @@ export type SessionState =
  * way, whose failure is the retryable error as before.
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
-  const early = startMemberRowRead();
+  const early = startSessionEarly();
   const userId = await getSessionUserId();
   if (!userId) return { kind: "none" };
   const started = await early;
   const { data: row, error } =
-    started && started.id === userId && !started.result.error
-      ? started.result
+    started && started.id === userId && !started.result.error && started.result.data
+      ? { data: started.result.data.member, error: null }
       : await readMemberRow(await createServerSupabase(), userId);
   // A failed query (timeout, paused project) must never read as "inactive": that path ends
   // the session. Let the error boundary show a retryable error instead.
@@ -92,7 +92,20 @@ function readMemberRow(supabase: Pick<ServerSupabase, "from">, id: string) {
   return supabase.from("members").select(MEMBER_ROW).eq("id", id).maybeSingle();
 }
 
-type MemberRowRead = Awaited<ReturnType<typeof readMemberRow>>;
+type MemberRow = NonNullable<Awaited<ReturnType<typeof readMemberRow>>["data"]>;
+
+/**
+ * `session_early()`'s answer (v2.0 X3, DATA-MODEL §1 "v2.0 X3"): the shell's three first-byte
+ * reads in one, the caller's own only. `member` as `readMemberRow` reads it (under RLS); `own_day`
+ * as `attendance_own_today()` answers, or null with `own_day_refused` naming the refusal it would
+ * raise; `push` as `push_status_own()` answers.
+ */
+export type SessionEarly = {
+  member: MemberRow | null;
+  own_day: Record<string, unknown> | null;
+  own_day_refused: string | null;
+  push: { endpoints: string[] | null; band: string | null } | null;
+};
 
 /** What a read started before the JWT check gets: a client and the id the token claims. */
 type EarlyClient = Pick<ServerSupabase, "from" | "rpc">;
@@ -136,32 +149,47 @@ function startTokenRead<R>(
   })();
 }
 
-/** The member row's read, started before the JWT check settles. */
-function startMemberRowRead(): Promise<{ id: string; result: MemberRowRead } | null> {
-  return startTokenRead((supabase, id) => readMemberRow(supabase, id));
-}
+/**
+ * The shell's **one** early read (v2.0 X3, ARCHITECTURE §19 "Six connections"):
+ * `session_early()`, the member row, the own day and the push status in one round trip, started
+ * before the JWT check settles, once per request (`cache()`). Every route's first wave was these
+ * three plus the counts before the page's own; it is now one plus the counts.
+ */
+const startSessionEarly = cache(() =>
+  startTokenRead(async (supabase) => {
+    const answer = await supabase.rpc("session_early");
+    return {
+      data: (answer.data as SessionEarly | null) ?? null,
+      error: answer.error,
+      status: answer.status,
+    };
+  }),
+);
 
 /**
- * A read the layout's first byte waits for, started **before** the JWT check and the auth
- * client's session load, the way the member row is (6b.19; ARCHITECTURE §19 "Six connections"):
- * the band's push status and the Start-day prompt's own day. Started the usual way they left
- * behind the page's own reads, so on a screen with a wide first wave (/tasks: nine page reads)
- * they sat seventh or later in the Worker's six-at-a-time queue and the first byte took a second
- * round trip (v1.9 speed gate, 2026-11-03). The same guarantees as the member row: PostgREST
- * verifies the token and RLS decides the answer, which is used only once `getClaims()` has
- * verified the session and only when the verified id is the one the token claimed; otherwise
- * (no session, another id, a token PostgREST refused, an early read that threw) the read runs
- * again the usual way, exactly as before. Any other answer is the read's own, its error included
- * (the Owner's `attendance_own_today` refuses him: asked twice, that cost a second round trip).
+ * A part of the shell's early read (`session_early()`, v2.0 X3) that the layout's first byte
+ * waits for: the band's push status, the Start-day prompt's own day. The same guarantees as the
+ * member row (6b.19; ARCHITECTURE §19 "Six connections"): PostgREST verifies the token and RLS
+ * decides the answer, which is used only once `getClaims()` has verified the session, only when
+ * the verified id is the one the token claimed and only when the early read answered; otherwise
+ * (no session, another id, a token PostgREST refused, an early read that failed or threw) `read`
+ * runs the usual way, exactly as before. `pick` takes the part out of the early answer, a refusal
+ * included (the Owner's own day: refused, never asked again).
  */
-export async function readBeforeCheck<R extends { error: unknown; status: number }>(
-  read: (supabase: EarlyClient) => PromiseLike<R>,
-): Promise<R> {
-  const early = startTokenRead((supabase) => read(supabase));
+export async function readBeforeCheck<T>(
+  pick: (early: SessionEarly) => { data: T | null; error: unknown },
+  read: (supabase: EarlyClient) => PromiseLike<{ data: T | null; error: unknown }>,
+): Promise<{ data: T | null; error: unknown }> {
+  const early = startSessionEarly();
   const userId = await getSessionUserId();
   const started = await early;
-  return started && userId && started.id === userId && started.result.status !== 401
-    ? started.result
+  return started &&
+    userId &&
+    started.id === userId &&
+    started.result.status !== 401 &&
+    !started.result.error &&
+    started.result.data
+    ? pick(started.result.data)
     : read(await createServerSupabase());
 }
 

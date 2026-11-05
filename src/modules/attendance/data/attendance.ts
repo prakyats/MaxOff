@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { readBeforeCheck } from "@/core/auth/server";
+import type { Database } from "@/core/db/database.types";
 import { createServerSupabase } from "@/core/db/server";
 
 import type { PromptLeaveChoice } from "../domain/choices";
@@ -21,13 +22,31 @@ import type { OwnToday } from "../domain/today";
  * request (`cache()`): the `(app)` layout asks for the Start-day prompt and the page's strip asks
  * again, and Next renders the two in parallel.
  */
+type OwnTodayRow = Database["public"]["Functions"]["attendance_own_today"]["Returns"][number];
+
+/** attendance_own_today()'s refusal, as `session_early()` names it (the Owner, a freelancer). */
+class OwnDayRefused extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = "OwnDayRefused";
+  }
+}
+
 export const getOwnToday = cache(async (): Promise<OwnToday> => {
   // Started before the JWT check (`readBeforeCheck`): an Admin's or Crew's first byte waits for
   // it (the layout's Start-day prompt), so it must never queue behind the page's reads.
-  const { data, error } = await readBeforeCheck((supabase) => supabase.rpc("attendance_own_today"));
+  // Since v2.0 X3 the answer rides in the shell's one early read (`session_early()`): the same
+  // row, or the refusal attendance_own_today() would raise (the Owner, a freelancer).
+  const { data, error } = await readBeforeCheck<OwnTodayRow[]>(
+    (early) =>
+      early.own_day
+        ? { data: [early.own_day as OwnTodayRow], error: null }
+        : { data: null, error: new OwnDayRefused(early.own_day_refused ?? "FORBIDDEN") },
+    (supabase) => supabase.rpc("attendance_own_today"),
+  );
   if (error) throw error;
   // `returns table`: PostgREST hands back a one-row array.
-  const row = data[0];
+  const row = data?.[0];
   if (!row) throw new Error("attendance_own_today returned no row");
   return {
     workDate: row.work_date,

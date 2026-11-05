@@ -327,7 +327,7 @@ export function createHoldProxy(upstream: URL): Server {
     }
     // Who asked (the server's own fetch or a browser), so a watch can count the server's reads.
     const agent = request.headers["user-agent"] ?? "";
-    for (const hold of holding) hold.report({ caught: url.pathname, agent });
+    for (const hold of holding) hold.report({ caught: url.pathname, query: url.search, agent });
     if (holding.some((hold) => hold.answer === "jwt-expired")) {
       request.resume();
       response.writeHead(JWT_EXPIRED.status, JWT_EXPIRED.headers).end(JWT_EXPIRED.body);

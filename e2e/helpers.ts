@@ -998,10 +998,13 @@ export async function watchReads(
  * `quietMs` and returns them (the server's only; a browser's own requests are left out);
  * `release()` ends the hold, in `finally`: the hold is the open connection.
  */
-export async function firstWave(
-  session: string,
-): Promise<{ settled: (quietMs?: number) => Promise<string[]>; release: () => void }> {
+export async function firstWave(session: string): Promise<{
+  settled: (quietMs?: number) => Promise<string[]>;
+  queries: () => string[];
+  release: () => void;
+}> {
   const seen: string[] = [];
+  const queries: string[] = [];
   let lastAt = performance.now();
   const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
     method: "POST",
@@ -1021,10 +1024,16 @@ export async function firstWave(
         const lines = buffered.split("\n");
         buffered = lines.pop() ?? "";
         for (const line of lines) {
-          const event = JSON.parse(line) as { hold?: number; caught?: string; agent?: string };
+          const event = JSON.parse(line) as {
+            hold?: number;
+            caught?: string;
+            query?: string;
+            agent?: string;
+          };
           if (event.hold !== undefined) resolve();
           if (event.caught !== undefined && !/Mozilla\//.test(event.agent ?? "")) {
             seen.push(event.caught);
+            queries.push(`${event.caught}${event.query ?? ""}`);
             lastAt = performance.now();
           }
         }
@@ -1041,6 +1050,8 @@ export async function firstWave(
       }
       return [...seen];
     },
+    /** Each read with its query string, to tell a duplicate from another query on one table. */
+    queries: () => [...queries],
     release: () => {
       request.destroy();
     },
