@@ -56,7 +56,8 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
  * the event tasks in [from, to] exactly as `listEventTasks` reads them, and the holidays in the
  * same window (`listHolidays` read them all; every week strip keeps the window's), the caller's own
  * approved leave touching it and the freelancers they coordinate now (`leave`, `freelancers`: the
- * /my-day folds). At most 62 days (the database refuses more). RLS decides every row, as for the
+ * /my-day folds), and the Tasks tab's request count and escalation thresholds (`requests_to_decide`,
+ * `ack_escalate_*`: the /tasks fold). At most 62 days (the database refuses more). RLS decides every row, as for the
  * API reads.
  */
 export async function listOwnWeek(
@@ -69,6 +70,13 @@ export async function listOwnWeek(
   leave: { type: string; startDate: string; endDate: string }[] | undefined;
   /** The members the caller coordinates now (not windowed); undefined from an older own_week. */
   freelancers: string[] | undefined;
+  /**
+   * The pending task requests the caller may decide, never their own (`countRequestsToDecide`;
+   * not windowed); undefined from an older own_week.
+   */
+  requestsToDecide: number | undefined;
+  /** The organisation's "not noted" escalation thresholds; null from an older own_week or none visible. */
+  escalation: { ackEscalateHours: number; ackEscalateOwnerHours: number } | null;
 }> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("own_week", { from_date: from, to_date: to });
@@ -76,6 +84,9 @@ export async function listOwnWeek(
   const week = data as {
     leave?: { type: string; start_date: string; end_date: string }[];
     freelancers?: string[];
+    requests_to_decide?: number;
+    ack_escalate_hours?: number | null;
+    ack_escalate_owner_hours?: number | null;
     holidays: { id: string; date: string; name: string }[];
     events: {
       id: string;
@@ -93,6 +104,14 @@ export async function listOwnWeek(
   };
   return {
     freelancers: week.freelancers,
+    requestsToDecide: week.requests_to_decide,
+    escalation:
+      week.ack_escalate_hours != null && week.ack_escalate_owner_hours != null
+        ? {
+            ackEscalateHours: week.ack_escalate_hours,
+            ackEscalateOwnerHours: week.ack_escalate_owner_hours,
+          }
+        : null,
     leave: week.leave?.map((row) => ({
       type: row.type,
       startDate: row.start_date,

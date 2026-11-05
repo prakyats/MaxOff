@@ -2,7 +2,6 @@ import "server-only";
 
 import { cache } from "react";
 
-import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate, todayIST } from "@/core/time";
 import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
@@ -26,10 +25,14 @@ import {
 } from "@/modules/dashboards";
 import { listPendingClaims } from "@/modules/expenses";
 import { listPendingRequests } from "@/modules/leave";
-import { getSettings } from "@/modules/settings";
-import { countRequestsToDecide, listTasksToDecide } from "@/modules/tasks";
+import { listTasksToDecide } from "@/modules/tasks";
 
-import { readFreelancersWith, readWeekWindow } from "../tasks/reads";
+import {
+  readEscalationWith,
+  readFreelancersWith,
+  readRequestsToDecideWith,
+  readWeekWindow,
+} from "../tasks/reads";
 
 /**
  * The reads Today's two screens use, once per request (`cache()`): the page starts the shared
@@ -59,13 +62,21 @@ export const readTodayFreelancers = () => {
   const today = todayIST();
   return readFreelancersWith(today, eventsHorizon(today));
 };
-export const readSettings = cache(getSettings);
+/** The suggestions to decide, from the same read (`own_week().requests_to_decide`). */
+export const readRequestsToDecide = () => {
+  const today = todayIST();
+  return readRequestsToDecideWith(today, eventsHorizon(today));
+};
+/** Needs you's escalation thresholds, from the same read (`own_week()`'s `ack_escalate_*`). */
+export const readEscalation = () => {
+  const today = todayIST();
+  return readEscalationWith(today, eventsHorizon(today));
+};
 export const readLeaveDays = cache(listLeaveDays);
 export const readNotNoted = cache(listNotNoted);
 export const readUnreachable = cache(listUnreachable);
 export const readHeldEmails = cache(countHeldEmails);
 export const readClients = cache(() => listClients());
-export const readRequestsToDecide = cache(() => withSessionUserId(countRequestsToDecide));
 /** The Owner's approvals, every group (the preview takes the oldest five in group order). */
 export const readApprovals = cache(() =>
   Promise.all([

@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { withSessionUserId } from "@/core/auth/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
@@ -13,9 +12,7 @@ import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyRow, EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { DayColumns, ThisWeek } from "@/modules/dashboards";
-import { getSettings } from "@/modules/settings";
 import {
-  countRequestsToDecide,
   countTasks,
   forLabel,
   heldOpen,
@@ -41,7 +38,13 @@ import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 
-import { ownWeek, readOwnWeek, readOwnWeekFreelancers } from "../own-week";
+import {
+  ownWeek,
+  readOwnWeek,
+  readOwnWeekEscalation,
+  readOwnWeekFreelancers,
+  readOwnWeekRequests,
+} from "../own-week";
 import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks } from "../reads";
 
@@ -82,9 +85,10 @@ export default async function TasksPage() {
         // The freelancers they coordinate ride in the week read (v2.0 X3).
         readOwnWeekFreelancers(today),
         countTasks(),
-        // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
-        withSessionUserId(countRequestsToDecide),
-        getSettings(),
+        // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23), and Needs
+        // you's thresholds: both ride in the week read (v2.0 X3).
+        readOwnWeekRequests(today),
+        readOwnWeekEscalation(today),
         // Each row's unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
         readOpenTasks().then((open) => listUnreadCounts(open.map((row) => row.id))),
       ]),
