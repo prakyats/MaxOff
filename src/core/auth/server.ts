@@ -8,8 +8,10 @@ import {
   createServerSupabase,
   createTokenSupabase,
   holdReadsUntil,
+  runAsTokenRead,
   type ServerSupabase,
 } from "@/core/db/server";
+import { once } from "@/core/db/first-reads";
 import { systemClock } from "@/core/time";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";
@@ -103,15 +105,17 @@ type EarlyClient = Pick<ServerSupabase, "from" | "rpc">;
  * handed to `fetch` (`createTokenSupabase`'s `left`). A read that sends nothing (no session
  * cookie, a cookie that is not a session, a read that threw) releases the hold when it returns,
  * so nothing waits on it. `read` uses only the client it is given: a `createServerSupabase()`
- * inside it would wait on this very hold.
+ * inside it would wait on this very hold, so outside production it throws (`runAsTokenRead`), and
+ * in production `FIRST_READS_WAIT_MS` bounds the wait.
  */
 function startTokenRead<R>(
   read: (supabase: EarlyClient, claimedId: string) => PromiseLike<R>,
 ): Promise<{ id: string; result: R } | null> {
+  // Told by the fetch wrapper and again in `finally`: once is enough, any later call is harmless.
   let left: () => void = () => undefined;
   holdReadsUntil(
     new Promise<void>((resolve) => {
-      left = resolve;
+      left = once(resolve);
     }),
   );
   return (async () => {
@@ -119,7 +123,8 @@ function startTokenRead<R>(
       const token = await accessTokenFrom((await cookies()).getAll());
       const id = token ? unverifiedSubject(token) : null;
       if (!token || !id) return null;
-      return { id, result: await read(createTokenSupabase(token, left), id) };
+      const supabase = createTokenSupabase(token, left);
+      return { id, result: await runAsTokenRead(() => read(supabase, id)) };
     } catch {
       return null;
     } finally {

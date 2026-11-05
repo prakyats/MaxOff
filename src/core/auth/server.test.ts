@@ -71,6 +71,7 @@ vi.mock("@/core/db/server", () => ({
     left = tell;
     return client("token");
   },
+  runAsTokenRead: <R>(read: () => R) => read(),
   holdReadsUntil: (promise: Promise<unknown>) => {
     const hold = { settled: false };
     holds.push(hold);

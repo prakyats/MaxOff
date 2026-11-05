@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { FirstReads } from "./first-reads";
+import { FIRST_READS_WAIT_MS, FirstReads, once } from "./first-reads";
 
 /**
  * The first reads' hold (ARCHITECTURE §19 "Six connections", v1.9 speed gate): a client made
@@ -51,5 +51,47 @@ describe("FirstReads", () => {
     reads.hold(new Promise<void>(() => undefined));
     await settle();
     expect(done).toBe(true);
+  });
+
+  it("never hangs: a hold that is never released lets the wait go after the limit", async () => {
+    vi.useFakeTimers();
+    try {
+      const reads = new FirstReads();
+      reads.hold(new Promise<void>(() => undefined));
+      let done = false;
+      void reads.wait().then(() => (done = true));
+      await vi.advanceTimersByTimeAsync(FIRST_READS_WAIT_MS - 1);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(done).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("goes at once, timer cleared, when the reads leave before the limit", async () => {
+    vi.useFakeTimers();
+    try {
+      const reads = new FirstReads();
+      let left: () => void = () => undefined;
+      reads.hold(new Promise<void>((resolve) => (left = resolve)));
+      const waiting = reads.wait();
+      left();
+      await waiting;
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("once (a left told twice)", () => {
+  it("runs the first call and ignores every later one", () => {
+    const fn = vi.fn();
+    const left = once(fn);
+    left();
+    left();
+    left();
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 });

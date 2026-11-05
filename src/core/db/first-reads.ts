@@ -12,6 +12,24 @@
  * the Owner's Approvals first byte took two round trips in most samples. Now the order is built,
  * not raced: a client made while an early read is leaving sends nothing until that read has left.
  */
+/**
+ * The longest a client waits for the first reads to leave (advisor, v2.0 X2 review): the hold
+ * only orders requests, so it must never hang a page. A first-byte read leaves within a few
+ * microtasks; one whose `left` never fires (a bug, a later change) costs a client at most this,
+ * and the request then simply loses the start-order race, as it could on v1.9.
+ */
+export const FIRST_READS_WAIT_MS = 50;
+
+/** `fn`, callable any number of times, run once (a `left` told twice is harmless, X2 review). */
+export function once(fn: () => void): () => void {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    fn();
+  };
+}
+
 export class FirstReads {
   private readonly held: Promise<void>[] = [];
 
@@ -25,9 +43,18 @@ export class FirstReads {
     );
   }
 
-  /** Settles once every read held so far has left; at once when nothing is held. */
-  wait(): Promise<void> {
+  /**
+   * Settles once every read held so far has left, or after `limitMs` (`FIRST_READS_WAIT_MS`),
+   * whichever comes first; at once when nothing is held.
+   */
+  wait(limitMs: number = FIRST_READS_WAIT_MS): Promise<void> {
     if (this.held.length === 0) return Promise.resolve();
-    return Promise.all(this.held).then(() => undefined);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const valve = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, limitMs);
+    });
+    return Promise.race([Promise.all(this.held).then(() => undefined), valve]).finally(() =>
+      clearTimeout(timer),
+    );
   }
 }

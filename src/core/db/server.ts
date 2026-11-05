@@ -10,6 +10,9 @@ import type { Database } from "./database.types";
 import { publicSupabaseEnv } from "./env";
 import { withExpiredJwtAsSessionUnavailable } from "./expired-jwt";
 import { FirstReads } from "./first-reads";
+import { assertNotInTokenRead, runAsTokenRead } from "./token-read-scope";
+
+export { runAsTokenRead };
 
 /**
  * This request's first reads (`first-reads.ts`; ARCHITECTURE §19 "Six connections"), one per
@@ -35,12 +38,14 @@ export function holdReadsUntil(left: Promise<unknown>): void {
  * Create one per request; never cache it across requests.
  *
  * Made only once the request's first reads have left (`holdReadsUntil`): a few microtasks at
- * most, and nothing at all in a request that holds none.
+ * most, never more than `FIRST_READS_WAIT_MS`, and nothing at all in a request that holds none.
+ * Never called from inside a token read (`token-read-scope.ts` throws outside production).
  *
  * A read whose access token PostgREST refuses as expired (PGRST303) ends on the retryable
  * "still signed in" screen, not an unhandled error (`expired-jwt.ts`, 6.6).
  */
 export async function createServerSupabase() {
+  assertNotInTokenRead();
   await firstReads().wait();
   const cookieStore = await cookies();
   const env = publicSupabaseEnv();
