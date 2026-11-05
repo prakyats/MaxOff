@@ -5488,6 +5488,7 @@ export type Database = {
         Args: { project_id: string; reason: string };
         Returns: string;
       };
+      project_page: { Args: { p_project_id: string }; Returns: Json };
       project_reopen: {
         Args: { project_id: string; reason: string };
         Returns: Database["public"]["Enums"]["project_state"];
