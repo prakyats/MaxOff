@@ -41,9 +41,9 @@ import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 
-import { ownWeek, readOwnWeek } from "../own-week";
+import { ownWeek, readOwnWeek, readOwnWeekFreelancers } from "../own-week";
 import { loadTaskFormSetup } from "../task-form-setup";
-import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../reads";
+import { readClientLabels, readDirectory, readOpenTasks } from "../reads";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -79,7 +79,8 @@ export default async function TasksPage() {
         readOpenTasks(),
         readDirectory(),
         readClientLabels(),
-        readOwnFreelancers(),
+        // The freelancers they coordinate ride in the week read (v2.0 X3).
+        readOwnWeekFreelancers(today),
         countTasks(),
         // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
         withSessionUserId(countRequestsToDecide),

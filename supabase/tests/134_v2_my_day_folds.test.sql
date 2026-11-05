@@ -1,8 +1,9 @@
 -- v2.0 X3 step 3, /my-day (2026-11-05, migration x3_my_day_folds; DATA-MODEL §1 "v2.0 X3"):
--- session_early() gains freelancers (the members the caller coordinates now: the
--- coordinated_freelancers read, to_at null) and own_week() gains leave (the caller's own approved
--- leave touching the window: listApprovedLeaveBetween). Each equal to the API read it replaces, as
--- each role; own data only; the earlier keys unchanged (130–133). Neutral names only.
+-- own_week() gains freelancers (the members the caller coordinates now: the
+-- coordinated_freelancers read, to_at null; not windowed) and leave (the caller's own approved leave
+-- touching the window: listApprovedLeaveBetween). Each equal to the API read it replaces, as each
+-- role; own data only; the earlier keys unchanged (132), and session_early() is not touched (130,
+-- 131: the shell stays lean). Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(11);
@@ -47,16 +48,17 @@ insert into public.leave_requests (member_id, type, start_date, end_date, state,
   (pg_temp.fx('staff'), 'leave', app.today_ist() + 40, app.today_ist() + 40, 'approved', 'form', now()),
   (pg_temp.fx('admin'), 'leave', app.today_ist() + 4, app.today_ist() + 4, 'approved', 'form', now());
 
--- 1. freelancers in session_early -----------------------------------------------------------------
+-- 1. freelancers in own_week -----------------------------------------------------------------------
 select pg_temp.as_member('admin');
-select is(public.session_early()->'freelancers', pg_temp.api_freelancers(), 'Admin: freelancers equal the API read');
-select is(public.session_early()->'freelancers', jsonb_build_array(pg_temp.fx('freelancer')), 'Admin: the one they coordinate');
+select is(public.own_week(app.today_ist(), app.today_ist())->'freelancers', pg_temp.api_freelancers(),
+  'Admin: freelancers equal the API read');
+select is(public.own_week(app.today_ist(), app.today_ist() + 61)->'freelancers', jsonb_build_array(pg_temp.fx('freelancer')),
+  'Admin: the one they coordinate, whatever the window');
 select pg_temp.as_member('staff');
-select is(public.session_early()->'freelancers', '[]'::jsonb, 'Crew: none (they coordinate nobody)');
+select is(public.own_week(app.today_ist(), app.today_ist())->'freelancers', '[]'::jsonb, 'Crew: none (they coordinate nobody)');
 select pg_temp.as_member('owner');
-select is(public.session_early()->'freelancers', pg_temp.api_freelancers(), 'Owner: equal the API read');
-select ok(public.session_early() ?& array['member', 'own_day', 'own_day_refused', 'push', 'own_hours'],
-  'the earlier keys stay');
+select is(public.own_week(app.today_ist(), app.today_ist())->'freelancers', pg_temp.api_freelancers(), 'Owner: equal the API read');
+select ok(not (public.session_early() ? 'freelancers'), 'session_early is not touched: no freelancers key');
 
 -- 2. leave in own_week -----------------------------------------------------------------------------
 select pg_temp.as_member('staff');
@@ -71,7 +73,8 @@ select ok(not ((public.own_week(app.today_ist(), app.today_ist() + 6)->'leave') 
   jsonb_build_object('start_date', app.today_ist() + 2))), 'own data only: never Crew''s leave');
 select pg_temp.as_member('owner');
 select is(public.own_week(app.today_ist(), app.today_ist() + 6)->'leave', '[]'::jsonb, 'Owner: no leave of his own');
-select ok(public.own_week(app.today_ist(), app.today_ist()) ?& array['holidays', 'events'], 'the earlier keys stay');
+select ok(public.own_week(app.today_ist(), app.today_ist()) ?& array['holidays', 'events', 'leave', 'freelancers'],
+  'the earlier keys stay, with the two new ones');
 
 select * from finish();
 rollback;

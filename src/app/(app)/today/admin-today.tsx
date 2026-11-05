@@ -65,7 +65,7 @@ import {
 } from "@/modules/tasks";
 
 import { rowFlag } from "../my-day/words";
-import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../tasks/reads";
+import { readClientLabels, readDirectory, readOpenTasks } from "../tasks/reads";
 
 import {
   readAdminClientWork,
@@ -77,6 +77,7 @@ import {
   readLeaveDays,
   readRequestsToDecide,
   readSettings,
+  readTodayFreelancers,
   readUnreachable,
   eventsHorizon,
 } from "./reads";
@@ -122,7 +123,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     readOpenTasks(),
     readDirectory(),
     readClientLabels(),
-    readOwnFreelancers(),
+    readTodayFreelancers(),
     countTasks(),
     readRequestsToDecide(),
     readSettings(),

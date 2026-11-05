@@ -35,8 +35,8 @@ import {
 } from "@/modules/tasks";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 
-import { ownWeek, readOwnWeek } from "../tasks/own-week";
-import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../tasks/reads";
+import { ownWeek, readOwnWeek, readOwnWeekFreelancers } from "../tasks/own-week";
+import { readClientLabels, readDirectory, readOpenTasks } from "../tasks/reads";
 
 import { rowFlag } from "./words";
 
@@ -68,7 +68,8 @@ export default async function MyDayPage() {
       openRows,
       readDirectory(),
       readClientLabels(),
-      readOwnFreelancers(),
+      // The freelancers they coordinate ride in the week read (v2.0 X3).
+      readOwnWeekFreelancers(today),
       // Each row's unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
       openRows.then((open) => listUnreadCounts(open.map((row) => row.id))),
       readOwnWeek(today),

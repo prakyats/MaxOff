@@ -27,7 +27,9 @@ import {
 import { listPendingClaims } from "@/modules/expenses";
 import { listPendingRequests } from "@/modules/leave";
 import { getSettings } from "@/modules/settings";
-import { countRequestsToDecide, listOwnWeek, listTasksToDecide } from "@/modules/tasks";
+import { countRequestsToDecide, listTasksToDecide } from "@/modules/tasks";
+
+import { readFreelancersWith, readWeekWindow } from "../tasks/reads";
 
 /**
  * The reads Today's two screens use, once per request (`cache()`): the page starts the shared
@@ -38,9 +40,8 @@ import { countRequestsToDecide, listOwnWeek, listTasksToDecide } from "@/modules
  * The week strip's event tasks and holidays in one read (v2.0 X3, `own_week()`), once per request:
  * the page starts it with the session read and both screens get the same promise.
  */
-const readWeek = cache((from: ISODate, to: ISODate) => listOwnWeek(from, to));
 export const readEventTasks = (from: ISODate, to: ISODate) =>
-  readWeek(from, to).then((week) => week.events);
+  readWeekWindow(from, to).then((week) => week.events);
 /**
  * How far the event tasks are read: 62 days (an Admin's Issues check an event's day that far,
  * `member_availability()`'s limit); the strip shows the first seven. One read for both screens.
@@ -51,7 +52,12 @@ export function eventsHorizon(today: ISODate): ISODate {
 /** The holidays in Today's window (the week strip keeps its seven days), from the same read. */
 export const readHolidays = () => {
   const today = todayIST();
-  return readWeek(today, eventsHorizon(today)).then((week) => week.holidays);
+  return readWeekWindow(today, eventsHorizon(today)).then((week) => week.holidays);
+};
+/** The freelancers the viewer coordinates, from the same read (`own_week().freelancers`). */
+export const readTodayFreelancers = () => {
+  const today = todayIST();
+  return readFreelancersWith(today, eventsHorizon(today));
 };
 export const readSettings = cache(getSettings);
 export const readLeaveDays = cache(listLeaveDays);

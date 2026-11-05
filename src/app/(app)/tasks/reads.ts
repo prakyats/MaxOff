@@ -3,8 +3,9 @@ import "server-only";
 import { cache } from "react";
 
 import { listAllDefinitions } from "@/core/custom-fields/server";
+import type { ISODate } from "@/core/time";
 import { listClientLabels, listClients } from "@/modules/clients";
-import { listOpenTaskRows, listTaskTemplates, listTaskTypes } from "@/modules/tasks";
+import { listOpenTaskRows, listOwnWeek, listTaskTemplates, listTaskTypes } from "@/modules/tasks";
 import { listCurrentCoordinators, listDirectory, listOwnFreelancerIds } from "@/modules/team";
 
 /**
@@ -21,6 +22,19 @@ export const readOpenTasks = cache(listOpenTaskRows);
 export const readClientLabels = cache(listClientLabels);
 export const readOwnFreelancers = cache(listOwnFreelancerIds);
 export const readTaskTemplates = cache(listTaskTemplates);
+/** The week strip's one read (v2.0 X3, `own_week()`), once per request and window. */
+export const readWeekWindow = cache(listOwnWeek);
+/**
+ * The freelancers the viewer coordinates now, from the week read the page already makes
+ * (`own_week().freelancers`, v2.0 X3): no read of their own. An own_week without the key (an
+ * older function) or one that failed is read the usual way, so the lists never lose them.
+ */
+export function readFreelancersWith(from: ISODate, to: ISODate): Promise<string[]> {
+  return readWeekWindow(from, to).then(
+    (week) => week.freelancers ?? readOwnFreelancers(),
+    () => readOwnFreelancers(),
+  );
+}
 /**
  * The clients a task may be labelled with (Kickoff 4 decision 22: Active or Paused; RLS gives an
  * Admin their own), with each one's Admin: the dialog's label list, and the Admin a suggestion's

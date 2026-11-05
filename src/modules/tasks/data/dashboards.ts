@@ -54,8 +54,10 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
 /**
  * The week strip's two reads in one (v2.0 X3, `own_week()`; ARCHITECTURE §19 "Six connections"):
  * the event tasks in [from, to] exactly as `listEventTasks` reads them, and the holidays in the
- * same window (`listHolidays` read them all; every week strip keeps the window's). At most 62 days
- * (the database refuses more). RLS decides every row, as for the two API reads.
+ * same window (`listHolidays` read them all; every week strip keeps the window's), the caller's own
+ * approved leave touching it and the freelancers they coordinate now (`leave`, `freelancers`: the
+ * /my-day folds). At most 62 days (the database refuses more). RLS decides every row, as for the
+ * API reads.
  */
 export async function listOwnWeek(
   from: ISODate,
@@ -65,12 +67,15 @@ export async function listOwnWeek(
   holidays: { id: string; date: ISODate; name: string }[];
   /** The caller's own approved leave touching the window; undefined from an older own_week. */
   leave: { type: string; startDate: string; endDate: string }[] | undefined;
+  /** The members the caller coordinates now (not windowed); undefined from an older own_week. */
+  freelancers: string[] | undefined;
 }> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("own_week", { from_date: from, to_date: to });
   if (error) throw error;
   const week = data as {
     leave?: { type: string; start_date: string; end_date: string }[];
+    freelancers?: string[];
     holidays: { id: string; date: string; name: string }[];
     events: {
       id: string;
@@ -87,6 +92,7 @@ export async function listOwnWeek(
     }[];
   };
   return {
+    freelancers: week.freelancers,
     leave: week.leave?.map((row) => ({
       type: row.type,
       startDate: row.start_date,

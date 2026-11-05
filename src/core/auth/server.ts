@@ -108,8 +108,6 @@ export type SessionEarly = {
   push: { endpoints: string[] | null; band: string | null } | null;
   /** `attendance_own_hours()`'s row where `own_day` is answered, else null (v2.0 X3 step 3). */
   own_hours?: Record<string, unknown> | null;
-  /** The members the caller coordinates now (`coordinated_freelancers`, to_at null; v2.0 X3). */
-  freelancers?: string[];
 };
 
 /** What a read started before the JWT check gets: a client and the id the token claims. */

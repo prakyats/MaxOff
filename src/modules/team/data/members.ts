@@ -1,6 +1,5 @@
 import "server-only";
 
-import { readBeforeCheck } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { captureMessage } from "@/core/observability/capture";
@@ -158,17 +157,13 @@ export async function listCurrentCoordinators(): Promise<Record<string, string>>
  * Asha" to her coordinator (4.4); empty for anyone who coordinates nobody.
  */
 export async function listOwnFreelancerIds(): Promise<string[]> {
-  // Since v2.0 X3 the ids ride in the shell's one early read (`session_early().freelancers`, the
-  // same view and filter); an answer without the key is read the usual way.
-  const { data, error } = await readBeforeCheck<{ member_id: string | null }[]>(
-    (early) =>
-      early.freelancers === undefined
-        ? undefined
-        : { data: early.freelancers.map((id) => ({ member_id: id })), error: null },
-    (supabase) => supabase.from("coordinated_freelancers").select("member_id").is("to_at", null),
-  );
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("coordinated_freelancers")
+    .select("member_id")
+    .is("to_at", null);
   if (error) throw error;
-  return (data ?? []).flatMap((row) => (row.member_id ? [row.member_id] : []));
+  return data.flatMap((row) => (row.member_id ? [row.member_id] : []));
 }
 
 /**
