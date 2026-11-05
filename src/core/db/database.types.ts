@@ -4636,6 +4636,7 @@ export type Database = {
         Returns: boolean;
       };
       attendance_ask_leave_early: { Args: { reason: string }; Returns: string };
+      attendance_board_today: { Args: never; Returns: Json };
       attendance_choose_leave_today: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];

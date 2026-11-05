@@ -5,6 +5,8 @@ import { cache } from "react";
 import { readBeforeCheck } from "@/core/auth/server";
 import type { Database } from "@/core/db/database.types";
 import { createServerSupabase } from "@/core/db/server";
+
+import { boardPart } from "./board";
 import { displayName } from "@/core/lib/display-name";
 
 import type {
@@ -142,9 +144,8 @@ export async function rpcStayUntil(memberId: string, until: string | null): Prom
 
 /** Everyone's working hours today, for the Owner (`attendance_hours_today()`), once per request. */
 export const getHoursToday = cache(async (): Promise<HoursToday[]> => {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("attendance_hours_today");
-  if (error) throw error;
+  // Since v2.0 X3 from the board's one read (`attendance_board_today()`), with today's people.
+  const data = await boardPart("hours");
   return (data as Nullable<(typeof data)[number]>[]).flatMap((row) =>
     row.member_id && row.end_at
       ? [
