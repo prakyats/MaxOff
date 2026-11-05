@@ -40,6 +40,38 @@ export async function listCompDates(): Promise<CompDate[]> {
   return data.map((row) => ({ date: row.work_date, availableDays: Number(row.available_days) }));
 }
 
+/**
+ * The caller's own comp leave in one read (v2.0 X3, `own_comp_leave()`; ARCHITECTURE §19): the
+ * balance exactly as `getCompBalance(own id)` reads it and the dates as `listCompDates` does, once
+ * per request (/leave's layout and page share it). A refused balance throws the code
+ * `comp_leave_balance` refused with, as that read did; refused dates are undefined, as the layout
+ * took a failed `listCompDates`.
+ */
+export const readOwnCompLeave = cache(
+  async (): Promise<{ balance: CompBalance; dates: CompDate[] | undefined }> => {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.rpc("own_comp_leave");
+    if (error) throw error;
+    const own = data as {
+      balance: { available_days: number | string; use_by: string | null } | null;
+      balance_refused: string | null;
+      dates: { work_date: string; available_days: number | string }[] | null;
+      dates_refused: string | null;
+    };
+    if (own.balance_refused) throw new Error(own.balance_refused);
+    return {
+      balance: {
+        availableDays: Number(own.balance?.available_days ?? 0),
+        useBy: own.balance?.use_by ?? null,
+      },
+      dates: own.dates?.map((row) => ({
+        date: row.work_date,
+        availableDays: Number(row.available_days),
+      })),
+    };
+  },
+);
+
 const CREDIT_COLUMNS =
   "id, days, used_days, reserved_days, granted_on, expires_on, note, note_id, revoked_at, revoke_reason";
 

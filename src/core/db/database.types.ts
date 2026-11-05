@@ -5407,6 +5407,7 @@ export type Database = {
         }[];
       };
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
+      own_comp_leave: { Args: never; Returns: Json };
       own_week: { Args: { from_date: string; to_date: string }; Returns: Json };
       owner_digest_preview: { Args: never; Returns: Json };
       owner_digest_weekly_preview: { Args: never; Returns: Json };
@@ -5818,6 +5819,10 @@ export type Database = {
         Returns: undefined;
       };
       unused_usage: { Args: { kind: string; target_id: string }; Returns: Json };
+      working_day_rule: {
+        Args: { from_date: string; to_date: string };
+        Returns: Json;
+      };
     };
     Enums: {
       admin_step: "required" | "none" | "skipped";

@@ -176,16 +176,14 @@ export async function getNoteDays(today: string): Promise<NoteDay[]> {
  * tables are readable by every active member (DATA-MODEL §1).
  */
 async function getWorkingDayRule(from: string, to: string): Promise<(date: string) => boolean> {
+  // The weekly off days and the holidays in one read (v2.0 X3, `working_day_rule()`).
   const supabase = await createServerSupabase();
-  const [settings, holidays] = await Promise.all([
-    supabase.from("org_settings").select("weekly_off_days").limit(1).maybeSingle(),
-    supabase.from("holidays").select("date").gte("date", from).lte("date", to),
-  ]);
-  if (settings.error) throw settings.error;
-  if (holidays.error) throw holidays.error;
-  const rules = {
-    weeklyOffDays: (settings.data?.weekly_off_days ?? []) as WeekdayIndex[],
-    holidays: holidays.data.map((row) => row.date),
-  };
+  const { data, error } = await supabase.rpc("working_day_rule", {
+    from_date: from,
+    to_date: to,
+  });
+  if (error) throw error;
+  const rule = data as { weekly_off_days: WeekdayIndex[] | null; holidays: string[] };
+  const rules = { weeklyOffDays: rule.weekly_off_days ?? [], holidays: rule.holidays };
   return (date) => isWorkingDay(date, rules);
 }
