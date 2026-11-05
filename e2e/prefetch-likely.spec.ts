@@ -88,12 +88,15 @@ async function trackPrefetches(context: BrowserContext, origin: string) {
   const passes: Array<(path: string) => boolean> = [];
   const waiting: Array<{ path: string; go: () => void }> = [];
   const passing = (path: string) => passes.some((match) => match(path));
+  /** In a counting window (`only`): any other prefetch is refused, never held (see `only`). */
+  let refusing = false;
   await context.route(
     (url) => url.origin === origin && url.searchParams.has("_rsc"),
     async (route: Route) => {
       const request = route.request();
       if (!isPrefetch(request.headers())) return route.fallback();
       const path = new URL(request.url()).pathname;
+      if (refusing && !passing(path)) return route.abort().catch(() => undefined);
       asked.add(path);
       askedCount.set(path, (askedCount.get(path) ?? 0) + 1);
       if (!passing(path)) await new Promise<void>((go) => waiting.push({ path, go }));
@@ -122,6 +125,18 @@ async function trackPrefetches(context: BrowserContext, origin: string) {
         if (passing(entry.path)) entry.go();
         else waiting.push(entry);
       }
+    },
+    /**
+     * From now on only these go: a counting window's own prefetches. Any other that arrives in it
+     * (a task row's, entering view late) is refused, so its reads are never counted as theirs (X5:
+     * the Owner's Today rows' title reads landed in the tabs' window, CI 42107136705). Refused,
+     * not held: a held prefetch keeps one of the router's few prefetch slots, and the window's own
+     * would queue behind it. A refused prefetch costs the page nothing (it is only a head start).
+     */
+    only(match: (path: string) => boolean) {
+      passes.splice(0, passes.length);
+      refusing = true;
+      this.release(match);
     },
   };
 }
@@ -241,7 +256,8 @@ test.describe("a prefetch is the loading boundary, never the page's data", () =>
       const before = watch.server().length;
       const answeredBefore = prefetches.answeredTotal();
 
-      prefetches.release((path) => NEXT.includes(path));
+      // Only the two tabs go now: any other prefetch waits outside the window.
+      prefetches.only((path) => NEXT.includes(path));
       // The route tree and the loading boundary of each, read to their end.
       await expect.poll(() => NEXT.every((path) => prefetches.loaded.has(path))).toBe(true);
       await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
@@ -312,7 +328,8 @@ test.describe("every list row in view is prefetched", () => {
       await expect.poll(() => [...prefetches.asked].some(isRow)).toBe(true);
       await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
       const before = watch.server().length;
-      prefetches.release(isRow);
+      // Only the rows go now: any other prefetch waits outside the window.
+      prefetches.only(isRow);
       await expect.poll(() => prefetches.loaded.has(later)).toBe(true);
       await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
       const rows = [...prefetches.asked].filter(isRow);
