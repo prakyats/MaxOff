@@ -230,6 +230,56 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 **Later (not v1.9):**
 - Month counts open the filtered days (needs a filtered-days view). (W4 Q3, advisor 2026-11-02: W4 shows the month counts on the Month report and a person's Month tab as plain figures; no filtered-days view exists yet.)
 
+**v1.9.0 live 2026-11-05** (tag v1.9.0 on a7dafc62, PR #138; owner walk approved 2026-11-04). Owner exceptions to the speed gate for this release only: "a client" (unchanged since main; the start-order race) and any Crew routes still failing at deploy.
+
+**Next release: renamed v2.0 (owner 2026-11-05: "release as v2.0… ensure the app is extremely fast"; the items below plus the v2.0 units after this list). Owner notes from the v1.9 walk, 2026-11-04:**
+- **On hold seen by everyone linked, up front.**
+  - The Crew assignees of a held task are told and see it as on hold.
+  - An Admin opening a project the Owner holds sees it as on hold. Today they see nothing.
+  - The on-hold message shows as soon as the task or project opens, for the Admin and everyone linked to it, not only the Owner and not only when a stage tick is refused.
+- **Phone:** the "Put on hold" wording keeps its normal size at 375/430. Today it shrinks.
+- **Speed:** the start-order race fix (`v19-first-reads`, the shell's first reads go out before the page's; standby patch measured 2026-11-03/04, advisor review before push). Re-probe the Crew routes still failing at the v1.9 deploy.
+- **Tests, fixed at the cause** (seen on PR #138's CI):
+  - `calendar.spec.ts:410` [mobile-lg];
+  - `notifications.spec.ts:483` [mobile]: a strict-mode locator matched two nav badges;
+  - `working-hours.spec.ts:187`: CI must not run it in the first 16 minutes of the IST day.
+
+### v2.0 "Fast and settled": units (advisor, 2026-11-05; owner: "proceed", one builder)
+Owner, 2026-11-05: after v2.0 there are no more big changes to the number of screens; only revenue (phase 9) and the Drive link (8.5) remain. v2.0 makes the app feel **extremely fast for day-to-day use**, and the speed gate is stricter for it.
+- [ ] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.
+- [ ] **X1 [C] On hold seen by everyone linked, up front** (the owner's notes above).
+  - The Crew assignees of a held task are told (a quiet notice) and see the hold line as soon as the task opens.
+  - An Admin opening a project the Owner holds sees the banner.
+  - The "waits until resumed" line shows when the task opens, for everyone linked.
+  - The phone "Put on hold" wording keeps its size at 375/430.
+  - Guide and pictures updated for every role.
+  - Check against WORKFLOWS §9: a new recipient needs a pgTAP test.
+- [ ] **X2 [H] The start-order race fix** (the `v19-first-reads` standby patch: the shell's first-byte reads go out before the page's). Advisor review of the diff before push.
+- [ ] **X3 [H] Speed audit, every route × every role:**
+  - (a) **First wave ≤ 6 reads** on every route for every role, enforced by a test that fails on a seventh, through the diagnostics timing.
+  - (b) **The hot database functions:** `EXPLAIN (ANALYZE, BUFFERS)` on `session_bundle`, `task_counts`, the Today, My Day, Approvals and calendar reads on staging data. Add any missing index (expand-only, with pgTAP).
+  - (c) **The client:** first-load JS, with every route's budget lowered to its measured size plus 5 %, the tap → skeleton time, and INP on a mid-range Android profile (4× CPU, Fast 4G) for each role's top 5 screens. Find and fix any long task over 200 ms.
+  - (d) **Caching and prefetch:** confirm the likely-next prefetch and the service-worker outlines hold for every role.
+- [ ] **X4 [H] Measure where the team is:**
+  - The CI probe runs from US runners, so every database trip it measures crosses an ocean. The team is in India and the database is in Mumbai.
+  - Add an **India probe**: the advisor runs `perf-probe` from the laptop in India against the preview and the main-preview, for all three roles.
+  - Evaluate **Cloudflare Smart Placement**, running the Worker beside the database. Measure it on the preview from India and from the US, and adopt it with an ADR only if it's faster for India. The owner approves anything that changes production config.
+- [ ] **X5 [C] Tests fixed at the cause:** `calendar.spec:410`, `notifications.spec:483` and the `working-hours` midnight window (above), plus any test that fails once during v2.0.
+- [ ] **X6 [C] Release review:**
+  - the guide, every role;
+  - the design pass;
+  - full CI twice, green with no reruns needed;
+  - **the v2.0 speed gate, below**;
+  - READY FOR OWNER, then the walk, then tag `v2.0.0`.
+
+**The v2.0 speed gate (advisor, 2026-11-05; stricter than CLAUDE.md, with no exceptions):**
+- Every route for every role, paired against a preview of v1.9.0, passes the two-run rule.
+- **No route's warm p50 above 450 ms** from the CI probe.
+- **India probe: warm p50 ≤ 300 ms** on every route.
+- **Tap → skeleton ≤ 200 ms.**
+- **INP ≤ 200 ms** on the phone profile.
+- No budget raised.
+
 ## Phase 7: Client work
 > **Launch order:** built **right after phase 6 (v1.5.x), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08; Owner and Admin; Crew never use it).
 Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks and approves items on their clients (the Owner on any), cycles roll over and carry-forward works (kickoff 7 amendment C, owner 2026-10-08).
@@ -244,6 +294,13 @@ Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks
 > **Launch order:** built after 7 and 6b since kickoff 7 amendment C, owner 2026-10-08 (it hangs off tasks, not projects).
 Exit: Staff submit photos and short videos from any device (iPhone included) and large videos as Drive links; the Owner and Admins review every version. (The company Drive archive and its cleanup, 8.3 and 8.4b, are **deferred past the launch**, owner 2026-09-27.)
 **Units:** **8A** [H] 8.1 + 8.2 · **8B** [C] 8.4a
+- [ ] **8.5** [H] **"Drive upload" task type** (owner 2026-11-04; note only, needs 8.3, a kickoff and a sample).
+  - The assigned Crew member pastes a cameraman's Drive link and names a folder.
+  - MaxOff checks access at once, walks the folder and copies every file and subfolder into the company Drive with server-side `files.copy` (ADR-0010; originals untouched), through the `drive_jobs` queue, with progress shown.
+  - **The task completes itself** once count, size and checksums are verified.
+  - **The Admin then sees the company-Drive folder link** to check it. Crew never get company Drive access.
+  - **Folder placement:** the owner tells us later.
+  - **Kickoff questions:** several links per task, a suggested folder name, quota warnings, a cameraman upload page.
 - [ ] **8.1** [H] Submissions: `submission_items`, resumable uploader (images ≤ 25 MB, video ≤ 100 MB), browser-side JPEG preview generation including **HEIC**, originals stored untouched, `task_submit_version`, reviews tied to a version, RLS + pgTAP
 - [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version, archive status badges
 - [ ] **8.4a** [C] Link submissions, the pilot half of 8.4 (owner, 2026-09-27): paste a Drive link as a version, basic `https://` validation, stored with the version, the Owner and Admins open it to review. No Drive API access check and no retention job (8.4b, deferred past the launch)
