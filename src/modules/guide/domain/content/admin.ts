@@ -530,7 +530,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The people on it and its approving Admin are told quietly, and the task shows an amber “On hold” chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
+              text: "The people on it and its approving Admin are told quietly. Everyone who opens the task sees the amber “On hold” chip, the reason and that Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
             },
             {
               kind: "note",
@@ -1497,6 +1497,23 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/project-resume-sheet",
                 },
                 "Tap Resume project: everything is settled in one go.",
+              ],
+            },
+            {
+              kind: "text",
+              text: "A project on hold, yours or one the Owner held, shows it as soon as you open it:",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "On the client’s Overview and Projects tab, its row reads “On hold” (highlighted), never Open.",
+                  shot: "admin/project-held-row",
+                },
+                {
+                  text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted).",
+                  shot: "admin/item-held-sheet",
+                },
               ],
             },
             {

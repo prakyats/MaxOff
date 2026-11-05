@@ -49,6 +49,13 @@ export type ResumeEntry = {
 
 export type ResumeProblem = { itemId: string | null; message: string };
 
+/**
+ * A held project's deliverable sheet, as it opens (v2.0 X1, the owner's walk 2026-11-04): why its
+ * ticks and Mark done wait, for everyone who opens it.
+ */
+export const ITEM_HELD_NOTE =
+  "The project is on hold: ticks and Mark done wait until it is resumed.";
+
 export function isProjectOnHold(project: { heldAt: string | null }): boolean {
   return project.heldAt !== null;
 }

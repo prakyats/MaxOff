@@ -1,9 +1,11 @@
+import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
+import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getOwnHours, getOwnToday, TodayAttendanceStrip } from "@/modules/attendance";
@@ -21,9 +23,11 @@ import { getClaimSetup } from "@/modules/expenses";
 import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 import {
   forLabel,
+  heldOpen,
   listUnreadCounts,
   MY_GROUP_TITLES,
   myTaskGroups,
+  onHoldLine,
   rowMeta,
   stateLabel,
   TaskRow,
@@ -82,6 +86,9 @@ export default async function MyDayPage() {
   const listViewer = { id: viewer.id, role: viewer.role, coordinates: own };
   const groups = myTaskGroups(rows, listViewer, now, today);
   const nothing = MY_DAY_GROUPS.every((group) => groups[group].length === 0);
+  // v2.0 X1 (the owner's walk, 2026-11-04): a held task leaves the lists above, so My Day says so
+  // in one line ("On hold · 1") that opens them, as the Tasks tab does; it never just vanishes.
+  const held = onHoldLine(heldOpen(rows, listViewer).length);
 
   // This week (FINAL 8, major change 1, PP-crew-7), the same read and blocks as My tasks'.
   const week = ownWeek({
@@ -149,6 +156,17 @@ export default async function MyDayPage() {
                 ) : null,
               )
             )}
+
+            {held ? (
+              <DrillLink
+                href="/tasks/all?state=on_hold"
+                data-slot="my-day-on-hold"
+                className="border-border bg-card focus-visible:ring-ring flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium outline-none focus-visible:ring-2"
+              >
+                <span className="min-w-0 break-words">{held}</span>
+                <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              </DrillLink>
+            ) : null}
 
             {/* PP-crew-2: "Suggest a task" is a quiet link at the foot, not a button. */}
             {can(viewer.role, "task_requests.create") ? (

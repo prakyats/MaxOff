@@ -359,7 +359,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                     ? { by: task.heldBy ? name(task.heldBy) : null, text: `"${task.holdReason}"` }
                     : null
                 }
-                note={selfOnTask || actions.commentFor.length > 0 ? HELD_WORK_NOTE : null}
+                // v2.0 X1 (the owner's walk): why the work waits shows to everyone who opens it.
+                note={HELD_WORK_NOTE}
                 facts={resumeFacts}
                 canResume={holds.resume}
                 solid={next === null}

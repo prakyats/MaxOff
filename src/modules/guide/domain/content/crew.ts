@@ -550,7 +550,11 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "On My tasks, tap “On hold · n” (highlighted) to see your held tasks.",
+                  text: "A held task leaves your lists. My Day shows “On hold · n” (highlighted) instead: tap it to see your held tasks.",
+                  shot: "staff/my-day-on-hold",
+                },
+                {
+                  text: "On My tasks, the same “On hold · n” line (highlighted) opens them too.",
                   shot: "staff/tasks-on-hold",
                 },
                 {

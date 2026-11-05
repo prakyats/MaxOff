@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  MoreHorizontalIcon,
+  PauseIcon,
+  PlusIcon,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +21,7 @@ import { HistoryButton } from "@/core/ui/composites/history-button";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, StatusBadge } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -43,6 +50,7 @@ import {
 import { addRevisionRound } from "../actions/bulk";
 import { saveItemAsTemplate } from "../actions/templates";
 import { groupStrips, lastChangeLine, untickedWords } from "../domain/deliverable";
+import { ITEM_HELD_NOTE } from "../domain/hold";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
@@ -368,11 +376,30 @@ export function ItemSheet({
         open={open && discard !== "close"}
         onOpenChange={requestClose}
         title={current.title}
-        description={<StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />}
+        description={
+          // v2.0 X1: a held project's deliverable reads On hold from the first glance (never Open).
+          current.onHold ? (
+            <OnHoldBadge />
+          ) : (
+            <StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />
+          )
+        }
         // While editing, Save is the layer's one commit (§14.1): the item's actions wait.
         actions={editing ? undefined : actions}
       >
         <div className="flex flex-col gap-4" data-slot="item-sheet">
+          {current.onHold && !editing ? (
+            // v2.0 X1 (the owner's walk, 2026-11-04): why the ticks wait shows when the sheet
+            // opens, for everyone who opens it, not only once a tick is refused.
+            <p
+              role="status"
+              data-slot="item-hold-note"
+              className="border-border bg-attention-soft flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm"
+            >
+              <PauseIcon aria-hidden className="text-attention mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">{ITEM_HELD_NOTE}</span>
+            </p>
+          ) : null}
           {editing ? (
             <form
               className="flex flex-col gap-3"
@@ -638,7 +665,14 @@ export function ItemSheet({
                         </span>
                       </p>
                     )}
-                    <ul className="border-border divide-border divide-y rounded-lg border">
+                    <ul
+                      className={cn(
+                        "border-border divide-border divide-y rounded-lg border",
+                        // Held: the stages read disabled, as a held task's do (the design pass).
+                        current.onHold && "text-muted-foreground",
+                      )}
+                      data-held={current.onHold || undefined}
+                    >
                       {group.stages.map((stage) => (
                         <li key={stage.id}>
                           <button

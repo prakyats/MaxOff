@@ -290,6 +290,30 @@ function holdShots(role: "owner" | "admin"): GuideShot[] {
       alt: "A project On hold: the amber banner with the reason, its deliverables On hold, and Resume… highlighted.",
     },
     {
+      // v2.0 X1: a held project reads On hold on the client's Projects tab, never Open.
+      id: `${role}/project-held-row`,
+      path: (demo) => `/clients/${demo.clientId}/projects`,
+      highlight: (page) =>
+        page
+          .locator('[data-slot="project-row"]')
+          .filter({ has: page.locator('[data-status="on_hold"]') })
+          .first(),
+      crop: main,
+      alt: "The client's Projects tab with the held project's row and its amber On hold chip highlighted.",
+    },
+    {
+      // v2.0 X1: a held project's deliverable says why its ticks wait as soon as it opens.
+      id: `${role}/item-held-sheet`,
+      path: heldProject,
+      prepare: async (page) => {
+        await page.locator('[data-slot="item-open"]').first().click();
+        await slot(page, "item-hold-note").waitFor();
+      },
+      highlight: (page) => slot(page, "item-hold-note"),
+      crop: layer,
+      alt: "A held project's deliverable sheet: the On hold chip and the line saying ticks and Mark done wait until it is resumed, highlighted.",
+    },
+    {
       id: `${role}/project-resume-sheet`,
       path: heldProject,
       prepare: resumeProjectSheet,
@@ -486,6 +510,14 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => slot(page, "tasks-on-hold"),
     crop: main,
     alt: "Tasks with the On hold line highlighted under the lists.",
+  },
+  {
+    // v2.0 X1: My Day says a held task is on hold instead of dropping it silently.
+    id: "staff/my-day-on-hold",
+    path: "/my-day",
+    highlight: (page) => slot(page, "my-day-on-hold"),
+    crop: main,
+    alt: "My Day with the On hold line highlighted under the day's lists.",
   },
   {
     id: "staff/task-on-hold",

@@ -50,7 +50,7 @@ export function ProjectMenuDropdown({
           </DropdownMenuItem>
         ))}
         {onCopySchedule !== null ? (
-          <DropdownMenuItem data-slot="copy-schedule" onSelect={onCopySchedule}>
+          <DropdownMenuItem data-action="copy-schedule" onSelect={onCopySchedule}>
             Copy schedule as text
           </DropdownMenuItem>
         ) : null}

@@ -54,7 +54,7 @@ export function ItemRowMenu({
           <ItemRowMenuTrigger title={title} disabled={disabled} className={className} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" title={title}>
-          <DropdownMenuItem data-slot="item-row-menu-open" onSelect={onOpen}>
+          <DropdownMenuItem data-action="item-row-menu-open" onSelect={onOpen}>
             <PanelRightOpenIcon aria-hidden />
             Open
           </DropdownMenuItem>

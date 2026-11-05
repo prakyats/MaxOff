@@ -614,7 +614,7 @@ export const OWNER_GUIDE: Guide = {
               },
             ),
             next(
-              'The people on it and its approving Admin are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
+              'The people on it and its approving Admin are told quietly. Everyone who opens the task sees the amber "On hold" chip, the reason and that Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
             ),
             note(
               "A task that is handed in, completed or cancelled cannot be put on hold. Cancelling a held task ends the hold. History keeps the reason and the old deadline.",
@@ -1451,6 +1451,17 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/project-resume-sheet",
               },
               'Tap "Resume project": everything is settled in one go.',
+            ),
+            text("Everyone who opens a held project sees it at once, the client's Admin included:"),
+            steps(
+              {
+                text: 'On the client\'s Overview and Projects tab, its row reads "On hold" (highlighted), never Open.',
+                shot: "owner/project-held-row",
+              },
+              {
+                text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted).",
+                shot: "owner/item-held-sheet",
+              },
             ),
             next(
               'Reports show "On hold · n deliverables" for this month: tap it to see them. They are neither done nor closed, and never money.',

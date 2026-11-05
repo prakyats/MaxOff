@@ -119,6 +119,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 580,
     alt: "Tasks with the On hold line highlighted under the lists.",
   },
+  "staff/my-day-on-hold": {
+    src: "/guide/staff/my-day-on-hold.webp",
+    width: 1216,
+    height: 450,
+    alt: "My Day with the On hold line highlighted under the day's lists.",
+  },
   "staff/task-on-hold": {
     src: "/guide/staff/task-on-hold.webp",
     width: 1216,
@@ -290,7 +296,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/task-hold-line": {
     src: "/guide/admin/task-hold-line.webp",
     width: 1184,
-    height: 587,
+    height: 591,
     alt: "A task On hold: the amber chip, the On hold since line with the reason and its Resume button highlighted.",
   },
   "admin/task-resume-sheet": {
@@ -316,6 +322,18 @@ export const GUIDE_SHOTS: Readonly<
     width: 1184,
     height: 673,
     alt: "A project On hold: the amber banner with the reason, its deliverables On hold, and Resume… highlighted.",
+  },
+  "admin/project-held-row": {
+    src: "/guide/admin/project-held-row.webp",
+    width: 1220,
+    height: 603,
+    alt: "The client's Projects tab with the held project's row and its amber On hold chip highlighted.",
+  },
+  "admin/item-held-sheet": {
+    src: "/guide/admin/item-held-sheet.webp",
+    width: 423,
+    height: 617,
+    alt: "A held project's deliverable sheet: the On hold chip and the line saying ticks and Mark done wait until it is resumed, highlighted.",
   },
   "admin/project-resume-sheet": {
     src: "/guide/admin/project-resume-sheet.webp",
@@ -548,7 +566,7 @@ export const GUIDE_SHOTS: Readonly<
   "owner/task-hold-line": {
     src: "/guide/owner/task-hold-line.webp",
     width: 1184,
-    height: 587,
+    height: 591,
     alt: "A task On hold: the amber chip, the On hold since line with the reason and its Resume button highlighted.",
   },
   "owner/task-resume-sheet": {
@@ -574,6 +592,18 @@ export const GUIDE_SHOTS: Readonly<
     width: 1184,
     height: 673,
     alt: "A project On hold: the amber banner with the reason, its deliverables On hold, and Resume… highlighted.",
+  },
+  "owner/project-held-row": {
+    src: "/guide/owner/project-held-row.webp",
+    width: 1220,
+    height: 603,
+    alt: "The client's Projects tab with the held project's row and its amber On hold chip highlighted.",
+  },
+  "owner/item-held-sheet": {
+    src: "/guide/owner/item-held-sheet.webp",
+    width: 423,
+    height: 617,
+    alt: "A held project's deliverable sheet: the On hold chip and the line saying ticks and Mark done wait until it is resumed, highlighted.",
   },
   "owner/project-resume-sheet": {
     src: "/guide/owner/project-resume-sheet.webp",

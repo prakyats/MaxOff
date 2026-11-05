@@ -140,6 +140,14 @@ test.describe("a task on hold", () => {
 
     // Put on hold… is in ⋯; its sheet is a layer: back closes it, the task stays.
     await openTaskMenu(page);
+    // v2.0 X1: "Put on hold…" is the menu's own size and indent, as "Edit task" (it shrank on a
+    // phone when its own data-slot replaced the item's).
+    const looks = (name: string) =>
+      page.getByRole("menuitem", { name }).evaluate((item) => {
+        const style = getComputedStyle(item);
+        return { size: style.fontSize, indent: style.paddingLeft, slot: item.dataset.slot };
+      });
+    expect(await looks("Put on hold…")).toEqual(await looks("Edit task"));
     await page.getByRole("menuitem", { name: "Put on hold…" }).click();
     const holdSheet = page.getByRole("dialog", { name: `Put "${title}" on hold?` });
     await expect(holdSheet).toBeVisible();
@@ -156,6 +164,10 @@ test.describe("a task on hold", () => {
     const line = page.locator('[data-slot="task-hold-line"]');
     await expect(line).toContainText("On hold since");
     await expect(line).toContainText(REASON);
+    // v2.0 X1: why the work waits shows to everyone who opens it, the Owner included.
+    await expect(page.locator('[data-slot="task-hold-note"]')).toHaveText(
+      "Start, Done and the stage ticks wait until the task is resumed.",
+    );
     await expect(page.locator('[data-status="on_hold"]:visible').first()).toHaveText("On hold");
     await expect(page.locator('[data-slot="task-deadline"]')).toHaveAttribute(
       "data-overdue",
@@ -234,6 +246,17 @@ test.describe("a task on hold", () => {
       reason: REASON,
     });
     expect(refused.message).toBe("FORBIDDEN");
+    // v2.0 X1: once the Owner holds it, the approving Admin reads it as held when it opens: the
+    // chip, the line with the reason and why the work waits; no Resume.
+    await rpcAs(owner.email, owner.password, "task_hold", { task_id: taskId, reason: REASON });
+    await page.reload();
+    await taskReady(page);
+    const line = page.locator('[data-slot="task-hold-line"]');
+    await expect(line).toContainText("On hold since");
+    await expect(line).toContainText(REASON);
+    await expect(page.locator('[data-slot="task-hold-note"]')).toBeVisible();
+    await expect(page.locator('[data-status="on_hold"]:visible').first()).toHaveText("On hold");
+    await expect(page.locator('[data-slot="task-resume"]')).toHaveCount(0);
     await context.close();
     await removeTasksTitled(prefix);
   });
@@ -258,6 +281,15 @@ test.describe("Crew on a held task", () => {
     await hydrated(page);
     await expect(page.locator(`[data-slot="task-row"][data-task="${taskId}"]`)).toHaveCount(0);
     await expect(page.locator('[data-slot="tasks-on-hold"]')).toHaveText(/On hold · \d+/);
+    // v2.0 X1: My Day says so too; the held task never just vanishes from home.
+    await page.goto("/my-day");
+    await hydrated(page);
+    await expect(page.getByText(title)).toHaveCount(0);
+    const myDayLine = page.locator('[data-slot="my-day-on-hold"]');
+    await expect(myDayLine).toHaveText(/On hold · \d+/);
+    await myDayLine.click();
+    await expect(page).toHaveURL(/\/tasks\/all\?state=on_hold$/);
+    await expect(page.getByText(title).locator("visible=true").first()).toBeVisible();
 
     await page.goto(`/tasks/${taskId}`);
     await taskReady(page);
@@ -392,6 +424,66 @@ test.describe("a project on hold", () => {
       `project_items?id=eq.${reel2}&select=state`,
     );
     expect(carried?.state).toBe("carried");
+    await removeClientFixture(client);
+  });
+
+  test("a project the Owner holds reads On hold up front for its Admin: the rows, the page, the deliverable", async ({
+    page,
+  }, info) => {
+    // v2.0 X1 (the owner's walk, 2026-11-04): the Admin is told (project_held) and sees the hold
+    // wherever the project shows, before any tick is tried.
+    const client = nameOf(info, "owner-held");
+    const clientId = await workClient(client, admin.email);
+    const name = "Owner held";
+    const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: clientId,
+      name,
+      recurrence: "monthly",
+      stages: ["Edit"],
+      items: ["Reel 9"],
+    });
+    await rpcAs(owner.email, owner.password, "project_hold", {
+      project_id: projectId,
+      reason: REASON,
+    });
+    const [told] = await serviceSelect<{ kind: string }>(
+      `notifications?recipient_id=eq.${await memberIdOf(admin.email)}&kind=eq.project_held&entity_id=eq.${projectId}&select=kind`,
+    );
+    expect(told?.kind).toBe("project_held");
+
+    await runInstalled(page);
+    // The client's Overview and Projects tab: the row reads On hold, never Open.
+    for (const path of [`/clients/${clientId}`, `/clients/${clientId}/projects`]) {
+      await page.goto(path);
+      await hydrated(page);
+      const row = page.locator('[data-slot="project-row"]').filter({ hasText: name });
+      await expect(row.locator('[data-status="on_hold"]')).toHaveText("On hold");
+      await expect(row.getByText("Open", { exact: true })).toHaveCount(0);
+    }
+    await page.locator('[data-slot="project-row"]').filter({ hasText: name }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    await hydrated(page);
+    const banner = page.locator('[data-slot="project-hold-banner"]');
+    await expect(banner).toContainText("On hold since");
+    await expect(banner).toContainText(REASON);
+
+    // The deliverable's sheet says it at once: the chip, why the ticks wait, the tick off.
+    await page
+      .locator('[data-slot="item-row"]', { hasText: "Reel 9" })
+      .locator('[data-slot="item-open"]')
+      .click();
+    const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Reel 9" });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('[data-status="on_hold"]')).toHaveText("On hold");
+    await expect(sheet.locator('[data-slot="item-hold-note"]')).toHaveText(
+      "The project is on hold: ticks and Mark done wait until it is resumed.",
+    );
+    await expect(sheet.getByRole("checkbox", { name: "Edit" })).toBeDisabled();
+    await expectNoHorizontalScroll(page);
+    // A layer: back closes it, the project stays (§14.2).
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
     await removeClientFixture(client);
   });
 

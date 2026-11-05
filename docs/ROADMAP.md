@@ -246,8 +246,8 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 
 ### v2.0 "Fast and settled": units (advisor, 2026-11-05; owner: "proceed", one builder)
 Owner, 2026-11-05: after v2.0 there are no more big changes to the number of screens; only revenue (phase 9) and the Drive link (8.5) remain. v2.0 makes the app feel **extremely fast for day-to-day use**, and the speed gate is stricter for it.
-- [ ] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.
-- [ ] **X1 [C] On hold seen by everyone linked, up front** (the owner's notes above).
+- [x] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.
+- [x] **X1 [C] On hold seen by everyone linked, up front** (the owner's notes above).
   - The Crew assignees of a held task are told (a quiet notice) and see the hold line as soon as the task opens.
   - An Admin opening a project the Owner holds sees the banner.
   - The "waits until resumed" line shows when the task opens, for everyone linked.
