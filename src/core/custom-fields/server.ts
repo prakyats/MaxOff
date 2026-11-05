@@ -98,6 +98,11 @@ export async function listDefinitions(
   return data.map(toDefinition);
 }
 
+/** Definitions from their rows (every column), as the reads here map them, for a page's one read. */
+export function definitionsFrom(rows: readonly Tables<"field_definitions">[]): FieldDefinition[] {
+  return rows.map(toDefinition);
+}
+
 /**
  * `listAllDefinitions` for several entities in one read (v2.0 X3: Settings → Templates reads the
  * task and the project fields together, so its first wave is six): each entity's definitions in

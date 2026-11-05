@@ -56,8 +56,9 @@ const CLIENT_LAYOUT_READS = new Set([
   "/rest/v1/notifications",
   "/rest/v1/members",
 ]);
-/** The overview page's own reads: never made by a prefetch. */
+/** The overview page's own reads: never made by a prefetch (v2.0 X3: most are one read). */
 const CLIENT_PAGE_READS = [
+  "/rest/v1/rpc/client_overview",
   "/rest/v1/client_contacts",
   "/rest/v1/client_private",
   "/rest/v1/field_definitions",

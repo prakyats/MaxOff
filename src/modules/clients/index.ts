@@ -40,6 +40,7 @@ export {
   getClient,
   getContactName,
   getOwnerNotes,
+  readClientOverview,
   handOverClients,
   listAdminAssignments,
   listClientActivity,

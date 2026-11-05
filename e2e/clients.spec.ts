@@ -453,6 +453,35 @@ test.describe("an Admin", () => {
     await page.goto(`/clients/${otherId}`);
     await expect(page.getByText("Page not found")).toBeVisible();
   });
+  // v2.0 X3 (advisor, #89): the Overview's one read (`client_overview()`) carries the Owner's notes
+  // only where RLS shows them; an Admin's page, its HTML and its RSC payload, never holds them.
+  test("the Owner's notes never reach the Admin's client page, not even in its data", async ({
+    page,
+  }, info) => {
+    const name = nameOf(info, "Admins notes");
+    const id = await seedClient(name, USERS.admin.email);
+    await activateAsOwner(id);
+    const secret = `Owner-only note ${info.project.name} zq9-x3-owner-private`;
+    const saved = await serviceRest("client_private?on_conflict=client_id", {
+      method: "POST",
+      headers: { "content-type": "application/json", prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ client_id: id, owner_notes: secret }),
+    });
+    expect(saved.ok, "the Owner's note is seeded").toBe(true);
+    const [row] = await serviceSelect<{ owner_notes: string }>(
+      `client_private?client_id=eq.${id}&select=owner_notes`,
+    );
+    expect(row?.owner_notes).toBe(secret);
+
+    const html = await page.request.get(`/clients/${id}`);
+    expect(html.status()).toBe(200);
+    const htmlBody = await html.text();
+    expect(htmlBody, "the Admin's page rendered their client").toContain(name);
+    expect(htmlBody, "the page never holds the Owner's note").not.toContain(secret);
+    const flight = await page.request.get(`/clients/${id}`, { headers: { RSC: "1" } });
+    expect(flight.status()).toBe(200);
+    expect(await flight.text(), "nor its RSC payload").not.toContain(secret);
+  });
 });
 
 test.describe("Staff", () => {

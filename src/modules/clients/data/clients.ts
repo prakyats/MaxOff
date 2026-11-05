@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { type ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
+import { definitionsFrom } from "@/core/custom-fields/server";
 import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError } from "@/core/errors";
@@ -197,6 +198,34 @@ export async function updateClient(
   if (error) throw error;
   refusedWhenNone(count, NOT_YOURS);
 }
+
+/**
+ * A client's Overview reads in one (v2.0 X3, `client_overview()`; ARCHITECTURE §19): its contacts
+ * (`listContacts`), the Owner's notes (`getOwnerNotes`: its policy gives them to the Owner alone),
+ * the open labelled tasks (`countOpenTasksForClient`) and the client and contact fields
+ * (`listDefinitions`), each exactly as that read gave it, under the same RLS. Not the layout's
+ * reads: a client row's prefetch runs the layout and reads none of the page's data.
+ */
+export const readClientOverview = cache(async (clientId: string) => {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("client_overview", { p_client_id: clientId });
+  if (error) throw error;
+  const overview = data as {
+    contacts: Tables<"client_contacts">[];
+    /** Present only where RLS shows the row (the Owner's); no key at all for anyone else. */
+    owner_notes?: string | null;
+    open_tasks: number;
+    client_fields: Tables<"field_definitions">[];
+    contact_fields: Tables<"field_definitions">[];
+  };
+  return {
+    contacts: overview.contacts.map(toContact),
+    ownerNotes: overview.owner_notes ?? null,
+    openTasks: overview.open_tasks,
+    clientFields: definitionsFrom(overview.client_fields),
+    contactFields: definitionsFrom(overview.contact_fields),
+  };
+});
 
 export async function getOwnerNotes(clientId: string): Promise<string | null> {
   const supabase = await createServerSupabase();

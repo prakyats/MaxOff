@@ -4836,6 +4836,7 @@ export type Database = {
         Args: { from_admin: string; moves: Json };
         Returns: number;
       };
+      client_overview: { Args: { p_client_id: string }; Returns: Json };
       client_pause: {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
