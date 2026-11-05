@@ -42,7 +42,7 @@ export type ApprovalsTiming = {
  * Where the Approvals screen's time goes on the Worker (v1.9 speed gate, advisor #89 comment
  * 6605368404; ARCHITECTURE §19 "Six connections"): the `(app)` layout's reads and the Approvals
  * page's first wave, started in the order a real request starts them (the layout's member row,
- * counts, own day and push status, then the page's lists and its task steps, then the unread
+ * own day, push status and counts, then the page's lists and its task steps, then the unread
  * counts the task rows wait for), each timed from the wave's start to its answer. A read that
  * queued behind the Worker's six open connections shows as a later answer. Observation only, like
  * `/diagnostics/timing`: members only (anyone else 404s), nothing written, in no nav, and the
@@ -57,10 +57,10 @@ export async function GET(): Promise<Response> {
 
   // The layout's wave, in its order (`src/app/(app)/layout.tsx`).
   const member = timed(getSessionState());
-  const counts = getSessionBundle();
-  const bundle = quiet(counts);
   const today = quiet(getOwnToday());
   const push = quiet(readOwnPushStatus());
+  const counts = getSessionBundle();
+  const bundle = quiet(counts);
   // The page's first wave, in its order (`src/app/(app)/approvals/page.tsx`).
   const days = quiet(listPendingDays());
   const requests = quiet(listPendingRequests());

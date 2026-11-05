@@ -4,7 +4,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { createServerSupabase, createTokenSupabase, type ServerSupabase } from "@/core/db/server";
+import {
+  createServerSupabase,
+  createTokenSupabase,
+  holdReadsUntil,
+  type ServerSupabase,
+} from "@/core/db/server";
 import { systemClock } from "@/core/time";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";
@@ -91,18 +96,36 @@ type EarlyClient = Pick<ServerSupabase, "from" | "rpc">;
  * A read started before the JWT check settles (see `getSessionState`): with the session cookie's
  * access token and keyed by the `sub` it claims, both unverified. Null without a token. Never
  * rejects: a failure is the read's `error`, looked at only once the session has verified.
+ *
+ * **It leaves before every later client's first request** (v1.9 speed gate, 2026-11-03;
+ * ARCHITECTURE §19 "Six connections"): `holdReadsUntil` is told, before anything is awaited, to
+ * hold every `createServerSupabase()` made after this call until this read's request has been
+ * handed to `fetch` (`createTokenSupabase`'s `left`). A read that sends nothing (no session
+ * cookie, a cookie that is not a session, a read that threw) releases the hold when it returns,
+ * so nothing waits on it. `read` uses only the client it is given: a `createServerSupabase()`
+ * inside it would wait on this very hold.
  */
-async function startTokenRead<R>(
+function startTokenRead<R>(
   read: (supabase: EarlyClient, claimedId: string) => PromiseLike<R>,
 ): Promise<{ id: string; result: R } | null> {
-  try {
-    const token = await accessTokenFrom((await cookies()).getAll());
-    const id = token ? unverifiedSubject(token) : null;
-    if (!token || !id) return null;
-    return { id, result: await read(createTokenSupabase(token), id) };
-  } catch {
-    return null;
-  }
+  let left: () => void = () => undefined;
+  holdReadsUntil(
+    new Promise<void>((resolve) => {
+      left = resolve;
+    }),
+  );
+  return (async () => {
+    try {
+      const token = await accessTokenFrom((await cookies()).getAll());
+      const id = token ? unverifiedSubject(token) : null;
+      if (!token || !id) return null;
+      return { id, result: await read(createTokenSupabase(token, left), id) };
+    } catch {
+      return null;
+    } finally {
+      left();
+    }
+  })();
 }
 
 /** The member row's read, started before the JWT check settles. */

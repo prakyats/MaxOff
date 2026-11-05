@@ -90,9 +90,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // before: the unread count, the Owner's four counts and the awaited push read waited behind the
   // member row. The member row is started first (6b.19, §19 "Six connections"): every byte of
   // the screen waits for it, and a Worker sets off at most six reads at a time, in start order.
+  // The own day and the push status, which the first byte waits for too, come next (v1.9 speed
+  // gate): each of the three holds every later client (`holdReadsUntil`, the counts' and the
+  // page's) until its request has left, so the order is built, never raced.
   const member = requireMember();
+  startEarly(getOwnToday(), readOwnPushStatus());
   const bundle = getSessionBundle();
-  startEarly(getOwnToday(), readOwnPushStatus(), bundle);
+  startEarly(bundle);
   const viewer = await member;
   // The counts and the bell stream (`NavCount`, 4C): the shell and the page never wait for them, so
   // a screen's loading state paints as soon as the member is known. A bundle that cannot be read is
