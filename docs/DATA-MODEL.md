@@ -99,6 +99,10 @@ app.is_working_day(date)        (1.4) false when the date's weekday is in org_se
                                 absent on a Sunday. The TS mirror is core/time isWorkingDay()
 
 -- Identity and audit helpers (task 1.1, ARCHITECTURE §5). All security definer, search_path = ''.
+-- Since v2.0 X3 (b) (migration rls_helpers_plpgsql) the hot ones are PL/pgSQL, bodies unchanged:
+-- current_member, has_permission, is_owner, task_visible, client_visible, admin_client_ids,
+-- coordinator_of, directory_visible_ids, labelled_client_ids, task_request_visible, current_org_id,
+-- is_working_day, leave_covering, ist_day_start, to_ist_date (ARCHITECTURE §5 "Helpers are PL/pgSQL").
 app.current_org_id()            the caller's org; with no member row (bootstrap, service role) the single
                                 organizations row; null when there are none or several. Default of every
                                 root table's org_id

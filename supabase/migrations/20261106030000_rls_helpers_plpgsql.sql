@@ -4,7 +4,9 @@
 -- The fifteen hot helpers below (the ten RLS helpers every policy calls, and the five date and
 -- organisation helpers the attendance reads call once per member) are re-created as PL/pgSQL with their bodies UNCHANGED, character for
 -- character, and every attribute kept: the same name, arguments, result, volatility, strictness,
--- SECURITY DEFINER, ROWS and empty search_path, and the same grants (create or replace keeps them).
+-- SECURITY DEFINER, ROWS, PARALLEL (the three date helpers are parallel safe), leakproof (none),
+-- cost and empty search_path, and the same grants (create or replace keeps them). pgTAP 141 asserts
+-- each attribute per function against its value before this migration.
 -- Why: each is `language sql` with `SET search_path`, which Postgres never inlines, and before
 -- Postgres 18 a non-inlined SQL function plans its body again on EVERY call (nested ones too:
 -- task_visible -> current_member, is_owner, has_permission ...). That re-planning was most of each
@@ -326,7 +328,7 @@ $fn$;
 create or replace function app.is_working_day(d date)
 returns boolean
 language plpgsql
-stable security definer
+stable security definer parallel safe
 set search_path = ''
 as $fn$
 #variable_conflict use_column
@@ -355,7 +357,7 @@ $fn$;
 create or replace function app.ist_day_start(d date)
 returns timestamp with time zone
 language plpgsql
-stable strict
+stable strict parallel safe
 set search_path = ''
 as $fn$
 #variable_conflict use_column
@@ -367,7 +369,7 @@ $fn$;
 create or replace function app.to_ist_date(ts timestamp with time zone)
 returns date
 language plpgsql
-stable strict
+stable strict parallel safe
 set search_path = ''
 as $fn$
 #variable_conflict use_column
