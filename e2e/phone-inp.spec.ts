@@ -8,8 +8,9 @@ import { hydrated, storageStateFor } from "./helpers";
  * INP and long tasks on a phone profile (v2.0 X3 (c), the advisor on #89): each role's tabs at
  * 375 px with the CPU slowed 4× (a mid-range phone), measured in the page by the browser's own
  * Event Timing and Long Tasks entries: the long tasks while a tab loads, then the slowest
- * interaction of a tap on the bottom bar into the next tab (its INP: input delay, handling and
- * the next paint).
+ * interaction of a tap into the next tab (its INP: input delay, handling and the next paint): on
+ * the bottom bar, or for a route behind More, the tap that opens the sheet and the tap on its row,
+ * each measured alone.
  *
  * Measuring first: the numbers go into the test's annotations and the report; the budgets
  * (INP ≤ 200 ms, the web's "good") are switched on once a baseline is known, as the first wave was.
@@ -37,6 +38,13 @@ async function observe(page: Page): Promise<void> {
         if (entry.interactionId) w.__events.push({ id: entry.interactionId, ms: entry.duration });
       }
     }).observe({ type: "event", durationThreshold: 16, buffered: true } as PerformanceObserverInit);
+  });
+}
+
+/** Forgets the interactions so far, so the next reading is the next tap's alone. */
+async function forget(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (window as unknown as { __events: unknown[] }).__events = [];
   });
 }
 
@@ -73,15 +81,27 @@ for (const role of ["owner", "admin", "staff"] as const) {
         await hydrated(page);
         await expect(page.locator('[data-slot="loading-state"]')).toHaveCount(0);
         const load = await read(page);
-        // A tap on the bottom bar into the next tab (the first tab's after the last).
+        // A tap into the next tab (the first tab's after the last): on the bottom bar, or through More.
         const next = tabs[(index + 1) % tabs.length]!;
-        const link = page.locator(`[data-slot="bottom-nav"] a[href="${next}"]`);
-        let inp = "no bottom-bar link";
-        if ((await link.count()) > 0) {
-          await link.first().tap();
+        const bar = page.locator(`[data-slot="bottom-nav"] a[href="${next}"]`);
+        let inp: string;
+        if ((await bar.count()) > 0) {
+          await forget(page);
+          await bar.first().tap();
           await page.waitForURL((url) => url.pathname === next, { timeout: 30_000 });
           await hydrated(page);
           inp = `${(await read(page)).inp} ms`;
+        } else {
+          await forget(page);
+          await page.locator('[data-slot="bottom-nav"] button').first().tap();
+          const row = page.locator(`[data-slot="more-sheet"] a[href="${next}"]`);
+          await expect(row).toBeVisible();
+          const open = (await read(page)).inp;
+          await forget(page);
+          await row.tap();
+          await page.waitForURL((url) => url.pathname === next, { timeout: 30_000 });
+          await hydrated(page);
+          inp = `More ${open} ms, then the row ${(await read(page)).inp} ms`;
         }
         lines.push(
           `${path}: long tasks ${load.longTasks} (longest ${load.longestTask} ms, blocking ${load.blocking} ms); tap → ${next}: INP ${inp}`,
