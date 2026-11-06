@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { todayIST } from "../src/core/time";
 
 import {
+  calendarReady,
   animationsSettled,
   dockTop,
   expectNoHorizontalScroll,
@@ -353,6 +354,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
       await expect(phone).toBeVisible();
       await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
       const handle = page.locator('button[data-slot="calendar-handle"]');
+      await calendarReady(page);
       const fits = async () => {
         // A tap's press feedback eases out over 120ms: measure the settled controls.
         await animationsSettled(page);

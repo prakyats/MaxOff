@@ -608,6 +608,17 @@ export async function runInstalled(page: Page) {
  * behaviour (a typed transition, a scroll restore, refresh on return) waits for this after
  * `goto`. Not the root layout: it hydrates before the streamed shell (2.8, found by CI).
  */
+/**
+ * The calendar's own JavaScript is live, not only the shell's (`hydrated`): the calendar's chunk
+ * lands after the shell has hydrated, and its first layout effect marks the phone's area
+ * `data-leave-fitted` (`leave-fit.ts`). A tap on the handle before it would hit the server's
+ * button, with no handler yet, and be lost (full CI 42155785736: calendar.spec:2692 [mobile-lg]
+ * tapped while the area was still settling; the size stayed 2).
+ */
+export async function calendarReady(page: Page): Promise<void> {
+  await expect(page.locator('[data-slot="calendar-phone"][data-leave-fitted]')).toHaveCount(1);
+}
+
 export async function hydrated(page: Page): Promise<void> {
   await expect(page.locator("html")).toHaveAttribute("data-chrome", /.+/);
 }
