@@ -8,7 +8,7 @@
 -- attendance_hours_on (service_role only, as attendance_hours). Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(16);
 
 -- The references: the old bodies exactly (today's calls the old attendance_hours).
 create function pg_temp.ref_attendance_hours(p_member uuid, p_date date)
@@ -177,7 +177,34 @@ select is((select half from pg_temp.ref_attendance_hours(pg_temp.fx('admin'), ap
 select is((select end_source from pg_temp.ref_attendance_hours(pg_temp.fx('staff'), app.today_ist() + 2)), 'shoot', 'the shoot moves the end');
 select is((select end_source from pg_temp.ref_attendance_hours(pg_temp.fx('staff'), app.today_ist())), 'stay', 'the Stay until moves the end');
 
--- 4. Who may call the new helper -----------------------------------------------------------------------
+-- 4. Another organisation (the advisor, #89): never its members, and the caller's org's settings -----
+select pg_temp.as_member('owner');
+select set_config('request.jwt.claim.sub', '', true);
+insert into public.organizations (id, name) values ('00000000-0000-4000-8000-000000014210', 'Other org 142');
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-000000014211', 'other-14211@example.com');
+insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at) values
+  ('00000000-0000-4000-8000-000000014211', '00000000-0000-4000-8000-000000014210', 'Other org member 142', 'other-14211@example.com',
+   'staff', 'active', 'permanent', now() - interval '40 days');
+-- Opposite settings: org A off, org B on.
+update public.org_settings set working_hours_on = false where org_id = pg_temp.fx('org');
+update public.org_settings set working_hours_on = true where org_id = '00000000-0000-4000-8000-000000014210';
+select pg_temp.as_member('owner');
+select is((select count(*) from public.attendance_hours_today() h where h.member_id = '00000000-0000-4000-8000-000000014211'),
+  0::bigint, 'org A''s Owner never sees an org B member');
+select ok((select bool_and(not h.rules_on) from public.attendance_hours_today() h) and pg_temp.today_equal(),
+  'org A off, org B on: every row reads org A''s settings (no rules), and equals the old body');
+select set_config('request.jwt.claim.sub', '', true);
+-- Swapped: org A on, org B off.
+update public.org_settings set working_hours_on = true where org_id = pg_temp.fx('org');
+update public.org_settings set working_hours_on = false where org_id = '00000000-0000-4000-8000-000000014210';
+select pg_temp.as_member('owner');
+select ok((select bool_and(h.rules_on) from public.attendance_hours_today() h) and pg_temp.today_equal(),
+  'org A on, org B off: every row reads org A''s settings (rules on), and equals the old body');
+select is((select count(*) from public.attendance_hours_today() h where h.member_id = '00000000-0000-4000-8000-000000014211'),
+  0::bigint, '... and still no org B member');
+select set_config('request.jwt.claim.sub', '', true);
+
+-- 5. Who may call the new helper -----------------------------------------------------------------------
 select ok(not has_function_privilege('authenticated', 'app.attendance_hours_on(uuid, date, public.org_settings, boolean)', 'execute')
           and has_function_privilege('service_role', 'app.attendance_hours_on(uuid, date, public.org_settings, boolean)', 'execute'),
   'attendance_hours_on is internal: service_role only, as attendance_hours');
