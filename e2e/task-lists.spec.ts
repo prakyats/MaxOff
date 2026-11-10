@@ -663,6 +663,29 @@ test.describe("the task lists, installed: back and large text", () => {
     expect(geometry.dueRight, `"${geometry.due}" is whole`).toBeLessThanOrEqual(
       geometry.metaRight + 0.5,
     );
+
+    // The whole row opens, chips included (X3 (d)): a status chip is positioned (its dot), and
+    // painted above the row's stretched link it took the tap, which then did nothing.
+    const chipHits = await row.evaluate((li) =>
+      [...li.querySelectorAll<HTMLElement>('[data-slot="badge"]')].flatMap((chip) => {
+        const rect = chip.getBoundingClientRect();
+        return [0.15, 0.5, 0.85].map((x) => {
+          const hit = document.elementFromPoint(
+            rect.left + rect.width * x,
+            rect.top + rect.height / 2,
+          );
+          return hit?.closest('[data-slot="list-row-opener"]')
+            ? "row"
+            : (hit?.getAttribute("data-slot") ?? hit?.tagName ?? "nothing");
+        });
+      }),
+    );
+    expect(chipHits, "a tap on a chip lands on the row").toEqual(chipHits.map(() => "row"));
+    // A tap where the first chip's dot is: the point, not the element (the row's link is on top).
+    const dot = await row.locator('[data-slot="status-badge-dot"]').first().boundingBox();
+    expect(dot, "the chip's dot").not.toBeNull();
+    await page.mouse.click(dot!.x + dot!.width / 2, dot!.y + dot!.height / 2);
+    await expect(page).toHaveURL(new RegExp(`/tasks/${late}$`));
   });
 
   test("Tasks, the full list and Approvals fit at 130% and 200% text", async ({ page }, info) => {

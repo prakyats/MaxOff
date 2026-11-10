@@ -103,9 +103,11 @@ export function ListRow({
   const parts = rowParts({ opens, actions: actions !== undefined && actions !== null });
   const cut = parts.truncate ? "truncate" : "break-words";
   // The stretched opener: its ::after covers the row, so the whole row is one target. It spans
-  // the title and meta lines as a subgrid, so the meta line runs on under the chips.
+  // the title and meta lines as a subgrid, so the meta line runs on under the chips. Its ::after
+  // is lifted (`z-[1]`) over the chips, which a placed part (a status chip's dot) would otherwise
+  // paint above it, taking the tap and opening nothing (X3 (d)); the actions stay over it (z-10).
   const opener =
-    "focus-visible:ring-ring col-span-full row-start-1 grid min-w-0 grid-cols-subgrid grid-rows-subgrid gap-y-0.5 text-left outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset";
+    "focus-visible:ring-ring col-span-full row-start-1 grid min-w-0 grid-cols-subgrid grid-rows-subgrid gap-y-0.5 text-left outline-none after:absolute after:inset-0 after:z-[1] after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset";
   const span = meta ? "row-span-2" : "";
   const text = (
     <>
