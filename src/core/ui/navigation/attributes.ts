@@ -17,6 +17,13 @@ export function markLive(element: HTMLElement | null): void {
   element?.setAttribute(LIVE_ATTRIBUTE, "");
 }
 export const VIEW_LINK_ATTRIBUTE = "data-view-link";
+/**
+ * On a button whose tap must not be lost before hydration (v2.0 X3 (d)): its value names it
+ * (`calendar-handle`, `day:2026-11-09`), so the head script holds a tap on it until React marks
+ * it `data-live` (`markLive`), then replays the click. The calendar's handle and day boxes: the
+ * calendar's chunk lands after the shell has hydrated, and a tap in that gap was lost.
+ */
+export const HOLD_TAP_ATTRIBUTE = "data-hold-tap";
 /** The title bar's bell (`HeaderBell`), the fourth link the script holds (2026-10-07). */
 export const HEADER_BELL_SLOT = "header-bell";
 export const TAB_ATTRIBUTE = "data-tab";
