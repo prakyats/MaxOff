@@ -23,17 +23,20 @@ export function OfflineBanner() {
   useEffect(() => {
     const html = document.documentElement;
     // The band appears while a person may be at the page's end: they stay there, so the sticky
-    // bar, moving up above the band, never covers the last field (`changeBottomReserve`).
-    changeBottomReserve(() => html.toggleAttribute("data-offline", !online));
+    // bar, moving up above the band, never covers the last field (`changeBottomReserve`). Online
+    // on mount, as on every load, changes nothing, so nothing is measured.
+    if (html.hasAttribute("data-offline") === online) {
+      changeBottomReserve(() => html.toggleAttribute("data-offline", !online));
+    }
     const element = band.current;
     if (online || !element) return;
+    // Its measured height from the observer's first delivery (after layout, before paint).
     const measure = () =>
       changeBottomReserve(() =>
         html.style.setProperty("--app-offline-h", `${element.offsetHeight}px`),
       );
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    measure();
     return () => {
       observer.disconnect();
       html.style.removeProperty("--app-offline-h");

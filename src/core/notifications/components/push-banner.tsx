@@ -143,14 +143,15 @@ export function PushBanner({
     const element = band.current;
     if (!element) return;
     const html = document.documentElement;
-    // A taller band keeps a person at the page's end there (`changeBottomReserve`).
+    // A taller band keeps a person at the page's end there (`changeBottomReserve`). The first
+    // height comes from the observer's first delivery, after the frame's layout and before its
+    // paint: measuring here, in the mount effect, forced the page's layout inside hydration.
     const measure = () =>
       changeBottomReserve(() =>
         html.style.setProperty("--app-push-h", `${element.offsetHeight}px`),
       );
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    measure();
     return () => {
       observer.disconnect();
       html.style.removeProperty("--app-push-h");

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { cn } from "@/core/lib/utils";
+import { WARM_ZONE_SCRIPT } from "@/core/time/warm-zone";
 import { LAUNCH_INTRO_SCRIPT, LaunchIntro } from "@/core/ui/pwa/launch-intro";
 import { OfflineBanner } from "@/core/ui/connection/offline-banner";
 import { NavProgress, NavProgressBar } from "@/core/ui/navigation/nav-progress";
@@ -83,6 +84,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: LAUNCH_INTRO_SCRIPT }} />
         {/* Until hydration: back, view and tab taps make the app's moves, not pushes (2.8). */}
         <script dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_SCRIPT }} />
+        {/* In the first idle moment: the time-zone data hydration's formatters need (X3 (d)). */}
+        <script dangerouslySetInnerHTML={{ __html: WARM_ZONE_SCRIPT }} />
       </head>
       <body className="bg-background text-foreground min-h-dvh">
         <LaunchIntro />
