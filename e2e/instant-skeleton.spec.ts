@@ -18,6 +18,7 @@ import {
   serviceInsert,
   serviceSelect,
   type SessionRole,
+  signIn,
   storageStateFor,
   taskTypeId,
   USERS,
@@ -37,8 +38,9 @@ import {
  *   today's date to the page), fails the same checks on the payload the worker would keep of it
  *   (its loading-boundary prefetch): they bite.
  * - **Installed, on a cold Worker** (every server answer held `COLD_MS`, the service worker's own
- *   requests included), at 375 and 430px: after a day's warm visit the app is opened again, and a
- *   bottom-bar tab, a task row and a More-sheet destination each show their traced skeleton
+ *   requests included), at 375 and 430px, **for every role** (X3 (d)): after a day's warm visit
+ *   the app is opened again, and a bottom-bar tab, a task row and a More-sheet destination (the
+ *   Crew member's: a second tab) each show their traced skeleton
  *   within `INSTANT_MS` of the finger going down; the content that follows is the network's (a
  *   task made after the skeletons were kept shows up), and back and the tab history behave as
  *   before (§14.2; `back-gesture.spec.ts` keeps the full rules).
@@ -256,12 +258,12 @@ test.describe("what the worker keeps carries no member data", () => {
   });
 });
 
-/** The tap test's fixtures, one set per project (the two phone widths run side by side). */
-const fixtureNames = (project: string) => ({
-  prefix: `Instant Tap ${project}:`,
-  client: `Instant Tap ${project}: Client`,
-  task: `Instant Tap ${project}: Task`,
-  fresh: `Instant Tap ${project}: Fresh Task`,
+/** The tap test's fixtures, one set per project and role (they run side by side). */
+const fixtureNames = (project: string, role: SessionRole) => ({
+  prefix: `Instant Tap ${project} ${role}:`,
+  client: `Instant Tap ${project} ${role}: Client`,
+  task: `Instant Tap ${project} ${role}: Task`,
+  fresh: `Instant Tap ${project} ${role}: Fresh Task`,
 });
 
 /**
@@ -271,9 +273,20 @@ const fixtureNames = (project: string) => ({
  */
 const FIXTURE_DUE_MS = 2 * 60 * 60 * 1000;
 
-async function createTask(title: string): Promise<string> {
-  const staff = await memberIdOf(USERS.staff.email);
-  return rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+/** Someone who signs in: an email and its password. */
+type Person = { email: string; password: string };
+const OWNER: Person = USERS.owner;
+
+/**
+ * A task for a Crew member (the seeded one unless said), made by the Owner unless said. An Admin's
+ * own task (they made it) is on their Tasks while the Crew member is the one notified.
+ */
+async function createTask(
+  title: string,
+  { creator = OWNER, assignee = USERS.staff.email }: { creator?: Person; assignee?: string } = {},
+): Promise<string> {
+  const staff = await memberIdOf(assignee);
+  return rpcAs<string>(creator.email, creator.password, "task_create", {
     title,
     description: null,
     task_type_id: await taskTypeId("Normal"),
@@ -377,139 +390,220 @@ function expectInstant(name: string, ms: number | null) {
   expect(ms!, `${name}: within ${INSTANT_MS} ms of the tap`).toBeLessThanOrEqual(INSTANT_MS);
 }
 
-test.describe("a tap on a cold Worker shows its skeleton at once", () => {
-  test.use({ storageState: storageStateFor("owner") });
-  test.skip(({ isMobile }) => !isMobile, "the bar and the More sheet are the phone's");
+/**
+ * Each role's taps on a cold Worker (X3 (d): "the service-worker outlines hold for every role"):
+ * a bottom-bar tab (Tasks), a task's row, and a second destination the worker keeps: the More
+ * sheet's Clients for the Owner and an Admin (the client is the Admin's), Calendar on the Crew
+ * member's bar (Crew have no More sheet). The Admin and the Crew member are their project's own
+ * (seeded `skel-<role>-<project>`): a notification re-reads the viewer's open screen (the live
+ * bell), and another test's task for the shared seeded people, landing mid-flow, undid "back
+ * from memory" on a cold Worker. The Admin makes their fixture task for their Crew member.
+ */
+const skel = (role: "admin" | "staff", project: string): Person => ({
+  email: `skel-${role}-${project}@maxoff.local`,
+  password: "skel-local-password",
+});
+const COLD_TAPS: Record<
+  SessionRole,
+  {
+    /** Who taps: null for the seeded session of the role. */
+    viewer: (project: string) => Person | null;
+    /** Who makes the fixture tasks, and for whom. */
+    fixture: (project: string) => { creator: Person; assignee: string; clientAdmin: string };
+    second: { href: string; skeleton: string; viaMore: boolean };
+  }
+> = {
+  owner: {
+    viewer: () => null,
+    fixture: () => ({
+      creator: OWNER,
+      assignee: USERS.staff.email,
+      clientAdmin: USERS.admin.email,
+    }),
+    second: { href: "/clients", skeleton: '[data-slot="loading-toolbar"]', viaMore: true },
+  },
+  admin: {
+    viewer: (project) => skel("admin", project),
+    fixture: (project) => ({
+      creator: skel("admin", project),
+      assignee: skel("staff", project).email,
+      clientAdmin: skel("admin", project).email,
+    }),
+    second: { href: "/clients", skeleton: '[data-slot="loading-toolbar"]', viaMore: true },
+  },
+  staff: {
+    viewer: (project) => skel("staff", project),
+    fixture: (project) => ({
+      creator: OWNER,
+      assignee: skel("staff", project).email,
+      clientAdmin: USERS.admin.email,
+    }),
+    second: { href: "/calendar", skeleton: '[data-slot="loading-calendar"]', viaMore: false },
+  },
+};
+
+// One role after another: each holds every server answer `COLD_MS`, and side by side the three
+// crowded the box and the Owner's list (the Owner sees every role's fixtures).
+test.describe("a tap on a cold Worker shows its skeleton at once, every role", () => {
   test.describe.configure({ mode: "serial" });
+  for (const role of ["owner", "admin", "staff"] as const satisfies readonly SessionRole[]) {
+    test.describe(`a tap on a cold Worker shows its skeleton at once (${role})`, () => {
+      test.use({
+        storageState: role === "owner" ? storageStateFor(role) : { cookies: [], origins: [] },
+      });
+      test.skip(({ isMobile }) => !isMobile, "the bar and the More sheet are the phone's");
+      test.describe.configure({ mode: "serial" });
+      const { viewer, fixture, second } = COLD_TAPS[role];
 
-  let taskId = "";
-  test.beforeAll(async ({}, info) => {
-    const { prefix, client: CLIENT, task: TASK } = fixtureNames(info.project.name);
-    await removeClientFixture(CLIENT);
-    await removeTasksTitled(prefix);
-    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
-    const client = await serviceInsert<{ id: string }>("clients", {
-      org_id: org?.id,
-      name: CLIENT,
-      admin_id: await memberIdOf(USERS.admin.email),
+      let taskId = "";
+      test.beforeAll(async ({}, info) => {
+        // The phone projects only, as the test (their people are seeded for those alone).
+        if (!info.project.use.isMobile) return;
+        const { prefix, client: CLIENT, task: TASK } = fixtureNames(info.project.name, role);
+        await removeClientFixture(CLIENT);
+        await removeTasksTitled(prefix);
+        const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+        const client = await serviceInsert<{ id: string }>("clients", {
+          org_id: org?.id,
+          name: CLIENT,
+          admin_id: await memberIdOf(fixture(info.project.name).clientAdmin),
+        });
+        await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+          client_id: client.id,
+        });
+        taskId = await createTask(TASK, fixture(info.project.name));
+      });
+      test.afterAll(async ({}, info) => {
+        if (!info.project.use.isMobile) return;
+        const { prefix, client } = fixtureNames(info.project.name, role);
+        await removeClientFixture(client);
+        await removeTasksTitled(prefix);
+      });
+
+      test(`bar tab, task row, back and ${second.viaMore ? "a More-sheet destination" : "a second tab"}, installed`, async ({
+        page,
+        context,
+        baseURL,
+      }) => {
+        test.setTimeout(120_000);
+        const {
+          client: CLIENT,
+          task: TASK,
+          fresh: FRESH_TASK,
+        } = fixtureNames(test.info().project.name, role);
+        const home = USERS[role].home;
+        const person = viewer(test.info().project.name);
+        if (person) await signIn(page, person.email, person.password);
+        // The worker is in charge before the first page, as on any day after the first.
+        const prep = await context.newPage();
+        await prep.goto("/offline");
+        await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+        await prep.close();
+        await runInstalled(page);
+
+        // A warm visit: home, then Tasks, where the task's row is seen. Tasks' own row: home links
+        // the task too, and stays on screen until Tasks commits (a row found there is gone a moment
+        // later), so the row is found once Tasks is the page.
+        await page.goto(home);
+        await hydrated(page);
+        await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+        await expect(page).toHaveURL(/\/tasks$/);
+        const row = page
+          .locator('[data-slot="task-row"]')
+          .getByRole("link", { name: new RegExp(TASK) })
+          .first();
+        await expect(row).toBeVisible();
+        // Seen means on the screen: a row prefetches its skeleton when it comes into view, and a
+        // run's overdue tasks under Needs you can hold the Open tasks below the fold.
+        await row.scrollIntoViewIfNeeded();
+        await expect(row).toBeInViewport();
+        await expect
+          .poll(async () => {
+            const kept = await keptAddresses(page);
+            const count = (path: string) => kept.filter((address) => address === path).length;
+            // The route tree and the loading skeleton of each tab. A task's page differs from
+            // another's by its id only, so the worker keeps one copy for every task (sw.js v12, the
+            // id out of its key): a task page's route tree and its loading skeleton.
+            return count("/tasks") >= 2 && count(second.href) >= 2 && count(SHELL_TASK_KEY) >= 2;
+          })
+          .toBe(true);
+        await page.locator(`[data-slot="bottom-nav"] a[href="${home}"]`).click();
+        await expect(page).toHaveURL(new RegExp(`${home}$`));
+
+        // Later: the data changed, the Worker went cold, and the app is opened again.
+        await createTask(FRESH_TASK, fixture(test.info().project.name));
+        await coldWorker(context, baseURL!);
+        await page.reload();
+        await hydrated(page);
+        const historyAtHome = await page.evaluate(() => history.length);
+
+        // A bottom-bar tab.
+        expectInstant(
+          "bar tab → Tasks",
+          await tapUntilSkeleton(
+            page.locator('[data-slot="bottom-nav"] a[href="/tasks"]'),
+            '[data-slot="loading-tasks"]',
+          ),
+        );
+        // What follows is the network's: the task made after the skeletons were kept is there.
+        await expect(page.getByText(FRESH_TASK).first()).toBeVisible({ timeout: COLD_MS * 4 });
+        await expect(page.locator('[data-slot="loading-tasks"]')).toHaveCount(0);
+
+        // A drill-down: the task's row.
+        expectInstant(
+          "task row",
+          await tapUntilSkeleton(
+            page.getByRole("link", { name: new RegExp(TASK) }).first(),
+            '[data-slot="loading-task"]',
+          ),
+        );
+        await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+        await expect(page.locator('[data-slot="task-summary"]')).toBeVisible({
+          timeout: COLD_MS * 4,
+        });
+
+        // Back: the list, from the router's memory, and one entry gone.
+        await page.goBack();
+        await expect(page).toHaveURL(/\/tasks$/);
+        await expect(page.getByText(FRESH_TASK).first()).toBeVisible({ timeout: INSTANT_MS });
+        const historyAtTasks = await page.evaluate(() => history.length);
+
+        if (second.viaMore) {
+          // A More-sheet destination.
+          await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+          const sheet = page.locator('[data-slot="more-sheet"]');
+          await expect(sheet).toBeVisible();
+          expectInstant(
+            "More sheet → Clients",
+            await tapUntilSkeleton(
+              sheet.getByRole("link", { name: "Clients", exact: true }),
+              second.skeleton,
+            ),
+          );
+          await expect(page.getByText(CLIENT).first()).toBeVisible({ timeout: COLD_MS * 4 });
+        } else {
+          // Another tab on the bar.
+          expectInstant(
+            `bar tab → ${second.href}`,
+            await tapUntilSkeleton(
+              page.locator(`[data-slot="bottom-nav"] a[href="${second.href}"]`),
+              second.skeleton,
+            ),
+          );
+          await expect(page).toHaveURL(new RegExp(`${second.href}$`));
+          await expect(page.locator(second.skeleton)).toHaveCount(0, { timeout: COLD_MS * 4 });
+        }
+
+        // The tab history is the installed app's, as before (§14.2): Tasks took the place the warm
+        // visit left above home and the task added one; the second destination replaced Tasks above
+        // home (the sheet's entry backed out), so nothing was added and one back lands home.
+        expect(historyAtTasks).toBe(historyAtHome + 1);
+        expect(await page.evaluate(() => history.length)).toBe(historyAtTasks);
+        await page.goBack();
+        await expect(page).toHaveURL(new RegExp(`${home}$`));
+      });
     });
-    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
-      client_id: client.id,
-    });
-    taskId = await createTask(TASK);
-  });
-  test.afterAll(async ({}, info) => {
-    const { prefix, client } = fixtureNames(info.project.name);
-    await removeClientFixture(client);
-    await removeTasksTitled(prefix);
-  });
-
-  test("bar tab, task row, back and a More-sheet destination, installed", async ({
-    page,
-    context,
-    baseURL,
-  }) => {
-    test.setTimeout(120_000);
-    const {
-      client: CLIENT,
-      task: TASK,
-      fresh: FRESH_TASK,
-    } = fixtureNames(test.info().project.name);
-    // The worker is in charge before the first page, as on any day after the first.
-    const prep = await context.newPage();
-    await prep.goto("/offline");
-    await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
-    await prep.close();
-    await runInstalled(page);
-
-    // A warm visit: home, then Tasks, where the task's row is seen. Tasks' own row: Today links
-    // the task too, and stays on screen until Tasks commits (a row found there is gone a moment
-    // later), so the row is found once Tasks is the page.
-    await page.goto("/today");
-    await hydrated(page);
-    await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-    await expect(page).toHaveURL(/\/tasks$/);
-    const row = page
-      .locator('[data-slot="task-row"]')
-      .getByRole("link", { name: new RegExp(TASK) })
-      .first();
-    await expect(row).toBeVisible();
-    // Seen means on the screen: a row prefetches its skeleton when it comes into view, and a run's
-    // overdue tasks under Needs you can hold the Open tasks below the fold.
-    await row.scrollIntoViewIfNeeded();
-    await expect(row).toBeInViewport();
-    await expect
-      .poll(async () => {
-        const kept = await keptAddresses(page);
-        const count = (path: string) => kept.filter((address) => address === path).length;
-        // The route tree and the loading skeleton of each tab. A task's page differs from
-        // another's by its id only, so the worker keeps one copy for every task (sw.js v12, the id
-        // out of its key): a task page's route tree and its loading skeleton.
-        return count("/tasks") >= 2 && count("/clients") >= 2 && count(SHELL_TASK_KEY) >= 2;
-      })
-      .toBe(true);
-    await page.locator('[data-slot="bottom-nav"] a[href="/today"]').click();
-    await expect(page).toHaveURL(/\/today$/);
-
-    // Later: the data changed, the Worker went cold, and the app is opened again.
-    await createTask(FRESH_TASK);
-    await coldWorker(context, baseURL!);
-    await page.reload();
-    await hydrated(page);
-    const historyAtHome = await page.evaluate(() => history.length);
-
-    // A bottom-bar tab.
-    expectInstant(
-      "bar tab → Tasks",
-      await tapUntilSkeleton(
-        page.locator('[data-slot="bottom-nav"] a[href="/tasks"]'),
-        '[data-slot="loading-tasks"]',
-      ),
-    );
-    // What follows is the network's: the task made after the skeletons were kept is there.
-    await expect(page.getByText(FRESH_TASK).first()).toBeVisible({ timeout: COLD_MS * 4 });
-    await expect(page.locator('[data-slot="loading-tasks"]')).toHaveCount(0);
-
-    // A drill-down: the task's row.
-    expectInstant(
-      "task row",
-      await tapUntilSkeleton(
-        page.getByRole("link", { name: new RegExp(TASK) }).first(),
-        '[data-slot="loading-task"]',
-      ),
-    );
-    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
-    await expect(page.locator('[data-slot="task-summary"]')).toBeVisible({
-      timeout: COLD_MS * 4,
-    });
-
-    // Back: the list, from the router's memory, and one entry gone.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/tasks$/);
-    await expect(page.getByText(FRESH_TASK).first()).toBeVisible({ timeout: INSTANT_MS });
-    const historyAtTasks = await page.evaluate(() => history.length);
-
-    // A More-sheet destination.
-    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
-    const sheet = page.locator('[data-slot="more-sheet"]');
-    await expect(sheet).toBeVisible();
-    expectInstant(
-      "More sheet → Clients",
-      await tapUntilSkeleton(
-        sheet.getByRole("link", { name: "Clients", exact: true }),
-        '[data-slot="loading-toolbar"]',
-      ),
-    );
-    await expect(page.getByText(CLIENT).first()).toBeVisible({ timeout: COLD_MS * 4 });
-
-    // The tab history is the installed app's, as before (§14.2): Tasks took the place the warm
-    // visit left above home and the task added one; the sheet's entry was backed out and Clients
-    // replaced Tasks above home, so nothing was added on the way and one back lands home.
-    expect(historyAtTasks).toBe(historyAtHome + 1);
-    expect(await page.evaluate(() => history.length)).toBe(historyAtTasks);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
-  });
+  }
 });
 
 test.describe("sign-out drops what the worker keeps", () => {

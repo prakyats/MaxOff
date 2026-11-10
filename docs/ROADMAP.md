@@ -260,7 +260,7 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
   - (a) **First wave ≤ 6 reads** on every route for every role, enforced by a test that fails on a seventh, through the diagnostics timing.
   - (b) **The hot database functions:** `EXPLAIN (ANALYZE, BUFFERS)` on `session_bundle`, `task_counts`, the Today, My Day, Approvals and calendar reads on staging data. Add any missing index (expand-only, with pgTAP).
   - (c) **The client:** first-load JS, with every route's budget lowered to its measured size plus 5 %, the tap → skeleton time, and INP on a mid-range Android profile (4× CPU, Fast 4G) for each role's top 5 screens. Find and fix any long task over 200 ms.
-  - (d) **Caching and prefetch:** confirm the likely-next prefetch and the service-worker outlines hold for every role.
+  - (d) **Caching and prefetch:** confirm the likely-next prefetch and the service-worker outlines hold for every role. **Done (10 Nov):** `prefetch-likely.spec` and `instant-skeleton.spec` for the Owner, an Admin and the Crew; with it the hydration split of /today and /my-day (ARCHITECTURE §19 "Nothing forced inside hydration") and the calendar's held taps (§14.2 l).
 - [ ] **X4 [H] Measure where the team is:**
   - The CI probe runs from US runners, so every database trip it measures crosses an ocean. The team is in India and the database is in Mumbai.
   - Add an **India probe**: the advisor runs `perf-probe` from the laptop in India against the preview and the main-preview, for all three roles.

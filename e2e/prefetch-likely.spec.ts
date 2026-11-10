@@ -21,8 +21,9 @@ import {
  * Prefetch the likely next screen (P2 item 6; ARCHITECTURE §19 "Prefetch the likely next
  * screen", `core/ui/navigation/prefetch-choice.ts`).
  *
- * - **A prefetch is the loading boundary, never the page's data.** The tabs Today's next tap
- *   goes to (Approvals, Tasks) are prefetched by the shell and by Today's own links; counted at
+ * - **A prefetch is the loading boundary, never the page's data**, for every role (X3 (d)). The
+ *   tabs a home's next tap goes to (Today's Approvals and Tasks for the Owner and an Admin, My
+ *   Day's Tasks and Calendar for the Crew) are prefetched by the shell and the home's links; counted at
  *   the e2e server's Supabase proxy (`watchReads`), their prefetches read only the viewer's
  *   member row (the loading screen is shaped by the role). A client row's reads only its layout's
  *   (the header: the client, the people, the unread count, the member), never the overview's own
@@ -233,52 +234,66 @@ function report(name: string, value: string) {
 
 test.use({ storageState: storageStateFor("owner"), serviceWorkers: "block" });
 
-test.describe("a prefetch is the loading boundary, never the page's data", () => {
-  test("Today's likely next tabs, Approvals and Tasks, read no page data", async ({
-    page,
-    context,
-    baseURL,
-  }) => {
-    const session = await ownSession(page, USERS.owner.email, USERS.owner.password);
-    const NEXT = ["/approvals", "/tasks"];
-    const prefetches = await trackPrefetches(context, new URL(baseURL!).origin);
-    // Every other prefetch goes as it comes; these two wait for the window.
-    prefetches.release((path) => !NEXT.includes(path));
-    await quietBackground(context, new URL(baseURL!).origin);
-    const open = inFlight(page);
-    const watch = await watchReads(session);
-    try {
-      await page.goto("/today");
-      await hydrated(page);
-      await expect(page.locator('[data-slot="loading-state"]')).toHaveCount(0);
-      // Everything else the page asked for is over: what the server reads next is the held ones'.
-      await expect.poll(() => NEXT.every((path) => prefetches.asked.has(path))).toBe(true);
-      await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
-      const before = watch.server().length;
-      const answeredBefore = prefetches.answeredTotal();
+/**
+ * Each role's home and the two tabs after it on the bar, its likely next screens (X3 (d): "the
+ * likely-next prefetch holds for every role"): the Owner's and an Admin's Today → Approvals and
+ * Tasks, the Crew member's My Day → Tasks and Calendar.
+ */
+const LIKELY_NEXT: Record<"owner" | "admin" | "staff", string[]> = {
+  owner: ["/approvals", "/tasks"],
+  admin: ["/approvals", "/tasks"],
+  staff: ["/tasks", "/calendar"],
+};
 
-      // Only the two tabs go now: any other prefetch waits outside the window.
-      prefetches.only((path) => NEXT.includes(path));
-      // The route tree and the loading boundary of each, read to their end.
-      await expect.poll(() => NEXT.every((path) => prefetches.loaded.has(path))).toBe(true);
-      await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
-      const reads = watch.server().slice(before);
-      report(
-        "Today → Approvals + Tasks prefetches: database requests / prefetch requests",
-        `${reads.length} / ${prefetches.answeredTotal() - answeredBefore}`,
-      );
-      // The viewer's member row alone (the loading screen is shaped by the role), at most once each.
-      expect(
-        reads.filter((path) => path !== MEMBER_ROW),
-        "the tabs' prefetches read no page data",
-      ).toEqual([]);
-      // One per request at most: the router may ask a route again (a link and the shell).
-      expect(reads.length).toBeLessThanOrEqual(prefetches.answeredTotal() - answeredBefore);
-    } finally {
-      watch.stop();
-    }
+for (const role of ["owner", "admin", "staff"] as const) {
+  test.describe(`a prefetch is the loading boundary, never the page's data (${role})`, () => {
+    test.use({ storageState: storageStateFor(role) });
+    test(`${USERS[role].home}'s likely next tabs, ${LIKELY_NEXT[role].join(" and ")}, read no page data`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      const session = await ownSession(page, USERS[role].email, USERS[role].password);
+      const NEXT = LIKELY_NEXT[role];
+      const prefetches = await trackPrefetches(context, new URL(baseURL!).origin);
+      // Every other prefetch goes as it comes; these two wait for the window.
+      prefetches.release((path) => !NEXT.includes(path));
+      await quietBackground(context, new URL(baseURL!).origin);
+      const open = inFlight(page);
+      const watch = await watchReads(session);
+      try {
+        await page.goto(USERS[role].home);
+        await hydrated(page);
+        await expect(page.locator('[data-slot="loading-state"]')).toHaveCount(0);
+        // Everything else the page asked for is over: what the server reads next is the held ones'.
+        await expect.poll(() => NEXT.every((path) => prefetches.asked.has(path))).toBe(true);
+        await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
+        const before = watch.server().length;
+        const answeredBefore = prefetches.answeredTotal();
+
+        // Only the two tabs go now: any other prefetch waits outside the window.
+        prefetches.only((path) => NEXT.includes(path));
+        // The route tree and the loading boundary of each, read to their end.
+        await expect.poll(() => NEXT.every((path) => prefetches.loaded.has(path))).toBe(true);
+        await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
+        const reads = watch.server().slice(before);
+        report(
+          `${role} ${USERS[role].home} → ${NEXT.join(" + ")} prefetches: database requests / prefetch requests`,
+          `${reads.length} / ${prefetches.answeredTotal() - answeredBefore}`,
+        );
+        // The viewer's member row alone (the loading screen is shaped by the role), at most once each.
+        expect(
+          reads.filter((path) => path !== MEMBER_ROW),
+          "the tabs' prefetches read no page data",
+        ).toEqual([]);
+        // One per request at most: the router may ask a route again (a link and the shell).
+        expect(reads.length).toBeLessThanOrEqual(prefetches.answeredTotal() - answeredBefore);
+      } finally {
+        watch.stop();
+      }
+    });
   });
-});
+}
 
 test.describe("every list row in view is prefetched", () => {
   test.describe.configure({ mode: "serial" });
