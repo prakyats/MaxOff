@@ -149,7 +149,11 @@ function page({
   };
 
   /** A button marked `data-hold-tap` (the calendar's handle, a day box), and a tap on it. */
-  const buttonFor = (name: string, live: boolean) => {
+  const buttonFor = (
+    name: string,
+    live: boolean,
+    { type = "button", within = null }: { type?: string; within?: string | null } = {},
+  ) => {
     const attributes: Record<string, string> = {
       [HOLD_TAP_ATTRIBUTE]: name,
       ...(live ? { [LIVE_ATTRIBUTE]: "" } : {}),
@@ -157,6 +161,10 @@ function page({
     const button = {
       isConnected: true,
       visible: true,
+      type,
+      // `within`: the ancestor it sits in (`form`, a commit footer's `data-slot`), if any.
+      closest: (selector: string) =>
+        within !== null && selector.split(",").some((part) => part === within) ? {} : null,
       getAttribute: (key: string) => attributes[key] ?? null,
       setAttribute: (key: string, value: string) => (attributes[key] = value),
       hasAttribute: (key: string) => key in attributes,
@@ -442,6 +450,27 @@ describe("a tap on a marked button before hydration is held, never lost (v2.0 X3
     expect(shown.click).toHaveBeenCalledTimes(1);
     expect(hidden.click).not.toHaveBeenCalled();
     expect(tapped.click).not.toHaveBeenCalled();
+  });
+
+  it("never holds a submit button, or one in a form or a commit footer, marked or not", () => {
+    for (const options of [
+      { type: "submit" },
+      { within: "form" },
+      { within: "[data-slot=sticky-actions]" },
+      { within: "[data-slot=dialog-footer]" },
+      { within: "[data-slot=sheet-footer]" },
+      { within: "[data-slot=alert-dialog-footer]" },
+    ]) {
+      const doc = page();
+      const save = doc.buttonFor("save", false, options);
+      expect(doc.tapButton(save), JSON.stringify(options)).toEqual({
+        prevented: false,
+        stopped: false,
+      });
+      markLive(save as unknown as HTMLElement);
+      vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+      expect(save.click).not.toHaveBeenCalled();
+    }
   });
 
   it("ignores a second tap while one is held: one toggle, not two", () => {

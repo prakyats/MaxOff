@@ -96,6 +96,15 @@ const HELD_TAP_POLL_MS = 50;
  * the same `data-hold-tap` name) is `data-live`, then replayed. A button has no full-load move:
  * if React never takes it within `PRE_HYDRATION_WAIT_MS`, the tap is let go, as before.
  */
+/**
+ * Where a `data-hold-tap` mark is never honoured (the advisor on #89, 2026-11-10): the mark is
+ * for **view controls only** (the calendar's handle, day boxes, tabs, toggles). A write replayed
+ * up to 2 s after the tap would surprise people and would skip a confirm sheet not yet drawn, so a
+ * submit button, or a button in a form or in a commit footer, is never held, marked or not.
+ */
+export const NEVER_HELD =
+  "form,[data-slot=sticky-actions],[data-slot=dialog-footer],[data-slot=sheet-footer],[data-slot=alert-dialog-footer],[data-slot=detail-sheet-actions],[data-slot=review-sheet-actions],[data-slot=page-actions]";
+
 export const PRE_HYDRATION_SCRIPT = `(function(){try{
 var d=document,held=false;
 d.addEventListener("touchstart",function(){},{passive:true});
@@ -112,6 +121,7 @@ function hold(a,kind,move,href,steps){if(held)return;held=true;var started=Date.
 d.addEventListener("click",function(e){try{
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
 var b=e.target&&e.target.closest?e.target.closest("[${HOLD_TAP_ATTRIBUTE}]"):null;
+if(b&&(b.type==="submit"||(b.closest&&b.closest("${NEVER_HELD}"))))b=null;
 if(b){if(b.hasAttribute("${LIVE_ATTRIBUTE}"))return;e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();holdTap(b);return}
 var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;
 if(!a||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
