@@ -7,9 +7,42 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 ## v2.0.0: fast and settled
 
 **Not released yet** (draft, branch `claude/lucid-turing-sfdv10` → `phase-v2` → `main`; the Owner tags after his
-walk). Started in X3 (d), 11 Nov 2026; X6 completes it with the speed tables and the CI runs.
+walk). The release candidate is `phase-v2` @ caa7b78e (11 Nov 2026); X6 fills in the speed tables and the CI runs.
+
+### What ships
+- **Speed (X2, X3):** every screen's first reads go out together and early: the shell's member row, own day and
+  push status in one call (`session_early()`), each heavy screen's data in one or two calls (My Day, the week,
+  the attendance board, the task page, a project, a client, the templates library, the leave screens), and at
+  most six reads in the first wave on every route for every role (a Worker opens six connections at a time; a
+  seventh waited a whole trip). The first flush now carries the page's content, so the finished page arrives
+  sooner. The likely-next screens are prefetched for every role; taps made before a screen is ready are kept.
+- **On hold seen up front (X1):** everyone linked to held work sees it as held from the first glance.
+- **Appearance on a phone (X1b):** its own bottom sheet.
+- **Tests fixed at their causes (X5)** and the speed gates switched on in CI (first wave ≤ 6, INP ≤ 200 ms).
+- **Placement (X4):** evaluated and not adopted (ADR-0017): from India the Worker already runs in Mumbai, beside
+  the database.
+
+### Speed (to be filled from the RC probes: CI probe ×3 roles against staging = v1.9.0, and the India run)
+
+### What the Owner will notice
+- **Pages finish loading sooner**, most of all the heavy ones (a task, /tasks, a project, the templates library,
+  a client); the first screen arrives with its content rather than a grey outline first.
+- **A held project reads On hold everywhere:** on the client's Overview and Projects tab rows (never "Open"), on
+  each of its deliverables' sheets (with why ticks and Mark done wait, and its stages greyed out).
+- **More → Appearance (phone)** opens a small sheet: tap Light, Dark or System; the sheet closes and the More row
+  shows the choice ("Appearance · Dark").
+- **Phone menus:** every ⋯ menu item has the same size again ("Put on hold…" and five client-work items were
+  smaller than the rest).
+- **Today's "Needs you"** no longer flashes an empty card; its rows hold their place from the first paint.
+
+### What Admins will notice
+- **A project the Owner holds is visible as held** on their client's pages and its deliverables' sheets.
+- The same speed, Appearance sheet, menu sizes and Today change as the Owner.
+- **A task's hold note** ("Start, Done and the stage ticks wait until it is resumed") shows to everyone who
+  opens the task, not only the people on it.
 
 ### What the Crew will notice
+- **My Day: "On hold · n"** under the groups opens their held tasks (a held task used to vanish from My Day).
 - **A tap on a task row's chip opens the task.** Since v1.8 a tap on "Note it", "Overdue" or a state chip on a
   task row did nothing; now the whole row, chips included, opens it (the guide says so for every role).
 - **Taps on the calendar before it is ready are kept.** Opening the calendar on a slow phone, a tap on the week
@@ -26,6 +59,65 @@ walk). Started in X3 (d), 11 Nov 2026; X6 completes it with the speed tables and
   Appearance, one back press used to do nothing; now the first back closes More and the next leaves the screen.
 - **Signed-out pages only:** if the phone switches between light and dark while the sign-in page is open, the
   colours now fade instead of switching at once. Signed in, nothing changes.
+
+### Deploying
+- **Any time of day.** No migration changes a rule, a setting or a row: every v2.0 migration only adds functions
+  or re-creates existing ones with the same results. The old Worker keeps working on the new database during the
+  deploy window (it never calls the new functions).
+- **No new secret, variable, cron or Worker setting** (`wrangler.jsonc` is unchanged from v1.9.0 for staging and
+  production; the placement experiment left nothing behind).
+
+### Migrations (expand-only, in order)
+1. `20261105123636_session_early` (the shell's one early read)
+2. `20261105170715_session_early_own_hours`
+3. `20261105180000_own_week`
+4. `20261105190000_attendance_board_today`
+5. `20261105200000_x3_my_day_folds`
+6. `20261105210000_own_week_tasks_counts`
+7. `20261105220000_templates_library`
+8. `20261105230000_task_page`
+9. `20261106000000_leave_folds`
+10. `20261106010000_client_overview`
+11. `20261106020000_project_page`
+12. `20261106030000_rls_helpers_plpgsql` (15 RLS helpers re-written in PL/pgSQL, the same bodies and results)
+13. `20261106040000_attendance_hours_once` (the attendance settings read once per call; same columns)
+14. `20261111030554_requests_to_decide_admin_rule` (v2.0's new count follows `task_request_visible`)
+
+All expand-only: `create function` / `create or replace function`, grants and comments; no `drop`, `alter
+table`, policy change, index or data write (checked over the 14 files, 11 Nov). `session_bundle()` is unchanged.
+
+### Rolling back to v1.9
+The v2.0 database stays; only the Worker goes back, and **nothing needs switching off first.** Checked against
+`v1.9.0`'s code (11 Nov, static, by reading and diffing every re-created object against its v1.9.0 definition):
+- **The new functions** (`session_early`, `own_week`, `task_page`, `project_page`, `client_overview`,
+  `templates_library`, the leave and attendance folds, `app.requests_to_decide_count`) are never called by v1.9.0;
+  they stay unused (security invoker under RLS, except the count helper, which returns a number by the same rule).
+- **The 15 re-written RLS helpers** keep their names, arguments, return types, `strict` / `security definer`
+  attributes and bodies; only the language changed (pgTAP 141 compares each with its old SQL body). The one
+  behavioural difference of PL/pgSQL (an error on more than one row) cannot arise: `coordinator_of`'s only
+  multi-row case is ruled out by the unique index on current coordinators.
+- **`app.attendance_hours` and `attendance_hours_today()`** keep their signatures and columns; v1.9.0's call
+  (`modules/attendance/data/hours.ts`, `rpc("attendance_hours_today")`) is unchanged.
+- **The requests count:** v1.9.0 counts with its own query under `task_request_visible`, which already had the
+  rule v2.0's new function now follows; nothing a v1.9.0 user sees changes.
+
+### The Owner's phone walk (installed app at 375 and 430, then the laptop)
+1. **Speed:** open Today, Tasks, a task, Clients, a client, a project and Approvals; each arrives with its content,
+   without a grey outline that jumps.
+2. **On hold:** hold a project; as an Admin of that client, open the client (its row reads On hold) and a
+   deliverable (the sheet says why it waits; stages greyed). As a Crew member with a held task, My Day shows
+   "On hold · 1".
+3. **More → Appearance → Dark, then back twice:** the first back closes More, the second leaves the screen; the
+   More row reads "Appearance · Dark".
+4. **A ⋯ menu on a task and on a deliverable:** every item the same size.
+5. **A task row's chip:** tap "Note it" or a state chip; the task opens.
+6. **The calendar on a slow connection:** tap a day at once; it opens as soon as the calendar is ready.
+7. **The guide:** Me → How MaxOff works → the On hold and Appearance topics for each role.
+
+### The team message (WhatsApp, after the deploy)
+> MaxOff is updated. Screens open faster, especially tasks, projects and clients. If a task of yours is on hold,
+> My Day now shows "On hold" with the count, so nothing goes missing. Tapping anywhere on a task row, including
+> its labels, opens it. Nothing else changes in how you work.
 
 ## v1.9.0: working hours, On hold, two kinds of Close, approval reminders, the calendar's day row
 
