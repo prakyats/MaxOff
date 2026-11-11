@@ -440,7 +440,11 @@ async function meTiming(url, headers) {
   try {
     const { first_reads: reads = {}, ...rest } = JSON.parse(text);
     const flat = Object.fromEntries(Object.entries(reads).map(([k, v]) => [`fr_${k}`, v]));
-    return { ...rest, ...flat };
+    // When it was asked (a string, so never in the table's medians): the spikes' minute line.
+    // A measuring timestamp, never a business date (ADR-0008 is about those): the performance
+    // clock's origin plus its reading.
+    const sampledAt = new Date(performance.timeOrigin + performance.now()).toISOString();
+    return { ...rest, ...flat, sampled_at: sampledAt };
   } catch {
     return null;
   }
@@ -675,13 +679,15 @@ function report(
   const summary = plan.map((route) => {
     if (route.skip !== undefined) return { name: route.name, skip: route.skip };
     const rows = results.filter((r) => r.route === route.name);
-    const warm = rows.filter((r) => r.kind === "reused").map((r) => r.ttfb);
+    const reused = rows.filter((r) => r.kind === "reused");
     return {
       name: route.name,
       path: route.path,
       statusOk: rows.every((r) => statusOk(route, r.status)),
       statuses: [...new Set(rows.map((r) => r.status))].join("/"),
-      warmP50: median(warm),
+      warmP50: median(reused.map((r) => r.ttfb)),
+      // The last byte, the finished page (option A, owner 2026-11-11): judged against staging.
+      warmTotalP50: median(reused.map((r) => r.total)),
     };
   });
 
@@ -742,18 +748,28 @@ function report(
   }
   if (compare.candidate || compare.baseline) {
     lines.push("");
-    lines.push("| Route | Warm p50 | Staging warm p50 | Δ | Gate |");
-    lines.push("|---|---|---|---|---|");
+    // Both numbers (option A): the TTFB against the cap, the last byte against staging.
+    lines.push("| Route | Warm TTFB p50 | Staging | Δ | Warm last byte p50 | Staging | Δ | Gate |");
+    lines.push("|---|---|---|---|---|---|---|---|");
+    const signed = (value) => `${value >= 0 ? "+" : ""}${ms(value)}`;
     for (const j of judgements) {
       if (j.verdict === "SKIP") {
-        lines.push(`| ${j.name} | skipped: ${j.skip} | · | · | SKIP |`);
+        lines.push(`| ${j.name} | skipped: ${j.skip} | · | · | · | · | · | SKIP |`);
         continue;
       }
       const delta = j.baselineP50 !== undefined ? (j.warmP50 ?? 0) - j.baselineP50 : undefined;
+      const totalDelta =
+        j.totalP50 !== undefined && j.baselineTotalP50 !== undefined
+          ? j.totalP50 - j.baselineTotalP50
+          : undefined;
       lines.push(
         `| ${j.name} | ${ms(j.warmP50 ?? 0)} | ${
           j.baselineP50 !== undefined ? ms(j.baselineP50) : "·"
-        } | ${delta !== undefined ? `${delta >= 0 ? "+" : ""}${ms(delta)}` : "·"} | ${gateCell(j)} |`,
+        } | ${delta !== undefined ? signed(delta) : "·"} | ${
+          j.totalP50 !== undefined ? ms(j.totalP50) : "·"
+        } | ${j.baselineTotalP50 !== undefined ? ms(j.baselineTotalP50) : "·"} | ${
+          totalDelta !== undefined ? signed(totalDelta) : "·"
+        } | ${gateCell(j)} |`,
       );
     }
   }
@@ -796,6 +812,21 @@ function report(
     lines.push(`|${keys.map(() => "---").join("|")}|`);
     lines.push(`| ${keys.map((k) => ms(median(me.map((r) => r[k])))).join(" | ")} |`);
     lines.push("", `Every sample's \`total\`: ${me.map((r) => ms(r.total)).join(" · ")}`);
+    // The spikes (advisor 6786739292): each slow sample's second within its UTC minute, to line
+    // the slow database answers up with the every-minute push cron (fires at :00). Numbers only.
+    const p50 = median(me.map((r) => r.total));
+    const slow = me.filter((r) => r.total > 2 * p50 && typeof r.sampled_at === "string");
+    lines.push(
+      "",
+      slow.length === 0
+        ? `No slow sample (none above 2 × p50, ${ms(2 * p50)} ms).`
+        : `Slow samples (above 2 × p50, ${ms(2 * p50)} ms), \`total\` @ second within the UTC minute: ${slow
+            .map(
+              (r) =>
+                `${ms(r.total)} @ :${String(new Date(r.sampled_at).getUTCSeconds()).padStart(2, "0")}`,
+            )
+            .join(" · ")}`,
+    );
   }
   const timed = results.filter((r) => r.route === TIMING_PATH && r.body && r.body.total >= 0);
   if (timed.length > 0) {

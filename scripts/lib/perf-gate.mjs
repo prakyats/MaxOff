@@ -14,13 +14,22 @@
 //      not failing;
 //   3. a sample that answered with another status than the route's (a 500, a redirect to /login,
 //      a timeout) fails it: a fast error page is not a fast route.
+//
+// **Option A (owner, 2026-11-11, "judge finished page too"; #89 6786739292):** v2.0's folds make a
+// page's reads start with the shell's, so its first flush now carries the content instead of the
+// loading skeleton: the first byte comes later by the page's render while the finished page comes
+// sooner. So the gate judges two numbers: the **last byte** (`warmTotalP50`, the whole body, the
+// content complete) against staging by rule 2; and the **TTFB** against the absolute cap alone
+// (rule 1, WARM_TTFB_P50_LIMIT_MS: v2.0's 450 ms, stricter than CLAUDE.md's 600). A TTFB later
+// than staging's is shown (WARN), never failing by itself. A route is slower only when it is slow
+// in **two consecutive runs** (`twoRunVerdicts`); one slow run is re-probed.
 // Routes in NOT_GATED (the warm-up ping, the static file the CDN serves and the Worker's bare 404:
 // hosting, not MaxOff code; advisor 2026-10-23, owner to confirm) keep their timing out of the
 // verdict: shown as INFO. Their status is still judged, so a 5xx, a redirect to /login or a
 // timeout on them still fails.
 
-/** A route whose warm TTFB p50 is above this, in ms, fails. */
-export const WARM_TTFB_P50_LIMIT_MS = 600;
+/** A route whose warm TTFB p50 is above this, in ms, fails (the v2.0 gate's cap from CI). */
+export const WARM_TTFB_P50_LIMIT_MS = 450;
 /** A route slower than staging's warm TTFB p50 by more than this percentage fails. */
 export const SLOWER_THAN_STAGING_PCT = 10;
 /** A route slower than staging's warm TTFB p50 by more than this many ms fails. */
@@ -144,6 +153,7 @@ export function slowerThanStaging(candidate, baseline) {
  *   statusOk?: boolean,
  *   statuses?: string,
  *   warmP50?: number,
+ *   warmTotalP50?: number,
  * }} RouteSummary
  */
 /**
@@ -153,6 +163,8 @@ export function slowerThanStaging(candidate, baseline) {
  *   reasons: string[],
  *   warmP50?: number,
  *   baselineP50?: number,
+ *   totalP50?: number,
+ *   baselineTotalP50?: number,
  *   skip?: string,
  * }} Judgement
  */
@@ -176,16 +188,25 @@ export function judgeRoute(route, baseline) {
   if (warm > WARM_TTFB_P50_LIMIT_MS) {
     reasons.push(`warm p50 ${Math.round(warm)} > ${WARM_TTFB_P50_LIMIT_MS} ms`);
   }
-  const compared =
-    baseline !== undefined && baseline.skip === undefined && baseline.statusOk !== false
-      ? baseline.warmP50
-      : undefined;
-  const slower = compared !== undefined ? slowerThanStaging(warm, compared) : "ok";
-  if (compared !== undefined && slower !== "ok") {
-    const delta = warm - compared;
-    const pct = compared > 0 ? Math.round((delta / compared) * 100) : Infinity;
+  const usable =
+    baseline !== undefined && baseline.skip === undefined && baseline.statusOk !== false;
+  const compared = usable ? baseline.warmP50 : undefined;
+  const total = route.warmTotalP50;
+  const comparedTotal = usable ? baseline.warmTotalP50 : undefined;
+  const by = (/** @type {number} */ a, /** @type {number} */ b) =>
+    `+${Math.round(a - b)} ms (+${b > 0 ? Math.round(((a - b) / b) * 100) : Infinity} %)`;
+  // The TTFB against staging: shown, never failing by itself (option A).
+  if (compared !== undefined && slowerThanStaging(warm, compared) !== "ok") {
+    warnings.push(`TTFB ${by(warm, compared)} vs staging`);
+  }
+  // The last byte against staging: rule 2.
+  const slower =
+    total !== undefined && comparedTotal !== undefined
+      ? slowerThanStaging(total, comparedTotal)
+      : "ok";
+  if (total !== undefined && comparedTotal !== undefined && slower !== "ok") {
     (slower === "fail" ? reasons : warnings).push(
-      `+${Math.round(delta)} ms (+${pct} %) vs staging`,
+      `last byte ${by(total, comparedTotal)} vs staging`,
     );
   }
   const timingOnly = NOT_GATED.has(route.name);
@@ -211,7 +232,26 @@ export function judgeRoute(route, baseline) {
     reasons: verdict === "WARN" || verdict === "INFO" ? [...reasons, ...warnings] : reasons,
     warmP50: warm,
     ...(compared !== undefined ? { baselineP50: compared } : {}),
+    ...(total !== undefined ? { totalP50: total } : {}),
+    ...(comparedTotal !== undefined ? { baselineTotalP50: comparedTotal } : {}),
   };
+}
+
+/**
+ * The two-run rule (owner, confirmed 2026-10-29): a route counts as slower only when it fails in
+ * **two consecutive runs**; a route that fails in one of them is re-probed (`RECHECK`), never
+ * waived and never failed on one run. Without a previous run, a failure stands as `RECHECK`.
+ * @param {readonly Judgement[]} current
+ * @param {readonly Judgement[] | null} previous the run just before, judged the same way
+ * @returns {{ name: string, verdict: "PASS" | "FAIL" | "RECHECK" | "SKIP" }[]}
+ */
+export function twoRunVerdicts(current, previous) {
+  const before = new Map((previous ?? []).map((j) => [j.name, j.verdict]));
+  return current.map((j) => {
+    if (j.verdict === "SKIP") return { name: j.name, verdict: "SKIP" };
+    if (j.verdict !== "FAIL") return { name: j.name, verdict: "PASS" };
+    return { name: j.name, verdict: before.get(j.name) === "FAIL" ? "FAIL" : "RECHECK" };
+  });
 }
 
 /**
@@ -237,12 +277,12 @@ export function summaryLine(judgements, { compared }) {
   const skipped = judgements.length - probed;
   const rule = `warm TTFB p50 ≤ ${WARM_TTFB_P50_LIMIT_MS} ms${
     compared
-      ? ` and not slower than staging by > ${SLOWER_THAN_STAGING_MS} ms, or by > ${SLOWER_THAN_STAGING_PCT} % and ≥ ${SLOWER_PCT_FLOOR_MS} ms`
+      ? `, and the last byte (the finished page) not slower than staging by > ${SLOWER_THAN_STAGING_MS} ms, or by > ${SLOWER_THAN_STAGING_PCT} % and ≥ ${SLOWER_PCT_FLOOR_MS} ms; a later TTFB under the cap only warns`
       : "; no staging compare in this run"
   }`;
   const warns =
     warned.length > 0
-      ? ` WARN (> ${SLOWER_THAN_STAGING_PCT} % but < ${SLOWER_PCT_FLOOR_MS} ms): ${warned
+      ? ` WARN (shown, not failing): ${warned
           .map((j) => `${j.name} (${j.reasons.join("; ")})`)
           .join(", ")}.`
       : "";
