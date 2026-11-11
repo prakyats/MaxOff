@@ -12,9 +12,10 @@ import { hydrated, storageStateFor } from "./helpers";
  * the bottom bar, or for a route behind More, the tap that opens the sheet and the tap on its row,
  * each measured alone.
  *
- * Measuring first: the numbers go into the test's annotations and the report; the budgets
- * (INP ≤ 200 ms, the web's "good") are switched on once a baseline is known, as the first wave was.
+ * **The gate is on (v2.0 X6, the advisor's batch 5):** each tap's INP is at most 200 ms (the web's
+ * "good"), one test per tab and role; the load's long tasks are reported in the annotations.
  */
+const MAX_INP_MS = 200;
 
 type Role = "owner" | "admin" | "staff";
 const TABS: Record<Role, string[]> = {
@@ -67,49 +68,50 @@ async function read(page: Page) {
 for (const role of ["owner", "admin", "staff"] as const) {
   test.describe(`a phone's INP and long tasks, as ${role}`, () => {
     test.use({ storageState: storageStateFor(role) });
+    const tabs = TABS[role];
 
-    test(`each tab, then a tap into the next (${role})`, async ({ page }, info) => {
-      test.skip(info.project.name !== "mobile", "a phone profile, 375 px");
-      test.setTimeout(240_000);
-      await observe(page);
-      const cdp = await page.context().newCDPSession(page);
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_SLOWDOWN });
-      const tabs = TABS[role];
-      const lines: string[] = [];
-      for (const [index, path] of tabs.entries()) {
+    for (const [index, path] of tabs.entries()) {
+      // A tap into the next tab (the first tab's after the last): on the bottom bar, or through More.
+      const next = tabs[(index + 1) % tabs.length]!;
+      test(`${path}, then a tap into ${next}: INP at most ${MAX_INP_MS} ms (${role})`, async ({
+        page,
+      }, info) => {
+        test.skip(info.project.name !== "mobile", "a phone profile, 375 px");
+        await observe(page);
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_SLOWDOWN });
         await page.goto(path);
         await hydrated(page);
         await expect(page.locator('[data-slot="loading-state"]')).toHaveCount(0);
         const load = await read(page);
-        // A tap into the next tab (the first tab's after the last): on the bottom bar, or through More.
-        const next = tabs[(index + 1) % tabs.length]!;
         const bar = page.locator(`[data-slot="bottom-nav"] a[href="${next}"]`);
-        let inp: string;
+        const taps: { name: string; inp: number }[] = [];
         if ((await bar.count()) > 0) {
           await forget(page);
           await bar.first().tap();
           await page.waitForURL((url) => url.pathname === next, { timeout: 30_000 });
           await hydrated(page);
-          inp = `${(await read(page)).inp} ms`;
+          taps.push({ name: "the tab", inp: (await read(page)).inp });
         } else {
           await forget(page);
           await page.locator('[data-slot="bottom-nav"] button').first().tap();
           const row = page.locator(`[data-slot="more-sheet"] a[href="${next}"]`);
           await expect(row).toBeVisible();
-          const open = (await read(page)).inp;
+          taps.push({ name: "More", inp: (await read(page)).inp });
           await forget(page);
           await row.tap();
           await page.waitForURL((url) => url.pathname === next, { timeout: 30_000 });
           await hydrated(page);
-          inp = `More ${open} ms, then the row ${(await read(page)).inp} ms`;
+          taps.push({ name: "the row", inp: (await read(page)).inp });
         }
-        lines.push(
-          `${path}: long tasks ${load.longTasks} (longest ${load.longestTask} ms, blocking ${load.blocking} ms); tap → ${next}: INP ${inp}`,
-        );
-      }
-      info.annotations.push({ type: "phone-inp", description: lines.join("\n") });
-      // eslint-disable-next-line no-console -- the measuring run's table (X3 (c)), until the budget is on
-      console.log(`phone INP (CPU ×${CPU_SLOWDOWN}), ${role}:\n${lines.join("\n")}`);
-    });
+        info.annotations.push({
+          type: "phone-inp",
+          description: `${path}: long tasks ${load.longTasks} (longest ${load.longestTask} ms, blocking ${load.blocking} ms); tap → ${next}: ${taps.map((tap) => `${tap.name} ${tap.inp} ms`).join(", ")} (CPU ×${CPU_SLOWDOWN})`,
+        });
+        for (const tap of taps) {
+          expect(tap.inp, `${path} → ${next}: ${tap.name}'s INP`).toBeLessThanOrEqual(MAX_INP_MS);
+        }
+      });
+    }
   });
 }
