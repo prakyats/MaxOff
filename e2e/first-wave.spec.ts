@@ -14,17 +14,19 @@ import {
 import { addISTDays, istInstant, todayIST } from "../src/core/time";
 
 /**
- * The first wave of every route for every role (v2.0 X3 (a), ARCHITECTURE §19 "Six
- * connections"): a Worker sets off at most six database requests at a time, so a route whose
- * first wave holds a seventh waits a whole extra round trip for it. Counted at the e2e server's
- * proxy as a **wave** (`firstWave`): every database read of this test's own session is held
- * unanswered, so the reads that arrive are exactly the ones the request starts before any answer
- * could start another; then the hold ends and the page answers.
+ * The first wave of 20 routes, for each role that opens them (v2.0 X3 (a), ARCHITECTURE §19 "Six
+ * connections"): the 16 paths in `ROUTES` and the four records in `RECORDS` (a task, a client, a
+ * project, a person). The other routes are not covered yet; their first wave is a v2.1 item
+ * (ROADMAP, v2.1 "Reliable anywhere"). A Worker sets off at most six database requests at a time,
+ * so a route whose first wave holds a seventh waits a whole extra round trip for it. Counted at
+ * the e2e server's proxy as a **wave** (`firstWave`): every database read of this test's own
+ * session is held unanswered, so the reads that arrive are exactly the ones the request starts
+ * before any answer could start another; then the hold ends and the page answers.
  *
- * **The gate is on (v2.0 X6, the advisor's batch 5):** every route's first wave is at most six
- * reads, holds the shell's one `session_early` and no member-row read beside it, and reads nothing
- * twice. One test per route and role. The wave counts once one quiet window has passed and a
- * second one adds nothing (a slow runner's straggler would show as a moved count, never as a
+ * **The gate is on (v2.0 X6, the advisor's batch 5):** each covered route's first wave is at most
+ * six reads, holds the shell's one `session_early` and no member-row read beside it, and reads
+ * nothing twice. One test per route and role. The wave counts once one quiet window has passed and
+ * a second one adds nothing (a slow runner's straggler would show as a moved count, never as a
  * smaller one). Each route's reads go into the test's annotations.
  */
 const MAX_FIRST_WAVE = 6;

@@ -515,6 +515,8 @@ test.describe("More, for Owner and Admin", () => {
         await expect(appearance).toBeHidden();
         await expect(page.locator("html")).toHaveClass(/\bdark\b/);
         await expect(sheet).toContainText("Appearance · Dark");
+        // Focus comes back to the row that opened the sheet (X6 review), not the top of More.
+        await expect(sheet.getByRole("button", { name: /^Appearance/ })).toBeFocused();
         await sheet.getByRole("button", { name: /^Appearance/ }).click();
         await expect(appearance.getByRole("radio", { name: /^Dark/ })).toHaveAttribute(
           "aria-checked",

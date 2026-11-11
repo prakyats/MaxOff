@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps, useRef, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 
@@ -12,9 +12,9 @@ const AppearanceSheet = dynamic(
 );
 
 /**
- * What opens the phone's Appearance sheet (v2.0 X1b): any button look, given as `children`
- * (the More sheet's whole "Appearance · Dark" row, Me's icon button). A tap before the sheet's
- * code has arrived opens it as soon as it is there.
+ * What opens the phone's Appearance sheet (v2.0 X1b): the More sheet's whole "Appearance · Dark"
+ * row, given as `children`. A tap before the sheet's code has arrived opens it as soon as it is
+ * there; when the sheet closes, focus comes back to this button (X6 review).
  */
 export function AppearanceTrigger({
   children,
@@ -23,9 +23,11 @@ export function AppearanceTrigger({
 }: Omit<ComponentProps<"button">, "onClick" | "type">) {
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
       <button
+        ref={trigger}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -39,7 +41,7 @@ export function AppearanceTrigger({
       >
         {children}
       </button>
-      {used ? <AppearanceSheet open={open} onOpenChange={setOpen} /> : null}
+      {used ? <AppearanceSheet open={open} onOpenChange={setOpen} returnFocusTo={trigger} /> : null}
     </>
   );
 }

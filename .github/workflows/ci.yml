@@ -172,7 +172,8 @@ jobs:
       # 11 Nov (CI 43038277784, 43040233579, 43059639948: every shard died here, before any test).
       # Owner decision 2026-11-11 (#89 6802466628): install the browser alone, prove it launches,
       # and only if it does not, take the apt route; a missing library fails here, never in a spec.
-      # The app's text is Geist, self-hosted by next/font, so no spec measures a system font.
+      # The app's text is Geist, self-hosted by next/font (latin subset): only glyphs outside it,
+      # such as ₹ and ⋯, fall back to a system font, and the specs check those as text, not size.
       - name: Install Chromium (apt only if it cannot launch)
         run: |
           set -euo pipefail

@@ -457,6 +457,7 @@ test.describe("an Admin", () => {
   // only where RLS shows them; an Admin's page, its HTML and its RSC payload, never holds them.
   test("the Owner's notes never reach the Admin's client page, not even in its data", async ({
     page,
+    browser,
   }, info) => {
     const name = nameOf(info, "Admins notes");
     const id = await seedClient(name, USERS.admin.email);
@@ -481,6 +482,19 @@ test.describe("an Admin", () => {
     const flight = await page.request.get(`/clients/${id}`, { headers: { RSC: "1" } });
     expect(flight.status()).toBe(200);
     expect(await flight.text(), "nor its RSC payload").not.toContain(secret);
+
+    // The control: the same page as the Owner does hold the note, so the checks above look for
+    // something the page would carry if RLS let it through.
+    const owner = await browser.newContext({ storageState: storageStateFor("owner") });
+    try {
+      const ownerHtml = await owner.request.get(`/clients/${id}`);
+      expect(ownerHtml.status()).toBe(200);
+      expect(await ownerHtml.text(), "the Owner's page holds the note").toContain(secret);
+      const ownerFlight = await owner.request.get(`/clients/${id}`, { headers: { RSC: "1" } });
+      expect(await ownerFlight.text(), "and its RSC payload").toContain(secret);
+    } finally {
+      await owner.close();
+    }
   });
 });
 

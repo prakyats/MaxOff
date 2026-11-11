@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const reads = vi.hoisted(() => ({
   getSessionState: vi.fn(),
+  getSessionUserId: vi.fn(),
   withSessionUserId: vi.fn(),
   getSessionBundle: vi.fn(),
   readOwnPushStatus: vi.fn(),
@@ -22,6 +23,7 @@ const reads = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ notFound: reads.notFound }));
 vi.mock("@/core/auth/server", () => ({
   getSessionState: reads.getSessionState,
+  getSessionUserId: reads.getSessionUserId,
   withSessionUserId: reads.withSessionUserId,
 }));
 vi.mock("@/core/auth/session-bundle", () => ({ getSessionBundle: reads.getSessionBundle }));
@@ -70,6 +72,7 @@ function member(role: "owner" | "admin" | "staff") {
 describe("GET /diagnostics/approvals-timing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    reads.getSessionUserId.mockResolvedValue("m-1");
     reads.getSessionState.mockResolvedValue(member("owner"));
     reads.withSessionUserId.mockImplementation((read: (id: string) => unknown) => read("m-1"));
     reads.getSessionBundle.mockResolvedValue({
@@ -115,6 +118,22 @@ describe("GET /diagnostics/approvals-timing", () => {
     expect(body.today).toBe(0);
     // The unread counts are read for the rows of the step the role decides.
     expect(reads.listUnreadCounts).toHaveBeenCalledWith(["task-1"]);
+  });
+
+  it("signed out, 404s before any read (the verified claims first)", async () => {
+    reads.getSessionUserId.mockResolvedValue(null);
+    await expect(GET()).rejects.toThrow("NEXT_NOT_FOUND");
+    for (const read of [
+      reads.getSessionState,
+      reads.getSessionBundle,
+      reads.readOwnPushStatus,
+      reads.getOwnToday,
+      reads.listPendingDays,
+      reads.listDirectory,
+      reads.listTasksAtBothSteps,
+    ]) {
+      expect(read).not.toHaveBeenCalled();
+    }
   });
 
   it("404s anyone who is not an active member, signed out included", async () => {

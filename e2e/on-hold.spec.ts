@@ -355,13 +355,17 @@ test.describe("a project on hold", () => {
     // X5+ L5 (as the task's menu above): every item of an open menu has the menu's own size,
     // indent and slot; X1's own data-slots once replaced them (the item row's Open, the
     // project's Copy schedule and Put on hold…).
-    const menuLooks = () =>
-      page.getByRole("menuitem").evaluateAll((items) =>
+    // `evaluateAll` does not wait: read the items only once the menu that was just opened shows
+    // them (CI 43068303493 read the row's menu before it opened: 0 items).
+    const menuLooks = async () => {
+      await expect(page.getByRole("menuitem").first()).toBeVisible();
+      return page.getByRole("menuitem").evaluateAll((items) =>
         items.map((item) => {
           const style = getComputedStyle(item);
           return `${style.fontSize} ${style.paddingLeft} ${(item as HTMLElement).dataset.slot}`;
         }),
       );
+    };
     await rows
       .filter({ hasText: "Reel 3" })
       .getByRole("button", { name: "More for Reel 3" })

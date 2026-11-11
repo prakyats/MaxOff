@@ -6,59 +6,72 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ## v2.0.0: fast and settled
 
-**Not released yet** (draft, branch `claude/lucid-turing-sfdv10` → `phase-v2` → `main`; the Owner tags after his
-walk). The release candidate is `phase-v2` @ caa7b78e (11 Nov 2026); X6 fills in the speed tables and the CI runs.
+**Not released yet.** The Owner tags after his phone walk.
 
-### What ships
-- **Speed (X2, X3):** every screen's first reads go out together and early: the shell's member row, own day and
-  push status in one call (`session_early()`), each heavy screen's data in one or two calls (My Day, the week,
-  the attendance board, the task page, a project, a client, the templates library, the leave screens), and at
-  most six reads in the first wave on every route for every role (a Worker opens six connections at a time; a
-  seventh waited a whole trip). The first flush now carries the page's content, so the finished page arrives
-  sooner. The likely-next screens are prefetched for every role; taps made before a screen is ready are kept.
-- **On hold seen up front (X1):** everyone linked to held work sees it as held from the first glance.
-- **Appearance on a phone (X1b):** its own bottom sheet.
-- **Tests fixed at their causes (X5)** and the speed gates switched on in CI (first wave ≤ 6, INP ≤ 200 ms).
-- **Placement (X4):** evaluated and not adopted (ADR-0017): from India the Worker already runs in Mumbai, beside
-  the database.
+RC: phase-v2 @ <head sha, set at READY>
 
-### Speed (to be filled from the RC probes: CI probe ×3 roles against staging = v1.9.0, and the India run)
+No new feature in this release: the app is faster, and a handful of rough edges are fixed.
 
 ### What the Owner will notice
-- **Pages finish loading sooner**, most of all the heavy ones (a task, /tasks, a project, the templates library,
-  a client); the first screen arrives with its content rather than a grey outline first.
-- **A held project reads On hold everywhere:** on the client's Overview and Projects tab rows (never "Open"), on
-  each of its deliverables' sheets (with why ticks and Mark done wait, and its stages greyed out).
-- **More → Appearance (phone)** opens a small sheet: tap Light, Dark or System; the sheet closes and the More row
-  shows the choice ("Appearance · Dark").
-- **Phone menus:** every ⋯ menu item has the same size again ("Put on hold…" and five client-work items were
-  smaller than the rest).
-- **Today's "Needs you"** no longer flashes an empty card; its rows hold their place from the first paint.
+- **Screens open faster.** Most of all a task, Tasks, a client, a project and Templates.
+- **Today's "Needs you" stays still.** The list no longer shows an empty box and then pushes the page down. The
+  rows keep their place from the start.
+- **A client's page and a project's page load without a jump.**
+- **A project on hold says "On hold" everywhere.** On the client's Overview and Projects tab the row shows an amber
+  "On hold", never "Open". Open one of its deliverables and the sheet says at the top: "The project is on hold:
+  ticks and Mark done wait until it is resumed." Its stages are greyed out.
+- **A task on hold explains itself to you too.** The amber line now also says "Start, Done and the stage ticks wait
+  until the task is resumed."
+- **More → Appearance (phone).** The row now opens a small sheet. Tap Light, Dark or System. The sheet closes and
+  the row shows your choice, for example "Appearance · Dark". Back then closes More.
+- **Phone menus look even.** "Put on hold…", "Resume" and a few items in the project and deliverable ⋯ menus were
+  smaller than the rest. They are the same size now.
+- **Tap a chip, open the task.** A tap on a task row's chip ("2 days late", "Note it", "On hold"…) used to do
+  nothing. Now the whole row opens the task.
+- **The calendar keeps an early tap.** Tap a day while the calendar is still loading and it opens as soon as it is
+  ready.
 
 ### What Admins will notice
-- **A project the Owner holds is visible as held** on their client's pages and its deliverables' sheets.
-- The same speed, Appearance sheet, menu sizes and Today change as the Owner.
-- **A task's hold note** ("Start, Done and the stage ticks wait until it is resumed") shows to everyone who
-  opens the task, not only the people on it.
+- Everything in the Owner's list above, on their own clients and tasks.
+- **A project the Owner put on hold is now plain to see.** Its row on the client's page reads "On hold", and its
+  deliverables say why the ticks wait. Before, an Admin found out only when a tick was refused.
+- **Today's "Client work" stays still** while it loads.
+- **End day is ready sooner.**
 
 ### What the Crew will notice
-- **My Day: "On hold · n"** under the groups opens their held tasks (a held task used to vanish from My Day).
-- **A tap on a task row's chip opens the task.** Since v1.8 a tap on "Note it", "Overdue" or a state chip on a
-  task row did nothing; now the whole row, chips included, opens it (the guide says so for every role).
-- **Taps on the calendar before it is ready are kept.** Opening the calendar on a slow phone, a tap on the week
-  handle or a day in the first moment used to be lost; it now takes effect as soon as the calendar is ready.
-- **Pages are ready sooner on a phone.** Today and My Day finish loading with about a third less blocked time
-  on a mid-range phone; nothing on screen changed.
-- **Today's "Needs you" no longer flashes an empty card (Owner; the Admin's Client work too).** On some loads
-  the list's box appeared empty for a moment and its rows then pushed the attendance card down; now the rows'
-  place is held from the first paint (grey placeholder rows, then the rows in place), and nothing moves.
-- **A client's page and a project's page load without a jump (Owner and Admins).** Their grey loading
-  placeholders now match the page: the client's Key people no longer shifts when the projects arrive, and with
-  large system text on a phone neither loading screen reaches past the edge of the screen.
-- **Back after choosing an appearance works first time (phone).** After picking Light, Dark or System from More →
-  Appearance, one back press used to do nothing; now the first back closes More and the next leaves the screen.
-- **Signed-out pages only:** if the phone switches between light and dark while the sign-in page is open, the
-  colours now fade instead of switching at once. Signed in, nothing changes.
+- **Screens open faster**, My Day most of all on a phone.
+- **My Day shows "On hold · 1".** A task on hold used to disappear from My Day. Now a line under the lists says how
+  many are on hold. Tap it to see them.
+- **Tap a chip, open the task.** The whole task row opens the task, chips included.
+- **The calendar keeps an early tap.** Tap a day (or the handle) while it is still loading and it answers as soon
+  as it is ready.
+- **End day is ready sooner.**
+- Nothing else changes in how the Crew work. Their Appearance setting is still on Me.
+
+### Everyone, signed out
+- On the sign-in page, if the phone switches between light and dark, the colours now fade in instead of snapping.
+  Signed in, nothing changed.
+
+### Speed (to be filled from the final probes)
+
+> **PLACEHOLDER: SPEED TABLE GOES HERE.**
+> To be filled from the release-candidate probes: the preview of this release beside a preview of `main`, signed in
+> as Owner, Admin and Crew, plus the India run. One row per screen: v1.9 → v2.0.
+> The gate: no screen slower than today in two runs in a row. Do not mark READY until this table is in.
+
+### Under the hood
+1. Each screen now asks the database for everything it needs in one or two trips, and never more than six at once.
+2. The first thing a screen sends already has its content, and the likely next screens are fetched ahead for every
+   role.
+3. The database's permission checks were rewritten to run faster; they give exactly the same answers (tests compare
+   old and new).
+4. Fourteen database changes, all additions. Nothing is removed or rewritten, so rolling back to v1.9 needs no
+   extra step.
+5. Flaky tests were fixed at their causes, and the speed checks now run on every change.
+
+### Known issue
+- **Settings → Thresholds:** if you press Save and type a new edit straight away, that new edit can be thrown away.
+  Wait a moment after Save before typing again. A fix is planned in v2.1.
 
 ### Deploying
 - **Any time of day.** No migration changes a rule, a setting or a row: every v2.0 migration only adds functions
@@ -115,9 +128,9 @@ The v2.0 database stays; only the Worker goes back, and **nothing needs switchin
 7. **The guide:** Me → How MaxOff works → the On hold and Appearance topics for each role.
 
 ### The team message (WhatsApp, after the deploy)
-> MaxOff is updated. Screens open faster, especially tasks, projects and clients. If a task of yours is on hold,
-> My Day now shows "On hold" with the count, so nothing goes missing. Tapping anywhere on a task row, including
-> its labels, opens it. Nothing else changes in how you work.
+> MaxOff is updated (v2.0). Screens open faster. If a task of yours is on hold, My Day now shows "On hold" with the
+> count, so nothing goes missing. Tapping anywhere on a task row, its labels too, opens the task. Nothing else
+> changes in how you work. Everything is in Me → How MaxOff works.
 
 ## v1.9.0: working hours, On hold, two kinds of Close, approval reminders, the calendar's day row
 

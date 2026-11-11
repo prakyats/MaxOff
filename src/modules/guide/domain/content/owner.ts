@@ -48,7 +48,7 @@ export const OWNER_GUIDE: Guide = {
               "Tap Me in the same sheet for your own page, or Help under it for this guide.",
             ),
             next(
-              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me and Help.",
+              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me, Help and Appearance.",
             ),
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
@@ -83,12 +83,12 @@ export const OWNER_GUIDE: Guide = {
           summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More. More also has Appearance: tap it, then tap Light, Dark or System; the sheet closes and the More row shows your choice, such as Appearance · Dark.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More. More also has Appearance: tap it, then tap Light, Dark or System; the sheet closes and the More row shows your choice, such as Appearance · Dark. Back then closes More.",
             ),
             text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],
           link: { href: "/me", label: "Open Me" },
-          keywords: ["profile", "account", "settings"],
+          keywords: ["profile", "account", "settings", "appearance", "dark", "theme"],
         },
       ],
     },
@@ -760,7 +760,7 @@ export const OWNER_GUIDE: Guide = {
               'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and "+ New task on" the date stays at the bottom of the sheet while you scroll. On a laptop a day opens in the middle of the screen, with "Open day"; in the Day view "+ New task on" the date sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.',
             ),
             steps(
-              "Open Calendar and tap a day. If you tap a day while the calendar is still loading, it opens as soon as it's ready.",
+              "Open Calendar and tap a day. If you tap a day while the calendar is still loading, it opens as soon as it's ready. The same goes for the handle that changes the calendar's size.",
               'Tap "+ New task on" the date at the bottom.',
               "Fill in the New task form, which opens on that date.",
             ),
@@ -981,7 +981,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed "Archived (n)" at their foot, each with Restore and Delete), details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete" and a project on hold reads "On hold"), then "Key people": the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed "Archived (n)" at their foot, each with Restore and Delete), details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',

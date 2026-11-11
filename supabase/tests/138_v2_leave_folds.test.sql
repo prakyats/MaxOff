@@ -6,7 +6,7 @@
 -- raised; own data only. The window refused outside 1..62 days. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(28);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -108,6 +108,11 @@ select ok(public.working_day_rule(app.today_ist() - 7, app.today_ist())->'holida
 select pg_temp.as_member('admin');
 select is(public.working_day_rule(app.today_ist() - 7, app.today_ist()), pg_temp.api_rule(app.today_ist() - 7, app.today_ist()),
   'Admin: equals the two reads');
+select pg_temp.as_member('owner');
+select is(public.working_day_rule(app.today_ist() - 7, app.today_ist()), pg_temp.api_rule(app.today_ist() - 7, app.today_ist()),
+  'Owner: equals the two reads');
+select ok(public.working_day_rule(app.today_ist() - 7, app.today_ist())->'holidays' @> to_jsonb(array[app.today_ist() - 3]),
+  'Owner: the holiday in the window');
 select pg_temp.as_member('gone');
 select is(public.working_day_rule(app.today_ist() - 7, app.today_ist()), pg_temp.api_rule(app.today_ist() - 7, app.today_ist()),
   'deactivated: equals the two reads (RLS shows them what it shows)');

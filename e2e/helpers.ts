@@ -644,6 +644,9 @@ export async function streamedHeights(
           (match) => ({ kind: match[1], first: match[2]!, second: match[3]! }),
         ),
       );
+      // No reveal found means React's inline scripts changed shape, not that nothing streamed:
+      // both heights would then be the first flush's, and the comparison would pass on nothing.
+      if (calls.length === 0) throw new Error("streamedHeights: no $RS or $RC reveal in the page");
       const height = () => {
         const found = slotOf();
         if (!found || !found.checkVisibility()) throw new Error(`streamedHeights: no ${target}`);

@@ -61,8 +61,23 @@ async function read(page: Page) {
       longestTask: Math.round(Math.max(0, ...w.__long)),
       blocking: Math.round(w.__long.reduce((sum, ms) => sum + Math.max(0, ms - 50), 0)),
       inp: Math.round(Math.max(0, ...byInteraction.values())),
+      interactions: byInteraction.size,
     };
   });
+}
+
+/**
+ * The tap's INP once its Event Timing entry is in (X6 review): entries arrive after the next
+ * paint, so a reading taken before then said 0 and passed without measuring anything. Waits for
+ * at least one interaction since `forget`, and fails if none arrives.
+ */
+async function tapInp(page: Page, name: string): Promise<number> {
+  await expect
+    .poll(async () => (await read(page)).interactions, {
+      message: `${name}: no Event Timing entry arrived for the tap`,
+    })
+    .toBeGreaterThan(0);
+  return (await read(page)).inp;
 }
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -91,18 +106,18 @@ for (const role of ["owner", "admin", "staff"] as const) {
           await bar.first().tap();
           await page.waitForURL((url) => url.pathname === next, { timeout: 30_000 });
           await hydrated(page);
-          taps.push({ name: "the tab", inp: (await read(page)).inp });
+          taps.push({ name: "the tab", inp: await tapInp(page, "the tab") });
         } else {
           await forget(page);
           await page.locator('[data-slot="bottom-nav"] button').first().tap();
           const row = page.locator(`[data-slot="more-sheet"] a[href="${next}"]`);
           await expect(row).toBeVisible();
-          taps.push({ name: "More", inp: (await read(page)).inp });
+          taps.push({ name: "More", inp: await tapInp(page, "More") });
           await forget(page);
           await row.tap();
           await page.waitForURL((url) => url.pathname === next, { timeout: 30_000 });
           await hydrated(page);
-          taps.push({ name: "the row", inp: (await read(page)).inp });
+          taps.push({ name: "the row", inp: await tapInp(page, "the row") });
         }
         info.annotations.push({
           type: "phone-inp",

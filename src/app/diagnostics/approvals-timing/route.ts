@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getSessionState, withSessionUserId } from "@/core/auth/server";
+import { getSessionState, getSessionUserId, withSessionUserId } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { whenWaiting } from "@/core/lib/when-waiting";
@@ -51,6 +51,8 @@ export type ApprovalsTiming = {
  * it; a later cleanup unit removes it (PROGRESS).
  */
 export async function GET(): Promise<Response> {
+  // Signed out, nothing is read (X6 review, as `/diagnostics/timing`): the verified claims first.
+  if (!(await getSessionUserId())) notFound();
   const waveStart = performance.now();
   const since = () => Math.round(performance.now() - waveStart);
   const timed = <T>(read: Promise<T>) => read.then((value) => ({ value, ms: since() }));

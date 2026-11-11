@@ -2,6 +2,7 @@
 
 import { CheckIcon } from "lucide-react";
 import { useTheme } from "next-themes";
+import type { RefObject } from "react";
 
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import {
@@ -24,9 +25,12 @@ import { THEME_OPTIONS } from "./theme-options";
 export function AppearanceSheet({
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The button that opened it: opened by state, the sheet has no trigger of its own to return to. */
+  returnFocusTo: RefObject<HTMLButtonElement | null>;
 }) {
   const { theme, setTheme } = useTheme();
   const current = theme ?? "system";
@@ -35,6 +39,10 @@ export function AppearanceSheet({
       <SheetContent
         side="bottom"
         data-slot="appearance-sheet"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusTo.current?.focus();
+        }}
         className="rounded-t-sheet gap-2 pb-[calc(1rem+var(--app-safe-bottom))]"
       >
         <div

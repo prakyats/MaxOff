@@ -339,23 +339,35 @@ async function fingerTap(target: Locator): Promise<void> {
   await input.detach();
 }
 
+/** What a tap came to: the skeleton's time, and what happened when it never showed. */
+type TapOutcome = { ms: number | null; trace: string };
+
 /**
  * Taps `target` like a finger and returns how long after the finger went down `skeleton` was
- * first on screen (null: never, before `content` arrived).
+ * first on screen (null: never, before `content` arrived). With it, what the page saw (CI
+ * 43068303493 read no skeleton once, not seen locally in 5 plain, 4 CPU-throttled or a
+ * long-held run): whether the touch became a click and on what, whether the skeleton was in the
+ * page but hidden, whether the document was replaced, and where the page ended up.
  */
-async function tapUntilSkeleton(target: Locator, skeleton: string): Promise<number | null> {
+async function tapUntilSkeleton(target: Locator, skeleton: string): Promise<TapOutcome> {
   const page = target.page();
   // Where a finger would land: visible, still, enabled and not covered (nothing is clicked).
   await target.click({ trial: true });
   await page.evaluate((selector) => {
-    const w = window as unknown as { __skeletonAt?: number | null; __tapAt?: number };
+    const w = window as unknown as {
+      __skeletonAt?: number | null;
+      __tapAt?: number;
+      __tapTrace?: { click: string | null; hidden: boolean };
+    };
     w.__skeletonAt = null;
+    w.__tapTrace = { click: null, hidden: false };
     const poll = () => {
       const element = document.querySelector<HTMLElement>(selector);
       if (element?.checkVisibility()) {
         w.__skeletonAt = performance.now() - w.__tapAt!;
         return;
       }
+      if (element) w.__tapTrace!.hidden = true;
       if (performance.now() - w.__tapAt! < 10_000) requestAnimationFrame(poll);
     };
     // The finger goes down: the time runs from here.
@@ -364,6 +376,17 @@ async function tapUntilSkeleton(target: Locator, skeleton: string): Promise<numb
       () => {
         w.__tapAt = performance.now();
         requestAnimationFrame(poll);
+      },
+      { capture: true, once: true },
+    );
+    window.addEventListener(
+      "click",
+      (event) => {
+        const at = event.target instanceof Element ? event.target : null;
+        const link = at?.closest("a");
+        w.__tapTrace!.click = link
+          ? `a[href="${link.getAttribute("href")}"]`
+          : `${at?.tagName.toLowerCase() ?? "?"}${at?.getAttribute("data-slot") ? `[data-slot="${at.getAttribute("data-slot")}"]` : ""}`;
       },
       { capture: true, once: true },
     );
@@ -379,14 +402,22 @@ async function tapUntilSkeleton(target: Locator, skeleton: string): Promise<numb
     )
     .catch(() => undefined);
   return page.evaluate(() => {
-    const at = (window as { __skeletonAt?: number | null }).__skeletonAt;
-    return at == null ? null : Math.round(at);
+    const w = window as unknown as {
+      __skeletonAt?: number | null;
+      __tapAt?: number;
+      __tapTrace?: { click: string | null; hidden: boolean };
+    };
+    const at = w.__skeletonAt;
+    const trace = w.__tapTrace
+      ? `touch ${w.__tapAt == null ? "never seen" : "seen"}; click ${w.__tapTrace.click ?? "none"}; skeleton ${w.__tapTrace.hidden ? "in the page but hidden" : "never in the page"}; now at ${location.pathname}`
+      : `the document was replaced (now at ${location.pathname})`;
+    return { ms: at == null ? null : Math.round(at), trace };
   });
 }
 
-function expectInstant(name: string, ms: number | null) {
+function expectInstant(name: string, { ms, trace }: TapOutcome) {
   test.info().annotations.push({ type: "tap to skeleton", description: `${name}: ${ms} ms` });
-  expect(ms, `${name}: the traced skeleton after the tap`).not.toBeNull();
+  expect(ms, `${name}: the traced skeleton after the tap (${trace})`).not.toBeNull();
   expect(ms!, `${name}: within ${INSTANT_MS} ms of the tap`).toBeLessThanOrEqual(INSTANT_MS);
 }
 
