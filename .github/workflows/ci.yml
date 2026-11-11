@@ -167,7 +167,24 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # The browser comes from Playwright's own download host; `--with-deps` also apt-installs its
+      # system libraries and fonts from *.ubuntu.com, which the runners could not resolve on
+      # 11 Nov (CI 43038277784, 43040233579, 43059639948: every shard died here, before any test).
+      # Owner decision 2026-11-11 (#89 6802466628): install the browser alone, prove it launches,
+      # and only if it does not, take the apt route; a missing library fails here, never in a spec.
+      # The app's text is Geist, self-hosted by next/font, so no spec measures a system font.
+      - name: Install Chromium (apt only if it cannot launch)
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install chromium
+          launch() {
+            node -e "require('@playwright/test').chromium.launch().then(async (b) => { const p = await b.newPage(); await p.goto('about:blank'); await b.close(); console.log('Chromium launches headless.'); }).catch((e) => { console.error(e.message); process.exit(1); })"
+          }
+          if ! launch; then
+            echo "::warning::Chromium did not launch without its system libraries: installing them with apt."
+            pnpm exec playwright install-deps chromium
+            launch
+          fi
       # Every Playwright project runs against `next start` of this build (task 1.2), signing
       # in as the seeded local users, so the local Supabase stack (Auth, PostgREST, Kong,
       # Mailpit for the recovery email) must be up before the build inlines its keys.
