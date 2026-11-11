@@ -14,6 +14,7 @@ import {
   insertAs,
   memberIdOf,
   ownSession,
+  removeClientFixture,
   removeRequestsTitled,
   removeTasksTitled,
   removeTemplatesNamed,
@@ -63,11 +64,20 @@ const TRACE_TOLERANCE = 1;
 type Point = { held: string; settled: string };
 
 type Fixture =
-  "staff task" | "suggestion" | "template" | "task to check" | "task page" | "notification";
+  | "staff task"
+  | "suggestion"
+  | "template"
+  | "task to check"
+  | "task page"
+  | "notification"
+  | "client work";
 
 type LoadingScreen = {
   role: SessionRole;
-  /** The address; `:task` is the fixture's task (the task page's views). */
+  /**
+   * The address; `:task` is the fixture's task (the task page's views), `:client` and `:project`
+   * the client-work fixture's client and its first project (X5+ M7).
+   */
   path: string;
   /** An attribute of the route's loading screen, which marks it on screen. */
   marker: string;
@@ -642,6 +652,60 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "notification",
     trace: ALERTS,
   })),
+  // X5+ M7: the v2.0 X3 folds' screens, each held at its one read. A client's Overview (the
+  // Owner): Key people under the two active projects, then the contacts under the tasks line.
+  {
+    role: "owner",
+    path: "/clients/:client",
+    marker: 'data-slot="loading-client-overview"',
+    hold: "/rest/v1/rpc/client_overview",
+    fixture: "client work",
+    trace: {
+      "key people": {
+        held: '[data-slot="loading-client-overview"] > div:nth-child(2)',
+        settled: '[data-slot="client-glance"]',
+      },
+      contacts: {
+        held: '[data-slot="loading-client-overview"] > div:nth-child(4) ul',
+        settled: '[data-slot="contact-list"]',
+      },
+    },
+  },
+  // A project's page (the Owner): the cycle's progress card, then the first deliverable.
+  {
+    role: "owner",
+    path: "/clients/:client/projects/:project",
+    marker: 'data-slot="loading-project"',
+    hold: "/rest/v1/rpc/project_page",
+    fixture: "client work",
+    trace: {
+      progress: {
+        held: '[data-slot="loading-project"] > div[aria-hidden] > div:first-child > :nth-child(3)',
+        settled: '[data-slot="cycle-meter"]',
+      },
+      "first deliverable": {
+        held: '[data-slot="loading-project"] li[data-row]',
+        settled: '[data-slot="item-row"]',
+      },
+    },
+  },
+  // The Crew's leave (own comp leave in one read): the balance strip, then the requests under it.
+  {
+    role: "staff",
+    path: "/leave",
+    marker: 'data-slot="loading-leave-balance"',
+    hold: "/rest/v1/rpc/own_comp_leave",
+    trace: {
+      "balance strip": {
+        held: '[data-slot="loading-leave-balance"]',
+        settled: 'main [data-slot="leave-balance"]',
+      },
+      requests: {
+        held: '[data-slot="loading-leave-balance"] ~ [data-slot="loading-state"]',
+        settled: 'main [data-slot="leave-balance"] + *',
+      },
+    },
+  },
   // An Admin's Approvals: the one group, the tasks they check (4.5).
   {
     role: "admin",
@@ -681,7 +745,7 @@ async function makeFixture(
   prefix: string,
   fixture: Fixture,
   role: SessionRole,
-): Promise<{ remove: () => Promise<void>; task?: string }> {
+): Promise<{ remove: () => Promise<void>; task?: string; client?: string; project?: string }> {
   const { owner, admin, staff } = USERS;
   if (fixture === "notification") {
     const [member] = await serviceSelect<{ id: string; org_id: string }>(
@@ -700,6 +764,45 @@ async function makeFixture(
   if (fixture === "suggestion") {
     await rpcAs(staff.email, staff.password, "task_request_create", { title: `${prefix}reel` });
     return { remove: () => removeRequestsTitled(prefix) };
+  }
+  if (fixture === "client work") {
+    // The Admin's active client with a primary contact and two projects (the Overview's skeleton
+    // draws two active-project rows), each with two deliverables. Short names, so each row's lines
+    // stay one line at 375 px, as the skeleton traces them (the task page's title does the same).
+    const tag = shortTag(prefix);
+    const name = `Cw${tag}`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(admin.email),
+    });
+    await rpcAs(owner.email, owner.password, "client_activate", { client_id: client.id });
+    // With a phone, as most clients' primary contact has (the skeleton draws the Call row).
+    await serviceInsert("client_contacts", {
+      client_id: client.id,
+      name: `Asha${tag}`,
+      phone: "+91 98450 00000",
+      is_primary: true,
+    });
+    const projects: string[] = [];
+    for (const label of ["a", "b"]) {
+      projects.push(
+        await rpcAs<string>(admin.email, admin.password, "project_create", {
+          client_id: client.id,
+          name: `Reels ${label}${tag}`,
+          recurrence: "monthly",
+          stages: ["Shoot", "Edit"],
+          items: [`Reel ${label}1${tag}`, `Reel ${label}2${tag}`],
+        }),
+      );
+    }
+    return {
+      remove: () => removeClientFixture(name),
+      client: client.id,
+      ...(projects[0] ? { project: projects[0] } : {}),
+    };
   }
   if (fixture === "template") {
     await insertAs(owner.email, owner.password, "task_templates", {
@@ -805,7 +908,10 @@ for (const role of ["owner", "admin", "staff"] as const) {
         }
         const made = screen.fixture ? await makeFixture(prefix, screen.fixture, role) : null;
         const remove = made?.remove;
-        const path = screen.path.replace(":task", made?.task ?? ":task");
+        const path = screen.path
+          .replace(":task", made?.task ?? ":task")
+          .replace(":client", made?.client ?? ":client")
+          .replace(":project", made?.project ?? ":project");
         const session = await ownSession(page, user.email, user.password);
         const held = await holdReads(screen.hold, session);
         try {

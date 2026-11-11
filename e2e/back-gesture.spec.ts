@@ -921,12 +921,37 @@ test.describe("installed: More → Appearance is its own sheet", () => {
     await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
     const more = page.locator('[data-slot="more-sheet"]');
     await expect(more).toBeVisible();
+    // Every time an Appearance sheet leaves the page or closes, counted from before the tap.
+    await page.evaluate(() => {
+      const w = window as unknown as { appearanceCloses: number };
+      w.appearanceCloses = 0;
+      const sheet = () => document.querySelector('[data-slot="appearance-sheet"]');
+      let open = false;
+      new MutationObserver(() => {
+        const now = sheet();
+        const isOpen = now !== null && now.getAttribute("data-state") !== "closed";
+        if (open && !isOpen) w.appearanceCloses += 1;
+        open = isOpen;
+      }).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["data-state"],
+      });
+    });
     await more.getByRole("button", { name: /^Appearance/ }).click();
     const appearance = page.locator('[data-slot="appearance-sheet"]');
     await expect(appearance).toBeVisible();
-    // It stays open: no flash.
-    await page.waitForTimeout(600);
+    // It stays open: no flash. The flash closed it within its own opening; once every animation
+    // has run, it has not closed once (X5+, batch 4's sleeps: no fixed wait).
+    await animationsSettled(page);
     await expect(appearance).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { appearanceCloses: number }).appearanceCloses,
+      ),
+      "the sheet never closed while opening",
+    ).toBe(0);
     await page.goBack();
     await expect(appearance).toBeHidden();
     await expect(more).toBeVisible();

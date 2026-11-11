@@ -19,6 +19,9 @@ walk). Started in X3 (d), 11 Nov 2026; X6 completes it with the speed tables and
 - **Today's "Needs you" no longer flashes an empty card (Owner; the Admin's Client work too).** On some loads
   the list's box appeared empty for a moment and its rows then pushed the attendance card down; now the rows'
   place is held from the first paint (grey placeholder rows, then the rows in place), and nothing moves.
+- **A client's page and a project's page load without a jump (Owner and Admins).** Their grey loading
+  placeholders now match the page: the client's Key people no longer shifts when the projects arrive, and with
+  large system text on a phone neither loading screen reaches past the edge of the screen.
 - **Signed-out pages only:** if the phone switches between light and dark while the sign-in page is open, the
   colours now fade instead of switching at once. Signed in, nothing changes.
 
