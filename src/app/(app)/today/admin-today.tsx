@@ -5,6 +5,7 @@ import {
   InboxIcon,
   Undo2Icon,
 } from "lucide-react";
+import { Suspense } from "react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
@@ -16,6 +17,7 @@ import { CLIENT_STATE_LABELS } from "@/modules/clients";
 import {
   clientProgressLine,
   dueThisWeek,
+  itemMeter,
   itemView,
   lastChangeOf,
   progressByClient,
@@ -82,6 +84,7 @@ import {
   eventsHorizon,
 } from "./reads";
 import { TodayClientWorkLazy } from "./client-work-lazy";
+import { ClientWorkRowsSkeleton } from "./client-work-skeleton";
 
 /** How many client items the Client work section lists before "See all N" (decision 19). */
 const CLIENT_WORK_SHOWN = 5;
@@ -361,15 +364,24 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
             {work !== null && due.length > 0 ? (
               <DashSection title="Client work" slot="today-client-work" count={due.length}>
                 <div className="flex min-w-0 flex-col gap-2">
-                  <TodayClientWorkLazy
-                    items={clientWork}
-                    permissions={{
-                      manage: can(viewer.role, "projects.manage"),
-                      tick: can(viewer.role, "items.tick"),
-                      reopen: can(viewer.role, "items.approve"),
-                      owner: false,
-                    }}
-                  />
+                  {/* Its own chunk, in its own boundary whose fallback traces the rows (X5). */}
+                  <Suspense
+                    fallback={
+                      <ClientWorkRowsSkeleton
+                        rows={clientWork.map((item) => ({ meter: itemMeter(item.view).total > 0 }))}
+                      />
+                    }
+                  >
+                    <TodayClientWorkLazy
+                      items={clientWork}
+                      permissions={{
+                        manage: can(viewer.role, "projects.manage"),
+                        tick: can(viewer.role, "items.tick"),
+                        reopen: can(viewer.role, "items.approve"),
+                        owner: false,
+                      }}
+                    />
+                  </Suspense>
                   {due.length > CLIENT_WORK_SHOWN ? (
                     <RowList label="All client deliverables" slot="today-client-work-all">
                       <LinkRow

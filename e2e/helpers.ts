@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 
-import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 
@@ -608,6 +608,91 @@ export async function runInstalled(page: Page) {
  * behaviour (a typed transition, a scroll restore, refresh on return) waits for this after
  * `goto`. Not the root layout: it hydrates before the streamed shell (2.8, found by CI).
  */
+/**
+ * The height `data-slot="<slot>"` has in the server's first flush, against the page's settled
+ * height (X5, Today's Needs you: its list streamed empty, then its rows pushed the card down).
+ * The page's HTML is drawn with JavaScript off and only the streamed boundaries that enclose the
+ * slot are revealed, as React's own script does (the template's fallback swapped for the hidden
+ * `S:` content); a boundary inside the slot keeps its fallback, as when its content comes in a
+ * later flush. A boundary whose fallback traces its rows leaves the height unchanged.
+ */
+export async function firstFlushHeight(page: Page, path: string, slot: string): Promise<number> {
+  const browser = page.context().browser();
+  if (!browser) throw new Error("firstFlushHeight: no browser");
+  const use = test.info().project.use;
+  const context = await browser.newContext({
+    storageState: await page.context().storageState(),
+    ...(use.baseURL ? { baseURL: use.baseURL } : {}),
+    ...(use.viewport ? { viewport: use.viewport } : {}),
+    ...(use.isMobile !== undefined ? { isMobile: use.isMobile } : {}),
+    ...(use.deviceScaleFactor !== undefined ? { deviceScaleFactor: use.deviceScaleFactor } : {}),
+    javaScriptEnabled: false,
+  });
+  try {
+    const flush = await context.newPage();
+    await flush.goto(path);
+    return await flush.evaluate((target) => {
+      const inSlot = (node: Node) =>
+        (node.parentElement ?? null)?.closest(`[data-slot="${target}"]`) !== null;
+      // React's reveal calls in the page's inline scripts, in order: `$RS(segment, placeholder)`
+      // fills a placeholder, `$RC(boundary, content)` swaps a boundary's fallback for its content.
+      const calls = [...document.scripts].flatMap((script) =>
+        [...(script.textContent ?? "").matchAll(/\$R([SC])\("([^"]+)","([^"]+)"\)/g)].map(
+          (match) => ({ kind: match[1], first: match[2]!, second: match[3]! }),
+        ),
+      );
+      for (const call of calls) {
+        if (call.kind === "S") {
+          const segment = document.getElementById(call.first);
+          const placeholder = document.getElementById(call.second);
+          if (!segment || !placeholder?.parentNode) continue;
+          while (segment.firstChild)
+            placeholder.parentNode.insertBefore(segment.firstChild, placeholder);
+          placeholder.remove();
+          segment.remove();
+          continue;
+        }
+        const template = document.getElementById(call.first);
+        const content = document.getElementById(call.second);
+        const start = template?.previousSibling;
+        if (!template || !content || !start || !template.parentNode) continue;
+        // A boundary inside the slot keeps its fallback: its content came in a later flush.
+        if (inSlot(template)) continue;
+        const parent = template.parentNode;
+        let depth = 0;
+        let node = start.nextSibling;
+        while (node) {
+          const next: ChildNode | null = node.nextSibling;
+          if (node.nodeType === Node.COMMENT_NODE) {
+            const data = (node as Comment).data;
+            if (data === "/$" && depth === 0) break;
+            if (data.startsWith("$")) depth += 1;
+            if (data === "/$") depth -= 1;
+          }
+          node.remove();
+          node = next;
+        }
+        while (content.firstChild) parent.insertBefore(content.firstChild, node);
+        (start as Comment).data = "$";
+        content.remove();
+      }
+      const found = document.querySelector<HTMLElement>(`[data-slot="${target}"]`);
+      if (!found || !found.checkVisibility()) throw new Error(`firstFlushHeight: no ${target}`);
+      return Math.round(found.getBoundingClientRect().height * 2) / 2;
+    }, slot);
+  } finally {
+    await context.close();
+  }
+}
+
+/** The slot's height on the live page, once settled (to compare with `firstFlushHeight`). */
+export async function settledHeight(page: Page, slot: string): Promise<number> {
+  await expectSettled(page);
+  const box = await page.locator(`[data-slot="${slot}"]`).first().boundingBox();
+  if (!box) throw new Error(`settledHeight: no ${slot}`);
+  return Math.round(box.height * 2) / 2;
+}
+
 /**
  * The calendar's own JavaScript is live, not only the shell's (`hydrated`): the calendar's chunk
  * lands after the shell has hydrated, and its first layout effect marks the phone's area

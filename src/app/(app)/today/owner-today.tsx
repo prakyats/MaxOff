@@ -1,8 +1,10 @@
 import { FolderClockIcon, ListChecksIcon } from "lucide-react";
+import { Suspense } from "react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { addISTDays, systemClock, todayIST, type ISODate } from "@/core/time";
+import { ApprovalRowSkeletons } from "@/core/ui/composites/approval-group-skeleton";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
@@ -307,8 +309,14 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                     data-slot="today-approval-rows"
                     className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
                   >
+                    {/* Each group's rows come in their own chunk, in their own boundary whose
+                        fallback traces them (X5, `approvals-preview.tsx`). */}
                     {shown.early.length > 0 ? (
-                      <PreviewEarly requests={shown.early} waiting={waiting.early} />
+                      <Suspense
+                        fallback={<ApprovalRowSkeletons rows={shown.early.length} avatars />}
+                      >
+                        <PreviewEarly requests={shown.early} waiting={waiting.early} />
+                      </Suspense>
                     ) : null}
                     {folded.map((person) => (
                       <ApprovalPersonRow
@@ -326,19 +334,51 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                       />
                     ))}
                     {shown.days.length > 0 ? (
-                      <PreviewDays days={shown.days} today={today} waiting={waiting.days} preview />
+                      <Suspense
+                        fallback={<ApprovalRowSkeletons rows={shown.days.length} avatars />}
+                      >
+                        <PreviewDays
+                          days={shown.days}
+                          today={today}
+                          waiting={waiting.days}
+                          preview
+                        />
+                      </Suspense>
                     ) : null}
                     {shown.requests.length > 0 ? (
-                      <PreviewLeave requests={shown.requests} waiting={waiting.requests} preview />
+                      <Suspense
+                        fallback={<ApprovalRowSkeletons rows={shown.requests.length} avatars />}
+                      >
+                        <PreviewLeave
+                          requests={shown.requests}
+                          waiting={waiting.requests}
+                          preview
+                        />
+                      </Suspense>
                     ) : null}
                     {shown.notes.length > 0 ? (
-                      <PreviewNotes notes={shown.notes} waiting={waiting.notes} preview />
+                      <Suspense
+                        fallback={<ApprovalRowSkeletons rows={shown.notes.length} avatars />}
+                      >
+                        <PreviewNotes notes={shown.notes} waiting={waiting.notes} preview />
+                      </Suspense>
                     ) : null}
                     {shown.claims.length > 0 ? (
-                      <PreviewClaims claims={shown.claims} waiting={waiting.claims} preview />
+                      <Suspense
+                        fallback={<ApprovalRowSkeletons rows={shown.claims.length} avatars />}
+                      >
+                        <PreviewClaims claims={shown.claims} waiting={waiting.claims} preview />
+                      </Suspense>
                     ) : null}
                     {tasks.length > 0 ? (
-                      <PreviewTasks tasks={tasks} heading="Tasks" waiting={waiting.tasks} preview />
+                      <Suspense fallback={<ApprovalRowSkeletons rows={tasks.length} />}>
+                        <PreviewTasks
+                          tasks={tasks}
+                          heading="Tasks"
+                          waiting={waiting.tasks}
+                          preview
+                        />
+                      </Suspense>
                     ) : null}
                   </ul>
                   {/* "See all N" only when the list is cut (owner 2026-10-09). */}

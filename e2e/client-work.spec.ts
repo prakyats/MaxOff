@@ -25,6 +25,8 @@ import {
   pageHeader,
   createFromNewProject,
   newProjectStep,
+  firstFlushHeight,
+  settledHeight,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
@@ -563,6 +565,11 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
 
   await page.goto("/today");
   await hydrated(page);
+  // The rows have their settled height in the server's first flush (X5): their fallback traces them.
+  expect(
+    await firstFlushHeight(page, "/today", "today-client-work"),
+    "Client work in the first flush",
+  ).toBe(await settledHeight(page, "today-client-work"));
   const stagedRow = page.locator('[data-slot="today-client-item"]', {
     hasText: nameOf(info, "staged"),
   });

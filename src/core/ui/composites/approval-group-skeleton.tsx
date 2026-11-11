@@ -23,26 +23,47 @@ export function ApprovalRowsSkeleton({
       data-slot="loading-approval-rows"
       className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
     >
-      {Array.from({ length: rows }, (_, i) => (
-        <li key={i} className={cn("flex min-w-0 items-center gap-3 pr-4", APPROVAL_ROW_MIN_H)}>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 pl-4">
-            <div className="flex h-5 min-w-0 items-center gap-2">
-              <Skeleton className="h-3 w-12 shrink-0" />
-              {avatars ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
-              <Skeleton className="h-3.5 w-32 max-w-full" />
-            </div>
-            <div className="flex h-4 min-w-0 items-center">
-              <Skeleton className="h-3 w-40 max-w-full" />
-            </div>
-            <div className="flex h-4 min-w-0 items-center">
-              <Skeleton className="h-3 w-20 max-w-full" />
-            </div>
-          </div>
-          <Skeleton className="h-11 w-20 shrink-0 rounded-lg md:h-8" />
-        </li>
-      ))}
+      <ApprovalRowSkeletons rows={rows} avatars={avatars} />
     </ul>
   );
+}
+
+/**
+ * The rows alone, for a list that is already drawn: Today's Needs you, where each group's rows
+ * come in their own chunk (X5, `owner-today.tsx`). The server knows how many each group draws, so
+ * its boundary's fallback is that many rows: the card has its final height from the first paint,
+ * and the rows replace these in place.
+ */
+export function ApprovalRowSkeletons({
+  rows,
+  avatars = false,
+}: {
+  rows: number;
+  avatars?: boolean;
+}) {
+  return Array.from({ length: rows }, (_, i) => (
+    <li
+      key={i}
+      aria-hidden
+      data-slot="loading-approval-row"
+      className={cn("flex min-w-0 items-center gap-3 pr-4", APPROVAL_ROW_MIN_H)}
+    >
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 pl-4">
+        <div className="flex h-5 min-w-0 items-center gap-2">
+          <Skeleton className="h-3 w-12 shrink-0" />
+          {avatars ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
+          <Skeleton className="h-3.5 w-32 max-w-full" />
+        </div>
+        <div className="flex h-4 min-w-0 items-center">
+          <Skeleton className="h-3 w-40 max-w-full" />
+        </div>
+        <div className="flex h-4 min-w-0 items-center">
+          <Skeleton className="h-3 w-20 max-w-full" />
+        </div>
+      </div>
+      <Skeleton className="h-11 w-20 shrink-0 rounded-lg md:h-8" />
+    </li>
+  ));
 }
 
 // Its own file, with no "use client" (6.0): a loading screen that draws it must not pull the

@@ -16,6 +16,9 @@ walk). Started in X3 (d), 11 Nov 2026; X6 completes it with the speed tables and
   handle or a day in the first moment used to be lost; it now takes effect as soon as the calendar is ready.
 - **Pages are ready sooner on a phone.** Today and My Day finish loading with about a third less blocked time
   on a mid-range phone; nothing on screen changed.
+- **Today's "Needs you" no longer flashes an empty card (Owner; the Admin's Client work too).** On some loads
+  the list's box appeared empty for a moment and its rows then pushed the attendance card down; now the rows'
+  place is held from the first paint (grey placeholder rows, then the rows in place), and nothing moves.
 - **Signed-out pages only:** if the phone switches between light and dark while the sign-in page is open, the
   colours now fade instead of switching at once. Signed in, nothing changes.
 
