@@ -40,7 +40,7 @@ function member(role: "owner" | "admin" | "staff") {
 describe("GET /diagnostics/day-timing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    reads.getSessionState.mockResolvedValue(member("staff"));
+    reads.getSessionState.mockResolvedValue(member("owner"));
     reads.firstReadsStats.mockReturnValue({ holds: 3, waits: 9, valve: 0, longest: 4, total: 11 });
     reads.getSessionBundle.mockResolvedValue({ unread: 1, label: SECRET });
     reads.readOwnPushStatus.mockResolvedValue({ endpoints: ["https://push.example/x"] });
@@ -49,7 +49,7 @@ describe("GET /diagnostics/day-timing", () => {
     reads.getEarlyLeaveWait.mockResolvedValue(30);
   });
 
-  it("answers numbers and counts only to a member, never a row, an id or a name", async () => {
+  it("answers numbers and counts only to the Owner, never a row, an id or a name", async () => {
     const response = await GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
@@ -62,7 +62,7 @@ describe("GET /diagnostics/day-timing", () => {
       expect(typeof body[key]).toBe("number");
     }
     expect(body.first_reads).toEqual({ holds: 3, waits: 9, valve: 0, longest: 4, total: 11 });
-    expect(body.role).toBe("staff");
+    expect(body.role).toBe("owner");
   });
 
   it("reads 0 for the own day and hours of a role without one, and a failed read stays a number", async () => {
@@ -73,6 +73,13 @@ describe("GET /diagnostics/day-timing", () => {
     expect(body.today).toBe(0);
     expect(body.hours).toBe(0);
     expect(body.strip).toBe(0);
+  });
+
+  it("404s an Admin and a Crew member: the Owner's only", async () => {
+    for (const role of ["admin", "staff"] as const) {
+      reads.getSessionState.mockResolvedValue(member(role));
+      await expect(GET()).rejects.toThrow("NEXT_NOT_FOUND");
+    }
   });
 
   it("404s anyone who is not an active member", async () => {

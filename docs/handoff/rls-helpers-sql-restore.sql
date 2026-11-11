@@ -1,3 +1,6 @@
+-- Refuses to run as it stands (X6 review batch 1, #89): copy it into a new migration to use it.
+do $$ begin raise exception 'draft: copy into a new migration (pnpm db:new), never run by hand'; end $$;
+
 -- DRAFT, NOT APPLIED (v2.0 X3 (b), 2026-11-06; the advisor on #89): the rollback for migration
 -- 20261106030000_rls_helpers_plpgsql. It restores the fifteen helpers as the `language sql`
 -- functions they were before it, with the same bodies and every attribute as before (security

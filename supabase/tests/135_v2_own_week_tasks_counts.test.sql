@@ -8,7 +8,7 @@
 -- keys equal to the reads they replace; the earlier keys stay (132, 134). Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(31);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -72,7 +72,10 @@ insert into public.task_requests (org_id, requested_by, title, client_id) values
   (pg_temp.fx('org'), pg_temp.fx('staff'), 'Rq crew 135', null),
   (pg_temp.fx('org'), pg_temp.fx('admin'), 'Rq admin 135', null),
   (pg_temp.fx('org'), pg_temp.fx('staff'), 'Rq crew mine 135', pg_temp.fx('mine')),
-  (pg_temp.fx('org'), pg_temp.fx('staff'), 'Rq crew other 135', pg_temp.fx('other'));
+  (pg_temp.fx('org'), pg_temp.fx('staff'), 'Rq crew other 135', pg_temp.fx('other')),
+  -- X6 review (20261111030554): another Admin's no-client request is the Owner's to decide, never
+  -- this Admin's to count (app.task_request_visible).
+  (pg_temp.fx('org'), (select admin_id from public.clients where id = pg_temp.fx('other')), 'Rq admin2 135', null);
 insert into public.task_requests (org_id, requested_by, title, client_id, state, decided_by, decided_at, decision_reason) values
   (pg_temp.fx('org'), pg_temp.fx('staff'), 'Rq declined 135', null, 'declined', pg_temp.fx('owner'), now(), 'Not needed'),
   (pg_temp.fx('org'), pg_temp.fx('staff'), 'Rq withdrawn 135', pg_temp.fx('mine'), 'withdrawn', null, null, null);
@@ -96,13 +99,17 @@ select is((select prosecdef from pg_proc where oid = 'public.own_week(date, date
 -- 2. The drift guard, each role -----------------------------------------------------------------------
 select pg_temp.as_member('owner');
 select ok(pg_temp.agree(), 'Owner: the helper, own_week and the RLS count agree');
-select is(app.requests_to_decide_count(), (select n from fx_base) + 4, 'Owner: every pending one, no other state');
+select is(app.requests_to_decide_count(), (select n from fx_base) + 5, 'Owner: every pending one, no other state');
 select pg_temp.as_member('admin');
 select ok(pg_temp.agree(), 'Admin: the helper, own_week and the RLS count agree');
 select is(app.requests_to_decide_count(), (select n from fx_base) + 2,
   'Admin: Crew''s with no client and with their client; never their own, nor another Admin''s client''s');
 select is((select count(*)::integer from public.task_requests r where r.title in ('Rq crew mine 135', 'Rq crew other 135')), 1,
   'Admin: RLS shows their client''s request and not the other''s (the fixture holds)');
+select is((select count(*)::integer from public.task_requests r where r.title = 'Rq admin2 135'), 0,
+  'Admin: RLS never shows another Admin''s no-client request (the Owner''s to decide)');
+select is(app.requests_to_decide_count(), (select n from fx_base) + 2,
+  'Admin: another Admin''s no-client request is not counted either (X6 review)');
 select pg_temp.as_member('staff');
 select ok(pg_temp.agree(), 'Crew: the helper, own_week and the RLS count agree');
 select is(app.requests_to_decide_count(), 0, 'Crew: 0 (they see only their own, never counted)');
@@ -129,7 +136,7 @@ update public.task_requests set state = 'declined', decided_by = pg_temp.fx('own
 where title = 'Rq crew 135';
 select pg_temp.as_member('owner');
 select ok(pg_temp.agree(), 'after a decision: the helper and the RLS count agree');
-select is(app.requests_to_decide_count(), (select n from fx_base) + 3, 'after a decision: one fewer');
+select is(app.requests_to_decide_count(), (select n from fx_base) + 4, 'after a decision: one fewer');
 
 -- 3. own_week's thresholds, each role ------------------------------------------------------------------
 select is(pg_temp.week_settings(), pg_temp.api_settings(), 'Owner: the thresholds equal org_settings');

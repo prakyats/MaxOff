@@ -543,7 +543,7 @@ export function ItemSheet({
                     <DropdownMenuContent align="start" title={current.title}>
                       {earlyDone ? (
                         <DropdownMenuItem
-                          data-slot="item-mark-done-early"
+                          data-action="item-mark-done-early"
                           onSelect={() => setEarly(true)}
                         >
                           <CheckIcon aria-hidden />
@@ -553,7 +553,7 @@ export function ItemSheet({
                       {permissions.manage && current.state === "open" ? (
                         // 6b.16 (c): one more revision stage, named after its own ("Revision 3").
                         <DropdownMenuItem
-                          data-slot="item-revision-round"
+                          data-action="item-revision-round"
                           onSelect={() => void addRound(current.id)}
                         >
                           <PlusIcon aria-hidden />
@@ -564,7 +564,7 @@ export function ItemSheet({
                         // Unit U: named menu items, not bare arrows (the list's order).
                         <>
                           <DropdownMenuItem
-                            data-slot="item-move-up"
+                            data-action="item-move-up"
                             disabled={canMove ? !canMove(current.id, "up") : false}
                             onSelect={() => onMove(current.id, "up")}
                           >
@@ -572,7 +572,7 @@ export function ItemSheet({
                             Move up
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            data-slot="item-move-down"
+                            data-action="item-move-down"
                             disabled={canMove ? !canMove(current.id, "down") : false}
                             onSelect={() => onMove(current.id, "down")}
                           >
@@ -590,7 +590,7 @@ export function ItemSheet({
                       ) : null}
                       {canSetKind ? (
                         <DropdownMenuItem
-                          data-slot="item-set-close-kind"
+                          data-action="item-set-close-kind"
                           onSelect={() => {
                             setKindSetting((count) => count + 1);
                             setKindOpen(true);

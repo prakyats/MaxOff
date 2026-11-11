@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { addISTDays, type ISODate, todayIST } from "@/core/time";
+import { addISTDays, type ISODate } from "@/core/time";
 import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
   countItemsToDecide,
@@ -52,24 +52,24 @@ export const readEventTasks = (from: ISODate, to: ISODate) =>
 export function eventsHorizon(today: ISODate): ISODate {
   return addISTDays(today, 61);
 }
-/** The holidays in Today's window (the week strip keeps its seven days), from the same read. */
-export const readHolidays = () => {
-  const today = todayIST();
+/**
+ * The holidays in Today's window (the week strip keeps its seven days), from the same read. Each of
+ * these four takes the page's `today` (X6 review): a request that crosses IST midnight never mixes
+ * two days or two `own_week` keys.
+ */
+export const readHolidays = (today: ISODate) => {
   return readWeekWindow(today, eventsHorizon(today)).then((week) => week.holidays);
 };
 /** The freelancers the viewer coordinates, from the same read (`own_week().freelancers`). */
-export const readTodayFreelancers = () => {
-  const today = todayIST();
+export const readTodayFreelancers = (today: ISODate) => {
   return readFreelancersWith(today, eventsHorizon(today));
 };
 /** The suggestions to decide, from the same read (`own_week().requests_to_decide`). */
-export const readRequestsToDecide = () => {
-  const today = todayIST();
+export const readRequestsToDecide = (today: ISODate) => {
   return readRequestsToDecideWith(today, eventsHorizon(today));
 };
 /** Needs you's escalation thresholds, from the same read (`own_week()`'s `ack_escalate_*`). */
-export const readEscalation = () => {
-  const today = todayIST();
+export const readEscalation = (today: ISODate) => {
   return readEscalationWith(today, eventsHorizon(today));
 };
 export const readLeaveDays = cache(listLeaveDays);
