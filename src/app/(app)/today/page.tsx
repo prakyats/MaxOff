@@ -37,7 +37,7 @@ export default async function TodayPage() {
     readOpenTasks(),
     readDirectory(),
     readEventTasks(today, eventsHorizon(today)),
-    readHolidays(),
+    readHolidays(today),
   );
   const viewer = await requireMember();
   if (can(viewer.role, "attendance.view_all")) return <OwnerToday viewer={viewer} />;

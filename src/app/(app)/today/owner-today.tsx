@@ -147,7 +147,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     can(viewer.role, "settings.manage") ? readHeldEmails() : Promise.resolve(null),
     readDirectory().then((members) => readLeaveDays(today, last, teamIds(members))),
     readEventTasks(today, eventsHorizon(today)),
-    readHolidays(),
+    readHolidays(today),
     // Yesterday's End day not recorded, from the cutoff on (decision 24, amended 2026-10-08).
     getUnendedYesterday(),
     // Which task types show on the calendar: This week counts as the calendar's month view does.

@@ -45,13 +45,22 @@ export async function listCompDates(): Promise<CompDate[]> {
  * balance exactly as `getCompBalance(own id)` reads it and the dates as `listCompDates` does, once
  * per request (/leave's layout and page share it). A refused balance throws the code
  * `comp_leave_balance` refused with, as that read did; refused dates are undefined, as the layout
- * took a failed `listCompDates`.
+ * took a failed `listCompDates`. A failed fold (an error other than a refusal) falls back to those
+ * two reads.
  */
 export const readOwnCompLeave = cache(
   async (): Promise<{ balance: CompBalance; dates: CompDate[] | undefined }> => {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase.rpc("own_comp_leave");
-    if (error) throw error;
+    if (error) {
+      // An unexpected failure of one part (X6 review batch 4) must not take the balance with it:
+      // the two reads the fold replaced, each as it was (failed dates are undefined, as before).
+      const [balance, dates] = await Promise.all([
+        getCompBalance(),
+        listCompDates().catch(() => undefined),
+      ]);
+      return { balance, dates };
+    }
     const own = data as {
       balance: { available_days: number | string; use_by: string | null } | null;
       balance_refused: string | null;
