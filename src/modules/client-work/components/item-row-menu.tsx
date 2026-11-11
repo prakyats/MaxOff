@@ -59,7 +59,7 @@ export function ItemRowMenu({
             Open
           </DropdownMenuItem>
           <DropdownMenuItem
-            data-slot="item-row-menu-done"
+            data-action="item-row-menu-done"
             onSelect={unticked > 0 ? () => setAsking(true) : onMarkDone}
           >
             <CheckIcon aria-hidden />
