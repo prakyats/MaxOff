@@ -666,6 +666,10 @@ jobs:
             label="${base_host%."$subdomain"}"
             if [ "$base_host" = "$host" ]; then
               :
+            elif [ "$input" = "base_url" ] && [ "$base_host" = "maxoff-staging-smart.${subdomain}" ]; then
+              # X4's placement experiment (ADR-0017): its own Worker on the staging database, probed
+              # once for the record before the delete job removes it. Goes with that job.
+              :
             elif [ "${subdomain%.workers.dev}" != "$subdomain" ] && [ "$label" != "$base_host" ] \
               && printf '%s' "$label" | grep -Eqx "[a-z0-9]([a-z0-9-]*[a-z0-9])?-${worker}"; then
               :
