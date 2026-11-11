@@ -5,7 +5,7 @@
 -- member) gets null; no session gets null. Every earlier key is unchanged (130). Neutral names.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(19);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -74,6 +74,29 @@ select pg_temp.as_member('freelancer');
 select is(public.session_early()->'own_hours', 'null'::jsonb, 'freelancer: no own hours (refused)');
 select pg_temp.as_member('gone');
 select is(public.session_early()->'own_hours', 'null'::jsonb, 'deactivated: no own hours (refused)');
+
+-- X5+ H4: attendance_own_hours() itself refuses the same callers, with the very code
+-- session_early() names for their own day (the app throws that code for both reads).
+create function pg_temp.raised(sql text) returns text language plpgsql as $$
+begin
+  execute sql;
+  return null;
+exception when others then
+  return sqlerrm;
+end;
+$$;
+select pg_temp.as_member('owner');
+select isnt(public.session_early()->>'own_day_refused', null, 'Owner: own day refused, with a code');
+select is(pg_temp.raised('select * from public.attendance_own_hours()'),
+  public.session_early()->>'own_day_refused', 'Owner: attendance_own_hours() refuses with that code');
+select pg_temp.as_member('freelancer');
+select isnt(public.session_early()->>'own_day_refused', null, 'freelancer: own day refused, with a code');
+select is(pg_temp.raised('select * from public.attendance_own_hours()'),
+  public.session_early()->>'own_day_refused', 'freelancer: attendance_own_hours() refuses with that code');
+select pg_temp.as_member('gone');
+select isnt(public.session_early()->>'own_day_refused', null, 'deactivated: own day refused, with a code');
+select is(pg_temp.raised('select * from public.attendance_own_hours()'),
+  public.session_early()->>'own_day_refused', 'deactivated: attendance_own_hours() refuses with that code');
 
 -- No session: nothing.
 select pg_temp.as_system();

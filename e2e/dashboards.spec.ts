@@ -24,8 +24,7 @@ import {
   supabaseAuth,
   taskTypeId,
   USERS,
-  firstFlushHeight,
-  settledHeight,
+  streamedHeights,
 } from "./helpers";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
@@ -530,12 +529,13 @@ test.describe("the Owner's Today (6.2)", () => {
       if (isPhone(info)) await runInstalled(page);
       await page.goto("/today");
       await hydrated(page);
-      // The list has its settled height in the server's first flush (X5, loading-screens:790: it
-      // streamed empty, then its rows pushed the card down): each group's fallback traces its rows.
-      expect(
-        await firstFlushHeight(page, "/today", "today-approval-rows"),
-        "Needs you's list in the first flush",
-      ).toBe(await settledHeight(page, "today-approval-rows"));
+      // The list has the same height in the server's first flush as with all its rows in (X5,
+      // loading-screens:790: it streamed empty, then its rows pushed the card down): each group's
+      // fallback traces its rows.
+      const { firstFlush, allIn } = await streamedHeights(page, "/today", "today-approval-rows");
+      expect(firstFlush, "Needs you's list in the first flush, then with all its rows in").toBe(
+        allIn,
+      );
       const needs = section(page, "today-approvals");
       await expect(needs).toBeVisible();
       // No heading per kind: the groups' rows share one list.

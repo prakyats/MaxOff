@@ -367,6 +367,30 @@ describe("the Projects tab", () => {
     ]);
   });
 
+  it("reads On hold only for a working project with a hold (X1; X5+ M6)", () => {
+    const at = "2026-10-05T10:00:00Z";
+    const held = (id: string, over: Partial<Project>) =>
+      project({ id, name: id, heldAt: at, heldBy: "m1", holdReason: "Client away", ...over });
+    const summaries = projectSummaries(
+      [
+        held("held open", { state: "open" }),
+        held("held in progress", { state: "in_progress" }),
+        // A finished project never reads On hold, even with a hold left on its row.
+        held("held completed", { state: "completed" }),
+        held("held cancelled", { state: "cancelled" }),
+        project({ id: "working", name: "working", state: "in_progress" }),
+      ],
+      [],
+    );
+    expect(Object.fromEntries(summaries.map((summary) => [summary.id, summary.held]))).toEqual({
+      "held open": true,
+      "held in progress": true,
+      "held completed": false,
+      "held cancelled": false,
+      working: false,
+    });
+  });
+
   it("adds up each client's current cycles (Today's My clients)", () => {
     const sums = progressByClient([
       {
