@@ -68,6 +68,22 @@ const VIEW_ADDRESS_SPECS = /view-address\.spec\.ts$/;
 const REACHABILITY_SPECS = /reachability\.spec\.ts$/;
 const ONBOARDING_SPECS = /onboarding\.spec\.ts$/;
 const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
+/**
+ * v2.1 unit 3: the phone-critical flows on an iPhone (WebKit, its viewport and touch), as the
+ * Crew meet them every day: sign-in, Start day and End day, My Day, a task's acknowledge and
+ * Done, a leave request, Alerts and every back gesture. Chromium alone never saw WebKit's own
+ * behaviour (focus, sticky, the history API, fonts). The project is named `mobile-iphone` so the
+ * specs' phone paths (`project.name.startsWith("mobile")`) and its own seeded people apply.
+ */
+const IPHONE_SPECS = [
+  /\/auth\.spec\.ts$/,
+  WORKING_DAY_SPECS,
+  DASHBOARDS_SPECS,
+  TASKS_SPECS,
+  LEAVE_SPECS,
+  NOTIFICATIONS_SPECS,
+  BACK_GESTURE_SPECS,
+];
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
 const CLIENT_WORK_SPECS = /client-work\.spec\.ts$/;
@@ -278,6 +294,14 @@ export default defineConfig({
         VIEW_SCROLL_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
+    },
+    {
+      // v2.1 unit 3 (IPHONE_SPECS): WebKit at an iPhone's size, touch and scale. CI runs it in its
+      // own job (`playwright (iphone)`), with WebKit installed there.
+      name: "mobile-iphone",
+      dependencies: ["setup"],
+      testMatch: IPHONE_SPECS,
+      use: { ...devices["iPhone 13"] },
     },
     {
       // "Approve all" (2.4) acts on every waiting row, other specs' included, so it runs alone,

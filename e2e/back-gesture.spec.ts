@@ -544,6 +544,10 @@ test.describe("installed: sign-in, the prompt, recovery and sign-out leave the b
       email: "back-mobile-lg@maxoff.local",
       id: "20000000-0000-4000-8000-000000000017",
     },
+    "mobile-iphone": {
+      email: "back-mobile-iphone@maxoff.local",
+      id: "20000000-0000-4000-8000-000000002017",
+    },
   };
   const LEFT = { url: /^about:blank$/ };
 

@@ -52,8 +52,8 @@ function stackPorts(): number[] {
 describe("the CI jobs that start the local stack", () => {
   const starting = Object.entries(jobs()).filter(([, job]) => job.includes("supabase start"));
 
-  it("are the pgTAP job and the Playwright shards", () => {
-    expect(starting.map(([id]) => id)).toEqual(["db", "e2e"]);
+  it("are the pgTAP job, the Playwright shards and the iPhone job", () => {
+    expect(starting.map(([id]) => id)).toEqual(["db", "e2e", "e2e-iphone"]);
   });
 
   it("reserve the stack's ports before it starts", () => {

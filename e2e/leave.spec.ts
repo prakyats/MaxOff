@@ -31,6 +31,7 @@ const MEMBER_IDS: Record<string, string> = {
   desktop: "20000000-0000-4000-8000-000000000013",
   mobile: "20000000-0000-4000-8000-000000000014",
   "mobile-lg": "20000000-0000-4000-8000-000000000015",
+  "mobile-iphone": "20000000-0000-4000-8000-000000002015",
 };
 
 const person = (info: TestInfo) => `leave-self-${info.project.name}@maxoff.local`;
