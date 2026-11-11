@@ -55,7 +55,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar. On a phone, More → Appearance opens a small sheet: tap Light, Dark or System and it closes with your choice ticked.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar. On a phone, More → Appearance opens a small sheet: tap Light, Dark or System; the sheet closes and the More row shows your choice, such as Appearance · Dark.",
             },
             {
               kind: "steps",
@@ -719,7 +719,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Calendar.",
                 "Tap Filters to narrow by Client, Person, Type or Status.",
                 "Status can be Open and completed, Open, or Completed.",
-                "Tap a day to open its day sheet.",
+                "Tap a day to open its day sheet. If you tap a day while the calendar is still loading, it opens as soon as it's ready.",
               ],
             },
             {
@@ -1511,7 +1511,7 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/project-held-row",
                 },
                 {
-                  text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted).",
+                  text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted), and its stages are greyed out.",
                   shot: "admin/item-held-sheet",
                 },
               ],

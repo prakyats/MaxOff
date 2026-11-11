@@ -40,25 +40,6 @@
       "preview_urls": true,
       "triggers": { "crons": ["30 21 * * *", "* * * * *"] },
     },
-    // X4 placement experiment (v2.0, the advisor on #89 6785051248; removed after the verdict): the
-    // same code and the same staging Supabase as a `phase-v2` preview, on a Worker of its own, so
-    // its placement is the only difference (placement is a per-Worker setting: turning it on for
-    // `maxoff-staging` would move staging, the v1.9 baseline, too). Variant R first: pinned beside
-    // the staging database (Mumbai, AWS ap-south-1); variant S (`"mode": "smart"`) only if R gains
-    // or is inconclusive. Deployed only by `preview.yml`'s dispatch-only `placement-experiment`
-    // job, never by deploy.yml. **No cron triggers** (`crons: []`: the top-level ones are
-    // inherited otherwise, and they would send a second push and email run), no preview URLs; it
-    // answers at maxoff-staging-smart.<subdomain>.workers.dev only.
-    "staging-smart": {
-      "name": "maxoff-staging-smart",
-      "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging-smart" }],
-      "observability": { "enabled": true },
-      "preview_urls": false,
-      "workers_dev": true,
-      "triggers": { "crons": [] },
-      "placement": { "mode": "targeted", "region": "aws:ap-south-1" },
-    },
     // Production: deployed from a `v*` tag. Workers Paid (the account's plan, see staging).
     // `preview_urls` is off ON PURPOSE (task 2.0). Left at the account default, every
     // production version would also be served at <version>-maxoff.<subdomain>.workers.dev:

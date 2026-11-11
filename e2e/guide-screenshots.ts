@@ -995,12 +995,14 @@ test.afterAll(() => {
 });
 
 /**
- * `src/modules/guide/domain/shots.generated.ts`: every picture made, in the registry's order. A
- * `GUIDE_ONLY` run keeps the entries of the pictures it did not make.
+ * `src/modules/guide/domain/shots.generated.ts`: every picture made, in the registry's order. An
+ * entry a run did not make keeps its earlier one: a `GUIDE_ONLY` run's other pictures, and a
+ * picture that failed (its earlier file is still on disk; a run refused by the daytime guard
+ * once dropped all three it was asked for).
  */
 function writeManifest(): void {
   const lines = GUIDE_SHOT_LIST.flatMap((shot) => {
-    const entry = produced.get(shot.id) ?? (wanted(shot.id) ? undefined : GUIDE_SHOTS[shot.id]);
+    const entry = produced.get(shot.id) ?? GUIDE_SHOTS[shot.id];
     if (!entry) return [];
     return [
       `  ${JSON.stringify(shot.id)}: {`,

@@ -265,6 +265,7 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
   - The CI probe runs from US runners, so every database trip it measures crosses an ocean. The team is in India and the database is in Mumbai.
   - Add an **India probe**: the advisor runs `perf-probe` from the laptop in India against the preview and the main-preview, for all three roles.
   - Evaluate **Cloudflare Smart Placement**, running the Worker beside the database. Measure it on the preview from India and from the US, and adopt it with an ADR only if it's faster for India. The owner approves anything that changes production config.
+    - **Decided 2026-11-11: not adopted (ADR-0017).** From India the placed Worker answers `Cf-Placement: local-BOM`, the same Mumbai data centre as the default, so India cannot gain; the US probe is recorded for the record only. The experiment (`maxoff-staging-smart`, its env and its job) is removed. Revisit only if users outside India become common.
 - [ ] **X5 [C] Tests fixed at the cause:** `calendar.spec:410`, `notifications.spec:483` and the `working-hours` midnight window (above), plus any test that fails once during v2.0.
 - [ ] **X6 [C] Release review:**
   - the guide, every role;
