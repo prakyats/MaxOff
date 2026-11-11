@@ -352,8 +352,36 @@ test.describe("a project on hold", () => {
       rows.filter({ hasText: "Reel 3" }).locator('[data-planned="late"]:visible').first(),
     ).toBeVisible();
 
+    // X5+ L5 (as the task's menu above): every item of an open menu has the menu's own size,
+    // indent and slot; X1's own data-slots once replaced them (the item row's Open, the
+    // project's Copy schedule and Put on hold…).
+    const menuLooks = () =>
+      page.getByRole("menuitem").evaluateAll((items) =>
+        items.map((item) => {
+          const style = getComputedStyle(item);
+          return `${style.fontSize} ${style.paddingLeft} ${(item as HTMLElement).dataset.slot}`;
+        }),
+      );
+    await rows
+      .filter({ hasText: "Reel 3" })
+      .getByRole("button", { name: "More for Reel 3" })
+      .click();
+    const rowMenu = await menuLooks();
+    expect(rowMenu.length, "the row's menu has items").toBeGreaterThan(1);
+    expect(new Set(rowMenu).size, `the row's menu items look alike: ${rowMenu.join(" | ")}`).toBe(
+      1,
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menuitem")).toHaveCount(0);
+
     const menu = page.getByRole("button", { name: `Actions for ${name}` });
     await menu.click();
+    const projectMenu = await menuLooks();
+    expect(projectMenu.length, "the project's menu has items").toBeGreaterThan(1);
+    expect(
+      new Set(projectMenu).size,
+      `the project's menu items look alike: ${projectMenu.join(" | ")}`,
+    ).toBe(1);
     await page.getByRole("menuitem", { name: "Put on hold…" }).click();
     const holdSheet = page.getByRole("dialog", { name: `Put "${name}" on hold?` });
     await expect(holdSheet).toBeVisible();
