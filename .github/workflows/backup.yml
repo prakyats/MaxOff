@@ -44,6 +44,10 @@ jobs:
       cancel-in-progress: false
     environment:
       name: backup
+    # `issues: write` is for the failure alert below only (ops safety nets, gap audit 1 and 6).
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -79,6 +83,31 @@ jobs:
           set -euo pipefail
           key="$(bash scripts/backup/dump.sh)"
           echo "Backed up to \`$key\` (encrypted to the Owner's age key)." >> "$GITHUB_STEP_SUMMARY"
+
+      # A failed night must not wait for the monthly issue (gap audit 1). Opens the "Backup failed"
+      # issue, or comments on it when one is already open, with this run's link. It uses only the
+      # workflow's own token and prints no secret. A backup that never ran at all is caught by
+      # ops-check.yml the next morning. What to do: docs/runbooks/incident.md → "A backup failed".
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Backup failed"
+          when="$(TZ=Asia/Kolkata date +'%d %b %Y %H:%M IST')"
+          body="The nightly backup failed at about $when: $RUN_URL
+
+          What to do: \`docs/runbooks/incident.md\` → \"A backup failed\". Close this issue once a backup run is green again."
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
 
   usage-check:
     name: monthly Supabase usage check
