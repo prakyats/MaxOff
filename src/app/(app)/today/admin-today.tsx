@@ -199,6 +199,10 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   }));
   const window = leaveWindow(scopedEvents, today);
   const assignees = [...new Set(scoped.flatMap((task) => task.assigneeIds))];
+  // End day's claim form setup (3b.3) starts here, beside the second wave (v2.0 X6, #89): its
+  // promise goes to a client component, so the response stays open until it resolves. Started in
+  // the render, it held the last byte one more database trip after the page's content.
+  const claimSetup = getClaimSetup().catch(() => null);
   // The rows' unread comments (for the rows shown only, A-S4) and the leave check, in one wave.
   const [unread, leave, details] = await Promise.all([
     listUnreadCounts([...needs.map((i) => i.row.id), ...mine.map((i) => i.row.id)]),
@@ -265,9 +269,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     <>
       <PageHeader title="Today" description={dayContext(today, viewer.name)} />
       <PhoneDateLine line={dateLine(today)} />
-      <TodayAttendanceStrip
-        endDayFollowUp={<EndDayClaims today={today} setup={getClaimSetup().catch(() => null)} />}
-      />
+      <TodayAttendanceStrip endDayFollowUp={<EndDayClaims today={today} setup={claimSetup} />} />
       <DayColumns
         slot="admin-today"
         week={<ThisWeek blocks={week.blocks} hidden={week.hidden} />}

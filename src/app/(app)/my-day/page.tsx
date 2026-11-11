@@ -57,11 +57,16 @@ export const metadata: Metadata = { title: "My Day" };
  */
 export default async function MyDayPage() {
   // The strip's day and hours start with the session read, not after it (§19). End day's claim
-  // setup does not: it is read only after a Yes, so it starts with the render, after the first
-  // wave, which stays within two of the Worker's six-at-a-time batches (v1.9 speed gate).
+  // setup does not join the first wave (it stays within two of the Worker's six-at-a-time batches,
+  // v1.9 speed gate): it starts once the permission check has its answer (v2.0 X6, #89). Its
+  // promise goes to a client component, so the response stays open until it resolves; started in
+  // the render, it held the last byte one more database trip after the page's content.
   startEarly(getOwnToday(), getOwnHours());
   const today = todayIST();
   const openRows = readOpenTasks();
+  const claimSetup = requirePermission("attendance.self")
+    .then(() => getClaimSetup())
+    .catch(() => null);
   const [viewer, [rows, directory, labels, own, unread, weekRead]] = await checkThenRead(
     requirePermission("attendance.self"),
     Promise.all([
@@ -113,7 +118,7 @@ export default async function MyDayPage() {
         endDayFollowUp={
           // End day's "Any expenses to claim today?" (3b.3): the claim form's setup is a
           // promise, read only if the person answers Yes.
-          <EndDayClaims today={today} setup={getClaimSetup().catch(() => null)} />
+          <EndDayClaims today={today} setup={claimSetup} />
         }
       />
       <DayColumns
