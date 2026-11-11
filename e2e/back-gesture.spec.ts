@@ -958,4 +958,49 @@ test.describe("installed: More → Appearance is its own sheet", () => {
     await expect(page).toHaveURL(/\/today$/);
     await expectBackStack(page, [{ closes: more, url: /\/today$/ }, { url: /\/tasks$/ }]);
   });
+
+  test("More → Appearance → Dark: the sheet closes, the app is dark, the back stack is unchanged (X5+ H6)", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/tasks");
+    await page.goto("/today");
+    await hydrated(page);
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const more = page.locator('[data-slot="more-sheet"]');
+    await expect(more).toBeVisible();
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    const appearance = page.locator('[data-slot="appearance-sheet"]');
+    await expect(appearance).toBeVisible();
+    await appearance.locator('[data-slot="appearance-option"][data-value="dark"]').click();
+    // A choice applies and closes its sheet; the More sheet stays, and no history was added.
+    await expect(appearance).toBeHidden();
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    await expect(more).toBeVisible();
+    await expectBackStack(page, [{ closes: more, url: /\/today$/ }, { url: /\/tasks$/ }]);
+  });
+
+  test("More → Appearance → System follows the device's dark and light (X5+ H6)", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/today");
+    await hydrated(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const more = page.locator('[data-slot="more-sheet"]');
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    const appearance = page.locator('[data-slot="appearance-sheet"]');
+    // Light first, so System's dark is the device's, not a choice left over.
+    await appearance.locator('[data-slot="appearance-option"][data-value="light"]').click();
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    await appearance.locator('[data-slot="appearance-option"][data-value="system"]').click();
+    await expect(appearance).toBeHidden();
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  });
 });

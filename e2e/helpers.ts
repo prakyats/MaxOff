@@ -701,6 +701,34 @@ export async function streamedHeights(
 }
 
 /**
+ * Each control a row draws over its stretched opener (its ⋯ menu, Next, Mark done), at its
+ * centre: what a tap there reaches. A control under the opener's link reads as the opener (X3 (d):
+ * the opener went above the chips, never above the actions; X5+ H3). `opener` names the row's
+ * own link or button, which the controls leave out.
+ */
+export async function controlHits(row: Locator, opener: string): Promise<string[]> {
+  return row.evaluate((li, openerSelector) => {
+    const controls = [
+      ...li.querySelectorAll<HTMLElement>("button, a[href], [role='checkbox']"),
+    ].filter(
+      (control) =>
+        !control.matches(openerSelector) &&
+        control.getBoundingClientRect().width > 0 &&
+        control.checkVisibility(),
+    );
+    return controls.map((control) => {
+      const rect = control.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const name =
+        control.getAttribute("aria-label") ?? control.textContent?.trim() ?? control.tagName;
+      return hit && (hit === control || control.contains(hit))
+        ? `${name}: itself`
+        : `${name}: covered`;
+    });
+  }, opener);
+}
+
+/**
  * The calendar's own JavaScript is live, not only the shell's (`hydrated`): the calendar's chunk
  * lands after the shell has hydrated, and its first layout effect marks the phone's area
  * `data-leave-fitted` (`leave-fit.ts`). A tap on the handle before it would hit the server's

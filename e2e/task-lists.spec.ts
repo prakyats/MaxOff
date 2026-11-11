@@ -680,6 +680,7 @@ test.describe("the task lists, installed: back and large text", () => {
         });
       }),
     );
+    expect(chipHits.length, "the row has chips to tap (not vacuous)").toBeGreaterThan(0);
     expect(chipHits, "a tap on a chip lands on the row").toEqual(chipHits.map(() => "row"));
     // A tap where the first chip's dot is: the point, not the element (the row's link is on top).
     const dot = await row.locator('[data-slot="status-badge-dot"]').first().boundingBox();

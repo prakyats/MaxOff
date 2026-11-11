@@ -28,6 +28,7 @@ import {
   streamedHeights,
   answerStartPrompt,
   ownSession,
+  controlHits,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
@@ -289,6 +290,14 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await hydrated(page);
   // Amendment D3: one figure, done (= approved).
   await expect(progress(page)).toHaveText("0 of 6 stages · 0 of 3 deliverables done");
+
+  // The row's own controls (its ⋯, Next) take their taps over the row's stretched opener (X5+ H3).
+  const hits = await controlHits(itemRow(page, "Reel 1"), '[data-slot="item-open"]');
+  expect(hits.length, "the row has controls (not vacuous)").toBeGreaterThan(0);
+  expect(
+    hits.filter((hit) => hit.endsWith("covered")),
+    "no control under the opener",
+  ).toEqual([]);
 
   // One row's Mark done: instant with the 6-second Undo, then it counts. Its stages are not all
   // ticked, so it waits in the row's ⋯ (unit U).

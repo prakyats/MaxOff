@@ -3,6 +3,7 @@
 import { CheckIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import {
   Sheet,
   SheetContent,
@@ -59,8 +60,15 @@ export function AppearanceSheet({
                 data-value={value}
                 className="pressable-row focus-visible:ring-ring flex min-h-11 items-center gap-3 rounded-lg px-3 text-left text-base outline-none focus-visible:ring-2"
                 onClick={() => {
-                  setTheme(value);
-                  onOpenChange(false);
+                  // Back over the sheet's own entry first (§14.2 e), then the choice: closed by
+                  // state, the entry stayed behind and swallowed a later back press (X5+ H6).
+                  // With no entry of its own the choice runs at once and the sheet closes here.
+                  let applied = false;
+                  closeOverlaysThen(() => {
+                    applied = true;
+                    setTheme(value);
+                  });
+                  if (applied) onOpenChange(false);
                 }}
               >
                 <Icon aria-hidden className="text-muted-foreground size-5 shrink-0" />

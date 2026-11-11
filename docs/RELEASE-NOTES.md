@@ -22,6 +22,8 @@ walk). Started in X3 (d), 11 Nov 2026; X6 completes it with the speed tables and
 - **A client's page and a project's page load without a jump (Owner and Admins).** Their grey loading
   placeholders now match the page: the client's Key people no longer shifts when the projects arrive, and with
   large system text on a phone neither loading screen reaches past the edge of the screen.
+- **Back after choosing an appearance works first time (phone).** After picking Light, Dark or System from More →
+  Appearance, one back press used to do nothing; now the first back closes More and the next leaves the screen.
 - **Signed-out pages only:** if the phone switches between light and dark while the sign-in page is open, the
   colours now fade instead of switching at once. Signed in, nothing changes.
 
