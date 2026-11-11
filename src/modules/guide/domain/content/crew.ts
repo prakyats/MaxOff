@@ -501,7 +501,7 @@ export const CREW_GUIDE: Guide = {
                 },
                 'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
                 'On a laptop, "This week" sits beside the list (below it on a narrow window), as on My Day: each of your deadlines by name and time, your events with their place, holidays and your own leave. A phone shows only the list.',
-                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title, such as a red "2 days late" or "3 h late" on a late task, and the task\'s state, then ›. On a small phone a long chip is shortened with “…”; the task\'s page shows it in full. Tap a task to open it.',
+                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title, such as a red "2 days late" or "3 h late" on a late task, and the task\'s state, then ›. On a small phone a long chip is shortened with “…”; the task\'s page shows it in full. Tap anywhere on a row, its chips included, to open the task.',
               ],
             },
             {

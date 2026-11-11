@@ -4,6 +4,21 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v2.0.0: fast and settled
+
+**Not released yet** (draft, branch `claude/lucid-turing-sfdv10` → `phase-v2` → `main`; the Owner tags after his
+walk). Started in X3 (d), 11 Nov 2026; X6 completes it with the speed tables and the CI runs.
+
+### What the Crew will notice
+- **A tap on a task row's chip opens the task.** Since v1.8 a tap on "Note it", "Overdue" or a state chip on a
+  task row did nothing; now the whole row, chips included, opens it (the guide says so for every role).
+- **Taps on the calendar before it is ready are kept.** Opening the calendar on a slow phone, a tap on the week
+  handle or a day in the first moment used to be lost; it now takes effect as soon as the calendar is ready.
+- **Pages are ready sooner on a phone.** Today and My Day finish loading with about a third less blocked time
+  on a mid-range phone; nothing on screen changed.
+- **Signed-out pages only:** if the phone switches between light and dark while the sign-in page is open, the
+  colours now fade instead of switching at once. Signed in, nothing changes.
+
 ## v1.9.0: working hours, On hold, two kinds of Close, approval reminders, the calendar's day row
 
 **Not released yet** (branch `claude/lucid-turing-sfdv10` → `phase-6b-r4` → `main`; the Owner tags after his walk).
