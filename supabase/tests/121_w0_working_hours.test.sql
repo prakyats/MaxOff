@@ -12,10 +12,11 @@
 --    marks Late (never blocked, nobody told), a morning half day is never Late, the reason, "Shoot at
 --    ‹time›", End day refused before the end time, Ask to leave early (the Owner only is told), the
 --    30-minute wait, "Left early, not answered", Stay until, Stay, Approve at the ask, lapsed, the
---    Owner's read, and the switch off. Neutral names only.
+--    Owner's read, and the switch off; then the day's edges (00:05 and 23:50 IST, a 00:00-23:59 day with no
+--    grace), which the e2e spec never runs in (X5). Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(134);
+select plan(142);
 
 delete from public.approval_reminder_sends;
 delete from public.early_leave_requests;
@@ -542,8 +543,41 @@ select lives_ok($$ select public.attendance_end_day() $$, 'and End day works any
 select pg_temp.as_member('staff4');
 select throws_ok($$ select public.attendance_ask_leave_early('x') $$, 'P0001', 'INVALID_STATE', 'Ask to leave early needs a started day');
 select pg_temp.as_system();
+
+-- The day's edges (X5, 11 Nov 2026): the e2e spec sets the hours around the hour it runs, inside the
+-- IST day, and near midnight they come down to a day from 00:00 to 23:59 with no grace. pgTAP owns the
+-- clock at those edges, on Thu 12 Nov 2026, so the e2e never has to run in them.
+update public.org_settings
+   set working_hours_on = true, work_start_time = '00:00', work_end_time = '23:59', late_grace_minutes = 0
+ where org_id = pg_temp.fx('org');
+select pg_temp.at('2026-11-12 00:05');
+select pg_temp.as_member('staff4');
+select lives_ok($$ select public.attendance_start_day() $$, 'at 00:05 IST a day that starts at midnight starts');
+select pg_temp.as_system();
+select is((select d.late_minutes from public.attendance_days d
+           where d.member_id = pg_temp.fx('staff4') and d.work_date = '2026-11-12'), 5,
+  'with no grace it is 5 minutes late: a late start exists from the IST day''s first minutes');
+update public.org_settings set work_end_time = '23:54' where org_id = pg_temp.fx('org');
+select pg_temp.at('2026-11-12 23:50');
+select pg_temp.as_member('staff4');
+select is((select o.can_end_now from public.attendance_own_hours() o), false,
+  'at 23:50 IST, before a 23:54 end, End day is not open yet');
+insert into fx select 'be', public.attendance_ask_leave_early('Late train');
+select pg_temp.as_system();
+select is((select requested_at from public.early_leave_requests where id = pg_temp.fx('be')), pg_temp.ist('2026-11-12 23:50'),
+  'and the ask to leave early is taken at 23:50 IST');
+select pg_temp.as_member('owner');
+select is(public.attendance_stay_until(pg_temp.fx('staff4'), pg_temp.ist('2026-11-12 23:59')), pg_temp.ist('2026-11-12 23:59'),
+  'Stay until 23:59 IST still fits after a 23:54 end');
+select throws_ok(format($$ select public.attendance_stay_until(%L, %L) $$, pg_temp.fx('staff4'), pg_temp.ist('2026-11-13 00:00')),
+  'P0001', 'VALIDATION', 'but never past midnight: the edge the e2e can''t use');
+select is(public.early_leave_decide(pg_temp.fx('be'), 'approve'), 'approved', 'the Owner approves at 23:50 IST');
+select pg_temp.as_system();
+select is((select d.ended_at from public.attendance_days d
+           where d.member_id = pg_temp.fx('staff4') and d.work_date = '2026-11-12'), pg_temp.ist('2026-11-12 23:50'),
+  'the day ends at the ask, before midnight');
 select set_config('app.test_now', '', true);
-select isnt(app.now(), pg_temp.ist('2026-11-11 18:05'), 'cleared, the clock is the real one again');
+select isnt(app.now(), pg_temp.ist('2026-11-12 23:50'), 'cleared, the clock is the real one again');
 
 select * from finish();
 rollback;
