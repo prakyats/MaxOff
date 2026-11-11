@@ -1,0 +1,195 @@
+# Daily ops check (ops safety nets, gap audit 1, 2 and 6): the invisible checks that tell the Owner
+# something went wrong before the team does. It reads only GitHub itself (the Backup workflow's
+# runs, this repository's issues and docs/runbooks/secrets.md). It never touches a database,
+# Cloudflare or Supabase, and holds no secret beyond the workflow's own token.
+#
+# 1. Backup freshness, every morning: the newest scheduled Backup run of the last 36 hours whose
+#    nightly job ran must be a success. Otherwise (failed, cancelled, or no run at all) it opens the
+#    "Backup failed" issue or comments on the open one. backup.yml alerts on its own failures;
+#    this catches the night it never ran (a disabled schedule, an Actions outage).
+# 2. Secrets expiry, on the 1st of each month (IST): comments on that month's "Monthly Supabase
+#    usage check" issue (opened by backup.yml at 08:45 IST) with the secrets whose expiry date in
+#    docs/runbooks/secrets.md is within 60 days, expired ones included.
+#
+# What to do when either fires: docs/runbooks/incident.md and docs/runbooks/secrets.md.
+name: Ops check
+
+on:
+  schedule:
+    # 03:30 UTC = 09:00 IST, after the 02:00 IST backup and the 08:45 IST monthly issue.
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+    inputs:
+      expiry_check:
+        description: "Also run the secrets-expiry check today (it runs by itself on the 1st)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup-freshness:
+    name: backup ran last night
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - name: Check the newest nightly backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          since="$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          # Scheduled runs only (a manual run does not prove the schedule works), newest first.
+          # The monthly 08:45 IST run of the same workflow skips the nightly job, so it is passed over.
+          ids="$(gh run list --workflow backup.yml --event schedule --limit 20 \
+            --json databaseId,createdAt \
+            --jq "[.[] | select(.createdAt >= \"$since\")] | sort_by(.createdAt) | reverse | .[].databaseId")"
+          found=""
+          for id in $ids; do
+            nightly="$(gh run view "$id" --json jobs \
+              --jq '[.jobs[] | select(.name | startswith("nightly"))][0] | "\(.status) \(.conclusion)"')"
+            case "$nightly" in
+              "completed skipped" | "null null" | "") continue ;;
+            esac
+            found="$id"
+            break
+          done
+
+          if [ -z "$found" ]; then
+            problem="No scheduled backup ran in the last 36 hours (checked at $(TZ=Asia/Kolkata date +'%d %b %Y %H:%M IST')). The schedule may be disabled (Actions → Backup) or GitHub Actions had an outage."
+            link=""
+          elif [ "$nightly" = "completed success" ]; then
+            echo "Last night's backup is green: $SERVER_URL/$GH_REPO/actions/runs/$found"
+            exit 0
+          else
+            link="$SERVER_URL/$GH_REPO/actions/runs/$found"
+            problem="The newest nightly backup is not green (status: $nightly): $link"
+          fi
+          echo "::warning::$problem"
+
+          title="Backup failed"
+          body="Ops check: $problem
+
+          What to do: \`docs/runbooks/incident.md\` → \"A backup failed\". Close this issue once a backup run is green again."
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          if [ -n "$number" ]; then
+            # backup.yml has usually reported this run already; say it once only.
+            if [ -n "$link" ] && gh issue view "$number" --json body,comments \
+              --jq '.body, .comments[].body' | grep -qF "$link"; then
+              echo "Issue #$number already names this run."
+              exit 0
+            fi
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+  secrets-expiry:
+    name: secrets expiring within 60 days
+    if: github.event_name == 'schedule' || inputs.expiry_check
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Only on the 1st (IST)
+        id: day
+        env:
+          FORCED: ${{ github.event_name == 'workflow_dispatch' && inputs.expiry_check }}
+        run: |
+          if [ "$(TZ=Asia/Kolkata date +%d)" = "01" ] || [ "$FORCED" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not the 1st: nothing to do."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.day.outputs.run == 'true'
+        with:
+          sparse-checkout: docs/runbooks/secrets.md
+          sparse-checkout-cone-mode: false
+
+      # Reads the register between its two markers. A row's first cell is the name, the second the
+      # environment, the last the expiry: the first YYYY-MM-DD in it counts, "none" never expires,
+      # anything else ("unknown – Owner to fill") is counted as unknown. Names only: the register holds no value.
+      - name: Read the register
+        if: steps.day.outputs.run == 'true'
+        id: register
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime, re, zoneinfo
+          today = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).date()
+          limit = today + datetime.timedelta(days=60)
+          inside, soon, unknown = False, [], 0
+          for line in open("docs/runbooks/secrets.md", encoding="utf-8"):
+              if "<!-- register:start -->" in line:
+                  inside = True
+                  continue
+              if "<!-- register:end -->" in line:
+                  break
+              if not inside or not line.startswith("|"):
+                  continue
+              cells = [c.strip() for c in line.strip().strip("|").split("|")]
+              name = cells[0].replace("`", "")
+              if len(cells) < 3 or name in ("Name", "") or set(name) <= set("-: "):
+                  continue
+              m = re.search(r"\d{4}-\d{2}-\d{2}", cells[-1])
+              if not m and cells[-1].lower().startswith("none"):
+                  continue
+              if not m:
+                  unknown += 1
+                  continue
+              expiry = datetime.date.fromisoformat(m.group(0))
+              if expiry <= limit:
+                  state = "EXPIRED" if expiry < today else "expires"
+                  soon.append(f"`{name}` ({cells[1]}): {state} {expiry.isoformat()}")
+          listed = "; ".join(soon) if soon else "none"
+          print(f"line=**Secrets expiring within 60 days** (docs/runbooks/secrets.md): {listed}. {unknown} secrets have no expiry recorded yet.")
+          print(f"count={len(soon)}")
+          PY
+
+      - name: Add the line to this month's usage issue
+        if: steps.day.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINE: ${{ steps.register.outputs.line }}
+          COUNT: ${{ steps.register.outputs.count }}
+        run: |
+          set -euo pipefail
+          echo "$LINE" >> "$GITHUB_STEP_SUMMARY"
+          title="Monthly Supabase usage check: $(TZ=Asia/Kolkata date +'%B %Y')"
+          number=""
+          # backup.yml opens the issue at 08:45 IST, and a scheduled run can start late: wait for it.
+          for attempt in 1 2 3 4 5 6 7; do
+            number="$(gh issue list --state all --search "\"$title\" in:title" --json number,title \
+              --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+            [ -n "$number" ] && break
+            [ "$attempt" = 7 ] || sleep 300
+          done
+          if [ -z "$number" ]; then
+            echo "::warning::\"$title\" was not found."
+            if [ "$COUNT" != "0" ]; then
+              gh issue create --title "Secrets expiring soon: $(TZ=Asia/Kolkata date +'%B %Y')" \
+                --body "$LINE
+
+          How to rotate each one: \`docs/runbooks/secrets.md\`."
+            fi
+            exit 0
+          fi
+          if gh issue view "$number" --json comments --jq '.comments[].body' \
+            | grep -qF "Secrets expiring within 60 days"; then
+            echo "Issue #$number already has this month's line."
+            exit 0
+          fi
+          gh issue comment "$number" --body "- [ ] $LINE How to rotate each one: \`docs/runbooks/secrets.md\`."
