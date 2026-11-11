@@ -70,6 +70,7 @@ import http from "node:http";
 import https from "node:https";
 import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
+import zlib from "node:zlib";
 
 import { judgeRun, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
 
@@ -105,6 +106,13 @@ const pairLabel = args["pair-label"] ?? "staging (main)";
 const bases = pairBase ? [base, pairBase] : [base];
 /** `--trace-route /today`: that route's warm samples also time each streamed segment (observation). */
 const traceRoute = args["trace-route"] ?? null;
+/**
+ * `--encoding "br, gzip"`: send a browser's Accept-Encoding (observation, v2.0 X6). A browser asks
+ * for compression and Cloudflare then compresses the stream at the edge; this probe's Node
+ * requests asked for none. Bytes and times are counted as they arrive, compressed; a traced
+ * route's chunks are decompressed as they come, so its segments keep their arrival times.
+ */
+const acceptEncoding = args.encoding ?? null;
 
 const env = {
   url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -284,27 +292,47 @@ function request(url, { agent, headers, trace = false }) {
       const head = [];
       // `--trace-route`: each chunk's arrival, to name the streamed segment that came late.
       const chunks = trace ? [] : null;
+      const encoding = String(res.headers["content-encoding"] ?? "");
+      // A compressed traced body is decompressed as it arrives: each piece of text is stamped
+      // with the time its compressed bytes came in.
+      const inflate = !chunks
+        ? null
+        : encoding === "br"
+          ? zlib.createBrotliDecompress({ flush: zlib.constants.BROTLI_OPERATION_FLUSH })
+          : encoding === "gzip"
+            ? zlib.createGunzip({ flush: zlib.constants.Z_SYNC_FLUSH })
+            : null;
+      let arrivedAt = 0;
+      inflate?.on("data", (text) => chunks.push({ at: arrivedAt, chunk: text }));
+      inflate?.on("error", () => undefined);
       res.on("data", (chunk) => {
+        arrivedAt = performance.now() - start;
         if (bytes < BODY_HEAD_BYTES) head.push(chunk.subarray(0, BODY_HEAD_BYTES - bytes));
         bytes += chunk.length;
-        chunks?.push({ at: performance.now() - start, chunk });
+        if (inflate) inflate.write(chunk);
+        else chunks?.push({ at: arrivedAt, chunk });
       });
       res.on("end", () => {
         const serverTiming = res.headers["server-timing"] ?? "";
-        resolve({
-          status: res.statusCode,
-          ttfb,
-          total: performance.now() - start,
-          connect: reused ? 0 : secured || connected,
-          reused,
-          bytes,
-          ray: String(res.headers["cf-ray"] ?? ""),
-          colo: String(res.headers["cf-ray"] ?? "").split("-")[1] ?? "",
-          timing: parseServerTiming(serverTiming),
-          location: res.headers.location ?? null,
-          head: Buffer.concat(head).toString("utf8"),
-          ...(chunks ? { trace: streamSegments(chunks, ttfb) } : {}),
-        });
+        const done = () =>
+          resolve({
+            status: res.statusCode,
+            ttfb,
+            total: performance.now() - start,
+            connect: reused ? 0 : secured || connected,
+            reused,
+            bytes,
+            ray: String(res.headers["cf-ray"] ?? ""),
+            colo: String(res.headers["cf-ray"] ?? "").split("-")[1] ?? "",
+            timing: parseServerTiming(serverTiming),
+            location: res.headers.location ?? null,
+            head: Buffer.concat(head).toString("utf8"),
+            ...(chunks ? { trace: streamSegments(chunks, ttfb) } : {}),
+          });
+        if (!inflate) return done();
+        inflate.once("end", done);
+        inflate.once("error", done);
+        inflate.end();
       });
     });
     req.on("socket", (socket) => {
@@ -528,6 +556,7 @@ async function main() {
   const headersFor = (route) => ({
     "user-agent": "maxoff-perf-probe",
     accept: "text/html,application/json;q=0.9,*/*;q=0.8",
+    ...(acceptEncoding ? { "accept-encoding": acceptEncoding } : {}),
     ...(route.auth && cookie ? { cookie } : {}),
   });
   const Agent = transport.Agent;

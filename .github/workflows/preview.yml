@@ -79,6 +79,10 @@ on:
         description: "perf-probe: also time each streamed segment of this route's warm samples, e.g. /today (observation only)"
         type: string
         default: ""
+      encoding:
+        description: "perf-probe: send this Accept-Encoding as a browser does, e.g. br, gzip (observation only)"
+        type: string
+        default: ""
       production:
         description: "perf-probe: also probe production signed out (public routes only, read-only)"
         type: boolean
@@ -662,6 +666,7 @@ jobs:
           PAIR: ${{ inputs.compare && steps.names.outputs.target != steps.names.outputs.baseline_url && steps.names.outputs.baseline_url || '' }}
           PAIR_LABEL: ${{ steps.names.outputs.baseline_label }}
           TRACE_ROUTE: ${{ inputs.trace_route }}
+          ENCODING: ${{ inputs.encoding }}
         run: |
           set -euo pipefail
           pair=()
@@ -676,6 +681,14 @@ jobs:
               exit 1
             fi
             trace=(--trace-route "$TRACE_ROUTE")
+          fi
+          # Content codings only (br, gzip, deflate, identity), as a browser lists them.
+          if [ -n "${ENCODING:-}" ]; then
+            if ! printf '%s' "$ENCODING" | grep -Eqx '(br|gzip|deflate|identity)(, ?(br|gzip|deflate|identity))*'; then
+              echo "::error::encoding must list content codings, e.g. br, gzip."
+              exit 1
+            fi
+            trace+=(--encoding "$ENCODING")
           fi
           node scripts/perf-probe.mjs --base "$TARGET" --samples "$SAMPLES" --role "$ROLE" \
             --label "$LABEL" --out "$RUNNER_TEMP/probe-branch.json" "${pair[@]}" "${trace[@]}"
