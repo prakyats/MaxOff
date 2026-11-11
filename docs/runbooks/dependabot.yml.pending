@@ -1,3 +1,4 @@
+# PENDING (advisor, 2026-11-11): moved here until preview.yml skips `dependabot/**` branches (Dependabot runs get no environment secrets, so every preview would go red). Move back to .github/dependabot.yml in the same PR as that skip, after v2.0 merges.
 # Dependency updates (ops safety nets, gap audit 13). Weekly, grouped minor + patch PRs for the
 # pnpm packages and the GitHub Actions; majors arrive one PR each. Security updates are grouped
 # too. They need "Dependabot alerts" and "Dependabot security updates" turned on in the repository's
