@@ -174,14 +174,20 @@ function page({
     };
     return button;
   };
-  const tapButton = (button: ReturnType<typeof buttonFor>) => {
+  /** `inner`: the tap lands on another control inside the marked button (its own answers). */
+  const tapButton = (button: ReturnType<typeof buttonFor>, inner: object | null = null) => {
     const preventDefault = vi.fn();
     const stopImmediatePropagation = vi.fn();
     listener!({
       button: 0,
       defaultPrevented: false,
       target: {
-        closest: (selector: string) => (selector === `[${HOLD_TAP_ATTRIBUTE}]` ? button : null),
+        closest: (selector: string) =>
+          selector === `[${HOLD_TAP_ATTRIBUTE}]`
+            ? button
+            : selector.startsWith("button,")
+              ? (inner ?? button)
+              : null,
       },
       preventDefault,
       stopImmediatePropagation,
@@ -471,6 +477,30 @@ describe("a tap on a marked button before hydration is held, never lost (v2.0 X3
       vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
       expect(save.click).not.toHaveBeenCalled();
     }
+  });
+
+  it("never swallows a tap on another control inside a marked one (X6 review)", () => {
+    const doc = page();
+    const day = doc.buttonFor("day:2026-11-09", false);
+    expect(doc.tapButton(day, { inner: "a link in the day" })).toEqual({
+      prevented: false,
+      stopped: false,
+    });
+    markLive(day as unknown as HTMLElement);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(day.click).not.toHaveBeenCalled();
+  });
+
+  it("drops the replay when the button it finds is a commit (X6 review: the target, not only the tap)", () => {
+    const doc = page();
+    const tapped = doc.buttonFor("day:2026-11-09", false);
+    doc.tapButton(tapped);
+    tapped.isConnected = false;
+    const swapped = doc.buttonFor("day:2026-11-09", true, { within: "[data-slot=sheet-footer]" });
+    doc.findable.push(swapped as never);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(swapped.click).not.toHaveBeenCalled();
+    expect(tapped.click).not.toHaveBeenCalled();
   });
 
   it("ignores a second tap while one is held: one toggle, not two", () => {

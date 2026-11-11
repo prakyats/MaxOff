@@ -105,6 +105,12 @@ const HELD_TAP_POLL_MS = 50;
 export const NEVER_HELD =
   "form,[data-slot=sticky-actions],[data-slot=dialog-footer],[data-slot=sheet-footer],[data-slot=alert-dialog-footer],[data-slot=detail-sheet-actions],[data-slot=review-sheet-actions],[data-slot=page-actions]";
 
+/**
+ * A tap is held only when its own control is the marked one (X6 review batch 1): a button or link
+ * inside a marked element answers for itself, so a tap on it is never swallowed by the mark.
+ */
+const INTERACTIVE = "button,a,[role=button],input,select,textarea";
+
 export const PRE_HYDRATION_SCRIPT = `(function(){try{
 var d=document,held=false;
 d.addEventListener("touchstart",function(){},{passive:true});
@@ -116,12 +122,13 @@ function tabMove(href,path,home,top,standalone,pushed){if(!standalone||top.index
 function sameLink(a,kind,href){if(a.isConnected!==false)return a;var all=d.querySelectorAll(kind),k;for(k=0;k<all.length;k++){if(all[k].href===href)return all[k]}return null}
 function perform(move,href,steps){if(move==="back")history.go(-steps);else if(move==="replace")location.replace(href);else location.assign(href)}
 function sameButton(b,key){if(b.isConnected!==false)return b;var all=d.querySelectorAll('[${HOLD_TAP_ATTRIBUTE}="'+key+'"]'),k;for(k=0;k<all.length;k++){if(all[k].getClientRects&&all[k].getClientRects().length)return all[k]}return all.length?all[0]:null}
-function holdTap(b){if(held)return;held=true;var key=b.getAttribute("${HOLD_TAP_ATTRIBUTE}"),started=Date.now();var timer=setInterval(function(){try{var el=sameButton(b,key);if(el&&el.hasAttribute("${LIVE_ATTRIBUTE}")){clearInterval(timer);held=false;el.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS}){clearInterval(timer);held=false}}catch(err){clearInterval(timer);held=false}},${HELD_TAP_POLL_MS})}
+function neverHeld(b){return b.type==="submit"||!!(b.closest&&b.closest("${NEVER_HELD}"))}
+function holdTap(b){if(held)return;held=true;var key=b.getAttribute("${HOLD_TAP_ATTRIBUTE}"),started=Date.now();var timer=setInterval(function(){try{var el=sameButton(b,key);if(el&&el.hasAttribute("${LIVE_ATTRIBUTE}")){clearInterval(timer);held=false;if(!neverHeld(el))el.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS}){clearInterval(timer);held=false}}catch(err){clearInterval(timer);held=false}},${HELD_TAP_POLL_MS})}
 function hold(a,kind,move,href,steps){if(held)return;held=true;var started=Date.now();var timer=setInterval(function(){try{var link=sameLink(a,kind,href);if(link&&link.hasAttribute("${LIVE_ATTRIBUTE}")){clearInterval(timer);held=false;link.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS}){clearInterval(timer);held=false;perform(move,href,steps)}}catch(err){clearInterval(timer);held=false;perform(move,href,steps)}},${HELD_TAP_POLL_MS})}
 d.addEventListener("click",function(e){try{
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
 var b=e.target&&e.target.closest?e.target.closest("[${HOLD_TAP_ATTRIBUTE}]"):null;
-if(b&&(b.type==="submit"||(b.closest&&b.closest("${NEVER_HELD}"))))b=null;
+if(b&&(neverHeld(b)||e.target.closest("${INTERACTIVE}")!==b))b=null;
 if(b){if(b.hasAttribute("${LIVE_ATTRIBUTE}"))return;e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();holdTap(b);return}
 var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;
 if(!a||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
