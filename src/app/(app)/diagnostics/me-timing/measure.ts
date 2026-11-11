@@ -4,6 +4,7 @@ import {
   firstReadsStats,
   getSessionState,
   requireMember,
+  shellStartedAt,
   withSessionUserId,
 } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
@@ -26,6 +27,10 @@ import { getOwnMember, listDirectoryOf, listOwnFreelancers } from "@/modules/tea
  */
 export async function measureMe() {
   const start = performance.now();
+  // When the page began, after the layout's first line (`startShellRead`), and on the Worker's
+  // clock, which counts from the request's start (Node's counts from the process's).
+  const shellAt = shellStartedAt();
+  const pageAfterShell = shellAt === null ? -1 : Math.round(start - shellAt);
   const since = () => Math.round(performance.now() - start);
   const timed = <T>(read: Promise<T>) => read.then((value) => ({ value, ms: since() }));
 
@@ -49,6 +54,8 @@ export async function measureMe() {
   const [shellRead, bundleRead] = await Promise.all([shell, bundle]);
 
   const body = {
+    page_after_layout: pageAfterShell,
+    page_at: Math.round(start),
     shell: shellRead.ms,
     bundle: bundleRead.ms,
     member: viewer.ms,
