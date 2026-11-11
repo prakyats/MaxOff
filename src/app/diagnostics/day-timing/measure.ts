@@ -20,9 +20,9 @@ import { getEarlyLeaveWait, getOwnHours, getOwnToday } from "@/modules/attendanc
  * and the own hours), then End day's early-leave wait as the strip starts it after them, each
  * timed from the start; and this request's first-read hold counters (`firstReadsStats`: how many
  * waits, how many the 50 ms valve ended, the longest). Observation only, like
- * `/diagnostics/timing`: members only (anyone else 404s), nothing written, in no nav, the answer
- * milliseconds and counts only, never data. Kept while the gate needs it; a later cleanup removes
- * it (PROGRESS).
+ * `/diagnostics/timing`: **the Owner's only** (anyone else 404s, members included; the advisor,
+ * #89), nothing written, in no nav, the answer
+ * milliseconds and counts only, never data. Removed before READY with batch 1's diagnostics cleanup.
  */
 export async function measureDay() {
   const start = performance.now();
@@ -39,7 +39,8 @@ export async function measureDay() {
   const hours = quiet(getOwnHours());
 
   const state = await member;
-  if (state.value.kind !== "member") notFound();
+  // The Owner's only (the advisor, #89): anyone else, members included, gets 404.
+  if (state.value.kind !== "member" || state.value.member.role !== "owner") notFound();
   const role = state.value.member.role;
   const [todayRead, pushRead, bundleRead, hoursRead] = await Promise.all([
     today,

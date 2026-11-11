@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import {
   firstReadsStats,
   getSessionState,
@@ -10,16 +12,17 @@ import { listOwnPushSubscriptions } from "@/core/notifications/push/subscription
 import { getOwnMember, listDirectoryOf, listOwnFreelancers } from "@/modules/team";
 
 /**
- * Where Me's first byte spends its time on the Worker (v2.0 X4, the advisor on #89 6785208528:
- * the US probe had the Owner's /me, /approvals, /clients, a project and a person one Worker→DB
- * trip slower than v1.9, which neither `next start` nor a local `wrangler dev` reproduces).
- * The numbers behind `/diagnostics/me-timing`, rendered **inside the `(app)` layout**, so the
- * shell runs around it exactly as on /me; it makes /me's own reads in /me's order (`checkThenRead(requireMember(), …)`, then the directory for the
- * freelancers the member coordinates), each timed from this page's start, plus the shell's reads
- * as the page sees them (`cache()`d: the layout's own) and this request's first-read hold
- * counters (`firstReadsStats`). Observation only: members only (the layout signs anyone else
- * out), nothing written, in no nav, milliseconds and counts only, never data. Kept while X4 needs
- * it; a later cleanup removes it (PROGRESS).
+ * Where Me's first byte spends its time on the Worker (v2.0 X4, the advisor on #89 6785208528: the
+ * US probe had the Owner's /me, /approvals, /clients, a project and a person one Worker→DB trip
+ * slower than v1.9, which neither `next start` nor a local `wrangler dev` reproduces). The numbers
+ * behind `/diagnostics/me-timing`, rendered **inside the `(app)` layout**, so the shell runs around
+ * it exactly as on /me; it makes /me's own reads in /me's order (`checkThenRead(requireMember(),
+ * …)`, then the directory for the freelancers the member coordinates), each timed from this page's
+ * start, plus the shell's reads as the page sees them (`cache()`d: the layout's own) and this
+ * request's first-read hold counters (`firstReadsStats`). Observation only: **the Owner's only**
+ * (anyone else 404s; the layout signs out anyone who isn't a member), nothing written, in no nav,
+ * milliseconds and counts only, never data. Removed before READY with batch 1's diagnostics cleanup
+ * (the advisor, #89 6785394395).
  */
 export async function measureMe() {
   const start = performance.now();
@@ -36,6 +39,8 @@ export async function measureMe() {
       timed(listOwnPushSubscriptions()),
     ]),
   );
+  // The Owner's only (the advisor, #89 6785394395): anyone else gets the not-found screen.
+  if (viewer.value.role !== "owner") notFound();
   const current = spells.value.filter((spell) => spell.toAt === null);
   const directory =
     current.length > 0
