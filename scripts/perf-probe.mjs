@@ -403,15 +403,34 @@ const ME_TIMING_PATH = "/diagnostics/me-timing";
  * the text of `<pre data-slot="me-timing">`, HTML-escaped. The hold counters are flattened
  * (`first_reads.valve` → `fr_valve`). Null when the base has no such page (staging before it).
  */
+/** Why a me-timing sample read empty, said once per base (the probe's log only). */
+const meTimingMissed = new Set();
+function meTimingMiss(url, why) {
+  const at = new URL(url).origin;
+  if (meTimingMissed.has(at)) return;
+  meTimingMissed.add(at);
+  process.stderr.write(`${ME_TIMING_PATH} on ${at}: no numbers (${why})\n`);
+}
+
 async function meTiming(url, headers) {
   const response = await fetch(url, {
     headers,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).catch(() => null);
-  if (!response?.ok) return null;
+  if (!response?.ok) {
+    meTimingMiss(url, `status ${response?.status ?? 0}`);
+    return null;
+  }
   const html = await response.text();
   const pre = /<pre data-slot="me-timing">([\s\S]*?)<\/pre>/.exec(html)?.[1];
-  if (!pre) return null;
+  if (!pre) {
+    // Where it went instead (a path and sizes only, never the page's text).
+    meTimingMiss(
+      url,
+      `200 at ${new URL(response.url).pathname}, ${html.length} bytes, slot ${html.includes('data-slot="me-timing"') ? "present but not matched" : "absent"}`,
+    );
+    return null;
+  }
   const text = pre
     .replace(/&quot;/g, '"')
     .replace(/&#x27;|&#39;/g, "'")
