@@ -7,6 +7,7 @@ import { expect, test } from "./fixtures";
 import {
   expectBackStack,
   expectNoHorizontalScroll,
+  expectSettled,
   hydrated,
   memberIdOf,
   removeTasksTitled,
@@ -491,11 +492,16 @@ test.describe("the bell and Alerts", () => {
     await signIn(page, staff, PASSWORD);
     await page.goto("/notifications");
     await hydrated(page);
+    // The page has streamed in, so there is one title bar and one bell: until React swaps the
+    // page in, the DOM holds the loading screen's title bar too (`expectSettled`), and `bell`
+    // below named two links (PR #138's CI run 41878631715 at 375: two `nav-badge`s).
+    await expectSettled(page);
     await expect.poll(() => bellCount(page)).toBe(1);
 
     const bell = page.locator(
       isMobile ? '[data-slot="header-bell"]' : '[data-slot="top-bar-bell"]',
     );
+    await expect(bell).toHaveCount(1);
     type Box = { x: number; y: number; width: number; height: number };
     const boxes = () =>
       bell.evaluate((link, phone) => {
@@ -577,6 +583,8 @@ test.describe("the bell and Alerts", () => {
     expect(many.ok, await many.text()).toBe(true);
     await page.reload();
     await hydrated(page);
+    await expectSettled(page);
+    await expect(bell).toHaveCount(1);
     await expect(bell.locator('[data-slot="nav-badge"]')).toHaveText("99+");
     await check("99+");
     await clearAlerts(staff);
