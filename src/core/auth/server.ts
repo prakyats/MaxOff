@@ -171,10 +171,31 @@ function startSessionEarlyRead() {
   });
 }
 
+/**
+ * Whether this runs inside a render, where React's `cache()` keeps one value per request (a page,
+ * a layout). In a route handler or a server action `cache()` keeps nothing, so each call gets a
+ * fresh object: nothing there could share the shell's early read.
+ */
+const renderMark = cache((): object => ({}));
+function inRender(): boolean {
+  return renderMark() === renderMark();
+}
+
 /** This request's shell read, once started (`startShellRead`, `sessionEarly`). */
-const shellRead = cache((): { early: ReturnType<typeof startSessionEarlyRead> | null } => ({
-  early: null,
-}));
+const shellRead = cache(
+  (): { early: ReturnType<typeof startSessionEarlyRead> | null; startedAt: number | null } => ({
+    early: null,
+    startedAt: null,
+  }),
+);
+
+/**
+ * When this request's layout started the shell read (`performance.now()`), or null: numbers for
+ * `/diagnostics/me-timing` only (v2.0 X4), never a decision.
+ */
+export function shellStartedAt(): number | null {
+  return shellRead().startedAt;
+}
 
 /**
  * Starts the shell's early read for this request: the `(app)` layout's first line. Only a full
@@ -184,6 +205,7 @@ const shellRead = cache((): { early: ReturnType<typeof startSessionEarlyRead> | 
  * day and the push status, which a loading boundary never needs).
  */
 export function startShellRead(): void {
+  shellRead().startedAt ??= performance.now();
   void sessionEarly();
 }
 
@@ -222,6 +244,10 @@ export async function readBeforeCheck<T>(
   pick: (early: SessionEarly) => { data: T | null; error: unknown } | undefined,
   read: (supabase: EarlyClient) => PromiseLike<{ data: T | null; error: unknown }>,
 ): Promise<{ data: T | null; error: unknown }> {
+  // Outside a render (a route handler, a server action) nothing is shared: the early read would
+  // be the whole shell (`session_early()`) for one part, so the part is read alone, as on v1.9
+  // (X6 review batch 2: a Start-day late-rule call made session_early plus two member rows).
+  if (!inRender()) return read(await createServerSupabase());
   const early = sessionEarly();
   const userId = await getSessionUserId();
   const started = await early;

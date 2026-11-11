@@ -17,6 +17,8 @@ const jar = new Map<string, string>();
  * nothing, so each test is one request: every memo is cleared before it.
  */
 const memos: Array<() => void> = [];
+/** False: the test is a route handler or a server action, where `cache()` keeps nothing. */
+const scope = { rendering: true };
 vi.mock("react", async (original) => ({
   ...(await original<typeof React>()),
   cache: <A extends unknown[], R>(fn: (...args: A) => R) => {
@@ -24,6 +26,7 @@ vi.mock("react", async (original) => ({
     let value: R;
     memos.push(() => (done = false));
     return (...args: A): R => {
+      if (!scope.rendering) return fn(...args);
       if (!done) {
         done = true;
         value = fn(...args);
@@ -137,6 +140,7 @@ const settle = async () => {
 
 beforeEach(() => {
   for (const reset of memos) reset();
+  scope.rendering = true;
   jar.clear();
   reads.length = 0;
   tokens.length = 0;
@@ -349,6 +353,20 @@ describe("readBeforeCheck: a part of the early read, kept only once the check ve
     getClaims.mockResolvedValue({ data: null, error: null });
     await expect(ownDay()).resolves.toMatchObject({ data: "usual" });
     expect(reads.map((read) => read.client)).toEqual(["session"]);
+  });
+
+  it("outside a render (a route handler, an action) reads the part alone, never the whole shell", async () => {
+    scope.rendering = false;
+    signIn(tokenFor("m-1"));
+    getClaims.mockResolvedValue({ data: { claims: { sub: "m-1" } }, error: null });
+    const hours = await readBeforeCheck<unknown>(
+      (answer) => ({ data: answer.own_hours ?? null, error: null }),
+      (supabase) => supabase.rpc("attendance_own_hours") as unknown as Promise<RpcAnswer>,
+    );
+    expect(hours).toMatchObject({ data: "usual" });
+    expect(reads.map((read) => `${read.client}:${read.table}`)).toEqual([
+      "session:attendance_own_hours",
+    ]);
   });
 
   it("reads the usual way when the part is not in the answer (an older session_early)", async () => {
