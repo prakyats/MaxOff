@@ -53,11 +53,18 @@ export default async function ApprovalsPage() {
   // exactly as the early leaves since v1.9: the same state, under the same RLS, so a count of
   // 0 is an empty list. They then start beside the unread counts, which wait for the task rows
   // anyway. Counts that could not be read ask the usual way, so a failed bundle hides nothing.
+  // v2.0 X4 (the two-run rule failed this page's finished page against v1.9, #89 6787140634):
+  // the pending days start with the first wave again, as in v1.9. The Owner has days to decide
+  // on most working days, and gated on the counts they answered a whole trip later (582 vs 310
+  // ms from SEA on `/diagnostics/approvals-timing`), the page's last read. The wave stays at five
+  // (the early read, the counts, the task rows, the directory, the days); the other four lists,
+  // rarer, keep waiting for the counts. An Admin's days read is an empty list under RLS.
   const steps = withSessionUserId(listTasksAtBothSteps);
   const directoryRead = listDirectory();
+  const daysRead = listPendingDays();
   const counts = getSessionBundle();
   const lists = Promise.all([
-    whenWaiting(counts, (bundle) => bundle.pending.days, listPendingDays),
+    daysRead,
     whenWaiting(counts, (bundle) => bundle.pending.requests, listPendingRequests),
     whenWaiting(counts, (bundle) => bundle.pending.notes, listPendingNotes),
     whenWaiting(counts, (bundle) => bundle.pending.claims, listPendingClaims),

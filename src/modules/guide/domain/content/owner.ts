@@ -83,7 +83,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More. More also has Appearance: tap it, then tap Light, Dark or System; the sheet closes with your choice ticked.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More. More also has Appearance: tap it, then tap Light, Dark or System; the sheet closes and the More row shows your choice, such as Appearance · Dark.",
             ),
             text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],
@@ -120,7 +120,7 @@ export const OWNER_GUIDE: Guide = {
               'Read "My tasks": your own tasks, overdue or due today. Tap one to open it (each row ends in a ›). When there are more than it shows, "See all N of my tasks" opens them all in All tasks.',
               'Read "Today\'s tasks": one line, "N due today · M handed in".',
               'Read "Client work": one red line when client items are overdue.',
-              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task.',
+              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task. Tap a row, or its chip, to open the task.',
               'Read "This week": up to seven days, each deadline by name and time with a "Due" chip, holidays, events and who is on leave, then "See the week". On a laptop it is a column on the right; in a narrow window or on a phone it sits below.',
             ),
             note(
@@ -760,7 +760,7 @@ export const OWNER_GUIDE: Guide = {
               'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and "+ New task on" the date stays at the bottom of the sheet while you scroll. On a laptop a day opens in the middle of the screen, with "Open day"; in the Day view "+ New task on" the date sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.',
             ),
             steps(
-              "Open Calendar and tap a day.",
+              "Open Calendar and tap a day. If you tap a day while the calendar is still loading, it opens as soon as it's ready.",
               'Tap "+ New task on" the date at the bottom.',
               "Fill in the New task form, which opens on that date.",
             ),
@@ -1459,7 +1459,7 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/project-held-row",
               },
               {
-                text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted).",
+                text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted), and its stages are greyed out.",
                 shot: "owner/item-held-sheet",
               },
             ),

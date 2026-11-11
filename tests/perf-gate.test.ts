@@ -15,18 +15,21 @@ import {
   SLOWER_THAN_STAGING_PCT,
   slowerThanStaging,
   summaryLine,
+  twoRunVerdicts,
   WARM_TTFB_P50_LIMIT_MS,
 } from "../scripts/lib/perf-gate.mjs";
 
 /**
  * The perf probe's speed gate (v1.8; owner #89 comment 6332543899, advisor comment 6349679713):
- * which routes it probes for each role, and when a route fails.
+ * which routes it probes for each role, and when a route fails. Option A (owner 2026-11-11, "judge
+ * finished page too"): the TTFB against the v2.0 cap only, the last byte against staging, and
+ * slower only in two consecutive runs.
  */
 const ROLES = ["owner", "admin", "staff"] as const;
 
 describe("the thresholds", () => {
   it("are the owner's numbers", () => {
-    expect(WARM_TTFB_P50_LIMIT_MS).toBe(600);
+    expect(WARM_TTFB_P50_LIMIT_MS).toBe(600); // CLAUDE.md's cap from CI
     expect(SLOWER_THAN_STAGING_PCT).toBe(10);
     expect(SLOWER_THAN_STAGING_MS).toBe(100);
     expect(SLOWER_PCT_FLOOR_MS).toBe(50);
@@ -53,32 +56,51 @@ describe("slowerThanStaging (> 100 ms, or > 10 % and ≥ 50 ms; > 10 % under 50 
   });
 });
 
-describe("judgeRoute", () => {
+describe("judgeRoute (option A: the TTFB against the cap, the last byte against staging)", () => {
   const ok = { name: "/today", statusOk: true, statuses: "200" };
 
-  it("passes at the limit and fails just above it", () => {
+  it("passes a TTFB at the cap and fails one just above it", () => {
     expect(judgeRoute({ ...ok, warmP50: WARM_TTFB_P50_LIMIT_MS }).verdict).toBe("PASS");
     const slow = judgeRoute({ ...ok, warmP50: 612 });
     expect(slow.verdict).toBe("FAIL");
     expect(slow.reasons).toEqual(["warm p50 612 > 600 ms"]);
   });
 
-  it("fails a route slower than staging, and says by how much", () => {
-    const j = judgeRoute({ ...ok, warmP50: 450 }, { ...ok, warmP50: 300 });
+  it("fails a finished page slower than staging's, and says by how much", () => {
+    const j = judgeRoute(
+      { ...ok, warmP50: 320, warmTotalP50: 650 },
+      { ...ok, warmP50: 300, warmTotalP50: 500 },
+    );
     expect(j.verdict).toBe("FAIL");
-    expect(j.baselineP50).toBe(300);
-    expect(j.reasons).toEqual(["+150 ms (+50 %) vs staging"]);
+    expect(j).toMatchObject({ totalP50: 650, baselineTotalP50: 500 });
+    expect(j.reasons).toEqual(["last byte +150 ms (+30 %) vs staging"]);
   });
 
-  it("warns, without failing, on a small slow-down past 10 %", () => {
-    const j = judgeRoute({ ...ok, warmP50: 331 }, { ...ok, warmP50: 300 });
+  it("only warns on a TTFB later than staging's under the cap: the finished page decides", () => {
+    // v2's first flush carries the content: a later first byte, a sooner finished page.
+    const j = judgeRoute(
+      { ...ok, warmP50: 372, warmTotalP50: 380 },
+      { ...ok, warmP50: 291, warmTotalP50: 509 },
+    );
     expect(j.verdict).toBe("WARN");
-    expect(j.reasons).toEqual(["+31 ms (+10 %) vs staging"]);
+    expect(j.reasons).toEqual(["TTFB +81 ms (+28 %) vs staging"]);
+  });
+
+  it("warns, without failing, on a small last-byte slow-down past 10 %", () => {
+    const j = judgeRoute(
+      { ...ok, warmP50: 300, warmTotalP50: 331 },
+      { ...ok, warmP50: 300, warmTotalP50: 300 },
+    );
+    expect(j.verdict).toBe("WARN");
+    expect(j.reasons).toEqual(["last byte +31 ms (+10 %) vs staging"]);
   });
 
   it("shows the hosting rows' timing but never judges it", () => {
     for (const name of NOT_GATED) {
-      const j = judgeRoute({ ...ok, name, warmP50: 900 }, { ...ok, warmP50: 5 });
+      const j = judgeRoute(
+        { ...ok, name, warmP50: 900, warmTotalP50: 900 },
+        { ...ok, warmP50: 5, warmTotalP50: 5 },
+      );
       expect(j.verdict).toBe("INFO");
       expect(j.reasons.length).toBeGreaterThan(0);
     }
@@ -90,9 +112,13 @@ describe("judgeRoute", () => {
     expect(j.reasons).toEqual(["status 502"]);
   });
 
-  it("lists every reason", () => {
-    const j = judgeRoute({ ...ok, warmP50: 900 }, { ...ok, warmP50: 500 });
-    expect(j.reasons).toEqual(["warm p50 900 > 600 ms", "+400 ms (+80 %) vs staging"]);
+  it("lists every failing reason", () => {
+    const j = judgeRoute(
+      { ...ok, warmP50: 900, warmTotalP50: 1200 },
+      { ...ok, warmP50: 500, warmTotalP50: 900 },
+    );
+    expect(j.verdict).toBe("FAIL");
+    expect(j.reasons).toEqual(["warm p50 900 > 600 ms", "last byte +300 ms (+33 %) vs staging"]);
   });
 
   it("fails a route that answered with the wrong status, however fast", () => {
@@ -102,9 +128,11 @@ describe("judgeRoute", () => {
   });
 
   it("does not compare with a staging row that was skipped or broken", () => {
-    const fast = { ...ok, warmP50: 400 };
+    const fast = { ...ok, warmP50: 400, warmTotalP50: 900 };
     expect(judgeRoute(fast, { name: "/today", skip: "x" }).verdict).toBe("PASS");
-    expect(judgeRoute(fast, { ...ok, statusOk: false, warmP50: 50 }).verdict).toBe("PASS");
+    expect(
+      judgeRoute(fast, { ...ok, statusOk: false, warmP50: 50, warmTotalP50: 50 }).verdict,
+    ).toBe("PASS");
   });
 
   it("skips a skipped route", () => {
@@ -115,14 +143,18 @@ describe("judgeRoute", () => {
 
 describe("judgeRun and summaryLine", () => {
   const run = [
-    { name: "/today", statusOk: true, warmP50: 300 },
-    { name: "/tasks", statusOk: true, warmP50: 700 },
+    { name: "/today", statusOk: true, warmP50: 300, warmTotalP50: 900 },
+    { name: "/tasks", statusOk: true, warmP50: 700, warmTotalP50: 900 },
     { name: "/reports", skip: "the Crew can't open it" },
   ];
 
-  it("matches staging by route name; a route staging lacks is judged on 600 ms only", () => {
-    const judged = judgeRun(run, [{ name: "/today", statusOk: true, warmP50: 200 }]);
+  it("matches staging by route name; a route staging lacks is judged on the cap only", () => {
+    const judged = judgeRun(run, [
+      { name: "/today", statusOk: true, warmP50: 200, warmTotalP50: 600 },
+    ]);
     expect(judged.map((j) => j.verdict)).toEqual(["FAIL", "FAIL", "SKIP"]);
+    // A failing route lists what fails it (the TTFB's own warning is not repeated).
+    expect(judged[0]?.reasons).toEqual(["last byte +300 ms (+50 %) vs staging"]);
     expect(judged[1]?.baselineP50).toBeUndefined();
   });
 
@@ -131,17 +163,46 @@ describe("judgeRun and summaryLine", () => {
     expect(line).toMatch(/^\*\*Speed gate: FAIL\*\*: 1 of 2 probed routes fail, 1 skipped/);
     expect(line).toContain("/tasks (warm p50 700 > 600 ms)");
     expect(summaryLine(judgeRun(run.slice(0, 1), null), { compared: true })).toMatch(
-      /^\*\*Speed gate: PASS\*\*: no probed route fails, of 1 .*> 100 ms, or by > 10 % and ≥ 50 ms/,
+      /^\*\*Speed gate: PASS\*\*: no probed route fails, of 1 .*the last byte \(the finished page\) not slower than staging/,
     );
     const warned = summaryLine(
       judgeRun(
-        [{ name: "/today", statusOk: true, warmP50: 331 }],
-        [{ name: "/today", statusOk: true, warmP50: 300 }],
+        [{ name: "/today", statusOk: true, warmP50: 372, warmTotalP50: 380 }],
+        [{ name: "/today", statusOk: true, warmP50: 291, warmTotalP50: 509 }],
       ),
       { compared: true },
     );
     expect(warned).toMatch(/^\*\*Speed gate: PASS\*\*/);
-    expect(warned).toContain("WARN (> 10 % but < 50 ms): /today (+31 ms (+10 %) vs staging)");
+    expect(warned).toContain("WARN (shown, not failing): /today (TTFB +81 ms (+28 %) vs staging)");
+  });
+});
+
+describe("twoRunVerdicts (slower only in two consecutive runs; one slow run is re-probed)", () => {
+  const judged = (verdict: "PASS" | "WARN" | "FAIL" | "SKIP") => ({
+    name: "/approvals",
+    verdict,
+    reasons: [] as string[],
+  });
+
+  it("fails a route only when it failed in the run before too", () => {
+    expect(twoRunVerdicts([judged("FAIL")], [judged("FAIL")])).toEqual([
+      { name: "/approvals", verdict: "FAIL" },
+    ]);
+  });
+
+  it("re-probes a route that failed once: never failed, never waived", () => {
+    expect(twoRunVerdicts([judged("FAIL")], [judged("PASS")])).toEqual([
+      { name: "/approvals", verdict: "RECHECK" },
+    ]);
+    expect(twoRunVerdicts([judged("FAIL")], null)).toEqual([
+      { name: "/approvals", verdict: "RECHECK" },
+    ]);
+  });
+
+  it("passes a route that passes or only warns now, whatever the run before said", () => {
+    expect(twoRunVerdicts([judged("PASS")], [judged("FAIL")])[0]?.verdict).toBe("PASS");
+    expect(twoRunVerdicts([judged("WARN")], [judged("FAIL")])[0]?.verdict).toBe("PASS");
+    expect(twoRunVerdicts([judged("SKIP")], null)[0]?.verdict).toBe("SKIP");
   });
 });
 

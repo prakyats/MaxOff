@@ -63,11 +63,12 @@ export async function GET(): Promise<Response> {
   const counts = getSessionBundle();
   const bundle = quiet(counts);
   // The page's reads, as it starts them (`src/app/(app)/approvals/page.tsx`, v2.0 X3): both task
-  // steps in one read and the directory first; each of the Owner's lists only once the counts
-  // say one is waiting (counts that could not be read ask the usual way).
+  // steps in one read and the directory first, then the pending days (v2.0 X4: with the first
+  // wave again); each of the other lists only once the counts say one is waiting (counts that
+  // could not be read ask the usual way).
   const steps = withSessionUserId(listTasksAtBothSteps);
   const directory = quiet(listDirectory());
-  const days = quiet(whenWaiting(counts, (bundleRead) => bundleRead.pending.days, listPendingDays));
+  const days = quiet(listPendingDays());
   const requests = quiet(
     whenWaiting(counts, (bundleRead) => bundleRead.pending.requests, listPendingRequests),
   );
