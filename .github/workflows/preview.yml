@@ -51,7 +51,6 @@ on:
           - notifications-removal-dry-run
           - push-band-count
           - perf-probe
-          - placement-experiment-delete
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -549,69 +548,6 @@ jobs:
   # Cloudflare location that ran the Worker. (A job here rather than its own workflow file: a
   # new workflow cannot be dispatched until it is on `main`; this one's dispatch already works
   # from any branch.)
-  # X4 placement experiment, removal (v2.0; ADR-0017, the advisor on #89 6786924823: rejected, no
-  # India gain). Deletes the experiment's own Worker, `maxoff-staging-smart`, and nothing else: the
-  # name is fixed here, wrangler runs from an empty directory so no wrangler.jsonc (and none of its
-  # `maxoff` / `maxoff-staging` names) can be picked up, and the step refuses any other name. Then
-  # it checks the address no longer serves the app. Dispatch-only; removed with the experiment's
-  # last trace once the Worker is gone. Never deploy.yml, never production.
-  placement-experiment-delete:
-    name: placement experiment, delete the Worker (maxoff-staging-smart)
-    if: github.event_name == 'workflow_dispatch' && inputs.job == 'placement-experiment-delete'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    concurrency:
-      group: deploy-staging
-      cancel-in-progress: false
-    permissions:
-      contents: read
-    environment:
-      name: staging
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-
-      - name: Delete the experiment Worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WORKER: maxoff-staging-smart
-        run: |
-          set -euo pipefail
-          if [ "$WORKER" != "maxoff-staging-smart" ]; then
-            echo "::error::Refusing to delete '$WORKER': this job deletes the experiment Worker only."
-            exit 1
-          fi
-          wrangler="$GITHUB_WORKSPACE/node_modules/.bin/wrangler"
-          empty="$(mktemp -d)"
-          cd "$empty"
-          "$wrangler" delete --name "$WORKER" --force
-
-      - name: Check the address no longer serves the app
-        env:
-          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
-        run: |
-          set -euo pipefail
-          host="${STAGING_URL#*://}"; host="${host%%/*}"
-          url="https://maxoff-staging-smart.${host#*.}/login"
-          for attempt in 1 2 3 4 5 6; do
-            status="$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)"
-            echo "Attempt $attempt: $url answered $status"
-            if [ "$status" != "200" ]; then
-              echo "### Placement experiment removed" >>"$GITHUB_STEP_SUMMARY"
-              echo "\`maxoff-staging-smart\` deleted; its /login now answers $status." >>"$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::error::$url still serves the app a minute after the delete."
-          exit 1
-
   perf-probe:
     name: perf probe (staging)
     if: github.event_name == 'workflow_dispatch' && inputs.job == 'perf-probe'
@@ -665,10 +601,6 @@ jobs:
             base_host="$(printf '%s' "$base_host" | tr 'A-Z' 'a-z')"
             label="${base_host%."$subdomain"}"
             if [ "$base_host" = "$host" ]; then
-              :
-            elif [ "$input" = "base_url" ] && [ "$base_host" = "maxoff-staging-smart.${subdomain}" ]; then
-              # X4's placement experiment (ADR-0017): its own Worker on the staging database, probed
-              # once for the record before the delete job removes it. Goes with that job.
               :
             elif [ "${subdomain%.workers.dev}" != "$subdomain" ] && [ "$label" != "$base_host" ] \
               && printf '%s' "$label" | grep -Eqx "[a-z0-9]([a-z0-9-]*[a-z0-9])?-${worker}"; then

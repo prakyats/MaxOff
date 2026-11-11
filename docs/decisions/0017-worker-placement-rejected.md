@@ -32,11 +32,19 @@ The experiment (`e93626aa`, removed after this verdict):
   beside the database already. Placement cannot shorten an Indian visitor's database trips, because
   there is no distance left to remove. An India probe could only measure noise, so none was run.
 
-**From the US (the CI probe, for the record):** the default Worker runs in a US data centre, and
-every Worker → database trip crosses the ocean; the placed Worker makes those trips inside Mumbai
-and pays the ocean once, on the visitor's request. The US numbers (Owner, 10 samples per route,
-`maxoff-staging-smart` against the `phase-v2` preview) are recorded in PROGRESS.md's X4 handoff. A
-gain there is real, but it is a gain for visitors outside India, and MaxOff's users are not there.
+**From the US (the CI probe, for the record; run 42965323395, 2026-11-11, the Owner, 10 samples,
+entry colo IAD; `maxoff-staging-smart` against the `phase-v2` preview, the same code):**
+- On the placed Worker a database read answers in **~30 ms** (`/diagnostics/timing` member 27,
+  `me-timing` 30), against **~220 ms** on the default one: it does run beside the database.
+- **Pages with several reads in a row finish much sooner:** /today 625 vs 1078 ms (last byte, warm
+  p50), /calendar 878 vs 1372, a project 674 vs 1145, /tasks 701 vs 936, a task 640 vs 852.
+- **Pages with one trip finish later:** /me 625 vs 339, /settings 592 vs 313, /settings/templates
+  758 vs 376, /approvals 676 vs 385, /people 632 vs 401, /clients 593 vs 403, /notifications 610
+  vs 392, /login 275 vs 54. The visitor's request and the whole response now cross the ocean to
+  Mumbai and back (the Worker's bare 404: 223 vs 25 ms).
+
+So even for a visitor far from Mumbai placement is a trade (multi-trip pages faster, every
+one-trip page slower), not a gain; and MaxOff's users are not there.
 
 ## Decision
 
