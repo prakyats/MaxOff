@@ -2,12 +2,14 @@ import { type Page, type Request, type Route, type TestInfo } from "@playwright/
 import { createClient } from "@supabase/supabase-js";
 
 import { addISTDays, istInstant, systemClock, todayIST } from "../src/core/time";
+import { LIVE_REFRESH_DELAY_MS, LIVE_REFRESH_RETRY_MS } from "../src/core/notifications/live-rules";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 import { expect, test } from "./fixtures";
 import {
   expectBackStack,
   expectNoHorizontalScroll,
   expectSettled,
+  holdNextRefresh,
   hydrated,
   memberIdOf,
   removeTasksTitled,
@@ -809,6 +811,100 @@ test.describe("the bell and Alerts", () => {
       await page.evaluate(() => (window as unknown as { stayed?: boolean }).stayed),
       "the page was never reloaded",
     ).toBe(true);
+  });
+
+  test("Realtime waits for a pending move: a row that arrives mid-navigation re-reads the new screen once it is in, never during the move", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "the phone's move, at 375 and 430 (X5, 2026-11-11)");
+    // X5 (loading-screens:939): a re-read of the screen that lands during a move empties the
+    // router's prefetches under it. The live bell's guard (`liveRefreshWaits`, `navigating`)
+    // keeps its re-read until the move is done, and never drops it. Every screen fetch is logged
+    // in the page as it starts, with whether a move was pending then: nothing here is timed.
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await page.addInitScript(() => {
+      const log: { path: string; pending: boolean }[] = [];
+      (window as unknown as { screenFetches: typeof log }).screenFetches = log;
+      const original = window.fetch;
+      window.fetch = (input, init) => {
+        const request = new Request(input, init);
+        if (request.headers.get("rsc") === "1" && !request.headers.get("next-router-prefetch"))
+          log.push({
+            path: new URL(request.url).pathname,
+            pending: document.documentElement.hasAttribute("data-nav-pending"),
+          });
+        return original(input, init);
+      };
+    });
+    // The row's event, as the page receives it: forwarded by the test, so it knows when.
+    let heard = false;
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, (socket) => {
+      const server = socket.connectToServer();
+      server.onMessage((message) => {
+        socket.send(message);
+        if (typeof message === "string" && message.includes('"postgres_changes"')) heard = true;
+      });
+    });
+    await page.clock.install();
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+    await expect(page.locator("html")).toHaveAttribute("data-live", "on");
+
+    // No prefetch of the destination: with its loading screen in hand the move would count as
+    // arrived at once (`navigationDone`: moved, a skeleton up), and the row would come after it.
+    await page.route("**/leave?*", (route) =>
+      route.request().headers()["next-router-prefetch"] ? route.abort() : route.fallback(),
+    );
+    const held = await holdNextRefresh(page, "/leave");
+    try {
+      await page.evaluate(() =>
+        (
+          window as unknown as { next: { router: { push: (href: string) => void } } }
+        ).next.router.push("/leave"),
+      );
+      await held.held;
+      await notify(staff, { title: "Arrived during the move", link: "/leave" });
+      await expect.poll(() => heard).toBe(true);
+      // The live re-read's own timer and a retry, on the page's clock, three times over with a
+      // round trip to the page before each: a frame the page handles late still has its timer
+      // run here, while the move is held.
+      for (let round = 0; round < 3; round += 1) {
+        await page.evaluate(() => undefined);
+        await page.clock.runFor(LIVE_REFRESH_DELAY_MS + LIVE_REFRESH_RETRY_MS);
+      }
+      // Unguarded, the re-read goes out now, with the move still pending (found with the check
+      // off). NavProgress may end the move before its answer (the address changed, no loading
+      // screen to show): a re-read after that is allowed, one during it never is.
+      const during = await page.evaluate(
+        () =>
+          (window as unknown as { screenFetches: { path: string; pending: boolean }[] })
+            .screenFetches,
+      );
+      expect(during[0], "the move's own fetch, first").toEqual({ path: "/leave", pending: true });
+      expect(
+        during.slice(1).filter((entry) => entry.pending),
+        "no re-read starts while the move is pending",
+      ).toEqual([]);
+    } finally {
+      held.release();
+    }
+    await expect(page.locator("html")).not.toHaveAttribute("data-nav-pending");
+    await expectSettled(page);
+    // Kept, not dropped: the next retry re-reads the new screen, with no move pending.
+    await page.clock.runFor(LIVE_REFRESH_RETRY_MS);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (
+            window as unknown as { screenFetches: { path: string; pending: boolean }[] }
+          ).screenFetches.filter((entry, index) => index > 0 && !entry.pending),
+        ),
+      )
+      .not.toEqual([]);
+    await expect.poll(() => bellCount(page)).toBe(1);
   });
 
   test("Realtime sends a member their own rows only (RLS), with no filter of their own", async ({}, info) => {

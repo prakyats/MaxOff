@@ -934,6 +934,13 @@ type RouterWindow = {
 for (const role of ["owner", "admin", "staff"] as const) {
   test.describe(`${role}: loading screens, held at their navigation`, () => {
     test.use({ storageState: storageStateFor(role) });
+    // No Realtime here (as `view-scroll.spec`'s view switch): a notification for the shared
+    // member from another worker re-reads the screen in place (`live-updates.tsx`), and that
+    // refresh empties the router's prefetches, so the push lands on the parent's loading screen
+    // ("Loading Me"), not the one this traces (3 workers locally, X5 2026-11-11).
+    test.beforeEach(async ({ page }) => {
+      await page.routeWebSocket(/\/realtime\/v1\/websocket/, () => {});
+    });
 
     for (const screen of HELD_AT_NAVIGATION.filter((entry) => entry.role === role)) {
       test(`${screen.path}: fits at large text and traces its screen`, async ({ page }) => {
