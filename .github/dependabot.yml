@@ -1,0 +1,50 @@
+# Dependency updates (ops safety nets, gap audit 13). Weekly, grouped minor + patch PRs for the
+# pnpm packages and the GitHub Actions; majors arrive one PR each. Security updates are grouped
+# too. They need "Dependabot alerts" and "Dependabot security updates" turned on in the repository's
+# Settings → Code security (the Owner, once). Every PR goes through CI and review like any other;
+# nothing merges by itself.
+#
+# `next` and `@opennextjs/cloudflare` are pinned and patched (pnpm-workspace.yaml
+# `patchedDependencies`): pnpm refuses to install while a patch names a version that is not
+# installed, so they are upgraded by hand with the patch re-made. Dependabot alerts still report
+# their advisories.
+version: 2
+updates:
+  - package-ecosystem: npm # pnpm-lock.yaml is read through the npm ecosystem
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: next
+      - dependency-name: "@opennextjs/cloudflare"
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      npm-security:
+        applies-to: security-updates
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(actions)"
+    groups:
+      actions-minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      actions-security:
+        applies-to: security-updates
+        update-types: [minor, patch]

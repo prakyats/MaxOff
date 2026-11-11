@@ -314,6 +314,12 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
   (ADR-0003) and the monitor sees the database, not only the Worker.
 - **By hand, any time:** `bash scripts/smoke-deploy.sh https://app.maxoff.in https://maxoff.pixoraclips.workers.dev`.
 - **Backups** (3c.2): the next section and `docs/runbooks/backup-restore.md`.
+- **When something goes wrong:** `docs/runbooks/incident.md` (site down, Sentry errors, a bad release, push or
+  email, a failed backup, a lost phone) and `docs/runbooks/postmortem-template.md`. The safety nets: a failed
+  backup opens a "Backup failed" issue (`backup.yml`, and `ops-check.yml` every morning at 09:00 IST); secrets
+  and their expiry dates are in `docs/runbooks/secrets.md` (reminded on the 1st); the proposed service targets
+  are `docs/runbooks/slo.md`; the dashboard rules the Owner sets by hand are `docs/runbooks/sentry-alerts.md`
+  and `docs/runbooks/cloudflare-rate-limit.md`; `.github/dependabot.yml` opens weekly dependency PRs.
 - **Go-live (3c.3):** `docs/runbooks/go-live.md` is the whole stage-1 go-live in order, each step with what you
   should see: the first tag and deploy, the bootstrap, UptimeRobot, the two-day smoke test with a test member
   (Forgot password, the installed app, Copy invite link, Start day → approve, leave, a claim with a receipt,
