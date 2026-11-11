@@ -212,6 +212,13 @@ test.describe("Owner", () => {
     await page.getByRole("option", { name: "Monday" }).click();
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
+    // The page keys the form on the saved settings, so a save that changes them remounts it with
+    // the new values once the refresh lands, which is a moment after the toast (shown as the
+    // action returns). An edit typed in between is put back: CI 43026387689 typed "200" below,
+    // the remount restored 24, and the Save passed. Reload, as after the other saves, so the next
+    // edits go into the settled form.
+    await page.reload();
+    await openThresholdGroups(page, "Client work");
 
     // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
     const overdue = page.getByLabel("Overdue deliverable → you after (hours)");
