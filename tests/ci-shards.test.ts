@@ -22,6 +22,8 @@ const SERIAL = [
   "working-hours-375",
   "working-hours-430",
 ];
+/** v2.1 unit 3: WebKit has its own CI job (`playwright (iphone)`), never a shard's. */
+const OWN_JOB = ["mobile-iphone"];
 
 /** The sharded step's command: from `pnpm test:e2e --shard=` up to the next step. */
 function shardStep(): string {
@@ -50,7 +52,7 @@ describe("the CI Playwright shards", () => {
   it("run every project but the serial ones, in every shard", () => {
     for (const name of SERIAL) expect(names).toContain(name);
     const step = shardStep();
-    for (const name of names.filter((n) => !SERIAL.includes(n))) {
+    for (const name of names.filter((n) => !SERIAL.includes(n) && !OWN_JOB.includes(n))) {
       expect(step, `ci.yml's shard step runs --project=${name}`).toMatch(
         new RegExp(`--project=${name}(\\s|$)`, "m"),
       );
@@ -58,6 +60,18 @@ describe("the CI Playwright shards", () => {
     for (const name of SERIAL) {
       expect(step, `${name} is not sharded`).not.toContain(`--project=${name}`);
     }
+  });
+
+  it("leave the iPhone project to its own job, which installs WebKit and runs it alone", () => {
+    for (const name of OWN_JOB) {
+      expect(names).toContain(name);
+      expect(shardStep(), `${name} is not sharded`).not.toContain(`--project=${name}`);
+    }
+    const job = CI.slice(CI.indexOf("\n  e2e-iphone:"), CI.indexOf("\n  playwright:"));
+    expect(job).toContain("name: playwright (iphone)");
+    expect(job).toContain("pnpm exec playwright install chromium webkit");
+    expect(job).toMatch(/--project=setup --project=mobile-iphone(\s|$)/m);
+    expect(job).toContain("--workers=1");
   });
 
   it("run owner-bulk alone after the rest of shard 4, then push-cron after it", () => {

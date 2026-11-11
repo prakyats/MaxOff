@@ -210,7 +210,50 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000121', 'skel-admin-mobile@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000122', 'skel-staff-mobile@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000123', 'skel-admin-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile-lg)', null, 'admin', 'active'),
-  ('20000000-0000-4000-8000-000000000124', 'skel-staff-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000124', 'skel-staff-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile-lg)', null, 'staff', 'active'),
+  -- v2.1 unit 3: the iPhone (WebKit) project's own people, the mobile-lg set with ids 2000 + n.
+  ('20000000-0000-4000-8000-000000002009', 'gate-staff-mobile-iphone@maxoff.local', 'gate-local-password', 'Test Gate Staff (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002010', 'gate-admin-mobile-iphone@maxoff.local', 'gate-local-password', 'Test Gate Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002011', 'gate-leave-mobile-iphone@maxoff.local', 'gate-local-password', 'Test On Leave (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002012', 'gate-half-mobile-iphone@maxoff.local', 'gate-local-password', 'Test Half Day (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002015', 'leave-self-mobile-iphone@maxoff.local', 'leave-local-password', 'Test Leave (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002017', 'back-mobile-iphone@maxoff.local', 'back-local-password', 'Test Back (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002024', 'review-day-mobile-iphone@maxoff.local', 'review-local-password', 'Test Review Day (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002025', 'review-fix-mobile-iphone@maxoff.local', 'review-local-password', 'Test Review Fix (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002026', 'review-leave-mobile-iphone@maxoff.local', 'review-local-password', 'Test Review Leave (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002031', 'review-absent-mobile-iphone@maxoff.local', 'review-local-password', 'Test Review Absent (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002034', 'refresh-mobile-iphone@maxoff.local', 'refresh-local-password', 'Test Refresh (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002037', 'profile-mobile-iphone@maxoff.local', 'profile-local-password', 'Test Profile (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002040', 'memberedit-mobile-iphone@maxoff.local', 'profile-local-password', 'Test Member Edit (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002043', 'avatar-mobile-iphone@maxoff.local', 'avatar-local-password', 'Test Avatar (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002046', 'handover-mobile-iphone@maxoff.local', 'handover-local-password', 'Test Handover (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002049', 'extra-mobile-iphone@maxoff.local', 'extra-local-password', 'Test Extra Work (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002052', 'expense-mobile-iphone@maxoff.local', 'expense-local-password', 'Test Expenses (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002055', 'month-mobile-iphone@maxoff.local', 'month-local-password', 'Test Month (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002058', 'link-mobile-iphone@maxoff.local', 'link-local-password', 'Test Link (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002069', 'task-staff-mobile-iphone@maxoff.local', 'task-local-password', 'Test Task Staff (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002070', 'task-helper-mobile-iphone@maxoff.local', 'task-local-password', 'Test Task Helper (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002071', 'task-away-mobile-iphone@maxoff.local', 'task-local-password', 'Test Task Away (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002072', 'task-coord-mobile-iphone@maxoff.local', 'task-local-password', 'Test Task Coordinator (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002073', 'task-admin-mobile-iphone@maxoff.local', 'task-local-password', 'Test Task Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002075', 'pull-mobile-iphone@maxoff.local', 'pull-local-password', 'Aa Pull (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002078', 'tap-mobile-iphone@maxoff.local', 'tap-local-password', 'Test Tap (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002085', 'list-staff-mobile-iphone@maxoff.local', 'list-local-password', 'Test List Staff (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002086', 'list-coord-mobile-iphone@maxoff.local', 'list-local-password', 'Test List Coordinator (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002087', 'list-admin-mobile-iphone@maxoff.local', 'list-local-password', 'Test List Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002094', 'people-coord-mobile-iphone@maxoff.local', 'people-local-password', 'Test People Coordinator (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002095', 'people-coord2-mobile-iphone@maxoff.local', 'people-local-password', 'Test People Coordinator B (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002096', 'req-staff-mobile-iphone@maxoff.local', 'req-local-password', 'Test Request Staff (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002099', 'push-mobile-iphone@maxoff.local', 'push-local-password', 'Test Push (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002104', 'alerts-staff-mobile-iphone@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002105', 'alerts-admin-mobile-iphone@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002110', 'reach-admin-mobile-iphone@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002111', 'reach-staff-mobile-iphone@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002116', 'day-staff-mobile-iphone@maxoff.local', 'day-local-password', 'Test Day Crew (mobile-iphone)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000002117', 'day-admin-mobile-iphone@maxoff.local', 'day-local-password', 'Test Day Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002120', 'cw-admin-mobile-iphone@maxoff.local', 'cw-local-password', 'Test Client Work Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002123', 'skel-admin-mobile-iphone@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile-iphone)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000002124', 'skel-staff-mobile-iphone@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile-iphone)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -255,7 +298,10 @@ from (values
   -- 4C: the list coordinator's freelancer, per project (e2e/task-lists.spec.ts).
   ('40000000-0000-4000-8000-000000000004'::uuid, 'Test List Freelancer (desktop)'),
   ('40000000-0000-4000-8000-000000000005'::uuid, 'Test List Freelancer (mobile)'),
-  ('40000000-0000-4000-8000-000000000006'::uuid, 'Test List Freelancer (mobile-lg)')
+  ('40000000-0000-4000-8000-000000000006'::uuid, 'Test List Freelancer (mobile-lg)'),
+  -- v2.1 unit 3: the iPhone (WebKit) project's.
+  ('40000000-0000-4000-8000-000000000007'::uuid, 'Test Task Freelancer (mobile-iphone)'),
+  ('40000000-0000-4000-8000-000000000008'::uuid, 'Test List Freelancer (mobile-iphone)')
 ) f(id, full_name)
 on conflict (id) do nothing;
 
@@ -267,7 +313,9 @@ from (values
   ('40000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000072'::uuid),
   ('40000000-0000-4000-8000-000000000004'::uuid, '20000000-0000-4000-8000-000000000080'::uuid),
   ('40000000-0000-4000-8000-000000000005'::uuid, '20000000-0000-4000-8000-000000000083'::uuid),
-  ('40000000-0000-4000-8000-000000000006'::uuid, '20000000-0000-4000-8000-000000000086'::uuid)
+  ('40000000-0000-4000-8000-000000000006'::uuid, '20000000-0000-4000-8000-000000000086'::uuid),
+  ('40000000-0000-4000-8000-000000000007'::uuid, '20000000-0000-4000-8000-000000002072'::uuid),
+  ('40000000-0000-4000-8000-000000000008'::uuid, '20000000-0000-4000-8000-000000002086'::uuid)
 ) c(member_id, coordinator_id)
 where not exists (
   select 1 from public.member_coordinators mc where mc.member_id = c.member_id and mc.to_at is null
