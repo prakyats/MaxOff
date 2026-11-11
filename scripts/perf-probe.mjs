@@ -103,6 +103,8 @@ const signIn = args["no-signin"] !== "true";
 const pairBase = args.pair ? args.pair.replace(/\/$/, "") : null;
 const pairLabel = args["pair-label"] ?? "staging (main)";
 const bases = pairBase ? [base, pairBase] : [base];
+/** `--trace-route /today`: that route's warm samples also time each streamed segment (observation). */
+const traceRoute = args["trace-route"] ?? null;
 
 const env = {
   url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -267,7 +269,7 @@ async function pickIds(session) {
 // One request, timed from this process: connection phases from the socket's events, the first
 // byte from the response headers, the whole body from `end`.
 // ---------------------------------------------------------------------------------------------
-function request(url, { agent, headers }) {
+function request(url, { agent, headers, trace = false }) {
   return new Promise((resolve, reject) => {
     const start = performance.now();
     let connected = 0;
@@ -280,9 +282,12 @@ function request(url, { agent, headers }) {
       // The body's first bytes, kept only for a sample that did not answer as it should
       // (`diagnose`): what the Worker said, for the error page's Ray ID and message.
       const head = [];
+      // `--trace-route`: each chunk's arrival, to name the streamed segment that came late.
+      const chunks = trace ? [] : null;
       res.on("data", (chunk) => {
         if (bytes < BODY_HEAD_BYTES) head.push(chunk.subarray(0, BODY_HEAD_BYTES - bytes));
         bytes += chunk.length;
+        chunks?.push({ at: performance.now() - start, chunk });
       });
       res.on("end", () => {
         const serverTiming = res.headers["server-timing"] ?? "";
@@ -298,6 +303,7 @@ function request(url, { agent, headers }) {
           timing: parseServerTiming(serverTiming),
           location: res.headers.location ?? null,
           head: Buffer.concat(head).toString("utf8"),
+          ...(chunks ? { trace: streamSegments(chunks, ttfb) } : {}),
         });
       });
     });
@@ -320,6 +326,44 @@ function request(url, { agent, headers }) {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Where a streamed page's time goes after its first byte (`--trace-route`, v2.0 X6, the advisor
+ * on #89 6794222105: Admin /today's last byte is bimodal, ~300 or ~800 ms after the first byte).
+ * React streams each Suspense boundary that resolves late as `<div hidden id="S:n">…</div>`; this
+ * names each by the first `data-slot` inside it and says when its first byte arrived, plus the
+ * shell's own size and the last chunk. Code identifiers and timings only, never the page's text.
+ */
+function streamSegments(chunks, ttfb) {
+  const text = Buffer.concat(chunks.map((c) => c.chunk)).toString("utf8");
+  // Byte offset → arrival time (chunks are byte-sized; the markers are ASCII).
+  const ends = [];
+  let offset = 0;
+  for (const { at, chunk } of chunks) {
+    offset += chunk.length;
+    ends.push({ end: offset, at });
+  }
+  const bytes = Buffer.from(text, "utf8");
+  const arrival = (index) => {
+    const byte = Buffer.byteLength(text.slice(0, index), "utf8");
+    return Math.round((ends.find((e) => e.end > byte) ?? ends[ends.length - 1]).at);
+  };
+  const segments = [];
+  const marker = /<div hidden id="S:([0-9a-z]+)">/g;
+  let match;
+  while ((match = marker.exec(text)) !== null) {
+    const from = match.index;
+    const slot = /data-slot="([a-z0-9-]+)"/.exec(text.slice(from, from + 4000))?.[1] ?? "?";
+    segments.push({ id: match[1], slot, at: arrival(from) });
+  }
+  return {
+    ttfb: Math.round(ttfb),
+    chunks: chunks.length,
+    bytes: bytes.length,
+    last: Math.round(chunks[chunks.length - 1]?.at ?? ttfb),
+    segments,
+  };
+}
 /** How much of a failing sample's body `diagnose` keeps. */
 const BODY_HEAD_BYTES = 300;
 /** `http` for this machine's `pnpm start`, `https` everywhere else. */
@@ -526,6 +570,7 @@ async function main() {
         const r = await request(at + route.path, {
           agent: keep.get(at),
           headers: headersFor(route),
+          trace: route.name === traceRoute,
         }).catch(failed);
         results.push({
           ...diagnose(r, route, at, "warm"),
@@ -594,11 +639,56 @@ async function main() {
       )
     : own;
 
+  if (traceRoute) printTrace(results, traceRoute);
+
   const failing = judgements.filter((j) => j.verdict === "FAIL");
   for (const j of failing) {
     process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
   }
   if (failing.length > 0) process.exitCode = 1;
+}
+
+/**
+ * `--trace-route`: each warm sample of that route on each base, its first and last byte and when
+ * each streamed segment (a late Suspense boundary, named by its first `data-slot`) arrived, then
+ * per segment its p50 and slowest arrival. Observation only, never judged.
+ */
+function printTrace(results, routeName) {
+  const lines = [
+    "",
+    `**Stream trace: \`${routeName}\`, warm samples** (ms from the request; \`slot@ms\`: when each streamed segment's first byte arrived):`,
+    "",
+  ];
+  for (const at of [...new Set(results.map((r) => r.base))]) {
+    const traced = results.filter((r) => r.route === routeName && r.kind === "reused" && r.trace);
+    const mine = traced.filter((r) => r.base === at);
+    if (mine.length === 0) continue;
+    lines.push(`*${at.replace(/^https:\/\//, "")}*`, "");
+    lines.push("| # | TTFB | last | chunks | KB | segments (slot@ms) |");
+    lines.push("|---|---|---|---|---|---|");
+    mine.forEach((r, i) => {
+      const t = r.trace;
+      const segs = t.segments.map((g) => `${g.slot}@${g.at}`).join(" · ") || "none";
+      lines.push(
+        `| ${i + 1} | ${t.ttfb} | ${t.last} | ${t.chunks} | ${Math.round(t.bytes / 1024)} | ${segs} |`,
+      );
+    });
+    const bySlot = new Map();
+    for (const r of mine) {
+      for (const g of r.trace.segments) {
+        if (!bySlot.has(g.slot)) bySlot.set(g.slot, []);
+        bySlot.get(g.slot).push(g.at);
+      }
+    }
+    lines.push("", "| segment | n | p50 | max |", "|---|---|---|---|");
+    for (const [slot, ats] of bySlot) {
+      lines.push(`| ${slot} | ${ats.length} | ${ms(median(ats))} | ${Math.max(...ats)} |`);
+    }
+    lines.push("");
+  }
+  const text = lines.join("\n");
+  process.stdout.write(text + "\n");
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text + "\n");
 }
 
 /**
