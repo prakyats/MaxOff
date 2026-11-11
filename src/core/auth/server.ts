@@ -14,7 +14,6 @@ import {
 import { once } from "@/core/db/first-reads";
 
 /** This request's first-read hold counters, for the diagnostics (numbers only). */
-export { firstReadsStats } from "@/core/db/server";
 import { systemClock } from "@/core/time";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";
@@ -182,20 +181,9 @@ function inRender(): boolean {
 }
 
 /** This request's shell read, once started (`startShellRead`, `sessionEarly`). */
-const shellRead = cache(
-  (): { early: ReturnType<typeof startSessionEarlyRead> | null; startedAt: number | null } => ({
-    early: null,
-    startedAt: null,
-  }),
-);
-
-/**
- * When this request's layout started the shell read (`performance.now()`), or null: numbers for
- * `/diagnostics/me-timing` only (v2.0 X4), never a decision.
- */
-export function shellStartedAt(): number | null {
-  return shellRead().startedAt;
-}
+const shellRead = cache((): { early: ReturnType<typeof startSessionEarlyRead> | null } => ({
+  early: null,
+}));
 
 /**
  * Starts the shell's early read for this request: the `(app)` layout's first line. Only a full
@@ -205,7 +193,6 @@ export function shellStartedAt(): number | null {
  * day and the push status, which a loading boundary never needs).
  */
 export function startShellRead(): void {
-  shellRead().startedAt ??= performance.now();
   void sessionEarly();
 }
 

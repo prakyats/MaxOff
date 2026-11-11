@@ -38,16 +38,7 @@ function routesWithPages(dir: string, prefix = ""): string[] {
   return found;
 }
 
-/**
- * Observation pages inside the shell (v2.0 X4, `diagnostics/me-timing`): no screen anyone uses,
- * in no nav, numbers only. They render inside the `(app)` layout to time a real page's reads,
- * and a loading boundary would change the very first byte they explain. Only `diagnostics/`.
- */
-const isDiagnostics = (route: string) => route.startsWith("diagnostics/");
-
-const routes = routesWithPages(appDir).filter(
-  (route) => !NO_DATA.has(route) && !isDiagnostics(route),
-);
+const routes = routesWithPages(appDir).filter((route) => !NO_DATA.has(route));
 
 describe("loading.tsx coverage", () => {
   it("finds the app routes at all (guards against a silently empty sweep)", () => {

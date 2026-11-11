@@ -30,27 +30,11 @@ export function once(fn: () => void): () => void {
   };
 }
 
-/** How this request's waits went (`/diagnostics/day-timing`): numbers only. */
-export type FirstReadsStats = {
-  /** Holds registered (one per early token read started). */
-  holds: number;
-  /** `wait()` calls that had something to wait for. */
-  waits: number;
-  /** Of those, ended by the valve rather than by the reads leaving. */
-  valve: number;
-  /** The longest wait, ms. */
-  longest: number;
-  /** Every wait added up, ms (they overlap: an upper bound on the cost). */
-  total: number;
-};
-
 export class FirstReads {
   private readonly held: Promise<void>[] = [];
-  readonly stats: FirstReadsStats = { holds: 0, waits: 0, valve: 0, longest: 0, total: 0 };
 
   /** Holds every later first request until `left` settles (either way: a failure holds nothing). */
   hold(left: Promise<unknown>): void {
-    this.stats.holds += 1;
     this.held.push(
       left.then(
         () => undefined,
@@ -65,22 +49,12 @@ export class FirstReads {
    */
   wait(limitMs: number = FIRST_READS_WAIT_MS): Promise<void> {
     if (this.held.length === 0) return Promise.resolve();
-    const started = performance.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let byValve = false;
     const valve = new Promise<void>((resolve) => {
-      timer = setTimeout(() => {
-        byValve = true;
-        resolve();
-      }, limitMs);
+      timer = setTimeout(resolve, limitMs);
     });
     return Promise.race([Promise.all(this.held).then(() => undefined), valve]).finally(() => {
       clearTimeout(timer);
-      const ms = performance.now() - started;
-      this.stats.waits += 1;
-      if (byValve) this.stats.valve += 1;
-      this.stats.longest = Math.max(this.stats.longest, Math.round(ms));
-      this.stats.total += Math.round(ms);
     });
   }
 }

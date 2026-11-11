@@ -396,59 +396,6 @@ function diagnose(sample, route, at, kind) {
 
 const TIMING_PATH = "/diagnostics/timing";
 const APPROVALS_TIMING_PATH = "/diagnostics/approvals-timing";
-const ME_TIMING_PATH = "/diagnostics/me-timing";
-
-/**
- * `/diagnostics/me-timing`'s numbers (v2.0 X4): a page inside the `(app)` layout, so its JSON is
- * the text of `<pre data-slot="me-timing">`, HTML-escaped. The hold counters are flattened
- * (`first_reads.valve` → `fr_valve`). Null when the base has no such page (staging before it).
- */
-/** Why a me-timing sample read empty, said once per base (the probe's log only). */
-const meTimingMissed = new Set();
-function meTimingMiss(url, why) {
-  const at = new URL(url).origin;
-  if (meTimingMissed.has(at)) return;
-  meTimingMissed.add(at);
-  process.stderr.write(`${ME_TIMING_PATH} on ${at}: no numbers (${why})\n`);
-}
-
-async function meTiming(url, headers) {
-  const response = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  }).catch(() => null);
-  if (!response?.ok) {
-    meTimingMiss(url, `status ${response?.status ?? 0}`);
-    return null;
-  }
-  const html = await response.text();
-  const pre = /<pre data-slot="me-timing">([\s\S]*?)<\/pre>/.exec(html)?.[1];
-  if (!pre) {
-    // Where it went instead (a path and sizes only, never the page's text).
-    meTimingMiss(
-      url,
-      `200 at ${new URL(response.url).pathname}, ${html.length} bytes, slot ${html.includes('data-slot="me-timing"') ? "present but not matched" : "absent"}`,
-    );
-    return null;
-  }
-  const text = pre
-    .replace(/&quot;/g, '"')
-    .replace(/&#x27;|&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
-  try {
-    const { first_reads: reads = {}, ...rest } = JSON.parse(text);
-    const flat = Object.fromEntries(Object.entries(reads).map(([k, v]) => [`fr_${k}`, v]));
-    // When it was asked (a string, so never in the table's medians): the spikes' minute line.
-    // A measuring timestamp, never a business date (ADR-0008 is about those): the performance
-    // clock's origin plus its reading.
-    const sampledAt = new Date(performance.timeOrigin + performance.now()).toISOString();
-    return { ...rest, ...flat, sampled_at: sampledAt };
-  } catch {
-    return null;
-  }
-}
 
 /** A `/diagnostics/timing` answer's numbers (it holds nothing else but the role), or null. */
 function timingBody(text) {
@@ -597,25 +544,14 @@ async function main() {
   // speed gate, advisor 2026-11-03): observation only, never judged. A base without the route
   // (staging before it shipped) answers 404 and simply has no table.
   const approvals = new Map(bases.map((at) => [at, null]));
-  // Me's reads as the Worker timed them inside the layout (`/diagnostics/me-timing`, v2.0 X4,
-  // advisor 6785208528): observation only, never judged; a base without the page has no table.
-  const mes = new Map(bases.map((at) => [at, null]));
   if (cookie) {
     const reads = new Map(bases.map((at) => [at, []]));
     const waves = new Map(bases.map((at) => [at, []]));
-    const meRuns = new Map(bases.map((at) => [at, []]));
     for (let i = 0; i < samples; i++) {
       for (const at of turn(i)) {
         reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
         waves.get(at).push(await json(at + APPROVALS_TIMING_PATH, headersFor({ auth: true })));
-        meRuns.get(at).push(await meTiming(at + ME_TIMING_PATH, headersFor({ auth: true })));
       }
-    }
-    for (const at of bases) {
-      mes.set(
-        at,
-        meRuns.get(at).filter((r) => r && typeof r.total === "number"),
-      );
     }
     for (const at of bases) {
       chains.set(
@@ -639,7 +575,6 @@ async function main() {
       results: ofBase(base),
       chain: chains.get(base),
       approvals: approvals.get(base),
-      me: mes.get(base),
     },
     { compare, out: args.out, gateLine: !pairBase },
   );
@@ -654,7 +589,6 @@ async function main() {
           results: ofBase(pairBase),
           chain: chains.get(pairBase),
           approvals: approvals.get(pairBase),
-          me: mes.get(pairBase),
         },
         { compare: { candidate: { label, summary: own.summary } }, out: args["pair-out"] },
       )
@@ -672,7 +606,7 @@ async function main() {
  * written to `out`. Returns the run's route summary and the gate's judgements.
  */
 function report(
-  { plan, who, base, label, results, chain, approvals = null, me = null },
+  { plan, who, base, label, results, chain, approvals = null },
   { compare, out, gateLine = true },
 ) {
   // Per route: did every sample answer with the route's own status, and the warm TTFB p50.
@@ -800,33 +734,6 @@ function report(
     lines.push(`| ${keys.join(" | ")} |`);
     lines.push(`|${keys.map(() => "---").join("|")}|`);
     lines.push(`| ${keys.map((k) => ms(median(approvals.map((r) => r[k])))).join(" | ")} |`);
-  }
-  if (me && me.length > 0) {
-    lines.push("");
-    lines.push(
-      `**Me's reads, timed on the Worker inside the layout** (\`${ME_TIMING_PATH}\`, ms from the page's start to each answer, p50 of ${me.length}; \`shell\`: the member row as the layout shares it; \`fr_*\`: the first-read hold counters, \`fr_valve\` the waits the 50 ms valve ended):`,
-    );
-    lines.push("");
-    const keys = Object.keys(me[0]).filter((k) => typeof me[0][k] === "number");
-    lines.push(`| ${keys.join(" | ")} |`);
-    lines.push(`|${keys.map(() => "---").join("|")}|`);
-    lines.push(`| ${keys.map((k) => ms(median(me.map((r) => r[k])))).join(" | ")} |`);
-    lines.push("", `Every sample's \`total\`: ${me.map((r) => ms(r.total)).join(" · ")}`);
-    // The spikes (advisor 6786739292): each slow sample's second within its UTC minute, to line
-    // the slow database answers up with the every-minute push cron (fires at :00). Numbers only.
-    const p50 = median(me.map((r) => r.total));
-    const slow = me.filter((r) => r.total > 2 * p50 && typeof r.sampled_at === "string");
-    lines.push(
-      "",
-      slow.length === 0
-        ? `No slow sample (none above 2 × p50, ${ms(2 * p50)} ms).`
-        : `Slow samples (above 2 × p50, ${ms(2 * p50)} ms), \`total\` @ second within the UTC minute: ${slow
-            .map(
-              (r) =>
-                `${ms(r.total)} @ :${String(new Date(r.sampled_at).getUTCSeconds()).padStart(2, "0")}`,
-            )
-            .join(" · ")}`,
-    );
   }
   const timed = results.filter((r) => r.route === TIMING_PATH && r.body && r.body.total >= 0);
   if (timed.length > 0) {
