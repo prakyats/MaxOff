@@ -29,7 +29,7 @@ const ROLES = ["owner", "admin", "staff"] as const;
 
 describe("the thresholds", () => {
   it("are the owner's numbers", () => {
-    expect(WARM_TTFB_P50_LIMIT_MS).toBe(450); // the v2.0 gate's cap from CI
+    expect(WARM_TTFB_P50_LIMIT_MS).toBe(600); // CLAUDE.md's cap from CI
     expect(SLOWER_THAN_STAGING_PCT).toBe(10);
     expect(SLOWER_THAN_STAGING_MS).toBe(100);
     expect(SLOWER_PCT_FLOOR_MS).toBe(50);
@@ -61,9 +61,9 @@ describe("judgeRoute (option A: the TTFB against the cap, the last byte against 
 
   it("passes a TTFB at the cap and fails one just above it", () => {
     expect(judgeRoute({ ...ok, warmP50: WARM_TTFB_P50_LIMIT_MS }).verdict).toBe("PASS");
-    const slow = judgeRoute({ ...ok, warmP50: 462 });
+    const slow = judgeRoute({ ...ok, warmP50: 612 });
     expect(slow.verdict).toBe("FAIL");
-    expect(slow.reasons).toEqual(["warm p50 462 > 450 ms"]);
+    expect(slow.reasons).toEqual(["warm p50 612 > 600 ms"]);
   });
 
   it("fails a finished page slower than staging's, and says by how much", () => {
@@ -118,7 +118,7 @@ describe("judgeRoute (option A: the TTFB against the cap, the last byte against 
       { ...ok, warmP50: 500, warmTotalP50: 900 },
     );
     expect(j.verdict).toBe("FAIL");
-    expect(j.reasons).toEqual(["warm p50 900 > 450 ms", "last byte +300 ms (+33 %) vs staging"]);
+    expect(j.reasons).toEqual(["warm p50 900 > 600 ms", "last byte +300 ms (+33 %) vs staging"]);
   });
 
   it("fails a route that answered with the wrong status, however fast", () => {
@@ -161,7 +161,7 @@ describe("judgeRun and summaryLine", () => {
   it("says FAIL with the failing routes, and PASS when none fail", () => {
     const line = summaryLine(judgeRun(run, null), { compared: false });
     expect(line).toMatch(/^\*\*Speed gate: FAIL\*\*: 1 of 2 probed routes fail, 1 skipped/);
-    expect(line).toContain("/tasks (warm p50 700 > 450 ms)");
+    expect(line).toContain("/tasks (warm p50 700 > 600 ms)");
     expect(summaryLine(judgeRun(run.slice(0, 1), null), { compared: true })).toMatch(
       /^\*\*Speed gate: PASS\*\*: no probed route fails, of 1 .*the last byte \(the finished page\) not slower than staging/,
     );

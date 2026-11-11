@@ -20,7 +20,8 @@
 // loading skeleton: the first byte comes later by the page's render while the finished page comes
 // sooner. So the gate judges two numbers: the **last byte** (`warmTotalP50`, the whole body, the
 // content complete) against staging by rule 2; and the **TTFB** against the absolute cap alone
-// (rule 1, WARM_TTFB_P50_LIMIT_MS: v2.0's 450 ms, stricter than CLAUDE.md's 600). A TTFB later
+// (rule 1, WARM_TTFB_P50_LIMIT_MS: CLAUDE.md's 600 ms; v2.0's 450 was set back, advisor #89
+// 6787140634 follow-up: from a US runner it measured the ocean to Mumbai, not MaxOff). A TTFB later
 // than staging's is shown (WARN), never failing by itself. A route is slower only when it is slow
 // in **two consecutive runs** (`twoRunVerdicts`); one slow run is re-probed.
 // Routes in NOT_GATED (the warm-up ping, the static file the CDN serves and the Worker's bare 404:
@@ -28,8 +29,8 @@
 // verdict: shown as INFO. Their status is still judged, so a 5xx, a redirect to /login or a
 // timeout on them still fails.
 
-/** A route whose warm TTFB p50 is above this, in ms, fails (the v2.0 gate's cap from CI). */
-export const WARM_TTFB_P50_LIMIT_MS = 450;
+/** A route whose warm TTFB p50 is above this, in ms, fails (CLAUDE.md's cap, from CI). */
+export const WARM_TTFB_P50_LIMIT_MS = 600;
 /** A route slower than staging's warm TTFB p50 by more than this percentage fails. */
 export const SLOWER_THAN_STAGING_PCT = 10;
 /** A route slower than staging's warm TTFB p50 by more than this many ms fails. */

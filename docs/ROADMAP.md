@@ -276,12 +276,12 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
 
 **The v2.0 speed gate (advisor, 2026-11-05; stricter than CLAUDE.md, with no exceptions):**
 - Every route for every role, paired against a preview of v1.9.0, passes the two-run rule.
-- **No route's warm p50 above 450 ms** from the CI probe.
+- **No route's warm p50 above 600 ms** from the CI probe (CLAUDE.md's cap; the 450 first set here was set back on 2026-11-11, the advisor on #89: from a US runner it measured the distance to Mumbai, not MaxOff).
 - **India probe: warm p50 ≤ 300 ms** on every route.
 - **Tap → skeleton ≤ 200 ms.**
 - **INP ≤ 200 ms** on the phone profile.
 - No budget raised.
-- **Owner amendment, 2026-11-11 ("judge finished page too", option A, #89 6786739292):** v2.0's folds put a page's content into its first flush, so a route's first byte can come later while the finished page comes sooner. The gate judges **the last byte** (the content complete) against v1.9 by the two-run rule above, and **the TTFB only against the absolute caps** (≤ 450 ms from the CI probe, ≤ 300 ms from India): a TTFB later than v1.9's but under the cap no longer fails by itself. The READY post's tables show both columns (`scripts/lib/perf-gate.mjs`, `tests/perf-gate.test.ts`).
+- **Owner amendment, 2026-11-11 ("judge finished page too", option A, #89 6786739292):** v2.0's folds put a page's content into its first flush, so a route's first byte can come later while the finished page comes sooner. The gate judges **the last byte** (the content complete) against v1.9 by the two-run rule above, and **the TTFB only against the absolute caps** (≤ 600 ms from the CI probe, ≤ 300 ms from India): a TTFB later than v1.9's but under the cap no longer fails by itself. The READY post's tables show both columns (`scripts/lib/perf-gate.mjs`, `tests/perf-gate.test.ts`).
 
 ## Phase 7: Client work
 > **Launch order:** built **right after phase 6 (v1.5.x), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08; Owner and Admin; Crew never use it).
