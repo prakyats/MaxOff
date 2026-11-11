@@ -26,6 +26,8 @@ import {
   createFromNewProject,
   newProjectStep,
   streamedHeights,
+  answerStartPrompt,
+  ownSession,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
@@ -241,10 +243,13 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   const client = nameOf(info, "projects");
   const own = ownAdmin(info);
   const clientId = await workClient(client, own.email);
-  // This project's own Admin: no other test's notification re-reads the page mid-flow.
-  await page.context().clearCookies();
-  await signIn(page, own.email, own.password);
+  // This project's own Admin: no other test's notification re-reads the page mid-flow. Their
+  // session through the auth API, not the form (not what this walk is about: under 3 workers the
+  // form and its redirect took 6 of the test's 30 s and the walk ran out at its last check, X5),
+  // and their day started as `signIn` leaves it.
+  await ownSession(page, own.email, own.password);
   await page.goto(`/clients/${clientId}/projects`);
+  await answerStartPrompt(page);
   await hydrated(page);
   await expect(page.getByText("No projects yet.")).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
