@@ -7,7 +7,7 @@
 -- Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(58);
 
 -- The reference copies: the SQL bodies exactly as before the migration.
 create function pg_temp.ref_current_member() returns setof public.members language sql stable security definer rows 1 set search_path = '' as $ref$
@@ -269,6 +269,82 @@ insert into public.task_requests (org_id, requested_by, title, client_id) values
   (pg_temp.fx('org'), pg_temp.fx('staff'), 'Guard rq 141 a', null),
   (pg_temp.fx('org'), pg_temp.fx('staff'), 'Guard rq 141 b', pg_temp.fx('client'));
 
+-- X5+ H1: a row for each branch of directory_visible_ids() that had none here, each naming a
+-- person of its own (a comment, a stage, a submission, a review, approver_changed naming a uuid
+-- and a non-uuid, a removed assignee), an ended coordinator and an inactive freelancer.
+insert into fx values
+  ('commenter',    '00000000-0000-4000-8000-000000014111'),
+  ('stager',       '00000000-0000-4000-8000-000000014112'),
+  ('submitter',    '00000000-0000-4000-8000-000000014113'),
+  ('reviewer',     '00000000-0000-4000-8000-000000014114'),
+  ('was_approver', '00000000-0000-4000-8000-000000014115'),
+  ('removed',      '00000000-0000-4000-8000-000000014116'),
+  ('ended_coord',  '00000000-0000-4000-8000-000000014117'),
+  ('gone_free',    '00000000-0000-4000-8000-000000014118');
+insert into auth.users (id, email)
+select pg_temp.fx(k), 'guard-' || k || '-141@example.com'
+from unnest(array['commenter', 'stager', 'submitter', 'reviewer', 'was_approver', 'removed', 'ended_coord']) k;
+insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at, deactivated_at)
+select pg_temp.fx(k), pg_temp.fx('org'), 'Guard ' || k || ' 141', 'guard-' || k || '-141@example.com',
+       r::public.member_role, 'active', 'permanent', now() - interval '20 days', null
+from (values ('commenter', 'staff'), ('stager', 'staff'), ('submitter', 'staff'), ('reviewer', 'admin'),
+             ('was_approver', 'admin'), ('removed', 'staff'), ('ended_coord', 'admin')) v(k, r);
+insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at, deactivated_at) values
+  (pg_temp.fx('gone_free'), pg_temp.fx('org'), 'Guard gone freelancer 141', null, 'staff', 'deactivated', 'freelance',
+   now() - interval '20 days', now() - interval '1 day');
+insert into fx select 'task_a', id from public.tasks where title = 'Guard 141 a';
+insert into public.task_comments (task_id, author_id, body) values (pg_temp.fx('task_a'), pg_temp.fx('commenter'), 'Guard comment 141');
+insert into public.task_stages (task_id, name, done_at, done_by) values (pg_temp.fx('task_a'), 'Guard stage 141', now(), pg_temp.fx('stager'));
+insert into public.task_submissions (task_id, version, submitted_by) values (pg_temp.fx('task_a'), 1, pg_temp.fx('submitter'));
+insert into public.task_reviews (task_id, step, decision, reviewer_id) values (pg_temp.fx('task_a'), 'admin', 'approved', pg_temp.fx('reviewer'));
+insert into public.activity_log (org_id, actor_id, entity, entity_id, action, meta) values
+  (pg_temp.fx('org'), pg_temp.fx('owner'), 'tasks', pg_temp.fx('task_a'), 'approver_changed',
+   jsonb_build_object('from', pg_temp.fx('was_approver'), 'to', 'not a uuid'));
+insert into public.task_assignees (task_id, member_id, is_primary, removed_at) values
+  (pg_temp.fx('task_a'), pg_temp.fx('removed'), false, now() - interval '1 hour');
+-- The freelancer had another coordinator before the Admin (ended), and the Admin also coordinates
+-- a deactivated freelancer, whose task the coordination never shows.
+insert into public.member_coordinators (member_id, coordinator_id, from_at, to_at) values
+  (pg_temp.fx('free'), pg_temp.fx('ended_coord'), now() - interval '8 days', now() - interval '2 days'),
+  (pg_temp.fx('gone_free'), pg_temp.fx('admin'), now() - interval '8 days', null);
+insert into public.tasks (org_id, title, task_type_id, priority, due_at, state, created_by, primary_owner_id) values
+  (pg_temp.fx('org'), 'Guard 141 g', pg_temp.fx('type'), 'medium', now() + interval '2 days', 'todo', pg_temp.fx('owner'), pg_temp.fx('gone_free'));
+insert into public.task_assignees (task_id, member_id, is_primary)
+select t.id, t.primary_owner_id, true from public.tasks t where t.title = 'Guard 141 g';
+
+-- X5+ C2: a second organisation with a member in each role, a task, an Admin's client, a request,
+-- a holiday and other weekly days off. The guard below runs over its people too.
+insert into fx values
+  ('org_b',       '00000000-0000-4000-8000-000000014120'),
+  ('b_owner',     '00000000-0000-4000-8000-000000014121'),
+  ('b_admin',     '00000000-0000-4000-8000-000000014122'),
+  ('b_staff',     '00000000-0000-4000-8000-000000014123'),
+  ('b_client',    '00000000-0000-4000-8000-000000014124'),
+  ('b_type',      '00000000-0000-4000-8000-000000014125');
+insert into public.organizations (id, name) values (pg_temp.fx('org_b'), 'Guard other org 141');
+insert into auth.users (id, email)
+select pg_temp.fx(k), 'guard-' || k || '-141@example.com' from unnest(array['b_owner', 'b_admin', 'b_staff']) k;
+insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at)
+select pg_temp.fx(k), pg_temp.fx('org_b'), 'Guard ' || k || ' 141', 'guard-' || k || '-141@example.com',
+       r::public.member_role, 'active', 'permanent', now() - interval '20 days'
+from (values ('b_owner', 'owner'), ('b_admin', 'admin'), ('b_staff', 'staff')) v(k, r);
+-- Written as org B's Owner: with two organisations and no session, the audit trigger has no
+-- organisation to file a row under (current_org_id() is null, as C2 checks below).
+select pg_temp.as_member(pg_temp.fx('b_owner'));
+insert into public.task_types (id, org_id, name) values (pg_temp.fx('b_type'), pg_temp.fx('org_b'), 'Guard type 141');
+insert into public.clients (id, org_id, name, state, admin_id, activated_at) values
+  (pg_temp.fx('b_client'), pg_temp.fx('org_b'), 'Guard B client 141', 'active', pg_temp.fx('b_admin'), now());
+insert into public.tasks (org_id, title, task_type_id, priority, due_at, state, created_by, primary_owner_id, client_id) values
+  (pg_temp.fx('org_b'), 'Guard 141 B', pg_temp.fx('b_type'), 'medium', now() + interval '2 days', 'todo',
+   pg_temp.fx('b_owner'), pg_temp.fx('b_staff'), pg_temp.fx('b_client'));
+insert into fx select 'b_task', id from public.tasks where title = 'Guard 141 B';
+insert into public.task_assignees (task_id, member_id, is_primary) values (pg_temp.fx('b_task'), pg_temp.fx('b_staff'), true);
+insert into public.task_requests (org_id, requested_by, title, client_id) values
+  (pg_temp.fx('org_b'), pg_temp.fx('b_staff'), 'Guard rq 141 B', pg_temp.fx('b_client'));
+insert into public.holidays (org_id, date, name) values (pg_temp.fx('org_b'), app.today_ist() + 4, 'Guard B holiday 141');
+update public.org_settings set weekly_off_days = '{2}' where org_id = pg_temp.fx('org_b');
+select pg_temp.as_member(null);
+
 -- Every caller: every member, and no one (null).
 create temporary table callers as select m.id from public.members m union all select null::uuid;
 -- Every row each helper decides, plus null and an unknown id.
@@ -334,6 +410,48 @@ select ok(pg_temp.ref_task_visible((select id from public.tasks where title = 'G
 select ok(pg_temp.ref_is_working_day(app.today_ist() + 3) is false
           and (pg_temp.ref_leave_covering(pg_temp.fx('staff'), app.today_ist() + 6)).type = 'half_day',
   'the holiday is a day off, and the latest-decided leave covers its day (both by the reference)');
+
+-- X5+ H1: each helper the guard compares is true somewhere and false somewhere (by the reference).
+select pg_temp.as_member(pg_temp.fx('admin'));
+select ok(pg_temp.fx('client') in (select pg_temp.ref_admin_client_ids())
+          and (select id from public.clients where name = 'Guard other Admin client 141') not in (select pg_temp.ref_admin_client_ids()),
+  'admin_client_ids: the Admin''s client, not another Admin''s');
+select ok(pg_temp.ref_client_visible(pg_temp.fx('client'))
+          and not pg_temp.ref_client_visible((select id from public.clients where name = 'Guard other Admin client 141')),
+  'client_visible: true and false for the Admin');
+select ok(pg_temp.ref_task_request_visible(pg_temp.fx('staff'), pg_temp.fx('client'))
+          and not pg_temp.ref_task_request_visible(pg_temp.fx('staff'), (select id from public.clients where name = 'Guard other Admin client 141')),
+  'task_request_visible: a Crew request on the Admin''s client, not on another Admin''s');
+select ok(pg_temp.ref_coordinator_of(pg_temp.fx('free')) = pg_temp.fx('admin')
+          and pg_temp.ref_coordinator_of(pg_temp.fx('staff')) is null,
+  'coordinator_of: the current coordinator (the ended one is not), none for a permanent member');
+select ok(pg_temp.ref_task_visible((select id from public.tasks where title = 'Guard 141 d'))
+          and not pg_temp.ref_task_visible((select id from public.tasks where title = 'Guard 141 g')),
+  'the coordinator sees an active freelancer''s task, never an inactive one''s');
+select pg_temp.as_member(pg_temp.fx('ended_coord'));
+select ok(not pg_temp.ref_task_visible((select id from public.tasks where title = 'Guard 141 d')),
+  'an ended coordinator no longer sees the freelancer''s task');
+select pg_temp.as_member(pg_temp.fx('staff'));
+select ok((select id from public.clients where name = 'Guard other Admin client 141') in (select pg_temp.ref_labelled_client_ids())
+          and pg_temp.fx('client') not in (select pg_temp.ref_labelled_client_ids()),
+  'labelled_client_ids: a label on Crew''s own task, not on a task they are not on');
+select ok(array(select pg_temp.fx(k) from unnest(array['commenter', 'stager', 'submitter', 'reviewer', 'was_approver', 'removed']) k)
+          <@ array(select pg_temp.ref_directory_visible_ids()),
+  'directory_visible_ids names whoever commented, ticked, handed in, reviewed, was the approver or was removed');
+
+-- X5+ C2: nothing crosses organisations, and no member means no organisation.
+select pg_temp.as_member(pg_temp.fx('owner'));
+select ok(not app.task_visible(pg_temp.fx('b_task')), 'the Owner never sees another organisation''s task');
+select ok(not app.client_visible(pg_temp.fx('b_client')), '... nor its client');
+select is((select count(*) from app.directory_visible_ids() d
+           where d in (select pg_temp.fx(k) from unnest(array['b_owner', 'b_admin', 'b_staff']) k)), 0::bigint,
+  '... nor its people in the directory');
+select pg_temp.as_member(pg_temp.fx('b_owner'));
+select ok(app.task_visible(pg_temp.fx('b_task')) and app.current_org_id() = pg_temp.fx('org_b'),
+  'its own Owner sees it (the check is not vacuous)');
+select pg_temp.as_member(null);
+select ok(app.current_org_id() is null, 'no member, two organisations: no organisation');
+select ok(app.is_working_day(app.today_ist() + 4) is null, '... and a day is unknown, never a working day of either');
 
 -- 2. Every attribute kept --------------------------------------------------------------------------------
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace

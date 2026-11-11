@@ -8,7 +8,7 @@
 -- attendance_hours_on (service_role only, as attendance_hours). Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(19);
 
 -- The references: the old bodies exactly (today's calls the old attendance_hours).
 create function pg_temp.ref_attendance_hours(p_member uuid, p_date date)
@@ -169,8 +169,9 @@ select ok((select count(*) from public.attendance_hours_today()) > 0, '... and i
 select set_config('request.jwt.claim.sub', '', true);
 
 -- 3. Not vacuous: each fixture changes the answer, by the reference -----------------------------------
-select ok((select rules_on and not late_applies from pg_temp.ref_attendance_hours(pg_temp.fx('staff'), app.today_ist() + 3)),
-  'the holiday: no rules that day');
+select ok((select rules_on and not late_applies and not early_applies
+           from pg_temp.ref_attendance_hours(pg_temp.fx('staff'), app.today_ist() + 3)),
+  'the holiday: no rules that day (neither Late nor leaving early)');
 select ok((select not late_applies and not early_applies from pg_temp.ref_attendance_hours(pg_temp.fx('staff'), app.today_ist() + 6)),
   'full leave: neither rule');
 select is((select half from pg_temp.ref_attendance_hours(pg_temp.fx('admin'), app.today_ist() + 10)), 'morning', 'the morning half day');
@@ -185,6 +186,8 @@ insert into auth.users (id, email) values ('00000000-0000-4000-8000-000000014211
 insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at) values
   ('00000000-0000-4000-8000-000000014211', '00000000-0000-4000-8000-000000014210', 'Other org member 142', 'other-14211@example.com',
    'staff', 'active', 'permanent', now() - interval '40 days');
+select ok(exists (select 1 from public.org_settings where org_id = '00000000-0000-4000-8000-000000014210'),
+  'org B has its own settings row (the updates below change a real row)');
 -- Opposite settings: org A off, org B on.
 update public.org_settings set working_hours_on = false where org_id = pg_temp.fx('org');
 update public.org_settings set working_hours_on = true where org_id = '00000000-0000-4000-8000-000000014210';
@@ -203,11 +206,16 @@ select ok((select bool_and(h.rules_on) from public.attendance_hours_today() h) a
 select is((select count(*) from public.attendance_hours_today() h where h.member_id = '00000000-0000-4000-8000-000000014211'),
   0::bigint, '... and still no org B member');
 select set_config('request.jwt.claim.sub', '', true);
+select is(pg_temp.mismatches(), 0::bigint,
+  'with org B and its own settings: attendance_hours equals its old body for every member of both');
 
 -- 5. Who may call the new helper -----------------------------------------------------------------------
 select ok(not has_function_privilege('authenticated', 'app.attendance_hours_on(uuid, date, public.org_settings, boolean)', 'execute')
+          and not has_function_privilege('anon', 'app.attendance_hours_on(uuid, date, public.org_settings, boolean)', 'execute')
           and has_function_privilege('service_role', 'app.attendance_hours_on(uuid, date, public.org_settings, boolean)', 'execute'),
-  'attendance_hours_on is internal: service_role only, as attendance_hours');
+  'attendance_hours_on is internal: service_role only (never anon or authenticated), as attendance_hours');
+select is((select proacl::text from pg_proc where oid = 'app.attendance_hours_on(uuid, date, public.org_settings, boolean)'::regprocedure),
+  '{postgres=X/postgres,service_role=X/postgres}', 'attendance_hours_on: exactly that grant');
 select is((select proacl::text from pg_proc where oid = 'app.attendance_hours(uuid,date)'::regprocedure),
   '{postgres=X/postgres,service_role=X/postgres}', 'attendance_hours keeps its grants');
 
