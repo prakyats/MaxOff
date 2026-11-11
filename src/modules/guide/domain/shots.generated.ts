@@ -26,7 +26,7 @@ export const GUIDE_SHOTS: Readonly<
   "staff/my-day": {
     src: "/guide/staff/my-day.webp",
     width: 1222,
-    height: 427,
+    height: 450,
     alt: "My Day with today's attendance strip highlighted at the top.",
   },
   "staff/late-chip": {
