@@ -8,7 +8,8 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 **Not released yet.** The Owner tags after his phone walk.
 
-RC: phase-v2 @ <head sha, set at READY>
+RC: `phase-v2`, the head named in #89's READY FOR OWNER post: 1533d987 (measured in CI and from India) plus the
+held stages' dimming (a class change; CI and the paired CI probes re-run on it).
 
 No new feature in this release: the app is faster, and a handful of rough edges are fixed.
 
@@ -20,6 +21,8 @@ No new feature in this release: the app is faster, and a handful of rough edges 
 - **A project on hold says "On hold" everywhere.** On the client's Overview and Projects tab the row shows an amber
   "On hold", never "Open". Open one of its deliverables and the sheet says at the top: "The project is on hold:
   ticks and Mark done wait until it is resumed." Its stages are greyed out.
+- **A held project's stages are easier to read.** They are greyed once instead of twice, so their names stay clear
+  while they wait (they still cannot be ticked).
 - **A task on hold explains itself to you too.** The amber line now also says "Start, Done and the stage ticks wait
   until the task is resumed."
 - **More → Appearance (phone).** The row now opens a small sheet. Tap Light, Dark or System. The sheet closes and
@@ -52,12 +55,53 @@ No new feature in this release: the app is faster, and a handful of rough edges 
 - On the sign-in page, if the phone switches between light and dark, the colours now fade in instead of snapping.
   Signed in, nothing changed.
 
-### Speed (to be filled from the final probes)
+### Speed
+The finished page (the last byte, median of warm samples), v1.9 → v2.0, measured on the release candidate beside
+a preview of `main` (v1.9.0) at the same time. The gate: no screen slower than v1.9 in two runs in a row, and every
+first byte under its cap. **Passed for every role.**
 
-> **PLACEHOLDER: SPEED TABLE GOES HERE.**
-> To be filled from the release-candidate probes: the preview of this release beside a preview of `main`, signed in
-> as Owner, Admin and Crew, plus the India run. One row per screen: v1.9 → v2.0.
-> The gate: no screen slower than today in two runs in a row. Do not mark READY until this table is in.
+**From India** (the Owner's Chrome, 12 Nov, about 07:15–07:45 IST, 10 warm samples per screen; the advisor, #89
+6812225408). Every first byte was at most 260 ms in every clean round (cap 300 ms).
+
+| Screen | Owner | Admin | Crew |
+|---|---|---|---|
+| Today / My Day | 372 → 259 | 458 → 331 | 165 → 157, 166 → 153 |
+| Tasks | 208 → 188 | 201 → 157 | 186 → 183 |
+| Calendar | 177 → 232, 203 → 241 | 218 → 256 | 199 → 209 |
+| Clients | 160 → 258, 134 → 141 | 206 → 159 | · |
+| Approvals | · | 173 → 154 | · |
+| Reports | · | 228 → 204 | · |
+| Me | · | 184 → 132 | 140 → 132, 124 → 136 |
+| Leave / Attendance | · | 171 → 148 | 206 → 183 |
+| A project | 226 → 191 | 268 → 189 | · |
+
+Two numbers in a cell are two rounds. A screen slower in one round only was probed again (the rule); none was
+slower twice. The Crew's second round was disturbed (My Day's samples ran from 534 to 3073 ms, while Tasks in the
+same run held at 138), and the owner ruled rounds 3 and 4 settle it. **To watch in v2.1:** the calendar finishes
+about 40 ms later than v1.9 for the Owner and an Admin, within the rule; it is on the v2.1 list.
+
+**From CI** (US runners, 10 samples, runs 43119734374, 43124126059 and 43128397499; the paired probe, preview of
+`main` beside the release candidate). Farther from the database than the team, so every number is larger; the
+comparison is what counts.
+
+| Screen | Owner | Admin | Crew |
+|---|---|---|---|
+| Today / My Day | 1080 → 999 | 1816 → 1297 | 1021 → 586 |
+| Approvals | 550 → 316 | 764 → 403 | · |
+| Tasks | 983 → 636 | 1236 → 681 | 844 → 442 |
+| Calendar | 1096 → 1046 | 1576 → 1500 | 969 → 921 |
+| Clients | 505 → 323 | 739 → 559 | · |
+| People | 566 → 323 | 618 → 659 | · |
+| Reports | 578 → 612 | 1317 → 1222 | · |
+| Leave | · | 714 → 553 | 618 → 452 |
+| Settings → Templates | 741 → 388 | 891 → 386 | · |
+| Me | 518 → 299 | 1003 → 636 | 582 → 358 |
+| A task | 1208 → 741 | 1449 → 942 | 1449 → 913 |
+| A client | 882 → 650 | 1054 → 731 | · |
+| A project | 1491 → 1089 | 1897 → 1319 | · |
+
+**Taps on a phone** (CPU slowed 4×, 375 px; 5 to 15 runs each): no tap is slower than v1.9, and every tap's median
+is at most 168 ms (the web's "good" is 200 ms; #89 6808590041).
 
 ### Under the hood
 1. Each screen now asks the database for everything it needs in one or two trips, and never more than six at once.

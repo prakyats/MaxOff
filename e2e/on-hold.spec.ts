@@ -511,6 +511,35 @@ test.describe("a project on hold", () => {
       "The project is on hold: ticks and Mark done wait until it is resumed.",
     );
     await expect(sheet.getByRole("checkbox", { name: "Edit" })).toBeDisabled();
+    // Dimmed once (owner, #89 6812253725): the held stages take the muted colour and are not
+    // faded again, so their names read at about 6:1 on the sheet (3.1:1 when also faded).
+    const held = await sheet.evaluate((element) => {
+      const rgb = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+      const luminance = (value: string) => {
+        const [r, g, b] = rgb(value).map((channel) => {
+          const c = channel / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+      };
+      const background = getComputedStyle(element).backgroundColor;
+      return [...element.querySelectorAll<HTMLElement>('[data-slot="item-stage-tick"]')].map(
+        (tick) => {
+          const [light, dark] = [luminance(getComputedStyle(tick).color), luminance(background)]
+            .sort((a, b) => b - a)
+            .map(Number);
+          return {
+            opacity: getComputedStyle(tick).opacity,
+            contrast: Math.round(((light! + 0.05) / (dark! + 0.05)) * 100) / 100,
+          };
+        },
+      );
+    });
+    expect(held.length, "the held deliverable's stages").toBeGreaterThan(0);
+    for (const stage of held) {
+      expect(stage.opacity, "a held stage is not faded").toBe("1");
+      expect(stage.contrast, "a held stage's name on the sheet").toBeGreaterThanOrEqual(4.5);
+    }
     // Measured once the sheet has finished sliding in: on a laptop it enters from the right, and
     // mid-slide it reaches past the edge (full CI 42016075320).
     await sheet.evaluate((element) =>

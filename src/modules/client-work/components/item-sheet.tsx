@@ -692,7 +692,12 @@ export function ItemSheet({
                                 undo: false,
                               })
                             }
-                            className="pressable-row hover:bg-muted/50 flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
+                            className={cn(
+                              "pressable-row hover:bg-muted/50 flex min-h-11 w-full items-center gap-3 px-3 text-left",
+                              // Held: dimmed once, by the list's muted colour (6.0:1 light, 6.5:1
+                              // dark on the sheet), not faded again (owner, #89 6812253725).
+                              !current.onHold && "disabled:opacity-70",
+                            )}
                           >
                             {/* Ticked is neutral (the checkbox's own look), never red: red stays
                                 for the sheet's one commit, Mark done (unit U). */}
