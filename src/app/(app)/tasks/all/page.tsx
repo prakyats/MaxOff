@@ -17,6 +17,7 @@ import {
 } from "@/modules/tasks";
 import { type TaskListItem, TaskListTable } from "@/modules/tasks/components/task-list-table";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { readClientLabels, readDirectory, readOpenTasks, readTaskTypes } from "../reads";
 
@@ -115,6 +116,7 @@ export default async function AllTasksPage() {
 
   return (
     <>
+      <TaskTapSkeletonLazy manages={team} />
       <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader
         back={{ href: "/tasks", label: "Tasks" }}

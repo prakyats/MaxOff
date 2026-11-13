@@ -4,12 +4,14 @@ import type { Metadata } from "next";
 import { requireMember } from "@/core/auth/server";
 import { checkThenRead } from "@/core/lib/start-early";
 import { listInboxPage, readUnread } from "@/core/notifications/inbox";
+import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { alertsFilterFrom, NotificationBar } from "@/modules/notifications-center";
 import { AlertsFeed } from "@/modules/notifications-center/components/alerts-feed";
 import { FreshOnReturn } from "@/modules/notifications-center/components/fresh-on-return";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { AlertsFilter } from "./alerts-filter";
 
@@ -33,7 +35,7 @@ export default async function NotificationsPage({
   const { show } = await searchParams;
   const filter = alertsFilterFrom(show);
   // The reads start with the session read; the member check is awaited first (§19).
-  const [, [listing, unread]] = await checkThenRead(
+  const [viewer, [listing, unread]] = await checkThenRead(
     requireMember(),
     Promise.all([listInboxPage({ unreadOnly: filter === "unread" }), readUnread()]),
   );
@@ -42,6 +44,7 @@ export default async function NotificationsPage({
 
   return (
     <>
+      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
       <FreshOnReturn renderId={renderId} />
       <PageHeader title="Alerts" description={DESCRIPTION} />
       <AlertsFilter current={filter} />

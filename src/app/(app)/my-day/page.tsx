@@ -34,6 +34,7 @@ import {
   TaskRowList,
 } from "@/modules/tasks";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { ownWeek, readOwnWeek, readOwnWeekFreelancers } from "../tasks/own-week";
 import { readClientLabels, readDirectory, readOpenTasks } from "../tasks/reads";
@@ -112,6 +113,7 @@ export default async function MyDayPage() {
 
   return (
     <>
+      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
       <PageHeader title="My Day" description={dayContext(today, viewer.name)} />
       <PhoneDateLine line={dateLine(today)} />
       <TodayAttendanceStrip

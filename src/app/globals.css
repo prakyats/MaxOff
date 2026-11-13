@@ -1100,3 +1100,9 @@ html:has([data-slot="bulk-bar"]) {
     opacity: 1;
   }
 }
+
+/* A task's skeleton drawn on the tap (#143, `TaskTapSkeleton`): the old screen steps aside while
+   it shows, and comes back as it was if the navigation stands down. */
+#main[data-tap-skeleton] > [data-slot="route"] {
+  display: none;
+}

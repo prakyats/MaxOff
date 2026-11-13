@@ -40,6 +40,20 @@ function routesWithPages(dir: string, prefix = ""): string[] {
 
 const routes = routesWithPages(appDir).filter((route) => !NO_DATA.has(route));
 
+/**
+ * A route's loading screen as written: its `loading.tsx`, plus the module skeleton it draws when
+ * it hands the drawing to one (`@/modules/<module>/components/<file>`, e.g. a task's page since
+ * #143, whose skeleton a tap also draws), so every check below reads the real markup.
+ */
+function loadingSource(route: string): string {
+  const own = readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
+  const drawn = [...own.matchAll(/from "@\/modules\/([\w-]+)\/components\/([\w-]+)"/g)].map(
+    ([, module, file]) =>
+      readFileSync(path.join(root, "src/modules", module!, "components", `${file}.tsx`), "utf8"),
+  );
+  return [own, ...drawn].join("\n");
+}
+
 describe("loading.tsx coverage", () => {
   it("finds the app routes at all (guards against a silently empty sweep)", () => {
     expect(routes.length).toBeGreaterThanOrEqual(13);
@@ -54,7 +68,7 @@ describe("loading.tsx coverage", () => {
   it.each(routes)("%s renders its title bar while loading", (route) => {
     // Without a header you cannot tell which screen you are on mid-load. A route whose own
     // layout draws the header (and awaits nothing) keeps it painted while the page loads.
-    const source = readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
+    const source = loadingSource(route);
     const layouts = route
       .split("/")
       .map((_, i, parts) => path.join(appDir, ...parts.slice(0, i + 1), "layout.tsx"))
@@ -66,8 +80,7 @@ describe("loading.tsx coverage", () => {
   });
 
   it("gives each route the shape its real content has", () => {
-    const sourceOf = (route: string) =>
-      readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
+    const sourceOf = (route: string) => loadingSource(route);
     const shapeOf = (route: string) => sourceOf(route).match(/shape="(\w+)"/)?.[1];
     // The stand-in routes (3c review, owner decision) are gone since 6.4 built the Calendar, the
     // last one: no route shows the stand-in copy or its skeleton (`StandInSkeleton`) any more.
@@ -168,7 +181,7 @@ describe("loading.tsx coverage", () => {
 
   it("never lets a route fall back to the avatar list that caused this rule", () => {
     for (const route of routes) {
-      const source = readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
+      const source = loadingSource(route);
       expect(source, route).not.toContain("size-8 shrink-0 rounded-full");
     }
   });

@@ -2,6 +2,9 @@ import { formatIST, formatTime, overdueWords, spanWords, toISTDate } from "@/cor
 
 import { isFinal, isLocked, statusLine, type ActingFor, type TaskActions } from "./task";
 import type { Task, TaskAssignee, TaskState } from "./types";
+import { parseTaskView, TASK_VIEWS, type TaskView } from "./views";
+
+export { parseTaskView, TASK_VIEWS, type TaskView };
 
 /**
  * The task page as the owner reworked it (Kickoff 4 decisions 26–32): the first glance (a line
@@ -165,22 +168,8 @@ export function neededLine(input: {
 
 // The views (27, 32) ------------------------------------------------------------------------------
 
-export type TaskView = "work" | "chat" | "details";
-
-/**
- * The views. Activity left them in the v1.8 consistency sweep (owner 2026-10-21): the task's
- * history is the header's History sheet, as on every detail page; an old `?tab=activity` link
- * lands on Work with that sheet open (`HISTORY_ARRIVAL`).
- */
-export const TASK_VIEWS: readonly TaskView[] = ["work", "chat", "details"];
-
 /** The old links that asked for the history as a view: they open the History sheet on arrival. */
 export const HISTORY_ARRIVAL = { tab: "activity" } as const;
-
-/** The view a `?tab=` value asks for; anything else is Work, where a task lands (decision 32). */
-export function parseTaskView(value: string | null | undefined): TaskView {
-  return TASK_VIEWS.find((view) => view === value) ?? "work";
-}
 
 /**
  * What a screen shows for the view chosen (decision 32): a phone has no Chat view (Chat is a

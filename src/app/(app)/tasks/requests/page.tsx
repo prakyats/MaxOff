@@ -19,6 +19,7 @@ import {
 } from "@/modules/tasks";
 import { RequestActions } from "@/modules/tasks/components/request-actions";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { readClientLabels, readDirectory, readLabelClients } from "../reads";
 import { loadTaskFormSetup } from "../task-form-setup";
@@ -73,6 +74,7 @@ export default async function TaskRequestsPage() {
 
   return (
     <>
+      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
       <PageHeader
         back={{ href: "/tasks", label: "Tasks" }}
         title="Suggested tasks"

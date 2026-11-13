@@ -45,6 +45,7 @@ export {
 export { availability as listAvailability } from "./data/tasks";
 /** The dashboards' task reads (6A): event tasks for My Day and Today, the work report's facts. */
 export { listEventTasks, listKpiFacts, listOwnWeek } from "./data/dashboards";
+export { TASK_BACK } from "./domain/back";
 export { type EventTask, type KpiFacts } from "./domain/dashboards";
 export { type AvailabilityDay, type LeaveMark } from "./domain/warnings";
 export { countRequestsToDecide, listTaskRequests } from "./data/requests";

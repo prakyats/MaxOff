@@ -27,6 +27,7 @@ import { listTasksAtBothSteps, listUnreadCounts } from "@/modules/tasks";
 import { TaskApprovalGroup } from "@/modules/tasks/components/task-approval-group";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { taskItem } from "./items";
 
@@ -143,6 +144,7 @@ export default async function ApprovalsPage() {
 
   return (
     <>
+      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
       <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
       {nothing ? (
