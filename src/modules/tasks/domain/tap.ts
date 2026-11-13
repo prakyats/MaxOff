@@ -1,3 +1,4 @@
+import { TASK_BACK } from "./back";
 import { parseTaskView, type TaskView } from "./views";
 
 const TASK_PAGE = /^\/tasks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -38,3 +39,16 @@ export function taskTapTarget(href: string, origin: string): TaskTap | null {
  * load (1.1 KB; the calendar's budget had 159 bytes left).
  */
 export const NAV_PENDING = "data-nav-pending";
+
+/**
+ * The name the task page's back control gives the screen a tap came from (`TASK_BACK`): what the
+ * route's own skeleton shows there once the task's address is in the history, since `BackLink`
+ * names the screen it will land on. A drawing made away from the task page cannot know it
+ * (`TaskTapSkeleton` sets it on its copy). `/reports/end-of-day/*` matches every day's report.
+ */
+export function taskBackLabel(from: string): string {
+  const origin = TASK_BACK.from.find(({ path }) =>
+    path.endsWith("/*") ? from.startsWith(path.slice(0, -1)) : from === path,
+  );
+  return origin?.label ?? TASK_BACK.label;
+}

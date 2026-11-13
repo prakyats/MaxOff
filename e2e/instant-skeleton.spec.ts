@@ -8,6 +8,7 @@ import { mobileNavFor, PROFILE_NAV_ITEM } from "../src/core/ui/shell/nav";
 
 import { expect, test } from "./fixtures";
 import {
+  holdReads,
   hydrated,
   memberIdOf,
   ownSession,
@@ -741,70 +742,186 @@ test.describe("a tap on a cold Worker shows its skeleton at once, every role", (
       }
 
       // §14.2 with the app's skeleton up: back closes it and Tasks is there as it was (#143).
-      test("back while a tapped task's skeleton shows keeps Tasks, installed", async ({
-        page,
-        context,
-        baseURL,
-      }) => {
-        test.setTimeout(120_000);
-        const { task: TASK } = fixtureNames(test.info().project.name, role);
-        const person = viewer(test.info().project.name);
-        if (person) await signIn(page, person.email, person.password);
-        const prep = await context.newPage();
-        await prep.goto("/offline");
-        await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
-        await prep.close();
-        await runInstalled(page);
-        await page.goto(USERS[role].home);
-        await hydrated(page);
-        await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-        await expect(page).toHaveURL(/\/tasks$/);
-        const row = page
-          .locator('[data-slot="task-row"]')
-          .getByRole("link", { name: new RegExp(TASK) })
-          .first();
-        await row.scrollIntoViewIfNeeded();
-        await expect(row).toBeInViewport();
-        await expect
-          .poll(async () => (await keptAddresses(page)).filter((a) => a === SHELL_TASK_KEY).length)
-          .toBeGreaterThanOrEqual(2);
+      // Leaving while the copy waits for the router (§14.2): back returns to Tasks; a bar tab goes
+      // where it goes from Tasks, and no entry is left at the task's address (review of 8706c3a0).
+      for (const leave of ["back", "the home tab"] as const) {
+        test(`${leave} while a tapped task's skeleton shows leaves no task entry, installed`, async ({
+          page,
+          context,
+          baseURL,
+        }) => {
+          test.setTimeout(120_000);
+          const { task: TASK } = fixtureNames(test.info().project.name, role);
+          const person = viewer(test.info().project.name);
+          if (person) await signIn(page, person.email, person.password);
+          const prep = await context.newPage();
+          await prep.goto("/offline");
+          await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+          await prep.close();
+          await runInstalled(page);
+          await page.goto(USERS[role].home);
+          await hydrated(page);
+          await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+          await expect(page).toHaveURL(/\/tasks$/);
+          const row = page
+            .locator('[data-slot="task-row"]')
+            .getByRole("link", { name: new RegExp(TASK) })
+            .first();
+          await row.scrollIntoViewIfNeeded();
+          await expect(row).toBeInViewport();
+          await expect
+            .poll(
+              async () => (await keptAddresses(page)).filter((a) => a === SHELL_TASK_KEY).length,
+            )
+            .toBeGreaterThanOrEqual(2);
 
-        await coldWorker(context, baseURL!);
-        await page.reload();
-        await hydrated(page);
-        await expect(row).toBeVisible({ timeout: COLD_MS * 4 });
-        await row.scrollIntoViewIfNeeded();
-        await expect(page.locator("html")).toHaveAttribute("data-live", "on", {
-          timeout: COLD_MS * 4,
+          await coldWorker(context, baseURL!);
+          // Reopened on home, then Tasks through its tab: the bar remembers it pushed Tasks over
+          // home, so its home tab then goes back (the case a left-behind entry breaks).
+          await page.goto(USERS[role].home);
+          await hydrated(page);
+          await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+          await expect(page).toHaveURL(/\/tasks$/, { timeout: COLD_MS * 4 });
+          await expect(row).toBeVisible({ timeout: COLD_MS * 4 });
+          await row.scrollIntoViewIfNeeded();
+          await expect(page.locator("html")).toHaveAttribute("data-live", "on", {
+            timeout: COLD_MS * 4,
+          });
+          const entryAtTasks = await page.evaluate(() => navigation.currentEntry?.index);
+          const refreshed = page.waitForRequest(
+            (request) => {
+              const headers = request.headers();
+              return (
+                headers.rsc === "1" &&
+                !headers["next-router-prefetch"] &&
+                new URL(request.url()).pathname === "/tasks"
+              );
+            },
+            { timeout: COLD_MS * 4 },
+          );
+          await notify(person?.email ?? OWNER.email);
+          await refreshed;
+          expectInstant(
+            `task row, then ${leave}`,
+            await tapUntilSkeleton(row, '[data-slot="tap-skeleton"] [data-slot="loading-task"]'),
+          );
+          const home = USERS[role].home;
+          if (leave === "back") {
+            await page.goBack();
+            await expect(page).toHaveURL(/\/tasks$/);
+            await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
+            await expect(row).toBeVisible();
+            // Back on Tasks' own entry, and it stays: the task's late answer is dropped.
+            expect(await page.evaluate(() => navigation.currentEntry?.index)).toBe(entryAtTasks);
+            await page.waitForTimeout(COLD_MS + 500);
+            await expect(page).toHaveURL(/\/tasks$/);
+          } else {
+            await page.locator(`[data-slot="bottom-nav"] a[href="${home}"]`).click();
+            await expect(page).toHaveURL(new RegExp(`${home}$`), { timeout: COLD_MS * 4 });
+            await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
+            await page.waitForTimeout(COLD_MS + 500);
+            await expect(page).toHaveURL(new RegExp(`${home}$`));
+          }
+          await expect(page.locator('[data-slot="task-page"]')).toHaveCount(0);
+          // The task's address is nowhere at or behind the current entry: no entry a back would land
+          // on (one ahead, a back's forward, is any drill-down's).
+          expect(
+            await page.evaluate(() =>
+              navigation
+                .entries()
+                .slice(0, (navigation.currentEntry?.index ?? 0) + 1)
+                .some((entry) => /\/tasks\/[0-9a-f-]{36}/.test(entry.url ?? "")),
+            ),
+          ).toBe(false);
         });
-        const entryAtTasks = await page.evaluate(() => navigation.currentEntry?.index);
-        const refreshed = page.waitForRequest(
-          (request) => {
-            const headers = request.headers();
-            return (
-              headers.rsc === "1" &&
-              !headers["next-router-prefetch"] &&
-              new URL(request.url()).pathname === "/tasks"
-            );
-          },
-          { timeout: COLD_MS * 4 },
-        );
-        await notify(person?.email ?? OWNER.email);
-        await refreshed;
-        expectInstant(
-          "task row, then back",
-          await tapUntilSkeleton(row, '[data-slot="tap-skeleton"] [data-slot="loading-task"]'),
-        );
-        await page.goBack();
-        await expect(page).toHaveURL(/\/tasks$/);
-        await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
-        await expect(row).toBeVisible();
-        // Back on Tasks' own entry, and it stays: the task's late answer is dropped.
-        expect(await page.evaluate(() => navigation.currentEntry?.index)).toBe(entryAtTasks);
-        await page.waitForTimeout(COLD_MS + 500);
-        await expect(page).toHaveURL(/\/tasks$/);
-        await expect(page.locator('[data-slot="task-page"]')).toHaveCount(0);
-      });
+      }
+
+      // A row whose task the router answers with another screen at its address (#89 6845781531):
+      // the copy goes and that screen shows (a task gone since the list loaded: not found; a read
+      // that fails: the error screen and its Try again), and nothing moves by itself.
+      if (role === "owner") {
+        for (const ending of ["is gone", "errors"] as const) {
+          test(`a tapped task that ${ending} shows that screen, not the skeleton, installed`, async ({
+            page,
+            context,
+            baseURL,
+          }) => {
+            test.setTimeout(120_000);
+            const project = test.info().project.name;
+            const title = `Tap ending ${ending === "errors" ? "error" : "gone"} ${project}`;
+            await removeTasksTitled(title);
+            const id = await createTask(title);
+            const session =
+              ending === "errors" ? await ownSession(page, OWNER.email, OWNER.password) : null;
+            const prep = await context.newPage();
+            await prep.goto("/offline");
+            await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+            await prep.close();
+            await runInstalled(page);
+            await page.goto("/tasks");
+            await hydrated(page);
+            const row = page
+              .locator('[data-slot="task-row"]')
+              .getByRole("link", { name: new RegExp(title) })
+              .first();
+            await row.scrollIntoViewIfNeeded();
+            await expect(row).toBeInViewport();
+
+            await coldWorker(context, baseURL!);
+            await page.goto(USERS.owner.home);
+            await hydrated(page);
+            await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+            await expect(page).toHaveURL(/\/tasks$/, { timeout: COLD_MS * 4 });
+            await expect(row).toBeVisible({ timeout: COLD_MS * 4 });
+            await row.scrollIntoViewIfNeeded();
+            await expect(page.locator("html")).toHaveAttribute("data-live", "on", {
+              timeout: COLD_MS * 4,
+            });
+            const failing =
+              session === null
+                ? null
+                : await holdReads("/rest/v1/rpc/task_page", session, "jwt-expired");
+            try {
+              if (ending === "is gone") await removeTasksTitled(title);
+              const refreshed = page.waitForRequest(
+                (request) => {
+                  const headers = request.headers();
+                  return (
+                    headers.rsc === "1" &&
+                    !headers["next-router-prefetch"] &&
+                    new URL(request.url()).pathname === "/tasks"
+                  );
+                },
+                { timeout: COLD_MS * 4 },
+              );
+              await notify(OWNER.email);
+              await refreshed;
+              expectInstant(
+                `task row that ${ending}`,
+                await tapUntilSkeleton(
+                  row,
+                  '[data-slot="tap-skeleton"] [data-slot="loading-task"]',
+                ),
+              );
+              const screen = page.locator('#main > [data-slot="route"] [data-slot="error-state"]');
+              await expect(screen).toBeVisible({ timeout: COLD_MS * 4 });
+              await expect(screen).toContainText(
+                ending === "errors" ? "Try again" : "Page not found",
+              );
+              await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
+              await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
+              if (failing !== null) {
+                await expect
+                  .poll(() => failing.caught(), { message: "the task's read was refused" })
+                  .toBe(true);
+              }
+            } finally {
+              failing?.release();
+            }
+            await removeTasksTitled(title);
+          });
+        }
+      }
     });
   }
 });

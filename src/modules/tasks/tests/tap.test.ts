@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { NAV_PENDING_ATTRIBUTE } from "@/core/ui/navigation/progress";
 
-import { NAV_PENDING, taskTapTarget } from "../domain/tap";
+import { NAV_PENDING, taskBackLabel, taskTapTarget } from "../domain/tap";
 
 const ORIGIN = "https://app.example";
 const ID = "c3d26307-1f2a-4b5c-8d9e-0a1b2c3d4e5f";
@@ -44,5 +44,18 @@ describe("taskTapTarget (#143)", () => {
 describe("the navigation-pending attribute (#143)", () => {
   it("is the one the progress bar sets", () => {
     expect(NAV_PENDING).toBe(NAV_PENDING_ATTRIBUTE);
+  });
+});
+
+describe("taskBackLabel (#143)", () => {
+  it("names the screen the tap came from, as the task page's back does", () => {
+    expect(taskBackLabel("/today")).toBe("Today");
+    expect(taskBackLabel("/my-day")).toBe("My Day");
+    expect(taskBackLabel("/reports/end-of-day/2026-11-13")).toBe("End of day");
+  });
+
+  it("is Tasks from Tasks or any screen it does not name", () => {
+    expect(taskBackLabel("/tasks")).toBe("Tasks");
+    expect(taskBackLabel("/people/x")).toBe("Tasks");
   });
 });

@@ -112,7 +112,7 @@ is at most 168 ms (the web's "good" is 200 ms; #89 6808590041).
 4. Fourteen database changes, all additions. Nothing is removed or rewritten, so rolling back to v1.9 needs no
    extra step.
 5. Flaky tests were fixed at their causes, and the speed checks now run on every change.
-6. A task tapped on Today, My Day, Tasks, Approvals or Alerts opens with its skeleton at once, even right after the
+6. A task tapped on Today, My Day, Tasks or Approvals opens with its skeleton at once, even right after the
    app reopens or a live update arrives; before, the old screen stayed up until the server answered (v1.9 too).
 
 ### Known issue
