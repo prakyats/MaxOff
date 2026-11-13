@@ -29,8 +29,10 @@ function routeHasTaskScreen(): boolean {
   );
 }
 
-/** The skeleton of each view as `TaskPageSkeleton` last drew it (see `TaskTapSkeleton`). */
+/** The skeleton of each view as `TaskPageSkeleton` drew it (see `TaskTapSkeleton`). */
 const drawings = new Map<TaskView, Element>();
+/** For whom `drawings` were made (`manages`), or null before the first drawing. */
+let drawnFor: boolean | null = null;
 
 /** The tap being answered: where to, from where, and whether the progress bar came for it. */
 let tap: (TaskTap & { from: string; pending: boolean }) | null = null;
@@ -189,14 +191,21 @@ function listen(): void {
  */
 export function TaskTapSkeleton({ manages }: { manages: boolean }) {
   const [offscreen] = useState(() => document.createElement("div"));
+  // Drawn once per page load and viewer: a screen mounted later (back to Tasks, the next tab)
+  // renders nothing, so the work never lands on a navigation's commit (CI 43376075667, the Crew's
+  // next tap 388 ms after back).
+  const draws = drawnFor !== manages;
   useEffect(listen, []);
   useEffect(() => {
+    if (!draws) return;
     for (const view of offscreen.querySelectorAll<HTMLElement>("[data-tap-view]")) {
       const drawing = view.firstElementChild;
       if (drawing)
         drawings.set(view.dataset.tapView as TaskView, drawing.cloneNode(true) as Element);
     }
-  });
+    drawnFor = manages;
+  }, [draws, manages, offscreen]);
+  if (!draws) return null;
   return createPortal(
     TASK_VIEWS.map((view) => (
       <div key={view} data-tap-view={view}>
