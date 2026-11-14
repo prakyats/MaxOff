@@ -306,6 +306,27 @@ Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after 
 - [ ] **A guide picture of the phone's Appearance sheet** (Owner, Admin; More → Appearance), moved from v2.0 by the advisor (#89 6803451868): an addition, not a stale picture; `guide:screenshots` runs only between 11:15 am and 5:30 pm IST.
 - [ ] **The two kept diagnostics** (`/diagnostics/timing`, `/diagnostics/approvals-timing`) are open to any member (about six reads a hit): a per-member rate limit or a probe-only token (advisor, #89 6798443489).
 - [ ] **From Ideas:** the refresh that empties the router's prefetches, and NavProgress finishing early (advisor, #89 6798443489).
+- [ ] **Stay until ahead of time from the person's page** (owner 12 Nov 2026, #89 6815077432).
+
+**Admin productivity (owner 14 Nov 2026; every sample approved; plan `docs/handoff/v2.1-plan.md`; boards https://claude.ai/artifact/EgFYQUCuF6f6eEX8Ex9px3 and https://claude.ai/artifact/WMdFpTnpveWEm4JCVzfxRF; #89 6874042506, 6874350719, 6874389662, 6874423650):**
+- [ ] **9. Calendar for Admins, Crew busy.**
+  - **Month** stays. Its day sheet's "Everyone is available" becomes **Busy / On leave / Free**; a busy row is "Name · type · time · booked by X", never a title, client or location.
+  - **Day:** the day's events and due tasks on the left, a **Crew panel** on the right; the hour grid stops being the main view.
+  - **Week:** one row per day (Events · due, Crew busy, On leave, Free).
+  - **New task's people picker:** Free then / Busy then for the chosen time, with a "Clashes" chip naming who booked it.
+  - **A date-only event** is busy all day and clashes in the overlap warning (WORKFLOWS §4 changes).
+  - **The Owner's bookings** show the same way. Crew see nobody else's.
+  - **Bug, staging v2.0:** availability ignores the viewer's own bookings ("Everyone is available" with two people booked). Every booking counts.
+  - `member_availability()` (or a new `availability.view` function) adds the type name and the creator: PERMISSIONS, pgTAP for each role.
+- [ ] **10. Team today card on Today** (Admin and Owner): counts (free now, booked today, on leave), one line per person (type · time · who booked; Free all day; On leave) and "+ Book someone free". It replaces the This week box. `availability.view` data only, never attendance times.
+- [ ] **11. Tasks: "Upcoming shoots and visits".** One row per event task: date and time, title, place, people, status. Uncluttered; the time and place stand out. The deadline list stays below.
+- [ ] **12. New task, type first.**
+  - The first field is a **Type dropdown** in Settings → Task types order, each with a hint of what it asks for.
+  - An event type (`shows_on_calendar`) shows When / From / To / Where / Client up front; **Done by defaults to the end of the event**, changeable.
+  - Any other type shows one deadline.
+  - The people picker is unit 9's.
+- [ ] **13. People for Admins:** photos, role and status stay; **Today** and **Next booked** are added. The Owner's and Crew's People pages don't change.
+
 - [x] **CI resilience: done early** (owner decision, 11 Nov 2026: "make that change now"; #89 6802466628): `ci.yml` installs Chromium without apt and proves a headless launch, with apt (`playwright install-deps chromium`) only as a fallback if that launch fails (commit bafd6f45). Not done: the optional browser cache.
 
 ## Phase 7: Client work
