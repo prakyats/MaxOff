@@ -4,9 +4,9 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
-## v2.0.0: fast and settled
+## v2.0: fast and settled
 
-**Not released yet.** The Owner tags after his phone walk.
+**Released Sat 14 Nov 2026, about 12:40 IST** (tag `v2.0` on `main` 6e9f19cc, PR #143; the Owner approved the production deploy, run 43569568961: 14 migrations applied, smoke checks passed). The tag is `v2.0`, not `v2.0.0`.
 
 RC: `phase-v2`, the head named in #89's READY FOR OWNER post: 1533d987 (measured in CI and from India) plus the
 held stages' dimming (a class change; CI and the paired CI probes re-run on it).
