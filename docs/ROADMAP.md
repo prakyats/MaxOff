@@ -283,7 +283,9 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
 - No budget raised.
 - **Owner amendment, 2026-11-11 ("judge finished page too", option A, #89 6786739292):** v2.0's folds put a page's content into its first flush, so a route's first byte can come later while the finished page comes sooner. The gate judges **the last byte** (the content complete) against v1.9 by the two-run rule above, and **the TTFB only against the absolute caps** (≤ 600 ms from the CI probe, ≤ 300 ms from India): a TTFB later than v1.9's but under the cap no longer fails by itself. The READY post's tables show both columns (`scripts/lib/perf-gate.mjs`, `tests/perf-gate.test.ts`).
 
-### v2.1 "Reliable anywhere": units (owner 2026-11-11; note only until the owner says proceed)
+> **Release plan (owner, 14 Nov 2026): small releases with gaps; see `docs/handoff/release-plan.md`.** Order: v2.1–v3.5 phase 9 (Revenue), v4.0–v5.5 phase 8 (Drive), **v6.0–v7.0 = the work below (formerly "v2.1")**, v7.5–v8.0 phase 10.
+
+### (Now v6.0–v7.0) Formerly v2.1 "Reliable anywhere": units (owner 2026-11-11; note only until the owner says proceed)
 Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after v2.0 is v2.1 "Reliable anywhere". v2.0 ships unchanged. The ops safety nets (backup failure alerts and a daily ops check, Dependabot, the runbooks) went to `main` separately (`ops/safety-nets`). **Owner, 11 Nov 23:05 IST ("proceed full on autopilot"; #89 6802825415):** the units with no open business question start on `phase-v21` (cut from `phase-v2` at bafd6f45): units 3, 4 and 2 (part) by the integrator, unit 1 by the builder after v2.0's READY TO MEASURE. Units 5–8 wait for the owner.
 - [ ] **1. Real-user speed:** web-vitals (LCP, INP, CLS, TTFB) from the team's phones to Sentry, per route and role, p75, with a weekly look. Nothing personal sent.
 - [ ] **2. Weak network** (owner decision sheet answers, 14 Nov 2026, #89):
