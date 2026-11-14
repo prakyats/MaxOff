@@ -2,10 +2,11 @@ import type { Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  calendarReady,
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
-  hydrated,
+  hydrated as hydratedShell,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -107,6 +108,23 @@ async function ownerCreatesDue(info: TestInfo, date: string): Promise<string> {
 
 const calendar = (page: Page) => page.locator('[data-slot="calendar"]');
 const phone = (page: Page) => page.locator('[data-slot="calendar-phone"]');
+
+/**
+ * Hydrated, and on the calendar its own JavaScript live too (`calendarReady`): the calendar's
+ * chunk lands after the shell's, so a tap on a day box or the handle right after the shell had
+ * hydrated could hit the server's markup and be lost (full CI 42155785736: :2692 [mobile-lg];
+ * then :1474 on desktop and mobile, a day box's tap opening no sheet). Every test here waits on it.
+ */
+async function hydrated(page: Page): Promise<void> {
+  await hydratedShell(page);
+  if (new URL(page.url()).pathname === "/calendar") await calendarReady(page);
+}
+
+/** A tap on the phone's handle once the calendar's own JavaScript is live (`calendarReady`). */
+async function tapHandle(page: Page): Promise<void> {
+  await calendarReady(page);
+  await page.locator('button[data-slot="calendar-handle"]').click();
+}
 /** The day's detail on screen: the phone's panel or the laptop Day's side column. */
 const detail = (page: Page) => page.locator('[data-slot="calendar-detail"]:visible').first();
 const daySheet = (page: Page) => page.locator('[data-calendar="day-sheet"]');
@@ -350,6 +368,7 @@ test.describe("the calendar, as Crew", () => {
     await page.goto("/calendar");
     await hydrated(page);
     const handle = page.locator('button[data-slot="calendar-handle"]');
+    await calendarReady(page);
     await expect(phone(page)).toHaveAttribute("data-size", "2");
     await expect(handle).toHaveAccessibleName("Show more of the month");
 
@@ -462,6 +481,7 @@ test.describe("the calendar, as Crew", () => {
     await hydrated(page);
 
     const handle = page.locator('button[data-slot="calendar-handle"]');
+    await calendarReady(page);
     await handle.click();
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     // The day sheet is a layer: back closes it and stays on the calendar.
@@ -1072,7 +1092,7 @@ test.describe("the calendar, as the Owner", () => {
     await hydrated(page);
     if (isPhone(info)) {
       // The phone's full month draws the chips (the compact month only bars).
-      await page.locator('button[data-slot="calendar-handle"]').click();
+      await tapHandle(page);
       await expect(phone(page)).toHaveAttribute("data-size", "3");
     }
     const box = dayBox(page, day);
@@ -1184,6 +1204,7 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08; PP-light-4
     const hours = page.locator('[data-slot="calendar-phone"] [data-slot="calendar-hours"]');
     await expect(hours).toBeVisible();
     const handle = page.locator('button[data-slot="calendar-handle"]');
+    await calendarReady(page);
     await expect(
       detail(page)
         .locator('[data-slot="calendar-all-day"] [data-slot="calendar-event"]')
@@ -1311,6 +1332,7 @@ async function moveDeadline(page: Page, to: string): Promise<void> {
 
 async function phoneSize(page: Page, size: "1" | "2" | "3"): Promise<void> {
   const handle = page.locator('button[data-slot="calendar-handle"]');
+  await calendarReady(page);
   for (let tap = 0; tap < 3; tap += 1) {
     if ((await phone(page).getAttribute("data-size")) === size) return;
     const before = await phone(page).getAttribute("data-size");
@@ -1660,7 +1682,7 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await expect(shows).toHaveAttribute("data-current", "all");
     if (isPhone(info)) {
       // The phone's full month draws the chips (the compact month only bars).
-      await page.locator('button[data-slot="calendar-handle"]').click();
+      await tapHandle(page);
       await expect(phone(page)).toHaveAttribute("data-size", "3");
     }
     const box = dayBox(page, fixture.day);
@@ -1732,7 +1754,7 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await expect(showControl(page)).toHaveAttribute("data-current", "client");
     await chooseShow(page, "all");
     if (isPhone(info)) {
-      await page.locator('button[data-slot="calendar-handle"]').click();
+      await tapHandle(page);
       await expect(phone(page)).toHaveAttribute("data-size", "3");
     }
 
@@ -1785,7 +1807,7 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     const fixture = await longDay(info);
     await page.goto(`/calendar?date=${fixture.day}`);
     await hydrated(page);
-    await page.locator('button[data-slot="calendar-handle"]').click();
+    await tapHandle(page);
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     // Seven boxes a row, Monday to Sunday, on one line: never the two-column day cards.
     const box = dayBox(page, fixture.day);
@@ -1830,7 +1852,7 @@ test.describe("the calendar's tasks vs client work (SCOPE §6)", () => {
     await expectBackStack(page, [{ closes: menu, url: /\/calendar\?date=/ }]);
     await chooseShow(page, "client");
     await chooseShow(page, "all");
-    await page.locator('button[data-slot="calendar-handle"]').click();
+    await tapHandle(page);
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     await dayBox(page, fixture.day).click();
     const sheet = daySheet(page);
@@ -2275,7 +2297,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
       await page.goto(`/calendar?date=${day}`);
       await hydrated(page);
       if (phoneRun) {
-        await page.locator('button[data-slot="calendar-handle"]').click();
+        await tapHandle(page);
         await expect(phone(page)).toHaveAttribute("data-size", "3");
       }
       const box = dayBox(page, day);
@@ -2454,7 +2476,7 @@ test.describe("the laptop calendar toolbar and leave bars (v1.8, owner 23 Oct)",
     // 6370526089; "a leave bar never truncates" checks each wording).
     await page.goto(`/calendar?date=${day}`);
     await hydrated(page);
-    await page.locator('button[data-slot="calendar-handle"]').click();
+    await tapHandle(page);
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     await expect(
       dayBox(page, day).locator('[data-slot="calendar-leave-bar"][data-leave-fit]'),
@@ -2568,7 +2590,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
     }
     await page.goto(`/calendar?date=${date}`);
     await hydrated(page);
-    await page.locator('button[data-slot="calendar-handle"]').click();
+    await tapHandle(page);
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     await dayBox(page, date).click();
     await expect(daySheet(page)).toHaveAttribute("data-date", date);
@@ -2646,7 +2668,7 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       await hydrated(page);
       // The real handle is a button: the loading skeleton draws a div with the same slot, and
       // after a client-side move from Today a tap could land on it (CI 41635363757).
-      await page.locator('button[data-slot="calendar-handle"]').click();
+      await tapHandle(page);
       await expect(phone(page)).toHaveAttribute("data-size", "3");
       if (!(await dayBox(page, day).isVisible())) {
         await page.locator('[data-slot="calendar-next"]').click();

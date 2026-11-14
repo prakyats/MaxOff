@@ -89,8 +89,13 @@ export async function listOwnPushSubscriptions(): Promise<OwnPushSubscription[]>
 export const readOwnPushStatus = cache(
   async (): Promise<{ endpoints: string[]; band: BandReason | null }> => {
     // Started before the JWT check (`readBeforeCheck`): the layout's first byte waits for it.
-    const { data, error } = await readBeforeCheck((supabase) =>
-      supabase.rpc("push_status_own").maybeSingle(),
+    // Since v2.0 X3 the answer rides in the shell's one early read (`session_early()`).
+    const { data, error } = await readBeforeCheck<{
+      endpoints: string[] | null;
+      band: string | null;
+    }>(
+      (early) => ({ data: early.push, error: null }),
+      (supabase) => supabase.rpc("push_status_own").maybeSingle(),
     );
     if (error) throw error;
     return { endpoints: data?.endpoints ?? [], band: toBandReason(data?.band ?? null) };

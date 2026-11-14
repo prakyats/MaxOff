@@ -5,6 +5,7 @@ import { markLive } from "./attributes";
 import { BACK_FROM_ATTRIBUTE } from "./attributes";
 import {
   HEADER_BELL_SLOT,
+  HOLD_TAP_ATTRIBUTE,
   LIVE_ATTRIBUTE,
   PRE_HYDRATION_SCRIPT,
   PRE_HYDRATION_WAIT_MS,
@@ -147,6 +148,56 @@ function page({
     prevented.push(preventDefault.mock.calls.length > 0);
   };
 
+  /** A button marked `data-hold-tap` (the calendar's handle, a day box), and a tap on it. */
+  const buttonFor = (
+    name: string,
+    live: boolean,
+    { type = "button", within = null }: { type?: string; within?: string | null } = {},
+  ) => {
+    const attributes: Record<string, string> = {
+      [HOLD_TAP_ATTRIBUTE]: name,
+      ...(live ? { [LIVE_ATTRIBUTE]: "" } : {}),
+    };
+    const button = {
+      isConnected: true,
+      visible: true,
+      type,
+      // `within`: the ancestor it sits in (`form`, a commit footer's `data-slot`), if any.
+      closest: (selector: string) =>
+        within !== null && selector.split(",").some((part) => part === within) ? {} : null,
+      getAttribute: (key: string) => attributes[key] ?? null,
+      setAttribute: (key: string, value: string) => (attributes[key] = value),
+      hasAttribute: (key: string) => key in attributes,
+      getClientRects: () => (button.visible ? [{}] : []),
+      // A replayed click is a real click: the script's listener hears it again.
+      click: vi.fn((): { prevented: boolean; stopped: boolean } => tapButton(button)),
+    };
+    return button;
+  };
+  /** `inner`: the tap lands on another control inside the marked button (its own answers). */
+  const tapButton = (button: ReturnType<typeof buttonFor>, inner: object | null = null) => {
+    const preventDefault = vi.fn();
+    const stopImmediatePropagation = vi.fn();
+    listener!({
+      button: 0,
+      defaultPrevented: false,
+      target: {
+        closest: (selector: string) =>
+          selector === `[${HOLD_TAP_ATTRIBUTE}]`
+            ? button
+            : selector.startsWith("button,")
+              ? (inner ?? button)
+              : null,
+      },
+      preventDefault,
+      stopImmediatePropagation,
+    });
+    return {
+      prevented: preventDefault.mock.calls.length > 0,
+      stopped: stopImmediatePropagation.mock.calls.length > 0,
+    };
+  };
+
   const move = () =>
     history.back.mock.calls.length || history.go.mock.calls.length
       ? "back"
@@ -159,7 +210,11 @@ function page({
   return {
     anchorFor,
     tap,
+    buttonFor,
+    tapButton,
     findable,
+    /** The page's address (a test may change it, as a view switch does). */
+    location,
     /** The full-load move made so far (none while a tap is held). */
     move,
     /** Whether each tap so far was prevented. */
@@ -350,6 +405,159 @@ describe("a tap before hydration is held for the app (owner 2026-10-01)", () => 
     vi.advanceTimersByTime(100);
     expect(tabLink.click).toHaveBeenCalledTimes(1);
     expect(bar.move()).toBe("none");
+  });
+});
+
+describe("a tap on a marked button before hydration is held, never lost (v2.0 X3 (d))", () => {
+  it("stops it before React, waits, and replays it once React has the button: one toggle", () => {
+    const doc = page();
+    const handle = doc.buttonFor("calendar-handle", false);
+    expect(doc.tapButton(handle)).toEqual({ prevented: true, stopped: true });
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS - 300);
+    expect(handle.click).not.toHaveBeenCalled();
+
+    markLive(handle as unknown as HTMLElement);
+    vi.advanceTimersByTime(100);
+    expect(handle.click).toHaveBeenCalledTimes(1);
+    // The replayed click reaches the app: the script now leaves it alone.
+    expect(handle.click.mock.results[0]?.value).toEqual({ prevented: false, stopped: false });
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(handle.click).toHaveBeenCalledTimes(1);
+    expect(doc.move()).toBe("none");
+  });
+
+  it("leaves a button React already has alone", () => {
+    const doc = page();
+    expect(doc.tapButton(doc.buttonFor("calendar-handle", true))).toEqual({
+      prevented: false,
+      stopped: false,
+    });
+  });
+
+  it("lets the tap go if React never takes the button within the wait (no load: it is a button)", () => {
+    const doc = page();
+    const day = doc.buttonFor("day:2026-11-09", false);
+    doc.tapButton(day);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS + 100);
+    markLive(day as unknown as HTMLElement);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(day.click).not.toHaveBeenCalled();
+    expect(doc.move()).toBe("none");
+  });
+
+  it("finds the visible button of the same name when React swapped the tapped one", () => {
+    const doc = page();
+    const tapped = doc.buttonFor("day:2026-11-09", false);
+    doc.tapButton(tapped);
+    tapped.isConnected = false;
+    const hidden = doc.buttonFor("day:2026-11-09", true);
+    hidden.visible = false;
+    const shown = doc.buttonFor("day:2026-11-09", true);
+    doc.findable.push(hidden as never, shown as never);
+    vi.advanceTimersByTime(100);
+    expect(shown.click).toHaveBeenCalledTimes(1);
+    expect(hidden.click).not.toHaveBeenCalled();
+    expect(tapped.click).not.toHaveBeenCalled();
+  });
+
+  it("never holds a submit button, or one in a form or a commit footer, marked or not", () => {
+    for (const options of [
+      { type: "submit" },
+      { within: "form" },
+      { within: "[data-slot=sticky-actions]" },
+      { within: "[data-slot=dialog-footer]" },
+      { within: "[data-slot=sheet-footer]" },
+      { within: "[data-slot=alert-dialog-footer]" },
+      { within: "[data-slot=detail-sheet-actions]" },
+      { within: "[data-slot=review-sheet-actions]" },
+      { within: "[data-slot=page-actions]" },
+    ]) {
+      const doc = page();
+      const save = doc.buttonFor("save", false, options);
+      expect(doc.tapButton(save), JSON.stringify(options)).toEqual({
+        prevented: false,
+        stopped: false,
+      });
+      markLive(save as unknown as HTMLElement);
+      vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+      expect(save.click).not.toHaveBeenCalled();
+    }
+  });
+
+  it("never swallows a tap on another control inside a marked one (X6 review)", () => {
+    const doc = page();
+    const day = doc.buttonFor("day:2026-11-09", false);
+    expect(doc.tapButton(day, { inner: "a link in the day" })).toEqual({
+      prevented: false,
+      stopped: false,
+    });
+    markLive(day as unknown as HTMLElement);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(day.click).not.toHaveBeenCalled();
+  });
+
+  it("drops the replay when the button it finds is a commit (X6 review: the target, not only the tap)", () => {
+    const doc = page();
+    const tapped = doc.buttonFor("day:2026-11-09", false);
+    doc.tapButton(tapped);
+    tapped.isConnected = false;
+    const swapped = doc.buttonFor("day:2026-11-09", true, { within: "[data-slot=sheet-footer]" });
+    doc.findable.push(swapped as never);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(swapped.click).not.toHaveBeenCalled();
+    expect(tapped.click).not.toHaveBeenCalled();
+  });
+
+  it("a link tap supersedes a held button tap: the link's move happens (X6 review H2)", () => {
+    const doc = page();
+    doc.tapButton(doc.buttonFor("calendar-handle", false));
+    // The bell, before hydration: held, then the app's push (here, its full-load fallback).
+    doc.tap(doc.anchorFor(BELL, false));
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS + 100);
+    expect(doc.move()).toBe("push");
+  });
+
+  it("drops the hold once a click reaches the button live: React answered it, no replay", () => {
+    const doc = page();
+    const handle = doc.buttonFor("calendar-handle", false);
+    doc.tapButton(handle);
+    markLive(handle as unknown as HTMLElement);
+    // A real tap lands on the live button before the poll's next turn.
+    expect(doc.tapButton(handle)).toEqual({ prevented: false, stopped: false });
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(handle.click).not.toHaveBeenCalled();
+  });
+
+  it("drops the hold when the address changes (a week→month switch): no click on the new screen", () => {
+    const doc = page();
+    const day = doc.buttonFor("day:2026-11-09", false);
+    doc.tapButton(day);
+    doc.location.href = `${doc.location.href}?view=month`;
+    markLive(day as unknown as HTMLElement);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(day.click).not.toHaveBeenCalled();
+  });
+
+  it("finds nothing when no swapped button of the name is visible: never a hidden copy", () => {
+    const doc = page();
+    const tapped = doc.buttonFor("day:2026-11-09", false);
+    doc.tapButton(tapped);
+    tapped.isConnected = false;
+    const hidden = doc.buttonFor("day:2026-11-09", true);
+    hidden.visible = false;
+    doc.findable.push(hidden as never);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(hidden.click).not.toHaveBeenCalled();
+  });
+
+  it("ignores a second tap while one is held: one toggle, not two", () => {
+    const doc = page();
+    const handle = doc.buttonFor("calendar-handle", false);
+    doc.tapButton(handle);
+    expect(doc.tapButton(handle)).toEqual({ prevented: true, stopped: true });
+    markLive(handle as unknown as HTMLElement);
+    vi.advanceTimersByTime(100);
+    expect(handle.click).toHaveBeenCalledTimes(1);
   });
 });
 

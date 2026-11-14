@@ -17,6 +17,7 @@ import {
 import { cn } from "@/core/lib/utils";
 import { addISTDays, formatIST, istDayStart, type ISODate } from "@/core/time";
 import { ViewLink } from "@/core/ui/composites/view-link";
+import { markLive } from "@/core/ui/navigation/attributes";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import {
   closeOverlaysThen,
@@ -547,6 +548,8 @@ export function CalendarScreen({
                     <button
                       type="button"
                       onClick={() => tapDay(day.date)}
+                      ref={markLive}
+                      data-hold-tap={`strip:${day.date}`}
                       data-slot="calendar-strip-day"
                       data-date={day.date}
                       aria-pressed={chosen}
@@ -607,6 +610,8 @@ export function CalendarScreen({
           type="button"
           onClick={() => setSize((current) => handleNext(current))}
           {...swipes}
+          ref={markLive}
+          data-hold-tap="calendar-handle"
           data-slot="calendar-handle"
           aria-label={handleLabel(size)}
           className="pressable-row focus-visible:ring-ring text-muted-foreground flex min-h-11 w-full shrink-0 touch-none items-center justify-center gap-2 rounded-lg text-xs outline-none focus-visible:ring-2"

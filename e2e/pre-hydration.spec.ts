@@ -328,3 +328,117 @@ test.describe("a tap before hydration is held for the app, installed at phone wi
     });
   });
 });
+
+/**
+ * v2.0 X3 (d): the calendar's handle and day boxes are buttons, not links, and the calendar's
+ * chunk lands after the shell has hydrated, so a tap in that gap was lost (CI 42155785736: the
+ * handle did not grow; a day box opened nothing). They carry `data-hold-tap`: the head script
+ * holds such a tap until React has the button (`data-live`) and replays it once. Here the
+ * calendar's scripts are held until the tap has landed, so it is guaranteed to come before
+ * hydration, then let through: the tap must still take effect, once.
+ */
+test.describe("a tap on the calendar before its script is live is held, never lost", () => {
+  test.use({ storageState: storageStateFor("owner"), serviceWorkers: "block" });
+  test.skip(({ isMobile }) => !isMobile, "the phone's calendar: its handle and day boxes");
+
+  async function beforeHydration(page: Page) {
+    const held: Route[] = [];
+    let flow = false;
+    await page.route(/\/_next\/static\/chunks\/.+\.js/, (route) => {
+      if (flow) return route.fallback();
+      held.push(route);
+    });
+    await page.goto("/calendar", { waitUntil: "commit" });
+    await expect(pageHeader(page)).toBeVisible();
+    return async () => {
+      flow = true;
+      for (const route of held.splice(0)) await route.fallback();
+    };
+  }
+
+  async function tapAt(page: Page, target: Locator) {
+    const box = await target.boundingBox();
+    if (!box) throw new Error("the control is not on screen");
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  }
+
+  test("the handle: tapped before hydration, the month still grows, once", async ({ page }) => {
+    // Every click on the handle (the tap, then the replay), counted before the page's own
+    // scripts see it (window, capture): no wait decides "once" (X5+, batch 4's sleeps).
+    await page.addInitScript(() => {
+      const w = window as unknown as { handleClicks: number; heldTimers: Set<number> };
+      w.handleClicks = 0;
+      // The held tap's own timer (its 50 ms poll, `HELD_TAP_POLL_MS`): live from the tap until
+      // the replay drops it, so "no timer left" says no further replay can come.
+      w.heldTimers = new Set();
+      const setTimer = window.setInterval.bind(window);
+      const clearTimer = window.clearInterval.bind(window);
+      window.setInterval = ((handler: TimerHandler, ms?: number, ...rest: unknown[]) => {
+        const id = setTimer(handler, ms, ...rest);
+        if (ms === 50) w.heldTimers.add(id);
+        return id;
+      }) as typeof window.setInterval;
+      window.clearInterval = ((id?: number) => {
+        if (id !== undefined) w.heldTimers.delete(id);
+        clearTimer(id);
+      }) as typeof window.clearInterval;
+      window.addEventListener(
+        "click",
+        (event) => {
+          if ((event.target as Element | null)?.closest?.('button[data-slot="calendar-handle"]'))
+            w.handleClicks += 1;
+        },
+        true,
+      );
+    });
+    const release = await beforeHydration(page);
+    const phone = page.locator('[data-slot="calendar-phone"]');
+    const handle = page.locator('button[data-slot="calendar-handle"]');
+    await expect(handle).toBeVisible();
+    await expect(handle, "the tap lands before hydration").not.toHaveAttribute("data-live");
+    await expect(phone).toHaveAttribute("data-size", "2");
+    // Every size the calendar takes from here on.
+    await phone.evaluate((element) => {
+      const sizes: string[] = [];
+      (window as unknown as { calendarSizes: string[] }).calendarSizes = sizes;
+      new MutationObserver(() => sizes.push(element.getAttribute("data-size") ?? "")).observe(
+        element,
+        { attributes: true, attributeFilter: ["data-size"] },
+      );
+    });
+    await tapAt(page, handle);
+    await release();
+    await expect(handle).toHaveAttribute("data-live", "");
+    // The tap and its one replay: the replay drops its timer before it clicks, and a click's
+    // update is committed before the click returns, so the sizes are final once both are counted.
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { handleClicks: number }).handleClicks))
+      .toBe(2);
+    expect(
+      await page.evaluate(() => (window as unknown as { heldTimers: Set<number> }).heldTimers.size),
+      "the replay dropped its timer: no further replay can come",
+    ).toBe(0);
+    expect(
+      await page.evaluate(() => (window as unknown as { calendarSizes: string[] }).calendarSizes),
+      "the held tap took effect once (never 3, then back to the week)",
+    ).toEqual(["3"]);
+  });
+
+  test("a day box: tapped before hydration, its day is still chosen", async ({ page }) => {
+    const release = await beforeHydration(page);
+    const day = page.locator('[data-slot="calendar-day"]:visible:not([data-selected])').first();
+    await expect(day).toBeVisible();
+    await expect(day, "the tap lands before hydration").not.toHaveAttribute("data-live");
+    const date = await day.getAttribute("data-date");
+    await tapAt(page, day);
+    await release();
+    await expect(
+      page.locator(`[data-slot="calendar-day"][data-date="${date}"]:visible`),
+      "the held tap chose the day",
+    ).toHaveAttribute("data-selected", "");
+    await expect(page.locator('[data-slot="calendar-detail"]:visible').first()).toHaveAttribute(
+      "data-date",
+      date!,
+    );
+  });
+});

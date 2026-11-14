@@ -8,7 +8,6 @@ import {
   CustomFieldCells,
   CustomFieldsView,
 } from "@/core/custom-fields/components/custom-fields-view";
-import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { formatIST, todayIST } from "@/core/time";
@@ -23,21 +22,16 @@ import {
   cycleExtras,
   extrasCycles,
   extrasQuestion,
-  getProject,
   getProjectTitle,
   itemListPeriods,
   itemView,
   lastChangeOf,
-  listBlueprints,
-  listCycles,
   listCyclesById,
-  listItemRows,
   listItems,
   listItemStages,
   listLastChanges,
   listResumeRows,
   listReviews,
-  listStages,
   needsYouPills,
   nextStartable,
   readyToComplete,
@@ -48,6 +42,7 @@ import {
   shortDate,
   sortCycles,
   sortItems,
+  readProjectPage,
 } from "@/modules/client-work";
 import { CycleItems } from "@/modules/client-work/components/cycle-items";
 import { CycleProgress } from "@/modules/client-work/components/cycle-progress";
@@ -56,7 +51,7 @@ import { ProjectHoldBanner } from "@/modules/client-work/components/project-hold
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
-import { listStagePresets } from "@/modules/settings";
+import { stagePresetsFrom } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
 import { PROJECT_ORIGINS } from "./back";
@@ -111,22 +106,25 @@ export default async function ProjectPage({
   // tap on it), which are dropped when that cycle is not this project's. Only the current cycle's
   // items (which cycle is current needs the cycles) and what is keyed by the items stay later.
   const askedItems = cycleParam && ID.test(cycleParam) ? listItems(cycleParam) : null;
-  const unfinishedRead = listItemRows({ states: ["open", "done"], projectId });
-  const fieldsRead = listDefinitions("project");
+  // v2.0 X3: the project, its cycles, stages and blueprints, its unfinished items, the project
+  // fields and the stage presets are one read (`project_page()`), so the first wave is six.
+  const pageRead = readProjectPage(projectId);
+  const unfinishedRead = pageRead.then((read) => read.unfinished);
+  const fieldsRead = pageRead.then((read) => read.fields);
   // Details' Client contact and Template cells (the v1.8 sample) come embedded in the project
   // read (`getProject`), not as reads of their own: the first wave stays within a Worker's
   // ~6 concurrent connections (v1.8 speed fix 2).
-  startEarly(...(askedItems ? [askedItems] : []), unfinishedRead, fieldsRead);
+  startEarly(...(askedItems ? [askedItems] : []), pageRead);
   const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
     await checkThenRead(
       loadClientWork(id),
       Promise.all([
-        getProject(projectId),
-        listCycles([projectId]),
-        listStages(projectId),
-        listBlueprints(projectId),
+        pageRead.then((read) => read.project),
+        pageRead.then((read) => read.cycles),
+        pageRead.then((read) => read.stages),
+        pageRead.then((read) => read.blueprints),
         loadPeople(),
-        listStagePresets(),
+        pageRead.then((read) => stagePresetsFrom(read.presetRows)),
       ]),
     );
   if (!project || project.clientId !== client.id) notFound();

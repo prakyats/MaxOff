@@ -4,7 +4,7 @@ import { cache } from "react";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { getPerson, hasAttendance, type TeamMember } from "@/modules/team";
+import { getPerson, hasAttendance, listDirectory, type TeamMember } from "@/modules/team";
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,10 +21,19 @@ export function assertMemberId(id: string): void {
  * with the session (ARCHITECTURE §19): which one the viewer gets waits for the role, the reads
  * do not, and RLS decides what each returns (the full row comes back empty for an Admin).
  */
+/**
+ * The directory, once per request (v2.0 X3): the Profile names everyone from it, and a person's
+ * directory row is its row there (the same view, columns and mapping as `getPerson(id, false)`),
+ * so a person's page reads `member_directory` once, not twice.
+ */
+export const readPersonDirectory = cache(listDirectory);
+
 export const loadPerson = cache(async (id: string) => {
   if (!ID.test(id)) notFound();
   const full = getPerson(id, true);
-  const directory = getPerson(id, false);
+  const directory = readPersonDirectory().then(
+    (members) => members.find((member) => member.id === id) ?? null,
+  );
   startEarly(full, directory);
   const viewer = await requirePermission("team.view");
   const person = await (can(viewer.role, "team.manage") ? full : directory);

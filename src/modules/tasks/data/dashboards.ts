@@ -51,6 +51,93 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
   );
 }
 
+/**
+ * The week strip's two reads in one (v2.0 X3, `own_week()`; ARCHITECTURE §19 "Six connections"):
+ * the event tasks in [from, to] exactly as `listEventTasks` reads them, and the holidays in the
+ * same window (`listHolidays` read them all; every week strip keeps the window's), the caller's own
+ * approved leave touching it and the freelancers they coordinate now (`leave`, `freelancers`: the
+ * /my-day folds), and the Tasks tab's request count and escalation thresholds (`requests_to_decide`,
+ * `ack_escalate_*`: the /tasks fold). At most 62 days (the database refuses more). RLS decides every row, as for the
+ * API reads.
+ */
+export async function listOwnWeek(
+  from: ISODate,
+  to: ISODate,
+): Promise<{
+  events: EventTask[];
+  holidays: { id: string; date: ISODate; name: string }[];
+  /** The caller's own approved leave touching the window; undefined from an older own_week. */
+  leave: { type: string; startDate: string; endDate: string }[] | undefined;
+  /** The members the caller coordinates now (not windowed); undefined from an older own_week. */
+  freelancers: string[] | undefined;
+  /**
+   * The pending task requests the caller may decide, never their own (`countRequestsToDecide`;
+   * not windowed); undefined from an older own_week.
+   */
+  requestsToDecide: number | undefined;
+  /** The organisation's "not noted" escalation thresholds; null from an older own_week or none visible. */
+  escalation: { ackEscalateHours: number; ackEscalateOwnerHours: number } | null;
+}> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("own_week", { from_date: from, to_date: to });
+  if (error) throw error;
+  const week = data as {
+    leave?: { type: string; start_date: string; end_date: string }[];
+    freelancers?: string[];
+    requests_to_decide?: number;
+    ack_escalate_hours?: number | null;
+    ack_escalate_owner_hours?: number | null;
+    holidays: { id: string; date: string; name: string }[];
+    events: {
+      id: string;
+      title: string;
+      state: EventTask["state"];
+      event_date: string;
+      event_start_at: string | null;
+      event_end_at: string | null;
+      location: string | null;
+      client_id: string | null;
+      task_type_id: string;
+      primary_owner_id: string;
+      assignee_ids: string[];
+    }[];
+  };
+  return {
+    freelancers: week.freelancers,
+    requestsToDecide: week.requests_to_decide,
+    escalation:
+      week.ack_escalate_hours != null && week.ack_escalate_owner_hours != null
+        ? {
+            ackEscalateHours: week.ack_escalate_hours,
+            ackEscalateOwnerHours: week.ack_escalate_owner_hours,
+          }
+        : null,
+    leave: week.leave?.map((row) => ({
+      type: row.type,
+      startDate: row.start_date,
+      endDate: row.end_date,
+    })),
+    holidays: week.holidays.map((row) => ({
+      id: row.id,
+      date: row.date as ISODate,
+      name: row.name,
+    })),
+    events: week.events.map((row) => ({
+      id: row.id,
+      title: row.title,
+      state: row.state,
+      eventDate: row.event_date as ISODate,
+      eventStartAt: row.event_start_at,
+      eventEndAt: row.event_end_at,
+      location: row.location,
+      clientId: row.client_id,
+      taskTypeId: row.task_type_id,
+      primaryOwnerId: row.primary_owner_id,
+      assigneeIds: row.assignee_ids,
+    })),
+  };
+}
+
 /** PostgREST answers at most 1000 rows a call (`max_rows`): longer reads go page by page. */
 const PAGE = 1000;
 

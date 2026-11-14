@@ -148,7 +148,8 @@ export async function listApprovedInMonth(range: {
 
 /**
  * The claim form's setup: the active categories in the Owner's order, and the receipt amount.
- * Once per request (`cache()`): My Day and Today start it with the session read (`startEarly`).
+ * Once per request (`cache()`): My Day and Today start it beside reads they already wait for
+ * (never in the first wave), and its promise goes to End day's claim form.
  */
 export const getClaimSetup = cache(async (): Promise<ClaimSetup> => {
   const supabase = await createServerSupabase();

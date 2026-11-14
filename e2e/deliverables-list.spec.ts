@@ -400,7 +400,9 @@ test("the loading screen traces the list: its heading, first row, its bar and a 
       return found;
     }, selectors);
   const session = await ownSession(page, admin.email, admin.password);
-  const held = await holdReads("/rest/v1/project_items", session);
+  // The page's own one read since v2.0 X3 (`project_page()`); `project_items` is no longer the
+  // page's to hold (X5+ M7).
+  const held = await holdReads("/rest/v1/rpc/project_page", session);
   try {
     await page.goto(`/clients/${clientId}/projects/${projectId}`, { waitUntil: "commit" });
     const loading = page.locator('[data-slot="loading-project"]');

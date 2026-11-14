@@ -900,3 +900,107 @@ test.describe("on desktop too", () => {
     await expect(add).toBeHidden();
   });
 });
+
+/**
+ * v2.0 X1b (owner bug 2026-11-05): on a phone, More → Appearance is a sheet of its own, never a
+ * menu inside the More sheet. 375 and 430, installed.
+ */
+test.describe("installed: More → Appearance is its own sheet", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("More → Appearance: a sheet over the More sheet; back closes it, then More, then leaves", async ({
+    page,
+  }) => {
+    // v2.0 X1b (owner bug 2026-11-05): the chooser flashed and closed when it was a menu inside
+    // the More sheet. Now its own layer: back closes it and leaves the More sheet open.
+    await runInstalled(page);
+    await page.goto("/tasks");
+    await page.goto("/today");
+    await hydrated(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const more = page.locator('[data-slot="more-sheet"]');
+    await expect(more).toBeVisible();
+    // Every time an Appearance sheet leaves the page or closes, counted from before the tap.
+    await page.evaluate(() => {
+      const w = window as unknown as { appearanceCloses: number };
+      w.appearanceCloses = 0;
+      const sheet = () => document.querySelector('[data-slot="appearance-sheet"]');
+      let open = false;
+      new MutationObserver(() => {
+        const now = sheet();
+        const isOpen = now !== null && now.getAttribute("data-state") !== "closed";
+        if (open && !isOpen) w.appearanceCloses += 1;
+        open = isOpen;
+      }).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["data-state"],
+      });
+    });
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    const appearance = page.locator('[data-slot="appearance-sheet"]');
+    await expect(appearance).toBeVisible();
+    // It stays open: no flash. The flash closed it within its own opening; once every animation
+    // has run, it has not closed once (X5+, batch 4's sleeps: no fixed wait).
+    await animationsSettled(page);
+    await expect(appearance).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { appearanceCloses: number }).appearanceCloses,
+      ),
+      "the sheet never closed while opening",
+    ).toBe(0);
+    await page.goBack();
+    await expect(appearance).toBeHidden();
+    await expect(more).toBeVisible();
+    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ closes: more, url: /\/today$/ }, { url: /\/tasks$/ }]);
+  });
+
+  test("More → Appearance → Dark: the sheet closes, the app is dark, the back stack is unchanged (X5+ H6)", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/tasks");
+    await page.goto("/today");
+    await hydrated(page);
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const more = page.locator('[data-slot="more-sheet"]');
+    await expect(more).toBeVisible();
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    const appearance = page.locator('[data-slot="appearance-sheet"]');
+    await expect(appearance).toBeVisible();
+    await appearance.locator('[data-slot="appearance-option"][data-value="dark"]').click();
+    // A choice applies and closes its sheet; the More sheet stays, and no history was added.
+    await expect(appearance).toBeHidden();
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    await expect(more).toBeVisible();
+    await expectBackStack(page, [{ closes: more, url: /\/today$/ }, { url: /\/tasks$/ }]);
+  });
+
+  test("More → Appearance → System follows the device's dark and light (X5+ H6)", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/today");
+    await hydrated(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const more = page.locator('[data-slot="more-sheet"]');
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    const appearance = page.locator('[data-slot="appearance-sheet"]');
+    // Light first, so System's dark is the device's, not a choice left over.
+    await appearance.locator('[data-slot="appearance-option"][data-value="light"]').click();
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await more.getByRole("button", { name: /^Appearance/ }).click();
+    await appearance.locator('[data-slot="appearance-option"][data-value="system"]').click();
+    await expect(appearance).toBeHidden();
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  });
+});

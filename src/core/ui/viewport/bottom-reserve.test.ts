@@ -4,11 +4,14 @@ import { atPageEnd, changeBottomReserve, keepAtEnd, type ScrollMetrics } from ".
 
 /** A page of `height` px in an 800 px viewport, scrolled to `top`; `grow` adds to its height. */
 function fakePage(height: number, top: number) {
-  const state = { height, top, scrolls: [] as number[] };
+  const state = { height, top, scrolls: [] as number[], reads: 0 };
   return {
     state,
     page: {
-      metrics: (): ScrollMetrics => ({ top: state.top, height: state.height, viewport: 800 }),
+      metrics: (): ScrollMetrics => {
+        state.reads += 1;
+        return { top: state.top, height: state.height, viewport: 800 };
+      },
       scrollTo: (to: number) => {
         state.scrolls.push(to);
         state.top = to;
@@ -72,5 +75,21 @@ describe("changeBottomReserve", () => {
       state.height += 52;
     }, page);
     expect(state.scrolls).toEqual([]);
+  });
+
+  it("measures the page again only for a person at the end (no layout forced otherwise)", () => {
+    const top = fakePage(2000, 0);
+    changeBottomReserve(() => {
+      top.state.height += 52;
+    }, top.page);
+    expect(top.state.reads).toBe(1);
+    const elsewhere = fakePage(2000, 400);
+    changeBottomReserve(() => {}, elsewhere.page);
+    expect(elsewhere.state.reads).toBe(1);
+    const end = fakePage(2000, 1200);
+    changeBottomReserve(() => {
+      end.state.height += 52;
+    }, end.page);
+    expect(end.state.reads).toBe(2);
   });
 });

@@ -246,25 +246,27 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
 
 ### v2.0 "Fast and settled": units (advisor, 2026-11-05; owner: "proceed", one builder)
 Owner, 2026-11-05: after v2.0 there are no more big changes to the number of screens; only revenue (phase 9) and the Drive link (8.5) remain. v2.0 makes the app feel **extremely fast for day-to-day use**, and the speed gate is stricter for it.
-- [ ] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.
-- [ ] **X1 [C] On hold seen by everyone linked, up front** (the owner's notes above).
+- [x] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.
+- [x] **X1 [C] On hold seen by everyone linked, up front** (the owner's notes above).
   - The Crew assignees of a held task are told (a quiet notice) and see the hold line as soon as the task opens.
   - An Admin opening a project the Owner holds sees the banner.
   - The "waits until resumed" line shows when the task opens, for everyone linked.
   - The phone "Put on hold" wording keeps its size at 375/430.
   - Guide and pictures updated for every role.
   - Check against WORKFLOWS §9: a new recipient needs a pgTAP test.
-- [ ] **X2 [H] The start-order race fix** (the `v19-first-reads` standby patch: the shell's first-byte reads go out before the page's). Advisor review of the diff before push.
-- [ ] **X3 [H] Speed audit, every route × every role:**
-  - (a) **First wave ≤ 6 reads** on every route for every role, enforced by a test that fails on a seventh, through the diagnostics timing.
+- [x] **X1b [C] Appearance on a phone** (owner bug 2026-11-05, advisor #89): More → the appearance icon's Light / Dark / System menu flashed and closed. On a phone the More sheet's Appearance row opens an **Appearance** bottom sheet: three 44 px rows, the current one ticked, a tap applies it and closes the sheet, back closes it. The laptop is unchanged.
+- [x] **X2 [H] The start-order race fix** (the `v19-first-reads` standby patch: the shell's first-byte reads go out before the page's). Advisor review of the diff before push.
+- [x] **X3 [H] Speed audit, route by route, for every role:** **Done (11 Nov 2026):** the first wave ≤ 6 is enforced by `e2e/first-wave.spec.ts` on 20 routes (the other routes go to v2.1); the hot reads are folded into one or two trips (`session_early`, `own_week`, `task_page`, `client_overview`, `project_page`, `templates_library`, the /leave folds); every route's budget is at its measured size plus 5 %; the INP gate is on (`e2e/phone-inp.spec.ts`, ≤ 200 ms on the phone profile); the likely-next prefetch holds for each role.
+  - (a) **First wave ≤ 6 reads**, enforced by a test that fails on a seventh: `e2e/first-wave.spec.ts` covers **20 routes** (16 paths and four records: a task, a client, a project, a person) for each role that opens them; **the other routes move to v2.1** (below).
   - (b) **The hot database functions:** `EXPLAIN (ANALYZE, BUFFERS)` on `session_bundle`, `task_counts`, the Today, My Day, Approvals and calendar reads on staging data. Add any missing index (expand-only, with pgTAP).
   - (c) **The client:** first-load JS, with every route's budget lowered to its measured size plus 5 %, the tap → skeleton time, and INP on a mid-range Android profile (4× CPU, Fast 4G) for each role's top 5 screens. Find and fix any long task over 200 ms.
-  - (d) **Caching and prefetch:** confirm the likely-next prefetch and the service-worker outlines hold for every role.
-- [ ] **X4 [H] Measure where the team is:**
+  - (d) **Caching and prefetch:** confirm the likely-next prefetch and the service-worker outlines hold for every role. **Done (10 Nov):** `prefetch-likely.spec` and `instant-skeleton.spec` for the Owner, an Admin and the Crew; with it the hydration split of /today and /my-day (ARCHITECTURE §19 "Nothing forced inside hydration") and the calendar's held taps (§14.2 l).
+- [x] **X4 [H] Measure where the team is:** **Done (11 Nov 2026):** the India probe runs (the advisor, from the laptop in India, all three roles); Smart Placement rejected (ADR-0017).
   - The CI probe runs from US runners, so every database trip it measures crosses an ocean. The team is in India and the database is in Mumbai.
   - Add an **India probe**: the advisor runs `perf-probe` from the laptop in India against the preview and the main-preview, for all three roles.
   - Evaluate **Cloudflare Smart Placement**, running the Worker beside the database. Measure it on the preview from India and from the US, and adopt it with an ADR only if it's faster for India. The owner approves anything that changes production config.
-- [ ] **X5 [C] Tests fixed at the cause:** `calendar.spec:410`, `notifications.spec:483` and the `working-hours` midnight window (above), plus any test that fails once during v2.0.
+    - **Decided 2026-11-11: not adopted (ADR-0017).** From India the placed Worker answers `Cf-Placement: local-BOM`, the same Mumbai data centre as the default, so India cannot gain; the US probe is recorded for the record only. The experiment (`maxoff-staging-smart`, its env and its job) is removed. Revisit only if users outside India become common.
+- [x] **X5 [C] Tests fixed at the cause:** **Done (11 Nov 2026):** `x5-tests` merged into `phase-v2` (0136ea5b; its CI 42979310216 green). `calendar.spec:410`, `notifications.spec:483` and the `working-hours` midnight window (above), plus any test that fails once during v2.0.
 - [ ] **X6 [C] Release review:**
   - the guide, every role;
   - the design pass;
@@ -274,11 +276,37 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
 
 **The v2.0 speed gate (advisor, 2026-11-05; stricter than CLAUDE.md, with no exceptions):**
 - Every route for every role, paired against a preview of v1.9.0, passes the two-run rule.
-- **No route's warm p50 above 450 ms** from the CI probe.
+- **No route's warm p50 above 600 ms** from the CI probe (CLAUDE.md's cap; the 450 first set here was set back on 2026-11-11, the advisor on #89: from a US runner it measured the distance to Mumbai, not MaxOff).
 - **India probe: warm p50 ≤ 300 ms** on every route.
 - **Tap → skeleton ≤ 200 ms.**
 - **INP ≤ 200 ms** on the phone profile.
 - No budget raised.
+- **Owner amendment, 2026-11-11 ("judge finished page too", option A, #89 6786739292):** v2.0's folds put a page's content into its first flush, so a route's first byte can come later while the finished page comes sooner. The gate judges **the last byte** (the content complete) against v1.9 by the two-run rule above, and **the TTFB only against the absolute caps** (≤ 600 ms from the CI probe, ≤ 300 ms from India): a TTFB later than v1.9's but under the cap no longer fails by itself. The READY post's tables show both columns (`scripts/lib/perf-gate.mjs`, `tests/perf-gate.test.ts`).
+
+### v2.1 "Reliable anywhere": units (owner 2026-11-11; note only until the owner says proceed)
+Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after v2.0 is v2.1 "Reliable anywhere". v2.0 ships unchanged. The ops safety nets (backup failure alerts and a daily ops check, Dependabot, the runbooks) went to `main` separately (`ops/safety-nets`). **Owner, 11 Nov 23:05 IST ("proceed full on autopilot"; #89 6802825415):** the units with no open business question start on `phase-v21` (cut from `phase-v2` at bafd6f45): units 3, 4 and 2 (part) by the integrator, unit 1 by the builder after v2.0's READY TO MEASURE. Units 5–8 wait for the owner.
+- [ ] **1. Real-user speed:** web-vitals (LCP, INP, CLS, TTFB) from the team's phones to Sentry, per route and role, p75, with a weekly look. Nothing personal sent.
+- [ ] **2. Weak network:** a Playwright project at Slow 4G and CPU ×4 on the core flows (Start day, End day, leave request, task Noted/Done, approve), plus a ~10 s timeout on the Supabase fetch (audit 12), idempotency keys on create actions so a retry never duplicates (audit 10), and the clear "didn't save, try again" state. Whether offline Start day / End day are queued is an **owner business question**, for the kickoff; idempotency keys and any offline queue wait for the owner.
+- [ ] **3. iPhone:** a WebKit (iPhone) Playwright project on the core flows, plus installed-PWA push on iOS checked on a real iPhone at the walk.
+- [ ] **4. Accessibility in CI:** axe checks on every screen per role, with zero serious violations.
+- [ ] **5. Edit clashes:** optimistic locking on task and project edits, so the second save is told "changed by X, reload" (audit 11). The conflict message is the owner's choice.
+- [ ] **6. Load:** a staging load test of the 10:00 IST burst (20 Start days plus live refreshes), with p95 under the gate. Any compute upgrade is an owner cost decision, with evidence.
+- [ ] **7. Files safety:** a backup of uploaded files (audit §1). Owner decision: a nightly R2 copy, or bring the Drive archive forward.
+- [ ] **8. The restore drill** on a recent backup, then quarterly (6b.20 (a)). It runs on the owner's laptop with his key.
+
+**Also in v2.1 (from the v2.0 X6 review, advisor on #89 6803081084, 11 Nov 2026; the review files are on branch `docs/v2-release-drafts` under `docs/reviews/v2.0/`):**
+- [ ] **The Thresholds form puts back an edit (known bug, in v1.9 too; with unit 5):** `src/app/(app)/settings/thresholds/page.tsx:30` keys the form on the saved values (`key={JSON.stringify(settings)}`), so an edit typed in the moment between a save's "Thresholds saved" toast and its refresh is put back by the remount. The fix comes with a red-first spec of exactly that sequence.
+- [ ] **First wave on the other 27 routes:** `e2e/first-wave.spec.ts` covers 20 routes in v2.0; the rest get the same ≤ 6, none-twice test.
+- [ ] **The test gaps** (`docs/reviews/v2.0/final-review-tests.md`): **M4** the week-strip day (`strip:<date>`) tapped before hydration has no test; **M5** `readClientOverview` has no hidden-client unit case; **M7** no Admin row for `/clients/:id`'s loading screen; **S5** `twoRunVerdicts` is tested but never called (the two-run rule is applied by hand); **S6** the Admin's client Overview skeleton is untraced; **S7** the held calendar tap: the strip day and the desktop run; **S8** the signed-out theme change on `/login` is unspecified.
+- [ ] **Security hardening** (`docs/reviews/v2.0/final-review-security.md`, one small expand-only migration): **L2** the folds rely on RLS alone for "own row" (`task_page`'s `last_read`, the `org_settings` reads with `limit 1`); add the explicit `member_id` and org predicates. **L3** `app.requests_to_decide_count()` is a security-definer copy of an RLS rule; keep pgTAP 135's equality test mandatory and put a comment on `app.task_request_visible` pointing at it.
+- [ ] **Wording and accessibility polish** (`docs/reviews/v2.0/final-review-ux-a11y.md`): **P1** the Appearance options are `role="radio"` without radio keyboard behaviour; **P2** the new sheet has no reduced-motion handling, where the menu it replaced had one; **P3** `[data-slot="sheet-content"]` CSS never matches a named sheet; **P4** My Day's "On hold · n" line is a hand copy of Tasks' `MoreLink`; **P5** the amber hold callout exists as three hand-written copies; **P6** the client header fallback hand-rolls a skeleton; **P7** a stale comment.
+- [ ] **The other screens' skeleton on the tap, refresh or not** (#143, v2.0 fixed the task page only): a bar tab, a client, a project, a person, and a task tapped from the calendar or Reports before any task-listing screen was opened, still show their skeleton only when the router holds their prefetched loading screen. Right after a cold reopen (the row's or tab's prefetch not gone yet, the skeleton's code not loaded) or a live update's `router.refresh()`, a tap there keeps the old screen up until the server answers (~3 s on a cold Worker in CI; v1.9 the same). Each tab's skeleton differs by role, so the task page's approach (`TaskTapSkeleton`: the app draws a copy of the route's own skeleton component when the router has not answered in 120 ms, with the address in the history) needs a skeleton per tab and role, or another design; the calendar has to fit its first-load budget (159 bytes left in v2.0). Evidence: CI 43220640676 (the advisor's trace), the Owner's "bar tab → Tasks: null" on 11 Nov.
+- [ ] **The calendar, faster still** (v2.0 measurements, #89 6812225408 and 6808590041): from India its finished page is about 40 ms later than v1.9 for the Owner and an Admin (within the rule, every round), and a tap made while it is still loading can wait on its load-time long task (one tap of 15 at 232 ms, 166 ms of it input delay). Find both at the cause.
+- [ ] **The two Appearance choosers read the same** (owner, 12 Nov 2026, #89 6812253725: keep both in v2.0): the phone's More → Appearance sheet and the menu on the laptop's top bar and on Me offer Light, Dark and System; make their labels, order, the "follows this device" line and the tick the same.
+- [ ] **A guide picture of the phone's Appearance sheet** (Owner, Admin; More → Appearance), moved from v2.0 by the advisor (#89 6803451868): an addition, not a stale picture; `guide:screenshots` runs only between 11:15 am and 5:30 pm IST.
+- [ ] **The two kept diagnostics** (`/diagnostics/timing`, `/diagnostics/approvals-timing`) are open to any member (about six reads a hit): a per-member rate limit or a probe-only token (advisor, #89 6798443489).
+- [ ] **From Ideas:** the refresh that empties the router's prefetches, and NavProgress finishing early (advisor, #89 6798443489).
+- [x] **CI resilience: done early** (owner decision, 11 Nov 2026: "make that change now"; #89 6802466628): `ci.yml` installs Chromium without apt and proves a headless launch, with apt (`playwright install-deps chromium`) only as a fallback if that launch fails (commit bafd6f45). Not done: the optional browser cache.
 
 ## Phase 7: Client work
 > **Launch order:** built **right after phase 6 (v1.5.x), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08; Owner and Admin; Crew never use it).

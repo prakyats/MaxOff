@@ -427,7 +427,58 @@ describe("the hold proxy holds what a test registers, and only that", () => {
     watch.destroy();
   });
 
-  it('refuses to hold "*": every path is only ever watched', async () => {
+  it('holds a session\'s every PostgREST read as a wave ("*", "wave"), passes auth, reports each', async () => {
+    const wave = request({
+      host: "127.0.0.1",
+      port: proxyPort,
+      path: "/__hold",
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    const events: Array<{ hold?: number; caught?: string }> = [];
+    let onEvent: () => void = () => undefined;
+    const registered = new Promise<void>((resolve, reject) => {
+      wave.on("error", reject);
+      wave.on("response", (answer) => {
+        answer.setEncoding("utf8");
+        answer.on("data", (chunk: string) => {
+          for (const line of chunk.split("\n").filter(Boolean)) events.push(JSON.parse(line));
+          onEvent();
+        });
+        onEvent = () => {
+          if (events.length > 0) resolve();
+        };
+        onEvent();
+      });
+    });
+    wave.on("error", () => undefined);
+    wave.end(JSON.stringify({ path: "*", session: "wave-session", answer: "wave" }));
+    await registered;
+
+    const caught = new Promise<void>((resolve) => {
+      onEvent = () => {
+        if (events.filter((event) => event.caught).length === 2) resolve();
+      };
+    });
+    let tasks: { status: number; body: string } | null = null;
+    const held = get("/rest/v1/tasks?select=id", "wave-session").then((answer) => (tasks = answer));
+    const bundle = get("/rest/v1/rpc/session_bundle", "wave-session");
+    await caught;
+    // Auth and another session pass at once; the wave's reads wait, unanswered.
+    expect((await get("/auth/v1/user", "wave-session")).status).toBe(200);
+    expect((await get("/rest/v1/members", "other-session")).status).toBe(200);
+    expect(tasks).toBeNull();
+    expect(events.filter((event) => event.caught).map((event) => event.caught)).toEqual([
+      "/rest/v1/tasks",
+      "/rest/v1/rpc/session_bundle",
+    ]);
+    wave.destroy();
+    await held;
+    expect(tasks).toEqual({ status: 200, body: "read /rest/v1/tasks?select=id" });
+    expect((await bundle).status).toBe(200);
+  });
+
+  it('refuses to "wait" on "*": every path is only watched or waved', async () => {
     const status = await new Promise<number>((resolve, reject) => {
       const outgoing = request(
         { host: "127.0.0.1", port: proxyPort, path: "/__hold", method: "POST" },

@@ -4636,6 +4636,7 @@ export type Database = {
         Returns: boolean;
       };
       attendance_ask_leave_early: { Args: { reason: string }; Returns: string };
+      attendance_board_today: { Args: never; Returns: Json };
       attendance_choose_leave_today: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
@@ -4835,6 +4836,7 @@ export type Database = {
         Args: { from_admin: string; moves: Json };
         Returns: number;
       };
+      client_overview: { Args: { p_client_id: string }; Returns: Json };
       client_pause: {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
@@ -5406,6 +5408,8 @@ export type Database = {
         }[];
       };
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
+      own_comp_leave: { Args: never; Returns: Json };
+      own_week: { Args: { from_date: string; to_date: string }; Returns: Json };
       owner_digest_preview: { Args: never; Returns: Json };
       owner_digest_weekly_preview: { Args: never; Returns: Json };
       project_activity: {
@@ -5484,6 +5488,7 @@ export type Database = {
         Args: { project_id: string; reason: string };
         Returns: string;
       };
+      project_page: { Args: { p_project_id: string }; Returns: Json };
       project_reopen: {
         Args: { project_id: string; reason: string };
         Returns: Database["public"]["Enums"]["project_state"];
@@ -5648,6 +5653,7 @@ export type Database = {
           unread: number;
         }[];
       };
+      session_early: { Args: never; Returns: Json };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;
@@ -5701,6 +5707,10 @@ export type Database = {
       task_mark_read: {
         Args: { task_id: string; up_to?: string };
         Returns: string;
+      };
+      task_page: {
+        Args: { p_activity: number; p_comments: number; p_task_id: string };
+        Returns: Json;
       };
       task_remind: { Args: { task_id: string }; Returns: string };
       task_reopen: {
@@ -5805,11 +5815,16 @@ export type Database = {
         Args: { kind: string; template_id: string };
         Returns: Json;
       };
+      templates_library: { Args: never; Returns: Json };
       unused_delete: {
         Args: { kind: string; target_id: string };
         Returns: undefined;
       };
       unused_usage: { Args: { kind: string; target_id: string }; Returns: Json };
+      working_day_rule: {
+        Args: { from_date: string; to_date: string };
+        Returns: Json;
+      };
     };
     Enums: {
       admin_step: "required" | "none" | "skipped";

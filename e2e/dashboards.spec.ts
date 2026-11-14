@@ -24,6 +24,7 @@ import {
   supabaseAuth,
   taskTypeId,
   USERS,
+  streamedHeights,
 } from "./helpers";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
@@ -528,6 +529,13 @@ test.describe("the Owner's Today (6.2)", () => {
       if (isPhone(info)) await runInstalled(page);
       await page.goto("/today");
       await hydrated(page);
+      // The list has the same height in the server's first flush as with all its rows in (X5,
+      // loading-screens:790: it streamed empty, then its rows pushed the card down): each group's
+      // fallback traces its rows.
+      const { firstFlush, allIn } = await streamedHeights(page, "/today", "today-approval-rows");
+      expect(firstFlush, "Needs you's list in the first flush, then with all its rows in").toBe(
+        allIn,
+      );
       const needs = section(page, "today-approvals");
       await expect(needs).toBeVisible();
       // No heading per kind: the groups' rows share one list.
@@ -619,6 +627,42 @@ test.describe("the Owner's Today (6.2)", () => {
     } finally {
       await resetAttendanceAndLeave(crewId);
     }
+  });
+
+  test("a tap the moment Today is live never loads the whole document, even with the approvals' chunk late (X5)", async ({
+    page,
+  }, info) => {
+    const crewId = await memberIdOf(crew(info));
+    await resetAttendanceAndLeave(crewId);
+    await rpcAs(crew(info), PASSWORD, "leave_submit", {
+      type: "leave",
+      start_date: workingDay(41),
+      end_date: workingDay(41),
+    });
+    // The approvals preview's code (its rows' `approval-row` slot) lands 3 s after the rest: a
+    // weak network. Its own boundary keeps the wait to its rows; without one, everything up to
+    // the page's boundary waits for it, and a tap there loads the whole document (`me-lazy.tsx`).
+    let late = 0;
+    await page.route("**/_next/static/chunks/*.js*", async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      if (body.includes('"approval-row"')) {
+        late += 1;
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+      }
+      await route.fulfill({ response, body });
+    });
+    let documents = 0;
+    await page.goto("/today", { waitUntil: "commit" });
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.resourceType() === "document") documents += 1;
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-chrome", /.*/);
+    await page.locator('[data-slot="today-see-all-people"] a').click();
+    await expect(page).toHaveURL(/\/today\/people/);
+    await expectSettled(page);
+    expect(late, "the preview's chunk was held").toBeGreaterThan(0);
+    expect(documents, "the tap was the app's, not a whole-document load").toBe(0);
   });
 
   test("Needs you folds a person's several waiting days into one row; the count is the rows (L8, B2)", async ({
@@ -801,7 +845,14 @@ test.describe("the Owner's Today (6.2)", () => {
       await expect(
         needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}checked` }),
       ).toContainText("Waiting for your approval");
-      await expect(section(page, "tasks-open")).not.toContainText(`${prefix}checked`);
+      // Counted as rows, so the claim holds when Open tasks has nothing else and draws no section
+      // at all (FINAL 1): the old `not.toContainText` on a missing section failed whenever the
+      // database had no other open task (X5, dashboards:765).
+      await expect(
+        page
+          .locator('[data-slot="tasks-open"] [data-slot="task-row"]')
+          .filter({ hasText: `${prefix}checked` }),
+      ).toHaveCount(0);
       await expect
         .poll(async () => {
           await page.reload();

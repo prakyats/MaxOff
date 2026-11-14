@@ -6,12 +6,12 @@ import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import {
-  getCompBalance,
   LEAVE_PAGE_SIZE,
   LeaveBalanceStrip,
   leaveTakenThisMonth,
   listApprovedLeaveBetween,
   listRequests,
+  readOwnCompLeave,
 } from "@/modules/leave";
 import { LeaveRequestList } from "@/modules/leave/components/leave-request-list";
 
@@ -41,7 +41,8 @@ export default async function LeaveRequestsPage({
     requirePermission("attendance.self"),
     Promise.all([
       withSessionUserId((id) => listRequests(id, page)),
-      withSessionUserId(getCompBalance),
+      // The layout's one comp-leave read (v2.0 X3, `own_comp_leave()`).
+      readOwnCompLeave().then((own) => own.balance),
       withSessionUserId((id) => listApprovedLeaveBetween(id, `${today.slice(0, 7)}-01`, today)),
     ]),
   );

@@ -3,21 +3,50 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import { sessionCookieOptions } from "./cookies";
 import type { Database } from "./database.types";
 import { publicSupabaseEnv } from "./env";
 import { withExpiredJwtAsSessionUnavailable } from "./expired-jwt";
+import { FirstReads } from "./first-reads";
+import { assertNotInTokenRead, runAsTokenRead } from "./token-read-scope";
+
+export { runAsTokenRead };
+
+/**
+ * This request's first reads (`first-reads.ts`; ARCHITECTURE §19 "Six connections"), one per
+ * request. Outside a request (a script, a unit test) React's `cache()` memoises nothing, so every
+ * call sees an empty registry and nothing is held.
+ */
+const firstReads = cache((): FirstReads => new FirstReads());
+
+/**
+ * Holds every client this request makes from now on through `createServerSupabase()` until
+ * `left` settles: a read the first byte waits for calls this before it starts, with a promise
+ * that resolves once its request has left (`createTokenSupabase`'s `left`), so the Worker's
+ * six-at-a-time queue has it ahead of every page read, whatever the promise chains do. A
+ * `left` that rejects holds nothing. Never an authorisation decision: RLS decides every row.
+ */
+export function holdReadsUntil(left: Promise<unknown>): void {
+  firstReads().hold(left);
+}
 
 /**
  * The Supabase client for Server Components, server actions and route handlers.
  * It carries the caller's session from cookies, so RLS applies to every query.
  * Create one per request; never cache it across requests.
  *
+ * Made only once the request's first reads have left (`holdReadsUntil`): a few microtasks at
+ * most, never more than `FIRST_READS_WAIT_MS`, and nothing at all in a request that holds none.
+ * Never called from inside a token read (`token-read-scope.ts` throws outside production).
+ *
  * A read whose access token PostgREST refuses as expired (PGRST303) ends on the retryable
  * "still signed in" screen, not an unhandled error (`expired-jwt.ts`, 6.6).
  */
 export async function createServerSupabase() {
+  assertNotInTokenRead();
+  await firstReads().wait();
   const cookieStore = await cookies();
   const env = publicSupabaseEnv();
 
@@ -52,11 +81,20 @@ export type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
  * token reaches PostgREST, which verifies it). It has no session of its own: no refresh, no
  * cookie written, `auth.*` unavailable. `getSessionState` uses it for the member row only, and
  * keeps the answer only once the session has verified.
+ *
+ * `left`, when given, is called the moment the client's first request has been handed to
+ * `fetch` (it is in the Worker's queue from then on): what `holdReadsUntil` waits for.
  */
-export function createTokenSupabase(accessToken: string) {
+export function createTokenSupabase(accessToken: string, left?: () => void) {
   const env = publicSupabaseEnv();
+  const base = withExpiredJwtAsSessionUnavailable();
+  const fetchAndTell: typeof fetch = (input, init) => {
+    const response = base(input, init);
+    left?.();
+    return response;
+  };
   return createClient<Database>(env.url, env.publishableKey, {
     accessToken: async () => accessToken,
-    global: { fetch: withExpiredJwtAsSessionUnavailable() },
+    global: { fetch: left ? fetchAndTell : base },
   });
 }

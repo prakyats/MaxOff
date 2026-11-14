@@ -14,6 +14,7 @@ import {
   insertAs,
   memberIdOf,
   ownSession,
+  removeClientFixture,
   removeRequestsTitled,
   removeTasksTitled,
   removeTemplatesNamed,
@@ -63,11 +64,20 @@ const TRACE_TOLERANCE = 1;
 type Point = { held: string; settled: string };
 
 type Fixture =
-  "staff task" | "suggestion" | "template" | "task to check" | "task page" | "notification";
+  | "staff task"
+  | "suggestion"
+  | "template"
+  | "task to check"
+  | "task page"
+  | "notification"
+  | "client work";
 
 type LoadingScreen = {
   role: SessionRole;
-  /** The address; `:task` is the fixture's task (the task page's views). */
+  /**
+   * The address; `:task` is the fixture's task (the task page's views), `:client` and `:project`
+   * the client-work fixture's client and its first project (X5+ M7).
+   */
   path: string;
   /** An attribute of the route's loading screen, which marks it on screen. */
   marker: string;
@@ -238,7 +248,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/today/people",
     marker: 'data-slot="loading-today-people"',
-    hold: "/rest/v1/rpc/attendance_today_detail",
+    // v2.0 X3: the board's people and hours are one read (`attendance_board_today()`).
+    hold: "/rest/v1/rpc/attendance_board_today",
     trace: {
       filter: {
         held: '[data-slot="people-filter"]',
@@ -260,7 +271,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/today/people?group=end_not_recorded",
     marker: 'data-slot="loading-today-people"',
-    hold: "/rest/v1/rpc/attendance_today_detail",
+    // v2.0 X3: the board's people and hours are one read (`attendance_board_today()`).
+    hold: "/rest/v1/rpc/attendance_board_today",
     trace: {
       "yesterday line": {
         held: '[data-slot="loading-people-yesterday"]',
@@ -277,7 +289,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "staff",
     path: "/my-day",
     marker: 'data-slot="loading-my-day"',
-    hold: "/rest/v1/holidays",
+    // v2.0 X3: the week's holidays, events, own leave and freelancers are one read (`own_week()`).
+    hold: "/rest/v1/rpc/own_week",
     fixture: "staff task",
     trace: {
       "attendance strip": {
@@ -396,30 +409,31 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     hold: "/rest/v1/coordinated_freelancers",
     trace: ME_WITH_PAGES,
   },
-  // A task's page (4.4): its skeleton streams before the page decides; an unknown id ends on the
+  // A task's page (4.4), held by its one read (v2.0 X3: `task_page()`): its skeleton streams
+  // before the page decides; an unknown id ends on the
   // not-found screen, so there is nothing to trace, only the fit (the Owner's ⋯ placeholder, and
   // Staff's none).
   {
     role: "owner",
     path: "/tasks/00000000-0000-4000-8000-000000000000",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/tasks",
+    hold: "/rest/v1/rpc/task_page",
     trace: {},
   },
   {
     role: "staff",
     path: "/tasks/00000000-0000-4000-8000-000000000000",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/tasks",
+    hold: "/rest/v1/rpc/task_page",
     trace: {},
   },
-  // The reworked task page (decisions 26–32): each view, held by a read only it waits for, and
-  // traced; Chat is the inline view on a desktop and the full-height sheet on a phone.
+  // The reworked task page (decisions 26–32): each view, held by the one read it waits for (v2.0
+  // X3: `task_page()`, the task and its children), and traced; Chat is the inline view on a desktop and the full-height sheet on a phone.
   {
     role: "staff",
     path: "/tasks/:task",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_stages",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     trace: TASK_WORK,
   },
@@ -427,7 +441,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/tasks/:task",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_stages",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     // The Owner's "needed" line names the Staff member and may take two lines on a phone.
     trace: TASK_GLANCE,
@@ -438,7 +452,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "staff",
     path: "/tasks/:task?tab=details",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_assignees",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     trace: {
       ...TASK_VIEWS,
@@ -457,7 +471,7 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "staff",
     path: "/tasks/:task?tab=chat",
     marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/task_comments",
+    hold: "/rest/v1/rpc/task_page",
     fixture: "task page",
     settle: async (page) => {
       await expect(
@@ -573,7 +587,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "owner",
     path: "/settings/templates",
     marker: 'data-slot="loading-templates"',
-    hold: "/rest/v1/task_templates",
+    // v2.0 X3: the five template lists are one read (`templates_library()`).
+    hold: "/rest/v1/rpc/templates_library",
     fixture: "template",
     trace: {
       "first row": {
@@ -587,7 +602,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     role: "admin",
     path: "/settings/templates",
     marker: 'data-slot="loading-templates"',
-    hold: "/rest/v1/task_templates",
+    // v2.0 X3: the five template lists are one read (`templates_library()`).
+    hold: "/rest/v1/rpc/templates_library",
     fixture: "template",
     trace: {
       "first row": {
@@ -636,6 +652,60 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "notification",
     trace: ALERTS,
   })),
+  // X5+ M7: the v2.0 X3 folds' screens, each held at its one read. A client's Overview (the
+  // Owner): Key people under the two active projects, then the contacts under the tasks line.
+  {
+    role: "owner",
+    path: "/clients/:client",
+    marker: 'data-slot="loading-client-overview"',
+    hold: "/rest/v1/rpc/client_overview",
+    fixture: "client work",
+    trace: {
+      "key people": {
+        held: '[data-slot="loading-client-overview"] > div:nth-child(2)',
+        settled: '[data-slot="client-glance"]',
+      },
+      contacts: {
+        held: '[data-slot="loading-client-overview"] > div:nth-child(4) ul',
+        settled: '[data-slot="contact-list"]',
+      },
+    },
+  },
+  // A project's page (the Owner): the cycle's progress card, then the first deliverable.
+  {
+    role: "owner",
+    path: "/clients/:client/projects/:project",
+    marker: 'data-slot="loading-project"',
+    hold: "/rest/v1/rpc/project_page",
+    fixture: "client work",
+    trace: {
+      progress: {
+        held: '[data-slot="loading-project"] > div[aria-hidden] > div:first-child > :nth-child(3)',
+        settled: '[data-slot="cycle-meter"]',
+      },
+      "first deliverable": {
+        held: '[data-slot="loading-project"] li[data-row]',
+        settled: '[data-slot="item-row"]',
+      },
+    },
+  },
+  // The Crew's leave (own comp leave in one read): the balance strip, then the requests under it.
+  {
+    role: "staff",
+    path: "/leave",
+    marker: 'data-slot="loading-leave-balance"',
+    hold: "/rest/v1/rpc/own_comp_leave",
+    trace: {
+      "balance strip": {
+        held: '[data-slot="loading-leave-balance"]',
+        settled: 'main [data-slot="leave-balance"]',
+      },
+      requests: {
+        held: '[data-slot="loading-leave-balance"] ~ [data-slot="loading-state"]',
+        settled: 'main [data-slot="leave-balance"] + *',
+      },
+    },
+  },
   // An Admin's Approvals: the one group, the tasks they check (4.5).
   {
     role: "admin",
@@ -675,7 +745,7 @@ async function makeFixture(
   prefix: string,
   fixture: Fixture,
   role: SessionRole,
-): Promise<{ remove: () => Promise<void>; task?: string }> {
+): Promise<{ remove: () => Promise<void>; task?: string; client?: string; project?: string }> {
   const { owner, admin, staff } = USERS;
   if (fixture === "notification") {
     const [member] = await serviceSelect<{ id: string; org_id: string }>(
@@ -694,6 +764,45 @@ async function makeFixture(
   if (fixture === "suggestion") {
     await rpcAs(staff.email, staff.password, "task_request_create", { title: `${prefix}reel` });
     return { remove: () => removeRequestsTitled(prefix) };
+  }
+  if (fixture === "client work") {
+    // The Admin's active client with a primary contact and two projects (the Overview's skeleton
+    // draws two active-project rows), each with two deliverables. Short names, so each row's lines
+    // stay one line at 375 px, as the skeleton traces them (the task page's title does the same).
+    const tag = shortTag(prefix);
+    const name = `Cw${tag}`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(admin.email),
+    });
+    await rpcAs(owner.email, owner.password, "client_activate", { client_id: client.id });
+    // With a phone, as most clients' primary contact has (the skeleton draws the Call row).
+    await serviceInsert("client_contacts", {
+      client_id: client.id,
+      name: `Asha${tag}`,
+      phone: "+91 98450 00000",
+      is_primary: true,
+    });
+    const projects: string[] = [];
+    for (const label of ["a", "b"]) {
+      projects.push(
+        await rpcAs<string>(admin.email, admin.password, "project_create", {
+          client_id: client.id,
+          name: `Reels ${label}${tag}`,
+          recurrence: "monthly",
+          stages: ["Shoot", "Edit"],
+          items: [`Reel ${label}1${tag}`, `Reel ${label}2${tag}`],
+        }),
+      );
+    }
+    return {
+      remove: () => removeClientFixture(name),
+      client: client.id,
+      ...(projects[0] ? { project: projects[0] } : {}),
+    };
   }
   if (fixture === "template") {
     await insertAs(owner.email, owner.password, "task_templates", {
@@ -799,7 +908,10 @@ for (const role of ["owner", "admin", "staff"] as const) {
         }
         const made = screen.fixture ? await makeFixture(prefix, screen.fixture, role) : null;
         const remove = made?.remove;
-        const path = screen.path.replace(":task", made?.task ?? ":task");
+        const path = screen.path
+          .replace(":task", made?.task ?? ":task")
+          .replace(":client", made?.client ?? ":client")
+          .replace(":project", made?.project ?? ":project");
         const session = await ownSession(page, user.email, user.password);
         const held = await holdReads(screen.hold, session);
         try {
@@ -928,6 +1040,13 @@ type RouterWindow = {
 for (const role of ["owner", "admin", "staff"] as const) {
   test.describe(`${role}: loading screens, held at their navigation`, () => {
     test.use({ storageState: storageStateFor(role) });
+    // No Realtime here (as `view-scroll.spec`'s view switch): a notification for the shared
+    // member from another worker re-reads the screen in place (`live-updates.tsx`), and that
+    // refresh empties the router's prefetches, so the push lands on the parent's loading screen
+    // ("Loading Me"), not the one this traces (3 workers locally, X5 2026-11-11).
+    test.beforeEach(async ({ page }) => {
+      await page.routeWebSocket(/\/realtime\/v1\/websocket/, () => {});
+    });
 
     for (const screen of HELD_AT_NAVIGATION.filter((entry) => entry.role === role)) {
       test(`${screen.path}: fits at large text and traces its screen`, async ({ page }) => {
@@ -1031,7 +1150,8 @@ const WEEK_SCREENS = [
     role: "staff",
     path: "/my-day",
     marker: 'data-slot="loading-my-day"',
-    hold: "/rest/v1/holidays",
+    // v2.0 X3: the week's holidays, events, own leave and freelancers are one read (`own_week()`).
+    hold: "/rest/v1/rpc/own_week",
   },
   { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"', hold: "/rest/v1/tasks" },
 ] as const;

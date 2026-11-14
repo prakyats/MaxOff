@@ -82,7 +82,7 @@ export default function Loading() {
               <span className="flex size-20 shrink-0 items-center justify-center sm:size-22">
                 <span className="border-muted size-full rounded-full border-[0.5rem] motion-safe:animate-pulse" />
               </span>
-              <span className="flex flex-1 flex-col gap-1">
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="flex h-5 items-center">
                   <Skeleton className="h-3.5 w-56 max-w-full" />
                 </span>

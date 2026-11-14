@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const reads = vi.hoisted(() => ({
   getSessionState: vi.fn(),
+  getSessionUserId: vi.fn(),
   withSessionUserId: vi.fn(),
   getSessionBundle: vi.fn(),
   readOwnPushStatus: vi.fn(),
@@ -11,7 +12,7 @@ const reads = vi.hoisted(() => ({
   listEarlyLeaveRequests: vi.fn(),
   listPendingClaims: vi.fn(),
   listPendingRequests: vi.fn(),
-  listTasksToDecide: vi.fn(),
+  listTasksAtBothSteps: vi.fn(),
   listUnreadCounts: vi.fn(),
   listDirectory: vi.fn(),
   notFound: vi.fn(() => {
@@ -22,6 +23,7 @@ const reads = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ notFound: reads.notFound }));
 vi.mock("@/core/auth/server", () => ({
   getSessionState: reads.getSessionState,
+  getSessionUserId: reads.getSessionUserId,
   withSessionUserId: reads.withSessionUserId,
 }));
 vi.mock("@/core/auth/session-bundle", () => ({ getSessionBundle: reads.getSessionBundle }));
@@ -37,7 +39,7 @@ vi.mock("@/modules/attendance", () => ({
 vi.mock("@/modules/expenses", () => ({ listPendingClaims: reads.listPendingClaims }));
 vi.mock("@/modules/leave", () => ({ listPendingRequests: reads.listPendingRequests }));
 vi.mock("@/modules/tasks", () => ({
-  listTasksToDecide: reads.listTasksToDecide,
+  listTasksAtBothSteps: reads.listTasksAtBothSteps,
   listUnreadCounts: reads.listUnreadCounts,
 }));
 vi.mock("@/modules/team", () => ({ listDirectory: reads.listDirectory }));
@@ -70,11 +72,12 @@ function member(role: "owner" | "admin" | "staff") {
 describe("GET /diagnostics/approvals-timing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    reads.getSessionUserId.mockResolvedValue("m-1");
     reads.getSessionState.mockResolvedValue(member("owner"));
     reads.withSessionUserId.mockImplementation((read: (id: string) => unknown) => read("m-1"));
     reads.getSessionBundle.mockResolvedValue({
       unread: 3,
-      pending: { earlyLeaves: 1 },
+      pending: { days: 1, requests: 1, notes: 1, claims: 1, earlyLeaves: 1 },
       label: SECRET,
     });
     reads.readOwnPushStatus.mockResolvedValue({
@@ -92,7 +95,10 @@ describe("GET /diagnostics/approvals-timing", () => {
     ]) {
       list.mockResolvedValue([{ id: "row-1", fullName: SECRET, reason: SECRET }]);
     }
-    reads.listTasksToDecide.mockResolvedValue([{ row: { id: "task-1", title: SECRET } }]);
+    reads.listTasksAtBothSteps.mockResolvedValue({
+      final: [{ row: { id: "task-1", title: SECRET } }],
+      check: [],
+    });
     reads.listUnreadCounts.mockResolvedValue({ "task-1": 2 });
   });
 
@@ -112,6 +118,22 @@ describe("GET /diagnostics/approvals-timing", () => {
     expect(body.today).toBe(0);
     // The unread counts are read for the rows of the step the role decides.
     expect(reads.listUnreadCounts).toHaveBeenCalledWith(["task-1"]);
+  });
+
+  it("signed out, 404s before any read (the verified claims first)", async () => {
+    reads.getSessionUserId.mockResolvedValue(null);
+    await expect(GET()).rejects.toThrow("NEXT_NOT_FOUND");
+    for (const read of [
+      reads.getSessionState,
+      reads.getSessionBundle,
+      reads.readOwnPushStatus,
+      reads.getOwnToday,
+      reads.listPendingDays,
+      reads.listDirectory,
+      reads.listTasksAtBothSteps,
+    ]) {
+      expect(read).not.toHaveBeenCalled();
+    }
   });
 
   it("404s anyone who is not an active member, signed out included", async () => {

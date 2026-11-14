@@ -1,6 +1,5 @@
 "use client";
 
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import {
@@ -12,12 +11,7 @@ import {
 } from "@/core/ui/primitives/dropdown-menu";
 
 import { ThemeMenuTrigger } from "./theme-menu-trigger";
-
-const OPTIONS = [
-  { value: "light", label: "Light", Icon: SunIcon },
-  { value: "dark", label: "Dark", Icon: MoonIcon },
-  { value: "system", label: "System", Icon: MonitorIcon },
-] as const;
+import { THEME_OPTIONS } from "./theme-options";
 
 /**
  * The Light / Dark / System menu behind `ThemeToggle`, which loads it after the page (6.0).
@@ -39,7 +33,7 @@ export function ThemeMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
-          {OPTIONS.map(({ value, label, Icon }) => (
+          {THEME_OPTIONS.map(({ value, label, Icon }) => (
             <DropdownMenuRadioItem key={value} value={value}>
               <Icon aria-hidden />
               {label}

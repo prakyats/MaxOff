@@ -98,6 +98,34 @@ export async function listDefinitions(
   return data.map(toDefinition);
 }
 
+/** Definitions from their rows (every column), as the reads here map them, for a page's one read. */
+export function definitionsFrom(rows: readonly Tables<"field_definitions">[]): FieldDefinition[] {
+  return rows.map(toDefinition);
+}
+
+/**
+ * `listAllDefinitions` for several entities in one read (v2.0 X3: Settings → Templates reads the
+ * task and the project fields together, so its first wave is six): each entity's definitions in
+ * the same order that read gives them (by position), every entity asked for present.
+ */
+export async function listAllDefinitionsOf<E extends CustomFieldEntity>(
+  entities: readonly E[],
+): Promise<Record<E, FieldDefinition[]>> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("field_definitions")
+    .select("*")
+    .in("entity", [...entities])
+    .order("position", { ascending: true });
+  if (error) throw error;
+  const byEntity = Object.fromEntries(entities.map((entity) => [entity, []])) as unknown as Record<
+    E,
+    FieldDefinition[]
+  >;
+  for (const row of data) byEntity[row.entity as E]?.push(toDefinition(row));
+  return byEntity;
+}
+
 /** Every definition of an entity the caller may see, global and client-scoped (the Settings screen). */
 export async function listAllDefinitions(entity: CustomFieldEntity): Promise<FieldDefinition[]> {
   const supabase = await createServerSupabase();

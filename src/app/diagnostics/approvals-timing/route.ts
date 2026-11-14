@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { getSessionState, withSessionUserId } from "@/core/auth/server";
+import { getSessionState, getSessionUserId, withSessionUserId } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
+import { whenWaiting } from "@/core/lib/when-waiting";
 import { can } from "@/core/permissions";
 import {
   getOwnToday,
@@ -12,7 +13,7 @@ import {
 } from "@/modules/attendance";
 import { listPendingClaims } from "@/modules/expenses";
 import { listPendingRequests } from "@/modules/leave";
-import { listTasksToDecide, listUnreadCounts } from "@/modules/tasks";
+import { listTasksAtBothSteps, listUnreadCounts } from "@/modules/tasks";
 import { listDirectory } from "@/modules/team";
 
 // Evaluated per request, never at build time (see /diagnostics/sentry).
@@ -42,7 +43,7 @@ export type ApprovalsTiming = {
  * Where the Approvals screen's time goes on the Worker (v1.9 speed gate, advisor #89 comment
  * 6605368404; ARCHITECTURE §19 "Six connections"): the `(app)` layout's reads and the Approvals
  * page's first wave, started in the order a real request starts them (the layout's member row,
- * counts, own day and push status, then the page's lists and its task steps, then the unread
+ * own day, push status and counts, then the page's lists and its task steps, then the unread
  * counts the task rows wait for), each timed from the wave's start to its answer. A read that
  * queued behind the Worker's six open connections shows as a later answer. Observation only, like
  * `/diagnostics/timing`: members only (anyone else 404s), nothing written, in no nav, and the
@@ -50,6 +51,8 @@ export type ApprovalsTiming = {
  * it; a later cleanup unit removes it (PROGRESS).
  */
 export async function GET(): Promise<Response> {
+  // Signed out, nothing is read (X6 review, as `/diagnostics/timing`): the verified claims first.
+  if (!(await getSessionUserId())) notFound();
   const waveStart = performance.now();
   const since = () => Math.round(performance.now() - waveStart);
   const timed = <T>(read: Promise<T>) => read.then((value) => ({ value, ms: since() }));
@@ -57,35 +60,40 @@ export async function GET(): Promise<Response> {
 
   // The layout's wave, in its order (`src/app/(app)/layout.tsx`).
   const member = timed(getSessionState());
-  const counts = getSessionBundle();
-  const bundle = quiet(counts);
   const today = quiet(getOwnToday());
   const push = quiet(readOwnPushStatus());
-  // The page's first wave, in its order (`src/app/(app)/approvals/page.tsx`).
-  const days = quiet(listPendingDays());
-  const requests = quiet(listPendingRequests());
-  const notes = quiet(listPendingNotes());
-  const claims = quiet(listPendingClaims());
+  const counts = getSessionBundle();
+  const bundle = quiet(counts);
+  // The page's reads, as it starts them (`src/app/(app)/approvals/page.tsx`, v2.0 X3): both task
+  // steps in one read and the directory first, then the pending days (v2.0 X4: with the first
+  // wave again); each of the other lists only once the counts say one is waiting (counts that
+  // could not be read ask the usual way).
+  const steps = withSessionUserId(listTasksAtBothSteps);
   const directory = quiet(listDirectory());
-  // As the page: the early-leave rows only once the counts say one is waiting (a 0 is an empty
-  // list under the same RLS; counts that could not be read ask the usual way).
+  const days = quiet(listPendingDays());
+  const requests = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.requests, listPendingRequests),
+  );
+  const notes = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.notes, listPendingNotes),
+  );
+  const claims = quiet(
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.claims, listPendingClaims),
+  );
   const early = quiet(
-    counts.then(
-      (read) => (read.pending.earlyLeaves > 0 ? listEarlyLeaveRequests() : []),
-      () => listEarlyLeaveRequests(),
-    ),
+    whenWaiting(counts, (bundleRead) => bundleRead.pending.earlyLeaves, listEarlyLeaveRequests),
   );
-  // Timed from the start, so a task step that answers before the member row still reads true.
-  const finalTasks = timed(listTasksToDecide({ final: true }).catch(() => []));
-  const checkTasks = timed(
-    withSessionUserId((id) => listTasksToDecide({ final: false, id })).catch(() => []),
-  );
+  const both = timed(steps.catch(() => ({ final: [], check: [] })));
 
   const state = await member;
   if (state.value.kind !== "member") notFound();
   const role = state.value.member.role;
   // As the page: the role picks the step once the member is known, then its rows' unread counts.
-  const tasks = await (can(role, "tasks.approve_final") ? finalTasks : checkTasks);
+  const stepsRead = await both;
+  const tasks = {
+    ms: stepsRead.ms,
+    value: can(role, "tasks.approve_final") ? stepsRead.value.final : stepsRead.value.check,
+  };
   const unread = await quiet(listUnreadCounts(tasks.value.map((item) => item.row.id)));
   const [pushRead, bundleRead, todayRead, ...lists] = await Promise.all([
     push,

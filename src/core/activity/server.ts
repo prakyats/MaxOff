@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 
 import { ACTIVITY_LIMIT, type ActivityEntry, type ActivityTarget } from "./types";
@@ -11,6 +12,31 @@ function asObject(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+/** An activity_log row as the history reads it. */
+export type ActivityRow = Pick<
+  Tables<"activity_log">,
+  "id" | "actor_id" | "on_behalf_of_id" | "entity" | "entity_id" | "action" | "diff" | "meta" | "at"
+>;
+
+/** History entries from their rows, as `listActivity` reads them or a page's one read carries them. */
+export function activityFrom(rows: readonly ActivityRow[]): ActivityEntry[] {
+  return rows.map((row) => {
+    const diff = asObject(row.diff);
+    return {
+      id: row.id,
+      actorId: row.actor_id,
+      onBehalfOfId: row.on_behalf_of_id,
+      entity: row.entity,
+      entityId: row.entity_id,
+      action: row.action,
+      old: asObject(diff.old),
+      new: asObject(diff.new),
+      meta: asObject(row.meta),
+      at: row.at,
+    };
+  });
 }
 
 /**
@@ -38,19 +64,5 @@ export async function listActivity(
     .order("id", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data.map((row) => {
-    const diff = asObject(row.diff);
-    return {
-      id: row.id,
-      actorId: row.actor_id,
-      onBehalfOfId: row.on_behalf_of_id,
-      entity: row.entity,
-      entityId: row.entity_id,
-      action: row.action,
-      old: asObject(diff.old),
-      new: asObject(diff.new),
-      meta: asObject(row.meta),
-      at: row.at,
-    };
-  });
+  return activityFrom(data);
 }

@@ -20,6 +20,7 @@ export {
 export {
   getTask,
   getTaskRead,
+  readTaskPage,
   getTaskTitle,
   listUnreadCounts,
   listAssignees,
@@ -29,22 +30,26 @@ export {
   listSubmissions,
   listTaskActivity,
   listTaskTypes,
+  taskTypesFrom,
+  type TaskTypeRow,
   countOpenAssignments,
   countOpenTasksForClient,
   countTasks,
   listFinishedTaskRows,
   listOpenTaskRows,
   listOpenTaskRowsDueBetween,
+  listTasksAtBothSteps,
   listTasksToDecide,
   type TaskToDecide,
 } from "./data/tasks";
 export { availability as listAvailability } from "./data/tasks";
 /** The dashboards' task reads (6A): event tasks for My Day and Today, the work report's facts. */
-export { listEventTasks, listKpiFacts } from "./data/dashboards";
+export { listEventTasks, listKpiFacts, listOwnWeek } from "./data/dashboards";
+export { TASK_BACK } from "./domain/back";
 export { type EventTask, type KpiFacts } from "./domain/dashboards";
 export { type AvailabilityDay, type LeaveMark } from "./domain/warnings";
 export { countRequestsToDecide, listTaskRequests } from "./data/requests";
-export { listTaskTemplates } from "./data/templates";
+export { listTaskTemplates, taskTemplatesFrom, type TaskTemplateRow } from "./data/templates";
 export { listTaskTypeSettings } from "./data/task-types";
 export {
   DEFAULT_TASK_TYPE_COLOR,

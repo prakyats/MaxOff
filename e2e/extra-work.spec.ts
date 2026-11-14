@@ -452,7 +452,15 @@ test.describe("installed: the back order of the note dialog and the Owner's deci
     await expect(page).toHaveURL(/\/leave\/attendance$/);
     await page.getByRole("link", { name: "Leave requests", exact: true }).click();
     await expect(page).toHaveURL(/\/leave$/);
-    await expect(page.locator('[data-slot="comp-leave-balance"]')).toContainText("1 day");
+    // Exactly one balance on screen (CI 43068303493 found two in the page, one outside #main).
+    // The other is React's streamed segment: right after /leave loads, the balance often still
+    // sits in `<div hidden id="S:…">` at the end of <body>, outside #main, waiting for React's
+    // batched reveal (4 of 6 local runs, every one at CPU ×4); a navigation before the reveal
+    // leaves it there. `hidden` is display:none, so it is neither seen nor read aloud. A second
+    // balance in view would be a bug and still fails here.
+    const balance = page.locator('[data-slot="comp-leave-balance"]:visible');
+    await expect(balance).toHaveCount(1);
+    await expect(balance).toContainText("1 day");
     await page.getByRole("button", { name: "Request leave" }).click();
     const form = page.getByRole("dialog", { name: "Request leave" });
     await form.getByLabel("Kind of leave").click();

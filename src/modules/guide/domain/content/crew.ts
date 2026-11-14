@@ -84,6 +84,8 @@ export const CREW_GUIDE: Guide = {
                 },
                 "Tap the words in that line to open your attendance.",
                 'Read the groups below it: "Not noted", "Changes requested", "Overdue" and "Due today".',
+                "Tap anywhere on a task's row, its chip included, to open it.",
+                'If a task of yours is on hold, an "On hold · n" line under the groups opens them.',
                 '"This week" names each of your deadlines with its time, your events with their place, holidays and your own leave. Tap a row to open it; "Calendar" opens the calendar.',
               ],
             },
@@ -501,7 +503,7 @@ export const CREW_GUIDE: Guide = {
                 },
                 'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
                 'On a laptop, "This week" sits beside the list (below it on a narrow window), as on My Day: each of your deadlines by name and time, your events with their place, holidays and your own leave. A phone shows only the list.',
-                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title, such as a red "2 days late" or "3 h late" on a late task, and the task\'s state, then ›. On a small phone a long chip is shortened with “…”; the task\'s page shows it in full. Tap a task to open it.',
+                'Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title, such as a red "2 days late" or "3 h late" on a late task, and the task\'s state, then ›. On a small phone a long chip is shortened with “…”; the task\'s page shows it in full. Tap anywhere on a row, its chips included, to open the task.',
               ],
             },
             {
@@ -550,7 +552,11 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "On My tasks, tap “On hold · n” (highlighted) to see your held tasks.",
+                  text: "A held task leaves your lists. My Day shows “On hold · n” (highlighted) instead: tap it to see your held tasks.",
+                  shot: "staff/my-day-on-hold",
+                },
+                {
+                  text: "On My tasks, the same “On hold · n” line (highlighted) opens them too.",
                   shot: "staff/tasks-on-hold",
                 },
                 {
@@ -830,7 +836,7 @@ export const CREW_GUIDE: Guide = {
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows under the calendar, with a timeline of the hours around its events; scroll the page to see all of it. The header has "Today" and "Filters", an icon that shows the count, "·1", with a red outline while a filter is on, so you can see the calendar is not showing everything.',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month. ‹ and › on either side of the month’s name move back and forward, and "Today" just after them brings you back (dimmed while today is already on screen); "Filters" is at the right, reading "Filters · 1" with a red outline while a filter is on.',
-                'On a phone, a day of the full month opens in a sheet with its timeline, and "Suggest a task on ‹day›" stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog with "Open day"; in the Day view "Suggest a task on ‹day›" sits at the bottom of the day\'s timeline.',
+                'On a phone, a day of the full month opens in a sheet with its timeline, and "Suggest a task on ‹day›" stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog with "Open day"; in the Day view "Suggest a task on ‹day›" sits at the bottom of the day\'s timeline. If you tap a day while the calendar is still loading, it opens as soon as it\'s ready. The same goes for the handle that changes the calendar\'s size.',
               ],
             },
             {
@@ -1047,7 +1053,7 @@ export const CREW_GUIDE: Guide = {
             },
           ],
           link: { href: "/me", label: "Open Me" },
-          keywords: ["dark mode", "theme", "light", "night", "colours"],
+          keywords: ["appearance", "dark", "dark mode", "theme", "light", "night", "colours"],
         },
         {
           id: "sign-out",

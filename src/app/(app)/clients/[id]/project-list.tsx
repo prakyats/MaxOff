@@ -3,7 +3,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, StatusBadge } from "@/core/ui/composites/status-badge";
 import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { meterLine, type ProjectSummary } from "@/modules/client-work";
 
@@ -72,7 +72,10 @@ export function ProjectList({
               ) : null}
             </span>
             <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
-              {project.readyToComplete ? (
+              {project.held ? (
+                // v2.0 X1: held reads On hold before anything else (ADR-0016; never Open).
+                <OnHoldBadge />
+              ) : project.readyToComplete ? (
                 // PP-client-2: every deliverable done, the project still working (amber).
                 <StatusBadge status="ready" tone="attention" label="Ready to complete" />
               ) : (

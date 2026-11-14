@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 
-import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 
@@ -608,6 +608,140 @@ export async function runInstalled(page: Page) {
  * behaviour (a typed transition, a scroll restore, refresh on return) waits for this after
  * `goto`. Not the root layout: it hydrates before the streamed shell (2.8, found by CI).
  */
+/**
+ * The height `data-slot="<slot>"` has in the server's first flush, and once every part streamed
+ * after it is in, in **one** server render (X5, Today's Needs you: its list streamed empty, then
+ * its rows pushed the card down). The page's HTML is drawn with JavaScript off and React's own
+ * reveals (`$RS`, `$RC` in its inline scripts) are replayed in order, first all but those inside
+ * the slot (their fallbacks stay, as when their content comes in a later flush), then those too.
+ * A boundary whose fallback traces its rows gives the same height twice.
+ */
+export async function streamedHeights(
+  page: Page,
+  path: string,
+  slot: string,
+): Promise<{ firstFlush: number; allIn: number }> {
+  const browser = page.context().browser();
+  if (!browser) throw new Error("streamedHeights: no browser");
+  const use = test.info().project.use;
+  const context = await browser.newContext({
+    storageState: await page.context().storageState(),
+    ...(use.baseURL ? { baseURL: use.baseURL } : {}),
+    ...(use.viewport ? { viewport: use.viewport } : {}),
+    ...(use.isMobile !== undefined ? { isMobile: use.isMobile } : {}),
+    ...(use.deviceScaleFactor !== undefined ? { deviceScaleFactor: use.deviceScaleFactor } : {}),
+    javaScriptEnabled: false,
+  });
+  try {
+    const flush = await context.newPage();
+    await flush.goto(path);
+    return await flush.evaluate((target) => {
+      const slotOf = () => document.querySelector<HTMLElement>(`[data-slot="${target}"]`);
+      const inSlot = (node: Node) =>
+        (node.parentElement ?? null)?.closest(`[data-slot="${target}"]`) !== null;
+      const calls = [...document.scripts].flatMap((script) =>
+        [...(script.textContent ?? "").matchAll(/\$R([SC])\("([^"]+)","([^"]+)"\)/g)].map(
+          (match) => ({ kind: match[1], first: match[2]!, second: match[3]! }),
+        ),
+      );
+      // No reveal found means React's inline scripts changed shape, not that nothing streamed:
+      // both heights would then be the first flush's, and the comparison would pass on nothing.
+      if (calls.length === 0) throw new Error("streamedHeights: no $RS or $RC reveal in the page");
+      const height = () => {
+        const found = slotOf();
+        if (!found || !found.checkVisibility()) throw new Error(`streamedHeights: no ${target}`);
+        return Math.round(found.getBoundingClientRect().height * 2) / 2;
+      };
+      // Replays the reveals not done yet; `skip` keeps a boundary's fallback for now.
+      const done = new Set<number>();
+      const replay = (skip: (template: Node) => boolean) => {
+        calls.forEach((call, index) => {
+          if (done.has(index)) return;
+          if (call.kind === "S") {
+            const segment = document.getElementById(call.first);
+            const placeholder = document.getElementById(call.second);
+            if (!segment || !placeholder?.parentNode) return;
+            while (segment.firstChild)
+              placeholder.parentNode.insertBefore(segment.firstChild, placeholder);
+            placeholder.remove();
+            segment.remove();
+            done.add(index);
+            return;
+          }
+          const template = document.getElementById(call.first);
+          const content = document.getElementById(call.second);
+          const start = template?.previousSibling;
+          if (!template || !content || !start || !template.parentNode) return;
+          if (skip(template)) return;
+          const parent = template.parentNode;
+          let depth = 0;
+          let node = start.nextSibling;
+          while (node) {
+            const next: ChildNode | null = node.nextSibling;
+            if (node.nodeType === Node.COMMENT_NODE) {
+              const data = (node as Comment).data;
+              if (data === "/$" && depth === 0) break;
+              if (data.startsWith("$")) depth += 1;
+              if (data === "/$") depth -= 1;
+            }
+            node.remove();
+            node = next;
+          }
+          while (content.firstChild) parent.insertBefore(content.firstChild, node);
+          (start as Comment).data = "$";
+          content.remove();
+          done.add(index);
+        });
+      };
+      replay(inSlot);
+      const firstFlush = height();
+      replay(() => false);
+      return { firstFlush, allIn: height() };
+    }, slot);
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * Each control a row draws over its stretched opener (its ⋯ menu, Next, Mark done), at its
+ * centre: what a tap there reaches. A control under the opener's link reads as the opener (X3 (d):
+ * the opener went above the chips, never above the actions; X5+ H3). `opener` names the row's
+ * own link or button, which the controls leave out.
+ */
+export async function controlHits(row: Locator, opener: string): Promise<string[]> {
+  return row.evaluate((li, openerSelector) => {
+    const controls = [
+      ...li.querySelectorAll<HTMLElement>("button, a[href], [role='checkbox']"),
+    ].filter(
+      (control) =>
+        !control.matches(openerSelector) &&
+        control.getBoundingClientRect().width > 0 &&
+        control.checkVisibility(),
+    );
+    return controls.map((control) => {
+      const rect = control.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const name =
+        control.getAttribute("aria-label") ?? control.textContent?.trim() ?? control.tagName;
+      return hit && (hit === control || control.contains(hit))
+        ? `${name}: itself`
+        : `${name}: covered`;
+    });
+  }, opener);
+}
+
+/**
+ * The calendar's own JavaScript is live, not only the shell's (`hydrated`): the calendar's chunk
+ * lands after the shell has hydrated, and its first layout effect marks the phone's area
+ * `data-leave-fitted` (`leave-fit.ts`). A tap on the handle before it would hit the server's
+ * button, with no handler yet, and be lost (full CI 42155785736: calendar.spec:2692 [mobile-lg]
+ * tapped while the area was still settling; the size stayed 2).
+ */
+export async function calendarReady(page: Page): Promise<void> {
+  await expect(page.locator('[data-slot="calendar-phone"][data-leave-fitted]')).toHaveCount(1);
+}
+
 export async function hydrated(page: Page): Promise<void> {
   await expect(page.locator("html")).toHaveAttribute("data-chrome", /.+/);
 }
@@ -985,6 +1119,74 @@ export async function watchReads(
   return {
     server: () => [...seen],
     stop: () => {
+      request.destroy();
+    },
+  };
+}
+
+/**
+ * Holds every database read of one browser session (`ownSession`) at the e2e server's proxy as a
+ * **wave** (v2.0 X3): PostgREST reads wait, unanswered, and each is reported; auth passes, so the
+ * JWT check runs. With nothing answered, what arrives is a request's **first wave**: the reads it
+ * starts before any answer could start another. `settled()` waits until no new read has come for
+ * `quietMs` and returns them (the server's only; a browser's own requests are left out);
+ * `release()` ends the hold, in `finally`: the hold is the open connection.
+ */
+export async function firstWave(session: string): Promise<{
+  settled: (quietMs?: number) => Promise<string[]>;
+  queries: () => string[];
+  release: () => void;
+}> {
+  const seen: string[] = [];
+  const queries: string[] = [];
+  let lastAt = performance.now();
+  const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  });
+  await new Promise<void>((resolve, reject) => {
+    request.on("error", reject);
+    request.on("response", (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`hold-proxy refused the wave: ${response.statusCode}`));
+        return;
+      }
+      let buffered = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        buffered += chunk;
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          const event = JSON.parse(line) as {
+            hold?: number;
+            caught?: string;
+            query?: string;
+            agent?: string;
+          };
+          if (event.hold !== undefined) resolve();
+          if (event.caught !== undefined && !/Mozilla\//.test(event.agent ?? "")) {
+            seen.push(event.caught);
+            queries.push(`${event.caught}${event.query ?? ""}`);
+            lastAt = performance.now();
+          }
+        }
+      });
+    });
+    request.end(JSON.stringify({ path: "*", session, answer: "wave" }));
+  });
+  return {
+    settled: async (quietMs = 1500) => {
+      const started = performance.now();
+      lastAt = Math.max(lastAt, started);
+      while (performance.now() - lastAt < quietMs) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return [...seen];
+    },
+    /** Each read with its query string, to tell a duplicate from another query on one table. */
+    queries: () => [...queries],
+    release: () => {
       request.destroy();
     },
   };

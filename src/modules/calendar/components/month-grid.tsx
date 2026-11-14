@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
+import { markLive } from "@/core/ui/navigation/attributes";
 
 import type { CalendarDay, MonthGrid as Grid } from "../domain/calendar";
 import {
@@ -274,6 +275,8 @@ export function MonthGrid({
                   <button
                     type="button"
                     onClick={() => onDay(date)}
+                    ref={markLive}
+                    data-hold-tap={`day:${date}`}
                     data-slot="calendar-day"
                     data-date={date}
                     data-selected={isSelected ? "" : undefined}

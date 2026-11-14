@@ -6,6 +6,7 @@ import { withSessionUserId } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { startEarly } from "@/core/lib/start-early";
+import { whenWaiting } from "@/core/lib/when-waiting";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
@@ -22,10 +23,11 @@ import { listPendingRequests } from "@/modules/leave";
 import { PendingLeaveGroup } from "@/modules/leave/components/pending-leave-group";
 import { listPendingClaims } from "@/modules/expenses";
 import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims-group";
-import { listTasksToDecide, listUnreadCounts } from "@/modules/tasks";
+import { listTasksAtBothSteps, listUnreadCounts } from "@/modules/tasks";
 import { TaskApprovalGroup } from "@/modules/tasks/components/task-approval-group";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { taskItem } from "./items";
 
@@ -45,26 +47,33 @@ export default async function ApprovalsPage() {
   // The lists start with the session read (§19); RLS decides what each returns, and the ones an
   // Admin does not decide are dropped. Both task steps start too (the Owner's final approvals,
   // the viewer's own checks, keyed by the session's id), and the role picks one (4C review S6).
+  // v2.0 X3 (≤ 6 reads in the first wave, ARCHITECTURE §19 "Six connections"): both task steps
+  // in one read, started first with the directory (the task rows and their unread counts are
+  // the screen's longest chain); each of the Owner's lists only once the shell's counts
+  // (`session_bundle()`, the layout's own read, shared through `cache()`) say one is waiting,
+  // exactly as the early leaves since v1.9: the same state, under the same RLS, so a count of
+  // 0 is an empty list. They then start beside the unread counts, which wait for the task rows
+  // anyway. Counts that could not be read ask the usual way, so a failed bundle hides nothing.
+  // v2.0 X4 (the two-run rule failed this page's finished page against v1.9, #89 6787140634):
+  // the pending days start with the first wave again, as in v1.9. The Owner has days to decide
+  // on most working days, and gated on the counts they answered a whole trip later (582 vs 310
+  // ms from SEA on `/diagnostics/approvals-timing`), the page's last read. The wave stays at five
+  // (the early read, the counts, the task rows, the directory, the days); the other four lists,
+  // rarer, keep waiting for the counts. An Admin's days read is an empty list under RLS.
+  const steps = withSessionUserId(listTasksAtBothSteps);
+  const directoryRead = listDirectory();
+  const daysRead = listPendingDays();
+  const counts = getSessionBundle();
   const lists = Promise.all([
-    listPendingDays(),
-    listPendingRequests(),
-    listPendingNotes(),
-    listPendingClaims(),
-    listDirectory(),
+    daysRead,
+    whenWaiting(counts, (bundle) => bundle.pending.requests, listPendingRequests),
+    whenWaiting(counts, (bundle) => bundle.pending.notes, listPendingNotes),
+    whenWaiting(counts, (bundle) => bundle.pending.claims, listPendingClaims),
+    directoryRead,
     // v1.9 W4: early-leave requests (waiting, and left without an answer); RLS: the Owner's.
-    // Read only once the shell's counts (`session_bundle()`, the layout's own read, shared through
-    // `cache()`) say one is waiting: the same two states under the same RLS, so a count of 0 is an
-    // empty list. That keeps this wave at eleven reads, as on `main`: a twelfth put the first byte
-    // in the Worker's second batch (§19 "Six connections", v1.9 speed gate 2026-11-03). Counts
-    // that could not be read ask the usual way, so a failed bundle never hides the group.
-    getSessionBundle().then(
-      (bundle) => (bundle.pending.earlyLeaves > 0 ? listEarlyLeaveRequests() : []),
-      () => listEarlyLeaveRequests(),
-    ),
+    whenWaiting(counts, (bundle) => bundle.pending.earlyLeaves, listEarlyLeaveRequests),
   ]);
-  const finalTasks = listTasksToDecide({ final: true });
-  const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));
-  startEarly(lists, finalTasks, checkTasks);
+  startEarly(lists, steps);
   const viewer = await requirePermission([
     "attendance.decide",
     "tasks.approve_final",
@@ -74,9 +83,12 @@ export default async function ApprovalsPage() {
     await Promise.all([
       lists,
       // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
-      (can(viewer.role, "tasks.approve_final") ? finalTasks : checkTasks).then(
-        async (items) => [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
-      ),
+      steps
+        .then((both) => (can(viewer.role, "tasks.approve_final") ? both.final : both.check))
+        .then(
+          async (items) =>
+            [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
+        ),
     ]);
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
@@ -132,6 +144,7 @@ export default async function ApprovalsPage() {
 
   return (
     <>
+      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
       <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
       {nothing ? (

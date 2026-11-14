@@ -41,6 +41,11 @@ export type ProjectSummary = {
    * Never a repeating one: its next cycle comes on its own, and completing it is a choice.
    */
   readyToComplete: boolean;
+  /**
+   * v2.0 X1: a working project on hold (ADR-0016). Its row reads the amber **On hold** in place
+   * of its state, so whoever opens the client sees it at once (the owner's walk, 2026-11-04).
+   */
+  held: boolean;
 };
 
 /**
@@ -85,6 +90,7 @@ export function projectSummaries(
       meter: meterOf(cycle, today),
       finished,
       readyToComplete: !finished && readyToComplete(project.recurrence, cycle?.states ?? []),
+      held: !finished && project.heldAt !== null,
     };
   });
   return summaries.sort(

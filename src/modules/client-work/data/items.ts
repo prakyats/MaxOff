@@ -73,7 +73,14 @@ export async function listItemRows(query: ItemQuery): Promise<ItemRow[]> {
       .order("id")
       .range(first, last);
   });
-  return (rows as unknown as (Parameters<typeof toItem>[0] & Embedded)[]).map(toRow);
+  return itemRowsFrom(rows as unknown as (Parameters<typeof toItem>[0] & Embedded)[]);
+}
+
+/** Item rows from their rows with the project, client and cycle embedded (a page's one read too). */
+export function itemRowsFrom(
+  rows: readonly (Parameters<typeof toItem>[0] & Embedded)[],
+): ItemRow[] {
+  return rows.map(toRow);
 }
 
 /** How many items match, with no rows read (a held project's left out). */

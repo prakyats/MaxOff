@@ -4,8 +4,14 @@ import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
 import { MY_DAY_AHEAD_DAYS, ownLeaveDays, ownWeekDays, weekBlocks } from "@/modules/dashboards";
 import { listApprovedLeaveBetween } from "@/modules/leave";
-import { listHolidays } from "@/modules/settings";
-import { forLabel, listEventTasks, type myTaskGroups } from "@/modules/tasks";
+import { forLabel, type myTaskGroups } from "@/modules/tasks";
+
+import {
+  readEscalationWith,
+  readFreelancersWith,
+  readRequestsToDecideWith,
+  readWeekWindow,
+} from "./reads";
 
 /**
  * A reader's own "This week" (FINAL 8, major change 1, PP-crew-7), shared by My Day and the Tasks
@@ -15,11 +21,33 @@ import { forLabel, listEventTasks, type myTaskGroups } from "@/modules/tasks";
  */
 export function readOwnWeek(today: ISODate) {
   const last = addISTDays(today, MY_DAY_AHEAD_DAYS - 1);
+  // The event tasks, the holidays and the own leave in one read (v2.0 X3, `own_week()`).
+  const week = readWeekWindow(today, last);
   return Promise.all([
-    listEventTasks(today, last),
-    listHolidays(),
-    withSessionUserId((id) => listApprovedLeaveBetween(id, today, last)),
+    week.then((answer) => answer.events),
+    week.then((answer) => answer.holidays),
+    // The own approved leave rides in the same read; an older own_week is read the usual way.
+    week.then(
+      (answer) =>
+        (answer.leave as Awaited<ReturnType<typeof listApprovedLeaveBetween>> | undefined) ??
+        withSessionUserId((id) => listApprovedLeaveBetween(id, today, last)),
+    ),
   ]);
+}
+
+/** The freelancers the reader coordinates, from the same read (`readFreelancersWith`). */
+export function readOwnWeekFreelancers(today: ISODate): Promise<string[]> {
+  return readFreelancersWith(today, addISTDays(today, MY_DAY_AHEAD_DAYS - 1));
+}
+
+/** The suggestions to decide, from the same read (`readRequestsToDecideWith`). */
+export function readOwnWeekRequests(today: ISODate): Promise<number> {
+  return readRequestsToDecideWith(today, addISTDays(today, MY_DAY_AHEAD_DAYS - 1));
+}
+
+/** Needs you's escalation thresholds, from the same read (`readEscalationWith`). */
+export function readOwnWeekEscalation(today: ISODate) {
+  return readEscalationWith(today, addISTDays(today, MY_DAY_AHEAD_DAYS - 1));
 }
 
 export type OwnWeekRead = Awaited<ReturnType<typeof readOwnWeek>>;

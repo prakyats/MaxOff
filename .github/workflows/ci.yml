@@ -116,6 +116,11 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Supabase's local ports (supabase/config.toml, and the hold proxy's 54331) sit inside Linux's
+      # ephemeral range (32768-60999), so an outgoing connection made while the images pull can take
+      # one first: "failed to bind host port 0.0.0.0:54322/tcp: address already in use" (pgTAP, CI run
+      # 42077454642). Reserved, the kernel never hands them out as a source port; a bind still works.
+      - run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54331
       # Only Postgres is needed for pgTAP; skipping the other services keeps the job short.
       - run: pnpm supabase start -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - run: pnpm db:test
@@ -162,7 +167,25 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # The browser comes from Playwright's own download host; `--with-deps` also apt-installs its
+      # system libraries and fonts from *.ubuntu.com, which the runners could not resolve on
+      # 11 Nov (CI 43038277784, 43040233579, 43059639948: every shard died here, before any test).
+      # Owner decision 2026-11-11 (#89 6802466628): install the browser alone, prove it launches,
+      # and only if it does not, take the apt route; a missing library fails here, never in a spec.
+      # The app's text is Geist, self-hosted by next/font (latin subset): only glyphs outside it,
+      # such as ₹ and ⋯, fall back to a system font, and the specs check those as text, not size.
+      - name: Install Chromium (apt only if it cannot launch)
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install chromium
+          launch() {
+            node -e "require('@playwright/test').chromium.launch().then(async (b) => { const p = await b.newPage(); await p.goto('about:blank'); await b.close(); console.log('Chromium launches headless.'); }).catch((e) => { console.error(e.message); process.exit(1); })"
+          }
+          if ! launch; then
+            echo "::warning::Chromium did not launch without its system libraries: installing them with apt."
+            pnpm exec playwright install-deps chromium
+            launch
+          fi
       # Every Playwright project runs against `next start` of this build (task 1.2), signing
       # in as the seeded local users, so the local Supabase stack (Auth, PostgREST, Kong,
       # Mailpit for the recovery email) must be up before the build inlines its keys.
@@ -170,6 +193,11 @@ jobs:
       # waits until 00:01 IST first, before the database exists, so the server, Postgres and the
       # attendance jobs all agree on "today" from the first spec to the last.
       - run: node scripts/wait-for-ist-day.mjs
+      # Supabase's local ports (supabase/config.toml, and the hold proxy's 54331) sit inside Linux's
+      # ephemeral range (32768-60999), so an outgoing connection made while the images pull can take
+      # one first: "failed to bind host port 0.0.0.0:54322/tcp: address already in use" (pgTAP, CI run
+      # 42077454642). Reserved, the kernel never hands them out as a source port; a bind still works.
+      - run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54331
       # Realtime runs too (5A build decision 23): the live bell, proved through the hold proxy by
       # e2e/notifications.spec.ts; global setup waits for a channel to join.
       - run: pnpm supabase start -x storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor

@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { todayIST } from "../src/core/time";
 
 import {
+  calendarReady,
   animationsSettled,
   dockTop,
   expectNoHorizontalScroll,
@@ -353,6 +354,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
       await expect(phone).toBeVisible();
       await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
       const handle = page.locator('button[data-slot="calendar-handle"]');
+      await calendarReady(page);
       const fits = async () => {
         // A tap's press feedback eases out over 120ms: measure the settled controls.
         await animationsSettled(page);
@@ -497,9 +499,31 @@ test.describe("More, for Owner and Admin", () => {
         // Not just an icon: the row says which mode you are in without a tap.
         await expect(sheet).toContainText(/Appearance · (Light|Dark|System)/);
 
-        await sheet.getByRole("button", { name: "Change theme" }).click();
-        await page.getByRole("menuitemradio", { name: "Dark" }).click();
+        // v2.0 X1b (owner bug 2026-11-05): the row opens the Appearance sheet, never a menu
+        // inside this sheet (it flashed and closed on the phone). Three 44 px rows, the current
+        // one ticked; a tap applies it and closes the sheet.
+        await sheet.getByRole("button", { name: /^Appearance/ }).click();
+        const appearance = page.locator('[data-slot="appearance-sheet"]');
+        await expect(appearance.getByRole("heading", { name: "Appearance" })).toBeVisible();
+        const options = appearance.getByRole("radio");
+        await expect(options).toHaveText([/^Light/, /^Dark/, /^System/]);
+        for (const option of await options.all()) {
+          expect((await option.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+        }
+        await expect(appearance.getByRole("radio", { checked: true })).toHaveCount(1);
+        await appearance.getByRole("radio", { name: /^Dark/ }).click();
+        await expect(appearance).toBeHidden();
+        await expect(page.locator("html")).toHaveClass(/\bdark\b/);
         await expect(sheet).toContainText("Appearance · Dark");
+        // Focus comes back to the row that opened the sheet (X6 review), not the top of More.
+        await expect(sheet.getByRole("button", { name: /^Appearance/ })).toBeFocused();
+        await sheet.getByRole("button", { name: /^Appearance/ }).click();
+        await expect(appearance.getByRole("radio", { name: /^Dark/ })).toHaveAttribute(
+          "aria-checked",
+          "true",
+        );
+        await appearance.getByRole("radio", { name: /^Light/ }).click();
+        await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
       });
 
       test("Sign out asks first on Me, and cancelling leaves you signed in", async ({ page }) => {

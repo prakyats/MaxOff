@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 
-import { listDefinitions } from "@/core/custom-fields/server";
 import { cn } from "@/core/lib/utils";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
@@ -29,8 +28,7 @@ import {
   projectSummaries,
   type ProjectSummary,
 } from "@/modules/client-work";
-import { getOwnerNotes, listContacts } from "@/modules/clients";
-import { countOpenTasksForClient } from "@/modules/tasks";
+import { readClientOverview } from "@/modules/clients";
 import { AddContactDialog } from "@/modules/clients/components/add-contact-dialog";
 import { ArchivedContacts } from "@/modules/clients/components/archived-contacts";
 import {
@@ -73,22 +71,19 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   // and the session (ARCHITECTURE §19): RLS decides each read, `loadClient` still decides the
   // page (404 for a client this viewer may not see), and an Admin's owner notes are dropped.
   assertClientId(id);
-  const notes = getOwnerNotes(id);
-  startEarly(notes);
+  // v2.0 X3: the contacts, the Owner's notes, the open labelled tasks and both sets of fields are
+  // one read (`client_overview()`), so the first wave is six.
+  const overview = readClientOverview(id);
+  startEarly(overview);
   const today = todayIST();
-  const [{ viewer, client, canEdit }, [people, contacts, clientFields, contactFields, openTasks]] =
-    await checkThenRead(
-      loadClient(id),
-      Promise.all([
-        loadPeople(),
-        listContacts(id),
-        listDefinitions("client", { clientId: id }),
-        listDefinitions("contact", { clientId: id }),
-        countOpenTasksForClient(id),
-      ]),
-    );
+  const [
+    { viewer, client, canEdit },
+    [people, { contacts, clientFields, contactFields, openTasks }],
+  ] = await checkThenRead(loadClient(id), Promise.all([loadPeople(), overview]));
   const [ownerNotes, active] = await Promise.all([
-    can(viewer.role, "clients.private_notes") ? notes : Promise.resolve(null),
+    can(viewer.role, "clients.private_notes")
+      ? overview.then((read) => read.ownerNotes)
+      : Promise.resolve(null),
     can(viewer.role, "projects.manage") ? readActiveProjects(id, today) : Promise.resolve(null),
   ]);
   const live = contacts.filter((contact) => contact.archivedAt === null);

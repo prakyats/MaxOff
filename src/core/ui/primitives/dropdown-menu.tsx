@@ -103,7 +103,6 @@ function DropdownMenuItem({
 }) {
   return (
     <DropdownMenuPrimitive.Item
-      data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
       className={cn(
@@ -111,6 +110,10 @@ function DropdownMenuItem({
         className,
       )}
       {...props}
+      // Last, so a caller's own `data-slot` never replaces it: the phone menu's size and indent
+      // key on it (globals.css), and "Put on hold…" lost both when it did (v2.0 X1). A caller
+      // marks its item with `data-action` instead.
+      data-slot="dropdown-menu-item"
     />
   );
 }

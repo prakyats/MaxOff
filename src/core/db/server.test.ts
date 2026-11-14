@@ -19,7 +19,7 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-const { createServerSupabase } = await import("./server");
+const { createServerSupabase, runAsTokenRead } = await import("./server");
 
 const NOW = Math.floor(systemClock().getTime() / 1000);
 
@@ -179,5 +179,14 @@ describe("a server read that PostgREST refuses as JWT expired (PGRST303, Sentry 
     const { data, error } = await supabase.from("members").select("id").maybeSingle();
     expect(error).toBeNull();
     expect(data).toEqual({ id: "member-1" });
+  });
+});
+
+describe("createServerSupabase inside a token read (v2.0 X2 review)", () => {
+  it("refuses outside production: it would wait on that read's own hold", async () => {
+    await expect(runAsTokenRead(() => createServerSupabase())).rejects.toThrow(
+      "createServerSupabase() was called inside a startTokenRead read",
+    );
+    await expect(createServerSupabase()).resolves.toBeDefined();
   });
 });

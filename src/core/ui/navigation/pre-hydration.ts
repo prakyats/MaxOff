@@ -26,6 +26,7 @@
 import {
   BACK_FROM_ATTRIBUTE,
   HEADER_BELL_SLOT,
+  HOLD_TAP_ATTRIBUTE,
   LIVE_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
@@ -42,6 +43,7 @@ import {
 
 export {
   HEADER_BELL_SLOT,
+  HOLD_TAP_ATTRIBUTE,
   LIVE_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
@@ -84,7 +86,39 @@ const HELD_TAP_POLL_MS = 50;
  * inside the click and, when that attempt suspends (a chunk still loading), drops the event
  * without `preventDefault`, so the browser loaded `/notifications` as a new document (CI, 1 of
  * 30 on `/my-day` at mobile-lg). Held like the others, with the app's own move, a push.
+ *
+ * **A marked button is held too (v2.0 X3 (d), 2026-11-10).** A button with `data-hold-tap` (the
+ * calendar's handle and day boxes: the calendar's chunk lands after the shell has hydrated) is
+ * not a link, so a tap in that gap had no default to fall back on: React could not answer it and
+ * it was lost (the handle did not grow, a day box opened nothing; CI 42155785736). Its click is
+ * stopped at the document before React sees it (so it is never half-answered and then replayed:
+ * one toggle, not two), held until the same button (or, if React swapped it, the visible one with
+ * the same `data-hold-tap` name) is `data-live`, then replayed. A button has no full-load move:
+ * if React never takes it within `PRE_HYDRATION_WAIT_MS`, the tap is let go, as before.
+ *
+ * **Its own hold, never in a link's way (X6 review batch 4, 2026-11-11):** a held button tap has
+ * its own timer, apart from a link's hold. A link tap (a tab, the bell, back) cancels a pending
+ * button hold and is answered as always: it was swallowed when the two shared one flag. The hold
+ * is also dropped when a click reaches the button once it is live (React answered it: a replay
+ * would toggle it back), when the page goes (`pagehide`) or its address changes (a week→month
+ * switch must not click the new screen's box for that date), and a swap with no visible match
+ * finds nothing rather than a hidden copy.
  */
+/**
+ * Where a `data-hold-tap` mark is never honoured (the advisor on #89, 2026-11-10): the mark is
+ * for **view controls only** (the calendar's handle, day boxes, tabs, toggles). A write replayed
+ * up to 2 s after the tap would surprise people and would skip a confirm sheet not yet drawn, so a
+ * submit button, or a button in a form or in a commit footer, is never held, marked or not.
+ */
+export const NEVER_HELD =
+  "form,[data-slot=sticky-actions],[data-slot=dialog-footer],[data-slot=sheet-footer],[data-slot=alert-dialog-footer],[data-slot=detail-sheet-actions],[data-slot=review-sheet-actions],[data-slot=page-actions]";
+
+/**
+ * A tap is held only when its own control is the marked one (X6 review batch 1): a button or link
+ * inside a marked element answers for itself, so a tap on it is never swallowed by the mark.
+ */
+const INTERACTIVE = "button,a,[role=button],input,select,textarea";
+
 export const PRE_HYDRATION_SCRIPT = `(function(){try{
 var d=document,held=false;
 d.addEventListener("touchstart",function(){},{passive:true});
@@ -95,10 +129,20 @@ function startNav(a,u){try{if(!startsNavigation({origin:u.origin,pathname:u.path
 function tabMove(href,path,home,top,standalone,pushed){if(!standalone||top.indexOf(href)<0||top.indexOf(path)<0||href===path)return null;if(href===home)return pushed?"back":"replace";return path===home?"push":"replace"}
 function sameLink(a,kind,href){if(a.isConnected!==false)return a;var all=d.querySelectorAll(kind),k;for(k=0;k<all.length;k++){if(all[k].href===href)return all[k]}return null}
 function perform(move,href,steps){if(move==="back")history.go(-steps);else if(move==="replace")location.replace(href);else location.assign(href)}
+function sameButton(b,key){if(b.isConnected!==false)return b;var all=d.querySelectorAll('[${HOLD_TAP_ATTRIBUTE}="'+key+'"]'),k;for(k=0;k<all.length;k++){if(all[k].getClientRects&&all[k].getClientRects().length)return all[k]}return null}
+function neverHeld(b){return b.type==="submit"||!!(b.closest&&b.closest("${NEVER_HELD}"))}
+var tapTimer=null;
+function dropTap(){if(tapTimer!==null){clearInterval(tapTimer);tapTimer=null}}
+if(window.addEventListener)window.addEventListener("pagehide",dropTap);
+function holdTap(b){if(tapTimer!==null)return;var key=b.getAttribute("${HOLD_TAP_ATTRIBUTE}"),started=Date.now(),at=location.href;tapTimer=setInterval(function(){try{if(location.href!==at){dropTap();return}var el=sameButton(b,key);if(el&&el.hasAttribute("${LIVE_ATTRIBUTE}")){dropTap();if(!neverHeld(el))el.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS})dropTap()}catch(err){dropTap()}},${HELD_TAP_POLL_MS})}
 function hold(a,kind,move,href,steps){if(held)return;held=true;var started=Date.now();var timer=setInterval(function(){try{var link=sameLink(a,kind,href);if(link&&link.hasAttribute("${LIVE_ATTRIBUTE}")){clearInterval(timer);held=false;link.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS}){clearInterval(timer);held=false;perform(move,href,steps)}}catch(err){clearInterval(timer);held=false;perform(move,href,steps)}},${HELD_TAP_POLL_MS})}
 d.addEventListener("click",function(e){try{
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+var b=e.target&&e.target.closest?e.target.closest("[${HOLD_TAP_ATTRIBUTE}]"):null;
+if(b&&(neverHeld(b)||e.target.closest("${INTERACTIVE}")!==b))b=null;
+if(b){if(b.hasAttribute("${LIVE_ATTRIBUTE}")){dropTap();return}e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();holdTap(b);return}
 var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;
+if(a)dropTap();
 if(!a||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
 var u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
 startNav(a,u);

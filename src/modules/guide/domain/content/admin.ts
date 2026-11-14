@@ -55,7 +55,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page, in this order: who you are (photo, name, sign-in email, Edit profile), My work (Attendance & leave, Extra work & expenses), Your freelancers when you coordinate one, Notifications (this device, Your devices, Send a test notification), Appearance, Help (this guide and Reload app), then Sign out of this device and the app's version at the very bottom. Help, this guide, is also under Me in the More sheet on a phone, in the account menu (your name, top right) and at the foot of the sidebar. On a phone, More → Appearance opens a small sheet: tap Light, Dark or System; the sheet closes and the More row shows your choice, such as Appearance · Dark. Back then closes More.",
             },
             {
               kind: "steps",
@@ -75,7 +75,7 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           link: { href: "/me", label: "Open Me" },
-          keywords: ["profile", "bell", "alerts", "me"],
+          keywords: ["profile", "bell", "alerts", "me", "appearance", "dark", "theme"],
         },
       ],
     },
@@ -156,7 +156,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Client work lists deliverables on your clients that are overdue or due this week. Each row offers “Next: ‹stage›”, which ticks that stage with Undo, until every stage is ticked; then it offers Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted (the amber “Note it” chip), have changes requested, are overdue or are due today. This week shows the next seven days: holidays, events with their place, each of your own deadlines by name and time, and your own leave. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached. Each issue shows the reason as a chip, such as “On leave”, with the plain words under the task.",
+              text: "Client work lists deliverables on your clients that are overdue or due this week. Each row offers “Next: ‹stage›”, which ticks that stage with Undo, until every stage is ticked; then it offers Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted (the amber “Note it” chip), have changes requested, are overdue or are due today. This week shows the next seven days: holidays, events with their place, each of your own deadlines by name and time, and your own leave. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached. Each issue shows the reason as a chip, such as “On leave”, with the plain words under the task. Tap anywhere on a task row, its chips included, to open the task.",
             },
             {
               kind: "note",
@@ -318,7 +318,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged late (a red chip saying how late, such as “2 days late”), Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
+              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged late (a red chip saying how late, such as “2 days late”), Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Tap anywhere on a row, its chips included, to open the task. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -530,7 +530,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The people on it and its approving Admin are told quietly, and the task shows an amber “On hold” chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
+              text: "The people on it and its approving Admin are told quietly. Everyone who opens the task sees the amber “On hold” chip, the reason and that Start, Done and the stage ticks wait until it is resumed. On Tasks, “On hold · n” opens every held task.",
             },
             {
               kind: "note",
@@ -719,7 +719,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Calendar.",
                 "Tap Filters to narrow by Client, Person, Type or Status.",
                 "Status can be Open and completed, Open, or Completed.",
-                "Tap a day to open its day sheet.",
+                "Tap a day to open its day sheet. If you tap a day while the calendar is still loading, it opens as soon as it's ready. The same goes for the handle that changes the calendar's size.",
               ],
             },
             {
@@ -890,7 +890,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete”), then “Key people”: the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed “Archived (n)” at their foot, each with Restore), Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress (each bar counts stages: “50% of stages”, and a finished one-time project reads “Ready to complete” and a project on hold reads “On hold”), then “Key people”: the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed “Archived (n)” at their foot, each with Restore), Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",
@@ -1497,6 +1497,23 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/project-resume-sheet",
                 },
                 "Tap Resume project: everything is settled in one go.",
+              ],
+            },
+            {
+              kind: "text",
+              text: "A project on hold, yours or one the Owner held, shows it as soon as you open it:",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "On the client’s Overview and Projects tab, its row reads “On hold” (highlighted), never Open.",
+                  shot: "admin/project-held-row",
+                },
+                {
+                  text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted), and its stages are greyed out.",
+                  shot: "admin/item-held-sheet",
+                },
               ],
             },
             {

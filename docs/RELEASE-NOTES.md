@@ -4,6 +4,180 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v2.0.0: fast and settled
+
+**Not released yet.** The Owner tags after his phone walk.
+
+RC: `phase-v2`, the head named in #89's READY FOR OWNER post: 1533d987 (measured in CI and from India) plus the
+held stages' dimming (a class change; CI and the paired CI probes re-run on it).
+
+No new feature in this release: the app is faster, and a handful of rough edges are fixed.
+
+### What the Owner will notice
+- **Screens open faster.** Most of all a task, Tasks, a client, a project and Templates.
+- **Today's "Needs you" stays still.** The list no longer shows an empty box and then pushes the page down. The
+  rows keep their place from the start.
+- **A client's page and a project's page load without a jump.**
+- **A project on hold says "On hold" everywhere.** On the client's Overview and Projects tab the row shows an amber
+  "On hold", never "Open". Open one of its deliverables and the sheet says at the top: "The project is on hold:
+  ticks and Mark done wait until it is resumed." Its stages are greyed out.
+- **A held project's stages are easier to read.** They are greyed once instead of twice, so their names stay clear
+  while they wait (they still cannot be ticked).
+- **A task on hold explains itself to you too.** The amber line now also says "Start, Done and the stage ticks wait
+  until the task is resumed."
+- **More → Appearance (phone).** The row now opens a small sheet. Tap Light, Dark or System. The sheet closes and
+  the row shows your choice, for example "Appearance · Dark". Back then closes More.
+- **Phone menus look even.** "Put on hold…", "Resume" and a few items in the project and deliverable ⋯ menus were
+  smaller than the rest. They are the same size now.
+- **Tap a chip, open the task.** A tap on a task row's chip ("2 days late", "Note it", "On hold"…) used to do
+  nothing. Now the whole row opens the task.
+- **The calendar keeps an early tap.** Tap a day while the calendar is still loading and it opens as soon as it is
+  ready.
+
+### What Admins will notice
+- Everything in the Owner's list above, on their own clients and tasks.
+- **A project the Owner put on hold is now plain to see.** Its row on the client's page reads "On hold", and its
+  deliverables say why the ticks wait. Before, an Admin found out only when a tick was refused.
+- **Today's "Client work" stays still** while it loads.
+- **End day is ready sooner.**
+
+### What the Crew will notice
+- **Screens open faster**, My Day most of all on a phone.
+- **My Day shows "On hold · 1".** A task on hold used to disappear from My Day. Now a line under the lists says how
+  many are on hold. Tap it to see them.
+- **Tap a chip, open the task.** The whole task row opens the task, chips included.
+- **The calendar keeps an early tap.** Tap a day (or the handle) while it is still loading and it answers as soon
+  as it is ready.
+- **End day is ready sooner.**
+- Nothing else changes in how the Crew work. Their Appearance setting is still on Me.
+
+### Everyone, signed out
+- On the sign-in page, if the phone switches between light and dark, the colours now fade in instead of snapping.
+  Signed in, nothing changed.
+
+### Speed
+The finished page (the last byte, median of warm samples), v1.9 → v2.0, measured on the release candidate beside
+a preview of `main` (v1.9.0) at the same time. The gate: no screen slower than v1.9 in two runs in a row, and every
+first byte under its cap. **Passed for every role.**
+
+**From India** (the Owner's Chrome, 12 Nov, about 07:15–07:45 IST, 10 warm samples per screen; the advisor, #89
+6812225408). Every first byte was at most 260 ms in every clean round (cap 300 ms).
+
+| Screen | Owner | Admin | Crew |
+|---|---|---|---|
+| Today / My Day | 372 → 259 | 458 → 331 | 165 → 157, 166 → 153 |
+| Tasks | 208 → 188 | 201 → 157 | 186 → 183 |
+| Calendar | 177 → 232, 203 → 241 | 218 → 256 | 199 → 209 |
+| Clients | 160 → 258, 134 → 141 | 206 → 159 | · |
+| Approvals | · | 173 → 154 | · |
+| Reports | · | 228 → 204 | · |
+| Me | · | 184 → 132 | 140 → 132, 124 → 136 |
+| Leave / Attendance | · | 171 → 148 | 206 → 183 |
+| A project | 226 → 191 | 268 → 189 | · |
+
+Two numbers in a cell are two rounds. A screen slower in one round only was probed again (the rule); none was
+slower twice. The Crew's second round was disturbed (My Day's samples ran from 534 to 3073 ms, while Tasks in the
+same run held at 138), and the owner ruled rounds 3 and 4 settle it. **To watch in v2.1:** the calendar finishes
+about 40 ms later than v1.9 for the Owner and an Admin, within the rule; it is on the v2.1 list.
+
+**From CI** (US runners, 10 samples, runs 43119734374, 43124126059 and 43128397499; the paired probe, preview of
+`main` beside the release candidate). Farther from the database than the team, so every number is larger; the
+comparison is what counts.
+
+| Screen | Owner | Admin | Crew |
+|---|---|---|---|
+| Today / My Day | 1080 → 999 | 1816 → 1297 | 1021 → 586 |
+| Approvals | 550 → 316 | 764 → 403 | · |
+| Tasks | 983 → 636 | 1236 → 681 | 844 → 442 |
+| Calendar | 1096 → 1046 | 1576 → 1500 | 969 → 921 |
+| Clients | 505 → 323 | 739 → 559 | · |
+| People | 566 → 323 | 618 → 659 | · |
+| Reports | 578 → 612 | 1317 → 1222 | · |
+| Leave | · | 714 → 553 | 618 → 452 |
+| Settings → Templates | 741 → 388 | 891 → 386 | · |
+| Me | 518 → 299 | 1003 → 636 | 582 → 358 |
+| A task | 1208 → 741 | 1449 → 942 | 1449 → 913 |
+| A client | 882 → 650 | 1054 → 731 | · |
+| A project | 1491 → 1089 | 1897 → 1319 | · |
+
+**Taps on a phone** (CPU slowed 4×, 375 px; 5 to 15 runs each): no tap is slower than v1.9, and every tap's median
+is at most 168 ms (the web's "good" is 200 ms; #89 6808590041).
+
+### Under the hood
+1. Each screen now asks the database for everything it needs in one or two trips, and never more than six at once.
+2. The first thing a screen sends already has its content, and the likely next screens are fetched ahead for every
+   role.
+3. The database's permission checks were rewritten to run faster; they give exactly the same answers (tests compare
+   old and new).
+4. Fourteen database changes, all additions. Nothing is removed or rewritten, so rolling back to v1.9 needs no
+   extra step.
+5. Flaky tests were fixed at their causes, and the speed checks now run on every change.
+6. A task tapped on Today, My Day, Tasks or Approvals opens with its skeleton at once, even right after the
+   app reopens or a live update arrives; before, the old screen stayed up until the server answered (v1.9 too).
+
+### Known issue
+- **Settings → Thresholds:** if you press Save and type a new edit straight away, that new edit can be thrown away.
+  Wait a moment after Save before typing again. A fix is planned in v2.1.
+
+### Deploying
+- **Any time of day.** No migration changes a rule, a setting or a row: every v2.0 migration only adds functions
+  or re-creates existing ones with the same results. The old Worker keeps working on the new database during the
+  deploy window (it never calls the new functions).
+- **No new secret, variable, cron or Worker setting** (`wrangler.jsonc` is unchanged from v1.9.0 for staging and
+  production; the placement experiment left nothing behind).
+
+### Migrations (expand-only, in order)
+1. `20261105123636_session_early` (the shell's one early read)
+2. `20261105170715_session_early_own_hours`
+3. `20261105180000_own_week`
+4. `20261105190000_attendance_board_today`
+5. `20261105200000_x3_my_day_folds`
+6. `20261105210000_own_week_tasks_counts`
+7. `20261105220000_templates_library`
+8. `20261105230000_task_page`
+9. `20261106000000_leave_folds`
+10. `20261106010000_client_overview`
+11. `20261106020000_project_page`
+12. `20261106030000_rls_helpers_plpgsql` (15 RLS helpers re-written in PL/pgSQL, the same bodies and results)
+13. `20261106040000_attendance_hours_once` (the attendance settings read once per call; same columns)
+14. `20261111030554_requests_to_decide_admin_rule` (v2.0's new count follows `task_request_visible`)
+
+All expand-only: `create function` / `create or replace function`, grants and comments; no `drop`, `alter
+table`, policy change, index or data write (checked over the 14 files, 11 Nov). `session_bundle()` is unchanged.
+
+### Rolling back to v1.9
+The v2.0 database stays; only the Worker goes back, and **nothing needs switching off first.** Checked against
+`v1.9.0`'s code (11 Nov, static, by reading and diffing every re-created object against its v1.9.0 definition):
+- **The new functions** (`session_early`, `own_week`, `task_page`, `project_page`, `client_overview`,
+  `templates_library`, the leave and attendance folds, `app.requests_to_decide_count`) are never called by v1.9.0;
+  they stay unused (security invoker under RLS, except the count helper, which returns a number by the same rule).
+- **The 15 re-written RLS helpers** keep their names, arguments, return types, `strict` / `security definer`
+  attributes and bodies; only the language changed (pgTAP 141 compares each with its old SQL body). The one
+  behavioural difference of PL/pgSQL (an error on more than one row) cannot arise: `coordinator_of`'s only
+  multi-row case is ruled out by the unique index on current coordinators.
+- **`app.attendance_hours` and `attendance_hours_today()`** keep their signatures and columns; v1.9.0's call
+  (`modules/attendance/data/hours.ts`, `rpc("attendance_hours_today")`) is unchanged.
+- **The requests count:** v1.9.0 counts with its own query under `task_request_visible`, which already had the
+  rule v2.0's new function now follows; nothing a v1.9.0 user sees changes.
+
+### The Owner's phone walk (installed app at 375 and 430, then the laptop)
+1. **Speed:** open Today, Tasks, a task, Clients, a client, a project and Approvals; each arrives with its content,
+   without a grey outline that jumps.
+2. **On hold:** hold a project; as an Admin of that client, open the client (its row reads On hold) and a
+   deliverable (the sheet says why it waits; stages greyed). As a Crew member with a held task, My Day shows
+   "On hold · 1".
+3. **More → Appearance → Dark, then back twice:** the first back closes More, the second leaves the screen; the
+   More row reads "Appearance · Dark".
+4. **A ⋯ menu on a task and on a deliverable:** every item the same size.
+5. **A task row's chip:** tap "Note it" or a state chip; the task opens.
+6. **The calendar on a slow connection:** tap a day at once; it opens as soon as the calendar is ready.
+7. **The guide:** Me → How MaxOff works → the On hold and Appearance topics for each role.
+
+### The team message (WhatsApp, after the deploy)
+> MaxOff is updated (v2.0). Screens open faster. If a task of yours is on hold, My Day now shows "On hold" with the
+> count, so nothing goes missing. Tapping anywhere on a task row, its labels too, opens the task. Nothing else
+> changes in how you work. Everything is in Me → How MaxOff works.
+
 ## v1.9.0: working hours, On hold, two kinds of Close, approval reminders, the calendar's day row
 
 **Not released yet** (branch `claude/lucid-turing-sfdv10` → `phase-6b-r4` → `main`; the Owner tags after his walk).

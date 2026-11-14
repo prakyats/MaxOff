@@ -40,7 +40,17 @@ export default async function ClientLayout({
       <Suspense
         fallback={
           <PageHeader
-            title={<Skeleton className="h-5 w-40" />}
+            // The title's own line height (24 px, 32 from md), as the project's loading screen.
+            title={
+              <span className="flex h-6 items-center md:h-8">
+                <Skeleton className="h-5 w-40 max-w-full" />
+              </span>
+            }
+            // The state chip's line under the name (X5+ M7: without it the page below moved
+            // 13 px down when the header streamed in). A span: the description is a <p>.
+            description={
+              <span className="bg-muted inline-block h-5 w-16 rounded-full align-middle motion-safe:animate-pulse" />
+            }
             back={BACK}
             className="flex-wrap"
             // History, always there; the ⋯ follows only for whoever edits the client.

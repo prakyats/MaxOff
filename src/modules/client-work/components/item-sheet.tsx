@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  MoreHorizontalIcon,
+  PauseIcon,
+  PlusIcon,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +21,7 @@ import { HistoryButton } from "@/core/ui/composites/history-button";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { OnHoldBadge, StatusBadge } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -43,6 +50,7 @@ import {
 import { addRevisionRound } from "../actions/bulk";
 import { saveItemAsTemplate } from "../actions/templates";
 import { groupStrips, lastChangeLine, untickedWords } from "../domain/deliverable";
+import { ITEM_HELD_NOTE } from "../domain/hold";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
@@ -368,11 +376,30 @@ export function ItemSheet({
         open={open && discard !== "close"}
         onOpenChange={requestClose}
         title={current.title}
-        description={<StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />}
+        description={
+          // v2.0 X1: a held project's deliverable reads On hold from the first glance (never Open).
+          current.onHold ? (
+            <OnHoldBadge />
+          ) : (
+            <StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />
+          )
+        }
         // While editing, Save is the layer's one commit (§14.1): the item's actions wait.
         actions={editing ? undefined : actions}
       >
         <div className="flex flex-col gap-4" data-slot="item-sheet">
+          {current.onHold && !editing ? (
+            // v2.0 X1 (the owner's walk, 2026-11-04): why the ticks wait shows when the sheet
+            // opens, for everyone who opens it, not only once a tick is refused.
+            <p
+              role="status"
+              data-slot="item-hold-note"
+              className="border-border bg-attention-soft flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm"
+            >
+              <PauseIcon aria-hidden className="text-attention mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">{ITEM_HELD_NOTE}</span>
+            </p>
+          ) : null}
           {editing ? (
             <form
               className="flex flex-col gap-3"
@@ -516,7 +543,7 @@ export function ItemSheet({
                     <DropdownMenuContent align="start" title={current.title}>
                       {earlyDone ? (
                         <DropdownMenuItem
-                          data-slot="item-mark-done-early"
+                          data-action="item-mark-done-early"
                           onSelect={() => setEarly(true)}
                         >
                           <CheckIcon aria-hidden />
@@ -526,7 +553,7 @@ export function ItemSheet({
                       {permissions.manage && current.state === "open" ? (
                         // 6b.16 (c): one more revision stage, named after its own ("Revision 3").
                         <DropdownMenuItem
-                          data-slot="item-revision-round"
+                          data-action="item-revision-round"
                           onSelect={() => void addRound(current.id)}
                         >
                           <PlusIcon aria-hidden />
@@ -537,7 +564,7 @@ export function ItemSheet({
                         // Unit U: named menu items, not bare arrows (the list's order).
                         <>
                           <DropdownMenuItem
-                            data-slot="item-move-up"
+                            data-action="item-move-up"
                             disabled={canMove ? !canMove(current.id, "up") : false}
                             onSelect={() => onMove(current.id, "up")}
                           >
@@ -545,7 +572,7 @@ export function ItemSheet({
                             Move up
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            data-slot="item-move-down"
+                            data-action="item-move-down"
                             disabled={canMove ? !canMove(current.id, "down") : false}
                             onSelect={() => onMove(current.id, "down")}
                           >
@@ -563,7 +590,7 @@ export function ItemSheet({
                       ) : null}
                       {canSetKind ? (
                         <DropdownMenuItem
-                          data-slot="item-set-close-kind"
+                          data-action="item-set-close-kind"
                           onSelect={() => {
                             setKindSetting((count) => count + 1);
                             setKindOpen(true);
@@ -638,7 +665,14 @@ export function ItemSheet({
                         </span>
                       </p>
                     )}
-                    <ul className="border-border divide-border divide-y rounded-lg border">
+                    <ul
+                      className={cn(
+                        "border-border divide-border divide-y rounded-lg border",
+                        // Held: the stages read disabled, as a held task's do (the design pass).
+                        current.onHold && "text-muted-foreground",
+                      )}
+                      data-held={current.onHold || undefined}
+                    >
                       {group.stages.map((stage) => (
                         <li key={stage.id}>
                           <button
@@ -658,7 +692,12 @@ export function ItemSheet({
                                 undo: false,
                               })
                             }
-                            className="pressable-row hover:bg-muted/50 flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
+                            className={cn(
+                              "pressable-row hover:bg-muted/50 flex min-h-11 w-full items-center gap-3 px-3 text-left",
+                              // Held: dimmed once, by the list's muted colour (6.0:1 light, 6.5:1
+                              // dark on the sheet), not faded again (owner, #89 6812253725).
+                              !current.onHold && "disabled:opacity-70",
+                            )}
                           >
                             {/* Ticked is neutral (the checkbox's own look), never red: red stays
                                 for the sheet's one commit, Mark done (unit U). */}

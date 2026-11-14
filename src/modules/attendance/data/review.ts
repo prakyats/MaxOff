@@ -4,6 +4,8 @@ import { cache } from "react";
 
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
+
+import { boardPart } from "./board";
 import { displayName } from "@/core/lib/display-name";
 
 import type { DayStatus } from "../domain/choices";
@@ -81,10 +83,8 @@ export async function countPendingDays(): Promise<number> {
  */
 export const getTodayPeople = cache(
   async (): Promise<{ people: TodayPerson[]; isDayOff: boolean }> => {
-    const supabase = await createServerSupabase();
-    const { data, error } = await supabase.rpc("attendance_today_detail");
-    if (error) throw error;
-    const people = (data as TodayDetailRow[]).map(todayPersonFromRow);
+    // Since v2.0 X3 from the board's one read (`attendance_board_today()`), with the hours.
+    const people = ((await boardPart("people")) as TodayDetailRow[]).map(todayPersonFromRow);
     // A day row opened on a working day records false, so any true means today is a day off.
     return { people, isDayOff: people.some((person) => person.isDayOff) };
   },

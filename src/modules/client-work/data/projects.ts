@@ -269,6 +269,17 @@ export async function listStagesOf(projectIds: readonly string[]): Promise<Stage
         .range(first, last),
     ),
   );
+  return stagesFrom(rows);
+}
+
+/** A project_stages row as `listStagesOf` (and `project_page()`) carries it. */
+export type StageRow = Pick<
+  Tables<"project_stages">,
+  "id" | "project_id" | "name" | "position" | "group_label" | "group_position" | "archived_at"
+>;
+
+/** Stages from their rows, in the order given. */
+export function stagesFrom(rows: readonly StageRow[]): Stage[] {
   return rows.map((row) => ({
     id: row.id,
     projectId: row.project_id,
@@ -314,6 +325,15 @@ export async function getProject(projectId: string): Promise<ProjectDetails | nu
   if (error) throw error;
   if (!data) return null;
   const { template, client, ...row } = data;
+  return projectDetailsFrom(row, template, client?.contacts[0]?.name ?? null);
+}
+
+/** A project's Details from its row, its template (or null) and its contact's name. */
+export function projectDetailsFrom(
+  row: Parameters<typeof toProject>[0],
+  template: { name: string; deleted_at: string | null } | null,
+  contactName: string | null,
+): ProjectDetails {
   return {
     ...toProject(row),
     templateName: !template
@@ -321,7 +341,7 @@ export async function getProject(projectId: string): Promise<ProjectDetails | nu
       : template.deleted_at === null
         ? template.name
         : deletedTemplateLabel(template.name),
-    contactName: client?.contacts[0]?.name ?? null,
+    contactName,
   };
 }
 
@@ -360,7 +380,17 @@ export async function listBlueprints(projectId: string): Promise<Blueprint[]> {
     .select("id, project_id, title, position, archived_at, stages, stage_groups")
     .eq("project_id", projectId);
   if (error) throw error;
-  return data.map((row) => ({
+  return blueprintsFrom(data);
+}
+
+/** A project_item_blueprints row as `listBlueprints` (and `project_page()`) carries it. */
+export type BlueprintRow = Pick<
+  Tables<"project_item_blueprints">,
+  "id" | "project_id" | "title" | "position" | "archived_at" | "stages" | "stage_groups"
+>;
+
+export function blueprintsFrom(rows: readonly BlueprintRow[]): Blueprint[] {
+  return rows.map((row) => ({
     id: row.id,
     projectId: row.project_id,
     title: row.title,

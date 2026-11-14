@@ -159,6 +159,25 @@ test.describe("the sticky save bar never covers the last field (§14.1)", () => 
       }
     });
 
+    test("offline first, then to the end of the form: the last field clears the bar and the band (X5+ L1)", async ({
+      page,
+      context,
+    }, info) => {
+      await editProfile(page, info.project.name);
+      await context.setOffline(true);
+      await expect(page.locator('[data-slot="offline-banner"]')).toBeVisible();
+      for (const scale of ["100%", "200%"]) {
+        await page.evaluate((size) => {
+          document.documentElement.style.fontSize = size;
+        }, scale);
+        await frames(page);
+        await scrollToEnd(page);
+        expect(await overlap(page), `${scale}: offline, clear at the end`).toBeLessThanOrEqual(0);
+      }
+      await context.setOffline(false);
+      await expect(page.locator('[data-slot="offline-banner"]')).toHaveCount(0);
+    });
+
     test("the text grows in the frame the page is scrolled to its end", async ({ page }, info) => {
       await editProfile(page, info.project.name);
       await page.evaluate(() => {

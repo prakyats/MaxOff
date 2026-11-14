@@ -203,7 +203,14 @@ insert into seed_users values
   -- re-rendered under a stage being added, and the add took seconds (the phase 7 flake).
   ('20000000-0000-4000-8000-000000000118', 'cw-admin-desktop@maxoff.local', 'cw-local-password', 'Test Client Work Admin (desktop)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000119', 'cw-admin-mobile@maxoff.local', 'cw-local-password', 'Test Client Work Admin (mobile)', null, 'admin', 'active'),
-  ('20000000-0000-4000-8000-000000000120', 'cw-admin-mobile-lg@maxoff.local', 'cw-local-password', 'Test Client Work Admin (mobile-lg)', null, 'admin', 'active');
+  ('20000000-0000-4000-8000-000000000120', 'cw-admin-mobile-lg@maxoff.local', 'cw-local-password', 'Test Client Work Admin (mobile-lg)', null, 'admin', 'active'),
+  -- v2.0 X3 (d): the instant skeleton's cold taps (e2e/instant-skeleton.spec.ts) as an Admin and a
+  -- Crew member per phone project whose screens no other test touches, for the same reason: a
+  -- notification re-reads the viewer's open screen, which on a cold Worker undid "back from memory".
+  ('20000000-0000-4000-8000-000000000121', 'skel-admin-mobile@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000122', 'skel-staff-mobile@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000123', 'skel-admin-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile-lg)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000124', 'skel-staff-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

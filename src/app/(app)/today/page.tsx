@@ -6,6 +6,7 @@ import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { getHoursToday, getOwnHours, getOwnToday, getTodayPeople } from "@/modules/attendance";
+import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { readDirectory, readOpenTasks } from "../tasks/reads";
 
@@ -37,10 +38,26 @@ export default async function TodayPage() {
     readOpenTasks(),
     readDirectory(),
     readEventTasks(today, eventsHorizon(today)),
-    readHolidays(),
+    readHolidays(today),
   );
   const viewer = await requireMember();
-  if (can(viewer.role, "attendance.view_all")) return <OwnerToday viewer={viewer} />;
-  if (can(viewer.role, "tasks.create")) return <AdminToday viewer={viewer} />;
+  // A task tapped before the router holds its loading screen still shows its skeleton (#143).
+  const tap = <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />;
+  if (can(viewer.role, "attendance.view_all")) {
+    return (
+      <>
+        {tap}
+        <OwnerToday viewer={viewer} />
+      </>
+    );
+  }
+  if (can(viewer.role, "tasks.create")) {
+    return (
+      <>
+        {tap}
+        <AdminToday viewer={viewer} />
+      </>
+    );
+  }
   redirect("/my-day");
 }

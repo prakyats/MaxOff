@@ -144,8 +144,15 @@ export async function listCurrentCoordinators(): Promise<Record<string, string>>
     .from("freelancer_coordinators")
     .select("member_id, coordinator_id");
   if (error) throw error;
+  return coordinatorsFrom(data);
+}
+
+/** Who coordinates whom, from `freelancer_coordinators` rows (as that read or a page's one read carries them). */
+export function coordinatorsFrom(
+  rows: readonly { member_id: string | null; coordinator_id: string | null }[],
+): Record<string, string> {
   return Object.fromEntries(
-    data.flatMap((row) =>
+    rows.flatMap((row) =>
       row.member_id && row.coordinator_id ? [[row.member_id, row.coordinator_id] as const] : [],
     ),
   );

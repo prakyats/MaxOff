@@ -117,12 +117,12 @@ export function TaskMenu({
             <DropdownMenuItem onSelect={() => setOpen("reopen")}>Reopen task</DropdownMenuItem>
           ) : null}
           {hold.hold ? (
-            <DropdownMenuItem data-slot="task-menu-hold" onSelect={() => setOpen("hold")}>
+            <DropdownMenuItem data-action="task-menu-hold" onSelect={() => setOpen("hold")}>
               Put on hold…
             </DropdownMenuItem>
           ) : null}
           {hold.resume ? (
-            <DropdownMenuItem data-slot="task-menu-resume" onSelect={resume.start}>
+            <DropdownMenuItem data-action="task-menu-resume" onSelect={resume.start}>
               {hold.facts.needsDeadline ? "Resume…" : "Resume"}
             </DropdownMenuItem>
           ) : null}

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
 
@@ -11,8 +13,12 @@ import type { CompBalance, CompCredit, CompDate } from "../domain/credits";
  * every write is a transition function.
  */
 
-/** The free days and the use-by date, for the caller or (the Owner) for a member. */
-export async function getCompBalance(memberId?: string): Promise<CompBalance> {
+/**
+ * The free days and the use-by date, for the caller or (the Owner) for a member. Once per request
+ * and member (`cache()`, v2.0 X3): /leave's layout and its page both ask, and each asking sent its
+ * own read in the same first wave.
+ */
+export const getCompBalance = cache(async (memberId?: string): Promise<CompBalance> => {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc(
     "comp_leave_balance",
@@ -21,7 +27,7 @@ export async function getCompBalance(memberId?: string): Promise<CompBalance> {
   if (error) throw error;
   const row = data[0];
   return { availableDays: Number(row?.available_days ?? 0), useBy: row?.use_by ?? null };
-}
+});
 
 /**
  * The caller's own dates for comp leave (`comp_leave_dates()`, 3b review): working days from
@@ -33,6 +39,47 @@ export async function listCompDates(): Promise<CompDate[]> {
   if (error) throw error;
   return data.map((row) => ({ date: row.work_date, availableDays: Number(row.available_days) }));
 }
+
+/**
+ * The caller's own comp leave in one read (v2.0 X3, `own_comp_leave()`; ARCHITECTURE §19): the
+ * balance exactly as `getCompBalance(own id)` reads it and the dates as `listCompDates` does, once
+ * per request (/leave's layout and page share it). A refused balance throws the code
+ * `comp_leave_balance` refused with, as that read did; refused dates are undefined, as the layout
+ * took a failed `listCompDates`. A failed fold (an error other than a refusal) falls back to those
+ * two reads.
+ */
+export const readOwnCompLeave = cache(
+  async (): Promise<{ balance: CompBalance; dates: CompDate[] | undefined }> => {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.rpc("own_comp_leave");
+    if (error) {
+      // An unexpected failure of one part (X6 review batch 4) must not take the balance with it:
+      // the two reads the fold replaced, each as it was (failed dates are undefined, as before).
+      const [balance, dates] = await Promise.all([
+        getCompBalance(),
+        listCompDates().catch(() => undefined),
+      ]);
+      return { balance, dates };
+    }
+    const own = data as {
+      balance: { available_days: number | string; use_by: string | null } | null;
+      balance_refused: string | null;
+      dates: { work_date: string; available_days: number | string }[] | null;
+      dates_refused: string | null;
+    };
+    if (own.balance_refused) throw new Error(own.balance_refused);
+    return {
+      balance: {
+        availableDays: Number(own.balance?.available_days ?? 0),
+        useBy: own.balance?.use_by ?? null,
+      },
+      dates: own.dates?.map((row) => ({
+        date: row.work_date,
+        availableDays: Number(row.available_days),
+      })),
+    };
+  },
+);
 
 const CREDIT_COLUMNS =
   "id, days, used_days, reserved_days, granted_on, expires_on, note, note_id, revoked_at, revoke_reason";

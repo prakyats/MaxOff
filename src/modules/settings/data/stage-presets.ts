@@ -1,10 +1,28 @@
 import "server-only";
 
+import type { Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
 import { systemClock } from "@/core/time";
 
 import type { StagePreset } from "../domain/stage-presets";
+
+/** A stage preset's row as `listStagePresets` reads it. */
+export type StagePresetRow = Pick<
+  Tables<"stage_presets">,
+  "id" | "name" | "stages" | "archived_at" | "created_by"
+>;
+
+/** Stage presets from their rows, as `listStagePresets` reads them or `templates_library()` carries them. */
+export function stagePresetsFrom(rows: readonly StagePresetRow[]): StagePreset[] {
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    stages: row.stages,
+    archived: row.archived_at !== null,
+    createdBy: row.created_by,
+  }));
+}
 
 /**
  * Stage presets (7.4): plain edits under RLS (`lists.manage` reads every preset; an Admin writes
@@ -21,13 +39,7 @@ export async function listStagePresets(): Promise<StagePreset[]> {
     .is("deleted_at", null)
     .order("name");
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    stages: row.stages,
-    archived: row.archived_at !== null,
-    createdBy: row.created_by,
-  }));
+  return stagePresetsFrom(data);
 }
 
 /** No row came back: another author's preset (RLS), or gone. */

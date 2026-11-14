@@ -20,6 +20,7 @@ import {
   startPrompt,
   storageStateFor,
 } from "./helpers";
+import { dayHours, END_MARGIN, hhmm, LAST_MINUTE } from "./working-hours-day";
 
 /**
  * v1.9 W4: working hours, the screens (the owner-approved samples `docs/design/v19-working-hours-
@@ -68,12 +69,6 @@ function istNow(): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
-/** `HH:MM` for minutes since midnight, held inside the day. */
-function hhmm(minutes: number): string {
-  const held = Math.min(Math.max(minutes, 0), 23 * 60 + 59);
-  return `${String(Math.floor(held / 60)).padStart(2, "0")}:${String(held % 60).padStart(2, "0")}`;
-}
-
 /** "6:00 pm" for minutes since midnight (the app's words, `formatWallTime`). */
 function wall(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -82,28 +77,28 @@ function wall(minutes: number): string {
 }
 
 /**
- * The working hours on, the day starting `startAgo` minutes ago and ending in `endIn` minutes (the
- * run's own clock), the grace 15 minutes and the wait 30.
+ * The working hours on, around the run's own clock (IST), inside the day (`dayHours`: the margins,
+ * and the loud failure outside 00:01-23:56 IST). The clock's edges, a day from 00:00 to 23:59 with
+ * no grace, are pgTAP 121's (X5, owner via the advisor, #89, 11 Nov 2026): the e2e owns the
+ * screens, pgTAP owns the clock. The margins are asserted here too, on the values set.
  */
 async function hoursAround(
   startAgo: number,
   endIn: number,
-): Promise<{ end: number; startedAgo: number }> {
+): Promise<{ end: number; startedAgo: number; grace: number }> {
   const now = istNow();
-  const end = Math.min(now + endIn, 23 * 60 + 59);
-  // The start cannot be before midnight: in the first `startAgo` minutes of the IST day (where CI
-  // runs, just after `wait-for-ist-day`) it is 00:00, so the day is only `now` minutes old.
-  // `startedAgo` is what was really set, and what a late start measures (CI 41689282991: 20 at
-  // 00:20 IST, against a fixed 39).
-  const start = Math.max(now - startAgo, 0);
+  const { start, end, startedAgo, grace } = dayHours(now, startAgo, endIn);
+  if (startAgo > 15) expect(startedAgo, "a late start: past the grace").toBeGreaterThan(grace);
+  expect(end - now, "the day's end: whole minutes away").toBeGreaterThanOrEqual(END_MARGIN);
+  expect(LAST_MINUTE - end, "room for a Stay until after the end").toBeGreaterThanOrEqual(1);
   await serviceUpdate("org_settings?org_id=not.is.null", {
     working_hours_on: true,
     work_start_time: hhmm(start),
     work_end_time: hhmm(end),
-    late_grace_minutes: 15,
+    late_grace_minutes: grace,
     early_leave_wait_minutes: 30,
   });
-  return { end, startedAgo: now - start };
+  return { end, startedAgo, grace };
 }
 
 /** Back to the suite's settings: the switch off and the launch hours. */
@@ -190,9 +185,6 @@ test("Crew: a late Start day asks the reason; the strip shows Late, the reason a
   const email = person("staff", info);
   await resetAttendanceAndLeaveOf(email);
   const { startedAgo } = await hoursAround(40, 120);
-  // A late start needs the day to be past the 15-minute grace: only the first 16 minutes after
-  // midnight IST cannot hold one, and then this says why instead of failing further down.
-  expect(startedAgo, "minutes since work started (the IST day is younger)").toBeGreaterThan(15);
   await signIn(page, email, PASSWORD, { day: "stop" });
   const prompt = startPrompt(page);
   await expect(prompt).toBeVisible();
@@ -430,7 +422,7 @@ test("Stay until behind a person's row on the board: set, then back to the end t
   await expect(sheet).toContainText(`Their day ends at ${wall(end)}. They'll be told right away.`);
   await expect(sheet.getByRole("button", { name: `Keep ${wall(end)}` })).toBeVisible();
   await expectFits(owner, sheet, info);
-  const until = Math.min(end + 30, 23 * 60 + 59);
+  const until = end + Math.min(30, LAST_MINUTE - end);
   await sheet.getByLabel("Stay until").fill(hhmm(until));
   await sheet.getByRole("button", { name: `Set ${wall(until)}` }).click();
   await expect(sheet).toBeHidden();

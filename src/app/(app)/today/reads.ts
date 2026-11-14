@@ -2,7 +2,6 @@ import "server-only";
 
 import { cache } from "react";
 
-import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
 import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
@@ -26,15 +25,26 @@ import {
 } from "@/modules/dashboards";
 import { listPendingClaims } from "@/modules/expenses";
 import { listPendingRequests } from "@/modules/leave";
-import { getSettings, listHolidays } from "@/modules/settings";
-import { countRequestsToDecide, listEventTasks, listTasksToDecide } from "@/modules/tasks";
+import { listTasksToDecide } from "@/modules/tasks";
+
+import {
+  readEscalationWith,
+  readFreelancersWith,
+  readRequestsToDecideWith,
+  readWeekWindow,
+} from "../tasks/reads";
 
 /**
  * The reads Today's two screens use, once per request (`cache()`): the page starts the shared
  * ones with the session read (ARCHITECTURE §19), and the screen the role picks calls the same
  * reads again and gets the promises in flight.
  */
-export const readEventTasks = cache(listEventTasks);
+/**
+ * The week strip's event tasks and holidays in one read (v2.0 X3, `own_week()`), once per request:
+ * the page starts it with the session read and both screens get the same promise.
+ */
+export const readEventTasks = (from: ISODate, to: ISODate) =>
+  readWeekWindow(from, to).then((week) => week.events);
 /**
  * How far the event tasks are read: 62 days (an Admin's Issues check an event's day that far,
  * `member_availability()`'s limit); the strip shows the first seven. One read for both screens.
@@ -42,14 +52,31 @@ export const readEventTasks = cache(listEventTasks);
 export function eventsHorizon(today: ISODate): ISODate {
   return addISTDays(today, 61);
 }
-export const readHolidays = cache(listHolidays);
-export const readSettings = cache(getSettings);
+/**
+ * The holidays in Today's window (the week strip keeps its seven days), from the same read. Each of
+ * these four takes the page's `today` (X6 review): a request that crosses IST midnight never mixes
+ * two days or two `own_week` keys.
+ */
+export const readHolidays = (today: ISODate) => {
+  return readWeekWindow(today, eventsHorizon(today)).then((week) => week.holidays);
+};
+/** The freelancers the viewer coordinates, from the same read (`own_week().freelancers`). */
+export const readTodayFreelancers = (today: ISODate) => {
+  return readFreelancersWith(today, eventsHorizon(today));
+};
+/** The suggestions to decide, from the same read (`own_week().requests_to_decide`). */
+export const readRequestsToDecide = (today: ISODate) => {
+  return readRequestsToDecideWith(today, eventsHorizon(today));
+};
+/** Needs you's escalation thresholds, from the same read (`own_week()`'s `ack_escalate_*`). */
+export const readEscalation = (today: ISODate) => {
+  return readEscalationWith(today, eventsHorizon(today));
+};
 export const readLeaveDays = cache(listLeaveDays);
 export const readNotNoted = cache(listNotNoted);
 export const readUnreachable = cache(listUnreachable);
 export const readHeldEmails = cache(countHeldEmails);
 export const readClients = cache(() => listClients());
-export const readRequestsToDecide = cache(() => withSessionUserId(countRequestsToDecide));
 /** The Owner's approvals, every group (the preview takes the oldest five in group order). */
 export const readApprovals = cache(() =>
   Promise.all([

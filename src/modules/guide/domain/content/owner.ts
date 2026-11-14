@@ -48,7 +48,7 @@ export const OWNER_GUIDE: Guide = {
               "Tap Me in the same sheet for your own page, or Help under it for this guide.",
             ),
             next(
-              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me and Help.",
+              "The last cell, More, opens a sheet with Reports, Clients, People, Settings, then Me, Help and Appearance.",
             ),
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
@@ -83,12 +83,12 @@ export const OWNER_GUIDE: Guide = {
           summary: "Your own page: profile, notifications, appearance and help.",
           blocks: [
             text(
-              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More.",
+              "Me opens with who you are: your photo, name and sign-in email, with Edit profile beside them. Then come Notifications (turn them on for this device, Your devices, and Send a test notification), Appearance (Light, Dark or System) and Help (this guide and Reload app). Sign out of this device is last, and the app's version sits at the very bottom. On a phone, open Me from More. More also has Appearance: tap it, then tap Light, Dark or System; the sheet closes and the More row shows your choice, such as Appearance · Dark. Back then closes More.",
             ),
             text("You do not mark attendance or take leave, so Me has no My work rows for you."),
           ],
           link: { href: "/me", label: "Open Me" },
-          keywords: ["profile", "account", "settings"],
+          keywords: ["profile", "account", "settings", "appearance", "dark", "theme"],
         },
       ],
     },
@@ -120,7 +120,7 @@ export const OWNER_GUIDE: Guide = {
               'Read "My tasks": your own tasks, overdue or due today. Tap one to open it (each row ends in a ›). When there are more than it shows, "See all N of my tasks" opens them all in All tasks.',
               'Read "Today\'s tasks": one line, "N due today · M handed in".',
               'Read "Client work": one red line when client items are overdue.',
-              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task.',
+              'Read "Overdue and risks": overdue tasks, tasks nobody has noted, people on leave, and people who cannot be reached. The reason is a chip on the right, such as "2 days late" in red or "Not noted · 18 h" in amber, with the plain words under the task. Tap a row, or its chip, to open the task.',
               'Read "This week": up to seven days, each deadline by name and time with a "Due" chip, holidays, events and who is on leave, then "See the week". On a laptop it is a column on the right; in a narrow window or on a phone it sits below.',
             ),
             note(
@@ -364,7 +364,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "What needs you first, then every open task by deadline.",
           blocks: [
             text(
-              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue (a red chip saying how late, such as "2 days late" or "3 h late"), have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full.',
+              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue (a red chip saying how late, such as "2 days late" or "3 h late"), have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Tap anywhere on a row, its chips included, to open the task.',
             ),
             text(
               'Use "All tasks, with filters" for the full list, and "Suggested tasks" for ideas from your team.',
@@ -614,7 +614,7 @@ export const OWNER_GUIDE: Guide = {
               },
             ),
             next(
-              'The people on it and its approving Admin are told quietly, and the task shows an amber "On hold" chip with the reason. Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
+              'The people on it and its approving Admin are told quietly. Everyone who opens the task sees the amber "On hold" chip, the reason and that Start, Done and the stage ticks wait until it is resumed. On Tasks, "On hold · n" opens every held task.',
             ),
             note(
               "A task that is handed in, completed or cancelled cannot be put on hold. Cancelling a held task ends the hold. History keeps the reason and the old deadline.",
@@ -760,7 +760,7 @@ export const OWNER_GUIDE: Guide = {
               'The day sheet is in two parts: "Tasks · n" (events and what is due), then "Client work · n", grouped by client, every name in full; tap a row to open it. Then who is away: a chip for each person on leave, with their photo ("Asha · On leave"), and "Busy all day" when someone is. When nobody is away, it says "Everyone is available". On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and "+ New task on" the date stays at the bottom of the sheet while you scroll. On a laptop a day opens in the middle of the screen, with "Open day"; in the Day view "+ New task on" the date sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.',
             ),
             steps(
-              "Open Calendar and tap a day.",
+              "Open Calendar and tap a day. If you tap a day while the calendar is still loading, it opens as soon as it's ready. The same goes for the handle that changes the calendar's size.",
               'Tap "+ New task on" the date at the bottom.',
               "Fill in the New task form, which opens on that date.",
             ),
@@ -981,7 +981,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete"), then "Key people": the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed "Archived (n)" at their foot, each with Restore and Delete), details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress (each bar counts stages: "50% of stages", and a finished one-time project reads "Ready to complete" and a project on hold reads "On hold"), then "Key people": the Admin (with their photo) and the primary contact side by side, with Call and the Drive folder under them; then the contacts (archived ones wait under a collapsed "Archived (n)" at their foot, each with Restore and Delete), details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first; your own changes read "You".',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -1451,6 +1451,17 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/project-resume-sheet",
               },
               'Tap "Resume project": everything is settled in one go.',
+            ),
+            text("Everyone who opens a held project sees it at once, the client's Admin included:"),
+            steps(
+              {
+                text: 'On the client\'s Overview and Projects tab, its row reads "On hold" (highlighted), never Open.',
+                shot: "owner/project-held-row",
+              },
+              {
+                text: "Open one of its deliverables: the sheet says ticks and Mark done wait until it is resumed (highlighted), and its stages are greyed out.",
+                shot: "owner/item-held-sheet",
+              },
             ),
             next(
               'Reports show "On hold · n deliverables" for this month: tap it to see them. They are neither done nor closed, and never money.',

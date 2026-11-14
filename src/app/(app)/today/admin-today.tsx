@@ -5,6 +5,7 @@ import {
   InboxIcon,
   Undo2Icon,
 } from "lucide-react";
+import { Suspense } from "react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
@@ -16,6 +17,7 @@ import { CLIENT_STATE_LABELS } from "@/modules/clients";
 import {
   clientProgressLine,
   dueThisWeek,
+  itemMeter,
   itemView,
   lastChangeOf,
   progressByClient,
@@ -65,22 +67,24 @@ import {
 } from "@/modules/tasks";
 
 import { rowFlag } from "../my-day/words";
-import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../tasks/reads";
+import { readClientLabels, readDirectory, readOpenTasks } from "../tasks/reads";
 
 import {
   readAdminClientWork,
   readClientProgress,
   readClients,
+  readEscalation,
   readEventTasks,
   readItemDetails,
   readHolidays,
   readLeaveDays,
   readRequestsToDecide,
-  readSettings,
+  readTodayFreelancers,
   readUnreachable,
   eventsHorizon,
 } from "./reads";
 import { TodayClientWorkLazy } from "./client-work-lazy";
+import { ClientWorkRowsSkeleton } from "./client-work-skeleton";
 
 /** How many client items the Client work section lists before "See all N" (decision 19). */
 const CLIENT_WORK_SHOWN = 5;
@@ -122,15 +126,15 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     readOpenTasks(),
     readDirectory(),
     readClientLabels(),
-    readOwnFreelancers(),
+    readTodayFreelancers(today),
     countTasks(),
-    readRequestsToDecide(),
-    readSettings(),
+    readRequestsToDecide(today),
+    readEscalation(today),
     readClients(),
     // Each risk read only for whoever holds its key (PERMISSIONS "Screens (phase 6)").
     can(viewer.role, "notifications.reachability") ? readUnreachable() : Promise.resolve([]),
     readEventTasks(today, eventsHorizon(today)),
-    readHolidays(),
+    readHolidays(today),
     // Client work (kickoff 7 decision 19, amendment C): only for whoever ticks items.
     can(viewer.role, "items.tick") ? readAdminClientWork(today, viewer.id) : Promise.resolve(null),
     can(viewer.role, "items.tick") ? readClientProgress(today) : Promise.resolve(null),
@@ -195,6 +199,10 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   }));
   const window = leaveWindow(scopedEvents, today);
   const assignees = [...new Set(scoped.flatMap((task) => task.assigneeIds))];
+  // End day's claim form setup (3b.3) starts here, beside the second wave (v2.0 X6, #89): its
+  // promise goes to a client component, so the response stays open until it resolves. Started in
+  // the render, it held the last byte one more database trip after the page's content.
+  const claimSetup = getClaimSetup().catch(() => null);
   // The rows' unread comments (for the rows shown only, A-S4) and the leave check, in one wave.
   const [unread, leave, details] = await Promise.all([
     listUnreadCounts([...needs.map((i) => i.row.id), ...mine.map((i) => i.row.id)]),
@@ -261,9 +269,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     <>
       <PageHeader title="Today" description={dayContext(today, viewer.name)} />
       <PhoneDateLine line={dateLine(today)} />
-      <TodayAttendanceStrip
-        endDayFollowUp={<EndDayClaims today={today} setup={getClaimSetup().catch(() => null)} />}
-      />
+      <TodayAttendanceStrip endDayFollowUp={<EndDayClaims today={today} setup={claimSetup} />} />
       <DayColumns
         slot="admin-today"
         week={<ThisWeek blocks={week.blocks} hidden={week.hidden} />}
@@ -360,15 +366,24 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
             {work !== null && due.length > 0 ? (
               <DashSection title="Client work" slot="today-client-work" count={due.length}>
                 <div className="flex min-w-0 flex-col gap-2">
-                  <TodayClientWorkLazy
-                    items={clientWork}
-                    permissions={{
-                      manage: can(viewer.role, "projects.manage"),
-                      tick: can(viewer.role, "items.tick"),
-                      reopen: can(viewer.role, "items.approve"),
-                      owner: false,
-                    }}
-                  />
+                  {/* Its own chunk, in its own boundary whose fallback traces the rows (X5). */}
+                  <Suspense
+                    fallback={
+                      <ClientWorkRowsSkeleton
+                        rows={clientWork.map((item) => ({ meter: itemMeter(item.view).total > 0 }))}
+                      />
+                    }
+                  >
+                    <TodayClientWorkLazy
+                      items={clientWork}
+                      permissions={{
+                        manage: can(viewer.role, "projects.manage"),
+                        tick: can(viewer.role, "items.tick"),
+                        reopen: can(viewer.role, "items.approve"),
+                        owner: false,
+                      }}
+                    />
+                  </Suspense>
                   {due.length > CLIENT_WORK_SHOWN ? (
                     <RowList label="All client deliverables" slot="today-client-work-all">
                       <LinkRow

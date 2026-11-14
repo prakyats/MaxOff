@@ -25,6 +25,10 @@ import {
   pageHeader,
   createFromNewProject,
   newProjectStep,
+  streamedHeights,
+  answerStartPrompt,
+  ownSession,
+  controlHits,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
@@ -240,10 +244,13 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   const client = nameOf(info, "projects");
   const own = ownAdmin(info);
   const clientId = await workClient(client, own.email);
-  // This project's own Admin: no other test's notification re-reads the page mid-flow.
-  await page.context().clearCookies();
-  await signIn(page, own.email, own.password);
+  // This project's own Admin: no other test's notification re-reads the page mid-flow. Their
+  // session through the auth API, not the form (not what this walk is about: under 3 workers the
+  // form and its redirect took 6 of the test's 30 s and the walk ran out at its last check, X5),
+  // and their day started as `signIn` leaves it.
+  await ownSession(page, own.email, own.password);
   await page.goto(`/clients/${clientId}/projects`);
+  await answerStartPrompt(page);
   await hydrated(page);
   await expect(page.getByText("No projects yet.")).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
@@ -283,6 +290,14 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await hydrated(page);
   // Amendment D3: one figure, done (= approved).
   await expect(progress(page)).toHaveText("0 of 6 stages · 0 of 3 deliverables done");
+
+  // The row's own controls (its ⋯, Next) take their taps over the row's stretched opener (X5+ H3).
+  const hits = await controlHits(itemRow(page, "Reel 1"), '[data-slot="item-open"]');
+  expect(hits.length, "the row has controls (not vacuous)").toBeGreaterThan(0);
+  expect(
+    hits.filter((hit) => hit.endsWith("covered")),
+    "no control under the opener",
+  ).toEqual([]);
 
   // One row's Mark done: instant with the 6-second Undo, then it counts. Its stages are not all
   // ticked, so it waits in the row's ⋯ (unit U).
@@ -563,6 +578,10 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
 
   await page.goto("/today");
   await hydrated(page);
+  // The rows have the same height in the server's first flush as once in (X5): the fallback
+  // traces them.
+  const { firstFlush, allIn } = await streamedHeights(page, "/today", "today-client-work");
+  expect(firstFlush, "Client work in the first flush, then with all its rows in").toBe(allIn);
   const stagedRow = page.locator('[data-slot="today-client-item"]', {
     hasText: nameOf(info, "staged"),
   });

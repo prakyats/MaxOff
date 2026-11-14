@@ -12,6 +12,7 @@ export {
   getPerson,
   listCoordinatorHistory,
   listCurrentCoordinators,
+  coordinatorsFrom,
   listDirectory,
   listDirectoryOf,
   listMembers,

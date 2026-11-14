@@ -30,20 +30,37 @@ export default async function Loading() {
           <div className="flex min-h-11 items-center">
             <Skeleton className="h-4 w-28" />
           </div>
-          <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
+          {/* A project row's lines at their own heights (ProjectList, X5+ M7): the name, the
+              repeat, the meter line and the progress line. */}
+          <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
             {[0, 1].map((row) => (
-              <li key={row} className="flex min-h-16 items-center gap-3 px-4 py-3">
-                <span className="flex flex-1 flex-col gap-1.5">
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-3 w-1/3" />
-                  <span className="mt-1 flex items-center gap-2">
-                    <Skeleton className="h-1.5 w-24 rounded-full sm:w-32" />
-                    <Skeleton className="h-3 w-20" />
+              <li
+                key={row}
+                className="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3"
+              >
+                <span className="flex min-w-0 flex-[1_1_6rem] flex-col gap-0.5">
+                  <span className="flex h-5 items-center">
+                    <Skeleton className="h-3.5 w-1/2" />
                   </span>
-                  <Skeleton className="h-3 w-2/5" />
+                  <span className="flex h-4 items-center">
+                    <Skeleton className="h-3 w-1/3" />
+                  </span>
+                  <span className="mt-1 flex h-4 items-center gap-2">
+                    <Skeleton className="h-1.5 w-24 shrink-0 rounded-full sm:w-32" />
+                    <Skeleton className="h-3 w-20 max-w-full" />
+                  </span>
+                  {/* The progress line as text-shaped bars of the usual words, so it wraps
+                      where the real line wraps (two lines in a 375 px row, one at 430). */}
+                  <span className="text-xs break-words">
+                    <span className="bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse">
+                      0 of 4 stages · 0 of 2 deliverables done
+                    </span>
+                  </span>
                 </span>
-                <Skeleton className="h-4 w-16 shrink-0" />
-                <Skeleton className="size-4 shrink-0 rounded-sm" />
+                <span className="ml-auto flex shrink-0 items-center gap-2">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="size-4 rounded-sm" />
+                </span>
               </li>
             ))}
           </ul>
@@ -72,9 +89,11 @@ export default async function Loading() {
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-11 w-36 rounded-lg md:h-8" />
-          <Skeleton className="h-11 w-32 rounded-lg md:h-8" />
+        {/* Wrapped as the page wraps them, never past the edge at large text. */}
+        <div className="flex flex-wrap gap-2">
+          {/* The Call button's own height from md (34 px: its 20 px line, py-1.5 and border). */}
+          <Skeleton className="h-11 w-36 max-w-full rounded-lg md:h-8.5" />
+          <Skeleton className="h-11 w-32 max-w-full rounded-lg md:h-8.5" />
         </div>
       </div>
       {/* "N open tasks labelled ‹client›" (kickoff 7 decision 20). */}
@@ -117,7 +136,7 @@ function RecordSkeleton({ rows, folded = false }: { rows: number; folded?: boole
         {Array.from({ length: rows }, (_, row) => (
           <div key={row} className="flex flex-col gap-1.5">
             <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-48 max-w-full" />
           </div>
         ))}
         {folded ? (

@@ -12,6 +12,13 @@
  * there**, in the same task: called from a layout effect or a `ResizeObserver` callback, before
  * the frame is painted, so no frame shows the field behind the bar. A page that fits on the
  * screen (scrolled 0) is left at its top; a page the person scrolled elsewhere is left alone.
+ *
+ * **Never a forced layout it does not need (v2.0 X3 (d)):** the page is measured once before the
+ * change, and again after it only when the person was at the end (the only case that scrolls). A
+ * person at the top of a page, as on every load, costs one read, and from a `ResizeObserver`
+ * callback that read finds the layout already done: the bands publish their first height there,
+ * not in their mount effect, where the read forced the whole page's layout inside hydration
+ * (≈ 45 ms at CPU ×4 on a phone's /today).
  */
 
 /** Where the page is scrolled, in CSS px. */
@@ -48,6 +55,7 @@ function documentScroll(): PageScroll {
 export function changeBottomReserve(change: () => void, page: PageScroll = documentScroll()) {
   const wasAtEnd = atPageEnd(page.metrics());
   change();
+  if (!wasAtEnd) return;
   const top = keepAtEnd(wasAtEnd, page.metrics());
   if (top !== null) page.scrollTo(top);
 }

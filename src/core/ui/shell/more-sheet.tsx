@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelpIcon, CircleUserIcon } from "lucide-react";
+import { ChevronRightIcon, CircleHelpIcon, CircleUserIcon, SunMoonIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type MouseEvent, type ReactNode, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import {
 } from "@/core/ui/primitives/sheet";
 import { ThemeLabel } from "@/core/ui/theme/theme-label";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
-import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
+import { AppearanceTrigger } from "@/core/ui/theme/appearance-trigger";
 
 import { isActivePath, type NavItem, PROFILE_NAV_ITEM } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
@@ -178,8 +178,11 @@ export function MoreSheet({
             <CircleHelpIcon className="size-5 shrink-0" aria-hidden />
             Help
           </Link>
-          <div className={cn(ROW, "justify-between")}>
-            {/* The row states the current mode: an icon alone makes you tap to find out. */}
+          {/* The row states the current mode: an icon alone makes you tap to find out. v2.0 X1b
+              (owner bug 2026-11-05): the whole row opens the phone's Appearance sheet; the
+              dropdown inside this sheet flashed and closed on a phone. */}
+          <AppearanceTrigger className={cn(ROW, "w-full text-left")}>
+            <SunMoonIcon className="size-5 shrink-0" aria-hidden />
             <span className="flex-1">
               Appearance
               <span className="text-muted-foreground">
@@ -187,8 +190,8 @@ export function MoreSheet({
                 <ThemeLabel />
               </span>
             </span>
-            <ThemeToggle />
-          </div>
+            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </AppearanceTrigger>
           {/* A sign-out item closes the sheet; its confirmation is owned above the shell and opens
               over the page, not over a sheet that is still sitting there. Since 3b.1 the layout
               passes none: "Sign out of this device" lives under Me (kickoff 3b decision 1). */}

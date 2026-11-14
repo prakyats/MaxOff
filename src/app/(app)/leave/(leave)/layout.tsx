@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
-import { getCurrentMember, withSessionUserId } from "@/core/auth/server";
+import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { type CompBalance, getCompBalance, listCompDates } from "@/modules/leave";
+import { type CompBalance, readOwnCompLeave } from "@/modules/leave";
 import { RequestLeaveButton } from "@/modules/leave/components/request-leave-button";
 
 import { LEAVE_TABS, LeaveTabs } from "../leave-tabs";
@@ -29,9 +29,8 @@ const DESCRIPTION = "Request leave, change or cancel it, and see how each day wa
  */
 export default async function LeaveLayout({ children }: { children: ReactNode }) {
   // Started with the session read (ARCHITECTURE §19), used only for someone who marks attendance.
-  const ownBalance = withSessionUserId((id) =>
-    Promise.all([getCompBalance(id), listCompDates().catch(() => undefined)]),
-  );
+  // The balance and the dates are one read (v2.0 X3, `own_comp_leave()`), shared with the page.
+  const ownBalance = readOwnCompLeave();
   ownBalance.catch(() => undefined);
   const viewer = await getCurrentMember();
   // The Owner (no `attendance.self`) never opens these routes, so the promise is only made for
@@ -42,7 +41,7 @@ export default async function LeaveLayout({ children }: { children: ReactNode })
   const balance =
     viewer && can(viewer.role, "attendance.self")
       ? ownBalance
-          .then(([own, dates]): CompBalance => (dates ? { ...own, dates } : own))
+          .then(({ balance: own, dates }): CompBalance => (dates ? { ...own, dates } : own))
           .catch(() => NO_COMP_BALANCE)
       : Promise.resolve(NO_COMP_BALANCE);
   return (
