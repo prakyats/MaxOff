@@ -360,6 +360,7 @@ Exit: Staff submit photos and short videos from any device (iPhone included) and
 - [ ] **8.4a** [C] Link submissions, the pilot half of 8.4 (owner, 2026-09-27): paste a Drive link as a version, basic `https://` validation, stored with the version, the Owner and Admins open it to review. No Drive API access check and no retention job (8.4b, deferred past the launch)
 
 ## Phase 9: Revenue, reports and month close (Owner)
+> **Next phase (owner 14 Nov 2026): phase 9 → phase 8 (Drive, with 8.3 and 8.5 brought back) → v2.1.** Kickoff refreshed and answered on 14 Nov: `docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md` (supersedes PR #42 where they differ). About 3 weeks with one builder.
 Exit: the Owner sees Potential / Achieved / Remaining by client, category and month, and closes a month. (Exports and the activity-history search, 9.5 and 9.6, are **deferred past the launch**, owner 2026-09-27.)
 **Units:** **9A** [H] 9.1 + 9.2 · **9B** [H] 9.3 + 9.4
 **From v1.9's On hold (owner 2026-11-02):** the approved v1.9 screens sample shows a ₹ "On hold" strip on Reports; it needs this phase's money tables, so v1.9 ships a count only ("On hold · n deliverables", no money) and **9.2 / 9.3 add the ₹ value of held deliverables** (Owner only, invariant 2; neither earned nor lost, invariant 3).
