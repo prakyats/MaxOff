@@ -286,13 +286,18 @@ Owner, 2026-11-05: after v2.0 there are no more big changes to the number of scr
 ### v2.1 "Reliable anywhere": units (owner 2026-11-11; note only until the owner says proceed)
 Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after v2.0 is v2.1 "Reliable anywhere". v2.0 ships unchanged. The ops safety nets (backup failure alerts and a daily ops check, Dependabot, the runbooks) went to `main` separately (`ops/safety-nets`). **Owner, 11 Nov 23:05 IST ("proceed full on autopilot"; #89 6802825415):** the units with no open business question start on `phase-v21` (cut from `phase-v2` at bafd6f45): units 3, 4 and 2 (part) by the integrator, unit 1 by the builder after v2.0's READY TO MEASURE. Units 5–8 wait for the owner.
 - [ ] **1. Real-user speed:** web-vitals (LCP, INP, CLS, TTFB) from the team's phones to Sentry, per route and role, p75, with a weekly look. Nothing personal sent.
-- [ ] **2. Weak network:** a Playwright project at Slow 4G and CPU ×4 on the core flows (Start day, End day, leave request, task Noted/Done, approve), plus a ~10 s timeout on the Supabase fetch (audit 12), idempotency keys on create actions so a retry never duplicates (audit 10), and the clear "didn't save, try again" state. Whether offline Start day / End day are queued is an **owner business question**, for the kickoff; idempotency keys and any offline queue wait for the owner.
+- [ ] **2. Weak network** (owner decision sheet answers, 14 Nov 2026, #89):
+  - A Playwright project at Slow 4G and CPU ×4 on the core flows (Start day, End day, leave request, task Noted/Done, approve).
+  - A ~10 s timeout on the Supabase fetch (audit 12) and the clear "didn't save, try again" state.
+  - **Q1, no offline queue:** Start / End day with no network say "No network, tap again"; a tap counts only when it reaches MaxOff.
+  - **Q2, a note plus a one-tap clear:** the phone records "Tried at 9:58, no network (phone time)" on that day, and Approvals offers the Owner a one-tap **Clear Late**. That is an Owner correction with a reason, so invariant 7 holds and nothing is automatic. A small sample goes to the owner first.
+  - **Q3, repeat-safe creates on everything created often:** tasks, task requests, projects, deliverables, clients, contacts, expense claims and comments (the `request_keys` ledger, `_once` wrappers, and a `request_key` column on the plain inserts; decision sheet Part 2).
 - [ ] **3. iPhone:** a WebKit (iPhone) Playwright project on the core flows, plus installed-PWA push on iOS checked on a real iPhone at the walk.
-- [ ] **4. Accessibility in CI:** axe checks on every screen per role, with zero serious violations.
-- [ ] **5. Edit clashes:** optimistic locking on task and project edits, so the second save is told "changed by X, reload" (audit 11). The conflict message is the owner's choice.
-- [ ] **6. Load:** a staging load test of the 10:00 IST burst (20 Start days plus live refreshes), with p95 under the gate. Any compute upgrade is an owner cost decision, with evidence.
-- [ ] **7. Files safety:** a backup of uploaded files (audit §1). Owner decision: a nightly R2 copy, or bring the Drive archive forward.
-- [ ] **8. The restore drill** on a recent backup, then quarterly (6b.20 (a)). It runs on the owner's laptop with his key.
+- [ ] **4. Accessibility in CI:** axe checks on every screen per role, with zero serious violations. **Owner, 14 Nov:** raise the calendar's other-month days to at least 4.5:1, and allow CI to download WebKit from `cdn.playwright.dev` for unit 3.
+- [x] ~~**5. Edit clashes**~~ **Dropped (owner Q4, 14 Nov 2026: "last save wins, as today").** The Thresholds bug below is still fixed, on its own.
+- [ ] **6. Load** (owner Q5–Q7, 14 Nov 2026): a **staging-only** test after 10 pm IST with made-up people. **20** Start days in the same minute, plus live refreshes. **Pass:** every Start day goes through, none doubled, and 19 of 20 wait under 3 s. Any compute upgrade is an owner cost decision, with evidence.
+- [ ] **7. Files safety: deferred past v2.1** (owner Q8, 14 Nov 2026: "wait"). When it is built, copies are kept **6 months** (Q9).
+- [ ] **8. The restore drill: in December, not in v2.1** (owner Q10), then quarterly, on the owner's laptop with his key. **Q11:** the spare key is a sealed copy only the owner can reach; the owner makes it himself.
 
 **Also in v2.1 (from the v2.0 X6 review, advisor on #89 6803081084, 11 Nov 2026; the review files are on branch `docs/v2-release-drafts` under `docs/reviews/v2.0/`):**
 - [ ] **The Thresholds form puts back an edit (known bug, in v1.9 too; with unit 5):** `src/app/(app)/settings/thresholds/page.tsx:30` keys the form on the saved values (`key={JSON.stringify(settings)}`), so an edit typed in the moment between a save's "Thresholds saved" toast and its refresh is put back by the remount. The fix comes with a red-first spec of exactly that sequence.
