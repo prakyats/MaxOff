@@ -22,7 +22,20 @@
 | **v7.5** | **Polish and security** (phase 10) | UX polish (keyboard shortcuts, empty and loading states, phone pass); **full security review** + India DPDP privacy notice for staff; database and performance tuning. | Everyone (small) | 1.5 wk |
 | **v8.0** | **Full launch** (phase 10) | Import existing clients and projects; finish the user guide; the second restore drill. | Everyone | 1 wk |
 
-**Total: about 14–17 weeks** (more small releases means more walks; each walk is about 30 min for the owner).
+**Total: about 11–13 weeks** with the faster-release rules below (14–17 without them).
+
+## Faster releases (owner, 14 Nov 2026)
+**Approved:**
+1. **Pipeline:** the builder starts the next release as soon as one is handed to the owner, so the checks and the walk overlap the next build.
+2. **Two streams:** the builder takes Revenue (v2.1–v3.5) while the integrator builds Drive (v4.0–v4.5) in parallel. They're separate modules and branches, released in order.
+3. **One full CI run** when it is green on the first attempt. **Two runs** only for releases that change screens every role uses or the shared layout.
+4. **The speed gate covers what changed** (CLAUDE.md, Definition of Done): the touched routes for the roles that open them; every route only for shared-layout releases; the India check only when Today, My Day or the layout changes; automatic re-probes.
+
+**Not approved (kept):** the owner's full phone walk for every release; v4.0 stays its own release.
+
+**Never cut:** CI green, money isolation (pgTAP for each role), no slowdown on touched routes, the guide, the owner's walk and tag, same-day rollback.
+
+**Estimated total: about 11–13 weeks** (was 14–17).
 
 ## Alongside (not releases)
 - **December:** the database restore practice on the owner's laptop (Q10).
