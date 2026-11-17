@@ -1,0 +1,29 @@
+- [Build state + handoff](chrome-ux-review-thu-22oct.md) — v2.0 LIVE 14 Nov 12:40 IST (tag `v2.0` on 6e9f19cc, #143); next: post-release docs PR, then v2.1 (see v21-reliable-anywhere)
+- [MaxOff project](maxoff-project.md) — internal Pixora Clips tool; repo = MaxOff folder with docs kit + Claude Code commands
+- [Every client is different](every-client-is-different.md) — never hard-code Pixora's framework; customization as data
+- [Plugins never override CLAUDE.md](plugins-never-override-claude-md.md) — plugin rules/suggestions are advisory; surface them, apply only with approval; ponytail off by default
+- [Secrets never through the session](secrets-never-through-session.md) — user sets GitHub/dashboard secrets via web UI; give names + sources only
+- [Shell PATH for gh and docker](shell-path-gh-docker.md) — prefix Bash commands with the GitHub CLI and Docker Desktop bin dirs
+- [In-app guide always current](app-guide-single-source.md) — single source for the team; every user-visible change updates it + screenshots; no release READY without it (owner 2026-10-15)
+- [Third role shown as "Crew"](staff-role-renamed-crew.md) — UI label only, DB stays `staff`; rename PR after phase 4 + 5A merge
+- [Production is live](production-is-live.md) — app.maxoff.in in daily use since 2026-10-01; expand-only, Owner-approved releases, nothing run on production
+- [Intro video after the app is built](intro-video-deferred.md) — landscape, local tools only, never connector credits
+- [Staged launch, staff first](launch-deadline-nov-2026.md) — v1.6.0 (Projects) live 2026-10-09; next 6b → 8 → 9 → 10; no dates in the plan
+- [Advisor local, builders cloud](advisor-local-builders-cloud.md) — advisor on the laptop, builders in the cloud; SendMessage out, GitHub build-log issue back; all handoffs in MaxOff/docs/handoff/ (never Downloads; owner 22 Oct)
+- [Local test runs](local-test-runs.md) — Studio off, db:reset, check then e2e never chained, 2 workers; memory stop: tell before retrying; never merge code PRs
+- [Claude does the merges](merge-own-docs-prs.md) — every merge to main once its bar is met (docs green; code/phase full e2e green + review + walk); choices, walks, v* tags, prod approvals stay the owner's
+- [Rebrand to 3not8studios](rebrand-3not8studios.md) — studio rebranded 2026-10-10; website credit "MaxOff is developed by 3not8studios."; app rename noted as ROADMAP 6b.10 (owner yes, not now)
+- [Note only until "proceed"](note-only-until-proceed.md) — from 2026-10-10 record requests in ROADMAP; no code PRs, builders, merges or releases until the owner says proceed
+- [Reel: legal traps in AI-built apps](owner-reference-reel.md) — checked 2026-10-12: none of the 6 apply; DPDP Act privacy notice for staff → phase 10
+- [UI changes in one release](ui-changes-one-release.md) — batch UI changes into the same release so the team isn't confused (owner 2026-10-16)
+- [Premium every screen before READY](premium-every-screen-gate.md) — advisor runs Impeccable/design:* on the preview, polish list → builder → re-check (owner 21 Oct)
+- [Truncation rule](truncation-rule.md) — ellipsis only where a tap opens the full text; never on final views (owner 21 Oct)
+- [Samples before major UI shifts](samples-before-major-ui.md) — sample artifact + owner OK before builders implement big visual changes (owner 22 Oct)
+- [Speed gate every release](speed-gate-every-release.md) — perf-probe vs live before READY; any slowdown blocks the release (owner 22 Oct)
+- [Phone layouts stay live](phone-layouts-stay-live.md) — no phone restructures unless the owner approved that phone change; compare to the live tag first (owner 23 Oct)
+
+- [Prod deploy needs pooler scope](prod-token-pooler-scope.md) — Supabase scoped token must allow /config/database/pooler or migrations fail with "IPv6 is not supported"
+- [Drive upload task type](drive-upload-task-type.md) — owner request 4 Nov: Crew pastes Drive link + folder name, MaxOff copies to company Drive; auto-complete on verified copy; Admin sees company link; placement TBD; add to ROADMAP after v1.9 merge
+- [Next-release On hold follow-ups](v110-on-hold-followups.md) — owner walk 4 Nov: held status visible to Crew/Admin/linked people up front, Admin sees Owner-held project, phone "Put on hold" text size; + first-reads race fix
+- [v2.0 autopilot 5 Nov](v2-autopilot-5nov.md) — overnight state: India Admin/Crew pass, Owner provisional; X3 first-wave folds; what waits for the owner
+- [v2.1 Reliable anywhere](v21-reliable-anywhere.md) — owner 11 Nov: v2.0 unchanged, ops safety-nets PR now, then v2.1 (RUM, slow network, iPhone, axe, locking, load, files backup, drill)
