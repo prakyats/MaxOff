@@ -6,6 +6,7 @@
 > Keep it short: current state, what's next, and anything the next session must know.
 
 ## Current state
+- **ADVISOR MOVED TO THE CLOUD (17 Nov 2026).** Read `docs/handoff/ADVISOR-HANDOFF.md` first: role, state, the release plan, the briefs to send on "proceed v2.1", and the laptop memory notes in `docs/handoff/advisor-memory/`.
 - **v2.0 is LIVE (Sat 14 Nov 2026, about 12:40 IST; tag `v2.0` on `main` 6e9f19cc, #143, deploy run 43569568961; advisor).** **v2.1 is planned and waiting for the owner's "proceed":** `docs/handoff/v2.1-plan.md` (scope, order, everything that changes, the builder brief), ROADMAP v2.1 units 1–13. Units 9–13 are the Admin productivity work the owner approved with samples on 14 Nov. **Owner input: none pending.** The decision sheet and the integrator's two questions were answered on 14 Nov (#89; ROADMAP units 2–8 updated). Units 5, 7 and 8 are out of v2.1. **Waiting only for "proceed".**
 
   Staging carries two test tasks the advisor made as the Admin for the samples (Mon 16 Nov: "Brand reel shoot", "Cafe site visit").
