@@ -522,15 +522,29 @@ Staff submits a version
 - **Quota:** the account's free space is checked daily, and the Owner is warned below 10%.
 
 ## 6. Revenue calculation (Owner only)
-For each item, `item_value`:
-1. an explicit `item_billing.value` if set, otherwise
-2. for a recurring project, `cycle_amount ÷ number of planned items in the cycle`; carry-ins are valued from their **origin** cycle; otherwise
-3. for a one-time project, `fixed_amount ÷ number of planned items`.
+Kickoff 9 decisions as refreshed on 14 Nov 2026 (`docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`, OWNER ANSWERS; ADR-0007 amendment 2026-10-02).
 
-- **Planned items** of a cycle = its items that are **not carried in** (`carried_from_item_id is null`) and **not cancelled before the cycle started** (`state <> 'cancelled' OR cancelled_at >= coalesce(period_start, cycle created_at)`). An item closed at the carry decision was cancelled after the cycle started, so it **stays planned**.
-- **Potential** (cycle / project / client / category / month) = Σ item_value of planned items.
-- **Achieved** = Σ item_value of items with `state = approved`, attributed to the **origin** cycle's period.
-- **Closed, not achieved** = Σ item_value of planned items with `state = cancelled`, reported as its own line so lost revenue stays visible.
+**Recurring projects (weekly and monthly).** Each cycle has its own `cycle_billing.cycle_amount`, copied from the project's amount when the cycle is made (an `AFTER INSERT` trigger on `project_cycles`). For each item of a recurring project, `item_value`:
+1. an explicit `item_billing.value` if set, otherwise
+2. for a **planned** item, its share of what the explicit values leave: `(cycle_amount − Σ explicit values of the cycle's planned items) ÷ number of planned items without an explicit value` (whole rupees; the paise go to the first item); an explicit total over the amount is refused; otherwise
+3. for an **addition** (below) without a value, **₹0** ("Not priced yet").
+
+Carry-ins are valued from their **origin** cycle.
+
+- **Additions, priced on top (R4, owner 2026-11-14; definition owner 2026-11-18).** An addition is a deliverable **not in the month's plan**: one created in a cycle **after the cycle's item list was generated** (`item_add`, the Deliverables list's "Also add to ‹month›?", bulk adds). It never joins the split. It is ₹0 until the Owner gives it an `item_billing.value`, which is then **added on top** of the cycle's amount (so the cycle's Potential = `cycle_amount` + Σ priced additions). **Work carried in from last month is not an addition.** The Owner is notified when an unpriced addition joins a priced month (Q3; a §9 notification kind of its own, in phase 9).
+- **First amount, "this month on" (Q1, owner 2026-11-14; weekly rule owner 2026-11-18).** When a project's amount is first set, it is copied to every cycle that **starts on or after the 1st of the current IST month** (`app.today_ist()`), weekly cycles included; cycles that started earlier keep `cycle_amount` null and show **"No amount set"** until the Owner fills each one.
+- **Planned items** of a cycle = its items that are **not carried in** (`carried_from_item_id is null`), **not additions**, and **not cancelled before the cycle started** (`state <> 'cancelled' OR cancelled_at >= coalesce(period_start, cycle created_at)`). An item closed at the carry decision was cancelled after the cycle started, so it **stays planned**. A **"Not needed"** close is left out of Potential whenever it was closed (ADR-0007 amendment 2026-10-09, decision 24).
+
+**One-time projects: one lump sum** (decision 2 with R1 and Q4). The project's amount is never split across its items (they carry no `item_billing` rows).
+- **Potential** sits in the IST month of `projects.delivery_date`; while the project is overdue and not completed, in the current month ("Was due …").
+- **Achieved** is all or nothing: the full amount once the project is **completed, by the Owner or the client's Admin** (`project_complete`), in the IST month of completion, with its Potential moved to that month too. A reopen takes it back. Marking the last open deliverable done offers "Mark done and complete project" / "Mark done only" to whoever marks it (no amount shown to an Admin).
+- **Cancelled counts ₹0:** closed, not achieved, in the month it was cancelled; no adjusted figure.
+- **Advances** (`project_advances`, Owner-only) are reported as "Advances received" in the month received (a return in its own month) and are never Achieved.
+
+**Totals (cycle / project / client / category / month):**
+- **Potential** = for a retainer, Σ item_value of its planned items plus its priced additions; for a one-time project, its lump sum in the month above.
+- **Achieved** = for a retainer, Σ item_value of its items with `state = approved` (planned items and additions), attributed to the **origin** cycle's period; for a one-time project, the lump sum once completed.
+- **Closed, not achieved** = Σ item_value of planned items with `state = cancelled` (and a cancelled one-time project's lump sum), reported as its own line so lost revenue stays visible.
 - **Remaining** = Potential − Achieved.
 - **Overrides:** `revenue_overrides` for a cycle or one-time project store `calculated_value` (frozen when overriding), `adjusted_value`, note, Owner and time. Reports show *System calculated* and *Owner adjusted* side by side.
 - This is implemented as security-invoker SQL views over Owner-only tables. Non-Owner roles can't select from them.

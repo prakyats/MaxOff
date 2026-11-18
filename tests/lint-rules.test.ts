@@ -48,6 +48,8 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/tasks/components/denied-money.ts": [SYNTAX],
   "modules/tasks/components/denied-money-template.ts": [SYNTAX],
   "modules/tasks/components/denied-money-embedded.ts": [SYNTAX],
+  "modules/tasks/components/denied-money-advances.ts": [SYNTAX],
+  "modules/tasks/components/denied-money-item-values.ts": [SYNTAX],
   // expense claims are named only inside modules/expenses (ADR-0007 amendment)
   "modules/tasks/components/denied-expense.ts": [SYNTAX],
   // domain is platform-free (ADR-0011)

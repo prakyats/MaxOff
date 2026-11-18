@@ -19,11 +19,11 @@ select is(
         'public.project_items', 'public.task_assignees', 'public.tasks']::text[],
   'Realtime publishes only these tables: notifications (5.1), the four Today and My Day re-read on (6A) and project_items (7B)');
 -- The real money tables (ADR-0007, PERMISSIONS §2; those of phases 7 and 9 named before they exist,
--- so they can never join) and the Owner-only settings row.
+-- so they can never join; `project_advances` per the ADR-0007 amendment 2026-10-02) and the Owner-only settings row.
 select ok(not exists (
     select 1 from pg_publication_tables
     where tablename in ('project_billing', 'item_billing', 'cycle_billing', 'revenue_overrides',
-                        'expense_claims', 'eod_reports', 'month_snapshots', 'org_settings',
+                        'project_advances', 'expense_claims', 'eod_reports', 'month_snapshots', 'org_settings',
                         'client_private', 'client_close_reasons', 'client_work_alerts')),
   'no money or Owner-only table is in any publication');
 select is(

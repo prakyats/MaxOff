@@ -20,6 +20,13 @@ The 22 "still valid" decisions from kickoff 9 (PR #42, 9 Oct) stand.
 - **Q6:** freelancer payments are not in phase 9.
 - **Q7:** billing history is Owner-only, in its own section.
 
+**Amendments, 18 Nov 2026 (the owner, via the advisor; #89 6984558164), settled before 9.1:**
+- **R4, what counts as "added":** a deliverable **not in the month's plan**, meaning one created in a cycle **after the cycle's item list was generated**: `item_add`, "Also add to ‹month›?" and bulk adds. It is ₹0 until the Owner prices it, then priced **on top**. **Work carried in from last month is not an addition.**
+- **Q1, "this month on" for weekly retainers:** the first amount covers every cycle that **starts on or after the 1st of the current IST month**. Earlier cycles show "No amount set".
+- **Who builds it:** the v2.1 pre-work (money seals, the one-time wording, ADR-0007's kickoff-9 amendments, `formatRupees` in `core/lib`) lands first as its own PR. A fresh session at BUILD-GUIDE's [H] tier builds **9.1 onward** from that `main`.
+
+Both are recorded in WORKFLOWS §6, PRODUCT §4.12 and ADR-0007 (amendment 2026-10-02).
+
 ---
 
 # Phase 9 refresh: Revenue, reports and month close (14 Nov 2026)
