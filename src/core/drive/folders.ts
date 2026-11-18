@@ -63,11 +63,12 @@ export function taskFolderPath(input: TaskFolderInput): FolderStep[] {
   return [
     ...top,
     { kind: "month", name: input.month, clientId, month: input.month, taskId: null },
+    // Keyed by the task alone: filed once, it stays in the month it was first made in (Q2).
     {
       kind: "task",
       name: folderName(input.task.title),
-      clientId,
-      month: input.month,
+      clientId: null,
+      month: null,
       taskId: input.task.id,
     },
   ];

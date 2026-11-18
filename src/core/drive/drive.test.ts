@@ -18,7 +18,11 @@ import { decryptToken, encryptToken } from "./token-crypto";
 
 const KEY = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => i)));
 const OTHER_KEY = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => 255 - i)));
-const ROOT = { id: "root1", driveFolderId: "r1" };
+const ROOT = { id: "root1", driveFolderId: "r1", name: "MaxOff" };
+/** Drive's rename, never expected in a walk that renames nothing. */
+const noRename = async () => {
+  throw new Error("nothing should be renamed");
+};
 const NOW = new Date("2026-11-18T10:00:00Z");
 
 describe("the Drive settings", () => {
@@ -87,7 +91,7 @@ describe("the folder path", () => {
     expect(path.map((step) => step.kind)).toEqual(["clients", "client", "month", "task"]);
     // Keyed by ids and the month, never by names.
     expect(path[1]).toMatchObject({ clientId: "c1", taskId: null });
-    expect(path[3]).toMatchObject({ clientId: "c1", month: "2026-11", taskId: "t1" });
+    expect(path[3]).toMatchObject({ clientId: null, month: null, taskId: "t1" });
   });
 
   it("is Internal / month / task without a client", () => {
@@ -248,11 +252,83 @@ function memoryStore() {
       rows.set(key(step, account), row);
       return row;
     },
+    async rename(folder, name) {
+      for (const row of rows.values()) if (row.id === folder.id) row.name = name;
+      return { ...folder, name };
+    },
   };
   return { store, rows };
 }
 
 describe("making a task's folder", () => {
+  it("leaves a filed task where it is, in the month it was first made (Q2)", async () => {
+    const { store } = memoryStore();
+    const made: string[] = [];
+    const make = async (input: { name: string; parentId: string | null }) => {
+      made.push(input.name);
+      return { id: `m:${input.name}` };
+    };
+    const folder = {
+      client: { id: "c1", name: "Cafe Mocha" },
+      month: "2026-11",
+      task: { id: "t1", title: "Brand reel" },
+    };
+    const first = await ensureTaskFolder({
+      store,
+      rename: noRename,
+      make,
+      accountId: "a",
+      root: ROOT,
+      folder,
+    });
+    const later = await ensureTaskFolder({
+      store,
+      rename: noRename,
+      make,
+      accountId: "a",
+      root: ROOT,
+      folder: { ...folder, month: "2026-12" },
+    });
+    expect(later).toEqual(first);
+    // No December folder is made for a task filed in November.
+    expect(made).toEqual(["Clients", "Cafe Mocha", "2026-11", "Brand reel"]);
+  });
+
+  it("renames a renamed client's folder on the way past, keeping it (Q3)", async () => {
+    const { store, rows } = memoryStore();
+    const make = async (input: { name: string; parentId: string | null }) => ({
+      id: `n:${input.name}`,
+    });
+    const folder = {
+      client: { id: "c1", name: "Cafe Mocha" },
+      month: "2026-11",
+      task: { id: "t1", title: "Brand reel" },
+    };
+    await ensureTaskFolder({ store, rename: noRename, make, accountId: "a", root: ROOT, folder });
+    const renamed: Array<{ folderId: string; name: string }> = [];
+    const rename = async (input: { folderId: string; name: string }) => {
+      renamed.push(input);
+    };
+    const next = await ensureTaskFolder({
+      store,
+      rename,
+      make,
+      accountId: "a",
+      root: ROOT,
+      folder: {
+        ...folder,
+        client: { id: "c1", name: "Cafe Mocha Roasters" },
+        task: { id: "t2", title: "Menu" },
+      },
+    });
+    expect(renamed).toEqual([{ folderId: "n:Cafe Mocha", name: "Cafe Mocha Roasters" }]);
+    expect([...rows.values()].map((row) => row.name)).toContain("Cafe Mocha Roasters");
+    expect(next.driveFolderId).toBe("n:Menu");
+    expect([...rows.values()].find((row) => row.driveFolderId === "n:Menu")?.parent).toBe(
+      "n:2026-11",
+    );
+  });
+
   const folder = {
     client: { id: "c1", name: "Cafe Mocha" },
     month: "2026-11",
@@ -266,7 +342,14 @@ describe("making a task's folder", () => {
       made.push(input);
       return { id: `g${made.length}` };
     };
-    const task = await ensureTaskFolder({ store, make, accountId: "acct1", root: ROOT, folder });
+    const task = await ensureTaskFolder({
+      store,
+      rename: noRename,
+      make,
+      accountId: "acct1",
+      root: ROOT,
+      folder,
+    });
     expect(made).toEqual([
       { name: "Clients", parentId: "r1" },
       { name: "Cafe Mocha", parentId: "g1" },
@@ -275,11 +358,19 @@ describe("making a task's folder", () => {
     ]);
     expect(task.driveFolderId).toBe("g4");
     // Again: nothing new is made.
-    await ensureTaskFolder({ store, make, accountId: "acct1", root: ROOT, folder });
+    await ensureTaskFolder({
+      store,
+      rename: noRename,
+      make,
+      accountId: "acct1",
+      root: ROOT,
+      folder,
+    });
     expect(made).toHaveLength(4);
     // The client's next task reuses Clients, the client and the month.
     await ensureTaskFolder({
       store,
+      rename: noRename,
       make,
       accountId: "acct1",
       root: ROOT,
@@ -298,20 +389,35 @@ describe("making a task's folder", () => {
       return { id: `h${calls}:${input.name}` };
     };
     await expect(
-      ensureTaskFolder({ store, make: failing, accountId: "acct1", root: ROOT, folder }),
+      ensureTaskFolder({
+        store,
+        rename: noRename,
+        make: failing,
+        accountId: "acct1",
+        root: ROOT,
+        folder,
+      }),
     ).rejects.toThrow("rate limited");
     const made: string[] = [];
     const make = async (input: { name: string; parentId: string | null }) => {
       made.push(input.name);
       return { id: `k:${input.name}` };
     };
-    await ensureTaskFolder({ store, make, accountId: "acct1", root: ROOT, folder });
+    await ensureTaskFolder({
+      store,
+      rename: noRename,
+      make,
+      accountId: "acct1",
+      root: ROOT,
+      folder,
+    });
     expect(made).toEqual(["2026-11", "Brand reel"]);
     await ensureTaskFolder({
       store,
+      rename: noRename,
       make,
       accountId: "acct2",
-      root: { id: "root2", driveFolderId: "r2" },
+      root: { id: "root2", driveFolderId: "r2", name: "MaxOff" },
       folder,
     });
     expect(made.slice(2)).toEqual(["Clients", "Cafe Mocha", "2026-11", "Brand reel"]);

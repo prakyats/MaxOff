@@ -6,7 +6,7 @@
 -- second organisation. Neutral names and example.com addresses only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(123);
+select plan(128);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -107,14 +107,16 @@ select is((select count(*) from pg_trigger g where g.tgrelid = 'public.drive_acc
 select is((select count(*) from unnest(array[
     'public.drive_mark_needs_reconnect(uuid, text)', 'public.drive_store_access_token(uuid, text, timestamptz)',
     'public.drive_record_quota(uuid, bigint, bigint)', 'public.drive_folder_find(uuid, text, text, uuid, text, uuid)',
-    'public.drive_folder_put(uuid, text, text, uuid, text, uuid, uuid, text, text)']) f,
+    'public.drive_folder_put(uuid, text, text, uuid, text, uuid, uuid, text, text)',
+    'public.drive_folder_rename(uuid, uuid, text)']) f,
     unnest(array['anon', 'authenticated']) r
-  where has_function_privilege(r, f, 'execute')), 0::bigint, 'the Worker''s five functions: not anon, not authenticated');
+  where has_function_privilege(r, f, 'execute')), 0::bigint, 'the Worker''s six functions: not anon, not authenticated');
 select is((select count(*) from unnest(array[
     'public.drive_mark_needs_reconnect(uuid, text)', 'public.drive_store_access_token(uuid, text, timestamptz)',
     'public.drive_record_quota(uuid, bigint, bigint)', 'public.drive_folder_find(uuid, text, text, uuid, text, uuid)',
-    'public.drive_folder_put(uuid, text, text, uuid, text, uuid, uuid, text, text)']) f
-  where has_function_privilege('service_role', f, 'execute')), 5::bigint, 'the Worker''s five functions: service_role');
+    'public.drive_folder_put(uuid, text, text, uuid, text, uuid, uuid, text, text)',
+    'public.drive_folder_rename(uuid, uuid, text)']) f
+  where has_function_privilege('service_role', f, 'execute')), 6::bigint, 'the Worker''s six functions: service_role');
 select is((select count(*) from unnest(array['public.drive_status()', 'public.drive_disconnect()',
     'public.drive_connect_complete(text, text, text, text, timestamptz, text[], text)']) f
   where has_function_privilege('anon', f, 'execute')), 0::bigint, 'the Owner''s three functions: not anon');
@@ -321,6 +323,17 @@ select is(pg_temp.raised(format('select public.drive_folder_put(%L, ''sub-c'', '
   pg_temp.fx('org'))), 'new row for relation "drive_folders" violates check constraint "drive_folders_month_check"', 'a month that is not YYYY-MM is refused');
 select is(pg_temp.raised(format('select public.drive_folder_put(%L, ''sub-c'', ''client'', null, null, null, null, ''f'', ''n'')',
   pg_temp.fx('org'))), 'new row for relation "drive_folders" violates check constraint "drive_folders_key_by_kind"', 'a client folder needs its client');
+select is((public.drive_folder_rename(pg_temp.fx('org'), pg_temp.fx('client_c'), '  Drive client 144 renamed ')).name,
+  'Drive client 144 renamed', 'rename: the cached client folder takes the new name, trimmed');
+select is((public.drive_folder_find(pg_temp.fx('org'), 'sub-c', 'client', pg_temp.fx('client'), null, null)).drive_folder_id,
+  'folder-client-c', 'rename: still the same folder (the key never changes)');
+select is(pg_temp.raised(format('select public.drive_folder_rename(%L, %L, ''x'')', pg_temp.fx('org_b'), pg_temp.fx('client_c'))),
+  'NOT_FOUND', 'rename: another organisation''s folder is NOT_FOUND');
+select is(pg_temp.raised(format('select public.drive_folder_rename(%L, %L, ''  '')', pg_temp.fx('org'), pg_temp.fx('client_c'))),
+  'VALIDATION', 'rename: an empty name is VALIDATION');
+select pg_temp.as_member('owner');
+select is(pg_temp.raised(format('select public.drive_folder_rename(%L, %L, ''x'')', pg_temp.fx('org'), pg_temp.fx('client_c'))),
+  'permission denied for function drive_folder_rename', 'rename: the Owner''s session cannot call it');
 select pg_temp.as_system();
 select is(pg_temp.raised(format('insert into public.drive_folders (org_id, account_sub, kind, drive_folder_id, name) values (%L, ''sub-c'', ''root'', ''dup'', ''dup'')',
   pg_temp.fx('org'))), 'duplicate key value violates unique constraint "drive_folders_key"', 'the key is unique per account, nulls included');

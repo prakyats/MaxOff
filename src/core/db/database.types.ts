@@ -5162,6 +5162,28 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      drive_folder_rename: {
+        Args: { p_id: string; p_name: string; p_org: string };
+        Returns: {
+          account_sub: string;
+          client_id: string | null;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          kind: string;
+          month: string | null;
+          name: string;
+          org_id: string;
+          parent_id: string | null;
+          task_id: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "drive_folders";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       drive_mark_needs_reconnect: {
         Args: { p_error: string; p_org: string };
         Returns: boolean;

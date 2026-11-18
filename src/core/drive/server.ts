@@ -169,8 +169,12 @@ export function folderStore(service: ServiceSupabase, orgId: string): FolderStor
     p_month: step.month as string,
     p_task: step.taskId as string,
   });
-  const toCached = (row: { id: string | null; drive_folder_id: string | null } | null) =>
-    row?.id && row.drive_folder_id ? { id: row.id, driveFolderId: row.drive_folder_id } : null;
+  const toCached = (
+    row: { id: string | null; drive_folder_id: string | null; name: string | null } | null,
+  ) =>
+    row?.id && row.drive_folder_id && row.name
+      ? { id: row.id, driveFolderId: row.drive_folder_id, name: row.name }
+      : null;
 
   return {
     async find(step, accountId) {
@@ -188,6 +192,17 @@ export function folderStore(service: ServiceSupabase, orgId: string): FolderStor
       if (error) throw new Error(`drive_folder_put: ${error.message}`);
       const cached = toCached(data);
       if (!cached) throw new Error("drive_folder_put returned no folder");
+      return cached;
+    },
+    async rename(folder, name) {
+      const { data, error } = await service.rpc("drive_folder_rename", {
+        p_org: orgId,
+        p_id: folder.id,
+        p_name: name,
+      });
+      if (error) throw new Error(`drive_folder_rename: ${error.message}`);
+      const cached = toCached(data);
+      if (!cached) throw new Error("drive_folder_rename returned no folder");
       return cached;
     },
   };
