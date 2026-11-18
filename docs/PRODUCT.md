@@ -492,7 +492,7 @@ There's **no monthly paid-leave allowance** and **no salary in MaxOff**: the Own
 | Email cap per person per day | **20** (invites and escalations bypass it) |
 | Logout reminder | **8:30 PM IST** |
 | Owner attendance | **Exempt.** The gate and the attendance jobs apply to Admins and Staff only |
-| Google Drive archive account | `pcproductions.work@gmail.com` (Google One 2 TB, personal account) |
+| Google Drive archive account | the studio's Gmail (address kept out of the repo; Google One 2 TB, personal account) |
 
 ## 8. Open questions (not blocking the schema)
 - [x] **Admin reports: settled 2026-09-23** (§4.13). Six KPIs plus two lists, computed only from their assigned clients and visible tasks; work only, never money, attendance or leave.
