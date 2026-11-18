@@ -1672,16 +1672,79 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 **The calendar's reads (6.4, 2026-10-07; Kickoff 6 decisions 13–15):** no new table, column, function or policy. The page reads, as the signed-in member: `tasks` with an event date in the range (`listEventTasks`, now with `event_end_at`, `client_id` and `task_type_id`) and every open task (`listOpenTaskRows`, the Due list), `task_types` (now with `shows_on_calendar`), `holidays`, `org_settings.weekly_off_days`, `member_directory`, `client_labels`, and `leave_requests` in `approved` or `submitted` (a pending cancellation left out): their own for an Admin or Crew, everyone's for the Owner (`listLeaveBetween`, RLS). An Admin adds `member_availability()` over the range (`listAvailability`, in slices under the 1000-row limit): the `leave` fact and the `event_blocks` of everyone else. The rules are pure (`modules/calendar/domain`).
 
 ## 7. Money (all Owner-only tables)
-## 7. Money (all Owner-only tables)
+> **Built in 9.1 (v2.1 "Money in", Nov 2026; migration `money_tables`).** Rules: WORKFLOWS §6, kickoff 9 (decisions 1–11, 23, 24) as refreshed on 14 Nov 2026 (`docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`, OWNER ANSWERS) and the owner's answers of 18 Nov 2026 (R4 "added", Q1 for weekly retainers). ADR-0007 and its amendments.
+
+Enums: `billing_category` (`retainer | project | additional_work`), `billing_status` (`not_billed | billed`).
+
 ```
-project_billing      project_id pk, cycle_amount numeric null (recurring), fixed_amount numeric null (one-time)
-item_billing         item_id pk, value numeric                       -- explicit per-item value
-cycle_billing        cycle_id pk, billing_status, billed_on date, note
-revenue_overrides    id, scope ('cycle'|'project'), ref_id, calculated_value, adjusted_value,
-                     note, by_id, at, superseded_at null
-views (security invoker, Owner only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
+project_billing      project_id pk, org_id, billing_category null, cycle_amount numeric null, fixed_amount numeric null,
+                     priced_from date null, created_at, updated_at
+                     -- A row exists only once the Owner has set something. No row, or a null category = the
+                     -- default from recurrence (weekly / monthly -> retainer, one_time -> project; R6).
+                     -- cycle_amount: a retainer's default for new cycles. fixed_amount: a one-time project's
+                     -- lump sum. null = "No amount set" (flagged); 0 = "Not billable" (never flagged). Whole
+                     -- rupees (check), >= 0. cycle_amount only on weekly / monthly projects, fixed_amount only
+                     -- on one-time ones (enforced by billing_set_project).
+                     -- priced_from (Q1, "this month on"): the 1st of the IST month in which the first amount
+                     -- was entered; set once, never moved. A month before it reads "No amount set".
+cycle_billing        cycle_id pk, org_id, project_id, cycle_amount numeric null, billing_status default 'not_billed',
+                     billed_on date null, note null, created_at, updated_at
+                     -- Decision 3: each retainer cycle keeps its own amount. Written by (a) the AFTER INSERT
+                     -- trigger on project_cycles, which copies project_billing.cycle_amount when the project
+                     -- has one (no row is written for a project with no amount); (b) billing_set_project: the FIRST amount goes to every cycle whose
+                     -- period_start is on or after the 1st of the current IST month (Q1), a LATER change to the
+                     -- cycle current today and later ones; (c) billing_set_cycle_amount, one cycle alone.
+                     -- No row or a null amount = "No amount set". A one-time project's single cycle carries
+                     -- only the billing status of the project as a whole (decision 7).
+                     -- billed <=> billed_on is not null.
+item_billing         item_id pk, org_id, added boolean (default false), value numeric null, created_at, updated_at
+                     -- A retainer deliverable's own value; whole rupees, >= 0; refused on a one-time project.
+                     -- On a PLAN deliverable it comes off the top of the cycle's amount (decision 4): the sum
+                     -- of the plan's explicit values can't exceed the cycle's amount. On an ADDED deliverable
+                     -- (R4) it is the price on top, with no upper limit. value null = "back to the split" /
+                     -- "not priced": the row stays (nothing is deleted), set through item_value_set(item, null).
+revenue_overrides    id, org_id, scope ('cycle' | 'project'), ref_id, calculated_value, adjusted_value, note,
+                     by_id, at, superseded_at null, superseded_note null
+                     -- Decision 6: 'cycle' = a retainer cycle, 'project' = a one-time project. Adjusts Achieved
+                     -- only. One live row per (scope, ref_id) (partial unique index where superseded_at is
+                     -- null). A new override, or "Back to calculated" (note required), supersedes; never deleted.
+project_advances     id, org_id, project_id, amount numeric (whole rupees, > 0), received_on date,
+                     note null, recorded_by, recorded_at, returned_on date null, return_note null, returned_by null
+                     -- Decision 23: one-time projects only. Sum of advances not returned <= fixed_amount (and
+                     -- the amount can't go below it). Never Achieved: "Advances received" in the IST month of
+                     -- received_on, a return in the month of returned_on.
 ```
 All amounts are `numeric(12,2)` in INR.
+
+**Access (every table above):** RLS with **one** policy, `select` for `finance.view` in the caller's org (the Owner). **No insert, update or delete grant to anyone:** every write goes through a `finance.edit` function below. Each table has the audit trigger under **its own entity name** (`project_billing`, `cycle_billing`, …), which no Admin-readable `activity_log` policy matches. None is in the Realtime publication (pgTAP 46). **No money column, and no money in audit `meta`, on `projects`, `project_cycles` or `project_items`** (§5).
+
+**Plan or added (R4, owner 18 Nov 2026).** A deliverable is **in the plan** of its cycle when the cycle's item list made it: `app.cycle_create` (a new cycle with its list) or `app.cycle_copy_item_list` (the nightly copy for a client that became Active again). Every other retainer deliverable that was not carried in (`item_add`, `item_add_grouped`, `project_blueprint_add_to_cycle`) is **added**. The fact is recorded when the deliverable is written: the `AFTER INSERT` trigger `item_billing_mark_added` on `project_items` reads the functions on the call stack and, for an added one, writes `item_billing (added = true, value null)`. **No column on `project_items` stores it**, and the existing functions are unchanged. A path the trigger does not know counts as added, so it shows to the Owner as "not priced" instead of silently joining the split; pgTAP 144 pins every path. Deliverables that existed before the migration were marked by `created_at` later than their cycle's and a creator. A carried-in deliverable is neither: it is valued in its origin cycle. A one-time project's deliverables are never marked (one lump sum).
+
+**Functions (all `finance.edit`, security definer, audited; refusals carry no amount):**
+```
+billing_set_project(project_id, amount numeric, set_amount boolean, category billing_category)
+billing_set_cycle_amount(cycle_id, amount numeric)                -- null = back to "No amount set"
+item_value_set(item_id, value numeric)                            -- null = back to the split / not priced
+advance_record(project_id, amount, received_on date, note) -> uuid
+advance_return(advance_id, returned_on date, note)
+billing_mark(cycle_ids uuid[], billed boolean, billed_on date, note)
+revenue_override_set(scope, ref_id, adjusted_value, note) -> uuid
+revenue_override_clear(scope, ref_id, note)
+```
+
+**Views (security invoker, select granted to `authenticated`; a non-Owner reads zero rows because the tables under them are Owner-only):**
+```
+item_values_v              one row per retainer deliverable valued in its ORIGIN cycle: kind (plan | added),
+                           value, method (explicit | split | added | not_priced | no_amount), in_potential,
+                           achieved, closed_not_achieved; month = the IST month the origin cycle starts in
+revenue_by_cycle_v         one row per retainer cycle: month, amount, potential, calculated and headline
+                           achieved (override), closed_not_achieved, added total, not-priced count, billing status
+revenue_project_lines_v    one row per one-time project: its month (delivery month; the current month while
+                           overdue; the completion month; the cancellation month), amount (null before
+                           priced_from), potential, achieved, was_due, ready_to_complete, held, advances
+revenue_advances_v         advances received and returned, each in its own IST month
+revenue_by_client_month_v  the two above summed by org, client, month and billing category
+```
 
 ### 7a. Expense claims (a member's own money; ADR-0007 amendment 2026-09-27, task 3b.3)
 Not business money and not in `modules/revenue`: a member's own reimbursement claims, read and written only through `modules/expenses` (lint: the relation name appears nowhere else in `src/`).
