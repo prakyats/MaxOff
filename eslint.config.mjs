@@ -20,6 +20,7 @@ const DB_ALLOWED_CORE_AREAS = [
   "custom-fields",
   "notifications",
   "storage",
+  "drive",
 ];
 
 /** The only `core/` areas a module's `domain/` may import: pure helpers with no platform tie (ADR-0011). */

@@ -1012,6 +1012,166 @@ export type Database = {
           },
         ];
       };
+      drive_account: {
+        Row: {
+          access_token_encrypted: string | null;
+          connected_at: string;
+          connected_by: string;
+          google_email: string;
+          google_sub: string;
+          last_error: string | null;
+          org_id: string;
+          quota_alert_level: number;
+          quota_checked_at: string | null;
+          quota_total_bytes: number | null;
+          quota_used_bytes: number | null;
+          refresh_token_encrypted: string | null;
+          root_folder_id: string | null;
+          scopes: string[];
+          state: string;
+          token_expires_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          access_token_encrypted?: string | null;
+          connected_at: string;
+          connected_by: string;
+          google_email: string;
+          google_sub: string;
+          last_error?: string | null;
+          org_id: string;
+          quota_alert_level?: number;
+          quota_checked_at?: string | null;
+          quota_total_bytes?: number | null;
+          quota_used_bytes?: number | null;
+          refresh_token_encrypted?: string | null;
+          root_folder_id?: string | null;
+          scopes?: string[];
+          state: string;
+          token_expires_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          access_token_encrypted?: string | null;
+          connected_at?: string;
+          connected_by?: string;
+          google_email?: string;
+          google_sub?: string;
+          last_error?: string | null;
+          org_id?: string;
+          quota_alert_level?: number;
+          quota_checked_at?: string | null;
+          quota_total_bytes?: number | null;
+          quota_used_bytes?: number | null;
+          refresh_token_encrypted?: string | null;
+          root_folder_id?: string | null;
+          scopes?: string[];
+          state?: string;
+          token_expires_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "drive_account_connected_by_fkey";
+            columns: ["connected_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "drive_account_connected_by_fkey";
+            columns: ["connected_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "drive_account_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      drive_folders: {
+        Row: {
+          account_sub: string;
+          client_id: string | null;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          kind: string;
+          month: string | null;
+          name: string;
+          org_id: string;
+          parent_id: string | null;
+          task_id: string | null;
+        };
+        Insert: {
+          account_sub: string;
+          client_id?: string | null;
+          created_at?: string;
+          drive_folder_id: string;
+          id?: string;
+          kind: string;
+          month?: string | null;
+          name: string;
+          org_id: string;
+          parent_id?: string | null;
+          task_id?: string | null;
+        };
+        Update: {
+          account_sub?: string;
+          client_id?: string | null;
+          created_at?: string;
+          drive_folder_id?: string;
+          id?: string;
+          kind?: string;
+          month?: string | null;
+          name?: string;
+          org_id?: string;
+          parent_id?: string | null;
+          task_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "drive_folders_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "drive_folders_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "drive_folders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "drive_folders_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "drive_folders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "drive_folders_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       early_leave_requests: {
         Row: {
           created_at: string;
@@ -4928,6 +5088,93 @@ export type Database = {
       };
       digest_daily: { Args: { p_now?: string }; Returns: number };
       digest_weekly: { Args: { p_now?: string }; Returns: number };
+      drive_connect_complete: {
+        Args: {
+          p_access_enc: string;
+          p_email: string;
+          p_expires_at: string;
+          p_refresh_enc: string;
+          p_root_folder_id: string;
+          p_scopes: string[];
+          p_sub: string;
+        };
+        Returns: string;
+      };
+      drive_disconnect: { Args: never; Returns: undefined };
+      drive_folder_find: {
+        Args: {
+          p_account_sub: string;
+          p_client: string;
+          p_kind: string;
+          p_month: string;
+          p_org: string;
+          p_task: string;
+        };
+        Returns: {
+          account_sub: string;
+          client_id: string | null;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          kind: string;
+          month: string | null;
+          name: string;
+          org_id: string;
+          parent_id: string | null;
+          task_id: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "drive_folders";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      drive_folder_put: {
+        Args: {
+          p_account_sub: string;
+          p_client: string;
+          p_drive_folder_id: string;
+          p_kind: string;
+          p_month: string;
+          p_name: string;
+          p_org: string;
+          p_parent: string;
+          p_task: string;
+        };
+        Returns: {
+          account_sub: string;
+          client_id: string | null;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          kind: string;
+          month: string | null;
+          name: string;
+          org_id: string;
+          parent_id: string | null;
+          task_id: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "drive_folders";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      drive_mark_needs_reconnect: {
+        Args: { p_error: string; p_org: string };
+        Returns: boolean;
+      };
+      drive_record_quota: {
+        Args: { p_org: string; p_total: number; p_used: number };
+        Returns: number;
+      };
+      drive_status: { Args: never; Returns: Json };
+      drive_store_access_token: {
+        Args: { p_access_enc: string; p_expires_at: string; p_org: string };
+        Returns: undefined;
+      };
       early_leave_decide: {
         Args: {
           decision: string;

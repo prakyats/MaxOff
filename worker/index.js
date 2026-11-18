@@ -26,6 +26,8 @@ const CRON_ROUTES = {
   "30 21 * * *": "/api/cron/storage-cleanup",
   // Every minute (5.2): queued push and email deliveries, retries, the 07:00 IST quiet-hours summary.
   "* * * * *": "/api/cron/push-dispatch",
+  // 09:05 IST = 03:35 UTC, daily (v4.0): the connected Google Drive's space, alerts at 80 % / 90 %.
+  "35 3 * * *": "/api/cron/drive-space-check",
 };
 
 const worker = {

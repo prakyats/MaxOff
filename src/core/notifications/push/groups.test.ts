@@ -18,6 +18,8 @@ const KINDS = [
   "coordinator_missing",
   "coordinator_removed",
   "cycle_generated",
+  "drive_needs_reconnect",
+  "drive_space_low",
   "early_leave_decided",
   "early_leave_requested",
   "end_day_reminder",

@@ -418,10 +418,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "drive",
     label: "Google Drive",
     href: "/settings/drive",
-    description: "The archive account and the archive queue.",
+    description: "The archive account and its space.",
     permission: "drive.manage",
     arrivesIn: "8.3",
-    ready: false,
+    ready: true,
     group: "integrations",
   },
 ];

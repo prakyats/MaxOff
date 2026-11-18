@@ -1885,6 +1885,7 @@ export const OWNER_GUIDE: Guide = {
               "Task types: the kinds of task, their order and what each asks for.",
               "Custom fields: extra fields on clients and contacts.",
               "Templates: stage presets, deliverable, project and task templates, on one page.",
+              "Google Drive: the studio's Google account client work is archived to, and its space.",
             ),
             text(
               "The sections sit in groups named by what they hold: Company and working days; Team (Notifications, Job titles); Lists, templates and integrations. Each row says in one line what it holds, and Help, at the foot, opens How MaxOff works. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
@@ -1925,6 +1926,35 @@ export const OWNER_GUIDE: Guide = {
           ],
           link: { href: "/settings/thresholds", label: "Open Thresholds" },
           keywords: ["reminder", "escalate", "quiet hours", "email cap", "workload"],
+        },
+        {
+          id: "owner-google-drive",
+          title: "Connect Google Drive",
+          summary: "Link the studio's Google account so client work can be archived to its Drive.",
+          blocks: [
+            text(
+              'Settings, then Google Drive shows whether Drive is connected, which Google account it uses and how much space is left ("640 GB free of 2 TB"). Only you see this section.',
+            ),
+            steps(
+              "Open Settings, then Google Drive.",
+              'Tap "Connect Google Drive". Google opens: choose the studio\'s account and allow access.',
+              'Google sends you back to MaxOff, which says "Google Drive is connected."',
+            ),
+            next(
+              'MaxOff makes one folder called "MaxOff" in that Drive and only ever sees what it made there, never your other files. Inside it, client work is filed as Clients, then the client, then the month, then the task.',
+            ),
+            text(
+              'Every morning MaxOff checks the space and tells you once when the Drive is 80% full and once more at 90%. If Google stops letting MaxOff in (a changed password, or access removed in your Google account), you get a notification and the section says "Needs reconnecting": tap "Reconnect".',
+            ),
+            text(
+              '"Use another account" switches to a different Google account; new work goes there and nothing is moved or deleted from the old one. "Disconnect" stops archiving until you connect again; everything already in Drive stays where it is.',
+            ),
+            note(
+              "Connect the studio's own Google account, not a personal one: the files belong to whoever owns that account.",
+            ),
+          ],
+          link: { href: "/settings/drive", label: "Open Google Drive settings" },
+          keywords: ["drive", "google", "archive", "storage", "space", "backup", "connect"],
         },
         {
           id: "owner-reachability",

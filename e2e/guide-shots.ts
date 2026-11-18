@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { addISTDays, todayIST } from "../src/core/time";
-import { openMoreOptions } from "./helpers";
+import { openMoreOptions, serviceDelete } from "./helpers";
 
 /**
  * The in-app guide's screenshots, one entry per picture (ROADMAP 6b.14, Release 2). Read by
@@ -1059,6 +1059,18 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => page.getByRole("link", { name: /^Thresholds/ }),
     crop: main,
     alt: "Settings with Thresholds highlighted.",
+  },
+  {
+    id: "owner/drive",
+    path: "/settings/drive",
+    // The first connect: the screen as the Owner meets it before any Google account is linked.
+    prepare: async (page) => {
+      await serviceDelete("drive_account?org_id=not.is.null");
+      await page.reload();
+    },
+    highlight: (page) => page.getByRole("link", { name: "Connect Google Drive" }),
+    crop: main,
+    alt: "Google Drive settings with Connect Google Drive highlighted.",
   },
   {
     id: "owner/thresholds",

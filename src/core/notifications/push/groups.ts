@@ -83,6 +83,9 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   expense_decided: "other",
   // 5.4: someone the Owner cannot reach (about a person, like coordinator_missing).
   member_unreachable: "other",
+  // v4.0: the company Google Drive needs the Owner (reconnect, or space running out).
+  drive_needs_reconnect: "other",
+  drive_space_low: "other",
   // 6.5: the Owner's end-of-day report is ready (its own group: a report, not a nudge).
   eod_report_ready: "reports",
   // 6.5: the weekly digest is email only and never pushed; named so the map stays complete.

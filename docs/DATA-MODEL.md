@@ -69,6 +69,9 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    v1.9 W7 (migration on_hold; all in-app and push, never email): task_held, task_resumed
                    (a task's assignees, quietly; its creator when the Owner acts on an Admin's task),
                    project_held, project_resumed (the client's Admin, when the Owner acts).
+                   v4.0 D1 (migration drive_connect; actionable: email only as the fallback, the Owner
+                   only): drive_needs_reconnect ("Google Drive needs reconnecting"), drive_space_low
+                   ("Google Drive is 80% full: X GB free", then once at 90 %).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -1751,18 +1754,29 @@ month_summary(month date, member_id uuid default null)
 
 ## 8. Google Drive archive (Owner-managed, core module `drive`)
 ```
-drive_account        org_id pk, google_email, refresh_token_encrypted, access_token_encrypted,
-                     token_expires_at, root_folder_id, scopes, connected_by, connected_at,
-                     state ('connected'|'needs_reconnect'|'disconnected'), last_error,
-                     quota_total_bytes, quota_used_bytes, quota_checked_at
-drive_folders        id, org_id, path_key text unique       -- e.g. 'Clients/Cafe Mocha/2026-10/Photos'
-                     drive_folder_id, created_at            -- cache so folders are made once
-drive_jobs           id, submission_item_id, kind ('copy_link'|'upload_file'|'recheck_link'|
+drive_account        org_id pk → organizations, google_email, google_sub (the Google account id),
+                     refresh_token_encrypted null, access_token_encrypted null, token_expires_at null,
+                     scopes text[], root_folder_id null (MaxOff's top folder in that Drive),
+                     state ('connected'|'needs_reconnect'|'disconnected'), last_error null (≤ 500),
+                     connected_by → members, connected_at, quota_total_bytes null, quota_used_bytes null,
+                     quota_checked_at null, quota_alert_level smallint (0, 80 or 90: the highest space
+                     alert already sent), updated_at
+                     -- connected ⇒ a refresh token; disconnected ⇒ no token at all
+drive_folders        id, org_id, account_sub (the Google account the folder lives in),
+                     kind ('root'|'clients'|'internal'|'client'|'month'|'task'), client_id null → clients,
+                     task_id null → tasks, month null ('YYYY-MM'), parent_id null → drive_folders,
+                     drive_folder_id, name, created_at
+                     -- unique (org_id, account_sub, kind, client_id, month, task_id) NULLS NOT DISTINCT
+drive_jobs           later (v4.5+): id, subject, kind ('copy_link'|'upload_file'|'recheck_link'|
                      'delete_local'), state ('queued'|'running'|'done'|'failed'|'blocked'),
                      attempts, next_attempt_at, last_error, created_at, finished_at
 ```
-- Tokens are encrypted with a server-side key (never sent to the browser). Only `drive.manage` can read `drive_account`.
-- `drive_jobs` is the retry queue: idempotent, with exponential backoff and a cap.
+- **As built (v4.0 D1, migration `drive_connect`, pgTAP 144).** Tokens are AES-GCM encrypted by the Worker with a server-side key and never sent to the browser. **Neither table is readable by an API role** (RLS on, no policy, privileges revoked from anon and authenticated): the Owner reads the safe columns through `drive_status()` (`drive.manage`; state, address, connected_at, root folder, quota, last error; never a token); the Worker (service_role) reads the tokens.
+- **`drive_account` has no audit trigger** (token columns must never reach `activity_log`). The functions write their own history rows (entity `drive_account`, entity_id = org_id) with the address and state only: `connected`, `reconnected`, `account_switched`, `disconnected`, `needs_reconnect` (with the error), `space_low` (with the level and bytes). Storing a refreshed access token and the plain daily quota reading are not history.
+- Functions: `drive_status()`, `drive_connect_complete(email, sub, refresh_enc, access_enc, expires_at, scopes, root_folder_id)` and `drive_disconnect()` for `drive.manage`; service_role only: `drive_mark_needs_reconnect(org, error)`, `drive_store_access_token(org, access_enc, expires_at)`, `drive_record_quota(org, total, used)` (returns the alert sent: 0, 80 or 90), `drive_folder_put(...)` (insert or return the cached row) and `drive_folder_find(...)`.
+- **An account switch** (a different `google_sub`) starts quota, `quota_alert_level` and the root folder again; disconnecting clears the tokens and keeps the address, quota and folder cache.
+- **The folder cache** is keyed by what a folder is for (client id, month, task id), never by a name, and by `account_sub`, so a renamed client keeps its folder and switching accounts never reuses (or deletes) another account's folders.
+- `drive_jobs` is the retry queue (v4.5+): idempotent, with exponential backoff and a cap.
 
 ## 9. Files, notifications, audit, reports
 ```

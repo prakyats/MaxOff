@@ -772,13 +772,14 @@ test.describe("Settings is a list of rows", () => {
     await expect(page).toHaveURL(/\/settings\/company$/);
   });
 
-  test("a section still to come says so plainly and links nowhere (3c.3)", async ({ page }) => {
+  test("no section says Coming soon or how it is built (3c.3)", async ({ page }) => {
     await page.goto("/settings");
     const list = page.locator('[data-slot="settings-list"]');
-    // Stage presets were built in 7.4; Google Drive (8.3) is the one still to come.
-    const later = list.locator("li").filter({ hasText: "Google Drive" });
-    await expect(later).toContainText("Coming soon");
-    await expect(later.getByRole("link")).toHaveCount(0);
+    // Google Drive (8.3, v4.0) was the last section still to come: every row is now a link.
+    await expect(list).not.toContainText("Coming soon");
+    await expect(
+      list.locator("li").filter({ hasText: "Google Drive" }).getByRole("link"),
+    ).toHaveCount(1);
     await expect(list).not.toContainText(BUILD_WORDS);
   });
 

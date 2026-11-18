@@ -33,8 +33,10 @@ const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
  * and set the day's start and end around the run's own clock, which every Start day and End day
  * of the other specs would feel. So the suite runs with the switch off (`global-setup.ts`) and
  * these specs run alone, one file at a time, after every other project (like owner-bulk).
+ * v4.0: Settings → Google Drive joins them for the same reason: the connection is one row per
+ * organisation (`drive_account`), which its spec sets and clears.
  */
-const WORKING_HOURS_SPECS = /working-hours\.spec\.ts$/;
+const WORKING_HOURS_SPECS = /(working-hours|drive-settings)\.spec\.ts$/;
 // The push and email dispatch through the cron route (owner decision 29): the dispatcher is
 // organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
 // one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).
@@ -370,6 +372,11 @@ export default defineConfig({
         // The fake push services the specs run are plain http on the loopback host: the sender
         // refuses those everywhere but here (5A review M2; never honoured in staging/production).
         PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1",
+        // Google Drive (v4.0): throwaway values so Settings → Google Drive is "set up". No spec
+        // reaches Google: Connect is checked by its redirect, and no stored token is ever opened.
+        GOOGLE_OAUTH_CLIENT_ID: "e2e-only.apps.googleusercontent.com",
+        GOOGLE_OAUTH_CLIENT_SECRET: "e2e-only-google-secret",
+        DRIVE_TOKEN_KEY: "ZTJlLW9ubHktZHJpdmUtdG9rZW4ta2V5LTMyLWJ5dGU=",
       },
     },
   ],

@@ -39,9 +39,7 @@ test.describe("Owner", () => {
   test("opens every built section from the control centre", async ({ page }) => {
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
-    // Sections that are not built yet are cards, not links (they name the task instead).
-    // Stage presets were built in 7.4; Google Drive (8.3) is the one still to come.
-    await expect(page.getByRole("link", { name: "Google Drive" })).toHaveCount(0);
+    // Every section is built since v4.0 (Google Drive, 8.3), so every row is a link.
 
     for (const [name, heading] of [
       ["Company", "Company"],
@@ -51,6 +49,7 @@ test.describe("Owner", () => {
       ["Task types", "Task types"],
       // Stage presets are the Templates page's first section (6b.6 owner note).
       ["Templates", "Templates"],
+      ["Google Drive", "Google Drive"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();

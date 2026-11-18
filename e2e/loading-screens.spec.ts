@@ -613,6 +613,20 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // v4.0: Settings → Google Drive. The card is traced (its height follows the connection's
+  // state, which drive-settings.spec.ts sets later in its own serial chain).
+  {
+    role: "owner",
+    path: "/settings/drive",
+    marker: 'data-slot="loading-drive"',
+    hold: "/rest/v1/rpc/drive_status",
+    trace: {
+      "the card": {
+        held: '[data-slot="loading-drive"]',
+        settled: '[data-slot="drive-connection"]',
+      },
+    },
+  },
   // 5.4: Settings → Notifications. The Owner always has someone the seed cannot reach; an
   // Admin's list depends on other specs' tasks, so theirs is traced to the heading.
   {

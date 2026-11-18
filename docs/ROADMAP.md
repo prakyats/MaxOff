@@ -383,6 +383,7 @@ Exit: everything in PRODUCT §4 **except the items deferred past the launch** is
 ## Deferred past the launch (owner decision 2026-09-27): next up after 10.5, in this order
 Moved out of phases 8–10 to reach a production-ready prototype sooner. Nothing here is dropped; each keeps its original ROADMAP wording.
 - [ ] **8.3** [H] `core/drive`: Google OAuth (Owner-only connect and reconnect, tokens encrypted), folder creation and cache, `files.copy` for links, R2 → Drive upload, `drive_jobs` queue with backoff, link access checks and re-checks, quota checks, Settings screen. pgTAP + unit tests
+  - *v4.0 "Drive connected" (18 Nov 2026, branch `phase-v40`):* the OAuth connect, reconnect, disconnect and account switch, encrypted tokens, the folder machinery and cache, the daily quota check and alerts, and Settings → Google Drive are built. Still to come in 8.3: `files.copy`, R2 → Drive upload, the `drive_jobs` queue, and link access checks.
 - [ ] **8.4b** [C] The Drive half of link submissions: validate access immediately, "Link is private" flag and notification, automatic re-check, and the `storage_cleanup` retention job for submissions (90/30 days, archived only)
 - [ ] **9.6** [C] Activity history: search by person, client, record, action and date
 - [ ] **9.5** [C] Exports: AI-oriented Markdown, CSV (zipped datasets), PDF summary

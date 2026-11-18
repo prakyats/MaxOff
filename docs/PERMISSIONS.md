@@ -12,7 +12,7 @@
 | `team.view` | See the member list (names, job titles, roles) and open a person's **Profile** tab on `/people/[id]` (kickoff 3; the Attendance tab stays `attendance.view_all`) | ✅ | ✅ | |
 | `availability.view` | See anyone's availability: task counts, busy blocks, approved leave, today's presence | ✅ | ✅ | |
 | `settings.manage` | Company settings, days off, holidays, thresholds (since Kickoff 7 amendment C E5, owner 2026-10-08: the client-work escalation thresholds `item_overdue_escalate_hours` and `cycle_decide_escalate_days` too) | ✅ | | |
-| `drive.manage` | Connect or reconnect the company Google account, set the archive root, retry failed archives | ✅ | | |
+| `drive.manage` | Connect, reconnect or disconnect the company Google account and see its status (`drive_status()`; never a token), set the archive root, retry failed archives | ✅ | | |
 | `drive.view_status` | See archive status on a submission ("Archived ✓", "Link is private") | ✅ | ✅ | ✅ (own tasks) |
 | `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (members currently assigned to open tasks they created or approve, and a freelancer's coordinator; status and reason only) | own devices only |
 | `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions ² | ✅ | ✅ ¹ | |
