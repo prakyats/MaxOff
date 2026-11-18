@@ -61,20 +61,95 @@ describe("assignment warnings (WORKFLOWS §3.1, kickoff 4 decisions 11–13)", (
     expect(warning).toMatchObject({ kind: "overlap", text: "Busy 10:00 am – 12:00 pm on 3 Oct" });
   });
 
-  it("never warns about an overlap for a date-only event or a window that only touches", () => {
+  it("never warns about a window that only touches", () => {
     const touching = { startAt: SHOOT.endAt, endAt: "2026-10-03T07:30:00.000Z" };
-    for (const window of [null, touching]) {
+    expect(
+      assignmentWarnings({
+        memberIds: ["asha"],
+        dueDate: null,
+        eventDate: DAY,
+        eventWindow: touching,
+        threshold: 4,
+        availability: [row({ eventBlocks: [SHOOT] })],
+      }),
+    ).toEqual([]);
+  });
+
+  it("a date-only event is busy all day: it clashes with anything that day (v6.0, owner 13 Nov 2026)", () => {
+    const base = { memberIds: ["asha"], dueDate: null, eventDate: DAY, threshold: 4 };
+    const allDay = { startAt: null, endAt: null };
+    // A new date-only event against a timed booking: the booking's time is named.
+    expect(
+      assignmentWarnings({
+        ...base,
+        eventWindow: null,
+        availability: [row({ eventBlocks: [SHOOT] })],
+      }),
+    ).toMatchObject([{ kind: "overlap", text: "Busy 10:00 am – 12:00 pm on 3 Oct" }]);
+    // A timed event against a date-only booking, and a date-only one against another.
+    for (const window of [eventWindow("2026-10-03T10:00:00.000Z", null), null]) {
       expect(
         assignmentWarnings({
-          memberIds: ["asha"],
-          dueDate: null,
-          eventDate: DAY,
+          ...base,
           eventWindow: window,
-          threshold: 4,
-          availability: [row({ eventBlocks: [SHOOT] })],
+          availability: [row({ eventBlocks: [allDay] })],
         }),
-      ).toEqual([]);
+      ).toMatchObject([
+        {
+          kind: "overlap",
+          details: { date: DAY, all_day: "true" },
+          text: "Busy all day on 3 Oct",
+        },
+      ]);
     }
+    // Nothing on that day: no clash; another day's booking is not this day's.
+    expect(assignmentWarnings({ ...base, eventWindow: null, availability: [row({})] })).toEqual([]);
+    expect(
+      assignmentWarnings({
+        ...base,
+        eventWindow: null,
+        availability: [row({ day: "2026-10-04", eventBlocks: [allDay] })],
+      }),
+    ).toEqual([]);
+  });
+
+  it("editing: the task's own block is no clash, timed or date-only, and only once", () => {
+    const allDay = { startAt: null, endAt: null };
+    const base = { memberIds: ["asha"], dueDate: null, eventDate: DAY, threshold: 4 };
+    const current = { memberIds: ["asha"], dueDate: DAY, eventDate: DAY, open: true };
+    expect(
+      assignmentWarnings({
+        ...base,
+        eventWindow: null,
+        availability: [row({ eventBlocks: [allDay] })],
+        current: { ...current, eventWindow: null },
+      }),
+    ).toEqual([]);
+    expect(
+      assignmentWarnings({
+        ...base,
+        eventWindow: null,
+        availability: [row({ eventBlocks: [allDay, allDay] })],
+        current: { ...current, eventWindow: null },
+      }),
+    ).toHaveLength(1);
+    expect(
+      assignmentWarnings({
+        ...base,
+        eventWindow: SHOOT,
+        availability: [row({ eventBlocks: [SHOOT] })],
+        current: { ...current, eventWindow: SHOOT },
+      }),
+    ).toEqual([]);
+    // Made date-only from timed: its own timed block still is not a clash against itself.
+    expect(
+      assignmentWarnings({
+        ...base,
+        eventWindow: null,
+        availability: [row({ eventBlocks: [SHOOT] })],
+        current: { ...current, eventWindow: SHOOT },
+      }),
+    ).toEqual([]);
   });
 
   it("warns about approved leave and about a pending request, on the deadline's day first", () => {

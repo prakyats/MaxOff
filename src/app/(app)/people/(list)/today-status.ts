@@ -4,7 +4,8 @@ import type { StatusTone } from "@/core/lib/status-tones";
 export type TodayAvailability = {
   memberId: string;
   leave: "leave" | "half_day" | "comp_leave" | "requested" | null;
-  eventBlocks: readonly { startAt: string; endAt: string }[];
+  /** A block with no start is a date-only event: busy all day (v6.0, owner 13 Nov 2026). */
+  eventBlocks: readonly { startAt: string | null; endAt: string | null }[];
 };
 
 export type TodayStatus = {
@@ -15,7 +16,8 @@ export type TodayStatus = {
 
 /**
  * The People list's "Today" for an Admin (PP-admin-10): on leave (approved leave or comp leave),
- * a half day, busy (inside one of their timed event tasks right now) or available, from
+ * a half day, busy (inside one of their timed event tasks right now, or on a date-only event
+ * today: busy all day, v6.0) or available, from
  * `member_availability()` alone (`availability.view`: the fact of leave and busy blocks, never a
  * pending request or a title; PERMISSIONS §2). The Owner is never "available" or "on leave" to an
  * Admin (6b.2): only busy, else nothing. Pure (`today-status.test.ts`).
@@ -27,7 +29,9 @@ export function todayStatus(
 ): TodayStatus | null {
   const at = now.getTime();
   const busy = (day?.eventBlocks ?? []).some(
-    (block) => Date.parse(block.startAt) <= at && at < Date.parse(block.endAt),
+    (block) =>
+      block.startAt === null ||
+      (Date.parse(block.startAt) <= at && block.endAt !== null && at < Date.parse(block.endAt)),
   );
   if (isOwner) return busy ? BUSY : null;
   if (day?.leave === "leave" || day?.leave === "comp_leave") {

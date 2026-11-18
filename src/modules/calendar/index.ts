@@ -37,6 +37,7 @@ export {
   timeWords,
   weekLabel,
   weekOf,
+  type AvailabilityBlock,
   type AvailabilitySource,
   type BusyItem,
   type CalendarDay,
@@ -56,4 +57,19 @@ export {
   type StatusFilter,
 } from "./domain/calendar";
 export { whoFreeLine, whoIsFree, type FreePerson, type WhoFree } from "./domain/who-free";
+export {
+  bookedByWord,
+  bookingTime,
+  buildCrew,
+  crewOn,
+  EVERYONE_AVAILABLE,
+  everyoneAvailable,
+  freeSummary,
+  leaveName,
+  type CrewBooking,
+  type CrewBusyRow,
+  type CrewDay,
+  type CrewPerson,
+  type CrewSource,
+} from "./domain/crew";
 export { CalendarSkeleton } from "./components/calendar-skeleton";

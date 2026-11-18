@@ -22,6 +22,8 @@ export type EventTask = {
   clientId: string | null;
   taskTypeId: string;
   primaryOwnerId: string;
+  /** Who made the task (v6.0: the calendar's "booked by"); absent from the `own_week` fold. */
+  createdById?: string | null;
   /** The active assignees (removed ones left out). */
   assigneeIds: string[];
 };

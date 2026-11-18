@@ -32,6 +32,15 @@ describe("todayStatus (PP-admin-10)", () => {
       todayStatus({ memberId: "a", leave: null, eventBlocks: [block] }, later, false)?.key,
     ).toBe("available");
   });
+  it("a date-only event today is busy all day (v6.0)", () => {
+    const allDay = { startAt: null, endAt: null };
+    expect(
+      todayStatus({ memberId: "a", leave: null, eventBlocks: [allDay] }, now, false)?.key,
+    ).toBe("busy");
+    expect(todayStatus({ memberId: "o", leave: null, eventBlocks: [allDay] }, now, true)?.key).toBe(
+      "busy",
+    );
+  });
   it("the Owner is only ever busy to an Admin, else nothing", () => {
     expect(todayStatus({ memberId: "o", leave: null, eventBlocks: [block] }, now, true)?.key).toBe(
       "busy",

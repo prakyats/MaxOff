@@ -20,7 +20,7 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
   const { data, error } = await supabase
     .from("tasks")
     .select(
-      "id, title, state, event_date, event_start_at, event_end_at, location, client_id, task_type_id, primary_owner_id, task_assignees(member_id, removed_at)",
+      "id, title, state, event_date, event_start_at, event_end_at, location, client_id, task_type_id, primary_owner_id, created_by, task_assignees(member_id, removed_at)",
     )
     .gte("event_date", from)
     .lte("event_date", to)
@@ -42,6 +42,7 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
             clientId: row.client_id,
             taskTypeId: row.task_type_id,
             primaryOwnerId: row.primary_owner_id,
+            createdById: row.created_by,
             assigneeIds: row.task_assignees
               .filter((a) => a.removed_at === null)
               .map((a) => a.member_id),

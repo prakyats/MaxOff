@@ -9,9 +9,10 @@ import type { AvailabilitySource } from "../domain/calendar";
 const ROWS_PER_CALL = 900;
 
 /**
- * An Admin's view of everyone else (`member_availability()`, `availability.view`; Kickoff 6
- * decision 13; the Owner too since 6b.2, so the Owner's shoots read as Busy): per person per IST day, the approved leave as a fact and the timed events as
- * blocks with no title or id. One row per person per day, so the range is read in slices that
+ * An Admin's view of everyone (`member_availability()`, `availability.view`; Kickoff 6
+ * decision 13; the Owner too since 6b.2): per person per IST day, the approved leave as a fact
+ * and every event task as a block with its type and who booked it (v6.0; a date-only event has no
+ * start: busy all day), never a title, a client, a location or an id. One row per person per day, so the range is read in slices that
  * each stay under PostgREST's row limit (6A mechanics (1): a cut answer would hide someone's
  * block). `memberIds` keeps the read to these people (a person filter); null reads everyone.
  */
@@ -61,16 +62,25 @@ export async function listAvailability(
   });
 }
 
-/** `[{start_at, end_at}]` as the function writes it; anything else is no block. */
-function parseBlocks(value: unknown): { startAt: string | null; endAt: string | null }[] {
+/**
+ * A block as the function writes it (v6.0): `{start_at, end_at, all_day, type_id, type_name,
+ * booked_by, booked_by_name}`; a date-only event has no start or end. Anything else is no block; a
+ * key an older function leaves out reads as null.
+ */
+function parseBlocks(value: unknown): AvailabilitySource["blocks"] {
   if (!Array.isArray(value)) return [];
+  const text = (field: unknown) => (typeof field === "string" ? field : null);
   return value.flatMap((item) => {
     if (item === null || typeof item !== "object") return [];
-    const block = item as { start_at?: unknown; end_at?: unknown };
+    const block = item as Record<string, unknown>;
     return [
       {
-        startAt: typeof block.start_at === "string" ? block.start_at : null,
-        endAt: typeof block.end_at === "string" ? block.end_at : null,
+        startAt: text(block.start_at),
+        endAt: text(block.end_at),
+        typeId: text(block.type_id),
+        typeName: text(block.type_name),
+        bookedById: text(block.booked_by),
+        bookedByName: text(block.booked_by_name),
       },
     ];
   });
