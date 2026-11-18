@@ -23,9 +23,10 @@ The 22 "still valid" decisions from kickoff 9 (PR #42, 9 Oct) stand.
 **Amendments, 18 Nov 2026 (the owner, via the advisor; #89 6984558164), settled before 9.1:**
 - **R4, what counts as "added":** a deliverable **not in the month's plan**, meaning one created in a cycle **after the cycle's item list was generated**: `item_add`, "Also add to ‹month›?" and bulk adds. It is ₹0 until the Owner prices it, then priced **on top**. **Work carried in from last month is not an addition.**
 - **Q1, "this month on" for weekly retainers:** the first amount covers every cycle that **starts on or after the 1st of the current IST month**. Earlier cycles show "No amount set".
+- **One-time projects have no extras** (#89 6984940793, B (a)): a deliverable added later carries no value; the Owner changes the lump sum instead. "Priced on top" is for recurring projects only.
 - **Who builds it:** the v2.1 pre-work (money seals, the one-time wording, ADR-0007's kickoff-9 amendments, `formatRupees` in `core/lib`) lands first as its own PR. A fresh session at BUILD-GUIDE's [H] tier builds **9.1 onward** from that `main`.
 
-Both are recorded in WORKFLOWS §6, PRODUCT §4.12 and ADR-0007 (amendment 2026-10-02).
+All three business answers (R4, Q1 and no extras on one-time projects) are recorded in WORKFLOWS §6, PRODUCT §4.12 and ADR-0007 (amendment 2026-10-02).
 
 ---
 
