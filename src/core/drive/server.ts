@@ -26,7 +26,7 @@ export type DriveConnection = {
   rootFolderId: string | null;
 };
 
-type AccountRow = {
+export type AccountRow = {
   org_id: string;
   google_sub: string;
   refresh_token_encrypted: string | null;
@@ -44,19 +44,28 @@ function errorWords(error: unknown): string {
   return text.slice(0, 300);
 }
 
+/** The words kept for the Owner when the sealing key changed and the stored grant is unreadable. */
+const KEY_CHANGED =
+  "MaxOff's Drive key changed on this server, so the stored access can't be read. Reconnect.";
+
 /**
- * A usable access token for one connected account: the stored one while it is fresh, otherwise
- * a refresh (stored again, sealed). `null` when Drive is not set up here or the account is not
- * connected; a refused refresh marks the account `needs_reconnect` and returns `null`.
+ * A usable access token for one connected account: the stored one while it is fresh (unless
+ * `forceRefresh`), otherwise a refresh (stored again, sealed). `null` when Drive is not set up
+ * here or the account is not connected. A refused refresh, or a stored grant this server can no
+ * longer open (`DRIVE_TOKEN_KEY` changed), marks the account `needs_reconnect` and returns `null`.
+ * Every write names the sealed refresh token this read saw, so nothing lands on a connection the
+ * Owner has replaced in the meantime (review S4).
  */
 export async function connectionFor(input: {
   service: ServiceSupabase;
   row: AccountRow;
   fetchImpl: Fetch;
   now: Date;
+  forceRefresh?: boolean;
 }): Promise<DriveConnection | null> {
   const env = readDriveEnv();
-  if (env.mode === "off" || !input.row.refresh_token_encrypted) return null;
+  const sealedRefresh = input.row.refresh_token_encrypted;
+  if (env.mode === "off" || !sealedRefresh) return null;
   const base = {
     orgId: input.row.org_id,
     accountId: input.row.google_sub,
@@ -64,13 +73,24 @@ export async function connectionFor(input: {
   };
 
   const expiresAt = input.row.token_expires_at ? Date.parse(input.row.token_expires_at) : 0;
-  if (input.row.access_token_encrypted && expiresAt - RENEW_BEFORE_MS > input.now.getTime()) {
-    const accessToken = await decryptToken(input.row.access_token_encrypted, env.tokenKey);
-    return { ...base, accessToken };
+  const fresh = expiresAt - RENEW_BEFORE_MS > input.now.getTime();
+  if (!input.forceRefresh && input.row.access_token_encrypted && fresh) {
+    try {
+      const accessToken = await decryptToken(input.row.access_token_encrypted, env.tokenKey);
+      return { ...base, accessToken };
+    } catch {
+      // Sealed under another key: fall through to the refresh, which says so if it fails too.
+    }
   }
 
+  let refreshToken: string;
   try {
-    const refreshToken = await decryptToken(input.row.refresh_token_encrypted, env.tokenKey);
+    refreshToken = await decryptToken(sealedRefresh, env.tokenKey);
+  } catch {
+    await markNeedsReconnect(input.service, input.row, KEY_CHANGED);
+    return null;
+  }
+  try {
     const grant = await refreshAccess(
       input.fetchImpl,
       { refreshToken, clientId: env.clientId, clientSecret: env.clientSecret },
@@ -78,6 +98,7 @@ export async function connectionFor(input: {
     );
     const { error } = await input.service.rpc("drive_store_access_token", {
       p_org: input.row.org_id,
+      p_read_refresh_enc: sealedRefresh,
       p_access_enc: await encryptToken(grant.accessToken, env.tokenKey),
       p_expires_at: grant.expiresAt.toISOString(),
     });
@@ -85,17 +106,45 @@ export async function connectionFor(input: {
     return { ...base, accessToken: grant.accessToken };
   } catch (error) {
     if (!(error instanceof DriveAuthError)) throw error;
-    await markNeedsReconnect(input.service, input.row.org_id, error);
+    await markNeedsReconnect(input.service, input.row, errorWords(error));
     return null;
   }
 }
 
-async function markNeedsReconnect(service: ServiceSupabase, orgId: string, error: unknown) {
-  const { error: dbError } = await service.rpc("drive_mark_needs_reconnect", {
-    p_org: orgId,
-    p_error: errorWords(error),
+async function markNeedsReconnect(service: ServiceSupabase, row: AccountRow, words: string) {
+  const { error } = await service.rpc("drive_mark_needs_reconnect", {
+    p_org: row.org_id,
+    p_read_refresh_enc: row.refresh_token_encrypted ?? "",
+    p_error: words,
   });
-  if (dbError) throw new Error(`drive_mark_needs_reconnect: ${dbError.message}`);
+  if (error) throw new Error(`drive_mark_needs_reconnect: ${error.message}`);
+}
+
+/**
+ * Runs one Drive call with the account's access token. Google may drop an access token before
+ * its expiry: a 401 on a stored token is answered with one forced refresh and a retry, and only
+ * a refused refresh means "reconnect" (review S2). `null` when there is no usable connection.
+ */
+export async function withDrive<T>(
+  input: { service: ServiceSupabase; row: AccountRow; fetchImpl: Fetch; now: Date },
+  call: (connection: DriveConnection) => Promise<T>,
+): Promise<T | null> {
+  const connection = await connectionFor(input);
+  if (!connection) return null;
+  try {
+    return await call(connection);
+  } catch (error) {
+    if (!(error instanceof DriveAuthError)) throw error;
+    const renewed = await connectionFor({ ...input, forceRefresh: true });
+    if (!renewed) return null;
+    try {
+      return await call(renewed);
+    } catch (again) {
+      if (!(again instanceof DriveAuthError)) throw again;
+      await markNeedsReconnect(input.service, input.row, errorWords(again));
+      return null;
+    }
+  }
 }
 
 export type SpaceCheckReport = {
@@ -127,27 +176,24 @@ export async function runDriveSpaceCheck(input: {
 
   for (const row of data ?? []) {
     try {
-      const connection = await connectionFor({ ...input, row });
-      if (!connection) {
+      const space = await withDrive({ ...input, row }, (connection) =>
+        about(input.fetchImpl, connection.accessToken),
+      );
+      if (!space) {
         report.needsReconnect += 1;
         continue;
       }
-      const space = await about(input.fetchImpl, connection.accessToken);
       report.checked += 1;
       if (space.totalBytes === null) continue;
       const { data: level, error: dbError } = await input.service.rpc("drive_record_quota", {
         p_org: row.org_id,
+        p_read_refresh_enc: row.refresh_token_encrypted ?? "",
         p_total: space.totalBytes,
         p_used: space.usedBytes,
       });
       if (dbError) throw new Error(`drive_record_quota: ${dbError.message}`);
       if (level && level > 0) report.alerts += 1;
     } catch (error) {
-      if (error instanceof DriveAuthError) {
-        await markNeedsReconnect(input.service, row.org_id, error);
-        report.needsReconnect += 1;
-        continue;
-      }
       report.failed.push({ orgId: row.org_id, error: errorWords(error) });
     }
   }
@@ -192,6 +238,17 @@ export function folderStore(service: ServiceSupabase, orgId: string): FolderStor
       if (error) throw new Error(`drive_folder_put: ${error.message}`);
       const cached = toCached(data);
       if (!cached) throw new Error("drive_folder_put returned no folder");
+      return cached;
+    },
+    async replace(folder, driveFolderId) {
+      const { data, error } = await service.rpc("drive_folder_replace", {
+        p_org: orgId,
+        p_id: folder.id,
+        p_drive_folder_id: driveFolderId,
+      });
+      if (error) throw new Error(`drive_folder_replace: ${error.message}`);
+      const cached = toCached(data);
+      if (!cached) throw new Error("drive_folder_replace returned no folder");
       return cached;
     },
     async rename(folder, name) {

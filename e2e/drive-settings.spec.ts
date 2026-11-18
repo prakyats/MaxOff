@@ -117,13 +117,11 @@ test.describe("the Owner", () => {
     expect(row).toEqual({ state: "disconnected", refresh_token_encrypted: null });
   });
 
-  test("needs reconnecting: says why it matters, Reconnect is the one solid button", async ({
-    page,
-  }) => {
+  test("needs reconnecting: says so, Reconnect is the one solid button", async ({ page }) => {
     await connectedDrive("needs_reconnect", null);
     await page.goto("/settings/drive");
     await expect(page.getByRole("heading", { name: "Needs reconnecting" })).toBeVisible();
-    await expect(page.getByText("new work is not being archived")).toBeVisible();
+    await expect(page.getByText("MaxOff can no longer reach this Google account.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Reconnect" })).toHaveAttribute(
       "data-variant",
       "primary",

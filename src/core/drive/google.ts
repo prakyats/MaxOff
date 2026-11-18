@@ -81,7 +81,9 @@ async function tokenCall(
   });
   const answer = (await response.json().catch(() => ({}))) as TokenAnswer;
   if (!response.ok || !answer.access_token) {
-    if (answer.error === "invalid_grant" || response.status === 400 || response.status === 401) {
+    // Only a refused grant is the Owner's to fix (Reconnect). A wrong client id or secret
+    // (`invalid_client`), a redirect mismatch or an outage is ours: reported, never "reconnect".
+    if (answer.error === "invalid_grant") {
       throw new DriveAuthError(
         answer.error_description ?? answer.error ?? "Google refused the grant",
       );
@@ -215,4 +217,26 @@ export async function renameFolder(
       body: JSON.stringify({ name: input.name }),
     },
   );
+}
+
+/**
+ * Is a folder MaxOff made still usable: there, and not in the bin? Under `drive.file` Google
+ * answers 404 for a file that is gone (or that MaxOff no longer may see).
+ */
+export async function folderUsable(
+  fetchImpl: Fetch,
+  accessToken: string,
+  folderId: string,
+): Promise<boolean> {
+  try {
+    const answer = await driveCall<{ trashed?: boolean }>(
+      fetchImpl,
+      accessToken,
+      `/files/${encodeURIComponent(folderId)}?fields=id,trashed`,
+    );
+    return answer.trashed !== true;
+  } catch (error) {
+    if (error instanceof DriveApiError && error.status === 404) return false;
+    throw error;
+  }
 }

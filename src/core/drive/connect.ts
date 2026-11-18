@@ -6,6 +6,7 @@ import { getCurrentMember } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { resolveAppOrigin } from "@/core/lib/app-url";
+import { captureException } from "@/core/observability/capture";
 import { can } from "@/core/permissions/can";
 import { systemClock } from "@/core/time";
 
@@ -19,6 +20,7 @@ import {
   DriveAuthError,
   exchangeCode,
   type Fetch,
+  folderUsable,
 } from "./google";
 import { folderStore } from "./server";
 import { decryptToken, encryptToken } from "./token-crypto";
@@ -70,9 +72,11 @@ function randomState(): string {
     .replace(/=+$/, "");
 }
 
-function secureCookies(): boolean {
+/** Secure on staging, production and any https origin (a preview); plain http only on a laptop. */
+async function secureCookies(): Promise<boolean> {
   const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
-  return appEnv === "staging" || appEnv === "production";
+  if (appEnv === "staging" || appEnv === "production") return true;
+  return (await redirectUri()).startsWith("https://");
 }
 
 /** Where the start route sends the Owner: Google's consent screen, or back with why not. */
@@ -87,7 +91,7 @@ export async function startDriveConnect(): Promise<string> {
   (await cookies()).set(STATE_COOKIE, `${state}.${member.id}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: secureCookies(),
+    secure: await secureCookies(),
     path: "/api/drive",
     maxAge: STATE_MAX_AGE_SECONDS,
   });
@@ -131,22 +135,33 @@ export async function completeDriveConnect(
       return settingsUrl("no_access");
     }
     const account = await about(fetchImpl, grant.accessToken);
-    const rootFolderId = await prepareRoot(member.id, account.accountId, (input) =>
-      createFolder(fetchImpl, grant.accessToken, input),
-    );
+    const orgId = await orgOf(member.id);
+    const rootFolderId = await prepareRoot(orgId, account.accountId, {
+      make: (input) => createFolder(fetchImpl, grant.accessToken, input),
+      usable: (folderId) => folderUsable(fetchImpl, grant.accessToken, folderId),
+    });
+    const previous = await storedConnection(orgId);
+    const sealedRefresh = await encryptToken(grant.refreshToken, env.tokenKey);
 
     const supabase = await createServerSupabase();
     const { data: action, error } = await supabase.rpc("drive_connect_complete", {
       p_email: account.email,
       p_sub: account.accountId,
-      p_refresh_enc: await encryptToken(grant.refreshToken, env.tokenKey),
+      p_refresh_enc: sealedRefresh,
       p_access_enc: await encryptToken(grant.accessToken, env.tokenKey),
       p_expires_at: grant.expiresAt.toISOString(),
       p_scopes: grant.scopes,
       p_root_folder_id: rootFolderId,
     });
     if (error) throw new Error(`drive_connect_complete: ${error.message}`);
-    await recordFirstReading(member.id, account.totalBytes, account.usedBytes);
+    // Connected from here on: what follows is best effort and never turns the answer into
+    // "failed" (review S5).
+    if (action === "account_switched" && previous && previous.accountId !== account.accountId) {
+      // The old account forgets MaxOff. Never on a reconnect of the same account: revoking
+      // that grant would revoke the one just stored.
+      await revokeGrant(previous.refreshToken, fetchImpl);
+    }
+    await recordFirstReading(orgId, sealedRefresh, account.totalBytes, account.usedBytes);
     return settingsUrl(
       action === "reconnected" || action === "account_switched" ? action : "connected",
     );
@@ -168,16 +183,20 @@ async function orgOf(memberId: string): Promise<string> {
 }
 
 /**
- * MaxOff's top folder in this account: the one already made for it (a reconnect), or a new
- * "MaxOff" folder in My Drive. Kept in the folder cache under the account, so switching to
+ * MaxOff's top folder in this account: the one already made for it (a reconnect) while it is
+ * still there and not in the bin, otherwise a new "MaxOff" folder in My Drive, which the cached
+ * key then points at (review S6). Kept in the folder cache under the account, so switching to
  * another account makes that account its own and never reuses (or deletes) the first's.
  */
 async function prepareRoot(
-  memberId: string,
+  orgId: string,
   accountId: string,
-  make: (input: { name: string; parentId: null; description: string }) => Promise<{ id: string }>,
+  drive: {
+    make: (input: { name: string; parentId: null; description: string }) => Promise<{ id: string }>;
+    usable: (folderId: string) => Promise<boolean>;
+  },
 ): Promise<string> {
-  const store = folderStore(createServiceSupabase(), await orgOf(memberId));
+  const store = folderStore(createServiceSupabase(), orgId);
   const step = {
     kind: "root",
     name: ROOT_FOLDER,
@@ -186,25 +205,55 @@ async function prepareRoot(
     taskId: null,
   } as const;
   const cached = await store.find(step, accountId);
-  if (cached) return cached.driveFolderId;
-  const made = await make({
+  if (cached && (await drive.usable(cached.driveFolderId))) return cached.driveFolderId;
+  const made = await drive.make({
     name: ROOT_FOLDER,
     parentId: null,
-    description: "Made by MaxOff. Client work is archived here by client and month.",
+    description: "Made by MaxOff for the studio's client work, by client and month.",
   });
+  if (cached) return (await store.replace(cached, made.id)).driveFolderId;
   return (await store.put(step, accountId, null, made.id)).driveFolderId;
 }
 
-/** The space Google reported at sign-in, so Settings shows it at once (alerts as the daily check). */
-async function recordFirstReading(memberId: string, total: number | null, used: number) {
+/** The connection stored before this sign-in: its account and its grant, when still readable. */
+async function storedConnection(
+  orgId: string,
+): Promise<{ accountId: string; refreshToken: string | null } | null> {
+  const env = readDriveEnv();
+  if (env.mode === "off") return null;
+  const { data, error } = await createServiceSupabase()
+    .from("drive_account")
+    .select("google_sub, refresh_token_encrypted")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (error) throw new Error(`drive_account: ${error.message}`);
+  if (!data) return null;
+  let refreshToken: string | null = null;
+  if (data.refresh_token_encrypted) {
+    refreshToken = await decryptToken(data.refresh_token_encrypted, env.tokenKey).catch(() => null);
+  }
+  return { accountId: data.google_sub, refreshToken };
+}
+
+/**
+ * The space Google reported at sign-in, so Settings shows it at once (alerts as the daily
+ * check). Best effort: the connection is already stored, so a failure here is reported and the
+ * Owner still hears "connected"; the morning check fills it in.
+ */
+async function recordFirstReading(
+  orgId: string,
+  sealedRefresh: string,
+  total: number | null,
+  used: number,
+) {
   if (total === null || total <= 0) return;
-  const service = createServiceSupabase();
-  const { error } = await service.rpc("drive_record_quota", {
-    p_org: await orgOf(memberId),
+  const { error } = await createServiceSupabase().rpc("drive_record_quota", {
+    p_org: orgId,
+    p_read_refresh_enc: sealedRefresh,
     p_total: total,
     p_used: used,
   });
-  if (error) throw new Error(`drive_record_quota: ${error.message}`);
+  if (error) captureException(new Error(`drive_record_quota at connect: ${error.message}`));
 }
 
 /**

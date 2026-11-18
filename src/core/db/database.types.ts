@@ -5184,19 +5184,63 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      drive_mark_needs_reconnect: {
-        Args: { p_error: string; p_org: string };
-        Returns: boolean;
+      drive_folder_replace: {
+        Args: { p_drive_folder_id: string; p_id: string; p_org: string };
+        Returns: {
+          account_sub: string;
+          client_id: string | null;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          kind: string;
+          month: string | null;
+          name: string;
+          org_id: string;
+          parent_id: string | null;
+          task_id: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "drive_folders";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
-      drive_record_quota: {
-        Args: { p_org: string; p_total: number; p_used: number };
-        Returns: number;
-      };
+      drive_mark_needs_reconnect:
+        | { Args: { p_error: string; p_org: string }; Returns: boolean }
+        | {
+            Args: { p_error: string; p_org: string; p_read_refresh_enc: string };
+            Returns: boolean;
+          };
+      drive_record_quota:
+        | {
+            Args: {
+              p_org: string;
+              p_read_refresh_enc: string;
+              p_total: number;
+              p_used: number;
+            };
+            Returns: number;
+          }
+        | {
+            Args: { p_org: string; p_total: number; p_used: number };
+            Returns: number;
+          };
       drive_status: { Args: never; Returns: Json };
-      drive_store_access_token: {
-        Args: { p_access_enc: string; p_expires_at: string; p_org: string };
-        Returns: undefined;
-      };
+      drive_store_access_token:
+        | {
+            Args: { p_access_enc: string; p_expires_at: string; p_org: string };
+            Returns: undefined;
+          }
+        | {
+            Args: {
+              p_access_enc: string;
+              p_expires_at: string;
+              p_org: string;
+              p_read_refresh_enc: string;
+            };
+            Returns: boolean;
+          };
       early_leave_decide: {
         Args: {
           decision: string;

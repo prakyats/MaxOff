@@ -22,7 +22,7 @@ export const SETTINGS_HEADERS = {
     "A day off means nobody is marked absent. People may still log in and mark attendance, and the day shows as worked on a day off.",
   ),
   drive: same(
-    "The studio's Google account that client work is archived to, and how much space it has left. Only the Owner sees this.",
+    "The studio's Google account for archiving client work, and how much space it has left. Only the Owner sees this.",
   ),
   expenses: same(
     "The categories people choose when they claim an expense, and the amount above which a claim needs a receipt photo.",

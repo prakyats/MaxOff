@@ -26,7 +26,7 @@ export function DisconnectDriveButton() {
         onOpenChange={setOpen}
         destructive
         title="Disconnect Google Drive?"
-        description="MaxOff stops archiving new work until a Google account is connected again. Everything already in Drive stays where it is."
+        description="MaxOff stops using this Google account until one is connected again. Everything already in Drive stays where it is."
         confirmLabel="Disconnect Drive"
         pendingLabel="Disconnecting…"
         onConfirm={async () => {

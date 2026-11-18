@@ -83,11 +83,11 @@ export function spaceView(status: DriveStatus): SpaceView | null {
 export function stateLine(status: DriveStatus): string {
   switch (status.state) {
     case "connected":
-      return "Connected. Client work is archived into this Google account.";
+      return "Connected. MaxOff will archive client work into this Google account; archiving starts in a later update.";
     case "needs_reconnect":
-      return "MaxOff can no longer reach this Google account, so new work is not being archived. Reconnect to carry on.";
+      return "MaxOff can no longer reach this Google account. Reconnect to carry on.";
     case "disconnected":
-      return "Not connected. Connect the studio's Google account so client work can be archived to its Drive.";
+      return "Not connected. Connect the studio's Google account: MaxOff will archive client work to its Drive.";
   }
 }
 
@@ -103,7 +103,7 @@ export function outcomeLine(
     case "account_switched":
       return {
         tone: "success",
-        text: "Now using the new Google account. New work goes to its Drive; nothing was moved or deleted from the old one.",
+        text: "Now using the new Google account. Nothing was moved or deleted from the old one.",
       };
     case "disconnected":
       return {

@@ -257,7 +257,7 @@ select is(public.drive_mark_needs_reconnect(pg_temp.fx('org'), 'invalid_grant'),
 select pg_temp.as_system();
 select is(pg_temp.notes('owner', 'drive_needs_reconnect'), 1::bigint, 'the Owner is told');
 select is((select n.title || ' | ' || n.body from public.notifications n where n.recipient_id = pg_temp.fx('owner') and n.kind = 'drive_needs_reconnect'),
-  'Google Drive needs reconnecting | MaxOff can no longer reach drive-c@example.com, so new work is not being archived. Open Settings, Google Drive and tap Reconnect.',
+  'Google Drive needs reconnecting | MaxOff can no longer reach drive-c@example.com. Open Settings, Google Drive and tap Reconnect.',
   'the wording');
 select is((select count(*) from public.notifications n where n.kind in ('drive_needs_reconnect', 'drive_space_low')
            and n.recipient_id <> pg_temp.fx('owner')), 0::bigint, 'nobody but the Owner gets a Drive notice');

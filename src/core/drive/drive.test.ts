@@ -256,6 +256,10 @@ function memoryStore() {
       for (const row of rows.values()) if (row.id === folder.id) row.name = name;
       return { ...folder, name };
     },
+    async replace(folder, driveFolderId) {
+      for (const row of rows.values()) if (row.id === folder.id) row.driveFolderId = driveFolderId;
+      return { ...folder, driveFolderId };
+    },
   };
   return { store, rows };
 }
@@ -292,6 +296,40 @@ describe("making a task's folder", () => {
     expect(later).toEqual(first);
     // No December folder is made for a task filed in November.
     expect(made).toEqual(["Clients", "Cafe Mocha", "2026-11", "Brand reel"]);
+  });
+
+  it("renames a renamed client's folder also when the task is already filed (Q3, review S7)", async () => {
+    const { store, rows } = memoryStore();
+    const make = async (input: { name: string; parentId: string | null }) => ({
+      id: `f:${input.name}`,
+    });
+    const folder = {
+      client: { id: "c1", name: "Cafe Mocha" },
+      month: "2026-11",
+      task: { id: "t1", title: "Brand reel" },
+    };
+    const filed = await ensureTaskFolder({
+      store,
+      rename: noRename,
+      make,
+      accountId: "a",
+      root: ROOT,
+      folder,
+    });
+    const renamed: string[] = [];
+    const again = await ensureTaskFolder({
+      store,
+      make,
+      rename: async ({ name }) => {
+        renamed.push(name);
+      },
+      accountId: "a",
+      root: ROOT,
+      folder: { ...folder, client: { id: "c1", name: "Mocha & Co" } },
+    });
+    expect(again.driveFolderId).toBe(filed.driveFolderId);
+    expect(renamed).toEqual(["Mocha & Co"]);
+    expect([...rows.values()].map((row) => row.name)).toContain("Mocha & Co");
   });
 
   it("renames a renamed client's folder on the way past, keeping it (Q3)", async () => {

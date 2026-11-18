@@ -1930,7 +1930,7 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-google-drive",
           title: "Connect Google Drive",
-          summary: "Link the studio's Google account so client work can be archived to its Drive.",
+          summary: "Link the studio's Google account that MaxOff will archive client work to.",
           blocks: [
             text(
               'Settings, then Google Drive shows whether Drive is connected, which Google account it uses and how much space is left ("640 GB free of 2 TB"). Only you see this section.',
@@ -1941,13 +1941,13 @@ export const OWNER_GUIDE: Guide = {
               'Google sends you back to MaxOff, which says "Google Drive is connected."',
             ),
             next(
-              'MaxOff makes one folder called "MaxOff" in that Drive and only ever sees what it made there, never your other files. Inside it, client work is filed as Clients, then the client, then the month, then the task.',
+              'MaxOff makes one folder called "MaxOff" in that Drive and only ever sees what it made there, never your other files. Archiving client work into it starts in a later update; it will be filed as Clients, then the client, then the month, then the task.',
             ),
             text(
               'Every morning MaxOff checks the space and tells you once when the Drive is 80% full and once more at 90%. If Google stops letting MaxOff in (a changed password, or access removed in your Google account), you get a notification and the section says "Needs reconnecting": tap "Reconnect".',
             ),
             text(
-              '"Use another account" switches to a different Google account; new work goes there and nothing is moved or deleted from the old one. "Disconnect" stops archiving until you connect again; everything already in Drive stays where it is.',
+              '"Use another account" switches to a different Google account; nothing is moved or deleted from the old one. "Disconnect" stops MaxOff using the account until you connect again; everything already in Drive stays where it is.',
             ),
             note(
               "Connect the studio's own Google account, not a personal one: the files belong to whoever owns that account.",
