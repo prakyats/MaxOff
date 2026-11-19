@@ -5,7 +5,6 @@ import {
   claimDetail,
   claimOutcome,
   claimWindow,
-  formatRupees,
   inClaimWindow,
   parseAmount,
   receiptRequired,
@@ -68,14 +67,6 @@ describe("parseAmount", () => {
     for (const text of ["", "0", "0.00", "-5", "10.005", "abc", "1e3", "10.", "99999999999"]) {
       expect(parseAmount(text)).toBeNull();
     }
-  });
-});
-
-describe("formatRupees", () => {
-  it("keeps whole rupees whole and shows paise with two digits, Indian grouping", () => {
-    expect(formatRupees(1200)).toBe("₹1,200");
-    expect(formatRupees(42.5)).toBe("₹42.50");
-    expect(formatRupees(150000)).toBe("₹1,50,000");
   });
 });
 

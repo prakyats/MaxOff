@@ -13,7 +13,8 @@ import { parsePeriod } from "@/modules/reports";
 import { type ISODate, todayIST } from "@/core/time";
 import { getMonthSummary, monthLabel, monthOf, monthRange } from "@/modules/attendance";
 import { listOnHold } from "@/modules/client-work";
-import { formatRupees, listApprovedInMonth } from "@/modules/expenses";
+import { formatRupees } from "@/core/lib/rupees";
+import { listApprovedInMonth } from "@/modules/expenses";
 import type { MonthSummary } from "@/modules/attendance";
 
 import { AdminReport } from "./admin-report";
