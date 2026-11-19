@@ -244,6 +244,7 @@ submitted ──Owner approve──► approved ──Owner mark paid (date, def
 | `cancelled` | Stopped with a reason, still reportable | Creator / approving Admin / Owner can `reopen` → `todo` (reason required) |
 
 - **Done can be submitted from `todo` or `in_progress`.** `in_progress` is optional. `task_start` records no acknowledgement (only "Task Noted" and Done do).
+- **The upload link (v4.5 (proposed), §5B):** Done (every path, the Owner primary's straight completion too) and Cancel stop the task's active upload link in the same transaction. A send-back (`changes_requested`) or a reopen never revives it (Q9); the task's Admin makes a new link.
 - **On behalf of a freelancer (ADR-0013, §1b):** `task_acknowledge`, `task_start`, `task_submit_done`, stage ticks, comments and submissions accept `on_behalf_of` = a freelancer assignee; allowed only to that freelancer's **current** coordinator, recorded as actor = coordinator + `on_behalf_of`. A freelancer's primary ownership means their coordinator marks Done. Reviews never carry `on_behalf_of`.
 - **Done doesn't wait for acknowledgements.** If the primary owner hasn't acknowledged yet, submitting Done records their acknowledgement automatically (audited). Other assignees' acknowledgements stay tracked and still get reminders.
 - **Who may edit, reassign, cancel or reopen a task:** its **creator**, its **approving Admin**, or the **Owner**. Other Admins who can see it can't change it; a creator or approver made Staff no longer can (the keys `tasks.create` / `tasks.approve_admin` go with the role; phase 4 review).
@@ -521,6 +522,108 @@ Staff submits a version
 - **Token expiry:** any Google call returning `invalid_grant` sets `drive_account.state = needs_reconnect`, notifies the Owner, and parks the queue. Reconnecting drains it.
 - **Quota:** the account's free space is checked daily, and the Owner is warned below 10%.
 
+## 5B. The upload link (v4.5 (proposed))
+
+> **v4.5 (proposed), not built.** From the approved sample (`docs/design/v45-upload-link-sample.html`, owner 19 Nov 2026: Q1, Q3 and Q6 decided, every other question as recommended), the security review plan (`docs/handoff/v45-security-review-plan.md`) and ADR-0010's amendment of 2026-11-19. Tables and functions: DATA-MODEL §8a. Who may do what: PERMISSIONS §1 (`uploads.manage`, `uploads.network`). Nothing here is built until the plan's E0 gate passes.
+
+A private link per task lets anyone who holds it send files straight into that task's Drive folder (`Clients/<client>/<YYYY-MM>/<task>/<uploader name>/…`, or `Internal/…` for a task with no client), with no login. Files go from the uploader's browser to Google, never through MaxOff, and no copy is kept in MaxOff's storage. Uploaders are never notified, never get an account and never see anything but their own files from their own device.
+
+### 5B.1 The link
+```
+              Get upload link (Owner / the task's Admin)
+ (no link) ───────────────────────────────────────────────► active ──Copy link (any time; history row)──┐
+     ▲                                                        │  ▲                                      │
+     │                                                        │  └──────────────────────────────────────┘
+     │            Stop link (confirmed) ─────────────────────►│
+     │            All files received ────────────────────────►│
+     │            primary marks Done / task cancelled ───────►├──► stopped (never works again)
+     │            Make a new link (old one) ─────────────────►│          │
+     │                                                                   │ Make a new link
+     └──────────────── a new active link (renewed_from = the old) ◄──────┘  (task todo / in progress /
+                                                                             changes requested only)
+```
+| Step | Who | What happens |
+|---|---|---|
+| **Get upload link** | The Owner or the task's Admin (Q1: the creator holding `tasks.create`, the approving Admin holding `tasks.approve_admin`) | On any task, with a client or without (Q2), while it is To do, In progress or Changes requested and the studio's Drive is connected (or waiting to be reconnected). One active link per task. The card shows the link, **Copy link** and ⋯ (Make a new link, Stop link). The button is an outline, never the page's solid action |
+| **Copy link** | The same people | At any time while the link is active; MaxOff works the link out again (it stores only a hash). Each copy is a history row naming who copied it, to trace a leak. The link is shown **only on the card**: never in a notification, chat preview or the task's history |
+| **Stop link** | The same people | Confirmed with the named red button **Stop the link** ("Nobody can start sending new files with it. Files already received stay in the folder. A file still on its way may finish."). The link never works again |
+| **All files received** | The same people | Stops the link (§5B.5) |
+| **Primary marks Done / task cancelled** | Whoever does that today | The link stops in the same transaction (`task_submit_done`, `task_cancel`) |
+| **Make a new link** | The same people | From ⋯ on an active link (the old one stops at once) or from the closed card (Q9). The old link never works again; the files already received stay where they are. Only while the task is To do, In progress or Changes requested |
+| **Task sent back after Done, or reopened** | — | The link **stays stopped** (Q9). The task's Admin makes a new link if more files are needed |
+| **Pause all upload links** | The Owner (Settings → Google Drive; plan C12, *the Owner to confirm*) | Every link answers "doesn't work right now" until resumed; no link is stopped |
+
+- **No time limit beyond the task** (decided): the card shows the link's age ("Link made 34 days ago") so an old open link is noticed (plan A10).
+- **After a stop**, a file already on its way to Google may still finish: Google cannot cancel a session it handed out. It is kept and marked **"arrived after the link stopped"** for the Admin (Q8). Files waiting on the page are not started.
+- **A bad link** (unknown, mistyped, stopped, Done, cancelled) shows one screen, "This upload link doesn't work any more" (sample screen L), with no task title and no studio name, so a guessed link learns nothing.
+
+### 5B.2 The uploader's page
+One page, no MaxOff menus: the studio's name and the task's title only (Q5). A phone sends files; a laptop also sends whole folders, which arrive in Drive as they are, inside the uploader's own folder. Two or three files go at once, in chunks, each resumable.
+
+```
+ open link ─► (bad link) ─► L "doesn't work any more"
+    │
+    ├─ first visit on this device ─► A  your name (required, 1–60) ─► B choose files
+    └─ this device sent before    ─► J  "Welcome back, Sam" (only this device's own files, Q4)
+                                         └─ "Not Sam? Use another name" ─► A
+
+ B choose ─► C ready ("12 files · 5.4 GB", ✕ takes one out) ─► Upload ─► D uploading
+ D uploading ─► H "All 12 files received" ─► I'm done (optional) ─► I "Thanks, Sam"
+                                          └─► Send more files ─► B          └─► Send more files ─► B
+```
+| Page state | Shown when | What the uploader can do |
+|---|---|---|
+| A · Your name | First visit on this device | Type a name (Q3: a name only; no phone). The privacy notice: name, files, IP and device kept; IP and device erased after 90 days; "How we use this" |
+| B · Choose files / C · Ready | A name is set | Choose files (a laptop: or a folder, or drop them); take one out of the list |
+| D · Uploading | Files are going | "Keep this page open" banner; the overall line ("8 of 12 done · 3.1 GB of 5.4 GB · about 6 min left"); add more files. Leaving the page asks the browser's own "Leave site?" (K) |
+| E · Connection lost | The browser is offline | Nothing to tap: each file asks Google how much arrived and sends only the rest |
+| F · Back after the screen was locked | The page was hidden and comes back | Carries on by itself |
+| G · Failed | A file failed after its automatic retries (a short pause, then longer; 5 tries) | Retry carries on from where it stopped |
+| H · All received / I · After "I'm done" | Every file this visit is Done | I'm done (optional; the studio is told), Send more files |
+| J · Welcome back | The same device returns | Files that didn't finish are chosen again; a file already received (same name, folder and size, from this uploader) is skipped as **Already sent** |
+| M · Link stopped while uploading | The studio stopped the link | Files halfway may finish; nothing new starts |
+| N · Storage nearly full | A file wouldn't fit (Q11) | That file is **Held** (not started); the others go. "Tell the person who sent you this link." No studio numbers. A held file starts by itself if space is freed while the page is open |
+| O · Google's daily limit | Google refused for the day (Q10) | "Keep this page open; it carries on by itself when Google allows it, or come back later" |
+| P · Can't read the file | The phone or browser can't read it | Choose it again |
+| Q · Too many tries | A safety limit was met (plan C) | Carries on by itself in about a minute |
+| R · Drive not available | The Drive connection needs reconnecting (v4.0) | The page tries again every few minutes |
+
+**Per file:** Waiting (grey, on the page only) → Uploading (blue) → Done (green); Paused (offline or screen off); Failed (red, Retry); Already sent (grey); Held (grey); Not sent (a stopped link, or a file that didn't finish on an earlier visit). In MaxOff a file row is `held`, `uploading`, `done`, `failed` or `removed` (DATA-MODEL §8a). **Done means Google's own answer:** the Worker asks Google for the file's size, folder and checksum; a file whose size or folder is wrong is Failed, and a checksum that differs is "Failed: damaged on the way" (plan F1–F2). Where the page could not hash a file without slowing the phone (plan F2), it is checked by size only, and the Admin's sheet says so.
+
+**A name is a claim, not an identity.** It decides only the "Not on this task · new name" chip (it matches no active assignee of the task) and the uploader's folder. A second uploader with a name already used on the task gets "Sam (2)" as their folder (proposed). Nothing is granted by a name.
+
+### 5B.3 What the Owner and the task's Admin see
+The **Uploads** card on the task's Work view (Owner and the task's Admin only; Crew on the task see no card, Q1). One row per uploader: name, chips (Uploading, Not on this task · new name, **Stuck** (red), **Said "I'm done"**, Looks finished (amber)), files done / in progress / failed, data sent, last activity. A tap opens that uploader's sheet: each file's full name, size and state, "Check before opening" (grey) on programs and web pages or a double name like `.mp4.exe` (Q13; nothing is blocked), "First file 1:02 pm · phone · Android. Name typed by the uploader, not checked." The IP is shown to the Owner only (Q12). ⋯ on a received file: **Open in Drive**, **Remove…** (Q7). **Open the folder in Drive ↗** is a plain link to the task folder (Q6: no sharing per folder). The page's one solid button is **All files received** (green: it finishes something).
+
+- **The card refreshes itself every few seconds while anything is uploading and the card is on screen, and stops when nothing is** (the approved sample). This is a written exception to ARCHITECTURE §10a ("nothing polls on a timer"), the advisor's to confirm at R0 (plan H5 (a)). No read is added to a shared layout.
+- **Remove… (Q7):** the Owner or the task's Admin gives a reason (required). MaxOff moves the Drive file to the Drive bin (Google keeps it 30 days) and keeps the row with who, when and why in the task's history. **Never a permanent delete by MaxOff.**
+
+### 5B.4 "Stuck" and "Looks finished"
+| Signal | When | Ends | Told |
+|---|---|---|---|
+| **Stuck** (red, per uploader) | One of the uploader's uploading files has had **no new bytes at Google for 15 minutes** (the Worker asks Google itself when the browser has gone quiet; plan F3), while the link is active | Bytes move again, or the file is done, failed or removed | Once per stall per uploader: `upload_stuck`. A new stall after bytes moved again tells again |
+| **Looks finished** (amber, per uploader; the card's header too once every uploader looks finished) | Every file the uploader started is received, nothing is uploading or held, and **nothing has moved for 10 minutes** (Q12) | A new file starts | Once per quiet period: `upload_looks_finished`. *Proposed:* not sent when the uploader said "I'm done" after their last file (they already told) |
+
+The stuck alert names the uploader only: no Call or WhatsApp, no number (Q3). A stall after the link stopped tells nobody (proposed: the Admin already closed it).
+
+### 5B.5 All files received
+The task's Admin (or the Owner) taps it after checking the list and the folder. It **stops the link and closes the upload**; what else happens depends on the primary owner. **Invariant 6 is unchanged**: only the primary owner, or their coordinator, marks Done, and the approval route (invariant 5) carries on as usual.
+
+| The primary owner | The sheet | What happens |
+|---|---|---|
+| A freelancer **the caller coordinates** | "This stops the upload link and marks Brand reel Done for Jordan. It then goes for approval as usual." **Received, mark Done** / Not yet | One transaction: the link stops, then the existing Done (`task_submit_done` on behalf of the freelancer, as the coordinator may today), routed as any Done. Past the task's due time, the sheet asks for the late reason first, as Done does today (*open question 2*) |
+| A Crew member (or anyone the caller can't mark Done for) | "This stops the upload link. Jo (the task's primary) gets "Files received for Brand reel: mark it done"." **Files received** / Not yet | The link stops; the primary owner gets `upload_files_received` (a freelancer's goes to their coordinator, ADR-0013). Nothing else changes: the primary marks Done as usual |
+
+- Either sheet shows "52 files · 55.7 GB from Sam, Alex and Jordan", and while a file is still uploading, "1 file is still uploading from Alex. If it finishes, it's kept and marked "arrived after the link stopped"." It is still allowed (Q8).
+- The closed card: "52 files · 55.7 GB from 3 people · Closed by you, 18 Nov 5:40 pm. The link no longer works.", **Open the folder in Drive ↗**, **Make a new link**.
+- *Open question 3:* the caller is the primary owner themselves (an Admin or the Owner on their own task).
+
+### 5B.6 Limits that pause rather than refuse
+- **Google's daily limit (Q10):** about 750 GB a day on a personal account. When Google refuses a new session for it, that link pauses new files for 15 minutes, then for an hour at a time on each further refusal the same IST day (`upload_links.paused_until`, `pause_step`); the next IST day, or the first file Google accepts, starts it again. **Nothing resumes by a job**: the open page asks again by itself when the pause ends, and files already uploading carry on. The Owner and the task's Admins are told once per link per IST day (`upload_daily_limit`).
+- **Not enough space (Q11):** a file larger than the studio's free space less a 10 GB reserve and the bytes still to come on open sessions is held, not started; the Owner is told once per link per IST day (`upload_space_held`). The free space is the v4.0 quota reading, refreshed when older than 5 minutes; it is never shown to the uploader.
+- **Drive needs reconnecting (v4.0):** the link stays active but no file starts; the page shows R, the card says "The studio's Drive needs reconnecting: uploads wait until the Owner reconnects it" (proposed wording), and the Owner's existing `drive_needs_reconnect` covers it. **An account switch** sends new files to the new account's folders; files in the old account stay there and the sheet says which account holds them (plan E8).
+- **Safety limits** (plan C, set so a real shoot never meets them): 20 new names per link a day (the 21st is refused and the task's Admins are told once, `upload_names_capped`), 6 files at once per uploader, 600 new files an hour and 5,000 a day per link, bad-link and open limits per network. The uploader sees screen Q.
+
 ## 6. Revenue calculation (Owner only)
 Kickoff 9 decisions as refreshed on 14 Nov 2026 (`docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`, OWNER ANSWERS; ADR-0007 amendment 2026-10-02).
 
@@ -582,7 +685,11 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | `notifications_remove_read` | pg_cron | 03:30 IST (22:00 UTC), every day, after `storage_cleanup` | Removes **read** notifications created more than 90 days ago, with their deliveries (cascade): `public.notifications_remove_read(now(), false)`. **Unread notifications are never removed**, however old; every business record, comment and activity entry is kept (invariant 9). One run at a time (an advisory lock); a re-run removes nothing more. 5B decision 11 (owner 2026-10-01); scheduled by the v1.4.0 release migration `notifications_read_removal_schedule` (owner decision 2026-10-06) |
 | `cron_history_trim` (P2 item 5) | pg_cron | 03:45 IST (22:15 UTC), every day, after `notifications_remove_read` | Deletes pg_cron's own run log rows (`cron.job_run_details`) older than 7 days, in batches: `app.cron_history_trim(now())` (migration `p2_db_memory`, 2026-10-16, pgTAP 80). A system log only: no business table, never `activity_log` |
 | `drive_space_check` | worker | 09:05 | Refreshes Google quota (`drive_record_quota`) and warns the Owner once at 80 % full and once at 90 % (re-armed below 80 %) |
+| `upload_watch` (v4.5 (proposed)) | worker | every minute | For uploading files whose page has been quiet for 2 minutes or more: asks Google each session's offset (`upload_record_offset`) and, when Google says a file is complete, checks it and records it (`upload_file_done`), so a file that finished after the page closed or after the link stopped is still received (`after_stop`). Then `app.upload_signals(now)`: **stuck** (15 min with no new bytes at Google) and **looks finished** (10 min with nothing moving), each once (`upload_alerts`; WORKFLOWS §5B.4). Retries moving removed files to the Drive bin. Nothing while the Drive needs reconnecting |
+| `upload_housekeeping` (v4.5 (proposed)) | pg_cron | 03:20 IST (21:50 UTC), every day | **The 90-day erasure (Q12, plan I3):** nulls `ip`, `user_agent` and `device_label` on uploader and file rows whose IST creation date is 90 or more days before today (`app.today_ist()`), and `device_key_hash` of uploaders whose last activity is that old; sets `network_erased_at`. The names, the file lists and every history row stay (invariant 9; no IP is ever in `activity_log`). Also clears any session address older than 8 days (Google's sessions last about a week) and removes `upload_rate_hits` rows older than a day (bookkeeping, as `cron_history_trim`) |
 | `nightly_backup` | gha | 02:00 | pg_dump to R2 |
+
+**The upload link's pauses (v4.5 (proposed), §5B.6) have no job of their own:** Google's daily limit pauses a link with `paused_until` (15 min, then an hour at a time the same IST day), and the space guard holds a file; the uploader's open page asks again by itself, and the next IST day starts the pause over. `drive_space_check` (09:05) keeps refreshing the quota as in v4.0; a file start refreshes it when it is older than 5 minutes.
 
 **On hold (v1.9 W7, migration `on_hold`, ADR-0016; pgTAP 127 at explicit instants):** `reminders_tick` sends nothing about a held task (its deadline rows were cancelled by the hold and are armed again by the resume; the acknowledgement repeats and not-noted escalations skip it and count from `resumed_at` after it); `cycle_generate` makes no cycle for a held project, and after a resume none for a period that ended before it; `client_work_alerts` sends no "cycle ready", E1, E2 or E3 about a held project; `cycle_close_prompt` does not prompt a held project's ended cycles (its choices come with the resume); `eod_report` and `digest_weekly` count no held task or held project's deliverable as overdue.
 
@@ -644,6 +751,15 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | One-time project past its delivery date (E3) | Owner: one `escalation_delivery_missed` per Admin per run naming the client's Admin, at 08:00 IST the morning after the delivery date while the project is open or in progress, or, when the project was created, its delivery date moved or it was reopened later than that, at the next 08:00 IST (M1); once per delivery date (re-armed when it moves); none without an active Owner (L2); a missed morning waits for the next one, the project still open (Q13 (a)). A client with no Admin (Q9): one `reminder_delivery_missed` to the Owner at the same time, no Admin named, not an escalation (always emailed) |
 | Submitted link is private or unreachable | The submitter (with instructions), and the approving Admin on the task card |
 | Google Drive needs reconnecting, or is low on space (v4.0 D1, migration `drive_connect`) | **Owner only**, actionable (email only as the fallback). `drive_needs_reconnect`, "Google Drive needs reconnecting" / "MaxOff can no longer reach <address>. Open Settings, Google Drive and tap Reconnect.": once per move into `needs_reconnect` (a repeat failure while waiting tells nobody again; a reconnect re-arms it). `drive_space_low`, "Google Drive is 80% full: X GB free" / "Make space in that Google account or add more storage to it.": once at 80 %, once at 90 %, both re-armed when it drops below 80 % and on an account switch. Both open `/settings/drive`; no actor. Wording since migration `drive_connection_guard` (v4.0 review: nothing archives before D2); the Worker's writes name the connection they read, so a reading or refusal from a replaced connection tells nobody |
+| **Upload link (v4.5 (proposed), §5B): who "the task's Admins" are** | `app.upload_recipients(task)`: the approving Admin (holding `tasks.approve_admin`) and the creator when an Admin (holding `tasks.create`), once each; **the Owner when the Owner runs the task** (no approving Admin). Never the actor, **never an uploader** (they have no account), never Crew but the "mark it done" row. **No notification carries the link, a Drive id or the folder link**; names are plain text (plan G5); a push holds the title and the task id only; a tap opens the task on its Uploads card |
+| Someone not on the task starts uploading (v4.5 (proposed)) | The task's Admins: `upload_not_on_task`, "Alex is uploading to Brand reel (not on the task)". Once per new name per link, at most 5 a day per link, then one summary, "3 more new names are uploading to Brand reel" (proposed wording). Info: in-app and push, never email |
+| The 21st new name on a link in a day is refused (v4.5 (proposed), plan C3) | The task's Admins, once per link per IST day: `upload_names_capped`, "Too many new names on the Brand reel link" / "New names are refused until tomorrow. Stop the link if it has spread." (proposed wording). Info, never email |
+| Upload stuck (v4.5 (proposed): 15 min with no new bytes) | The task's Admins: `upload_stuck`, "Upload stuck: Alex, Brand reel" / "No progress for 15 min · 4 of 9 files". Once per stall per uploader; no call buttons (Q3). Info, never email |
+| An uploader taps "I'm done" (v4.5 (proposed)) | The task's Admins: `upload_said_done`, "Sam finished: 12 files, 5.4 GB" / "Brand reel · open the folder". Each time it is tapped. Info, never email |
+| Uploads look finished (v4.5 (proposed): 10 min with nothing moving) | The task's Admins: `upload_looks_finished`, "Uploads look finished: Jordan, 31 files, 46.2 GB" / "Brand reel · last file 10 min ago". Once per quiet period per uploader. Info, never email |
+| All files received, when the caller does not mark Done (v4.5 (proposed), §5B.5) | **The primary owner only** (a freelancer's to their current coordinator, worded for them): `upload_files_received`, "Files received for Brand reel: mark it done". Never the actor. Actionable (email only as the fallback). The coordinator path marks Done instead and notifies as any Done does |
+| A file held for space (v4.5 (proposed), Q11) | **The Owner only**: `upload_space_held`, "Studio Drive too full for an upload" / "A 48 GB file for Brand reel is waiting for space". Once per link per IST day. Actionable (email only as the fallback), like `drive_space_low` |
+| Google's daily upload limit reached (v4.5 (proposed), Q10) | The Owner and the task's Admins: `upload_daily_limit`, "Google's daily upload limit reached" / "Uploads to Brand reel carry on by themselves when Google allows it." (proposed wording). Once per link per IST day. Actionable (email only as the fallback) |
 | Someone not reachable by push for 48 h (5.4, `reachability_check`) | Owner only: **one** `member_unreachable` row per person, at most weekly, **always emailed**; never about the Owner (their banner says it), never about an invited person or a freelancer |
 | Anything financial | Owner only |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |

@@ -72,6 +72,12 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    v4.0 D1 (migration drive_connect; actionable: email only as the fallback, the Owner
                    only): drive_needs_reconnect ("Google Drive needs reconnecting"), drive_space_low
                    ("Google Drive is 80% full: X GB free", then once at 90 %).
+                   v4.5 (proposed; migration to come, WORKFLOWS §9 for words and recipients; never to
+                   the uploader, never the link itself): upload_not_on_task, upload_names_capped,
+                   upload_stuck, upload_said_done, upload_looks_finished (info: in-app and push, never
+                   email); upload_files_received* (the primary owner, or a freelancer's coordinator);
+                   upload_space_held* (the Owner), upload_daily_limit* (the Owner and the task's
+                   Admins) (actionable: email only as the fallback, like drive_*).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -1779,6 +1785,123 @@ drive_jobs           later (v4.5+): id, subject, kind ('copy_link'|'upload_file'
 - **An account switch** (a different `google_sub`) starts quota, `quota_alert_level` and the root folder again; disconnecting clears the tokens and keeps the address, quota and folder cache.
 - **The folder cache** is keyed by what a folder is for (client id, month, task id), never by a name, and by `account_sub`, so a renamed client keeps its folder and switching accounts never reuses (or deletes) another account's folders.
 - `drive_jobs` is the retry queue (v4.5+): idempotent, with exponential backoff and a cap.
+
+### 8a. The upload link (v4.5 (proposed))
+
+> **v4.5 (proposed), not built.** Drafted 19 Nov 2026 from the approved sample (`docs/design/v45-upload-link-sample.html`, Q1–Q13), the security review plan (`docs/handoff/v45-security-review-plan.md`, cited as "plan A1" and so on) and ADR-0010's amendment of 2026-11-19. Nothing here is migrated until the plan's E0 gate passes and the advisor and the Owner approve this section. Expand-only: six new tables and one settings table, new functions, two re-created task functions (same signatures), new notification kinds; nothing renamed or dropped.
+
+A link lets anyone who holds it send files for **one task** straight into that task's Drive folder, with no login (WORKFLOWS §5B). The bytes go from the uploader's browser to a Google resumable session the Worker opened; MaxOff stores only what it needs to know who sent what, to check it arrived whole, and to stop the link.
+
+```
+upload_links         v4.5 (proposed). id, org_id, task_id → tasks, token_hash bytea (sha256 of the
+                     token; unique), token_salt bytea (16 random bytes), key_version smallint (which
+                     UPLOAD_LINK_KEY derived it; 1 at first), created_by → members, created_at,
+                     renewed_from_id null → upload_links (unique: the link this one replaced),
+                     stopped_at null, stopped_by null → members, stop_reason null ('stopped' |
+                     'files_received' | 'task_done' | 'task_cancelled' | 'renewed'),
+                     files_received_at null, files_received_by null → members,
+                     paused_until null, pause_step smallint (0 | 1 | 2; Google's daily limit, §5B.6),
+                     paused_day date null (the IST day pause_step counts in), updated_at
+                     -- one active link per task: unique (task_id) where stopped_at is null
+                     -- checks: stopped_at and stop_reason together; files_received_at and
+                     -- files_received_by exactly when stop_reason = 'files_received'; pause_step 0
+                     -- whenever paused_until is null
+                     -- the token itself is never stored: token = base64url(HMAC-SHA256(UPLOAD_LINK_KEY,
+                     -- id ‖ token_salt)), 43 characters (plan A1–A3); the Worker derives it for Copy link
+upload_settings      v4.5 (proposed). org_id pk → organizations, links_paused_at null,
+                     links_paused_by null → members, updated_at
+                     -- the Owner's "Pause all upload links" (plan C12; the Owner to confirm, report
+                     -- open question). Paused: every link answers "doesn't work right now"; no link stops
+upload_uploaders     v4.5 (proposed). id, org_id, link_id → upload_links, task_id → tasks (the link's
+                     task, copied for scope), name (1–60 after cleaning: NFC, trimmed, control,
+                     zero-width and bidi characters removed; plan B2), name_key (the folded form:
+                     lower case, accents and repeated spaces removed; used for matching only),
+                     on_task boolean (the name matched an active assignee when the uploader started),
+                     matched_member_id null → members, folder_name (the uploader's Drive folder:
+                     the name, or "Sam (2)" when another uploader on this task already has it),
+                     device_key_hash bytea null (sha256 of the browser's 32-byte device key),
+                     ip inet null, user_agent null (≤ 300), device_label null (≤ 60, "phone · Android",
+                     made from the user agent), said_done_at null (the latest "I'm done"),
+                     first_file_at null, last_activity_at, network_erased_at null, created_at
+                     -- unique (link_id, device_key_hash) where device_key_hash is not null;
+                     -- unique (task_id, folder_name)
+                     -- no phone, email or location, ever (Q3, owner 19 Nov; plan I2)
+upload_files         v4.5 (proposed). id, org_id, uploader_id → upload_uploaders, link_id →
+                     upload_links, task_id → tasks, name (the cleaned file name, ≤ 255; `/` and `\`
+                     removed), relative_path ('' on a phone; on a laptop the folders under the
+                     uploader's folder, '/'-joined, depth ≤ 12, each part ≤ 120), size_bytes bigint
+                     (declared by the browser, ≥ 0), mime_hint null (the browser's claim, ≤ 100; Drive
+                     decides), state ('held' | 'uploading' | 'done' | 'failed' | 'removed'),
+                     failed_reason null ('damaged' | 'size_mismatch' | 'wrong_folder' | 'gave_up' |
+                     'unreadable'), account_sub (the Google account the file goes to), drive_parent_id
+                     null, drive_file_id null (unique), session_uri_encrypted null (AES-GCM, like the
+                     Drive tokens), session_opened_at null, bytes_at_google bigint (0; the last offset
+                     Google reported), bytes_reported bigint (0; the browser's last report),
+                     last_moved_at null (the last time bytes moved), md5_page null (32 hex, the page's
+                     own hash), md5_drive null (32 hex, Drive's md5Checksum), check_kind null ('md5' |
+                     'size_only'), done_at null, after_stop boolean (false), removed_at null,
+                     removed_by null → members, removed_reason null (1–500), trashed_at null (Drive
+                     confirmed the move to its bin), ip inet null, user_agent null (≤ 300), created_at,
+                     updated_at
+                     -- checks: done ⇒ drive_file_id, done_at and check_kind; removed ⇒ drive_file_id,
+                     -- removed_at, removed_by and removed_reason (only a received file is removed);
+                     -- failed ⇒ failed_reason; held ⇒ no session; session_uri_encrypted is null once
+                     -- done, failed for good or removed
+                     -- "already sent": a done row of the same uploader with the same relative_path,
+                     -- name and size_bytes (plan B4; never another uploader's)
+                     -- the risky-type chip ("Check before opening", Q13) is worked out from the name
+                     -- when shown; not stored
+upload_folders       v4.5 (proposed). id, org_id, uploader_id → upload_uploaders, account_sub,
+                     relative_path ('' = the uploader's own folder), drive_folder_id, created_at
+                     -- unique (uploader_id, account_sub, relative_path); at most 2,000 per uploader
+                     -- (plan C11). Sits under drive_folders' task folder (§8), keyed by what it is for,
+                     -- like drive_folders; an account switch never reuses another account's rows
+upload_alerts        v4.5 (proposed). id, org_id, link_id → upload_links, uploader_id null,
+                     file_id null, kind ('not_on_task' | 'not_on_task_summary' | 'names_capped' |
+                     'stuck' | 'looks_finished' | 'space_held' | 'daily_limit'), answers text (what the
+                     send answers: the stall's start instant, the quiet period's start, the IST day),
+                     recipient_id null → members, sent_at
+                     -- unique (link_id, kind, uploader_id, answers, recipient_id) NULLS NOT DISTINCT:
+                     -- each signal goes once (plan C10), as client_work_alerts does
+upload_rate_hits     v4.5 (proposed). bucket ('bad_link' | 'open'), key_hash bytea (HMAC of the IP
+                     with a server key; never the IP), window_start timestamptz, hits int,
+                     blocked_until null; pk (bucket, key_hash, window_start)
+                     -- plan C1–C2 beside the Cloudflare rate-limit binding; bookkeeping, not history:
+                     -- rows older than a day are removed by upload_housekeeping (as cron_history_trim)
+```
+
+- **Who reads and writes (v4.5 (proposed)).** RLS is on for every table above, in the migration that creates it, with **no policy and every API privilege revoked from `anon` and `authenticated`** (the v4.0 pattern: hashes, salts, session addresses and IPs sit in these rows). Members read through security-definer functions; the Worker reads and writes as `service_role` through the functions below. pgTAP per table and role: the Owner, the task's Admin, a coordinator, another Admin, a Crew assignee, Crew not on the task, a freelancer's id, anon, another organisation: every one is refused a direct `select`, `insert`, `update` and `delete`.
+- **"The task's Admin" (Q1)** is `app.upload_manager(task_id)` (proposed, internal): the Owner, the task's creator while holding `tasks.create`, and its approving Admin while holding `tasks.approve_admin`, the same people as `app.task_manager` (who may edit the task). A coordinator, a Crew assignee, the primary owner as such and an Admin who only sees the task through a client label are not. *Open question 1 in the report.*
+- **Member reads (`uploads.manage`, PERMISSIONS §1; NOT_FOUND when the caller cannot see the task, FORBIDDEN when they see it but are not `app.upload_manager`, UNAUTHENTICATED for a non-member, no EXECUTE for anon):**
+  - `upload_card(task_id)` → the link's state (none / active / looks finished / stopped, with stop_reason, who and when), its age in days, the masked link, the kill switch and Drive state, and one row per uploader (name, on_task, files done / uploading / held / failed, bytes done and total, last activity, said_done_at, stuck_since, looks_finished). No token, hash, salt, IP, user agent or session address.
+  - `upload_uploader_files(uploader_id)` → that uploader's sheet: each file's name, relative_path, size, state, bytes, done_at, check_kind, after_stop, drive_file_id, removed reason; the uploader's device_label and first_file_at. **`ip` and `user_agent` only for `uploads.network` (the Owner, Q12).**
+  - `upload_link_secret(link_id, copy boolean)` → (link_id, token_salt, key_version) to the server action, which derives the token with `UPLOAD_LINK_KEY` (plan A3). Only for an active link. `copy = true` writes the history row `upload_link_copied` (who copied it); showing the masked link on the card writes nothing.
+- **Member transitions (ADR-0006: permission + scope + state + change + `activity_log` + notifications in one transaction; `uploads.manage` and `app.upload_manager`, errors as above):**
+  - `upload_link_create(task_id)` → link id. The task is `todo`, `in_progress` or `changes_requested`, not archived, has no active link, and the Drive is connected or needs reconnecting (not `disconnected`, never connected: INVALID_STATE). History `upload_link_created`.
+  - `upload_link_stop(link_id)` → stop_reason `stopped`. History `upload_link_stopped`. Files already uploading may finish (`after_stop`).
+  - `upload_link_renew(task_id)` → new link id ("Make a new link", Q9): stops the active link if there is one (stop_reason `renewed`) and makes a new one with `renewed_from_id`, in the same task states as create. History `upload_link_renewed` (meta: from, to).
+  - `upload_files_received(link_id, mark_done boolean, late_reason text)` → `'marked_done' | 'primary_told'`. Stops the link (stop_reason `files_received`, files_received_at/by), then: when `mark_done` and the caller may mark Done themselves (the current coordinator of a freelancer primary owner, as `task_submit_done` already allows), it calls the existing Done logic unchanged (`task_submit_done(task_id, null, late_reason, on_behalf_of)`: `late_reason` is required past `due_at` as today); otherwise it notifies the primary owner (`upload_files_received`; a freelancer's goes to their coordinator, ADR-0013). Invariants 5 and 6 unchanged. History `upload_files_received` (meta: files, bytes, uploaders, path taken). *Open questions 2 and 3.*
+  - `upload_file_remove(file_id, reason)` (Q7): a `done` file → `removed`, reason 1–500 required. History `upload_file_removed`. The Worker then moves the Drive file to the bin (`files.update trashed=true`, allowed by `drive.file` on a file the app made) and calls `upload_file_trashed(file_id)`; a failed move is retried by `upload_watch`. **The row stays; nothing is deleted by MaxOff** (invariant 9). *Open question 4 (Google empties its bin after 30 days).*
+  - `upload_uploader_erase_network(uploader_id)` (`uploads.network`, the Owner, plan I4): nulls that uploader's and their files' ip, user_agent, device_label and device_key_hash now; sets network_erased_at. History `upload_network_erased` (who; no values).
+  - `upload_links_pause(paused boolean)` (`drive.manage`, the Owner; plan C12, to confirm): sets or clears `upload_settings.links_paused_at/by`. History `upload_links_paused` / `upload_links_resumed`.
+- **The public API's functions (service_role only; `anon` and `authenticated` have no EXECUTE; called by the Worker after its own checks of the token, the body size and the rate limits; plan H2).** Every one finds the link by `token_hash` and the uploader by `device_key_hash`, never by an id the browser sends (plan A4, M7). **Alive** = not stopped, the task `todo`, `in_progress` or `changes_requested` and not archived, and no `upload_settings.links_paused_at` (plan A5); checked inside each function.
+  - `upload_resolve(token_hash, device_key_hash)` → for an alive link: the studio's name, the task's title (Q5: nothing else), whether new files may start now (Drive state, `paused_until`), and, when the device key matches an uploader, that uploader's name and their own files (name, relative_path, size, state) for "Welcome back" (Q4). **Anything else** (unknown, stopped, Done, cancelled, malformed) → null, one answer (plan A6). The exact key set is pinned by pgTAP (plan A7).
+  - `upload_register(token_hash, device_key_hash, name, ip, user_agent)` → uploader id. Cleans and checks the name (VALIDATION), matches it to the task's active assignees (on_task, matched_member_id; the rule is open question 5), picks the folder name, refuses the 21st new uploader on the link in an IST day (RATE_LIMITED, plan C3) and tells the task's Admins once (`names_capped`). An uploader not on the task tells the task's Admins once per name per link, at most 5 a day per link, then one summary (plan C10). History `upload_uploader_started` (name, on_task; no IP).
+  - `upload_file_start(token_hash, device_key_hash, name, relative_path, size_bytes, mime_hint, ip, user_agent)` → `('already_sent') | ('held', file_id) | ('start', file_id, folder steps) | ('wait', seconds)`. Checks the link is alive and Drive can take files; cleans the name and path (VALIDATION); "already sent" against this uploader's own done files; at most 6 files uploading per uploader (plan C4) and 600 new files an hour, 5,000 a day per link (C5): `wait`; `paused_until` in the future: `wait`; the space guard (Q11, plan C8): a file larger than free space − 10 GB − the bytes still to come on open sessions becomes `held` (no session) and the Owner is told once per link per IST day (`space_held`). A held file asked for again starts when it fits.
+  - `upload_folder_put(uploader_id, account_sub, relative_path, drive_folder_id)` (insert or return the row, as `drive_folder_put`).
+  - `upload_session_set(file_id, account_sub, drive_parent_id, session_uri_encrypted)` → the file is `uploading`. The Worker opened the Google session with the file's fixed name, parent, declared size and a description linking to the task (plan E2); the browser gets only the session address.
+  - `upload_progress(token_hash, device_key_hash, file_id, bytes)` (at most one per file per 5 s, plan C6) and `upload_file_failed(token_hash, device_key_hash, file_id, reason)`: the uploader's own uploading files only. A failed file may be retried: `upload_file_start` with the same file finds it and goes back to `uploading` on the same session while it lasts.
+  - `upload_file_done(file_id, drive_file_id, size, md5_drive, parent_id, md5_page)`: called by the Worker **after it asked Google itself** (plan F1). Size ≠ declared or parent ≠ expected: `failed` (`size_mismatch` / `wrong_folder`). An MD5 from the page that differs from Drive's: `failed` (`damaged`). Otherwise `done`, check_kind `md5` or `size_only` (the page sent none, plan F2), session address cleared, **after_stop = the link had stopped before this moment** (Q8). Idempotent on a retry. Allowed for a stopped link, but only for a file already `uploading` (a file on its way may finish). History `upload_file_received` (name, path, size, check, Drive id, after_stop).
+  - `upload_said_done(token_hash, device_key_hash)`: said_done_at = now; tells the task's Admins (`upload_said_done`). History `upload_said_done`. Allowed again later ("Send more files", then I'm done again).
+  - Job functions: `upload_watch_due(now)` (open sessions whose browser has been silent ≥ 2 min, files removed and not yet trashed), `upload_record_offset(file_id, bytes, at)`, `upload_file_trashed(file_id)`, `upload_daily_limit_hit(link_id, at)` (§5B.6) and `app.upload_signals(now)` (stuck and looks finished, WORKFLOWS §5B.4); `app.upload_housekeeping(now)` (pg_cron: the 90-day erasure and the counters).
+- **The task's own functions, re-created with their signatures and grants (v4.5 (proposed)):** `task_submit_done` (every path: to `submitted`, to `admin_approved`, and the Owner primary's straight `completed`) and `task_cancel` stop the task's active link in the same transaction (stop_reason `task_done` / `task_cancelled`, stopped_by the actor). `task_reopen` and `task_review`'s send-back do **not** revive it (Q9): the task's Admin makes a new link.
+- **What is history (v4.5 (proposed)).** **No upload table has the audit trigger** (`app.audit_row_change()` would copy hashes, salts, session addresses and IPs into `activity_log`, which is append-only and never erased). The functions write their own `activity_log` rows with safe fields only, entity `upload_links` / `upload_uploaders` / `upload_files` and `meta.task_id`: link `created`, `copied` (who), `renewed`, `stopped` (who, stop_reason), `files_received`; uploader `started` (name, on_task), `said_done`, `network_erased`; file `received` (name, path, size, check_kind, Drive id, after_stop), `failed` (for good, with the reason), `removed` (who, reason); signals `stuck_signalled`, `looks_finished_signalled`; `links_paused` / `links_resumed`. **An uploader's action has `actor_id` null and `meta.uploader_id`** (plan G3's "the actor is the uploader row"; `activity_log` keeps its columns). **No IP, user agent, device key, token or session address is ever in `activity_log`** (plan G2), so the erasure never rewrites history. Progress reports, offsets and counters are not history.
+- **RLS on those history rows (proposed):** a policy on `activity_log` for the three upload entities: `activity.view_all` (the Owner) or `app.upload_manager(meta.task_id)`. Crew, other Admins and the coordinator of a freelancer on the task do not read them, so the task's History tab shows upload entries only to the people who see the Uploads card (Q1). *Open question 6.*
+- **What is service-role only (v4.5 (proposed)):** every write above but the member transitions; `token_hash`, `token_salt` and `key_version` (read only inside the functions and returned to the derivation step); `device_key_hash`; `session_uri_encrypted` (never logged, never in a response but to the device that asked, never in Realtime or history; plan E4); `upload_alerts`; `upload_rate_hits`. The browser never sees a Google token or the studio's address (plan E1).
+- **New secret:** `UPLOAD_LINK_KEY` (32 random bytes, base64url), a Worker secret in `.env.example` with a comment and uploaded by `deploy.yml` like `DRIVE_TOKEN_KEY` (an Owner-approved production change). Rotating it (a new key_version) stops every link working: the Owner's guide says so (plan A3). A second key for `upload_rate_hits.key_hash` may be the same secret with a fixed label.
+- **Money is untouched** (invariant 2): no amount in any upload table, read, notification or response; pgTAP 46's money list is unchanged. **Realtime is unchanged**: no upload table joins the publication; the Uploads card re-reads `upload_card` while something is uploading (WORKFLOWS §5B.3; ARCHITECTURE §10a exception, report clash 1).
+- **Indexes (proposed):** `upload_links(task_id) where stopped_at is null` (unique), `upload_links(token_hash)` (unique), `upload_uploaders(link_id, device_key_hash)`, `upload_files(uploader_id, state)`, `upload_files(state, last_moved_at) where state = 'uploading'`, `upload_files(removed_at) where trashed_at is null and removed_at is not null`, `upload_uploaders(created_at) where network_erased_at is null`.
+- The upload link does not use `drive_jobs`: a file's own row is its retry state (WORKFLOWS §5B). Where the code lives (`core/drive` beside v4.0, or a new module the task page imports) is the new ADR's to settle (plan §9 row 6).
 
 ## 9. Files, notifications, audit, reports
 ```
