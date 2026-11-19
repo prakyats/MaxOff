@@ -21,3 +21,16 @@ Pixora already keeps final files in Google Drive and has a 2 TB Google One plan 
 - It depends on a personal Google account, so the connection will occasionally expire. The queue and the "Reconnect" banner make that a visible, recoverable event rather than silent data loss.
 - Copying requires the file to be readable, so link hygiene is part of the workflow.
 - Moving to Google Workspace later means switching to a shared drive, which changes `core/drive` only.
+
+## Amendment 2026-11-19: the upload link (v4.5), PROPOSED, awaiting the Owner's approval
+
+The Owner approved the v4.5 upload-link screens on 19 Nov 2026 (`docs/design/v45-upload-link-sample.html` at 86a5e04; decisions on #89: 6879421505, 6879494745, 6879555186 and the sample's Q1–Q13). Three of them differ from the decision above, so this amendment records them. The two submission paths above are unchanged; the upload link is a **third path**, for files people outside the studio (or the Crew in the field) send for one task.
+
+- **The bytes go straight from the uploader's browser to the studio's Google Drive.** The Worker opens a Google resumable upload session on the connected account (`drive.file`), into the task's folder, and hands the browser only that session's address. There is **no R2 copy**, so the 25 MB / 100 MB limits, the 90/30-day retention and "archived only once the Drive copy is confirmed" don't apply to this path: the Drive file *is* the archive copy. No size or type cap, beyond the safety limits in `docs/handoff/v45-security-review-plan.md` (C, D).
+- **The uploader's own file and folder names are kept** under `<task folder>/<uploader name>/…`, instead of MaxOff naming each file. The task folder still comes from MaxOff (`Clients/<client>/<YYYY-MM>/<task>`, v4.0, folders made on first use). Each file's history in MaxOff records who sent it, when, its size and its Drive id.
+- **Nothing is re-encoded and no preview is made** for this path in v4.5. The Admin opens the files in Drive (Q6: the Admins already use the studio's Drive account).
+- Unchanged: the account and its connection are the Owner's (v4.0); tokens never reach the browser; Crew never get Drive access through MaxOff; a removed file goes to the Drive bin with a reason, and its row stays in the history (Q7, invariant 9).
+
+**Gate before the upload unit is built:** a browser on the preview origin must be able to resume a session it was handed (Google's 308 answers must expose `Range` across origins). The preflight half passed on 19 Nov (plan, "Pass 1 log"); the session half needs the staging Google connection. If it fails, the advisor is told before any other design is considered.
+
+**Consequences:** the archive grows with every upload link, not only with approved submissions, so the v4.0 space alerts (80 %, 90 %) matter more. A link is a bearer credential; how it is made, scoped, limited and stopped is in the security review plan.
