@@ -56,7 +56,6 @@ export {
   type PersonSource,
   type StatusFilter,
 } from "./domain/calendar";
-export { whoFreeLine, whoIsFree, type FreePerson, type WhoFree } from "./domain/who-free";
 export {
   bookedByWord,
   bookingTime,
@@ -65,10 +64,14 @@ export {
   EVERYONE_AVAILABLE,
   everyoneAvailable,
   freeSummary,
+  hasCrew,
   leaveName,
+  shortDayName,
+  weekEvents,
   type CrewBooking,
   type CrewBusyRow,
   type CrewDay,
+  type CrewLeaveKind,
   type CrewPerson,
   type CrewSource,
 } from "./domain/crew";

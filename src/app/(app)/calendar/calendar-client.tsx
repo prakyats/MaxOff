@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
 
 import { formatIST, istDayStart, systemClock, type ISODate } from "@/core/time";
-import { CalendarScreen } from "@/modules/calendar/components/calendar-screen";
+import { CalendarScreen, type DayActionLook } from "@/modules/calendar/components/calendar-screen";
 import { canStartTaskOnDate, NewTaskOnDayButton } from "@/modules/tasks/components/new-task-button";
 import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog";
 
@@ -27,7 +27,9 @@ const SuggestTaskButton = dynamic(() =>
  * a mouse the month's small "+" in a day's box for the same form (PP-calendar-13); Crew
  * (`task_requests.create`) get "Suggest a task on Fri 30 Oct" with the day in its details. Since
  * v1.9 W5 the action is also the pinned row at the foot of the laptop's Day and a phone's day
- * sheet, and neither shows on a day before today or on today from 11:59 pm IST.
+ * sheet, and neither shows on a day before today or on today from 11:59 pm IST. Since v6.0 the
+ * Owner's and Admins' phone day pins it as a bar above the bottom bar, and their laptop Day has it
+ * in the Crew card.
  * The form's setup is a promise the page starts, read only when the form opens.
  */
 export function CalendarClient({
@@ -44,22 +46,24 @@ export function CalendarClient({
   const open = (date: ISODate) => date >= screen.today && canStartTaskOnDate(date, systemClock());
   // "Fri 30 Oct": the day as its action names it (the approved v1.9 sample, W5).
   const words = (date: ISODate) => formatIST(istDayStart(date), "EEE d MMM");
-  // `row`: the pinned row; `icon`: the laptop month's "+" in a day's box (PP-calendar-13).
-  const newTask = (date: ISODate, row?: boolean, icon?: boolean) =>
+  // `look`: the pinned row (`true`), the phone day's bar or the laptop Day's Crew card (v6.0);
+  // `icon`: the laptop month's "+" in a day's box (PP-calendar-13).
+  const newTask = (date: ISODate, look?: DayActionLook, icon?: boolean) =>
     create && open(date) ? (
       <NewTaskOnDayButton
         setup={create}
         date={date}
         icon={icon}
-        row={row}
+        row={look}
         label={`New task on ${words(date)}`}
       />
     ) : null;
   const dayAction = create
     ? newTask
     : suggest
-      ? (date: ISODate, row?: boolean) =>
-          open(date) ? (
+      ? (date: ISODate, look?: DayActionLook) => {
+          const row = look === true;
+          return open(date) ? (
             <SuggestTaskButton
               clients={suggest}
               details={`For ${words(date)}.`}
@@ -67,7 +71,8 @@ export function CalendarClient({
               row={row}
               className={row ? undefined : "max-w-full rounded-full"}
             />
-          ) : null
+          ) : null;
+        }
       : null;
   return (
     <CalendarScreen

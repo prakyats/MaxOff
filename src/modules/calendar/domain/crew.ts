@@ -1,5 +1,5 @@
 import { displayName } from "@/core/lib/display-name";
-import { addISTDays, formatTime, type ISODate } from "@/core/time";
+import { addISTDays, formatIST, formatTime, type ISODate, istDayStart } from "@/core/time";
 
 import type { AvailabilitySource, CalendarScope, EventSource, LeaveSource } from "./calendar";
 
@@ -48,14 +48,21 @@ export type CrewSource = {
   people: readonly CrewPerson[];
   /** Named only when busy (the Owner). */
   busyOnly: readonly CrewPerson[];
-  /** Only the days with a booking or leave. `leave` is `[memberId, half day]`. */
+  /** Only the days with a booking or leave. `leave` is `[memberId, kind]`. */
   days: Readonly<
     Record<
       ISODate,
-      { busy: readonly CrewBooking[]; leave: readonly (readonly [string, boolean])[] }
+      { busy: readonly CrewBooking[]; leave: readonly (readonly [string, CrewLeaveKind])[] }
     >
   >;
 };
+
+/**
+ * A person's leave as the Crew lists say it: a full day, a half day, or comp leave. Only the
+ * Owner reads "Comp leave" (the Owner sees leave types); an Admin reads the fact, so theirs is a
+ * full day (PERMISSIONS §2 "Availability of others").
+ */
+export type CrewLeaveKind = "full" | "half" | "comp";
 
 export type CrewBusyRow = {
   memberId: string;
@@ -72,7 +79,7 @@ export type CrewBusyRow = {
 
 export type CrewDay = {
   busy: CrewBusyRow[];
-  onLeave: { memberId: string; name: string; half: boolean }[];
+  onLeave: { memberId: string; name: string; kind: CrewLeaveKind }[];
   free: { memberId: string; name: string }[];
   /** How many people could be free: everyone the viewer sees, the Owner apart. */
   people: number;
@@ -128,23 +135,24 @@ export function buildCrew(input: {
   const seen = new Set(input.people.map((person) => person.id));
   if (ownerId) seen.add(ownerId);
   const typeOf = new Map(input.types.map((type) => [type.id, type]));
-  const days: Record<ISODate, { busy: CrewBooking[]; leave: [string, boolean][] }> = {};
+  const days: Record<ISODate, { busy: CrewBooking[]; leave: [string, CrewLeaveKind][] }> = {};
   const dayOf = (date: ISODate) => (days[date] ??= { busy: [], leave: [] });
-  const setLeave = (date: ISODate, memberId: string, half: boolean) => {
-    // The Owner is never on leave here; a full day wins over a half day.
+  const setLeave = (date: ISODate, memberId: string, kind: CrewLeaveKind) => {
+    // The Owner is never on leave here; a whole day (leave or comp leave) wins over a half day.
     if (!seen.has(memberId) || memberId === ownerId) return;
     const day = dayOf(date);
     const at = day.leave.findIndex(([id]) => id === memberId);
-    if (at < 0) day.leave.push([memberId, half]);
-    else if (!half) day.leave[at] = [memberId, false];
+    if (at < 0) day.leave.push([memberId, kind]);
+    else if (kind !== "half" && day.leave[at]?.[1] === "half") day.leave[at] = [memberId, kind];
   };
 
   if (input.scope === "admin") {
     for (const row of input.availability ?? []) {
       if (!seen.has(row.memberId)) continue;
       if (row.leave === "leave" || row.leave === "comp_leave") {
-        setLeave(row.day, row.memberId, false);
-      } else if (row.leave === "half_day") setLeave(row.day, row.memberId, true);
+        // An Admin reads the fact of leave, never its type.
+        setLeave(row.day, row.memberId, "full");
+      } else if (row.leave === "half_day") setLeave(row.day, row.memberId, "half");
       for (const block of row.blocks) {
         const type = block.typeId ? typeOf.get(block.typeId) : undefined;
         dayOf(row.day).busy.push({
@@ -185,7 +193,11 @@ export function buildCrew(input: {
     for (const span of input.leave) {
       if (span.pending) continue;
       for (let date = span.startDate; date <= span.endDate; date = addISTDays(date, 1)) {
-        setLeave(date, span.memberId, span.type === "half_day");
+        setLeave(
+          date,
+          span.memberId,
+          span.type === "half_day" ? "half" : span.type === "comp_leave" ? "comp" : "full",
+        );
       }
     }
   }
@@ -227,13 +239,13 @@ export function crewOn(source: CrewSource, date: ISODate): CrewDay {
   }
   rows.sort((a, b) => a.start - b.start || byName(a.row, b.row));
 
-  const leave = new Map((day?.leave ?? []).map(([id, half]) => [id, half]));
+  const leave = new Map(day?.leave ?? []);
   const onLeave: CrewDay["onLeave"] = [];
   const free: CrewDay["free"] = [];
   for (const person of [...source.people].sort(byName)) {
     if (onlyBusy.has(person.id)) continue;
-    const half = leave.get(person.id);
-    if (half !== undefined) onLeave.push({ memberId: person.id, name: person.name, half });
+    const kind = leave.get(person.id);
+    if (kind !== undefined) onLeave.push({ memberId: person.id, name: person.name, kind });
     else if (!booked.has(person.id)) free.push({ memberId: person.id, name: person.name });
   }
   return {
@@ -251,9 +263,70 @@ export function everyoneAvailable(crew: CrewDay): boolean {
 
 export const EVERYONE_AVAILABLE = "Everyone is available";
 
-/** "Arjun Rao · Half day" / "Arjun Rao": a person on leave, as the lists name them. */
-export function leaveName(person: { name: string; half: boolean }): string {
-  return person.half ? `${person.name} · Half day` : person.name;
+/**
+ * "Arjun Rao · Half day" / "Arjun Rao · Comp leave" / "Arjun Rao": a person on leave, as the
+ * lists name them.
+ */
+export function leaveName(person: { name: string; kind: CrewLeaveKind }): string {
+  if (person.kind === "half") return `${person.name} · Half day`;
+  return person.kind === "comp" ? `${person.name} · Comp leave` : person.name;
+}
+
+/** Whether the day has anyone to say anything about: a booking, leave, or someone free. */
+export function hasCrew(crew: CrewDay): boolean {
+  return crew.busy.length + crew.onLeave.length + crew.free.length > 0;
+}
+
+/**
+ * A day as it is drawn beside the Crew lists (the Owner's and Admins' day, Day and day popup):
+ * approved leave is said once, in "On leave", so only a request still waiting keeps its chip
+ * ("· requested"). The month's bars are not this: they keep every leave.
+ */
+export function besideCrew<Day extends { leave: readonly { pending: boolean }[] }>(day: Day): Day {
+  return { ...day, leave: day.leave.filter((item) => item.pending) };
+}
+
+/**
+ * Whether such a day has nothing of its own to show ("Nothing on this day."): no holiday or
+ * weekly off, no leave request, no event, nothing due and no client work. The Crew lists show
+ * either way; someone else's booking or approved leave is theirs, not the day's.
+ */
+export function nothingBesideCrew(day: {
+  holiday: string | null;
+  weeklyOff: boolean;
+  leave: readonly { pending: boolean }[];
+  events: readonly unknown[];
+  due: readonly unknown[];
+  items: readonly unknown[];
+}): boolean {
+  return (
+    day.holiday === null &&
+    !day.weeklyOff &&
+    !day.leave.some((item) => item.pending) &&
+    day.events.length + day.due.length + day.items.length === 0
+  );
+}
+
+/** "Sat 14": a day as the Crew card, the Day's pills and the Week's rows name it. */
+export function shortDayName(date: ISODate): string {
+  return formatIST(istDayStart(date), "EEE d");
+}
+
+/**
+ * The Week table's "Events · due" cell: the titles of the events the viewer can see, how many are
+ * due, and the day off it is ("Weekly off", or the holiday's name).
+ */
+export function weekEvents(day: {
+  holiday: string | null;
+  weeklyOff: boolean;
+  events: readonly { title: string }[];
+  due: number;
+}): { titles: string; due: string; off: string | null } {
+  return {
+    titles: day.events.map((event) => event.title).join(", "),
+    due: day.due > 0 ? `${day.due} due` : "",
+    off: day.holiday ?? (day.weeklyOff ? "Weekly off" : null),
+  };
 }
 
 /**

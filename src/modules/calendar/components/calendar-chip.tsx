@@ -90,3 +90,21 @@ export function DoneTick({ className }: { className?: string }) {
     />
   );
 }
+
+/**
+ * "On hold" on a held task's or deliverable's row (v1.9 W8): the amber chip's look in plain
+ * markup, so the calendar's first load carries no badge component (its JS budget).
+ */
+export function HeldWord({ className }: { className?: string }) {
+  return (
+    <span
+      data-status="on_hold"
+      className={cn(
+        "bg-attention-soft text-attention shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+        className,
+      )}
+    >
+      On hold
+    </span>
+  );
+}

@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
-import { addISTDays, istInstant, todayIST, type ISODate } from "@/core/time";
+import { addISTDays, istInstant, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   buildCalendar,
+  buildCrew,
+  DEFAULT_EVENT_COLOR,
   listAvailability,
   monthGrid,
   parseCalendarQuery,
   rangeFor,
   scopeFor,
-  whoFreeLine,
-  whoIsFree,
 } from "@/modules/calendar";
 import { listItemRows } from "@/modules/client-work";
 import { listClientLabels } from "@/modules/clients";
@@ -41,7 +41,9 @@ export const metadata: Metadata = { title: "Calendar" };
  * everyone else as Busy and "On leave", the Owner everything. One read serves every view: the
  * month grid of the address's day (the phone's month and week, the laptop's Day, Week and Month);
  * the Due list reads only the open tasks due in it (6B review later item (f)). The Owner and Admins
- * get each day's "Who's free" and "+ New task on <day>"; Crew "Suggest a task". Since 7.3 the
+ * get each day's Crew (since v6.0 "Admin calendar": who is Busy, with the type, the time and who
+ * booked it, who is On leave and who is Free; before it a one-line "Who's free") and "+ New task
+ * on <day>"; Crew "Suggest a task". Since 7.3 the
  * Owner and the client's Admin also see client items on their planned day (kickoff 7 decision 21:
  * in the due counts and a "Client items · N" list, never a strip; never Crew).
  */
@@ -77,8 +79,8 @@ export default async function CalendarPage({
       listClientLabels(),
       // The Owner reads everyone's leave; anyone else their own (RLS says the same).
       listLeaveBetween(range.from, range.to, scope === "owner" ? null : viewer.id),
-      // An Admin's view of everyone else; the person filter keeps it to one person, but "Who's
-      // free" is over everyone they can see, so it reads everyone.
+      // An Admin's view of everyone; the person filter keeps the days to one person, but the
+      // Crew's Busy / On leave / Free is over everyone they can see, so it reads everyone.
       scope === "admin" ? listAvailability(range.from, range.to, null) : Promise.resolve(null),
       readsItems
         ? listItemRows({ states: ["open", "done"], plannedFrom: range.from, plannedTo: range.to })
@@ -148,8 +150,10 @@ export default async function CalendarPage({
     ),
   });
 
-  // "Who's free" (decision 25 D): the Owner and Admins, over the active people they can see (the
-  // Owner only as Busy, 6b.2), from the unfiltered reads.
+  // The Crew on each day (v6.0 "Admin calendar": Busy, On leave, Free), for the Owner and Admins,
+  // over the active people they can see (the Owner only as Busy, 6b.2), from the unfiltered reads
+  // above: an Admin's from `member_availability()`, the Owner's from the events and leave. No read
+  // of its own. Crew get none.
   const owner = directory.find((member) => member.role === "owner" && member.status === "active");
   const visible = directory
     .filter((member) => member.status === "active" && member.role !== "owner")
@@ -157,24 +161,18 @@ export default async function CalendarPage({
       id: member.id,
       name: member.engagement === "freelance" ? `${member.fullName} (freelancer)` : member.fullName,
     }));
-  const free: Record<ISODate, string> | null =
-    scope === "staff"
-      ? null
-      : Object.fromEntries(
-          days.map((day) => {
-            const who = whoIsFree({
-              date: day.date,
-              scope,
-              viewerId: viewer.id,
-              people: visible,
-              events,
-              leave: leaveRows,
-              availability,
-              busyOnly: owner ? [{ id: owner.id, name: owner.fullName }] : [],
-            });
-            return [day.date, who ? whoFreeLine(who) : ""];
-          }),
-        );
+  const crew = buildCrew({
+    scope,
+    viewerId: viewer.id,
+    owner: owner ? { id: owner.id, name: owner.fullName } : null,
+    people: visible,
+    types: typeRows,
+    nameOf: (memberId) => directory.find((member) => member.id === memberId)?.fullName ?? null,
+    fallbackColor: DEFAULT_EVENT_COLOR,
+    events,
+    leave: leaveRows,
+    availability,
+  });
 
   // "Suggest a task" (4.6): a client label the suggester sees, Active or Paused (decision 22).
   const suggestClients = labels
@@ -190,7 +188,7 @@ export default async function CalendarPage({
         scope={scope}
         grid={monthGrid(query.date)}
         days={days}
-        free={free}
+        crew={crew}
         choices={{
           // Crew filter by type only (decision 15): no one else's names are handed over.
           clients:

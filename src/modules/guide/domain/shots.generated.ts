@@ -205,9 +205,15 @@ export const GUIDE_SHOTS: Readonly<
   },
   "admin/calendar-day": {
     src: "/guide/admin/calendar-day.webp",
-    width: 560,
+    width: 720,
     height: 305,
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
+  },
+  "admin/calendar-people": {
+    src: "/guide/admin/calendar-people.webp",
+    width: 1190,
+    height: 356,
+    alt: "The calendar's Day view with the panel of who is busy, on leave and free highlighted.",
   },
   "admin/clients": {
     src: "/guide/admin/clients.webp",

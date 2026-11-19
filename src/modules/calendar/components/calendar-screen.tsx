@@ -42,6 +42,7 @@ import {
   weekLabel,
   weekOf,
 } from "../domain/calendar";
+import type { CrewSource } from "../domain/crew";
 import { shortcutFor } from "../domain/laptop";
 import {
   type CalendarSize,
@@ -72,6 +73,12 @@ import { Timeline, weekdayHeading } from "./timeline";
 const DaySheet = dynamic(() => import("./day-sheet").then((module) => module.DaySheet), {
   ssr: false,
 });
+/**
+ * The Owner's and Admins' day, Day and Week (v6.0: the Crew's Busy / On leave / Free) in their own
+ * chunk: in the server's HTML, so nothing moves, but outside the first-load JS, which Crew (who
+ * get none of it) share; the route's budget is never raised (ARCHITECTURE §19).
+ */
+const CrewViews = dynamic(() => import("./people-views").then((module) => module.CrewViews));
 const FiltersSheet = dynamic(
   () => import("./filters-sheet").then((module) => module.FiltersSheet),
   { ssr: false },
@@ -115,6 +122,12 @@ const ICON_BUTTON =
  * day under the calendar is part of the page, which scrolls (PP-light-4, V5b): its timeline draws
  * only the hours around the day's events and has no scroll of its own.
  *
+ * **The Owner and Admins since v6.0 ("Admin calendar"):** no hour timeline. The phone's day is
+ * rows with the Crew's Busy / On leave / Free under them and "+ New task on ‹day›" pinned above
+ * the bottom bar; the laptop's Day is the day beside a Crew card and its Week a table, one row a
+ * day (`CrewViews`, its own chunk); both are part of the page, which scrolls. What follows about
+ * timelines is Crew's.
+ *
  * **Laptop** (768px and up): Day · Week · Month, opening on Month; Week and Day are hour
  * timelines that fill the viewport below the page's header (no page scroll, one scroll inside:
  * `data-fit-viewport="laptop"`, globals.css), opening at 08:00 or now; a month day, a week's heading or a
@@ -129,13 +142,15 @@ const ICON_BUTTON =
  * Pull to refresh is off here (its swipes are the calendar's); refresh on return and Realtime
  * stay. Reduced motion: the size changes at once.
  */
+export type DayActionLook = boolean | "bar" | "card";
+
 export function CalendarScreen({
   today,
   query,
   scope,
   grid,
   days,
-  free,
+  crew,
   choices,
   dayAction,
   quickAdd,
@@ -145,15 +160,16 @@ export function CalendarScreen({
   scope: CalendarScope;
   grid: Grid;
   days: readonly CalendarDay[];
-  /** Each day's "Who's free" line (the Owner and Admins); null for Crew. */
-  free: Readonly<Record<ISODate, string>> | null;
+  /** The Crew on each day read (the Owner and Admins: Busy, On leave, Free); null for Crew. */
+  crew: CrewSource | null;
   choices: FilterChoices;
   /**
-   * The route's action for a day (New task on it, or Suggest a task), or none: a pill in the
-   * phone's day and the laptop's day dialog, the pinned row (`row`) at the foot of the laptop's Day
-   * and a phone's day sheet (v1.9 W5).
+   * The route's action for a day (New task on it, or Suggest a task), or none: a pill in Crew's
+   * phone day and the laptop's day dialog, the pinned row (`true`) at the foot of Crew's laptop
+   * Day and a phone's day sheet (v1.9 W5); for the Owner and Admins (v6.0) the phone day's pinned
+   * bar (`"bar"`) and the laptop Day's Crew card (`"card"`).
    */
-  dayAction: ((date: ISODate, row?: boolean) => ReactNode) | null;
+  dayAction: ((date: ISODate, look?: DayActionLook) => ReactNode) | null;
   /** The laptop month's "+" in a day's box (PP-calendar-13: New task on it), or none. */
   quickAdd: ((date: ISODate) => ReactNode) | null;
 }) {
@@ -192,7 +208,8 @@ export function CalendarScreen({
   const count = filterCount(query);
   // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). On the phone only
   // the full month fits it (`data-fit-viewport="phone"` below; PP-light-4).
-  const fit = view !== "month";
+  // The Owner's and Admins' Day and Week (v6.0) are part of the page, which scrolls.
+  const fit = view !== "month" && !crew;
   // The leave labels never truncate (v1.8, owner 23 Oct; the phone's full month too, owner #89
   // comment 6370526089): each picks its wording.
   const laptopRef = useRef<HTMLDivElement>(null);
@@ -259,10 +276,13 @@ export function CalendarScreen({
         ? addISTDays(selected, 7 * direction)
         : stepDate(selected, 2, direction, today);
 
-  /** A view of the laptop's, as view state (replace, never history; §14.2 d). */
-  function switchView(next: CalendarView) {
+  /**
+   * A view of the laptop's, as view state (replace, never history; §14.2 d); a row of the Week
+   * table opens the Day view on its day the same way.
+   */
+  function switchView(next: CalendarView, date: ISODate = selected) {
     if (next === view) return;
-    const href = calendarHref({ ...query, view: next, date: selected }, today);
+    const href = calendarHref({ ...query, view: next, date }, today);
     startTransition(() => router.replace(href, { scroll: false }));
   }
 
@@ -299,8 +319,8 @@ export function CalendarScreen({
     return () => window.removeEventListener("keydown", listener);
   }, [desktop]);
 
-  const action = (date: ISODate, row?: boolean) => (dayAction ? dayAction(date, row) : null);
-  const freeOf = (date: ISODate) => (free ? (free[date] ?? null) : null);
+  const action = (date: ISODate, look?: DayActionLook) =>
+    dayAction ? dayAction(date, look) : null;
 
   // The phone's swipes, on the calendar (the grid or the strip) and on the handle under it:
   // vertical grows or shrinks, sideways moves a week or a month. A swipe that starts on the day's
@@ -619,18 +639,27 @@ export function CalendarScreen({
           <span aria-hidden className="bg-muted-foreground/50 h-1 w-10 rounded-full" />
           <span>{handleLabel(size)}</span>
         </button>
-        {size !== 3 ? (
+        {size === 3 ? null : crew ? (
+          <CrewViews
+            part="phone"
+            days={weekDays}
+            selected={selected}
+            today={today}
+            scope={scope}
+            crew={crew}
+            action={action(selected, "bar")}
+            onDay={go}
+          />
+        ) : (
           <DayDetail
             day={dayOf(selected)}
             today={today}
-            scope={scope}
-            free={freeOf(selected)}
             action={action(selected)}
             timeline
             inPage
             headingId="calendar-phone-day"
           />
-        ) : null}
+        )}
       </div>
 
       {/* Laptop ----------------------------------------------------------------------------- */}
@@ -743,6 +772,17 @@ export function CalendarScreen({
               else setSheetDate(date);
             }}
           />
+        ) : crew ? (
+          <CrewViews
+            part={view}
+            days={weekDays}
+            selected={selected}
+            today={today}
+            scope={scope}
+            crew={crew}
+            action={view === "day" ? action(selected, "card") : null}
+            onDay={view === "day" ? go : (date) => switchView("day", date)}
+          />
         ) : view === "week" ? (
           <Timeline
             days={weekDays}
@@ -817,8 +857,6 @@ export function CalendarScreen({
               <DayDetail
                 day={dayOf(selected)}
                 today={today}
-                scope={scope}
-                free={freeOf(selected)}
                 action={null}
                 timeline={false}
                 headingId="calendar-laptop-day"
@@ -833,7 +871,7 @@ export function CalendarScreen({
           day={dayOf(sheetDate)}
           today={today}
           scope={scope}
-          free={freeOf(sheetDate)}
+          crew={crew}
           action={action(sheetDate)}
           pinned={action(sheetDate, true)}
           footer={

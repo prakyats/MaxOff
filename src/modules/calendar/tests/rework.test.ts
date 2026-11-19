@@ -24,11 +24,10 @@ import {
   HOLIDAY_COLOR,
 } from "../domain/strips";
 import { allDayEvents, minutesInDay, openingMinute, placeBlocks, spanOf } from "../domain/timeline";
-import { busyWindow, whoFreeLine, whoIsFree } from "../domain/who-free";
 
 /**
  * The calendar rework's rules (6.4b; Kickoff 6 decision 25): the month boxes' strips by priority,
- * the corner counts and the compact bars; "Who's free"; the phone's three sizes and its swipes;
+ * the corner counts and the compact bars; the phone's three sizes and its swipes;
  * the hour timelines' layout.
  */
 
@@ -331,119 +330,6 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     expect(
       dayLabel(day({ weeklyOff: true, leave: [off("a", "Asha", { pending: true })] }), TODAY),
     ).toBe("Thursday 8 October, today, weekly off, Asha, on leave, requested");
-  });
-});
-
-describe("who's free (decision 25 D)", () => {
-  const people = [
-    { id: "a", name: "Asha" },
-    { id: "k", name: "Kiran" },
-    { id: "m", name: "Meera" },
-    { id: "r", name: "Ravi" },
-    { id: "z", name: "Zoya (freelancer)" },
-  ];
-  const ev = (id: string, assignees: string[], from: string | null, to: string | null) => ({
-    id,
-    title: id,
-    state: "assigned",
-    eventDate: TODAY,
-    eventStartAt: from ? istInstant(TODAY, from) : null,
-    eventEndAt: to ? istInstant(TODAY, to) : null,
-    location: null,
-    clientId: null,
-    taskTypeId: "t",
-    primaryOwnerId: assignees[0] ?? "a",
-    assigneeIds: assignees,
-  });
-
-  it("the Owner: free, busy grouped by the same time, on leave (half day marked), from everything", () => {
-    const who = whoIsFree({
-      date: TODAY,
-      scope: "owner",
-      viewerId: "owner",
-      people,
-      events: [ev("shoot", ["k", "z"], "10:00", "13:00"), ev("call", ["r"], "14:30", null)],
-      leave: [
-        { memberId: "m", type: "half_day", startDate: TODAY, endDate: TODAY, pending: false },
-        { memberId: "a", type: "leave", startDate: TODAY, endDate: TODAY, pending: true },
-      ],
-      availability: null,
-    });
-    expect(who).toEqual({
-      free: ["Asha"],
-      busy: [
-        { when: "10:00 am – 1:00 pm", names: ["Kiran", "Zoya (freelancer)"] },
-        { when: "2:30 pm – 3:30 pm", names: ["Ravi"] },
-      ],
-      onLeave: ["Meera (½)"],
-    });
-    // Owner 2026-10-21: only who is away; part-day busy stays on the timeline.
-    // The leave chip names Meera; the line does not repeat it (PP-phone-2).
-    expect(whoFreeLine(who!)).toBe("");
-  });
-
-  it("an Admin: their own in full, everyone else through availability only (no title, no pending)", () => {
-    const who = whoIsFree({
-      date: TODAY,
-      scope: "admin",
-      viewerId: "a",
-      people,
-      // The Admin's own date-only shoot; someone else's timed event they can see is taken from
-      // availability instead, so it is never counted twice.
-      events: [ev("own", ["a"], null, null), ev("seen", ["k"], "10:00", "11:00")],
-      leave: [],
-      availability: [
-        {
-          memberId: "k",
-          day: TODAY,
-          leave: null,
-          blocks: [{ startAt: istInstant(TODAY, "10:00"), endAt: istInstant(TODAY, "11:00") }],
-        },
-        { memberId: "r", day: TODAY, leave: "leave", blocks: [] },
-        { memberId: "m", day: "2026-10-09", leave: "leave", blocks: [] },
-      ],
-    });
-    expect(who).toEqual({
-      free: ["Meera", "Zoya (freelancer)"],
-      busy: [
-        { when: "all day", names: ["Asha"] },
-        { when: "10:00 am – 11:00 am", names: ["Kiran"] },
-      ],
-      onLeave: ["Ravi"],
-    });
-  });
-
-  it("Crew have none; an empty day says so", () => {
-    expect(
-      whoIsFree({
-        date: TODAY,
-        scope: "staff",
-        viewerId: "a",
-        people,
-        events: [],
-        leave: [],
-        availability: null,
-      }),
-    ).toBeNull();
-    expect(whoFreeLine({ free: ["Asha", "Ravi"], busy: [], onLeave: [] })).toBe(
-      "Everyone is available",
-    );
-    expect(
-      whoFreeLine({ free: [], busy: [{ when: "all day", names: ["Kiran"] }], onLeave: [] }),
-    ).toBe("Busy all day: Kiran");
-    expect(
-      whoFreeLine({
-        free: [],
-        busy: [
-          { when: "10:00 am – 1:00 pm", names: ["Asha"] },
-          { when: "all day", names: ["Kiran", "Ravi"] },
-        ],
-        onLeave: ["Meera"],
-      }),
-    ).toBe("Busy all day: Kiran, Ravi");
-    expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe(
-      "9:15 am – 10:15 am",
-    );
   });
 });
 

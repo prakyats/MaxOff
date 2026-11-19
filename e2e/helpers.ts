@@ -740,6 +740,10 @@ export async function controlHits(row: Locator, opener: string): Promise<string[
  */
 export async function calendarReady(page: Page): Promise<void> {
   await expect(page.locator('[data-slot="calendar-phone"][data-leave-fitted]')).toHaveCount(1);
+  // v6.0: the Owner's and Admins' day, Day and Week are a chunk of their own (`people-views`), in
+  // the server's HTML before their JavaScript; each part marks itself `data-live` once React owns
+  // it, and until then a click on a pill or a Week row would meet no handler.
+  await expect(page.locator("[data-people-part]:not([data-live])")).toHaveCount(0);
 }
 
 export async function hydrated(page: Page): Promise<void> {

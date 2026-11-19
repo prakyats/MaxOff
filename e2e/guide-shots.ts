@@ -633,6 +633,14 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
   },
   {
+    id: "admin/calendar-people",
+    path: "/calendar?view=day",
+    // v6.0: the Day beside its Crew card (who is Busy, On leave and Free).
+    highlight: (page) => slot(page, "calendar-people-card"),
+    crop: main,
+    alt: "The calendar's Day view with the panel of who is busy, on leave and free highlighted.",
+  },
+  {
     id: "admin/clients",
     path: "/clients",
     highlight: (page) => page.getByRole("row", { name: /Sample Client/ }),
