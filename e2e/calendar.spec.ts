@@ -22,6 +22,7 @@ import {
   taskTypeId,
   USERS,
   openMoreOptions,
+  chooseTaskType,
 } from "./helpers";
 import {
   addISTDays,
@@ -287,6 +288,23 @@ function escapeRegExp(text: string): string {
 
 /** "Sat 14": a day as the Day's pills, the Week's rows and the Crew card name it. */
 const dayName = (date: string) => formatIST(istDayStart(date), "EEE d");
+
+/**
+ * New task opened on a day (decision 25 D; type first since v6.0): the form asks its type before
+ * anything else, and once a type with a deadline is chosen that deadline is already on the day.
+ */
+async function expectDeadlineOn(page: Page, form: Locator, day: string): Promise<void> {
+  await expect(form.locator('input[name="dueDate"]')).toHaveCount(0);
+  await chooseTaskType(page, form, "Normal");
+  await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+}
+
+/** Leaves a form whose type was chosen: that changed it, so it asks first (§14.2 f). */
+async function discardForm(page: Page, form: Locator): Promise<void> {
+  await form.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Discard task" }).click();
+  await expect(form).toHaveCount(0);
+}
 
 /** "+ New task on ‹day›" where the Owner and Admins have it: the phone's bar, the Day's card. */
 const dayButton = (page: Page, info: TestInfo) =>
@@ -850,9 +868,8 @@ test.describe("the calendar, as an Admin", () => {
     await button.click();
     const form = page.locator('[data-slot="task-form-dialog"]');
     await expect(form).toBeVisible();
-    await expect(form.locator('input[name="dueDate"]')).toHaveValue(week.mon);
-    await page.keyboard.press("Escape");
-    await expect(form).toHaveCount(0);
+    await expectDeadlineOn(page, form, week.mon);
+    await discardForm(page, form);
 
     if (isPhone(info)) {
       // The phone's day sheet (the full month): the same rows and lists, no hour timeline.
@@ -1150,17 +1167,19 @@ test.describe("the calendar, as the Owner", () => {
     await pill.click();
     const form = page.locator('[data-slot="task-form-dialog"]');
     await expect(form).toBeVisible();
-    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+    await expectDeadlineOn(page, form, day);
     await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
-    // An event type asks for its date, already the day.
-    await openMoreOptions(form);
-    await form.getByLabel("Type").click();
-    await page.getByRole("option", { name: "Shoot / Site Visit" }).first().click();
+    // An event type asks When, already the day, and its deadline follows the event: with no
+    // time yet, that day at 6:00 pm.
+    await chooseTaskType(page, form, "Shoot / Site Visit");
     await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
+    await expect(form.getByLabel("When")).toHaveValue(day);
+    await expect(form.locator('input[name="dueDate"]')).toHaveCount(0);
+    await expect(form.locator('[data-slot="task-done-by"]')).toContainText(
+      `Done by ${formatIST(`${day}T12:00:00+05:30`, "EEE d MMM")}, 6:00 pm`,
+    );
     // Picking a type changed the form, so leaving it asks first (§14.2 f); discard it.
-    await form.getByRole("button", { name: "Cancel" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Discard task" }).click();
-    await expect(form).toHaveCount(0);
+    await discardForm(page, form);
 
     // The status filter (in the sheet) hides an open event.
     await page.goto(`/calendar?view=day&date=${todayIST()}&status=done`);
@@ -1478,10 +1497,9 @@ test.describe("the calendar, as the Owner", () => {
     await box.hover(empty);
     await plus.click();
     await expect(form).toBeVisible();
-    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
     await expect(daySheet(page)).toHaveCount(0);
-    await form.getByRole("button", { name: "Cancel" }).click();
-    await expect(form).toHaveCount(0);
+    await expectDeadlineOn(page, form, day);
+    await discardForm(page, form);
 
     // The day itself still opens its dialog.
     await box.click(empty);
@@ -2115,9 +2133,8 @@ test.describe("the Owner's phone day (v6.0): rows, the Crew, the pinned bar", ()
     await button.click();
     const form = page.locator('[data-slot="task-form-dialog"]');
     await expect(form).toBeVisible();
-    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
-    await page.keyboard.press("Escape");
-    await expect(form).toHaveCount(0);
+    await expectDeadlineOn(page, form, day);
+    await discardForm(page, form);
 
     // The full month has no day under it and so no bar: the day opens in a sheet, the same rows
     // and lists, its action in the sheet's own pinned row (v1.9 W5).
@@ -3646,10 +3663,9 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       await button.click();
       const form = page.locator('[data-slot="task-form-dialog"]');
       await expect(form).toBeVisible();
-      await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+      await expectDeadlineOn(page, form, day);
       await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
-      await page.keyboard.press("Escape");
-      await expect(form).toHaveCount(0);
+      await discardForm(page, form);
 
       const past = addISTDays(todayIST(), -1);
       await openDay(page, info, past);
@@ -3707,9 +3723,8 @@ test.describe('v1.9 W5: "+ New task on ‹day›" at the foot of a day', () => {
       await button.click();
       const form = page.locator('[data-slot="task-form-dialog"]');
       await expect(form).toBeVisible();
-      await expect(form.locator('input[name="dueDate"]')).toHaveValue(today);
-      await page.keyboard.press("Escape");
-      await expect(form).toHaveCount(0);
+      await expectDeadlineOn(page, form, today);
+      await discardForm(page, form);
     });
   });
 

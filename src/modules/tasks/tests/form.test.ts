@@ -8,9 +8,13 @@ import {
   draftChanges,
   draftEventWindow,
   draftFromTask,
-  draftType,
+  chosenType,
   draftOnDate,
   emptyDraft,
+  eventDeadline,
+  eventWord,
+  followedDeadlineWords,
+  followEvent,
   fieldsFromTask,
   isDraftDirty,
   keepFieldKeys,
@@ -61,14 +65,21 @@ function filled() {
 }
 
 describe("the task dialog's draft (4.3)", () => {
-  it("defaults to Medium and 6:00 pm IST, and to the first active type", () => {
+  it("defaults to Medium and 6:00 pm IST, and to no type: the type is asked first (v6.0)", () => {
     const draft = emptyDraft();
     expect(draft.priority).toBe("medium");
     expect(draft.dueTime).toBe("18:00");
-    expect(draftType(draft, [{ ...NORMAL, archived: true, id: "old" }, NORMAL, SHOOT])).toBe(
-      NORMAL,
+    expect(draft.taskTypeId).toBe("");
+    expect(draft.dueFollowsEvent).toBe(true);
+    // Nothing is assumed: no type until one is chosen, not the first active one.
+    expect(chosenType(draft, [NORMAL, SHOOT])).toBeNull();
+    expect(chosenType({ ...draft, taskTypeId: "shoot" }, [NORMAL, SHOOT])).toBe(SHOOT);
+    // A task keeps its archived type.
+    const old = { ...NORMAL, archived: true, id: "old" };
+    expect(chosenType({ ...draft, taskTypeId: "old" }, [old, NORMAL])).toBe(old);
+    expect(validateDraft(draft, null, { creating: true, now: NOW }).taskTypeId).toBe(
+      "Choose a task type.",
     );
-    expect(draftType({ ...draft, taskTypeId: "shoot" }, [NORMAL, SHOOT])).toBe(SHOOT);
   });
 
   it("makes the first person the primary owner, and hands over when they leave", () => {
@@ -247,8 +258,127 @@ describe("an edit sends only what changed (4A mechanics 4)", () => {
     expect(assignmentChange(before, later).datesMoved).toBe(true);
   });
 
+  it("an edited event keeps following its end only when its deadline is that end (v6.0)", () => {
+    const shoot: Task = {
+      ...existing,
+      taskTypeId: "shoot",
+      eventDate: "2026-10-03",
+      eventStartAt: "2026-10-03T08:30:00+00:00",
+      eventEndAt: "2026-10-03T10:30:00+00:00",
+    };
+    // Due 6:00 pm, the event ends 4:00 pm: the deadline was set by hand.
+    expect(draftFromTask(shoot, assignees).dueFollowsEvent).toBe(false);
+    const atEnd = { ...shoot, dueAt: "2026-10-03T10:30:00+00:00" };
+    const draft = draftFromTask(atEnd, assignees);
+    expect(draft.dueFollowsEvent).toBe(true);
+    // Moving the event's end moves the deadline with it, and the edit names both.
+    const moved = followEvent({ ...draft, eventEnd: "17:00" }, SHOOT, NOW);
+    expect(draftChanges(fieldsFromTask(atEnd, assignees), taskFromDraft(moved, SHOOT))).toEqual({
+      eventEndAt: "2026-10-03T11:30:00.000Z",
+      dueAt: "2026-10-03T11:30:00.000Z",
+    });
+    // No end: the busy hour after the start.
+    const hour = { ...atEnd, eventEndAt: null, dueAt: "2026-10-03T09:30:00+00:00" };
+    expect(draftFromTask(hour, assignees).dueFollowsEvent).toBe(true);
+    // A task with no event never follows one.
+    expect(draftFromTask(existing, assignees).dueFollowsEvent).toBe(false);
+  });
+
   it("drops custom-field values the new type does not carry", () => {
     expect(keepFieldKeys({ reel_length: 30, venue: "x" }, ["venue"])).toEqual({ venue: "x" });
+  });
+});
+
+describe("an event's deadline follows the event (v6.0, Done by … · the end of the event)", () => {
+  const event = { ...emptyDraft(), taskTypeId: "shoot", eventDate: "2026-10-03" };
+
+  it("is the event's end; an hour after a start with no end; the day at 6:00 pm with no time", () => {
+    expect(eventDeadline({ ...event, eventStart: "14:00", eventEnd: "16:00" }, NOW)).toEqual({
+      date: "2026-10-03",
+      time: "16:00",
+      from: "end",
+    });
+    expect(eventDeadline({ ...event, eventStart: "14:00" }, NOW)).toEqual({
+      date: "2026-10-03",
+      time: "15:00",
+      from: "start",
+    });
+    // An hour after 11:30 pm is the next day.
+    expect(eventDeadline({ ...event, eventStart: "23:30" }, NOW)).toEqual({
+      date: "2026-10-04",
+      time: "00:30",
+      from: "start",
+    });
+    // An end not after the start is not an end (the form refuses it): the start's hour.
+    expect(eventDeadline({ ...event, eventStart: "14:00", eventEnd: "13:00" }, NOW)?.from).toBe(
+      "start",
+    );
+    expect(eventDeadline(event, NOW)).toEqual({ date: "2026-10-03", time: "18:00", from: "day" });
+    // Today past 6:00 pm IST: the next whole hour, as a new deadline on that day.
+    expect(
+      eventDeadline({ ...event, eventDate: "2026-10-01" }, new Date("2026-10-01T13:10:00.000Z")),
+    ).toEqual({ date: "2026-10-01", time: "19:00", from: "day" });
+    expect(eventDeadline({ ...event, eventDate: "" }, NOW)).toBeNull();
+  });
+
+  it("follows the event while untouched, and stops once changed by hand", () => {
+    const timed = { ...event, eventStart: "14:00", eventEnd: "16:00" };
+    const followed = followEvent(timed, SHOOT, NOW);
+    expect(followed).toMatchObject({ dueDate: "2026-10-03", dueTime: "16:00" });
+    // The event moves: the deadline moves with it.
+    expect(followEvent({ ...followed, eventEnd: "17:30" }, SHOOT, NOW).dueTime).toBe("17:30");
+    expect(followEvent({ ...followed, eventDate: "2026-10-05" }, SHOOT, NOW).dueDate).toBe(
+      "2026-10-05",
+    );
+    // Nothing to change: the same draft, so the form is not dirtied.
+    expect(followEvent(followed, SHOOT, NOW)).toBe(followed);
+    // Set by hand: it stays where it was put.
+    const byHand = { ...followed, dueFollowsEvent: false, dueDate: "2026-10-09", dueTime: "10:00" };
+    expect(followEvent({ ...byHand, eventEnd: "18:00" }, SHOOT, NOW)).toMatchObject({
+      dueDate: "2026-10-09",
+      dueTime: "10:00",
+    });
+    // A type with no event, no type yet, or an event with no date: untouched.
+    expect(followEvent(timed, NORMAL, NOW)).toBe(timed);
+    expect(followEvent(timed, null, NOW)).toBe(timed);
+    const undated = { ...timed, eventDate: "" };
+    expect(followEvent(undated, SHOOT, NOW)).toBe(undated);
+  });
+
+  it("asks for When, not for a deadline, while the deadline follows an event with no date", () => {
+    const draft = {
+      ...addAssignee(emptyDraft(), "asha"),
+      title: "Reel shoot",
+      taskTypeId: "shoot",
+    };
+    const errors = validateDraft(draft, SHOOT, { creating: true, now: NOW });
+    expect(errors.eventDate).toBe("Pick the event's date.");
+    expect(errors.dueDate).toBeUndefined();
+    // Set by hand, the deadline is asked for as ever.
+    expect(
+      validateDraft({ ...draft, dueFollowsEvent: false }, SHOOT, { creating: true, now: NOW })
+        .dueDate,
+    ).toBe("Pick the deadline's date.");
+    // A followed deadline already past is refused like any other.
+    const past = followEvent(
+      { ...draft, eventDate: "2026-10-01", eventStart: "09:00", eventEnd: "10:00" },
+      SHOOT,
+      NOW,
+    );
+    expect(validateDraft(past, SHOOT, { creating: true, now: NOW }).dueDate).toBe(
+      "Pick a time later than now.",
+    );
+  });
+
+  it("says what the deadline is the end of, from how the type's name reads", () => {
+    expect(eventWord("Meeting")).toBe("meeting");
+    expect(eventWord(" Posting ")).toBe("posting");
+    expect(eventWord("Shoot / Site Visit")).toBe("event");
+    expect(eventWord("Site visit")).toBe("event");
+    expect(followedDeadlineWords("end", "Meeting")).toBe("the end of the meeting");
+    expect(followedDeadlineWords("end", "Shoot / Site Visit")).toBe("the end of the event");
+    expect(followedDeadlineWords("start", "Meeting")).toBe("an hour after the meeting starts");
+    expect(followedDeadlineWords("day", "Shoot / Site Visit")).toBe("the day of the event");
   });
 });
 

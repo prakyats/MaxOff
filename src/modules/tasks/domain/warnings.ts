@@ -97,6 +97,30 @@ function blockWindow(block: EventBlock): EventWindow | null {
 }
 
 /**
+ * The person's blocks without this task's own one (editing, the event not moved): the block with
+ * the same window, or a date-only block for a date-only event, dropped once.
+ */
+export function withoutOwnBlock(
+  blocks: readonly EventBlock[],
+  own: { window: EventWindow | null } | null,
+): EventBlock[] {
+  const rest = [...blocks];
+  if (!own) return rest;
+  const at = rest.findIndex((block) => {
+    const other = blockWindow(block);
+    return own.window === null ? other === null : other !== null && sameWindow(other, own.window);
+  });
+  if (at >= 0) rest.splice(at, 1);
+  return rest;
+}
+
+/** Whether a block clashes with an event that day: a date-only one on either side always does. */
+export function blockClashes(block: EventBlock, window: EventWindow | null): boolean {
+  const other = blockWindow(block);
+  return window === null || other === null || overlaps(other, window);
+}
+
+/**
  * The person's blocks that clash with an event on the same day (v6.0): `window` null is a
  * date-only event, which clashes with every block; a date-only block clashes with every window.
  * `own` drops this task's own block, once, when editing and the event has not moved.
@@ -106,19 +130,7 @@ export function clashingBlocks(
   window: EventWindow | null,
   options: { own: { window: EventWindow | null } | null },
 ): EventBlock[] {
-  const rest = [...blocks];
-  if (options.own) {
-    const own = options.own.window;
-    const at = rest.findIndex((block) => {
-      const other = blockWindow(block);
-      return own === null ? other === null : other !== null && sameWindow(other, own);
-    });
-    if (at >= 0) rest.splice(at, 1);
-  }
-  return rest.filter((block) => {
-    const other = blockWindow(block);
-    return window === null || other === null || overlaps(other, window);
-  });
+  return withoutOwnBlock(blocks, options.own).filter((block) => blockClashes(block, window));
 }
 
 function dayLabel(date: ISODate): string {

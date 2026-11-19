@@ -1,5 +1,5 @@
-import { displayName } from "@/core/lib/display-name";
-import { addISTDays, formatIST, formatTime, type ISODate, istDayStart } from "@/core/time";
+import { bookedByWord, bookingTime } from "@/core/lib/booking-words";
+import { addISTDays, formatIST, type ISODate, istDayStart } from "@/core/time";
 
 import type { AvailabilitySource, CalendarScope, EventSource, LeaveSource } from "./calendar";
 
@@ -85,30 +85,8 @@ export type CrewDay = {
   people: number;
 };
 
-const HOUR_MS = 60 * 60 * 1000;
-
 /** The word for a booking with an unknown type (one the viewer's type list does not hold). */
 export const BOOKING_FALLBACK_TYPE = "Event";
-
-/** "you", "Owner" or the creator's name: who booked it, as the samples say it. */
-export function bookedByWord(
-  creator: { id: string | null; name: string | null },
-  viewerId: string,
-  ownerId: string | null,
-): string | null {
-  if (!creator.id) return creator.name ? displayName(creator.name) : null;
-  if (creator.id === viewerId) return "you";
-  if (creator.id === ownerId) return "Owner";
-  return creator.name ? displayName(creator.name) : null;
-}
-
-/** "2:00 pm – 4:00 pm" (the one time format, B1), "All day" with no start; no end is an hour. */
-export function bookingTime(booking: Pick<CrewBooking, "startAt" | "endAt">): string {
-  if (!booking.startAt) return "All day";
-  const end =
-    booking.endAt ?? new Date(new Date(booking.startAt).getTime() + HOUR_MS).toISOString();
-  return `${formatTime(booking.startAt)} – ${formatTime(end)}`;
-}
 
 export function buildCrew(input: {
   scope: CalendarScope;

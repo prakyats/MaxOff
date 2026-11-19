@@ -31,12 +31,21 @@ describe("tasks background calls", () => {
     expect(availability).toHaveBeenCalledWith(["2026-10-06"], [MEMBER]);
   });
 
+  it("the warning check reads everyone for the days when asked to (v6.0, Who's on it?)", async () => {
+    await readAvailability({ everyone: true, days: ["2026-10-06", "2026-10-07"] });
+    expect(assertPermission).toHaveBeenCalledWith("availability.view");
+    expect(availability).toHaveBeenCalledWith(["2026-10-06", "2026-10-07"]);
+  });
+
   it("the warning check refuses a bad input before the permission or the read", async () => {
     for (const input of [
       { memberIds: [], days: ["2026-10-06"] },
       { memberIds: ["x"], days: ["2026-10-06"] },
       { memberIds: [MEMBER], days: ["06/10/2026"] },
       { memberIds: [MEMBER], days: ["2026-10-06", "2026-10-07", "2026-10-08"] },
+      { everyone: false, days: ["2026-10-06"] },
+      { everyone: true, days: [] },
+      { days: ["2026-10-06"] },
       null,
     ]) {
       await expect(readAvailability(input)).rejects.toMatchObject({ name: "ZodError" });

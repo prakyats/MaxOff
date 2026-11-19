@@ -10,6 +10,7 @@ import {
   splitTaskTypes,
   taskTypeLine,
   type TaskTypeSetting,
+  taskTypeAsks,
 } from "../domain/task-types";
 
 function type(overrides: Partial<TaskTypeSetting>): TaskTypeSetting {
@@ -35,6 +36,25 @@ describe("Settings → Task types (4C)", () => {
       "Event · on the calendar · asks for a location",
     );
     expect(taskTypeLine(type({ kind: "event" }))).toBe("Event · not on the calendar");
+  });
+
+  it("says what a type asks for in New task's list, from its data and never its name (v6.0)", () => {
+    expect(taskTypeAsks({ kind: "event", showsOnCalendar: true, hasLocation: true })).toBe(
+      "date, time, place · on the calendar",
+    );
+    expect(taskTypeAsks({ kind: "event", showsOnCalendar: true, hasLocation: false })).toBe(
+      "date and time · on the calendar",
+    );
+    // An event kept off the calendar still asks for its date and time: the form does.
+    expect(taskTypeAsks({ kind: "event", showsOnCalendar: false, hasLocation: true })).toBe(
+      "date, time, place",
+    );
+    expect(taskTypeAsks({ kind: "normal", showsOnCalendar: false, hasLocation: false })).toBe(
+      "a deadline",
+    );
+    expect(taskTypeAsks({ kind: "custom", showsOnCalendar: false, hasLocation: false })).toBe(
+      "a deadline",
+    );
   });
 
   it("keeps the last active type", () => {

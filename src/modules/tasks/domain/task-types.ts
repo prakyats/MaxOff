@@ -58,6 +58,20 @@ export function taskTypeLine(
 }
 
 /**
+ * What a type asks for on a new task, beside its name in the form's Type list (v6.0, "New task,
+ * type first"): read from the type's data, never from its name. An event asks for a date and a
+ * time, a place when the type has a location, and says when it shows on the calendar; anything
+ * else asks for a deadline.
+ */
+export function taskTypeAsks(
+  type: Pick<TaskTypeSetting, "kind" | "showsOnCalendar" | "hasLocation">,
+): string {
+  if (type.kind !== "event") return "a deadline";
+  const asks = type.hasLocation ? "date, time, place" : "date and time";
+  return type.showsOnCalendar ? `${asks} · on the calendar` : asks;
+}
+
+/**
  * Whether archiving this type would leave nothing to create a task with: the last active type
  * stays (the create dialog always needs one).
  */

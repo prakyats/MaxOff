@@ -30,13 +30,18 @@ import { type EventWindow, eventWindow } from "./warnings";
 export type TaskDraft = {
   title: string;
   description: string;
-  /** "" = the default type (the first active one, "Normal" as seeded). */
+  /** "" = no type chosen yet: the form asks for the type first (v6.0). */
   taskTypeId: string;
   /** "" = no client label. */
   clientId: string;
   priority: Priority;
   dueDate: string;
   dueTime: string;
+  /**
+   * An event's deadline follows the end of the event until it is changed by hand (v6.0, "Done by
+   * … · the end of the event"). It means nothing for a type with no event.
+   */
+  dueFollowsEvent: boolean;
   eventDate: string;
   eventStart: string;
   eventEnd: string;
@@ -70,6 +75,7 @@ export function emptyDraft(): TaskDraft {
     priority: "medium",
     dueDate: "",
     dueTime: DEFAULT_DUE_TIME,
+    dueFollowsEvent: true,
     eventDate: "",
     eventStart: "",
     eventEnd: "",
@@ -88,7 +94,8 @@ export function emptyDraft(): TaskDraft {
 /**
  * A new task started on a calendar day (6.4b; Kickoff 6 decision 25 D): the day is the deadline's
  * date (at the default 6:00 pm IST) and, should the type be an event, the event's date. The type
- * is picked in the form, so both carry the day and the form shows the one the type asks for.
+ * is picked in the form, first (v6.0), so both carry the day and the form shows the one the type
+ * asks for: When for an event, whose deadline then follows it, or the deadline.
  * A new deadline must be in the future (kickoff 4 decision 4), so today after 6:00 pm IST the time
  * is the next whole hour instead, or 11:59 pm when that hour is already the next day (23:00–23:58).
  * The calendar offers no "+ New task" on a day with no valid deadline left (`canStartTaskOnDate`):
@@ -127,6 +134,8 @@ export function deadlineError(
 
 /** The edit dialog starts from the task as it stands (its active assignees, its primary owner). */
 export function draftFromTask(task: Task, assignees: readonly TaskAssignee[]): TaskDraft {
+  // A deadline that is the event's end keeps following it when the event is moved (v6.0).
+  const eventEnd = task.eventStartAt ? eventWindow(task.eventStartAt, task.eventEndAt) : null;
   return {
     title: task.title,
     description: task.description ?? "",
@@ -135,6 +144,7 @@ export function draftFromTask(task: Task, assignees: readonly TaskAssignee[]): T
     priority: task.priority,
     dueDate: toISTDate(task.dueAt),
     dueTime: toISTTime(task.dueAt),
+    dueFollowsEvent: eventEnd !== null && sameInstant(eventEnd.endAt, task.dueAt),
     eventDate: task.eventDate ?? "",
     eventStart: task.eventStartAt ? toISTTime(task.eventStartAt) : "",
     eventEnd: task.eventEndAt ? toISTTime(task.eventEndAt) : "",
@@ -150,10 +160,65 @@ export function draftFromTask(task: Task, assignees: readonly TaskAssignee[]): T
   };
 }
 
-/** The type the draft really has: its own, or the default (the first active type). */
-export function draftType(draft: TaskDraft, types: readonly TaskType[]): TaskType | null {
-  const active = types.filter((type) => !type.archived);
-  return types.find((type) => type.id === draft.taskTypeId) ?? active[0] ?? null;
+/**
+ * The type chosen in the form; null until one is (v6.0: the type is asked first and nothing is
+ * assumed, so a new task has no default type). An archived type still answers for the task that
+ * has it.
+ */
+export function chosenType(draft: TaskDraft, types: readonly TaskType[]): TaskType | null {
+  return types.find((type) => type.id === draft.taskTypeId) ?? null;
+}
+
+/**
+ * The deadline an event gives its task (v6.0, owner-approved sample "Done by Mon 16 Nov, 4:00 pm ·
+ * the end of the shoot"): the event's end; with a start and no end, an hour after the start (the
+ * busy rule, kickoff 4 decision 12); with a date and no time, that day at the time a new deadline
+ * on it would take (6:00 pm IST; today past that, the next whole hour, as `draftOnDate`). Null
+ * until the event has a date.
+ */
+export function eventDeadline(
+  draft: Pick<TaskDraft, "eventDate" | "eventStart" | "eventEnd">,
+  now: Date,
+): { date: ISODate; time: string; from: "end" | "start" | "day" } | null {
+  if (!isISODate(draft.eventDate)) return null;
+  if (isISTTime(draft.eventStart)) {
+    if (isISTTime(draft.eventEnd) && draft.eventEnd > draft.eventStart) {
+      return { date: draft.eventDate, time: draft.eventEnd, from: "end" };
+    }
+    const end = eventWindow(istInstant(draft.eventDate, draft.eventStart), null);
+    if (end) return { date: toISTDate(end.endAt), time: toISTTime(end.endAt), from: "start" };
+  }
+  return { date: draft.eventDate, time: dueTimeOnDate(draft.eventDate, now), from: "day" };
+}
+
+/**
+ * The draft with its deadline on the event's end, while it follows it: an event type, and the
+ * deadline not changed by hand. Anything else comes back untouched.
+ */
+export function followEvent(draft: TaskDraft, type: TaskType | null, now: Date): TaskDraft {
+  if (type?.kind !== "event" || !draft.dueFollowsEvent) return draft;
+  const deadline = eventDeadline(draft, now);
+  if (!deadline) return draft;
+  if (draft.dueDate === deadline.date && draft.dueTime === deadline.time) return draft;
+  return { ...draft, dueDate: deadline.date, dueTime: deadline.time };
+}
+
+/**
+ * What a followed deadline is the end of, in words: the type's name in lower case when it is one
+ * plain word ("the meeting", "the posting"), else "the event" ("Shoot / Site Visit" does not read
+ * as a sentence). Never decided by which type it is: only by how its name reads.
+ */
+export function eventWord(typeName: string): string {
+  const name = typeName.trim();
+  return /^\p{L}+$/u.test(name) ? name.toLowerCase() : "event";
+}
+
+/** "the end of the meeting", "an hour after the meeting starts", "the day of the meeting". */
+export function followedDeadlineWords(from: "end" | "start" | "day", typeName: string): string {
+  const word = eventWord(typeName);
+  if (from === "end") return `the end of the ${word}`;
+  if (from === "start") return `an hour after the ${word} starts`;
+  return `the day of the ${word}`;
 }
 
 /**
@@ -216,11 +281,17 @@ export function validateDraft(
   if (!type) errors.taskTypeId = "Choose a task type.";
   if (draft.assigneeIds.length === 0) errors.assigneeIds = "Assign at least one person.";
 
-  if (!isISODate(draft.dueDate)) errors.dueDate = "Pick the deadline's date.";
-  else if (!isISTTime(draft.dueTime)) errors.dueTime = "Pick the deadline's time.";
-  else {
-    const deadline = deadlineError(draft, options);
-    if (deadline) errors.dueDate = deadline;
+  // An event's deadline follows the event (v6.0): with no event date yet, the date is what is
+  // missing, and When says so below.
+  const awaitsEvent =
+    type?.kind === "event" && draft.dueFollowsEvent && !isISODate(draft.eventDate);
+  if (!awaitsEvent) {
+    if (!isISODate(draft.dueDate)) errors.dueDate = "Pick the deadline's date.";
+    else if (!isISTTime(draft.dueTime)) errors.dueTime = "Pick the deadline's time.";
+    else {
+      const deadline = deadlineError(draft, options);
+      if (deadline) errors.dueDate = deadline;
+    }
   }
 
   if (type?.kind === "event") {

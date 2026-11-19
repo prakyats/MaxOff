@@ -57,8 +57,6 @@ export {
   type StatusFilter,
 } from "./domain/calendar";
 export {
-  bookedByWord,
-  bookingTime,
   buildCrew,
   crewOn,
   EVERYONE_AVAILABLE,

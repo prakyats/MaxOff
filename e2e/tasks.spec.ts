@@ -24,6 +24,11 @@ import {
   taskTypeId,
   USERS,
   openMoreOptions,
+  addTaskPeople,
+  chooseTaskType,
+  closePeoplePicker,
+  openPeoplePicker,
+  pickerRow,
 } from "./helpers";
 
 /**
@@ -259,38 +264,83 @@ test.describe("staff tasks, the flows", () => {
       const dialog = formDialog(page);
       await expect(dialog).toBeVisible();
 
-      // Nothing filled in: a message per field, nothing sent.
-      await dialog.getByRole("button", { name: "Create task" }).click();
+      // Type first (v6.0): nothing else is asked, and nothing can be created, until one is chosen.
+      const create = dialog.getByRole("button", { name: "Create task" });
+      await expect(dialog.getByLabel("Type")).toHaveText("Choose a type");
+      await expect(dialog.getByLabel("Title")).toBeDisabled();
+      await expect(create).toBeDisabled();
+      for (const label of ["Deadline", "When", "Client (label)"]) {
+        await expect(dialog.getByLabel(label)).toHaveCount(0);
+      }
+      await expect(dialog.getByRole("button", { name: "Add a person" })).toHaveCount(0);
+
+      // A type with no event: nothing filled in, a message per field, nothing sent.
+      await chooseTaskType(page, dialog, "Normal");
+      await create.click();
       await expect(dialog).toContainText("Give the task a title.");
       await expect(dialog).toContainText("Assign at least one person.");
       await expect(dialog).toContainText("Pick the deadline's date.");
+      await expect(page).toHaveURL(/\/tasks$/);
 
+      // An event type asks When / From / To and Where instead of a deadline, which follows it.
+      await chooseTaskType(page, dialog, "Shoot / Site Visit");
+      await expect(dialog.getByLabel("Deadline")).toHaveCount(0);
+      await create.click();
+      await expect(dialog).toContainText("Pick the event's date.");
+      await expect(dialog).not.toContainText("Pick the deadline's date.");
+      await expect(dialog.getByLabel("Where")).toBeVisible();
       await dialog.getByLabel("Title").fill(`${prefix}main`);
-      await openMoreOptions(dialog);
-      await pick(page, dialog.getByLabel("Type"), "Shoot / Site Visit");
-      await openMoreOptions(dialog);
-      await dialog.getByLabel("Event date").fill(day);
-      await dialog.getByLabel("Starts").fill("11:00");
-      for (const one of [helper, staff, away]) {
-        await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(one.name)}`));
-      }
+      await dialog.getByLabel("When").fill(day);
+      await dialog.getByLabel("From").fill("11:00");
+      // With a start and no end the event is an hour: the deadline is its end, noon.
+      const doneBy = dialog.locator('[data-slot="task-done-by"]');
+      await expect(doneBy).toContainText(/Done by \w{3} \d{1,2} \w{3}, 12:00 pm/);
+      await expect(doneBy).toContainText("an hour after the event starts");
+
       // The Owner is offered since 6b.2 (owner 2026-10-07: the Owner may be on a task).
-      await dialog.getByLabel("Add a person").click();
-      await expect(page.getByRole("option", { name: /Prishit Shetty/ })).toHaveCount(1);
-      await page.keyboard.press("Escape");
-      await dialog.getByLabel("Deadline").fill(day);
-      await expect(dialog.getByLabel("Time (IST)")).toHaveValue("18:00");
+      const picker = await openPeoplePicker(page, dialog);
+      await picker.getByLabel("Find a person").fill("Prishit Shetty");
+      await expect(picker.getByRole("checkbox", { name: /^Prishit Shetty/ })).toHaveCount(1);
+      await picker.getByLabel("Find a person").fill("");
+      // Who's on it? says each person's day at that time (v6.0): the shoot 10–12 the Owner
+      // booked clashes, by its type, its time and who booked it; a leave request is no leave.
+      const busy = picker.locator('[data-slot="picker-busy"]');
+      const free = picker.locator('[data-slot="picker-free"]');
+      await expect(pickerRow(busy, staff.name)).toContainText(
+        "Shoot / Site Visit 10:00 am – 12:00 pm · booked by you",
+      );
+      await expect(pickerRow(busy, staff.name).locator('[data-chip="clashes"]')).toHaveText(
+        "Clashes",
+      );
+      await expect(pickerRow(free, away.name)).toContainText("Leave requested");
+      await expect(pickerRow(free, helper.name)).toContainText("Free");
+      await expect(pickerRow(busy, away.name)).toHaveCount(0);
+      // Never a title of someone else's task.
+      await expect(picker).not.toContainText(`${prefix}shoot`);
+      await closePeoplePicker(page);
+      await addTaskPeople(page, dialog, [helper.name, staff.name, away.name]);
+
+      // The workload warning is about the deadline's day: the same day, by the event.
+      await doneBy.getByRole("button", { name: "Change" }).click();
+      await expect(dialog.getByLabel("Deadline")).toHaveValue(day);
+      await expect(dialog.getByLabel("Time (IST)")).toHaveValue("12:00");
 
       const warning = (id: string, kind: string) =>
-        dialog.locator(
-          `[data-slot="task-assignee"][data-member="${id}"] [data-slot="task-warning"][data-kind="${kind}"]`,
-        );
+        dialog.locator(`[data-slot="task-warning"][data-member="${id}"][data-kind="${kind}"]`);
       await expect(warning(helperId, "workload")).toContainText("4 tasks already due");
+      await expect(warning(helperId, "workload")).toContainText(helper.name);
       await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 am – 12:00 pm");
       await expect(warning(awayId, "on_leave")).toContainText("Leave requested");
+      await expect(dialog.locator('[data-slot="task-warning"]')).toHaveCount(3);
       await expect(dialog.locator('[data-slot="task-warning-summary"]')).toContainText(
         "3 warnings",
       );
+      // Each chosen person is a chip with what the list said of them.
+      const chip = (id: string) =>
+        dialog.locator(`[data-slot="task-assignee"][data-member="${id}"]`);
+      await expect(chip(helperId)).toContainText("Free");
+      await expect(chip(staffId)).toContainText("Clashes");
+      await expect(chip(awayId)).toContainText("Leave requested");
 
       await dialog.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(TASK_URL);
@@ -304,6 +354,15 @@ test.describe("staff tasks, the flows", () => {
         { kind: "overlap", member_id: staffId },
         { kind: "workload", member_id: helperId },
       ]);
+      // The event as typed, the deadline at its end, the people in the order picked.
+      const [made] = await serviceSelect<Record<string, string | null>>(
+        `tasks?id=eq.${taskId}&select=event_date,event_start_at,event_end_at,due_at,primary_owner_id`,
+      );
+      expect(made?.event_date).toBe(day);
+      expect(Date.parse(made?.event_start_at ?? "")).toBe(Date.parse(istInstant(day, "11:00")));
+      expect(made?.event_end_at).toBeNull();
+      expect(Date.parse(made?.due_at ?? "")).toBe(Date.parse(istInstant(day, "12:00")));
+      expect(made?.primary_owner_id).toBe(helperId);
       // The history shows the Owner the warnings kept (availability.view, 4A review M1).
       await expect(
         (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
@@ -341,12 +400,9 @@ test.describe("staff tasks, the flows", () => {
         await page.goto("/tasks");
         await page.getByRole("button", { name: "New task" }).click();
         const dialog = formDialog(page);
+        await chooseTaskType(page, dialog, "Normal");
         await dialog.getByLabel("Title").fill(`${prefix}reel`);
-        await pick(
-          page,
-          dialog.getByLabel("Add a person"),
-          new RegExp(`^${escape(person("staff", info).name)}`),
-        );
+        await addTaskPeople(page, dialog, [person("staff", info).name]);
         await dialog.getByLabel("Deadline").fill(workingDay(21));
         // L9: custom fields sit under More options on New task.
         await openMoreOptions(dialog);
@@ -475,25 +531,24 @@ test.describe("staff tasks, the flows", () => {
         await page.getByRole("button", { name: "New task" }).click();
         const dialog = formDialog(page);
         await expect(dialog).toBeVisible();
+        await chooseTaskType(page, dialog, "Normal");
         // Who looks after a freelancer is on their row in the picker (ADR-0013).
-        await dialog.getByLabel("Add a person").click();
-        await expect(
-          page.getByRole("option", { name: new RegExp(`^${escape(freelancer(info).name)}`) }),
-        ).toContainText(`Freelancer · with ${person("coord", info).name}`);
-        await page.keyboard.press("Escape");
+        const picker = await openPeoplePicker(page, dialog);
+        await picker.getByLabel("Find a person").fill(freelancer(info).name);
+        await expect(pickerRow(picker, freelancer(info).name)).toContainText(
+          `Freelancer · with ${person("coord", info).name}`,
+        );
+        await picker.getByLabel("Find a person").fill("");
+        await closePeoplePicker(page);
 
         await dialog.getByLabel("Title").fill(`${prefix}poster`);
-        await pick(
-          page,
-          dialog.getByLabel("Add a person"),
-          new RegExp(`^${escape(person("staff", info).name)}`),
-        );
+        await addTaskPeople(page, dialog, [person("staff", info).name]);
         await dialog.getByLabel("Deadline").fill(workingDay(24));
         await openMoreOptions(dialog);
         await expect(dialog.getByLabel("Checked first by")).toContainText("Nobody");
-        // Kickoff 4 decision 3: the label pre-selects that client's Admin.
-        await openMoreOptions(dialog);
-        await pick(page, dialog.getByLabel("Client label"), own);
+        // Kickoff 4 decision 3: the label pre-selects that client's Admin. The label is asked
+        // in the open since v6.0, beside the dates.
+        await pick(page, dialog.getByLabel("Client (label)"), own);
         await openMoreOptions(dialog);
         await expect(dialog.getByLabel("Checked first by")).toContainText(admin.name);
         await dialog.getByRole("button", { name: "Create task" }).click();
@@ -593,10 +648,10 @@ test.describe("staff tasks, the flows", () => {
       await page.getByRole("button", { name: "Task actions" }).click();
       await page.getByRole("menuitem", { name: "Edit task" }).click();
       const dialog = formDialog(page);
-      await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(coord.name)}`));
+      await addTaskPeople(page, dialog, [coord.name]);
       await expect(
         dialog.locator(
-          `[data-slot="task-assignee"][data-member="${coordId}"] [data-slot="task-warning"][data-kind="workload"]`,
+          `[data-slot="task-warning"][data-member="${coordId}"][data-kind="workload"]`,
         ),
       ).toContainText("4 tasks already due");
       await dialog.getByRole("button", { name: "Save changes" }).click();
@@ -635,6 +690,7 @@ test.describe("staff tasks, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = formDialog(page);
+      await chooseTaskType(page, dialog, "Normal");
       await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
       const rows = dialog.locator('[data-slot="reminder-row"]');
@@ -647,11 +703,7 @@ test.describe("staff tasks, the flows", () => {
       await expect(rows).toHaveCount(0);
 
       await dialog.getByLabel("Title").fill(`${prefix}own`);
-      await pick(
-        page,
-        dialog.getByLabel("Add a person"),
-        new RegExp(`^${escape(person("staff", info).name)}`),
-      );
+      await addTaskPeople(page, dialog, [person("staff", info).name]);
       await dialog.getByLabel("Deadline").fill(workingDay(22));
 
       // Opened, the default's rows; changing one gives the task its own list.
@@ -923,6 +975,7 @@ test.describe("staff tasks, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = formDialog(page);
+      await chooseTaskType(page, dialog, "Normal");
       await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="task-route"]')).toContainText(
         "You check it when it's done",
@@ -930,7 +983,7 @@ test.describe("staff tasks, the flows", () => {
       await openMoreOptions(dialog);
       await expect(dialog.getByLabel("Checked first by")).toHaveCount(0);
       await dialog.getByLabel("Title").fill(`${prefix}thumbnail`);
-      await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
+      await addTaskPeople(page, dialog, [staff.name]);
       await dialog.getByLabel("Deadline").fill(workingDay(16));
       await dialog.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(TASK_URL);
@@ -966,16 +1019,12 @@ test.describe("staff tasks, the flows", () => {
         await page.goto("/tasks");
         await page.getByRole("button", { name: "New task" }).click();
         const dialog = formDialog(page);
+        await chooseTaskType(page, dialog, "Normal");
         await dialog.getByLabel("Title").fill(`${prefix}teaser`);
-        await pick(
-          page,
-          dialog.getByLabel("Add a person"),
-          new RegExp(`^${escape(person("staff", info).name)}`),
-        );
+        await addTaskPeople(page, dialog, [person("staff", info).name]);
         await dialog.getByLabel("Deadline").fill(workingDay(25));
         // Kickoff 4 decision 2: their own clients only.
-        await openMoreOptions(dialog);
-        await dialog.getByLabel("Client label").click();
+        await dialog.getByLabel("Client (label)").click();
         await expect(page.getByRole("option", { name: own })).toBeVisible();
         await expect(page.getByRole("option", { name: other })).toHaveCount(0);
         await page.getByRole("option", { name: own }).click();
@@ -1054,7 +1103,28 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }]);
 
       await page.getByRole("button", { name: "New task" }).click();
+      await chooseTaskType(page, dialog, "Shoot / Site Visit");
       await dialog.getByLabel("Title").fill(`${prefix}draft`);
+      // "Who's on it?" is a layer over the form (v6.0, §14.2 a): back closes the sheet and
+      // leaves the form with what was typed and who was ticked; it adds nothing to the history
+      // beyond itself.
+      const sheet = page.locator('[data-slot="people-sheet"]');
+      const staffName = person("staff", info).name;
+      const picker = await openPeoplePicker(page, dialog);
+      await expect(sheet).toBeVisible();
+      await expect(sheet.getByRole("heading", { name: "Who's on it?" })).toBeVisible();
+      await picker.getByLabel("Find a person").fill(staffName);
+      await picker.getByRole("checkbox", { name: new RegExp(`^${escape(staffName)}`) }).check();
+      await expect(sheet.locator('[data-slot="people-chosen"]')).toHaveText(
+        `1 chosen · ${staffName}`,
+      );
+      await page.goBack();
+      await expect(sheet).toBeHidden();
+      await expect(dialog).toBeVisible();
+      await expect(page).toHaveURL(/\/tasks$/);
+      await expect(dialog.getByLabel("Title")).toHaveValue(`${prefix}draft`);
+      await expect(dialog.getByLabel("Type")).toHaveText("Shoot / Site Visit");
+      await expect(dialog.locator('[data-slot="task-assignee"]')).toContainText(staffName);
       const discard = page.getByRole("alertdialog", { name: "Discard this task?" });
       await page.goBack();
       await expect(discard).toBeVisible();
@@ -1071,12 +1141,9 @@ test.describe("staff tasks, installed: back closes each layer", () => {
 
       // A new task opens on its page; back returns to Tasks, never to the form, then home.
       await page.getByRole("button", { name: "New task" }).click();
+      await chooseTaskType(page, dialog, "Normal");
       await dialog.getByLabel("Title").fill(`${prefix}drill`);
-      await pick(
-        page,
-        dialog.getByLabel("Add a person"),
-        new RegExp(`^${escape(person("staff", info).name)}`),
-      );
+      await addTaskPeople(page, dialog, [person("staff", info).name]);
       await dialog.getByLabel("Deadline").fill(workingDay(17));
       await expectTargets(page);
       await dialog.getByRole("button", { name: "Create task" }).click();
@@ -1110,6 +1177,7 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       const dialog = formDialog(page);
       await page.getByRole("button", { name: "New task" }).click();
       await expect(dialog).toBeVisible();
+      await chooseTaskType(page, dialog, "Normal");
       await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
       const rows = dialog.locator('[data-slot="reminder-row"]');
@@ -1405,8 +1473,9 @@ test.describe("staff tasks at large system text", () => {
     await page.goto("/tasks");
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = formDialog(page);
+    await chooseTaskType(page, dialog, "Normal");
     await dialog.getByLabel("Title").fill(`${prefix}dialog`);
-    await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(asha.name)}`));
+    await addTaskPeople(page, dialog, [asha.name]);
     for (const scale of [130, 200]) {
       await page.evaluate((percent) => {
         document.documentElement.style.fontSize = `${percent}%`;
@@ -1498,8 +1567,9 @@ test.describe("tasks for the Owner", () => {
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = formDialog(page);
     await expect(dialog).toBeVisible();
+    await chooseTaskType(page, dialog, "Normal");
     await dialog.getByLabel("Title").fill(`${prefix}plan`);
-    await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(name)}`));
+    await addTaskPeople(page, dialog, [name]);
     await dialog.getByLabel("Deadline").fill(workingDay(20));
     await dialog.getByRole("button", { name: "Create task" }).click();
     await expect(page).toHaveURL(TASK_URL);
@@ -1556,8 +1626,9 @@ test.describe("tasks for the Owner", () => {
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = formDialog(page);
     await expect(dialog).toBeVisible();
+    await chooseTaskType(page, dialog, "Normal");
     await dialog.getByLabel("Title").fill(`${prefix}brief`);
-    await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(name)}`));
+    await addTaskPeople(page, dialog, [name]);
     await dialog.getByLabel("Deadline").fill(workingDay(21));
     await dialog.getByRole("button", { name: "Create task" }).click();
     await expect(page).toHaveURL(TASK_URL);
