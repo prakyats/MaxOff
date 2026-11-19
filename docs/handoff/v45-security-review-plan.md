@@ -277,6 +277,25 @@ Token make / hash / derive (A1–A3); name, path and file-name cleaning, includi
 - PERMISSIONS, WORKFLOWS §9, DATA-MODEL and the new ADR merged before the code.
 - The Owner has accepted, in writing on #89, the leftover risks: session URIs can't be revoked (A9, E5); a copied device key shows its own list (B3); large files aren't virus-scanned by anyone (D); a typed name isn't checked (B1).
 
+## Pass 1 log
+
+**19 Nov 2026, 00:41 UTC: CORS check, step 1 (no account needed).**
+- A browser-style preflight (`OPTIONS https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`, `Origin: https://app.maxoff.in`, asking for `PUT` with `content-range, content-type`) answered **200**, with:
+  - `access-control-allow-origin: https://app.maxoff.in`
+  - `access-control-allow-methods: DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT`
+  - `access-control-allow-headers: content-range,content-type`
+- The same preflight against a made-up `upload_id` answered 404 with no CORS headers. That is expected for a session that doesn't exist, so it proves nothing either way.
+
+**Still open, step 2 (needs a real session, so a Google account):**
+1. The Worker opens a resumable session on the staging test Gmail.
+2. A browser on the preview origin PUTs chunks to the session address.
+3. Check that:
+   - the 308 answers expose `Range`, so the page can resume;
+   - the final 200/201 is readable;
+   - a status query (`PUT` with `Content-Range: bytes */<total>`) works across origins.
+
+This needs the owner's Google Cloud setup and a test Gmail connected on staging. It is the first thing to run once that exists. If step 2 fails, stop and tell the advisor before designing around it.
+
 ## 9. Conflicts and gaps found in the decisions
 
 | # | Where | The conflict | Proposed way through |
