@@ -34,7 +34,7 @@ The review runs in four passes:
 | 6879555186 | "I'm done" is optional; "uploads look finished"; the Admin's "All files received" stops the link and marks Done only through the coordinator path (invariant 6) |
 | v4.0 as built | `core/drive`: AES-256-GCM tokens at rest, never in the browser; folders MaxOff / Clients / client / YYYY-MM / task; `drive.manage` Owner-only; space alerts |
 
-The sample's owner questions (Q1 to Q13) change some details below. Each such point is marked **[Qn]**.
+The sample's owner questions (Q1 to Q13) change some details below. Each such point is marked **[Qn]**. The Owner decided all of them on 19 Nov (Q1, Q3, Q6 and Q7 as written in the sample, the rest as recommended), with four follow-ups the same day: **no Remove in MaxOff** (files are deleted in the studio's Drive; MaxOff shows "Removed in Drive", F6), **"the task's Admin" is three people** (its creator, its approving Admin, and the Admin who coordinates the freelancer who is its primary owner), **the privacy contact is MaxOff's own mail address** (I1), and **no switch that pauses every link** (C12 dropped).
 
 ## 3. What could go wrong
 
@@ -105,9 +105,10 @@ The decision is "any type, any size" (6879421505), so the limits are **safety li
 | C9 | Google's daily limit **[Q10]** | Google's error pauses new sessions for that link with backoff (15 min, then 1 h). The Owner and the task's Admin are told once a day. | Worker |
 | C10 | Notification flood | Not-on-task: once per name per link, at most 5 a day per link, then one summary. Stuck: once per stall per uploader. Looks finished: once per quiet period. | DB function |
 | C11 | Folder depth and count (laptop) | Path depth ≤ 12, segment ≤ 120 characters, ≤ 2,000 folders per uploader | Worker + DB |
-| C12 | Kill switch | Owner, Settings → Google Drive: "Pause all upload links" (every link answers "doesn't work right now"). *A small addition; Owner to confirm.* | DB flag checked in A5 |
 
 Proof: unit tests for each limit's rule; pgTAP for C3–C5, C8 and C10; M11 and M12 script each limit on staging.
+
+There is **no switch that pauses every link at once** (owner 19 Nov; the C12 proposal is dropped): a leaked or unwanted link is stopped on its own task (Stop link, Make a new link; I7).
 
 ### D. Harmful files
 
@@ -144,24 +145,25 @@ MaxOff never sees the bytes (6879421505), so **MaxOff cannot scan them.** Google
 | F3 | **Stuck detection uses Google's numbers.** The every-minute cron asks Google how many bytes each open session has (E0.4) when the browser has been silent. "Stuck" = no new bytes at Google for 15 minutes (6879421505). | U: rules; P: one alert per stall |
 | F4 | **"Looks finished"** = every started file of that uploader is received and nothing has moved for 10 min **[Q12]** (6879555186). | U; P |
 | F5 | **All files received** is one transition function: permission + scope + stop the link + (coordinator path: the existing Done function, unchanged) or (Crew primary: a notification) + `activity_log`, in one transaction. Invariants 5 and 6 are untouched. | P: every path, every role |
+| F6 | **"Removed in Drive", never a Remove** (Q7, owner 19 Nov; detection advisor 19 Nov). MaxOff has no function, route or Google call that deletes, moves or trashes a file. A recorded file is checked with `files.get` (fields `id,trashed`, `drive.file`): when an Admin opens an uploader's sheet, for the files on screen only, each at most once every 10 minutes, after the sheet is on screen and **never on the task page's first render or any page load**; and once a day, in the existing `drive_space_check` run, for the files of links active in the last 30 days. A 404 or `trashed = true` sets `missing_in_drive` and `missing_seen_at` through a `service_role`-only function, adds a history row and changes nothing else; any other answer (reconnect, 401, 403, 429, 5xx, timeout) marks nothing. The row shows a neutral grey **Removed in Drive** chip. | U with the fake Drive (404, trashed, error); P: only `service_role` can set it, history row, the 10-minute throttle; E: the chip, no Drive call on page load; M21 |
 
 ### G. Audit and notifications
 
 | # | Requirement | Proof |
 |---|---|---|
-| G1 | `activity_log` rows, written by the functions: link made, copied (by whom; this helps trace a leak), new link, stopped (by whom and why: Stop link, All files received, task Done, cancelled, kill switch); uploader started (name, the not-on-task flag); file received (name, path, size, checksum, Drive id, `after_stop`); file failed for good; "I'm done"; stuck and looks-finished signals sent; files received; file removed **[Q7]** (who, reason; moved to the Drive bin, never deleted). | P: one row per path, exact fields |
+| G1 | `activity_log` rows, written by the functions: link made, copied (by whom; this helps trace a leak), new link, stopped (by whom and why: Stop link, All files received, task Done, cancelled, a new link); uploader started (name, the not-on-task flag); file received (name, path, size, checksum, Drive id, `after_stop`); file failed for good; "I'm done"; stuck and looks-finished signals sent; files received; a file found removed in Drive **[Q7]** (no actor: MaxOff only saw it; F6). | P: one row per path, exact fields |
 | G2 | **Who, IP, files** (6879421505): the IP, user agent and device-key hash live in `upload_uploaders` / `upload_sessions`, **not in `activity_log`**, so erasing them after 90 days **[Q12]** never rewrites history (invariant 9). | P: the erase job nulls only those columns |
 | G3 | The actor of a public action is the uploader row (`actor_kind = 'uploader'`), never a member. | P |
-| G4 | Notifications follow WORKFLOWS §9 (new kinds written there first). Recipients: the task's Admin (creator, approving Admin, coordinator) and the Owner when the Owner runs the task; the Crew primary gets only "Files received: mark it done"; space and daily-limit notices go to the Owner. **The link, Drive ids and the folder link never go in a notification to Crew.** The folder link goes to the Owner and the task's Admin only. **[Q1][Q6]** | P: recipients per kind; E |
+| G4 | Notifications follow WORKFLOWS §9 (new kinds written there first). Recipients: the task's Admins (its creator, its approving Admin, and the Admin who coordinates the freelancer who is its primary owner; owner 19 Nov) and the Owner when the Owner runs the task; the Crew primary gets only "Files received: mark it done"; space and daily-limit notices go to the Owner. **The link, Drive ids and the folder link never go in a notification to Crew.** The folder link goes to the Owner and the task's Admin only. **[Q1][Q6]** | P: recipients per kind; E |
 | G5 | Notification text is built in the database with the cleaned name (B2) and plain text only. Push payloads hold the title and the task id, nothing more. | U; M8 |
 
 ### H. Permissions, RLS and what members see
 
 | # | Requirement | Proof |
 |---|---|---|
-| H1 | New tables (proposed `upload_links`, `upload_uploaders`, `upload_files`, `upload_sessions`) have **RLS in the same migration**. Select: the Owner and the task's Admin (and the coordinator) only. **Crew, freelancers, other Admins and anon read nothing.** No API role can insert, update or delete; every write goes through a function. | P: every role, allowed and denied, every table |
+| H1 | New tables (proposed `upload_links`, `upload_uploaders`, `upload_files`, `upload_sessions`) have **RLS in the same migration**. Select: the Owner and the task's Admins (its creator, its approving Admin, and the Admin who coordinates a freelancer primary owner) only. **Crew (a Crew coordinator included), freelancers, other Admins and anon read nothing.** No API role can insert, update or delete; every write goes through a function. | P: every role, allowed and denied, every table |
 | H2 | The public API runs on the Worker with the **service role**, after its own token check, calling `service_role`-only functions (`upload_resolve`, `upload_register`, `upload_session_open`, `upload_progress`, `upload_file_done`, `upload_said_done`). `anon` and `authenticated` get no grant on them. | P: anon, Crew and Admin refused |
-| H3 | Member actions (`upload_link_create`, `_stop`, `_renew`, `_secret`, `upload_files_received`, `upload_file_remove`) check permission and scope **[Q1]**. The permission key is new or reuses `tasks.create` + scope: PERMISSIONS first. | P: Owner, task Admin allowed; another Admin, Crew, freelancer, the coordinator of another task, anon, another org denied |
+| H3 | Member actions (`upload_link_create`, `_stop`, `_renew`, `_secret`, `upload_files_received`) check permission and scope **[Q1]**: the Owner, or one of the task's three Admins (above). There is no member action that removes a file (F6). The permission key is new or reuses `tasks.create` + scope: PERMISSIONS first. | P: Owner, each of the three task Admins allowed; another Admin, a Crew coordinator, the coordinator of a freelancer who is only an assignee, Crew, freelancer, the coordinator of another task, anon, another org denied |
 | H4 | **Money is untouched** (invariant 2). No amount in any upload table, notification or response. | P: pgTAP 46's money list unchanged |
 | H5 | **The live view.** ARCHITECTURE §10a says nothing polls on a timer, and the spec asks for a live view. *Advisor decision at R0:* (a) poll the card's own read every 5 s **only while something is uploading and the card is on screen**, as a written exception; or (b) add `upload_files` to the Realtime publication (pgTAP 46's "only these tables" changes; RLS must hold on Realtime). Either way: no read is added to a shared layout (speed gate). | E; P (for b) |
 | H6 | The folder link and the Drive file ids are in the Owner and Admin reads only. The Crew task page's network log has none of them. | E: network-log assertion, as `billing.spec.ts` does |
@@ -172,7 +174,7 @@ The personal data is about uploaders who are **not MaxOff members**. To confirm 
 
 | # | Requirement | Depends on |
 |---|---|---|
-| I1 | **Notice before collection**, on the name step (sample screen A): what is kept (name, files, IP and device), why (to know who sent what and to keep the link safe), for how long, and who to contact. A "How we use this" page with the studio's contact for questions, corrections and erasure. **The Owner supplies the contact.** | 6879421505 audit (who, IP, files) |
+| I1 | **Notice before collection**, on the name step (sample screen A): what is kept (name, files, IP and device), why (to know who sent what and to keep the link safe), for how long, and who to contact. A "How we use this" page with the contact for questions, corrections and erasure: **MaxOff's own mail address, the configured `EMAIL_FROM`** (`src/core/notifications/email-env.ts`, which has a default), read from config at render time and shown as the contact; never a personal address and never typed into the page (owner 19 Nov). With `EMAIL_FROM` unset, the file's default is shown, so the contact is never empty. | 6879421505 audit (who, IP, files); owner 19 Nov |
 | I2 | **Collect the minimum:** name (required), IP, user agent, device-key hash. No phone (Q3, owner 19 Nov), no email, location or fingerprinting. No analytics or third-party scripts on the page. | |
 | I3 | **Retention [Q12]:** IP, user agent and device hash erased after 90 days by a daily job. The name and file list stay as the task's history (the studio's business record). | invariant 9 (history kept) |
 | I4 | **Erasure on request:** the Owner can clear an uploader's network details from the uploader sheet. The name in history is kept unless the Owner decides otherwise. | |
@@ -206,7 +208,6 @@ Proof: `e2e/upload-headers.spec.ts` asserts the exact values against a real buil
 | Admin: All files received | stopped | as above | Crew primary: "mark it done" (or Done via coordinator) |
 | Primary marks Done / task cancelled | stopped in the same transaction | as above | none extra |
 | Make a new link | old stopped, new made | as above | none |
-| Kill switch (C12) | all paused | as above | none |
 | Drive needs reconnecting | alive, but no new session | browser retries | the Owner's existing notice |
 
 ## 6. Rollout guards (production rules)
@@ -222,10 +223,10 @@ Proof: `e2e/upload-headers.spec.ts` asserts the exact values against a real buil
 - RLS on each new table: Owner, the task's Admin, the coordinator, another Admin, Crew assignee, Crew not on the task, freelancer, anon, another organisation.
 - `upload_resolve`: alive / stopped / task Done / Completed / Cancelled / unknown hash give the same not-found; the exact key set returned (A7).
 - `upload_register`: name rules, the not-on-task flag, matching an assignee, the C3 cap, one notification per name.
-- `upload_session_open`: link alive, C4/C5 limits, C8 space guard, folder path rules, kill switch.
+- `upload_session_open`: link alive, C4/C5 limits, C8 space guard, folder path rules.
 - `upload_file_done`: size match, parent match, `after_stop`, idempotent on a retry.
 - `upload_files_received`: coordinator path marks Done through the existing function; Crew primary path notifies; invariant 6 refusals (another Admin, Crew not primary); the link stops.
-- `upload_file_remove` **[Q7]**: reason required, history row, nothing deleted.
+- The Drive check **[Q7]** (F6): `upload_drive_check_claim` / `_daily` return only due `done` files and stamp them (the 10-minute throttle; links active in the last 30 days); `upload_drive_seen` is `service_role` only (Owner, Admins, Crew, anon refused), sets `missing_in_drive` only for not-found or trashed, writes one history row, and is idempotent; no function removes a file.
 - Stuck and looks-finished jobs: once per stall, recipients per kind.
 - Erasure job: nulls only the network columns; history unchanged.
 - Each task transition (Done, cancel) stops the link.
@@ -240,7 +241,7 @@ Token make / hash / derive (A1–A3); name, path and file-name cleaning, includi
 - Reload mid-upload: "welcome back" shows only this device's files (J); a second browser context with the same link sees none of them.
 - Each bad link (stopped, done, cancelled, unknown, malformed) shows the one screen (L); no request URL contains the token (A8).
 - Space held (N), daily limit (O), rate limit (Q), Drive disconnected (R), a failure and Retry (G).
-- The Admin's live view: rows, the not-on-task flag, stuck, looks finished, the uploader sheet, Remove **[Q7]**, Stop link, Make a new link, All files received on both paths; each sheet's **installed back-gesture spec at 375 and 430** (§14.2).
+- The Admin's live view: rows, the not-on-task flag, stuck, looks finished, the uploader sheet with a **Removed in Drive** row (the fake Drive answers 404 and `trashed`) **[Q7]**, no Drive call on the task page's load, Stop link, Make a new link, All files received on both paths; each sheet's **installed back-gesture spec at 375 and 430** (§14.2).
 - Crew task page: no Uploads card data, and no folder link in the network log (H6).
 - The headers spec (J).
 - `loading.tsx` for the Uploads card's skeleton (traced).
@@ -269,6 +270,7 @@ Token make / hash / derive (A1–A3); name, path and file-name cleaning, includi
 | M18 | Send a 5 MB JSON body, slow-drip requests | Refused at 64 KB; the Worker doesn't hang |
 | M19 | Two devices with the same name; All files received during an upload; cancel the task mid-upload | As in §5, nothing lost, flagged correctly |
 | M20 | Fill the test Drive to near full; disconnect the test account | Screens N and R; Owner notices once |
+| M21 | In the test Drive, move one received file to the bin and delete another for good; open that uploader's sheet; reopen it within 10 minutes; reload the task page | Both rows show "Removed in Drive" (grey) with their history; the reopen and the reload make no new Drive call; MaxOff's logs show no delete or trash call, ever |
 
 ## 8. Done when
 - E0 passed, or the Owner decided the CORS fallback.
@@ -300,7 +302,7 @@ This needs the owner's Google Cloud setup and a test Gmail connected on staging.
 
 | # | Where | The conflict | Proposed way through |
 |---|---|---|---|
-| 1 | 6879244245 "expiring" vs 6879421505 "until the task is done" | The later spec wins: no time limit, so a long-open task keeps a live link for months | Accept; show the link's age on the card (A10); Stop link and the kill switch remain |
+| 1 | 6879244245 "expiring" vs 6879421505 "until the task is done" | The later spec wins: no time limit, so a long-open task keeps a live link for months | Accept; show the link's age on the card (A10); Stop link remains (no switch pauses every link, owner 19 Nov) |
 | 2 | 6879244245 "it can complete the task" vs 6879421505 "no auto-complete" and 6879555186 | Later decisions win: Done only via the coordinator, or a nudge to the Crew primary | As drawn |
 | 3 | 6879421505 "coming back later shows what's done" vs 6879494745 "no listing" | Showing what's done is a listing to anyone with the link | Only the same device's own files (B3, B4) **[Q4]** |
 | 4 | 6879421505 "stuck → Call / WhatsApp to the uploader" vs typed, unchecked names | MaxOff has no number for a non-member | **Decided (owner, 19 Nov):** no phone field and no Call/WhatsApp; the stuck alert names the uploader only |
