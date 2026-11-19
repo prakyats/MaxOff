@@ -210,23 +210,20 @@ ol.qs .alt{display:block;color:var(--page-muted)}
   <p class="lede">The decisions (issue #89, 14 Nov) leave these open. Each one shows my recommendation first; the screens below are drawn with it. Reply with the numbers you want changed.</p>
   <ol class="qs">
     <li><b>Who can make, copy and stop a task's link?</b>
-      <span class="rec"><b>Recommend:</b> the Owner and the task's Admin (the Admin who made or approves the task, or the freelancer's coordinator). Crew on the task don't see the link.</span>
-      <span class="alt">Or: Crew assigned to the task can copy it too, to pass it to a freelancer.</span></li>
+      <span class="rec"><b>Decided (owner, 19 Nov):</b> only the Owner and the task's Admin. Crew on the task don't see the link.</span></li>
     <li><b>Which tasks can have a link?</b>
       <span class="rec"><b>Recommend:</b> any task with a client or without. The Admin taps <b>Get upload link</b> on the task when it's needed. No new setting.</span>
       <span class="alt">Or: only task types you switch on in Settings (for example a "Shoot" type).</span></li>
-    <li><b>Reaching an uploader who is stuck.</b> The decision asks for Call and WhatsApp in the 15-minute alert, but people with the link type only a name, so MaxOff has no number for them.
-      <span class="rec"><b>Recommend:</b> an <b>optional</b> "Phone number" field next to the name ("so the studio can reach you if the upload stops"). If the typed name matches someone on the task, MaxOff uses their saved number instead. With no number, the alert comes without Call and WhatsApp.</span>
-      <span class="alt">Or: make the phone number required for everyone.</span></li>
+    <li><b>Reaching an uploader who is stuck.</b>
+      <span class="rec"><b>Decided (owner, 19 Nov):</b> no phone number field and no Call or WhatsApp anywhere. The page asks for a name only, and the stuck alert just says who is stuck.</span></li>
     <li><b>"Coming back later shows what's done" against "the link never lists files".</b>
       <span class="rec"><b>Recommend:</b> a returning uploader sees only <b>the files they sent from that same phone or laptop</b> (MaxOff remembers the device). They never see another uploader's files, and someone who only has the link sees no file names at all. Files already sent are skipped by name and size, checked against that uploader's own files.</span>
       <span class="alt">Or: anyone with the link sees every file sent so far (this makes a forwarded link show the whole shoot).</span></li>
     <li><b>What the page shows about the task.</b>
       <span class="rec"><b>Recommend:</b> the studio's name and the task's title only ("Brand reel"). No client name, deadline, people or folder. A link that gets forwarded then gives little away.</span>
       <span class="alt">Or: also show the client's name.</span></li>
-    <li><b>How the Admin opens the folder.</b> The studio Drive is a personal Gmail, so the Admin can only open the task folder if it is shared with their own Google address.
-      <span class="rec"><b>Recommend:</b> once per task, MaxOff shares that task's folder with the Admin's Google address as <b>view only</b>. Removing a file is done in MaxOff (point 7), so nobody but the studio account can delete in Drive.</span>
-      <span class="alt">Or: share it so the Admin can edit, and remove files in Drive directly.</span></li>
+    <li><b>How the Admin opens the folder.</b>
+      <span class="rec"><b>Decided (owner, 19 Nov):</b> no sharing per folder. The Admins already use the studio's Drive account, so "Open the folder in Drive" simply links to the task folder.</span></li>
     <li><b>Removing an unwanted file</b> (a wrong clip, a stranger's upload).
       <span class="rec"><b>Recommend:</b> the task's Admin or the Owner taps <b>Remove</b> on the file and gives a reason. MaxOff moves it to the Drive bin (Google keeps it 30 days) and keeps the row in the task's history. Never a permanent delete.</span>
       <span class="alt">Or: only the Owner can remove files.</span></li>
@@ -330,8 +327,7 @@ ol.qs .alt{display:block;color:var(--page-muted)}
         <div class="body">
           <div class="title"><span class="xs muted">Send files for</span><b>Brand reel</b></div>
           <div><label class="l">Your name</label><div class="input"><span>Sam</span></div><div class="hint">The studio sees this name next to your files.</div></div>
-          <div><label class="l">Phone number <span class="muted" style="font-weight:400">(optional)</span></label><div class="input"><span class="ph">So the studio can reach you if it stops</span></div></div>
-          <div class="band grey"><span class="xs muted">Your name, phone number, the files you send, and your IP address and device are kept so the studio knows who sent what. IP and device are erased after 90 days. <a class="lk">How we use this</a></span></div>
+          <div class="band grey"><span class="xs muted">Your name, the files you send, and your IP address and device are kept so the studio knows who sent what. IP and device are erased after 90 days. <a class="lk">How we use this</a></span></div>
         </div>
         <div class="dock"><button class="btn primary wide">Continue</button></div>
       </div>
@@ -659,7 +655,7 @@ ol.qs .alt{display:block;color:var(--page-muted)}
   <ul class="what">
     <li>The <b>Uploads</b> card on the task's Work view. One row per uploader: files done / in progress / failed, data sent, last activity.</li>
     <li><b>Not on this task · new name</b> marks someone who isn't assigned (grey chip: it's information, not a problem).</li>
-    <li><b>Stuck</b> (red) after 15 min with no progress, with Call and WhatsApp when a number is known (Q3). <b>Looks finished</b> (amber: your move) when every started file is done and nothing has moved for 10 min.</li>
+    <li><b>Stuck</b> (red) after 15 min with no progress, with no call buttons (Q3: the uploader gave a name only). <b>Looks finished</b> (amber: your move) when every started file is done and nothing has moved for 10 min.</li>
     <li>The card refreshes on its own while anything is uploading (every few seconds), and stops when nothing is.</li>
     <li>The page's one solid button is <b>All files received</b> (green: a positive final decision, it can mark the task Done).</li>
   </ul></div>
@@ -690,7 +686,7 @@ ol.qs .alt{display:block;color:var(--page-muted)}
                 <div class="who"><b>Alex</b><div class="chips"><span class="chip c-grey">Not on this task · new name</span><span class="chip c-red"><i></i>Stuck 18 min</span></div></div>
                 <div class="prog"><span class="tab">4 of 9 done · 1 failed</span><div class="meter"><i style="width:44%"></i></div></div>
                 <span class="tab">2.6 of 7.9 GB</span><span class="muted">18 min ago</span>
-                <span style="display:flex;gap:6px"><button class="btn sm">Call</button><button class="btn sm">WhatsApp</button></span>
+                <span></span>
               </div>
               <div class="urow">
                 <div class="who"><b>Jordan</b><div class="chips"><span class="chip c-green"><i></i>Said "I'm done"</span></div></div>
@@ -728,7 +724,7 @@ ol.qs .alt{display:block;color:var(--page-muted)}
           <div class="card">
             <div class="uhead"><span class="h">Uploads <span class="chip c-blue"><i></i>Link active</span></span><button class="btn sm">Copy link</button></div>
             <div class="ucard"><div class="r1"><b>Sam</b><span class="chip c-blue"><i></i>Uploading</span></div><div class="meter"><i style="width:67%"></i><i style="width:10%"></i></div><span class="xs muted tab">8 of 12 · 3.1 of 5.4 GB · just now</span></div>
-            <div class="ucard"><div class="r1"><b>Alex</b><span class="chip c-red"><i></i>Stuck 18 min</span></div><span class="chip c-grey" style="width:max-content">Not on this task · new name</span><div class="meter"><i style="width:44%"></i></div><span class="xs muted tab">4 of 9 · 1 failed · 2.6 of 7.9 GB · 18 min ago</span><div style="display:flex;gap:8px"><button class="btn sm" style="flex:1;min-height:44px">Call</button><button class="btn sm" style="flex:1;min-height:44px">WhatsApp</button></div></div>
+            <div class="ucard"><div class="r1"><b>Alex</b><span class="chip c-red"><i></i>Stuck 18 min</span></div><span class="chip c-grey" style="width:max-content">Not on this task · new name</span><div class="meter"><i style="width:44%"></i></div><span class="xs muted tab">4 of 9 · 1 failed · 2.6 of 7.9 GB · 18 min ago</span></div>
             <div class="ucard"><div class="r1"><b>Jordan</b><span class="chip c-green"><i></i>Said "I'm done"</span></div><div class="meter"><i style="width:100%"></i></div><span class="xs muted tab">31 of 31 · 46.2 GB · 2:14 pm</span></div>
             <div class="ufoot"><a class="lk sm">Open the folder in Drive ↗</a></div>
           </div>
@@ -827,7 +823,7 @@ ol.qs .alt{display:block;color:var(--page-muted)}
   <div class="notes">
     <div class="mx" style="padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:10px">
       <div class="push"><span class="ic">M</span><div><b>Alex is uploading to Brand reel (not on the task)</b><br><span class="muted">Once per new name.</span></div></div>
-      <div class="push"><span class="ic">M</span><div><b>Upload stuck: Alex, Brand reel</b><br><span class="muted">No progress for 15 min · 4 of 9 files</span><div class="acts"><button class="btn sm">Call</button><button class="btn sm">WhatsApp</button></div></div></div>
+      <div class="push"><span class="ic">M</span><div><b>Upload stuck: Alex, Brand reel</b><br><span class="muted">No progress for 15 min · 4 of 9 files</span></div></div>
       <div class="push"><span class="ic">M</span><div><b>Sam finished: 12 files, 5.4 GB</b><br><span class="muted">Brand reel · open the folder</span></div></div>
     </div>
     <div class="mx" style="padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:10px">

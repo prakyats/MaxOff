@@ -82,8 +82,8 @@ Google's documentation doesn't settle these (6879293330), and the whole design r
 
 | # | Requirement | Depends on | Proof |
 |---|---|---|---|
-| B1 | **A typed name is a claim, not an identity.** The Admin view says so ("name typed by the uploader, not checked"). Matching it to an assignee only decides the "not on this task" flag and **[Q3]** which phone number to use. It never grants anything. | 6879494745 | U: matching rule; E |
-| B2 | Name: 1–60 characters after trimming, Unicode NFC. Control characters, zero-width and **bidi override characters** are stripped. Optional phone: E.164, Indian format accepted. | XSS / spoofing | U: sanitiser table; M8 |
+| B1 | **A typed name is a claim, not an identity.** The Admin view says so ("name typed by the uploader, not checked"). Matching it to an assignee only decides the "not on this task" flag. It never grants anything. (Q3, owner 19 Nov: no phone number is asked for or used.) | 6879494745 | U: matching rule; E |
+| B2 | Name: 1–60 characters after trimming, Unicode NFC. Control characters, zero-width and **bidi override characters** are stripped. | XSS / spoofing | U: sanitiser table; M8 |
 | B3 | **Device key:** 32 random bytes made by the browser and kept in that browser's storage for this link. The server stores its hash. It ties a returning uploader to their own uploader row and their own file list **[Q4]**, and nothing more. A copied key shows only that uploader's own list: accepted, documented. | 6879421505 "coming back later" vs no listing | P; U; M16 |
 | B4 | **"Already sent" is checked only against the same uploader's files** (name + size), so it can't be used to test whether the shoot contains a given file. | no listing | P |
 | B5 | Uploaders get **no notifications, no account, no MaxOff session and no cookies.** The public API ignores any MaxOff session cookie it receives. | 6879494745 | E: a signed-in member using the link gets no member rights through it |
@@ -172,11 +172,11 @@ The personal data is about uploaders who are **not MaxOff members**. To confirm 
 
 | # | Requirement | Depends on |
 |---|---|---|
-| I1 | **Notice before collection**, on the name step (sample screen A): what is kept (name, optional phone, files, IP and device), why (to know who sent what, to reach a stalled uploader, to keep the link safe), for how long, and who to contact. A "How we use this" page with the studio's contact for questions, corrections and erasure. **The Owner supplies the contact.** | 6879421505 audit (who, IP, files) |
-| I2 | **Collect the minimum:** name (required), phone (optional **[Q3]**), IP, user agent, device-key hash. No email, location or fingerprinting. No analytics or third-party scripts on the page. | |
-| I3 | **Retention [Q12]:** IP, user agent and device hash erased after 90 days by a daily job. The phone number is erased 90 days after the link stops. The name and file list stay as the task's history (the studio's business record). | invariant 9 (history kept) |
-| I4 | **Erasure on request:** the Owner can clear an uploader's phone and network details from the uploader sheet. The name in history is kept unless the Owner decides otherwise. | |
-| I5 | **Processors:** Google (Drive holds the files), Cloudflare (Worker and logs), Supabase (database). Worker and Sentry logs carry no token, phone or device key (A8, J4). | |
+| I1 | **Notice before collection**, on the name step (sample screen A): what is kept (name, files, IP and device), why (to know who sent what and to keep the link safe), for how long, and who to contact. A "How we use this" page with the studio's contact for questions, corrections and erasure. **The Owner supplies the contact.** | 6879421505 audit (who, IP, files) |
+| I2 | **Collect the minimum:** name (required), IP, user agent, device-key hash. No phone (Q3, owner 19 Nov), no email, location or fingerprinting. No analytics or third-party scripts on the page. | |
+| I3 | **Retention [Q12]:** IP, user agent and device hash erased after 90 days by a daily job. The name and file list stay as the task's history (the studio's business record). | invariant 9 (history kept) |
+| I4 | **Erasure on request:** the Owner can clear an uploader's network details from the uploader sheet. The name in history is kept unless the Owner decides otherwise. | |
+| I5 | **Processors:** Google (Drive holds the files), Cloudflare (Worker and logs), Supabase (database). Worker and Sentry logs carry no token or device key (A8, J4). | |
 | I6 | **Footage itself** often shows people; that's the studio's existing processing. v4.5 doesn't change it, and the files sit in the same Drive as today. | |
 | I7 | **A leaked link** is handled by Stop link / Make a new link, a History row, and a check of who uploaded through it. The steps go in the Owner's guide. | |
 
@@ -189,7 +189,7 @@ The upload page is a **separate, minimal page**: no app shell, no Supabase clien
 | J1 | `Content-Security-Policy` | `default-src 'none'; script-src 'self' 'nonce-…' 'strict-dynamic'; style-src 'self' 'nonce-…'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://www.googleapis.com; worker-src 'self' blob:; manifest-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests` (needs nonce support for this route; the rest of the app keeps today's list) |
 | J2 | `Referrer-Policy` | `no-referrer` (stricter than the app's `strict-origin-when-cross-origin`) |
 | J3 | `Cache-Control` | `no-store` on the page and every `/api/upload/*` answer |
-| J4 | Logging | Sentry on this page: no replay, the `Authorization` header, phone and device key scrubbed, URL fragment never captured |
+| J4 | Logging | Sentry on this page: no replay, the `Authorization` header and device key scrubbed, URL fragment never captured |
 | J5 | `X-Robots-Tag` | `noindex, nofollow` **in production too** (unlike the rest of production, §18.3) |
 | J6 | Isolation | `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy` denying camera, microphone, geolocation, payment, USB |
 | J7 | API | POST only, JSON only, no `Access-Control-Allow-Origin` (same origin), no cookies read or set |
@@ -284,10 +284,10 @@ Token make / hash / derive (A1–A3); name, path and file-name cleaning, includi
 | 1 | 6879244245 "expiring" vs 6879421505 "until the task is done" | The later spec wins: no time limit, so a long-open task keeps a live link for months | Accept; show the link's age on the card (A10); Stop link and the kill switch remain |
 | 2 | 6879244245 "it can complete the task" vs 6879421505 "no auto-complete" and 6879555186 | Later decisions win: Done only via the coordinator, or a nudge to the Crew primary | As drawn |
 | 3 | 6879421505 "coming back later shows what's done" vs 6879494745 "no listing" | Showing what's done is a listing to anyone with the link | Only the same device's own files (B3, B4) **[Q4]** |
-| 4 | 6879421505 "stuck → Call / WhatsApp to the uploader" vs typed, unchecked names | MaxOff has no number for a non-member | Optional phone, or an assignee's saved number **[Q3]** |
+| 4 | 6879421505 "stuck → Call / WhatsApp to the uploader" vs typed, unchecked names | MaxOff has no number for a non-member | **Decided (owner, 19 Nov):** no phone field and no Call/WhatsApp; the stuck alert names the uploader only |
 | 5 | 6879421505 "anything, any size" vs the brief's "size and type caps" and ADR-0010's 25 / 100 MB caps | The decision has no caps | Safety limits only (§4 C), the space guard, and the risky-type chip **[Q13]** |
 | 6 | ADR-0010 (R2 first, MaxOff names the files, `Photos|Videos` folders) vs 6879421505 (no R2 copy, Drive is the original, original names and folders kept under the uploader's name) | ADR-0010 must not be contradicted silently | **A new ADR** amending ADR-0010 for upload-link files; needs Owner approval (CLAUDE.md: stop and ask) |
-| 7 | 6879421505 "the folder link when finished" vs a personal Gmail Drive | An Admin can't open the studio's folder unless it's shared with their Google address | Share the task folder view-only with the Admin's Google address (`drive.file` can share files it made) **[Q6]**; needs each Admin's Google address |
+| 7 | 6879421505 "the folder link when finished" vs a personal Gmail Drive | An Admin can't open the studio's folder unless it's shared with their Google address | **Decided (owner, 19 Nov):** no sharing per folder; the Admins already use the studio's Drive account, so the link just opens the folder |
 | 8 | ARCHITECTURE §10a "nothing polls on a timer" vs "live view" | A live view needs updates | Polling exception while uploading, or Realtime (H5) |
 | 9 | "Bytes never through MaxOff" vs the unverified browser CORS on Drive sessions (6879293330) | If CORS fails, bytes would need the Worker | E0 spike first; stop and ask if it fails |
 | 10 | 6879421505 "warn if the Drive would run out" vs no studio numbers to strangers | A warning must not reveal the studio's storage | Wording without numbers; hold files that can't fit **[Q11]** |
