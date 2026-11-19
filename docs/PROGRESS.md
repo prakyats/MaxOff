@@ -251,6 +251,27 @@
 6. **V5a item 6b, the "only when unused" Delete kinds: DECIDED by the owner directly (22 Oct, "any reference counts as used": history, archived or deleted rows, paid or closed claims, a job title someone once held, old custom-field values, a task type named only by an archived or deleted template, a draft's contact, note, file, task label or request) and BUILT in V5e (item 6c) for task types, job titles, expense categories, custom fields, draft clients and contacts as a real row delete (DATA-MODEL §2 "The Owner-only Delete of what was never used"). The original question, for the record:** The rule lists task types, job titles, expense categories, custom fields, draft clients and contacts, "only when unused", but "unused" is not settled for any of them: (a) **does history count?** A job title once held by someone and since changed, an expense category on a past (paid) claim, a custom field whose values sit only in old activity diffs, a draft client's own creation history: if a deleted row's name is later needed to read that history, a real delete loses it (the "(deleted)" label approach would need a soft state on each of these tables too); (b) **do archived or deleted rows count?** A task type referenced only by an archived or deleted task template (whose foreign key stays); a contact on a draft client; (c) **draft clients:** is a draft with contacts, notes, files, a task label or a request "used"? Recommended: treat any reference at all, history included, as "used" (so Delete is offered only to a row nothing has ever pointed at), with a soft deleted state like templates so names in history keep reading; awaiting the owner.
 
 ## In-progress handoff
+- **PAUSED (owner, 19 Nov 2026): v4.5 "upload link" on `phase-v45` (from `phase-v40`), docs only, nothing built.**
+  - **Approved by the owner, 19 Nov:**
+    - the screens: `docs/design/v45-upload-link-sample.html`, every question decided, republished by the advisor from 996e756;
+    - the follow-ups: no Remove in MaxOff ("Removed in Drive", checked by `files.get(id,trashed)` on the uploader's sheet and in the daily `drive_space_check`; a file restored from the bin comes back); "the task's Admin" is the creator, the approving Admin and the freelancer's coordinating Admin; the privacy contact is `EMAIL_FROM` from config; no pause-all switch; no phone number; no per-folder sharing.
+  - **Advisor, 19 Nov:**
+    - the upload card's polling is the one written exception in ARCHITECTURE §10a;
+    - ADR-0010 is amended in place;
+    - the "All files received" sheet asks for the late reason;
+    - `UPLOAD_LINK_KEY` goes into `.env.example` and the optional `deploy.yml` secrets, with the build.
+  - **Written, all "proposed":**
+    - the ADR-0010 amendment (d827b05; it still needs the Owner's OK as an ADR change);
+    - DATA-MODEL §8a, WORKFLOWS §5B plus jobs plus §9, and PERMISSIONS (`uploads.manage`, `uploads.network`) (01a9bae, 3fa05c0, 996e756, aee306e);
+    - the security review plan `docs/handoff/v45-security-review-plan.md`, with its "Pass 1 log".
+  - **The gate:** CORS step 1 passed (Google's preflight allows our origin, PUT and content-range). **Step 2** is a real resumable session's 308 exposing `Range` to the browser. It needs the owner's Google Cloud setup and a test Gmail on staging, and **gates the upload unit only**. If it fails, stop and tell the advisor.
+  - **Next, after v4.0 is READY:**
+    1. The ADR amendment approved.
+    2. The build, unit by unit. Migrations first: tables, RLS and pgTAP per role and path, per the docs.
+    3. The link and the uploader functions.
+    4. The page and the Admin card.
+    5. The upload unit, after CORS step 2.
+  - Open items from the draft (DATA-MODEL "Open questions 2, 3 and 5") still need answers before their unit.
 - **PAUSED (owner, 19 Nov 2026 ~08:20 IST, credits needed elsewhere): v4.0 "Drive connected" on `phase-v40`, one step from READY FOR OWNER.**
   - **Done:**
     - Full CI green on 11a3a67 (run 44429963177: unit, pgTAP, all four Playwright shards, and the serial chain with `drive-settings.spec.ts`). 11a3a67 includes `main` 6e89d173.
