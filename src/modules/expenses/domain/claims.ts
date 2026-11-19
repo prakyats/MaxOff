@@ -1,4 +1,8 @@
+import { formatRupees } from "@/core/lib/rupees";
 import { addISTDays, formatIST, istDayStart } from "@/core/time";
+
+/** Moved to core in v2.1 so revenue shares it; kept here so the module's own imports stay put. */
+export { formatRupees };
 
 /**
  * Expense claims (PRODUCT §4.18, WORKFLOWS §2a, task 3b.3): the states, the claim window, the
@@ -74,24 +78,6 @@ export function parseAmount(text: string): number | null {
   const value = Number(cleaned);
   if (!(value > 0) || value >= CLAIM_AMOUNT_LIMIT) return null;
   return value;
-}
-
-const RUPEES = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
-const RUPEES_PAISE = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-/** "₹1,200", "₹42.50": whole rupees stay whole, paise always show two digits. */
-export function formatRupees(amount: number): string {
-  return Number.isInteger(amount) ? RUPEES.format(amount) : RUPEES_PAISE.format(amount);
 }
 
 /** "Sat, 27 Sep". */

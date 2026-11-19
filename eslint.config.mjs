@@ -28,7 +28,7 @@ const DOMAIN_ALLOWED_CORE_AREAS = ["time", "errors", "lib"];
 
 /** DATA-MODEL §7: money tables and views. Only `modules/revenue` (and `core/db`'s generated types) may name them. */
 const MONEY_RELATIONS =
-  "project_billing|item_billing|cycle_billing|revenue_overrides|revenue_by_client_month_v|revenue_by_cycle_v";
+  "project_billing|item_billing|cycle_billing|revenue_overrides|project_advances|item_values_v|revenue_by_client_month_v|revenue_by_cycle_v";
 
 const WALL_CLOCK_MESSAGE =
   "Don't read the wall clock here. Use todayIST()/systemClock from @/core/time (ADR-0008).";
