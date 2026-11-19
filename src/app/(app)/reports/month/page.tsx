@@ -13,7 +13,8 @@ import {
   monthRange,
   TeamMonthList,
 } from "@/modules/attendance";
-import { formatRupees, listApprovedInMonth } from "@/modules/expenses";
+import { formatRupees } from "@/core/lib/rupees";
+import { listApprovedInMonth } from "@/modules/expenses";
 
 import { LeavePager } from "../../leave/leave-nav";
 
