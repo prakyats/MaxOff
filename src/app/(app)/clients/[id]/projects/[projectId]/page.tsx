@@ -51,6 +51,7 @@ import { ProjectHoldBanner } from "@/modules/client-work/components/project-hold
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
+import { BillingSection, BillingSkeleton, readProjectBilling } from "@/modules/revenue";
 import { stagePresetsFrom } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
@@ -85,8 +86,10 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * ones first, with their one action (Mark done, which is the approval since D3). Everything else is
  * under ⋯ (details, default stages, item list, next cycle, complete / cancel / reopen), the
  * header's **Activity** (the project's history in a panel, paged; never inline) or one tap deeper
- * (the item sheet: its own stages, send back / reopen, its last change and history). No money
- * (amendment C).
+ * (the item sheet: its own stages, send back / reopen, its last change and history). **Money is only in the
+ * Owner-only Billing section** (9.2, v2.1), read from `modules/revenue` and drawn last: its read
+ * starts only once the viewer is known to hold `finance.view`, so an Admin's page has neither the
+ * section nor its request (invariant 2; amendment C keeps every amount out of the Admin's page).
  */
 export default async function ProjectPage({
   params,
@@ -136,6 +139,14 @@ export default async function ProjectPage({
   const index = chosen ? ordered.indexOf(chosen) : -1;
   const previous = index > 0 ? ordered[index - 1] : undefined;
   const next = index >= 0 ? ordered[index + 1] : undefined;
+  // 9.2: the Owner's Billing section, one read (`project_billing_read`), streamed after the page.
+  // Started here, never with the first wave (`startEarly` before the session answers): the role
+  // is not in the JWT, so an early start would send a money read on every Admin's request
+  // (ARCHITECTURE §19; the function would refuse it, and it would be a seventh first read).
+  const billing = can(viewer.role, "finance.view")
+    ? readProjectBilling(project.id, chosen?.id ?? null)
+    : null;
+  if (billing) startEarly(billing);
 
   const working = project.state === "open" || project.state === "in_progress";
   // v1.9 W8 (ADR-0016): a held project keeps its state; its deliverables read On hold and wait.
@@ -532,6 +543,14 @@ export default async function ProjectPage({
             />
           </div>
         </section>
+
+        {/* Billing (9.2): the Owner's alone, and the page's last section, so it only grows
+            downward when its read arrives behind its own skeleton. Never in `loading.tsx`. */}
+        {billing ? (
+          <Suspense fallback={<BillingSkeleton retainer={project.recurrence !== "one_time"} />}>
+            <BillingSection read={billing} today={today} />
+          </Suspense>
+        ) : null}
       </div>
     </>
   );

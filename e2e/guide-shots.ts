@@ -22,6 +22,8 @@ export type GuideRole = "owner" | "admin" | "staff";
 export type DemoIds = {
   clientId: string;
   projectId: string;
+  /** "Launch video": a one-time project with its amount set and one advance received (v2.1). */
+  oneTimeProjectId: string;
   /** "Festive campaign": a monthly project On hold, one deliverable's date passed, one from last month. */
   heldProjectId: string;
   staffId: string;
@@ -1028,6 +1030,28 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   ...holdShots("owner"),
+  // v2.1 (9.2): the Owner's Billing section, the project page's last. Owner pictures only.
+  {
+    id: "owner/billing-amount",
+    path: project,
+    highlight: (page) => slot(page, "billing-amount-set"),
+    badge: 2,
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A monthly project's Billing section with the Set amount button highlighted.",
+  },
+  {
+    id: "owner/billing-advance",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.oneTimeProjectId}`,
+    // The section is the page's last: the page scrolled to its end, so the advance's row is in
+    // and clear of the band at the bottom edge.
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "billing-advance-record"),
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A one-time project's Billing section with one advance received and the Record advance button highlighted.",
+  },
   {
     id: "owner/send-back",
     path: project,

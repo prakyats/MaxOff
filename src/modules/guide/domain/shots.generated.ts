@@ -611,6 +611,18 @@ export const GUIDE_SHOTS: Readonly<
     height: 471,
     alt: "The Resume sheet listing a deliverable that needs a new date and one from an ended month with its choices, highlighted.",
   },
+  "owner/billing-amount": {
+    src: "/guide/owner/billing-amount.webp",
+    width: 1184,
+    height: 292,
+    alt: "A monthly project's Billing section with the Set amount button highlighted.",
+  },
+  "owner/billing-advance": {
+    src: "/guide/owner/billing-advance.webp",
+    width: 1184,
+    height: 367,
+    alt: "A one-time project's Billing section with one advance received and the Record advance button highlighted.",
+  },
   "owner/send-back": {
     src: "/guide/owner/send-back.webp",
     width: 408,

@@ -12,7 +12,9 @@ import {
   hydrated,
   memberIdOf,
   recoveryLinkFor,
+  removeClientFixture,
   resetAttendanceAndLeave,
+  rpcAs,
   runInstalled,
   serviceInsert,
   serviceRest,
@@ -23,6 +25,7 @@ import {
   startPrompt,
   USERS,
 } from "./helpers";
+import { addISTDays, todayIST } from "../src/core/time";
 
 /**
  * Back behaves like an app, not a website (task 1.5, ARCHITECTURE §14.1).
@@ -1002,5 +1005,131 @@ test.describe("installed: More → Appearance is its own sheet", () => {
     await expect(page.locator("html")).toHaveClass(/\bdark\b/);
     await page.emulateMedia({ colorScheme: "light" });
     await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  });
+});
+
+test.describe("installed: the Owner's Billing sheets on a project (v2.1, 9.2)", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("owner") });
+
+  /** An Active client of the seeded Admin's with one project, named for the test's project. */
+  async function billingProject(
+    name: string,
+    project: Record<string, unknown>,
+  ): Promise<{ path: string; projectId: string }> {
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+      client_id: client.id,
+    });
+    const projectId = await rpcAs<string>(
+      USERS.admin.email,
+      USERS.admin.password,
+      "project_create",
+      { client_id: client.id, name: "Back billing", stages: [], ...project },
+    );
+    return { path: `/clients/${client.id}/projects/${projectId}`, projectId };
+  }
+
+  test("a retainer: back closes the amount, category and price sheets in turn, then leaves", async ({
+    page,
+  }, info) => {
+    const name = `Back billing retainer (${info.project.name})`;
+    const { path, projectId } = await billingProject(name, {
+      recurrence: "monthly",
+      items: ["Reel A"],
+    });
+    const [cycle] = await serviceSelect<{ id: string }>(
+      `project_cycles?project_id=eq.${projectId}&select=id&limit=1`,
+    );
+    await rpcAs(USERS.admin.email, USERS.admin.password, "item_add", {
+      cycle_id: cycle?.id,
+      title: "Added reel",
+    });
+    const here = new RegExp(`${path}$`);
+    await runInstalled(page);
+    await page.goto("/today");
+    await page.goto(path);
+    await hydrated(page);
+    const billing = page.locator('[data-slot="project-billing"]');
+    await expect(billing).toBeVisible();
+
+    await billing.getByRole("button", { name: "Set amount" }).click();
+    const amount = page.getByRole("dialog", { name: "Set the amount" });
+    await expect(amount).toBeVisible();
+    await expectBackStack(page, [{ closes: amount, url: here }]);
+
+    await billing.getByRole("button", { name: "Change the category" }).click();
+    const category = page.getByRole("dialog", { name: "Change the category" });
+    await expect(category).toBeVisible();
+    await expectBackStack(page, [{ closes: category, url: here }]);
+
+    await billing.getByRole("button", { name: "Set the price of Added reel" }).click();
+    const price = page.getByRole("dialog", { name: "Set the price" });
+    await expect(price).toBeVisible();
+    // Nothing was saved by backing out, and the next back leaves the project.
+    await expectBackStack(page, [{ closes: price, url: here }, { url: /\/today$/ }]);
+    const read = await rpcAs<{ billing: { cycle_amount: number | null; category: string } }>(
+      USERS.owner.email,
+      USERS.owner.password,
+      "project_billing_read",
+      { project_id: projectId },
+    );
+    expect(read.billing).toMatchObject({ cycle_amount: null, category: "retainer" });
+    await removeClientFixture(name);
+  });
+
+  test("a one-time project: back closes Record advance and Mark returned, then leaves", async ({
+    page,
+  }, info) => {
+    const name = `Back billing one-time (${info.project.name})`;
+    const { path, projectId } = await billingProject(name, {
+      recurrence: "one_time",
+      items: ["Film"],
+      delivery_date: addISTDays(todayIST(), 10),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "billing_set_project", {
+      project_id: projectId,
+      amount: 60000,
+      set_amount: true,
+      category: null,
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "advance_record", {
+      project_id: projectId,
+      amount: 20000,
+      received_on: todayIST(),
+      note: null,
+    });
+    const here = new RegExp(`${path}$`);
+    await runInstalled(page);
+    await page.goto("/today");
+    await page.goto(path);
+    await hydrated(page);
+    const billing = page.locator('[data-slot="project-billing"]');
+    await expect(billing).toBeVisible();
+
+    await billing.getByRole("button", { name: "Record advance" }).click();
+    const record = page.getByRole("dialog", { name: "Record an advance" });
+    await expect(record).toBeVisible();
+    await expectBackStack(page, [{ closes: record, url: here }]);
+
+    await billing.getByRole("button", { name: "Mark the advance of ₹20,000 returned" }).click();
+    const returned = page.getByRole("dialog", { name: "Mark the advance returned" });
+    await expect(returned).toBeVisible();
+    await expectBackStack(page, [{ closes: returned, url: here }, { url: /\/today$/ }]);
+    // Backing out recorded and returned nothing.
+    const read = await rpcAs<{ advances: { returned_on: string | null }[] }>(
+      USERS.owner.email,
+      USERS.owner.password,
+      "project_billing_read",
+      { project_id: projectId },
+    );
+    expect(read.advances).toEqual([expect.objectContaining({ returned_on: null })]);
+    await removeClientFixture(name);
   });
 });

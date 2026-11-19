@@ -335,13 +335,27 @@ async function makeDemo(): Promise<DemoIds> {
       ...["Post 1", "Post 2"].map((title) => ({ title, stage_groups: design })),
     ],
   });
-  await rpc(admin, "project_create_grouped", {
+  const oneTimeProjectId = await rpc<string>(admin, "project_create_grouped", {
     client_id: client.id,
     name: "Launch video",
     recurrence: "one_time",
     delivery_date: workingDay(14),
     stage_groups: [{ label: null, stages: ["Script", "Shoot", "Edit"] }],
     deliverables: [{ title: "Launch film", stage_groups: null }],
+  });
+  // v2.1 (9.2): the one-time project's amount and one advance, for the Owner's Billing pictures.
+  // The monthly project keeps "No amount set": its picture shows the first Set amount.
+  await rpc(owner, "billing_set_project", {
+    project_id: oneTimeProjectId,
+    amount: 60000,
+    set_amount: true,
+    category: null,
+  });
+  await rpc(owner, "advance_record", {
+    project_id: oneTimeProjectId,
+    amount: 30000,
+    received_on: todayIST(),
+    note: "On signing",
   });
   const items = await serviceSelect<{ id: string; title: string }>(
     `project_items?project_id=eq.${projectId}&select=id,title&order=position`,
@@ -501,6 +515,7 @@ async function makeDemo(): Promise<DemoIds> {
   return {
     clientId: client.id,
     projectId,
+    oneTimeProjectId,
     heldProjectId,
     staffId,
     tasks: { notNoted, started, handedIn, checked, ownerOnly, held },
