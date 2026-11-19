@@ -550,6 +550,16 @@ Carry-ins are valued from their **origin** cycle.
 - **Overrides:** `revenue_overrides` for a cycle or one-time project store `calculated_value` (frozen when overriding), `adjusted_value`, note, Owner and time. Reports show *System calculated* and *Owner adjusted* side by side.
 - This is implemented as security-invoker SQL views over Owner-only tables. Non-Owner roles can't select from them.
 
+**As built (9.1, v2.1, 18–19 Nov 2026; migrations `money_tables`, `money_billing_read`, `money_q1_clamp`; pgTAP 144, 145; DATA-MODEL §7).**
+- **Tables, functions, views:** DATA-MODEL §7. Every write is a `finance.edit` function; every read is the Owner's (`finance.view`): one select policy per table, security-invoker views that are also gated on `finance.view`, nothing in Realtime, no notification, no amount in a refusal's text. The money tables are audited under their own entity names, which no Admin-readable `activity_log` policy matches.
+- **Plan or addition** is recorded when the deliverable is written: the trigger `item_billing_mark_added` on `project_items` marks one written outside `app.cycle_create` / `app.cycle_copy_item_list` (and not carried in) as an addition (`item_billing.added`). A path it does not know counts as an addition, so it shows as "Not priced yet" instead of silently joining the split.
+- **Q1 is a floor, not only a first copy:** `project_billing.priced_from` is the 1st of the IST month the first amount was entered and never moves. The project's amount never reaches a cycle that **started before it**: not at the first entry, not on a later change (which goes to the cycle current today and later ones), and not when a cycle is made later (a back-filled earlier week copies nothing). So a week that began in the previous month stays "No amount set".
+- **One earlier cycle can be priced alone, on purpose** (`billing_set_cycle_amount`): this is Q1's "until the Owner fills each one". The project's amount still never does it.
+- **A one-time project finished or cancelled in a month before `priced_from`** shows there with "No amount set"; nothing is back-filled (kickoff 9 Q1, answer C, 18 Nov 2026).
+- **No state check on the money functions (intended, R2 and decision 10):** amounts, values, advances, overrides and the billing status can be corrected on a completed, cancelled or held project and for a month that has ended. Only two checks read the state: an override of a one-time project needs it **completed**, and a cancelled one takes no adjusted figure (Q4).
+- **The over-amount check counts what the split counts:** a plan deliverable that left Potential ("Not needed", or cancelled before its cycle started) holds no room in the cycle's amount.
+- **v2.1's screens** are the Billing section (amount, category, additions, advances), the Revenue page and the complete prompt. The override, Billed / Not billed and a planned deliverable's own value exist as functions and get their screens in v2.5.
+
 ## 7. Month close and snapshots
 ```
 month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
@@ -600,6 +610,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 ## 9. Who gets notified
 | Event | Recipients |
 |---|---|
+| **Planned for v2.5 (kickoff 9 Q3, owner 2026-11-14; not built in v2.1):** a deliverable is added to a recurring cycle that has an amount, so it is "Not priced yet" | The Owner only (`finance.view`); in-app and push, never email; the text names the project and the deliverable and **never an amount**; nothing to an Admin or Crew. A new notification kind, added with its transition in v2.5 |
 | Task assigned / assignee added | Each new assignee (**a freelancer's notifications go to their current coordinator**, worded for them: "Asha's task …"; this applies to every row below that names an assignee, ADR-0013) |
 | Acknowledgement missing (repeat) | That assignee |
 | Acknowledgement escalation | Level 1 (`ack_escalate_hours`): approving Admin (or creator). Level 2 (`ack_escalate_owner_hours`): Owner. Never about the Owner as an assignee (6b.2) |

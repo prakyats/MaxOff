@@ -11,7 +11,7 @@
 -- Every name here is neutral.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(185);
+select plan(192);
 
 
 delete from public.deliverable_templates;
@@ -377,9 +377,27 @@ select is(pg_temp.camount(pg_temp.fx('wk_cur')), case when pg_temp.d('w0') >= pg
 select pg_temp.as_member('owner');
 select public.billing_set_project(pg_temp.fx('wk'), 800, true, null);
 select pg_temp.as_member('owner');
-select is(pg_temp.camount(pg_temp.fx('wk_cur')), 800::numeric, 'weekly: a later change reaches the current week');
+select is(pg_temp.camount(pg_temp.fx('wk_cur')), case when pg_temp.d('w0') >= pg_temp.d('m0') then 800::numeric end,
+  'weekly: a later change reaches the current week, unless it began before the first priced month (Q1)');
 select is(pg_temp.camount(pg_temp.fx('wk_1')), case when pg_temp.d('w0') - 7 >= pg_temp.d('m0') then 700::numeric end,
   'weekly: and leaves last week as it was');
+
+-- Q1's boundary on every date: the first priced month moved to next month, so the current week began before it.
+select pg_temp.as_system();
+update public.project_billing set priced_from = pg_temp.d('m_next') where project_id = pg_temp.fx('wk');
+select pg_temp.as_member('owner');
+select public.billing_set_project(pg_temp.fx('wk'), 900, true, null);
+select is(pg_temp.camount(pg_temp.fx('wk_cur')), case when pg_temp.d('w0') >= pg_temp.d('m0') then 800::numeric end,
+  'weekly: a later change never reaches a week that began before the first priced month');
+select pg_temp.as_system();
+insert into fx select 'wk_back', (app.cycle_create((select p from public.projects p where p.id = pg_temp.fx('wk')),
+  pg_temp.d('w0') - 14, 'schedule', null, true)).id;
+insert into fx select 'wk_ahead', (app.cycle_create((select p from public.projects p where p.id = pg_temp.fx('wk')),
+  app.period_start('weekly', pg_temp.d('m_next') + 7), 'schedule', null, true)).id;
+select pg_temp.as_member('owner');
+select is(pg_temp.camount(pg_temp.fx('wk_back')), null, 'weekly: a back-filled earlier week copies no amount');
+select is(pg_temp.camount(pg_temp.fx('wk_ahead')), 900::numeric, 'weekly: a new week on or after the first priced month copies it');
+select ok(public.billing_set_cycle_amount(pg_temp.fx('wk_back'), 650), 'an earlier week can still be priced alone, on purpose');
 
 -- The split to the paisa: 10,000 over three plan deliverables; the added three are worth nothing yet.
 select is(pg_temp.val(pg_temp.fx('i1')), 3333.34::numeric, 'the first plan deliverable takes the leftover paise');
@@ -519,9 +537,18 @@ select results_eq(
   $$select 'not_billed', null::date$$, 'the date goes with it');
 select ok(pg_temp.entries('cycle_billing', 'billed', pg_temp.fx('cur')) = 1 and pg_temp.entries('cycle_billing', 'not_billed', pg_temp.fx('cur')) = 1,
   'both are audited');
+-- The over-amount check counts what the split counts: a "Not needed" deliverable holds no room.
+select ok(public.item_value_set(pg_temp.citem(pg_temp.fx('later'), 'Item 1'), 8000), 'a plan value in a later cycle');
+select is(pg_temp.code($$select public.item_value_set(pg_temp.citem(pg_temp.fx('later'), 'Item 2'), 3000)$$), 'VALIDATION',
+  'a second one over the amount is refused');
+select pg_temp.as_member('admin');
+select public.item_cancel(pg_temp.citem(pg_temp.fx('later'), 'Item 1'), 'Dropped', 'not_needed');
+select pg_temp.as_member('owner');
+select is(pg_temp.code($$select public.item_value_set(pg_temp.citem(pg_temp.fx('later'), 'Item 2'), 9000)$$), 'ok',
+  'once the first is "Not needed" its value holds no room in the amount');
 select ok(public.billing_set_cycle_amount(pg_temp.fx('later'), null), 'one cycle back to "No amount set"');
 select is((select amount from public.revenue_by_cycle_v where cycle_id = pg_temp.fx('later')), null, 'reads as no amount');
-select is(pg_temp.method(pg_temp.citem(pg_temp.fx('later'), 'Item 1')), 'no_amount', 'its deliverables: no_amount');
+select is(pg_temp.method(pg_temp.citem(pg_temp.fx('later'), 'Item 3')), 'no_amount', 'its deliverables: no_amount');
 
 -- ===========================================================================================================
 -- 3. One-time projects: the lump sum by month, advances, completion, cancellation (decisions 2, 23; Q1; Q4)

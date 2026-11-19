@@ -6135,6 +6135,10 @@ export type Database = {
           meta: Json;
         }[];
       };
+      project_billing_read: {
+        Args: { cycle_id?: string; project_id: string };
+        Returns: Json;
+      };
       project_blueprint_add: {
         Args: { project_id: string; title: string };
         Returns: string;
