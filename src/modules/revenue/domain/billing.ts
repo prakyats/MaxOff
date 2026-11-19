@@ -252,3 +252,24 @@ export function advanceSummary(fixedAmount: number | null, advancesKept: number)
   if (fixedAmount === null) return received;
   return `${received} · Balance on delivery ${formatRupees(Math.max(fixedAmount - advancesKept, 0))}`;
 }
+
+/**
+ * Whether a one-time project's section will show its status line ("Was due 15 Nov" / "Ready to
+ * complete"), from what the project page already holds (no money read), so the skeleton can
+ * reserve the line. The same rule as the read's `was_due` and `ready_to_complete` (DATA-MODEL
+ * §7): the project is working, and it is past its delivery date, or it has deliverables and none
+ * of them is open or waiting for approval.
+ */
+export function oneTimeStatusExpected(project: {
+  working: boolean;
+  deliveryDate: string | null;
+  today: string;
+  itemStates: readonly string[];
+}): boolean {
+  if (!project.working) return false;
+  if (project.deliveryDate !== null && project.deliveryDate < project.today) return true;
+  return (
+    project.itemStates.length > 0 &&
+    !project.itemStates.some((state) => state === "open" || state === "done")
+  );
+}

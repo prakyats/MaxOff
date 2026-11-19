@@ -1,7 +1,8 @@
 /**
  * modules/revenue: the public API (ARCHITECTURE §3.1: `app → modules (index.ts only) → core`).
  * Business money (DATA-MODEL §7, WORKFLOWS §6, ADR-0007): **Owner only**. The money tables, views
- * and functions are named nowhere else in `src/` (lint), and nothing read here is ever in an
+ * and functions are named nowhere else in `src/` (lint: `MONEY_NAMES` in `eslint.config.mjs`
+ * lists each table, view and function; only `core/db`'s generated types are exempt), and nothing read here is ever in an
  * Admin's or a Crew member's payload, a notification's text, search or Realtime (invariant 2).
  * A page starts a read from here only after it knows the viewer holds `finance.view`.
  *
@@ -13,4 +14,5 @@
 export { BillingSection } from "./components/billing-section";
 export { BillingSkeleton } from "./components/billing-skeleton";
 export { readProjectBilling } from "./data/billing";
+export { oneTimeStatusExpected } from "./domain/billing";
 export type { BillingRecurrence, ProjectBilling } from "./domain/billing";

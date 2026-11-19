@@ -51,7 +51,12 @@ import { ProjectHoldBanner } from "@/modules/client-work/components/project-hold
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
-import { BillingSection, BillingSkeleton, readProjectBilling } from "@/modules/revenue";
+import {
+  BillingSection,
+  BillingSkeleton,
+  oneTimeStatusExpected,
+  readProjectBilling,
+} from "@/modules/revenue";
 import { stagePresetsFrom } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
@@ -547,7 +552,23 @@ export default async function ProjectPage({
         {/* Billing (9.2): the Owner's alone, and the page's last section, so it only grows
             downward when its read arrives behind its own skeleton. Never in `loading.tsx`. */}
         {billing ? (
-          <Suspense fallback={<BillingSkeleton retainer={project.recurrence !== "one_time"} />}>
+          <Suspense
+            fallback={
+              <BillingSkeleton
+                retainer={project.recurrence !== "one_time"}
+                cycle={chosen !== null}
+                status={
+                  project.recurrence === "one_time" &&
+                  oneTimeStatusExpected({
+                    working,
+                    deliveryDate: project.deliveryDate,
+                    today,
+                    itemStates: items.map((item) => item.state),
+                  })
+                }
+              />
+            }
+          >
             <BillingSection read={billing} today={today} />
           </Suspense>
         ) : null}

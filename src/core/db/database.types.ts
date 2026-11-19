@@ -6345,6 +6345,7 @@ export type Database = {
           state: string;
         }[];
       };
+      revenue_month_read: { Args: { month?: string }; Returns: Json };
       revenue_override_clear: {
         Args: { note: string; ref_id: string; scope: string };
         Returns: boolean;

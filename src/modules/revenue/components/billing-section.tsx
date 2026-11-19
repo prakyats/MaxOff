@@ -1,5 +1,6 @@
 import { formatRupees } from "@/core/lib/rupees";
 import { cn } from "@/core/lib/utils";
+import { captureException } from "@/core/observability/capture";
 
 import {
   type Advance,
@@ -27,6 +28,7 @@ import {
   BILLING_ROW_TEXT,
   BILLING_SECTION,
 } from "./billing-layout";
+import { BillingRetry } from "./billing-retry";
 import { BillingSheetButton } from "./billing-sheet-button";
 
 /**
@@ -39,6 +41,12 @@ import { BillingSheetButton } from "./billing-sheet-button";
  * "Not priced". A one-time project: its category, its one amount, "Was due" / "Ready to complete"
  * when true, and its advances. Every control opens a sheet where the change is committed; the
  * functions behind them decide again. A server component: the sheets load on the first tap.
+ *
+ * **A read that fails stays inside the section** (9.2 review): the project page (its
+ * deliverables, Details, every control) is the Owner's working screen and never falls to the
+ * error page because the money read did. The section then says so in its own card, with a
+ * "Try again" that re-reads the page in place. The failure is reported once (through the
+ * scrubber, ARCHITECTURE §18.2; a refusal's text and the parser's messages carry no amount).
  */
 export async function BillingSection({
   read,
@@ -48,7 +56,13 @@ export async function BillingSection({
   /** Today in IST (`todayIST()`), for the sheets' dates and the first amount's month. */
   today: string;
 }) {
-  const billing = await read;
+  let billing: ProjectBilling;
+  try {
+    billing = await read;
+  } catch (error) {
+    captureException(error);
+    return <BillingError />;
+  }
   const { category, pricedFrom } = billing.billing;
   const current =
     billing.kind === "one_time" ? billing.billing.fixedAmount : billing.billing.cycleAmount;
@@ -103,6 +117,33 @@ export async function BillingSection({
         ) : (
           <OneTimeRows billing={billing} today={today} />
         )}
+      </div>
+    </section>
+  );
+}
+
+/** The section when its read failed: the heading stays, the card says so and offers a retry. */
+function BillingError() {
+  return (
+    <section
+      aria-labelledby="project-billing"
+      className={BILLING_SECTION}
+      data-slot="project-billing"
+      data-state="error"
+    >
+      <h2 id="project-billing" className="text-sm font-medium">
+        Billing
+      </h2>
+      <div className={BILLING_CARD}>
+        <div className={BILLING_ROW} role="alert" data-slot="billing-error">
+          <div className={BILLING_ROW_TEXT}>
+            <p className="font-medium">Billing couldn&apos;t load.</p>
+            <p className="text-muted-foreground text-xs">
+              The rest of the project is fine. Nothing was changed.
+            </p>
+          </div>
+          <BillingRetry />
+        </div>
       </div>
     </section>
   );

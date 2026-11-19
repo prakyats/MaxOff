@@ -8,7 +8,9 @@ import { type BillingCategory, type ProjectBilling, toProjectBilling } from "../
 
 /**
  * A project's billing (CLAUDE.md rule 3; DATA-MODEL §7). With the rest of `modules/revenue/data`,
- * the only place in `src/` that names the money functions. The read refuses anyone without
+ * the only place in `src/` that names the money functions (lint: `MONEY_NAMES` in
+ * `eslint.config.mjs` lists every money table, view and function, and refuses each one in a
+ * string outside `modules/revenue` and `core/db`). The read refuses anyone without
  * `finance.view` (the Owner alone holds it) and every write is a `finance.edit` function: an
  * Admin's request never reaches either (the page starts the read only once the role is known).
  */
@@ -37,7 +39,10 @@ export async function rpcSetAmount(projectId: string, amount: number): Promise<v
     project_id: projectId,
     amount,
     set_amount: true,
-    // The function reads a null category as "leave it".
+    // Cast, with its reason: `billing_set_project` takes a null category as "leave the category
+    // as it is" (it changes the category only `if category is not null`), so null is a value the
+    // function defines. Supabase generates every function argument without a default as non-null (Postgres
+    // does not record an argument's nullability), so the type cannot say so.
     category: null as unknown as BillingCategory,
   });
   if (error) throw error;
@@ -48,7 +53,10 @@ export async function rpcSetCategory(projectId: string, category: BillingCategor
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("billing_set_project", {
     project_id: projectId,
-    // Not read: `set_amount` is false.
+    // Cast, with its reason: `billing_set_project` reads `amount` only when `set_amount` is true;
+    // with false it is never looked at, and null is the one value that cannot be mistaken for an
+    // amount. The generated argument type is non-null only because Supabase types every argument
+    // without a default that way.
     amount: null as unknown as number,
     set_amount: false,
     category,
@@ -74,7 +82,9 @@ export async function rpcRecordAdvance(input: {
     project_id: input.projectId,
     amount: input.amount,
     received_on: input.receivedOn,
-    // The function stores no note for null.
+    // Cast, with its reason: `advance_record` stores a null note as "no note" (the column is
+    // nullable and the function trims and nulls an empty one). The generated argument type is
+    // `string` only because Supabase types every argument without a default as non-null.
     note: input.note as string,
   });
   if (error) throw error;
@@ -90,7 +100,9 @@ export async function rpcReturnAdvance(input: {
   const { error } = await supabase.rpc("advance_return", {
     advance_id: input.advanceId,
     returned_on: input.returnedOn,
-    // The function stores no note for null.
+    // Cast, with its reason: `advance_return` stores a null note as "no note" on the return
+    // (`return_note` is nullable). The generated argument type is `string` only because Supabase
+    // types every argument without a default as non-null.
     note: input.note as string,
   });
   if (error) throw error;

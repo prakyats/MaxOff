@@ -303,6 +303,53 @@ test.describe("the Owner's Billing section", () => {
     await removeClientFixture(nameOf(info, "one-time"));
   });
 
+  test("a billing read that fails stays in the section: the page is intact, Try again re-reads", async ({
+    page,
+  }, info) => {
+    const clientId = await workClient(nameOf(info, "error"));
+    const projectId = await makeProject(clientId, "Billing error", { items: ["Reel 1"] });
+    await rpcAs(owner.email, owner.password, "billing_set_project", {
+      project_id: projectId,
+      amount: 40000,
+      set_amount: true,
+      category: null,
+    });
+    // A session of this test's own: only this page's billing read fails (answered with an error
+    // at the proxy, every time, until the release).
+    const session = await ownSession(page, owner.email, owner.password);
+    const failing = await holdReads("/rest/v1/rpc/project_billing_read", session, "jwt-expired");
+    try {
+      await page.goto(`/clients/${clientId}/projects/${projectId}`);
+      await hydrated(page);
+      const billing = section(page);
+      await expect(billing.locator('[data-slot="billing-error"]')).toContainText(
+        "Billing couldn't load.",
+      );
+      await expect.poll(() => failing.caught(), { message: "the billing read failed" }).toBe(true);
+      // The rest of the project page is the Owner's own, in full: not the error page.
+      await expect(page.locator('[data-slot="error-state"]')).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Billing error", level: 1 })).toBeVisible();
+      await expect(page.locator('[data-slot="item-row"]', { hasText: "Reel 1" })).toBeVisible();
+      await expect(page.locator('[data-slot="project-details-grid"]')).toBeVisible();
+      // No amount and no control in the failed section, only the retry.
+      await expect(billing.locator('[data-slot="billing-amount"]')).toHaveCount(0);
+      await expect(billing).not.toContainText("₹");
+      await expectNoHorizontalScroll(page);
+
+      // Try again re-reads in place: no new history entry, and the section arrives.
+      const entries = await page.evaluate(() => history.length);
+      failing.release();
+      await expect.poll(() => failing.active(), { message: "the read answers again" }).toBe(0);
+      await billing.getByRole("button", { name: "Try again" }).click();
+      await expect(valueOf(billing.locator('[data-slot="billing-amount"]'))).toHaveText("₹40,000");
+      await expect(billing.locator('[data-slot="billing-error"]')).toHaveCount(0);
+      expect(await page.evaluate(() => history.length)).toBe(entries);
+    } finally {
+      failing.release();
+      await removeClientFixture(nameOf(info, "error"));
+    }
+  });
+
   test("the section streams in behind a skeleton that traces it; nothing above moves", async ({
     page,
   }, info) => {

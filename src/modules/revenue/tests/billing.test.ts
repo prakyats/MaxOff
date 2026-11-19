@@ -11,6 +11,7 @@ import {
   isBillingCategory,
   longDay,
   monthName,
+  oneTimeStatusExpected,
   priceText,
   shortDay,
   toProjectBilling,
@@ -368,5 +369,38 @@ describe("the actions' schemas", () => {
     expect(returnAdvanceSchema.safeParse({ advanceId: "x", returnedOn: today }).success).toBe(
       false,
     );
+  });
+});
+
+describe("oneTimeStatusExpected: the skeleton reserves the status line without a money read", () => {
+  const base = { working: true, deliveryDate: null, today: "2026-11-19", itemStates: ["open"] };
+
+  it("is false for a working project that is neither late nor finished", () => {
+    expect(oneTimeStatusExpected(base)).toBe(false);
+    expect(oneTimeStatusExpected({ ...base, deliveryDate: "2026-11-19" })).toBe(false);
+    expect(oneTimeStatusExpected({ ...base, deliveryDate: "2026-12-01" })).toBe(false);
+  });
+
+  it('is true past the delivery date ("Was due")', () => {
+    expect(oneTimeStatusExpected({ ...base, deliveryDate: "2026-11-18" })).toBe(true);
+  });
+
+  it('is true when every deliverable is finished ("Ready to complete")', () => {
+    expect(oneTimeStatusExpected({ ...base, itemStates: ["approved", "cancelled"] })).toBe(true);
+    // One still open, or done and waiting for approval: not ready.
+    expect(oneTimeStatusExpected({ ...base, itemStates: ["approved", "done"] })).toBe(false);
+    // No deliverables at all: nothing to complete.
+    expect(oneTimeStatusExpected({ ...base, itemStates: [] })).toBe(false);
+  });
+
+  it("is false once the project is completed or cancelled, whatever its dates", () => {
+    expect(
+      oneTimeStatusExpected({
+        working: false,
+        deliveryDate: "2026-01-01",
+        today: "2026-11-19",
+        itemStates: ["approved"],
+      }),
+    ).toBe(false);
   });
 });
