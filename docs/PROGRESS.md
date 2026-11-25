@@ -6,6 +6,22 @@
 > Keep it short: current state, what's next, and anything the next session must know.
 
 ## Current state
+- **v3.5 speed gate: local same-machine A/B for Admin "a client" (slow twice in a row on the GitHub probe: +64 ms / +10 %, +79 ms / +11 %) and Owner `/people` (Wed 25 Nov 2026, subagent; branch `phase-v35`, local only; no code changed).** Two production builds side by side, **v21** `origin/phase-v21-money` 3d8172a (port 3201) and **v35** 6f5cc43 (3204, v2.5 merged), on one local stack (`pnpm db:reset` on phase-v35's migrations; seed + the A/B fixture: one Active client whose Admin is the seeded Admin, with a monthly and a weekly project, 32 tasks, 8 priced retainer clients). One logging proxy in front of Supabase records every DB call; 3 warm rounds, then 11 paired alternating loads per route × role; two direct passes and one model pass (150 ms per call, 6 connections). Medians, ms, v21 / v35:
+
+  | Route (role) | DB calls | Last byte direct, pass 1 · pass 2 | Last byte model | TTFB model | Read set |
+  |---|---|---|---|---|---|
+  | `/clients/:id` (Admin) | 8 / 8 | 54/54 · 36/36 | 346/345 | 189/189 | identical, every call within 3 ms |
+  | `/clients/:id` (Owner) | 8 / 8 | 42/43 · 31/32 | 338/339 | 180/183 | identical |
+  | `/clients` (Admin) | 6 / 6 | 38/38 · 29/29 | 184/183 | 183/183 | identical |
+  | `/clients` (Owner) | 6 / 6 | 36/33 · 29/29 | 185/183 | 184/183 | identical |
+  | a project (Admin) | 11 / 11 | 62/62 · 52/57 | 652/654 | 183/183 | identical |
+  | a project (Owner) | 12 / **13** | 56/54 · 54/58 | 643/650 | 177/179 | +1: `month_snapshots?select=month&version=eq.1` |
+  | `/people` (Admin) | 7 / 7 | 37/47 · 35/36 | 344/343 | 181/180 | identical |
+  | `/people` (Owner) | 6 / 6 | 55/58 · 54/60 | 204/207 | 204/206 | identical, every call within 3 ms |
+  | `/people/:id` (Admin) | 7 / 7 | 33/30 · 30/30 | 330/336 | 179/184 | identical |
+  | `/people/:id` (Owner) | 10 / 10 | 39/36 · 41/42 | 343/340 | 183/180 | identical |
+
+  **Admin "a client": preview-to-preview noise.** Both trees make the same 8 calls (`client_overview`, `clients`, `projects`, `project_cycles`, `member_directory`, unread `notifications` HEAD, `session_early`, `session_bundle`) with the same params and times, the same HTML bytes, and the same last byte in every pass; `git diff 3d8172a 6f5cc43` touches nothing under the client tabs, `modules/clients`, `modules/people`, the app layout or `core/auth`. **Owner `/people`: the same** (6 identical calls, last byte within 3–6 ms, the page unchanged). Like the v6.0 and v2.0.1 A/Bs, the GitHub probe's difference on these routes is between two previews, not in the code. The one read v3.5 adds on these routes is the Owner project page's `readClosedMonths` (`modules/revenue/data/month-close.ts:68`, the money sheets' "‹Month› is closed." line, U5), by design, started beside the Billing read: no last-byte cost direct, +7 ms in the model, Owner only (Admin's project page is unchanged). Scripts (throwaway, not committed): the earlier A/B's `logproxy.mjs` / `ab.mjs` / `diff.mjs`, routes swapped. `/home/user/ab-v21` removed; stack reset to phase-v35's clean schema at the end.
 - **v3.5 speed gate: local same-machine A/B for the Owner's slower `/today` (Thu 26 Nov 2026, subagent; branch `phase-v35`, local only; no code changed).** Four production builds side by side on one local stack (`pnpm db:reset` on v3.5's migrations, a superset: every tree booted and rendered `/today` and `/reports/revenue` against it, so no per-tree reset), plus `scripts/measure-seed.sql` volume, 32 tasks and 8 retainer clients priced last month (Oct) and this month (Nov): **v21** `origin/phase-v21-money` 3d8172a, **v25m** 1e35315 (the v2.5 v3.5 merged), **v25** `origin/phase-v25-revenue-daily` f847ce9 (Today figures on tap), **v35** 78d9467. One logging proxy in front of Supabase records every DB call; 3 warm rounds, then 11 paired alternating loads per route (9 in the model), two runs each. "Model" = the proxy adding 150 ms per call and capping at 6 connections (the Worker → Supabase shape). Medians, ms, run 1 / run 2:
 
   | Route (role) | DB calls v21 / v25m / v25 / v35 | Last byte direct v21 / v25m / v25 / v35 | Last byte model v21 / v25m / v25 / v35 | TTFB model (all) |
