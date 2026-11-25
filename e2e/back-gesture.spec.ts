@@ -104,6 +104,11 @@ test.describe("overlays close on back", () => {
     // without cancelling a navigation started from inside an overlay. `onPopState` skips it,
     // so one back press still leaves /today rather than being silently swallowed.
     await page.goto("/calendar");
+    // The router writes this entry's state (`replaceState`) as it hydrates, which can be after
+    // `load`. A back pressed before that was taken by Playwright as answered by the write (a
+    // same-document navigation: `goBack` returned null, still on /calendar), so the real load of
+    // /today came after the call and the reload guard counted it as not asked for.
+    await hydrated(page);
     await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
