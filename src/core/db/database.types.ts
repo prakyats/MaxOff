@@ -2199,9 +2199,16 @@ export type Database = {
           {
             foreignKeyName: "month_snapshots_corrects_id_fkey";
             columns: ["corrects_id"];
-            isOneToOne: false;
+            isOneToOne: true;
             referencedRelation: "month_snapshots";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "month_snapshots_corrects_same_month_fkey";
+            columns: ["org_id", "month", "corrects_id"];
+            isOneToOne: false;
+            referencedRelation: "month_snapshots";
+            referencedColumns: ["org_id", "month", "id"];
           },
           {
             foreignKeyName: "month_snapshots_org_id_fkey";
@@ -5917,6 +5924,8 @@ export type Database = {
         Returns: string;
       };
       month_close: { Args: { month: string }; Returns: number };
+      month_close_read: { Args: { month: string }; Returns: Json };
+      month_correct: { Args: { month: string; note: string }; Returns: number };
       month_summary: {
         Args: { member_id?: string; month: string };
         Returns: {

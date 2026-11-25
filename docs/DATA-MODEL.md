@@ -2172,6 +2172,10 @@ month_snapshots      id, org_id, month date (1st of the IST month), version int 
                      -- correction pair, the note's 10-500 trimmed characters, corrects_id <> id. NO
                      -- audit_row_change() trigger, unlike the tables of §7: it would copy data (the
                      -- amounts) into activity_log.diff.
+                     -- As built (U3, migration v35_month_correct): unique (org_id, month, id); a foreign key
+                     -- (org_id, month, corrects_id) -> it (a correction corrects a version of the same org
+                     -- and month); unique (corrects_id) (a version is corrected once): the versions of a
+                     -- month form one line v1 <- v2 <- v3, whoever writes.
                      -- eod_reports (above) keeps its own reports.all policy and holds no money.
 feature_flags        key pk, enabled, description
 ```
@@ -2255,7 +2259,7 @@ month_close(month date) returns int               months.close; version 1; refus
                                                   month, a month before the first priced month, a closed month
 month_correct(month date, note text) returns int  months.close; note 10-500; a full rebuild as version N+1,
                                                   corrects_id = the latest; "Nothing changed" when equal
-month_close_read(month date) returns jsonb        finance.view (security invoker): can it be closed, the waiting
+month_close_read(month date) returns jsonb        finance.view (security definer, its own check; U3): can it be closed, the waiting
                                                   list's counts, the latest snapshot, the versions' headers,
                                                   "Changed since close" (revenue lines and totals only)
 app.month_snapshot_build(org_id, month) returns jsonb   internal (service_role only): the document above (U2)
@@ -2263,6 +2267,8 @@ app.first_priced_month(org_id) returns date             internal: the earliest m
                                                   priced one-time line in the org (v3.5 Q1, advisor autopilot
                                                   2026-11-25, owner to confirm); null when nothing is priced
 ```
+**As built (U3, 25 Nov 2026; migration `v35_month_correct`, pgTAP 162–164).** Three more internal helpers, `service_role` only, called only inside `month_correct` and `month_close_read`: `app.month_snapshot_figures(data) returns jsonb` (the document with the keys `client_name`, `project_name`, `title`, `full_name` and `label` removed at every depth: what a correction compares, so a rename alone is "Nothing changed."), `app.month_revenue_changes(org, stored, live, since) returns jsonb` ("Changed since close": revenue lines and totals by stable id, figures only) and `app.month_waiting(org, month, today) returns jsonb` (the waiting list's counts). `month_close_read` is **security definer** with its own `finance.view` check, because its live rebuild calls the builder. The return shapes and the comparison's exact rules are in WORKFLOWS §7.4 "As built (U3)"; the TypeScript twin of the comparison is `changedSinceClose` in `modules/revenue/domain/month-close.ts`.
+
 **pgTAP for v3.5 is numbered from 160** (150 is v2.0.1's and 151 is v6.5's `151_v65_next_booking`).
 
 ## 10. Key indexes

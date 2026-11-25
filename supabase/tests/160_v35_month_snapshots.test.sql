@@ -218,13 +218,16 @@ select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, vers
 select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, version, data)
   values (pg_temp.fx('org'), date '2026-10-01', 1, '{}')$$), '23502',
   'closed_by is required');
--- The bounds themselves are allowed (rolled back by the savepoint, so the three fixture rows stay alone).
+-- The bounds themselves are allowed (rolled back by the savepoint, so the three fixture rows stay alone). Since
+-- U3 a version is corrected at most once (migration v35_month_correct), so version 4 corrects version 3.
 savepoint bounds;
 select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, version, data, closed_by, corrects_id, correction_note)
   values (pg_temp.fx('org'), date '2026-09-01', 3, '{}', pg_temp.fx('owner'), pg_temp.fx('v2'), '1234567890')$$), 'ok',
   'a note of 10 characters is allowed');
 select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, version, data, closed_by, corrects_id, correction_note)
-  values (pg_temp.fx('org'), date '2026-09-01', 4, '{}', pg_temp.fx('owner'), pg_temp.fx('v2'), repeat('x', 500))$$), 'ok',
+  values (pg_temp.fx('org'), date '2026-09-01', 4, '{}', pg_temp.fx('owner'),
+          (select s.id from public.month_snapshots s where s.org_id = pg_temp.fx('org') and s.month = date '2026-09-01' and s.version = 3),
+          repeat('x', 500))$$), 'ok',
   'and one of 500');
 rollback to savepoint bounds;
 

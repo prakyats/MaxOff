@@ -21,3 +21,16 @@ export { RevenueReport } from "./components/revenue-report";
 export { RevenueSkeleton } from "./components/revenue-skeleton";
 export { readRevenueMonth } from "./data/revenue";
 export { parseCategory, parseMonth } from "./domain/revenue";
+// The month close (v3.5 U3): the one read and its shape, for the close screen (U4) and a closed month
+// on the Revenue page (U5). The close and the correction are reached through this module's actions (U4).
+export { readMonthClose } from "./data/month-close";
+export { CORRECTION_NOTE_MAX_LENGTH, CORRECTION_NOTE_MIN_LENGTH } from "./domain/month-close";
+export type {
+  ChangedSinceClose,
+  LineChange,
+  MonthCloseRead,
+  SnapshotData,
+  SnapshotVersion,
+  TotalChange,
+  WaitingList,
+} from "./domain/month-close";

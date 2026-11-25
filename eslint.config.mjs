@@ -63,6 +63,12 @@ const MONEY_NAMES = [
   // the month close (v3.5 U2; migration v35_month_close): the Owner's close and its internal builder
   "month_close",
   "month_snapshot_build",
+  // the correction, the close screen's read and their internal helpers (v3.5 U3; migration v35_month_correct)
+  "month_correct",
+  "month_close_read",
+  "month_snapshot_figures",
+  "month_revenue_changes",
+  "month_waiting",
 ];
 const MONEY_RELATIONS = MONEY_NAMES.join("|");
 
