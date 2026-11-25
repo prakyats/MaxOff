@@ -5312,6 +5312,20 @@ export type Database = {
         Returns: string;
       };
       member_invite_refresh: { Args: { member_id: string }; Returns: string };
+      member_next_booking: {
+        Args: { after_date: string; days?: number };
+        Returns: {
+          all_day: boolean;
+          booked_by: string;
+          booked_by_name: string;
+          end_at: string;
+          member_id: string;
+          on_date: string;
+          start_at: string;
+          type_id: string;
+          type_name: string;
+        }[];
+      };
       member_reactivate: { Args: { member_id: string }; Returns: string };
       member_self_status: {
         Args: never;
