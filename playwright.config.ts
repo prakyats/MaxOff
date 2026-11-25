@@ -54,6 +54,7 @@ const MONTH_SUMMARY_SPECS = /month-summary\.spec\.ts$/;
 const TAP_FEEDBACK_SPECS = /tap-feedback\.spec\.ts$/;
 const PULL_TO_REFRESH_SPECS = /pull-to-refresh\.spec\.ts$/;
 const AUTH_LINK_SPECS = /auth-link\.spec\.ts$/;
+// `tasks.spec.ts` and `type-first-tasks.spec.ts` (v6.0: New task, type first).
 const TASKS_SPECS = /tasks\.spec\.ts$/;
 const TASK_LISTS_SPECS = /task-lists\.spec\.ts$/;
 const FREELANCERS_SPECS = /freelancers\.spec\.ts$/;

@@ -4,7 +4,6 @@ import { SearchIcon } from "lucide-react";
 import { type Ref, useId, useMemo, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
-import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { Input } from "@/core/ui/primitives/input";
@@ -19,6 +18,7 @@ import {
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import {
+  FREE_LINE,
   PICKER_CHIP_LABELS,
   pickerCount,
   type PickerList,
@@ -26,8 +26,8 @@ import {
   searchPicker,
 } from "../domain/people-picker";
 
-/** What a row shows beside the picker's own words: the photo and "Freelancer · with Ravi". */
-export type PickerFace = { avatarFileId: string | null; meta: string };
+/** What a row shows beside the picker's own words: the job title or "Freelancer · with Ravi". */
+export type PickerFace = { meta: string };
 
 /** Their day: being read, read, or not readable (people are picked all the same). */
 export type PickerCheck = "idle" | "checking" | "ready" | "failed";
@@ -108,11 +108,11 @@ export function PeoplePicker({
       <div
         data-slot="picker-list"
         aria-busy={check === "checking" ? true : undefined}
-        className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1"
+        className="border-border rounded-card flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border"
       >
         {pickerCount(found) === 0 ? (
           <p
-            className="text-muted-foreground px-1 py-6 text-center text-sm"
+            className="text-muted-foreground px-3 py-6 text-center text-sm"
             data-slot="picker-empty"
           >
             {query.trim() ? `Nobody called “${query.trim()}”.` : "Nobody to assign yet."}
@@ -127,7 +127,7 @@ export function PeoplePicker({
             </PickerGroup>
           </>
         ) : (
-          <ul className="flex flex-col" data-slot="picker-day">
+          <ul className="divide-border flex flex-col divide-y" data-slot="picker-day">
             {found.rows.map((person) => row(person, "day"))}
           </ul>
         )}
@@ -152,16 +152,16 @@ function PickerGroup({
     <section aria-labelledby={id} data-slot={slot} data-count={count} className="flex flex-col">
       <h3
         id={id}
-        className="text-muted-foreground px-1 pt-2 pb-1 text-xs font-medium tracking-wide uppercase"
+        className="bg-muted text-muted-foreground border-border sticky top-0 z-10 border-b px-3 py-2 text-xs font-semibold tracking-wide uppercase"
       >
         {title}
         {/* The count beside the heading is the laptop's, as the sample. */}
         <span className="max-md:sr-only"> · {count}</span>
       </h3>
       {count === 0 ? (
-        <p className="text-muted-foreground px-1 pb-1 text-sm">Nobody</p>
+        <p className="text-muted-foreground border-border border-b px-3 py-3 text-sm">Nobody</p>
       ) : (
-        <ul className="flex flex-col">{children}</ul>
+        <ul className="divide-border border-border flex flex-col divide-y border-b">{children}</ul>
       )}
     </section>
   );
@@ -184,15 +184,11 @@ function PickerRowItem({
 }) {
   return (
     <li data-slot="picker-row" data-member={row.memberId} data-group={group}>
-      <label className="pressable-row flex min-h-14 cursor-pointer items-center gap-3 rounded-lg px-1 py-1.5">
+      <label className="pressable-row has-aria-checked:bg-muted/60 flex min-h-14 cursor-pointer items-center gap-3 px-3 py-2">
         <Checkbox
           checked={checked}
           onCheckedChange={(value) => onToggle(row.memberId, value === true)}
           className="size-5"
-        />
-        <PersonAvatar
-          person={{ id: row.memberId, name: row.name, avatarFileId: face?.avatarFileId ?? null }}
-          size={20}
         />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm break-words">
@@ -206,7 +202,10 @@ function PickerRowItem({
               <span
                 key={`${index}-${line}`}
                 data-slot="picker-line"
-                className="text-muted-foreground text-xs break-words"
+                className={cn(
+                  "text-xs break-words",
+                  line === FREE_LINE ? "text-success" : "text-muted-foreground",
+                )}
               >
                 {line}
               </span>
@@ -233,8 +232,8 @@ function PickerRowItem({
 /**
  * The phone's "Who's on it?": a bottom sheet over the form, its own layer (ARCHITECTURE §14.2 a:
  * back closes it and leaves the form and what was typed). The list scrolls inside it, the foot
- * says who is chosen and holds the sheet's one solid action, Done, which only closes it: every
- * tick is already in the form. It ends where the keyboard begins (`Sheet`, §14.1).
+ * says who is chosen and holds Done, which only closes it (every tick is already in the form), so
+ * it is the quiet button every sheet that commits nothing ends with, as the calendar's filters. It ends where the keyboard begins (`Sheet`, §14.1).
  */
 export function PeopleSheet({
   open,
@@ -254,7 +253,9 @@ export function PeopleSheet({
       <SheetContent
         side="bottom"
         data-slot="people-sheet"
-        className="rounded-t-sheet h-[85dvh] max-h-[85dvh] gap-0"
+        // A fixed height (the primitive's own is `h-auto` under the same variant): the list
+        // inside is what scrolls, and the sheet does not jump as a search narrows it.
+        className="rounded-t-sheet max-h-[85dvh] gap-0 data-[side=bottom]:h-[85dvh]"
       >
         <div aria-hidden className={MODAL_HANDLE} />
         <SheetHeader className="shrink-0 pt-5 pr-14 pb-2">
@@ -262,15 +263,15 @@ export function PeopleSheet({
           <SheetDescription data-slot="people-subtitle">{subtitle}</SheetDescription>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col px-4">{children}</div>
-        <div className="bg-popover flex shrink-0 items-center gap-3 border-t p-4 pb-[calc(1rem+var(--app-safe-bottom))]">
+        <div className="bg-popover flex shrink-0 flex-col gap-2 border-t p-4 pb-[calc(1rem+var(--app-safe-bottom))]">
           <p
-            className="min-w-0 flex-1 truncate text-sm"
+            className="text-muted-foreground min-w-0 truncate text-sm"
             data-slot="people-chosen"
             aria-live="polite"
           >
             {chosenWords}
           </p>
-          <Button type="button" variant="primary" className="h-11 px-5" onClick={onClose}>
+          <Button type="button" variant="secondary" className="h-11 w-full" onClick={onClose}>
             Done
           </Button>
         </div>

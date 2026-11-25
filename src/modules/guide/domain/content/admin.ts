@@ -327,26 +327,30 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-new-task",
           title: "Create a task",
-          summary: "Make a task and give it to people.",
+          summary: "Choose the type first, then say what, when and who.",
           blocks: [
             {
               kind: "text",
-              text: "New task asks for the Title, Assign to, and the Deadline and Time (IST) first. Everything else is under More options: Start from (only if task templates exist), Type (the first by default; an event type opens More options by itself), Priority (Medium by default), Reminders, Client label, Description, Stages and any custom fields.",
+              text: "New task asks for the Type first: the rest of the form appears once you choose one, and asks only what that type needs. The type’s list says what each one asks for: “a deadline”, or “date, time, place · on the calendar”. Everything optional is under More options: Start from (only if task templates exist), Priority (Medium by default), Reminders, Purpose for an event, Description, Stages and any custom fields.",
             },
             {
               kind: "steps",
               steps: [
                 "Open Tasks and tap New task.",
-                "Optionally pick a template under Start from.",
-                "Enter the Title, then choose the Type and Priority.",
+                "Choose the Type, then enter the Title.",
+                "An event type, such as a shoot or a meeting, asks When, then From and To if it has a time, and Where if the type has a place. A date with no time counts as the whole day. “Done by” then shows the deadline: the end of the event. Tap Change to set a different deadline; from then on it stays as you set it.",
+                "Any other type asks one Deadline and Time (IST). An empty one reads “Choose a date” or “Choose a time”; times use the 12-hour clock, such as “6:00 pm”.",
                 {
-                  text: 'Add people under "Assign to" (highlighted) and choose the primary owner.',
+                  text: "Under “Who’s on it?” (highlighted), tick each person. On a laptop the list is beside the form. On a phone, tap Add a person to open it, then Done. With two or more people, choose the Primary owner under their names.",
                   shot: "admin/new-task",
                 },
-                "Set the Deadline and Time (IST). An empty one reads “Choose a date” or “Choose a time”; times use the 12-hour clock, such as “6:00 pm”.",
-                `Add a Client label only if it helps. ${CREW} never see client records.`,
+                `Add a Client (label) only if it helps. ${CREW} never see client records.`,
                 "Tap Create task.",
               ],
+            },
+            {
+              kind: "text",
+              text: "“Who’s on it?” shows each person’s day at the task’s time, so you can see who to pick. For an event the list has two parts. “Free then”: people with nothing at that time. A booking earlier or later that day is still mentioned, a half day reads “Half day that day”, and a leave request the Owner has not answered reads “Leave requested”. “Busy then”: people with a booking that overlaps, shown as its type, its time and who booked it, such as “Shoot 2:00 pm – 4:00 pm · booked by Asha Rao”, with a “Clashes” chip. A booking with no time reads “all day”. A person on leave for the whole day reads “On leave that day”, with an “On leave” chip. Change the date or the time and the list changes with it. For a task with only a deadline it is one list: each person with what they have that day and how many tasks are already due.",
             },
             {
               kind: "next",
@@ -354,7 +358,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Stages can be added only while you create the task. After that you can still add, remove and reorder them from the task page.",
+              text: "You can still pick someone who is busy or on leave: the form shows the warning under the names, and saving records that you saw it. The list never shows the title, client or place of someone else’s task. Edit task, in a task’s ⋯ menu, opens the same form. Stages can be added only while you create the task. After that you can still add, remove and reorder them from the task page.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -367,7 +371,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done: the form says “The primary owner marks it done.” under Assign to. Pick the primary owner with the radio button beside a name. The form warns you if someone is busy that day or on leave.",
+              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done: the form says “The primary owner marks it done.” under Who’s on it?. The first person you pick is the primary owner; with two or more people, choose another in the Primary owner list under their names. The list shows who is free and who is busy at the task’s time, and the form warns you if you pick someone who is busy or on leave.",
             },
             {
               kind: "example",
@@ -669,8 +673,8 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Templates, and add a task template.",
-                "Later, tap New task.",
-                "Tap More options and pick it under Start from.",
+                "Later, tap New task and choose a type.",
+                "Tap More options and pick the template under Start from. It sets the type it was saved with.",
                 "Adjust the form and tap Create task.",
               ],
             },
@@ -757,7 +761,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Tap a day on the calendar.",
                 "Check who is busy, on leave and free.",
                 { text: 'Tap "+ New task on ‹day›" (highlighted).', shot: "admin/calendar-day" },
-                "Fill the form and tap Create task.",
+                "Choose the type, fill the form and tap Create task. For an event type the day is the event’s date (When); for any other type it is the deadline.",
               ],
             },
             {

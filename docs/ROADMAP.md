@@ -316,7 +316,7 @@ Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after 
 - [ ] **Stay until ahead of time from the person's page** (owner 12 Nov 2026, #89 6815077432).
 
 **Admin productivity (owner 14 Nov 2026; every sample approved; plan `docs/handoff/v2.1-plan.md`; boards https://claude.ai/artifact/EgFYQUCuF6f6eEX8Ex9px3 and https://claude.ai/artifact/WMdFpTnpveWEm4JCVzfxRF; #89 6874042506, 6874350719, 6874389662, 6874423650):**
-- [ ] **9. Calendar for Admins, Crew busy.**
+- [x] **9. Calendar for Admins, Crew busy.** (Built in v6.0 "Admin calendar" on `phase-v60`: the data in unit A 581b206, the screens 90b0625, the people picker with unit 12; 25 Nov 2026. Not released yet.)
   - **Month** stays. Its day sheet's "Everyone is available" becomes **Busy / On leave / Free**; a busy row is "Name · type · time · booked by X", never a title, client or location.
   - **Day:** the day's events and due tasks on the left, a **Crew panel** on the right; the hour grid stops being the main view.
   - **Week:** one row per day (Events · due, Crew busy, On leave, Free).
@@ -327,7 +327,7 @@ Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after 
   - `member_availability()` (or a new `availability.view` function) adds the type name and the creator: PERMISSIONS, pgTAP for each role.
 - [ ] **10. Team today card on Today** (Admin and Owner): counts (free now, booked today, on leave), one line per person (type · time · who booked; Free all day; On leave) and "+ Book someone free". It replaces the This week box. `availability.view` data only, never attendance times.
 - [ ] **11. Tasks: "Upcoming shoots and visits".** One row per event task: date and time, title, place, people, status. Uncluttered; the time and place stand out. The deadline list stays below.
-- [ ] **12. New task, type first.**
+- [x] **12. New task, type first.** (Built in v6.0 on `phase-v60`, 25 Nov 2026: WORKFLOWS §3.1 "The form as built (v6.0)". The form's shape follows the type's `kind = event`; "· on the calendar" in the hint follows `shows_on_calendar`. Not released yet.)
   - The first field is a **Type dropdown** in Settings → Task types order, each with a hint of what it asks for.
   - An event type (`shows_on_calendar`) shows When / From / To / Where / Client up front; **Done by defaults to the end of the event**, changeable.
   - Any other type shows one deadline.

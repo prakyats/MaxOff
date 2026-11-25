@@ -376,7 +376,7 @@ test.describe("task requests and templates, the flows", () => {
     // Never the people, the deadline or the client (PRODUCT §4.6).
     await expect(form.locator('[data-slot="task-assignee"]')).toHaveCount(0);
     // Meeting is an event: it asks When (empty), and its deadline waits for it.
-    await expect(form.getByLabel("When")).toHaveValue("");
+    await expect(form.getByLabel("When", { exact: true })).toHaveValue("");
     await expect(form.getByLabel("Deadline")).toHaveCount(0);
     await expect(form.locator('[data-slot="task-done-by"]')).toContainText(
       "the end of the meeting, once When is set",
@@ -385,8 +385,8 @@ test.describe("task requests and templates, the flows", () => {
     const day = workingDay(25);
     await form.getByLabel("Title").fill(`${prefix}call with Sharma`);
     await addTaskPeople(page, form, [staff.name]);
-    await form.getByLabel("When").fill(day);
-    await form.getByLabel("From").fill("11:00");
+    await form.getByLabel("When", { exact: true }).fill(day);
+    await form.getByLabel("From", { exact: true }).fill("11:00");
     await expect(form.locator('[data-slot="task-done-by"]')).toContainText(
       "12:00 pm · an hour after the meeting starts",
     );

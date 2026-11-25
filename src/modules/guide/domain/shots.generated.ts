@@ -187,9 +187,9 @@ export const GUIDE_SHOTS: Readonly<
   },
   "admin/new-task": {
     src: "/guide/admin/new-task.webp",
-    width: 640,
-    height: 476,
-    alt: "The New task form with the Assign to field highlighted.",
+    width: 944,
+    height: 741,
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, and one under Busy then with a Clashes chip.",
   },
   "admin/task-review": {
     src: "/guide/admin/task-review.webp",
@@ -206,13 +206,13 @@ export const GUIDE_SHOTS: Readonly<
   "admin/calendar-day": {
     src: "/guide/admin/calendar-day.webp",
     width: 720,
-    height: 305,
+    height: 463,
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
   },
   "admin/calendar-people": {
     src: "/guide/admin/calendar-people.webp",
     width: 1190,
-    height: 356,
+    height: 479,
     alt: "The calendar's Day view with the panel of who is busy, on leave and free highlighted.",
   },
   "admin/clients": {
@@ -457,9 +457,15 @@ export const GUIDE_SHOTS: Readonly<
   },
   "owner/new-task": {
     src: "/guide/owner/new-task.webp",
-    width: 627,
+    width: 947,
     height: 884,
-    alt: "The New task form with the Checked first by field highlighted.",
+    alt: "The New task form with a type chosen and More options open, the Checked first by field highlighted.",
+  },
+  "owner/new-task-people": {
+    src: "/guide/owner/new-task-people.webp",
+    width: 944,
+    height: 741,
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, and one under Busy then with a Clashes chip.",
   },
   "owner/task-approve": {
     src: "/guide/owner/task-approve.webp",

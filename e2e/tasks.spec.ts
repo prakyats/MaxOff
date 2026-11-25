@@ -290,8 +290,8 @@ test.describe("staff tasks, the flows", () => {
       await expect(dialog).not.toContainText("Pick the deadline's date.");
       await expect(dialog.getByLabel("Where")).toBeVisible();
       await dialog.getByLabel("Title").fill(`${prefix}main`);
-      await dialog.getByLabel("When").fill(day);
-      await dialog.getByLabel("From").fill("11:00");
+      await dialog.getByLabel("When", { exact: true }).fill(day);
+      await dialog.getByLabel("From", { exact: true }).fill("11:00");
       // With a start and no end the event is an hour: the deadline is its end, noon.
       const doneBy = dialog.locator('[data-slot="task-done-by"]');
       await expect(doneBy).toContainText(/Done by \w{3} \d{1,2} \w{3}, 12:00 pm/);
@@ -1177,6 +1177,9 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       const dialog = formDialog(page);
       await page.getByRole("button", { name: "New task" }).click();
       await expect(dialog).toBeVisible();
+      // Counted before the type is chosen (v6.0): the type's sheet, closed, leaves its spent
+      // entry above the form, and the reminders reuse that one entry, never a second.
+      const entries = await page.evaluate(() => history.length);
       await chooseTaskType(page, dialog, "Normal");
       await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
@@ -1189,9 +1192,9 @@ test.describe("staff tasks, installed: back closes each layer", () => {
 
       // Open: a layer. Closed again by a tap, it leaves no entry behind and the dialog is as tall
       // as it was.
-      const entries = await page.evaluate(() => history.length);
       await summary.click();
       await expect(rows).toHaveCount(3);
+      expect(await page.evaluate(() => history.length)).toBe(entries + 1);
       await summary.click();
       await expect(rows).toHaveCount(0);
       expect(await dialog.evaluate((element) => element.scrollHeight)).toBe(closedHeight);
@@ -1230,12 +1233,34 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expect(rows).toHaveCount(3);
       expect(await page.evaluate(() => history.length)).toBe(entries + 1);
 
-      // Back closes the open section first (nothing changed, so no question), then the dialog.
+      // Back closes the open section first, then goes for the dialog: a type was chosen (v6.0,
+      // type first), so it asks before dropping it; after Discard the next back leaves Tasks.
       await page.goBack();
       await expect(rows).toHaveCount(0);
       await expect(dialog).toBeVisible();
       await expect(page).toHaveURL(/\/tasks$/);
-      await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }, { url: /\/today$/ }]);
+      const discard = page.getByRole("alertdialog", { name: "Discard this task?" });
+      await page.goBack();
+      await expect(discard).toBeVisible();
+      await expect(page).toHaveURL(/\/tasks$/);
+      await discard.getByRole("button", { name: "Discard task" }).click();
+      await expect(discard).toBeHidden();
+      await expect(dialog).toBeHidden();
+      await expect(page).toHaveURL(/\/tasks$/);
+      // Discarded by its button, the layers' entries are still under the screen, spent: the next
+      // back lands on them and the app goes on by itself to Tasks (as after Create, above); the
+      // one after leaves Tasks. It waits for the app's own move, or the browser absorbs it.
+      await expectBackStack(page, [{ url: /\/tasks$/ }]);
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              () => (history.state as Record<string, unknown> | null)?.maxoffOverlay ?? null,
+            ),
+          { message: "back ends on Tasks itself, past the layers' spent entries" },
+        )
+        .toBeNull();
+      await expectBackStack(page, [{ url: /\/today$/ }]);
     });
 
     test("the task page's menu and dialogs close on back; its back control goes to Tasks", async ({
