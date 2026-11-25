@@ -35,3 +35,15 @@ The Owner approved the v4.5 upload-link screens on 19 Nov 2026 (`docs/design/v45
 **Gate before the upload unit is built:** a browser on the preview origin must be able to resume a session it was handed (Google's 308 answers must expose `Range` across origins). The preflight half passed on 19 Nov (plan, "Pass 1 log"); the session half needs the staging Google connection. If it fails, the advisor is told before any other design is considered.
 
 **Consequences:** the archive grows with every upload link, not only with approved submissions, so the v4.0 space alerts (80 %, 90 %) matter more. A link is a bearer credential; how it is made, scoped, limited and stopped is in the security review plan.
+
+## Amendment 2026-11-25: task hand-ins (v5.0), PROPOSED, awaiting the Owner's approval
+
+The owner decided on 25 Nov 2026 (#89 7161998756) that Crew hand in photos and videos on a task inside MaxOff, straight into the task's folder in the studio Drive, the same way as the v4.5 upload link, and that this ADR is amended the same way. Plan: `docs/handoff/v50-hand-in-plan.md`; sample: `docs/design/v50-hand-in-sample.html`.
+
+- **The R2 submission path above (uploads ≤ 25 MB / 100 MB, previews, 90/30-day retention, `archive_state`) is replaced for task hand-ins.** It was never built. The browser sends each file to a Google resumable session the Worker opened on the connected account (`drive.file`), in `‹task folder›/v‹n›/…`. There is **no MaxOff copy and no preview**; the Drive file is the original and the archive. Reviewers open the files in Drive.
+- **One subfolder per hand-in version** (`v1`, `v2`, …, the `task_submissions.version` the Mark done writes). Originals are never touched, moved, renamed or re-encoded, and a handed-in version's folder never changes. The person's own file names (and a laptop's folders) are kept.
+- **MaxOff never deletes, moves or trashes a hand-in file**, as for v4.5: "Left out" before handing in leaves the file in Drive; "Removed in Drive" is learnt by a metadata read only.
+- **The pasted-link path (8.4a/8.4b) moves after launch** with v5.5 (owner, 25 Nov). A link written in the Mark done note still works.
+- **Code placement:** the Google half (opening a resumable session with a fixed name, parent and size; asking Google for a finished file's size, parent and MD5) sits in `core/drive` beside v4.0; the browser half (chunked upload to a session address, resume, a few files at a time, a per-file MD5) in a new `core/upload` with no database access. v4.5's upload page and v5.0's hand-in use the same two. The hand-in's own rules, data, actions and screens are `modules/handin`.
+- **Gate:** the v4.5 E0 check (a browser can resume a session it was handed, across origins) covers v5.0 too.
+- Unchanged: the account and its connection are the Owner's; tokens never reach the browser; Crew never get Drive access through MaxOff.

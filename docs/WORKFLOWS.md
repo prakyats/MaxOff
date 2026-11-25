@@ -329,6 +329,7 @@ assigned (acknowledged_at null) ──"Task Noted"──► acknowledged (timest
 - Every approve or reject is a `task_reviews` row (step, decision, reason, reviewer, the submission version it refers to).
 - File submissions are versioned per task (`task_submissions.version` 1, 2, …). Files are never replaced.
 - **Until phase 8 (owner decision 2026-09-28, kickoff 4):** there are no uploads on tasks. Every Done (and every resubmit) writes a `task_submissions` version with an **optional note** (≤ 5000 characters) and no `submission_items`. The note may contain `http`/`https` links, which the task page and the review sheet render as tappable links, so work can be handed in as a Drive link. The review refers to that version. Phase 8 adds items to the same versions.
+- **v5.0 (proposed), §5C:** the version gains its files: while the task is open, the people on it add files to the open version (`‹task folder›/v‹n›` in the studio Drive); Mark done waits for files still uploading and ties the version's files to the `task_submissions` row it writes. The note stays optional.
 
 ### 3.4 Task requests
 `pending ─convert─► converted (task_id set) | ─decline(reason)─► declined | ─withdraw─► withdrawn`
@@ -623,6 +624,21 @@ The task's Admin (or the Owner) taps it after checking the list and the folder. 
 - **Not enough space (Q11):** a file larger than the studio's free space less a 10 GB reserve and the bytes still to come on open sessions is held, not started; the Owner is told once per link per IST day (`upload_space_held`). The free space is the v4.0 quota reading, refreshed when older than 5 minutes; it is never shown to the uploader.
 - **Drive needs reconnecting (v4.0):** the link stays active but no file starts; the page shows R, the card says "The studio's Drive needs reconnecting: uploads wait until the Owner reconnects it" (proposed wording), and the Owner's existing `drive_needs_reconnect` covers it. **An account switch** sends new files to the new account's folders; files in the old account stay there and the sheet says which account holds them (plan E8).
 - **Safety limits** (plan C, set so a real shoot never meets them): 20 new names per link a day (the 21st is refused and the task's Admins are told once, `upload_names_capped`), 6 files at once per uploader, 600 new files an hour and 5,000 a day per link, bad-link and open limits per network. The uploader sees screen Q.
+
+## 5C. Hand in work (v5.0 (proposed))
+
+> **v5.0 (proposed), not released.** The owner's decisions of 25 Nov 2026 (#89 7161998756); the plan `docs/handoff/v50-hand-in-plan.md` with six open questions (§9, drawn with the recommendations in `docs/design/v50-hand-in-sample.html`); DATA-MODEL §8b; ADR-0010 amendment 2026-11-25.
+
+- **What it is:** the files that go with a Mark done. The people on a task add photos, videos (any file, Q4) while it is open; each file goes from their browser straight into `‹task folder›/v‹n›/…` in the studio Drive (the v4.5 mechanism: chunked, resumable, a few at a time; no MaxOff copy, no preview, never re-encoded). `n` is the version the next Mark done writes.
+- **Who adds files (Q1):** every active assignee (Crew, an Admin, the Owner on a task they are on), or a freelancer assignee's current coordinator for them. **Only the primary owner marks Done**, which hands the version in (invariant 6).
+- **When:** `todo`, `in_progress` or `changes_requested`, not archived, with the studio Drive connected. Otherwise the card says "Handing in files is off until the Owner reconnects Google Drive", and Mark done with a note still works.
+- **Mark done (§3.1, unchanged route):** waits while a file of the version is still uploading ("2 files are still uploading. Wait for them, or leave them out."); failed files never block it. It writes the version as before and ties the version's files to it. **Files are optional (Q2):** a Mark done with none is today's.
+- **Leave out (Q3):** before Mark done, the person who added a file, or the primary owner, leaves it out. It stays in Drive (MaxOff never deletes), shows as Left out, and is not counted.
+- **After Mark done** the task is locked (from `submitted`), so nothing is added until it comes back. **Request changes** (unchanged; the reason names the files, Q5) opens the next version: new files go into `v‹n+1›`, and earlier versions never change. A reopen does the same.
+- **Reviewers:** the version, who handed it in and when, the note and the files on the task page and the Approvals row ("v2 · 14 files"). **Open in Drive** per file and the version's folder for the Owner and the task's Admins only (Q6: `app.upload_manager`); everyone else on the task sees names and sizes; Crew never get a Drive link. A risky type gets "Check before opening" (v4.5 Q13).
+- **Removed in Drive:** as §5B (a metadata read when a reviewer opens the files, at most every 10 minutes per file, never on the page's first render, plus the daily pass): a handed-in file gone from Drive or in its bin shows "Removed in Drive" and comes back if restored. MaxOff never deletes, moves or trashes a hand-in file.
+- **Space and limits:** the v4.5 space guard (a file larger than free space − 10 GB − bytes in flight is refused: "The studio's Drive is nearly full", and the Owner is told once a day); at most 6 of one person's files uploading at once on a task; 2,000 files per version; Google's daily limit pauses and carries on by itself.
+- **Notifications (§9):** the existing Done / completed notifications gain the file count; `handin_space_held` to the Owner. Nobody is told per file.
 
 ## 6. Revenue calculation (Owner only)
 Kickoff 9 decisions as refreshed on 14 Nov 2026 (`docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`, OWNER ANSWERS; ADR-0007 amendment 2026-10-02).
