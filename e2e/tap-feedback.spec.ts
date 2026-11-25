@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import {
   actionId,
   animationsSettled,
+  expectSettled,
   hydrated,
   pageHeader,
   resetAttendanceAndLeave,
@@ -178,6 +179,12 @@ test.describe("the pressed state", () => {
   test("a button and a list row show it on pointer down, within 100 ms", async ({ page }) => {
     await page.goto("/people");
     await hydrated(page);
+    // On the settled screen (v7.0, a Chrome trace of CI's 187 ms): `hydrated` is the shell's; the
+    // list streams in a moment later, and styling and laying out its ~5,000 elements is one
+    // 60–120 ms task that a press landing inside it waits for. That is the screen arriving, not
+    // the pressed state, which is what this measures; sonner's injected stylesheet, the other
+    // whole-page restyle in that moment, is gone since its patch (f1dd616c).
+    await expectSettled(page);
     const button = page
       .getByRole("button", { name: "Add person", exact: true })
       .filter({ visible: true });
