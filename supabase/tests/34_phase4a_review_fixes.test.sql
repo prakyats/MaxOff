@@ -11,6 +11,17 @@
 -- it); L6 the thin spots (a non-Owner reads reviews and warnings, the coordinator unticks, cancel
 -- from submitted / admin_approved, the Owner comments).
 begin;
+-- The scheduled jobs (pg_cron: the 23:59 / 00:00 IST attendance and cycle jobs, the */5 reminders,
+-- hours, alerts and end-of-day report) run in their own sessions. One that inserted a row pointing at
+-- a member (an attendance day, a notification, an audit row) while this file deleted the members
+-- deadlocked with it around IST midnight. So this file first takes every table those jobs write,
+-- and the members their rows point at, in EXCLUSIVE mode, in one statement: a job already running
+-- finishes first, and one that starts later waits at its first write, holding nothing this file
+-- needs, until the rollback. Plain reads are not blocked.
+lock table public.members, public.activity_log, public.notifications, public.notification_deliveries,
+  public.attendance_days, public.attendance_events, public.task_reminders, public.eod_reports,
+  public.client_work_alerts, public.project_cycles, public.project_items,
+  public.project_item_stage_list in exclusive mode;
 create extension if not exists pgtap with schema extensions;
 select plan(69);
 
