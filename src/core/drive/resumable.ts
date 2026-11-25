@@ -1,0 +1,183 @@
+/**
+ * Google resumable upload sessions into a Drive folder (shared: v4.5 upload links, v5.0 hand-ins;
+ * ADR-0010 amendment 2026-11-19). The Worker opens a session on the connected account (`drive.file`)
+ * for one file into one folder, under the caller's policy, and hands **only the session address**
+ * to the browser. The browser then sends the bytes straight to Google (`core/upload`), so they
+ * never pass through MaxOff and the browser never holds a Drive credential. The session address is
+ * itself a credential for that one file: keep it out of logs and history, store it sealed.
+ *
+ * What lives here is Google's protocol only. Who may upload where, and what a file must be, is the
+ * caller's: a module passes an `UploadPolicy` and the folder id it has already authorised.
+ */
+import { DriveApiError, DriveAuthError, type Fetch } from "./google";
+
+const UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
+/** What Google answers about the finished file: enough to verify it and to link to it. */
+const FILE_FIELDS = "id,name,size,md5Checksum,mimeType,parents";
+
+/** The caller's rules for one session. Checked here, before Google is asked. */
+export type UploadPolicy = {
+  /** Largest file accepted, in bytes; none = Google's own limit. */
+  maxBytes?: number;
+  /** MIME types accepted (exact, or a `type/*` family); none = any. */
+  allowedTypes?: readonly string[];
+};
+
+export type ResumableTarget = {
+  /** The Drive folder the file goes into (already authorised by the caller). */
+  folderId: string;
+  /** The file's name in Drive, as the caller decided it (cleaned by the caller). */
+  name: string;
+  /** The file's size in bytes, as the browser reported it. */
+  size: number;
+  /** MIME type as the browser reported it; "" becomes application/octet-stream. */
+  mimeType: string;
+  /** Shown in Drive's details pane, e.g. "Sent by Sam through MaxOff for Brand reel". */
+  description?: string;
+};
+
+export type PolicyRefusal = "too_big" | "type_not_allowed" | "empty" | "bad_name";
+
+export class UploadPolicyError extends Error {
+  constructor(readonly reason: PolicyRefusal) {
+    super(`Upload refused: ${reason}`);
+    this.name = "UploadPolicyError";
+  }
+}
+
+/** The finished file, as Google reports it. */
+export type DriveFileInfo = {
+  id: string;
+  name: string;
+  size: number;
+  md5Checksum: string | null;
+  mimeType: string;
+};
+
+/** Where a session stands: bytes Google holds so far, or the finished file. */
+export type SessionStatus =
+  | { state: "incomplete"; received: number }
+  | { state: "complete"; file: DriveFileInfo }
+  | { state: "gone" };
+
+function typeAllowed(mime: string, allowed: readonly string[] | undefined): boolean {
+  if (!allowed || allowed.length === 0) return true;
+  return allowed.some((rule) =>
+    rule.endsWith("/*") ? mime.startsWith(rule.slice(0, -1)) : mime === rule,
+  );
+}
+
+/** The policy check alone, for a caller that wants to refuse before anything else. */
+export function checkPolicy(target: ResumableTarget, policy: UploadPolicy): PolicyRefusal | null {
+  if (!target.name || target.name.length > 255 || /[\u0000-\u001f]/.test(target.name)) {
+    return "bad_name";
+  }
+  if (!Number.isSafeInteger(target.size) || target.size <= 0) return "empty";
+  if (policy.maxBytes !== undefined && target.size > policy.maxBytes) return "too_big";
+  if (!typeAllowed(target.mimeType || "application/octet-stream", policy.allowedTypes)) {
+    return "type_not_allowed";
+  }
+  return null;
+}
+
+/**
+ * Opens a session for one file. `origin` is the page's origin (the app's own): Google ties the
+ * session's CORS answers to it, so the browser on that origin may PUT the bytes. Returns the
+ * session address, to hand to that browser only.
+ */
+export async function openResumableSession(
+  fetchImpl: Fetch,
+  accessToken: string,
+  input: { target: ResumableTarget; policy: UploadPolicy; origin: string },
+): Promise<{ sessionUrl: string }> {
+  const refusal = checkPolicy(input.target, input.policy);
+  if (refusal) throw new UploadPolicyError(refusal);
+  const mime = input.target.mimeType || "application/octet-stream";
+  const response = await fetchImpl(
+    `${UPLOAD_URL}?uploadType=resumable&supportsAllDrives=false&fields=${FILE_FIELDS}`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json; charset=UTF-8",
+        "x-upload-content-type": mime,
+        "x-upload-content-length": String(input.target.size),
+        origin: input.origin,
+      },
+      body: JSON.stringify({
+        name: input.target.name,
+        parents: [input.target.folderId],
+        ...(input.target.description ? { description: input.target.description } : {}),
+      }),
+    },
+  );
+  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
+  if (!response.ok) {
+    const answer = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new DriveApiError(
+      answer.error?.message ?? `Opening an upload failed (${response.status})`,
+      response.status,
+    );
+  }
+  const sessionUrl = response.headers.get("location");
+  if (!sessionUrl?.startsWith(UPLOAD_URL)) {
+    throw new DriveApiError("Google gave no upload address", response.status);
+  }
+  return { sessionUrl };
+}
+
+function toFileInfo(answer: Record<string, unknown>): DriveFileInfo {
+  return {
+    id: String(answer.id ?? ""),
+    name: String(answer.name ?? ""),
+    size: Number(answer.size ?? 0),
+    md5Checksum: typeof answer.md5Checksum === "string" ? answer.md5Checksum : null,
+    mimeType: String(answer.mimeType ?? ""),
+  };
+}
+
+/**
+ * Asks Google where a session stands (an empty PUT with `Content-Range: bytes * /<size>`), from
+ * the server: to verify a file the browser says is done, or to tell a stalled one from a finished
+ * one. A session Google no longer knows (404, 410) is `gone`: the caller opens a new one.
+ */
+export async function sessionStatus(
+  fetchImpl: Fetch,
+  input: { sessionUrl: string; size: number },
+): Promise<SessionStatus> {
+  const response = await fetchImpl(input.sessionUrl, {
+    method: "PUT",
+    headers: { "content-range": `bytes */${input.size}` },
+  });
+  if (response.status === 308) {
+    const range = response.headers.get("range");
+    const match = range ? /bytes=0-(\d+)/.exec(range) : null;
+    return { state: "incomplete", received: match ? Number(match[1]) + 1 : 0 };
+  }
+  if (response.status === 200 || response.status === 201) {
+    return {
+      state: "complete",
+      file: toFileInfo((await response.json()) as Record<string, unknown>),
+    };
+  }
+  if (response.status === 404 || response.status === 410) return { state: "gone" };
+  throw new DriveApiError(`Upload status failed (${response.status})`, response.status);
+}
+
+/** Drive's own metadata for a file MaxOff made: whether it is still there and not in the bin. */
+export async function fileStillThere(
+  fetchImpl: Fetch,
+  accessToken: string,
+  fileId: string,
+): Promise<"there" | "removed"> {
+  const response = await fetchImpl(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
+    { headers: { authorization: `Bearer ${accessToken}` } },
+  );
+  if (response.status === 404) return "removed";
+  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
+  if (!response.ok)
+    throw new DriveApiError(`File check failed (${response.status})`, response.status);
+  const answer = (await response.json()) as { trashed?: boolean };
+  return answer.trashed ? "removed" : "there";
+}

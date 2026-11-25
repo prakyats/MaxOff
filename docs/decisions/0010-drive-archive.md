@@ -1,6 +1,6 @@
 # ADR-0010: Google Drive is the permanent archive; MaxOff keeps a short-lived working copy
 
-- **Status:** accepted, amended 2026-09-21 (submissions only; previews kept after retention)
+- **Status:** accepted, amended 2026-09-21 (submissions only; previews kept after retention) and 2026-11-19 (the upload link, accepted 25 Nov 2026)
 - **Date:** 2026-09-21
 
 ## Context
@@ -22,7 +22,7 @@ Pixora already keeps final files in Google Drive and has a 2 TB Google One plan 
 - Copying requires the file to be readable, so link hygiene is part of the workflow.
 - Moving to Google Workspace later means switching to a shared drive, which changes `core/drive` only.
 
-## Amendment 2026-11-19: the upload link (v4.5), PROPOSED, awaiting the Owner's approval
+## Amendment 2026-11-19: the upload link (v4.5), accepted (owner, 25 Nov 2026; #89 7161949171)
 
 The Owner approved the v4.5 upload-link screens on 19 Nov 2026 (`docs/design/v45-upload-link-sample.html` at 86a5e04; decisions on #89: 6879421505, 6879494745, 6879555186 and the sample's Q1–Q13). Three of them differ from the decision above, so this amendment records them. The two submission paths above are unchanged; the upload link is a **third path**, for files people outside the studio (or the Crew in the field) send for one task.
 

@@ -616,7 +616,7 @@ The task's Admin (or the Owner) taps it after checking the list and the folder. 
 
 - Either sheet shows "52 files · 55.7 GB from Sam, Alex and Jordan", and while a file is still uploading, "1 file is still uploading from Alex. If it finishes, it's kept and marked "arrived after the link stopped"." It is still allowed (Q8).
 - The closed card: "52 files · 55.7 GB from 3 people · Closed by you, 18 Nov 5:40 pm. The link no longer works.", **Open the folder in Drive ↗**, **Make a new link**.
-- *Open question 3:* the caller is the primary owner themselves (an Admin or the Owner on their own task).
+- **The caller is the primary owner themselves** (an Admin or the Owner on their own task; advisor 25 Nov): **Received, mark Done** too, through the existing `task_submit_done` (an Owner's own task completes at once, §3), with the same sheet and the late reason past the due time.
 
 ### 5B.6 Limits that pause rather than refuse
 - **Google's daily limit (Q10):** about 750 GB a day on a personal account. When Google refuses a new session for it, that link pauses new files for 15 minutes, then for an hour at a time on each further refusal the same IST day (`upload_links.paused_until`, `pause_step`); the next IST day, or the first file Google accepts, starts it again. **Nothing resumes by a job**: the open page asks again by itself when the pause ends, and files already uploading carry on. The Owner and the task's Admins are told once per link per IST day (`upload_daily_limit`).
