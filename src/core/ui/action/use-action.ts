@@ -15,9 +15,14 @@ export type ActionState = {
   retry: () => void;
   /**
    * It creates something: after a lost reply it may already exist, so the status line says so
-   * and offers no Retry (a second create would make a duplicate; PROGRESS Ideas: request keys).
+   * and offers no Retry (a second create would make a duplicate), unless it is `keyed`.
    */
   creates: boolean;
+  /**
+   * The create sends a request key (`useRequestKey`, v7.0 unit 2): a Retry with the same key is
+   * answered with what the first one made, never a second one, so Retry is offered again.
+   */
+  keyed: boolean;
 };
 
 export type ActionOptions = {
@@ -31,6 +36,8 @@ export type ActionOptions = {
   resetKey?: string | number | boolean | null;
   /** See `ActionState.creates`. */
   creates?: boolean;
+  /** See `ActionState.keyed`. */
+  keyed?: boolean;
 };
 
 /**
@@ -46,7 +53,8 @@ export type ActionOptions = {
  *   and everything typed into it, stays as it was; Retry sends the same action again, and its
  *   answer re-reads the screen. A **state change** that did land is refused the second time and
  *   says so; a **create** (`creates`) is not, so it offers no Retry, only "it may have been
- *   saved: check before trying again". The request is never aborted on a timer: a server action
+ *   saved: check before trying again", unless it sends a request key (`keyed`), whose Retry is
+ *   answered with what the first made. The request is never aborted on a timer: a server action
  *   cannot be recalled, so the person decides. `resetKey` forgets a failure when the target
  *   changes, and drops one that answers after it changed. Retry re-sends the arguments of the
  *   first attempt, so a form reads its current inputs inside `fn` and runs with none.
@@ -56,7 +64,7 @@ export type ActionOptions = {
  */
 export function useAction<Args extends unknown[]>(
   fn: (...args: Args) => Promise<unknown>,
-  { resetKey, creates = false }: ActionOptions = {},
+  { resetKey, creates = false, keyed = false }: ActionOptions = {},
 ): ActionState & { run: (...args: Args) => void } {
   // Pending means "the request is on its way": set with the tap, cleared the moment the action
   // settles. Not the transition's own pending, which lasts until the router has re-rendered
@@ -126,5 +134,5 @@ export function useAction<Args extends unknown[]>(
     if (args) run(...args);
   }, [run]);
 
-  return { run, pending, slow: pending && slowRunId === runId, failed, retry, creates };
+  return { run, pending, slow: pending && slowRunId === runId, failed, retry, creates, keyed };
 }

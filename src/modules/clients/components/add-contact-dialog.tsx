@@ -12,6 +12,7 @@ import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { useRequestKey } from "@/core/ui/action/use-request-key";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -54,9 +55,11 @@ export function AddContactDialog({
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [error, setError] = useState<ResultError | null>(null);
+  // One per opening of the dialog (v7.0 unit 2): a Retry is never a second contact.
+  const { key: requestKey } = useRequestKey(open);
   const action = useAction(
     async () => {
-      const result = await createContact({ clientId, ...draft, customFields });
+      const result = await createContact({ clientId, ...draft, customFields, requestKey });
       if (result.ok) {
         toastResult(result, { success: `${result.data.name} added` });
         // Closed directly: `onOpenChange` ignores a close while the action is still pending.
@@ -66,7 +69,7 @@ export function AddContactDialog({
         setError(result.error);
       }
     },
-    { resetKey: open, creates: true },
+    { resetKey: open, creates: true, keyed: true },
   );
   const { pending } = action;
 

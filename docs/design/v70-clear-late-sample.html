@@ -1,0 +1,127 @@
+<title>Clear Late sample</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* v7.0 unit 2, owner Q2 (14 Nov 2026): "a small sample comes first". Three phone screens in MaxOff's own tokens. */
+:root{--page:#f4f4f2;--ink:#18181b;--muted:#5f5f66;--line:#dedede;--card:#fff;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0e0e10;--ink:#ededee;--muted:#a1a1a8;--line:#26262a;--card:#151517;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0e0e10;--ink:#ededee;--muted:#a1a1a8;--line:#26262a;--card:#151517;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;padding:28px 16px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-size:26px;letter-spacing:-.02em;margin:0}
+h2{font-size:17px;margin:0}
+.lede{color:var(--muted);margin:0;max-width:78ch}
+ul.rules{margin:0;padding-left:18px;max-width:84ch;display:flex;flex-direction:column;gap:4px}
+.screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start}
+.shot{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cap{font-size:12.5px;color:var(--muted)}
+/* The phone mock: MaxOff's light tokens */
+.mx{--bg:#f6f5f2;--s1:#fff;--ink:#18181b;--muted:#62626a;--line:#e3e2dd;--amber-soft:#fdf3e2;--amber-ink:#8f5400;
+  --red-ink:#b42318;--green:#15803d;--primary:#18181b;--on-primary:#fff;--info-soft:#e9effd;--info-ink:#2952cc;
+  background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:18px;overflow:hidden;width:100%;max-width:375px;font-size:14px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mx{--bg:#0b0b0c;--s1:#131315;--ink:#ededee;--muted:#9d9da5;--line:#25252a;
+  --amber-soft:#33240e;--amber-ink:#f5b55a;--red-ink:#ff8a8f;--green:#15803d;--primary:#ededee;--on-primary:#0b0b0c;--info-soft:#18203a;--info-ink:#8fb0ff}}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.bar b{font-size:20px;letter-spacing:-.01em}
+.body{padding:8px 16px 18px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
+.late{background:var(--amber-soft);color:var(--amber-ink)}
+.note{background:var(--info-soft);color:var(--info-ink)}
+.btn{font:inherit;font-weight:600;border-radius:10px;min-height:44px;padding:0 16px;border:1px solid var(--line);background:var(--s1);color:var(--ink)}
+.btn.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.btn.full{width:100%}
+.err{color:var(--red-ink);font-size:13px;display:flex;gap:6px;align-items:center}
+.group{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:4px 2px 0}
+.field{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--s1);font-size:16px;min-height:44px}
+.sheet{border-top-left-radius:16px;border-top-right-radius:16px;border-top:1px solid var(--line);background:var(--s1);padding:14px 16px 18px;display:flex;flex-direction:column;gap:10px}
+.handle{width:40px;height:4px;border-radius:999px;background:var(--line);margin:0 auto 6px}
+.toast{background:var(--primary);color:var(--on-primary);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.toast u{text-decoration:none;font-weight:600}
+.done{opacity:.55}
+.q{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+</style>
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1>Clear Late: sample for the owner (v7.0)</h1>
+    <p class="lede">What you chose on 14 Nov (Q2): when someone is Late only because their signal was down, their day shows "Tried at 9:58, no network (phone time)", and Approvals gives you a one-tap <b>Clear Late</b>. Nothing is cleared by itself.</p>
+    <ul class="rules">
+      <li><b>The server's time stays the record.</b> The phone's time is only a note beside it, because a phone clock can be changed.</li>
+      <li><b>Clear Late is your correction, with a reason written for you</b> ("No network at the start; tried 9:58 by the phone's clock"). The Late minutes stay in the history, marked cleared. They no longer count in the month's Late days.</li>
+      <li><b>Only you</b> see Clear Late. Admins get no attendance controls, as today.</li>
+      <li>The row appears only when the day was Late <b>and</b> the phone recorded a try before the start time. Every other Late day is unchanged.</li>
+    </ul>
+  </header>
+
+  <div class="screens">
+    <div class="shot">
+      <h2>1 · Crew, 9:58, no signal</h2>
+      <div class="mx">
+        <div class="bar"><b>My Day</b><span class="muted small">Wed 25 Nov</span></div>
+        <div class="body">
+          <div class="card">
+            <div class="row"><span>Not started</span><span class="muted small">Starts 10:00 am</span></div>
+            <button class="btn primary full">Start day · 9:58 am</button>
+            <div class="err">⚠ No network, tap again.</div>
+          </div>
+          <p class="cap">The tap sends nothing and is not queued (Q1). The phone remembers "first tried 9:58".</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="shot">
+      <h2>2 · Crew, 10:22, back online</h2>
+      <div class="mx">
+        <div class="bar"><b>My Day</b><span class="muted small">Wed 25 Nov</span></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <b style="font-size:17px">You're starting 22 minutes late</b>
+          <span class="muted small">Add a reason if you like. It's optional.</span>
+          <span class="chip note">From your phone</span>
+          <div class="field">No network. First tried 9:58 am (phone time)</div>
+          <button class="btn primary full">Start day</button>
+          <button class="btn full">Not now</button>
+        </div>
+      </div>
+      <p class="cap">The Start that lands records 10:22 and Late 22 min, as today. The reason is filled in from the phone's note and can be changed. The note goes to the day as a fact of its own.</p>
+    </div>
+
+    <div class="shot">
+      <h2>3 · You, Approvals</h2>
+      <div class="mx">
+        <div class="bar"><b>Approvals</b><span class="muted small">3 waiting</span></div>
+        <div class="body">
+          <div class="group">Late, no network</div>
+          <div class="card">
+            <div class="row">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <b>Asha Rao</b>
+                <span class="small">Started 10:22 am · <span class="chip late">Late 22 min</span></span>
+                <span class="small muted">Tried at 9:58 am, no network (phone time)</span>
+              </div>
+            </div>
+            <button class="btn primary full">Clear Late</button>
+          </div>
+          <div class="toast"><span>Late cleared for Asha</span><u>Undo</u></div>
+          <div class="card done">
+            <div class="row"><b>Asha Rao</b><span class="chip late">Late cleared</span></div>
+            <span class="small muted">No network at the start; tried 9:58 by the phone's clock. Cleared by you.</span>
+          </div>
+        </div>
+      </div>
+      <p class="cap">One tap, no dialog: the reason is written for you. Undo is there for a few seconds, as on other Approvals rows. The person's day and month then show "Late · cleared".</p>
+    </div>
+  </div>
+
+  <div class="q">
+    <h2>To confirm</h2>
+    <span>1. Clear Late is <b>one tap with Undo</b> (recommended), not a confirmation dialog.</span>
+    <span>2. A cleared Late is <b>left out of the month's Late days</b> but stays visible as "Late · cleared" on the day (recommended).</span>
+    <span>3. The person is <b>not notified</b> when you clear it (recommended: Late itself notifies nobody, WORKFLOWS §2).</span>
+  </div>
+</div>

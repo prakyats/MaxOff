@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requestKeySchema } from "@/core/lib/request-key";
+
 import { CLAIM_AMOUNT_LIMIT, CLAIM_NOTE_MAX_LENGTH } from "./claims";
 
 const isoDate = z.iso.date({ error: "Pick the day of the expense." });
@@ -31,6 +33,8 @@ export const submitClaimSchema = z.object({
     .min(1, "Say what it was for.")
     .max(CLAIM_NOTE_MAX_LENGTH, `Keep it under ${CLAIM_NOTE_MAX_LENGTH} characters.`),
   receiptFileId: z.uuid().nullable().default(null),
+  /** v7.0 unit 2: one per claim being added; a repeat returns the first claim. */
+  requestKey: requestKeySchema,
 });
 export type SubmitClaimInput = z.input<typeof submitClaimSchema>;
 

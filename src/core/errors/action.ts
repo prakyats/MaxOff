@@ -5,6 +5,7 @@ import { captureException } from "@/core/observability/capture";
 
 import { AppError, type FieldErrors } from "./app-error";
 import { isAuthError, mapAuthError } from "./auth";
+import { DB_TIMEOUT_MESSAGE, isDbTimeout } from "./db-timeout";
 import { isPostgresError, mapPostgresError } from "./postgres";
 import { type Result, failFrom } from "./result";
 
@@ -36,6 +37,8 @@ export function toAppError(error: unknown): AppError {
     });
   }
   if (isAuthError(error)) return mapAuthError(error);
+  // v7.0 unit 2: the database did not answer in 10 s (`core/db/timeout.ts`).
+  if (isDbTimeout(error)) return new AppError("INTERNAL", DB_TIMEOUT_MESSAGE, { cause: error });
   if (isPostgresError(error)) return mapPostgresError(error);
   return new AppError("INTERNAL", undefined, { cause: error });
 }

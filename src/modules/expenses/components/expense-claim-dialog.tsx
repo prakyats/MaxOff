@@ -9,6 +9,7 @@ import { acceptFor, checkFile } from "@/core/storage";
 import { uploadImageWithPreview } from "@/core/storage/client/upload";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { useRequestKey } from "@/core/ui/action/use-request-key";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -159,6 +160,7 @@ function ClaimForm({
 
   // One request per tap: the photo goes up, then the claim; a slow or failed one is said under
   // the buttons and what was typed stays (ARCHITECTURE §14.1).
+  const { key: requestKey, renew: renewRequestKey } = useRequestKey();
   const action = useAction(
     async (amount: number) => {
       onBusy(true);
@@ -185,6 +187,7 @@ function ClaimForm({
           categoryId,
           note,
           receiptFileId,
+          requestKey,
         });
         if (!result.ok) {
           const fields = result.error.fieldErrors;
@@ -202,6 +205,8 @@ function ClaimForm({
         }
         const category = loaded?.categories.find((option) => option.id === categoryId)?.name ?? "";
         toastResult(result, { success: "Expense claim added" });
+        // The next claim of "Add several" is a new create, with its own key.
+        renewRequestKey();
         router.refresh();
         if (!several) {
           onClose();
@@ -221,7 +226,7 @@ function ClaimForm({
         onBusy(false);
       }
     },
-    { creates: true },
+    { creates: true, keyed: true },
   );
 
   if (!loaded) {

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requestKeySchema } from "@/core/lib/request-key";
+
 import {
   BRAND_COLORS_MAX,
   BRAND_FONTS_MAX,
@@ -113,7 +115,12 @@ const clientDetails = {
   customFields,
 };
 
-export const createClientSchema = z.object({ ...clientDetails, adminId: optionalUuid });
+export const createClientSchema = z.object({
+  ...clientDetails,
+  adminId: optionalUuid,
+  /** v7.0 unit 2: one per opened form; a repeat returns the first client. */
+  requestKey: requestKeySchema,
+});
 export type CreateClientInput = z.input<typeof createClientSchema>;
 
 /**
@@ -170,7 +177,12 @@ const contactDetails = {
   customFields,
 };
 
-export const createContactSchema = z.object({ clientId: z.uuid(), ...contactDetails });
+export const createContactSchema = z.object({
+  clientId: z.uuid(),
+  ...contactDetails,
+  /** v7.0 unit 2: one per opened form; a repeat returns the first contact. */
+  requestKey: requestKeySchema,
+});
 export type CreateContactInput = z.input<typeof createContactSchema>;
 
 export const updateContactSchema = z.object({ contactId: z.uuid(), ...contactDetails });

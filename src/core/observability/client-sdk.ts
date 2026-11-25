@@ -2,8 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 
 import { browserBeforeSend } from "./offline-filter";
 import { sentryOptions } from "./options";
-import { viewerRole } from "./viewer-role";
-import { startWebVitals } from "./vitals-sdk";
+import { startWebVitals, viewerRole } from "./vitals-sdk";
 
 /**
  * The browser SDK, loaded on demand by `client.ts` (task 2.8): once the page is idle, or at once

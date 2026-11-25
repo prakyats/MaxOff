@@ -33,15 +33,20 @@ export async function addGroupedItem(args: {
   plannedDate: string | null;
   notes: string | null;
   stageGroups: readonly StageGroup[];
+  /** v7.0 unit 2: a repeat with the same key returns the first (`_once`). */
+  requestKey?: string | undefined;
 }): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("item_add_grouped", {
+  const rpcArgs = {
     cycle_id: args.cycleId,
     title: args.title,
     ...(args.plannedDate ? { planned_date: args.plannedDate } : {}),
     ...(args.notes ? { notes: args.notes } : {}),
     stage_groups: groupsToJson(args.stageGroups) as Json,
-  });
+  };
+  const { data, error } = args.requestKey
+    ? await supabase.rpc("item_add_grouped_once", { request_key: args.requestKey, ...rpcArgs })
+    : await supabase.rpc("item_add_grouped", rpcArgs);
   if (error) throw error;
   return data;
 }

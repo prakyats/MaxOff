@@ -100,6 +100,9 @@ export function AppShell({
     <BellCountProvider count={bell}>
       <div
         data-slot="app-shell"
+        // The role (never the member id) for the real-user speed measures, read when one is sent
+        // (v7.0 unit 1, `vitals-sdk.ts`): server-drawn, so no first-load JavaScript carries it.
+        data-viewer-role={viewer.role}
         className="bg-background text-foreground flex min-h-dvh"
         // The page title bar reads this to decide whether to carry the bell: when the bottom bar
         // already has an Alerts destination, a second bell is noise. Since 5B decision 1 no

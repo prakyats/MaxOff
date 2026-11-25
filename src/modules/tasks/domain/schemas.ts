@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { reminderRulesSchema } from "@/core/lib/reminder-rules-schema";
+import { requestKeySchema } from "@/core/lib/request-key";
 
 import {
   ASSIGNEES_MAX,
@@ -241,6 +242,8 @@ export const commentSchema = z.object({
     .min(1, "Write something first.")
     .max(COMMENT_MAX, `Keep it under ${COMMENT_MAX} characters.`),
   onBehalfOf: z.uuid().nullable(),
+  /** v7.0 unit 2: one per message; a resend after a lost reply is not posted twice. */
+  requestKey: requestKeySchema,
 });
 export type CommentInput = z.input<typeof commentSchema>;
 
@@ -279,6 +282,7 @@ export const createRequestSchema = z.object({
     `Keep the details under ${REQUEST_DETAILS_MAX} characters.`,
   ),
   clientId: z.uuid().nullable(),
+  requestKey: requestKeySchema,
 });
 export type CreateRequestInput = z.input<typeof createRequestSchema>;
 

@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { getInBackground } from "@/core/http/background";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
+import { useRequestKey } from "@/core/ui/action/use-request-key";
 import {
   type DeliverableTemplateOption,
   type StageGroup,
@@ -64,12 +67,39 @@ export function AddItemDialog({
   const [planned, setPlanned] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<{ field?: string; message: string } | null>(null);
-  const [pending, setPending] = useState(false);
   const [phase, setPhase] = useState<"form" | "discard">("form");
   const [templates, setTemplates] = useState<readonly DeliverableTemplateOption[]>([]);
   const [templateId, setTemplateId] = useState("");
   const [groups, setGroups] = useState<StageGroup[]>([]);
   const dirty = title !== "" || planned !== "" || notes !== "" || templateId !== "";
+
+  // v7.0 unit 2: the shared commit (slow line, a lost reply caught) with a request key per opening,
+  // so its Retry is answered with the deliverable already added, never a second one.
+  const { key: requestKey } = useRequestKey();
+  const action = useAction(
+    async () => {
+      const values = {
+        cycleId,
+        title,
+        ...(planned ? { plannedDate: planned } : {}),
+        ...(notes.trim() ? { notes } : {}),
+        requestKey,
+      };
+      const result = templateId
+        ? await addGroupedItem({ ...values, stageGroups: groups })
+        : await addItem(values);
+      if (!result.ok) {
+        const { title: heading, description } = describeError(result.error);
+        const field = Object.keys(result.error.fieldErrors ?? {})[0];
+        setError({ ...(field ? { field } : {}), message: description ?? heading });
+        return;
+      }
+      toast.success("Deliverable added");
+      onClose();
+    },
+    { creates: true, keyed: true },
+  );
+  const { pending } = action;
 
   // The deliverable templates, once per opening; without them the dialog is as before.
   useEffect(() => {
@@ -99,32 +129,14 @@ export function AddItemDialog({
     else onClose();
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const problem = templateId ? stageGroupsIssue(groups) : null;
     if (problem) {
       setError({ message: problem });
       return;
     }
-    setPending(true);
-    const values = {
-      cycleId,
-      title,
-      ...(planned ? { plannedDate: planned } : {}),
-      ...(notes.trim() ? { notes } : {}),
-    };
-    const result = templateId
-      ? await addGroupedItem({ ...values, stageGroups: groups })
-      : await addItem(values);
-    setPending(false);
-    if (!result.ok) {
-      const { title: heading, description } = describeError(result.error);
-      const field = Object.keys(result.error.fieldErrors ?? {})[0];
-      setError({ ...(field ? { field } : {}), message: description ?? heading });
-      return;
-    }
-    toast.success("Deliverable added");
-    onClose();
+    action.run();
   }
 
   return (
@@ -233,6 +245,7 @@ export function AddItemDialog({
                 />
               )}
             </FormField>
+            <ActionStatus action={action} />
             <DialogFooter>
               <Button
                 type="button"

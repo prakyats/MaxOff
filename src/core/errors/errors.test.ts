@@ -208,3 +208,18 @@ describe("action", () => {
     await expect(redirecting()).rejects.toThrow("NEXT_REDIRECT");
   });
 });
+
+describe("the database timeout (v7.0 unit 2)", () => {
+  it("is INTERNAL with the try-again message, never the generic one", async () => {
+    const { toAppError } = await import("./action");
+    const { DB_TIMEOUT_MARKER, DB_TIMEOUT_MESSAGE } = await import("./db-timeout");
+    const error = toAppError({
+      message: `TimeoutError: ${DB_TIMEOUT_MARKER}`,
+      code: "",
+      details: "",
+      hint: "",
+    });
+    expect(error.code).toBe("INTERNAL");
+    expect(error.message).toBe(DB_TIMEOUT_MESSAGE);
+  });
+});

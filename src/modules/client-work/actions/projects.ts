@@ -78,6 +78,7 @@ export const createProject = action(
       items: data.items,
       templateId: data.templateId ?? null,
       customFields,
+      requestKey: data.requestKey,
     });
     revalidate();
     dispatchPushSoon();
@@ -104,6 +105,7 @@ export const createGroupedProject = action(
       deliverables: data.deliverables,
       templateId: data.templateId ?? null,
       customFields,
+      requestKey: data.requestKey,
     });
     revalidate();
     dispatchPushSoon();

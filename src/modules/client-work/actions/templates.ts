@@ -81,6 +81,7 @@ export const addGroupedItem = action(
       plannedDate: data.plannedDate ?? null,
       notes: data.notes || null,
       stageGroups: data.stageGroups,
+      requestKey: data.requestKey,
     });
     revalidate();
     return ok({ id });

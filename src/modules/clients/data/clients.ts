@@ -153,14 +153,32 @@ export async function getClient(clientId: string): Promise<Client | null> {
 /** Plain INSERT under `clients.manage`; the triggers add the private, brand and assignment rows. */
 export async function createClient(
   values: ClientDetailsPatch & { admin_id: string | null },
+  requestKey?: string,
 ): Promise<Client> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("clients")
-    .insert({ ...values, custom_fields: toJson(values.custom_fields) })
+    .insert({
+      ...values,
+      custom_fields: toJson(values.custom_fields),
+      ...(requestKey ? { request_key: requestKey } : {}),
+    })
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) {
+    // v7.0 unit 2: the same form sent again (a lost reply, then Retry): the first one's client.
+    // Any unique refusal is checked, not only the key's: the name's index can refuse first.
+    if (requestKey && error.code === "23505") {
+      const first = await supabase
+        .from("clients")
+        .select("*")
+        .eq("request_key", requestKey)
+        .maybeSingle();
+      if (first.error) throw first.error;
+      if (first.data) return toClient(first.data);
+    }
+    throw error;
+  }
   return toClient(data);
 }
 
@@ -168,14 +186,22 @@ export async function createClient(
  * An Admin's new client (kickoff 7 amendment B): `client_create`, a transition function, creates
  * it Active and theirs, with its history entry and the Owner's notification, in one transaction.
  */
-export async function createOwnClient(values: ClientDetailsPatch): Promise<string> {
+export async function createOwnClient(
+  values: ClientDetailsPatch,
+  requestKey?: string,
+): Promise<string> {
   const supabase = await createServerSupabase();
   const details = Object.fromEntries(
     Object.entries({ ...values, custom_fields: toJson(values.custom_fields) }).filter(
       ([, value]) => value !== null && value !== undefined && value !== "",
     ),
   );
-  const { data, error } = await supabase.rpc("client_create", { details: details as Json });
+  const { data, error } = requestKey
+    ? await supabase.rpc("client_create_once", {
+        request_key: requestKey,
+        details: details as Json,
+      })
+    : await supabase.rpc("client_create", { details: details as Json });
   if (error) throw error;
   return data;
 }
@@ -305,14 +331,33 @@ export type ContactPatch = {
 export async function createContact(
   clientId: string,
   values: ContactPatch,
+  requestKey?: string,
 ): Promise<ClientContact> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("client_contacts")
-    .insert({ client_id: clientId, ...values, custom_fields: toJson(values.custom_fields) })
+    .insert({
+      client_id: clientId,
+      ...values,
+      custom_fields: toJson(values.custom_fields),
+      ...(requestKey ? { request_key: requestKey } : {}),
+    })
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) {
+    // v7.0 unit 2: the same form sent again: the first one's contact.
+    if (requestKey && error.code === "23505") {
+      const first = await supabase
+        .from("client_contacts")
+        .select("*")
+        .eq("client_id", clientId)
+        .eq("request_key", requestKey)
+        .maybeSingle();
+      if (first.error) throw first.error;
+      if (first.data) return toContact(first.data);
+    }
+    throw error;
+  }
   return toContact(data);
 }
 

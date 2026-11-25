@@ -2,6 +2,13 @@ import { onCLS, onINP, onLCP, onTTFB } from "web-vitals";
 
 import { toVitalMetric, VITALS_SAMPLE_RATE, type VitalReport } from "./web-vitals";
 
+/** The signed-in role the shell draws (`AppShell`'s `data-viewer-role`), or null signed out. */
+export function viewerRole(): string | null {
+  return (
+    document.querySelector('[data-slot="app-shell"]')?.getAttribute("data-viewer-role") ?? null
+  );
+}
+
 /** The part of the Sentry SDK the vitals use. */
 export interface VitalsSdk {
   metrics: {

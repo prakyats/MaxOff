@@ -9,6 +9,7 @@ import { sessionCookieOptions } from "./cookies";
 import type { Database } from "./database.types";
 import { publicSupabaseEnv } from "./env";
 import { withExpiredJwtAsSessionUnavailable } from "./expired-jwt";
+import { withTimeout } from "./timeout";
 import { FirstReads } from "./first-reads";
 import { assertNotInTokenRead, runAsTokenRead } from "./token-read-scope";
 
@@ -51,7 +52,8 @@ export async function createServerSupabase() {
   const env = publicSupabaseEnv();
 
   return createServerClient<Database>(env.url, env.publishableKey, {
-    global: { fetch: withExpiredJwtAsSessionUnavailable() },
+    // v7.0 unit 2: a request that never answers fails after 10 s (`timeout.ts`).
+    global: { fetch: withExpiredJwtAsSessionUnavailable(withTimeout(fetchNow)) },
     cookieOptions: sessionCookieOptions(),
     cookies: {
       getAll() {
@@ -87,7 +89,7 @@ export type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
  */
 export function createTokenSupabase(accessToken: string, left?: () => void) {
   const env = publicSupabaseEnv();
-  const base = withExpiredJwtAsSessionUnavailable();
+  const base = withExpiredJwtAsSessionUnavailable(withTimeout(fetchNow));
   const fetchAndTell: typeof fetch = (input, init) => {
     const response = base(input, init);
     left?.();
@@ -98,3 +100,6 @@ export function createTokenSupabase(accessToken: string, left?: () => void) {
     global: { fetch: left ? fetchAndTell : base },
   });
 }
+
+/** The platform's `fetch`, read at each call (a test may replace it). */
+const fetchNow: typeof fetch = (input, init) => fetch(input, init);

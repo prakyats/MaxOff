@@ -523,6 +523,7 @@ export type Database = {
           name: string;
           org_id: string;
           phone: string | null;
+          request_key: string | null;
           updated_at: string;
         };
         Insert: {
@@ -537,6 +538,7 @@ export type Database = {
           name: string;
           org_id?: string;
           phone?: string | null;
+          request_key?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -551,6 +553,7 @@ export type Database = {
           name?: string;
           org_id?: string;
           phone?: string | null;
+          request_key?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -687,6 +690,7 @@ export type Database = {
           notes: string | null;
           org_id: string;
           phone: string | null;
+          request_key: string | null;
           requirements: string | null;
           search: unknown;
           state: Database["public"]["Enums"]["client_state"];
@@ -711,6 +715,7 @@ export type Database = {
           notes?: string | null;
           org_id?: string;
           phone?: string | null;
+          request_key?: string | null;
           requirements?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["client_state"];
@@ -735,6 +740,7 @@ export type Database = {
           notes?: string | null;
           org_id?: string;
           phone?: string | null;
+          request_key?: string | null;
           requirements?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["client_state"];
@@ -3247,6 +3253,48 @@ export type Database = {
           },
         ];
       };
+      request_keys: {
+        Row: {
+          created_at: string;
+          entity_id: string | null;
+          kind: string;
+          member_id: string;
+          payload_hash: string;
+          request_key: string;
+        };
+        Insert: {
+          created_at?: string;
+          entity_id?: string | null;
+          kind: string;
+          member_id: string;
+          payload_hash: string;
+          request_key: string;
+        };
+        Update: {
+          created_at?: string;
+          entity_id?: string | null;
+          kind?: string;
+          member_id?: string;
+          payload_hash?: string;
+          request_key?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "request_keys_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "request_keys_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       role_permissions: {
         Row: {
           permission: string;
@@ -3469,6 +3517,7 @@ export type Database = {
           created_at: string;
           id: string;
           on_behalf_of: string | null;
+          request_key: string | null;
           task_id: string;
         };
         Insert: {
@@ -3477,6 +3526,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           on_behalf_of?: string | null;
+          request_key?: string | null;
           task_id: string;
         };
         Update: {
@@ -3485,6 +3535,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           on_behalf_of?: string | null;
+          request_key?: string | null;
           task_id?: string;
         };
         Relationships: [
@@ -4832,6 +4883,10 @@ export type Database = {
         Returns: undefined;
       };
       client_create: { Args: { details: Json }; Returns: string };
+      client_create_once: {
+        Args: { details: Json; request_key: string };
+        Returns: string;
+      };
       client_hand_over: {
         Args: { from_admin: string; moves: Json };
         Returns: number;
@@ -4989,6 +5044,17 @@ export type Database = {
         };
         Returns: string;
       };
+      expense_claim_submit_once: {
+        Args: {
+          amount: number;
+          category_id: string;
+          expense_date: string;
+          note: string;
+          receipt_file_id?: string;
+          request_key: string;
+        };
+        Returns: string;
+      };
       expense_claim_withdraw: { Args: { claim_id: string }; Returns: string };
       extra_work_note_decide: {
         Args: {
@@ -5098,6 +5164,29 @@ export type Database = {
           notes?: string;
           planned_date?: string;
           stage_groups?: Json;
+          title: string;
+        };
+        Returns: string;
+      };
+      item_add_grouped_once: {
+        Args: {
+          custom_fields?: Json;
+          cycle_id: string;
+          notes?: string;
+          planned_date?: string;
+          request_key: string;
+          stage_groups?: Json;
+          title: string;
+        };
+        Returns: string;
+      };
+      item_add_once: {
+        Args: {
+          custom_fields?: Json;
+          cycle_id: string;
+          notes?: string;
+          planned_date?: string;
+          request_key: string;
           title: string;
         };
         Returns: string;
@@ -5484,6 +5573,36 @@ export type Database = {
         };
         Returns: string;
       };
+      project_create_grouped_once: {
+        Args: {
+          client_id: string;
+          custom_fields?: Json;
+          deliverables?: Json;
+          delivery_date?: string;
+          description?: string;
+          name: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          request_key: string;
+          stage_groups?: Json;
+          template_id?: string;
+        };
+        Returns: string;
+      };
+      project_create_once: {
+        Args: {
+          client_id: string;
+          custom_fields?: Json;
+          delivery_date?: string;
+          description?: string;
+          items?: string[];
+          name: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          request_key: string;
+          stages?: string[];
+          template_id?: string;
+        };
+        Returns: string;
+      };
       project_hold: {
         Args: { project_id: string; reason: string };
         Returns: string;
@@ -5703,6 +5822,31 @@ export type Database = {
         };
         Returns: string;
       };
+      task_create_once: {
+        Args: {
+          approving_admin_id?: string;
+          assignee_ids: string[];
+          client_id: string;
+          custom_fields?: Json;
+          description: string;
+          due_at: string;
+          event_date?: string;
+          event_end_at?: string;
+          event_start_at?: string;
+          location?: string;
+          primary_owner_id: string;
+          priority: Database["public"]["Enums"]["priority"];
+          purpose?: string;
+          reminder_rules?: Json;
+          request_key: string;
+          stages?: string[];
+          task_type_id: string;
+          template_id?: string;
+          title: string;
+          warnings?: Json;
+        };
+        Returns: string;
+      };
       task_hold: { Args: { reason: string; task_id: string }; Returns: string };
       task_mark_read: {
         Args: { task_id: string; up_to?: string };
@@ -5744,6 +5888,15 @@ export type Database = {
       };
       task_request_create: {
         Args: { client_id?: string; details?: string; title: string };
+        Returns: string;
+      };
+      task_request_create_once: {
+        Args: {
+          client_id?: string;
+          details?: string;
+          request_key: string;
+          title: string;
+        };
         Returns: string;
       };
       task_request_decline: {

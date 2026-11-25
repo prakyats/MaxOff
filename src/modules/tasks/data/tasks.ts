@@ -1033,12 +1033,18 @@ export async function addComment(input: {
   taskId: string;
   body: string;
   onBehalfOf: string | null;
+  /** v7.0 unit 2: the composer's key for this message. */
+  requestKey?: string | undefined;
 }): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("task_comments").insert({
     task_id: input.taskId,
     body: input.body,
     ...(input.onBehalfOf ? { on_behalf_of: input.onBehalfOf } : {}),
+    ...(input.requestKey ? { request_key: input.requestKey } : {}),
   });
+  // The same message sent again (a lost reply, then Retry): task_comments_request_key_idx
+  // refuses the second one, and the first is already there, so it is saved.
+  if (error && input.requestKey && error.code === "23505") return;
   if (error) throw error;
 }

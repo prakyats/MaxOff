@@ -12,6 +12,7 @@ import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { useRequestKey } from "@/core/ui/action/use-request-key";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
@@ -70,11 +71,13 @@ export function NewClientDialog({
   const [adminId, setAdminId] = useState("");
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [error, setError] = useState<ResultError | null>(null);
+  // One per opening of the dialog (v7.0 unit 2): a Retry after a lost reply is never a second client.
+  const { key: requestKey } = useRequestKey(open);
   const action = useAction(
     async () => {
       const result = own
-        ? await createOwnClient({ name, customFields })
-        : await createClient({ name, adminId, customFields });
+        ? await createOwnClient({ name, customFields, requestKey })
+        : await createClient({ name, adminId, customFields, requestKey });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -85,7 +88,7 @@ export function NewClientDialog({
         router.push(href, { transitionTypes: [NAV_FORWARD] });
       });
     },
-    { resetKey: open, creates: true },
+    { resetKey: open, creates: true, keyed: true },
   );
   const { pending } = action;
 

@@ -76,13 +76,18 @@ export async function rpcCreateRequest(input: {
   title: string;
   details: string | null;
   clientId: string | null;
+  /** v7.0 unit 2: a repeat with the same key returns the first request (`_once`). */
+  requestKey?: string | undefined;
 }): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("task_request_create", {
+  const args = {
     title: input.title,
     ...(input.details ? { details: input.details } : {}),
     ...(input.clientId ? { client_id: input.clientId } : {}),
-  });
+  };
+  const { data, error } = input.requestKey
+    ? await supabase.rpc("task_request_create_once", { request_key: input.requestKey, ...args })
+    : await supabase.rpc("task_request_create", args);
   if (error) throw error;
   return data;
 }

@@ -640,11 +640,13 @@ export type CreateProjectArgs = {
   items: string[];
   templateId: string | null;
   customFields: Record<string, unknown>;
+  /** v7.0 unit 2: a repeat with the same key returns the first project (`_once`). */
+  requestKey?: string | undefined;
 };
 
 export async function createProject(args: CreateProjectArgs): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("project_create", {
+  const rpcArgs = {
     client_id: args.clientId,
     name: args.name,
     recurrence: args.recurrence,
@@ -654,7 +656,10 @@ export async function createProject(args: CreateProjectArgs): Promise<string> {
     items: args.items,
     ...(args.templateId ? { template_id: args.templateId } : {}),
     custom_fields: args.customFields as Json,
-  });
+  };
+  const { data, error } = args.requestKey
+    ? await supabase.rpc("project_create_once", { request_key: args.requestKey, ...rpcArgs })
+    : await supabase.rpc("project_create", rpcArgs);
   if (error) throw error;
   return data;
 }
@@ -670,7 +675,7 @@ export type CreateGroupedProjectArgs = Omit<CreateProjectArgs, "stages" | "items
  */
 export async function createGroupedProject(args: CreateGroupedProjectArgs): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("project_create_grouped", {
+  const rpcArgs = {
     client_id: args.clientId,
     name: args.name,
     recurrence: args.recurrence,
@@ -680,7 +685,13 @@ export async function createGroupedProject(args: CreateGroupedProjectArgs): Prom
     deliverables: deliverablesToJson(args.deliverables) as Json,
     ...(args.templateId ? { template_id: args.templateId } : {}),
     custom_fields: args.customFields as Json,
-  });
+  };
+  const { data, error } = args.requestKey
+    ? await supabase.rpc("project_create_grouped_once", {
+        request_key: args.requestKey,
+        ...rpcArgs,
+      })
+    : await supabase.rpc("project_create_grouped", rpcArgs);
   if (error) throw error;
   return data;
 }
@@ -921,14 +932,19 @@ export async function addItem(args: {
   title: string;
   plannedDate: string | null;
   notes: string | null;
+  /** v7.0 unit 2: a repeat with the same key returns the first (`_once`). */
+  requestKey?: string | undefined;
 }): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("item_add", {
+  const rpcArgs = {
     cycle_id: args.cycleId,
     title: args.title,
     ...(args.plannedDate ? { planned_date: args.plannedDate } : {}),
     ...(args.notes ? { notes: args.notes } : {}),
-  });
+  };
+  const { data, error } = args.requestKey
+    ? await supabase.rpc("item_add_once", { request_key: args.requestKey, ...rpcArgs })
+    : await supabase.rpc("item_add", rpcArgs);
   if (error) throw error;
   return data;
 }

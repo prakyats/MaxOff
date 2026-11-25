@@ -17,6 +17,7 @@ export function AccountMenuTrigger({
   viewer,
   ...props
 }: { viewer: ShellViewer } & ComponentProps<typeof Button>) {
+  const initials = initialsOf(viewer.name);
   return (
     <Button
       variant="ghost"
@@ -24,12 +25,12 @@ export function AccountMenuTrigger({
       className="rounded-full"
       // The initials are visible, so they are part of the name (WCAG 2.5.3, axe
       // label-content-name-mismatch; v7.0 unit 4): "Account menu, LA".
-      aria-label={`Account menu, ${initialsOf(viewer.name)}`}
+      aria-label={`Account menu, ${initials}`}
       {...props}
     >
       <Avatar size="sm">
         {viewer.avatarFileId ? <AvatarImage src={fileUrl(viewer.avatarFileId)} alt="" /> : null}
-        <AvatarFallback>{initialsOf(viewer.name)}</AvatarFallback>
+        <AvatarFallback>{initials}</AvatarFallback>
       </Avatar>
     </Button>
   );

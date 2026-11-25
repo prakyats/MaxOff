@@ -64,7 +64,7 @@ function nameTaken(error: unknown): never {
   throw error;
 }
 
-type ClientDetails = Omit<ReturnType<typeof createClientSchema.parse>, "adminId">;
+type ClientDetails = Omit<ReturnType<typeof createClientSchema.parse>, "adminId" | "requestKey">;
 
 function detailsOf(data: ClientDetails): repo.ClientDetailsPatch {
   return {
@@ -117,10 +117,10 @@ export const createClient = action(async (input: CreateClientInput): Promise<Res
   await assertPermission("clients.manage");
   const customFields = await validateCustomFieldsFor("client", data.customFields);
   try {
-    const client = await repo.createClient({
-      ...detailsOf({ ...data, customFields }),
-      admin_id: data.adminId,
-    });
+    const client = await repo.createClient(
+      { ...detailsOf({ ...data, customFields }), admin_id: data.adminId },
+      data.requestKey,
+    );
     revalidateClients();
     return ok(client);
   } catch (error) {
@@ -138,7 +138,7 @@ export const createOwnClient = action(
     const data = createClientSchema.parse(input);
     await assertPermission("clients.create");
     const customFields = await validateCustomFieldsFor("client", data.customFields);
-    const id = await repo.createOwnClient(detailsOf({ ...data, customFields }));
+    const id = await repo.createOwnClient(detailsOf({ ...data, customFields }), data.requestKey);
     revalidateClients();
     dispatchPushSoon();
     return ok({ id });
@@ -226,13 +226,17 @@ export const createContact = action(
     const customFields = await validateCustomFieldsFor("contact", data.customFields, {
       clientId: data.clientId,
     });
-    const contact = await repo.createContact(data.clientId, {
-      name: data.name,
-      designation: data.designation,
-      email: data.email,
-      phone: data.phone,
-      custom_fields: customFields,
-    });
+    const contact = await repo.createContact(
+      data.clientId,
+      {
+        name: data.name,
+        designation: data.designation,
+        email: data.email,
+        phone: data.phone,
+        custom_fields: customFields,
+      },
+      data.requestKey,
+    );
     revalidateClients();
     return ok(contact);
   },

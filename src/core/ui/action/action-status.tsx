@@ -21,11 +21,12 @@ export function ActionStatus({
   action,
   className,
 }: {
-  action: Pick<ActionState, "slow" | "failed" | "retry" | "creates">;
+  action: Pick<ActionState, "slow" | "failed" | "retry" | "creates"> & { keyed?: boolean };
   className?: string | undefined;
 }) {
-  if (action.failed && action.creates) {
-    // A create may have landed before the reply was lost: no Retry, which could duplicate it.
+  if (action.failed && action.creates && !action.keyed) {
+    // A create may have landed before the reply was lost: no Retry, which could duplicate it. A
+    // keyed create (v7.0 unit 2) is repeat-safe, so it falls through to the Retry below.
     return (
       <div data-slot="action-failed" className={className}>
         <ErrorText slot="form-alert">{NETWORK_ERROR_CREATE_MESSAGE}</ErrorText>

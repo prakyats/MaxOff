@@ -11,13 +11,14 @@ import { NETWORK_ERROR_CREATE_MESSAGE, NETWORK_ERROR_MESSAGE, SLOW_MESSAGE } fro
  * with `react-dom/server`, as `loading-state.test.tsx` does: the markup is the whole story.
  */
 // The markup escapes the apostrophes in "Couldn't": read it back as text.
-const render = (action: { slow?: boolean; failed?: boolean; creates?: boolean }) =>
+const render = (action: { slow?: boolean; failed?: boolean; creates?: boolean; keyed?: boolean }) =>
   renderToStaticMarkup(
     <ActionStatus
       action={{
         slow: action.slow ?? false,
         failed: action.failed ?? false,
         creates: action.creates ?? false,
+        keyed: action.keyed ?? false,
         retry: () => undefined,
       }}
     />,
@@ -44,5 +45,12 @@ describe("ActionStatus", () => {
     const html = render({ failed: true, creates: true });
     expect(html).toContain(NETWORK_ERROR_CREATE_MESSAGE);
     expect(html).not.toContain("Retry");
+  });
+
+  it("offers Retry for a keyed create, which is never made twice (v7.0 unit 2)", () => {
+    const html = render({ failed: true, creates: true, keyed: true });
+    expect(html).toContain(NETWORK_ERROR_MESSAGE);
+    expect(html).toContain(">Retry<");
+    expect(html).not.toContain(NETWORK_ERROR_CREATE_MESSAGE);
   });
 });

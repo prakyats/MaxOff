@@ -193,15 +193,20 @@ export async function rpcSubmitClaim(input: {
   categoryId: string;
   note: string;
   receiptFileId: string | null;
+  /** v7.0 unit 2: a repeat with the same key returns the first claim (`_once`). */
+  requestKey?: string | undefined;
 }): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("expense_claim_submit", {
+  const args = {
     expense_date: input.expenseDate,
     amount: input.amount,
     category_id: input.categoryId,
     note: input.note,
     ...(input.receiptFileId ? { receipt_file_id: input.receiptFileId } : {}),
-  });
+  };
+  const { data, error } = input.requestKey
+    ? await supabase.rpc("expense_claim_submit_once", { request_key: input.requestKey, ...args })
+    : await supabase.rpc("expense_claim_submit", args);
   if (error) throw error;
   return data;
 }

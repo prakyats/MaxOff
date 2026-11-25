@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requestKeySchema } from "@/core/lib/request-key";
+
 import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
 import {
   DELIVERABLES_MAX,
@@ -114,6 +116,8 @@ export const createProjectSchema = z
     items: z.array(itemTitle).max(ITEMS_MAX, `At most ${ITEMS_MAX} deliverables.`),
     templateId: id.optional(),
     customFields: customFields.default({}),
+    /** v7.0 unit 2: one per opened form; a repeat returns the first project. */
+    requestKey: requestKeySchema,
   })
   .superRefine((value, context) => {
     // Amendment A: a one-time project has a delivery date; a weekly or monthly one has none.
@@ -142,6 +146,8 @@ export const createGroupedProjectSchema = z
     deliverables,
     templateId: id.optional(),
     customFields: customFields.default({}),
+    /** v7.0 unit 2: one per opened form; a repeat returns the first project. */
+    requestKey: requestKeySchema,
   })
   .superRefine((value, context) => {
     if (value.recurrence === "one_time" && !value.deliveryDate) {
@@ -241,6 +247,8 @@ export const addItemSchema = z.object({
   title: itemTitle,
   plannedDate: isoDate.optional(),
   notes: notes.optional(),
+  /** v7.0 unit 2: one per opened form; a repeat returns the first deliverable. */
+  requestKey: requestKeySchema,
 });
 export type AddItemInput = z.input<typeof addItemSchema>;
 

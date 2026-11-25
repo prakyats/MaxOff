@@ -20,6 +20,7 @@ import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { useAction } from "@/core/ui/action/use-action";
+import { useRequestKey } from "@/core/ui/action/use-request-key";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -241,6 +242,8 @@ export function NewProjectDialog({
     };
   });
 
+  // One per opening (v7.0 unit 2): a Retry after a lost reply is never a second project.
+  const { key: requestKey } = useRequestKey();
   const action = useAction(
     async () => {
       const result = await createGroupedProject({
@@ -253,6 +256,7 @@ export function NewProjectDialog({
         deliverables,
         ...(templateId ? { templateId } : {}),
         customFields,
+        requestKey,
       });
       if (!result.ok) {
         setError(result.error);
@@ -269,7 +273,7 @@ export function NewProjectDialog({
       // The steps' entries first, then the dialog's: none stays under the new page.
       backOut(at, () => closeOverlaysThen(go));
     },
-    { creates: true },
+    { creates: true, keyed: true },
   );
   const { pending } = action;
   const dirty =

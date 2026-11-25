@@ -17,9 +17,21 @@ import { toastResult } from "@/core/ui/toast";
 
 import { endDay, startDay } from "../actions/attendance";
 import { type LateRule, lateMinutesAt } from "../domain/hours";
+/** Owner Q1's words for a tap with no network (`offline-tries.ts`, loaded only when needed). */
+const NO_NETWORK_MESSAGE = "No network, tap again.";
 import type { DURATION_OPTIONS } from "../domain/notes";
 
 import { LateSheetLazy } from "./hours-sheets-lazy";
+
+/**
+ * The offline try's store (`offline-tries.ts`), loaded only when a tap needs it: My Day's first
+ * load carries none of it (ARCHITECTURE §19). Safe in a private window.
+ */
+const offlineTries = () =>
+  import("../domain/offline-tries").then((module) => ({
+    ...module,
+    storage: module.safeStorage(() => window.localStorage),
+  }));
 
 /**
  * The overtime fields (a select and a note) load when "Worked late? Add an overtime note" is
@@ -68,10 +80,16 @@ export function StartDayButton({
 }) {
   const router = useRouter();
   const [lateMinutes, setLateMinutes] = useState<number | null>(null);
+  // v7.0 unit 2 (owner Q1): a tap with no network sends nothing and says so; the first such try
+  // of the day is remembered on the phone (`offline-tries.ts`), a note beside the server's time.
+  const [noNetwork, setNoNetwork] = useState(false);
   // One request per tap, "Starting…" at once, and a slow or lost connection said under it
   // (ARCHITECTURE §14.1): the tap is the start, so it must never be sent twice.
   const action = useAction(async () => {
     const result = await startDay();
+    if (result.ok) {
+      void offlineTries().then(({ clearOfflineTry, storage }) => clearOfflineTry(storage));
+    }
     if (!toastResult(result, { success: "Your day has started" })) {
       // Refused ("Your day has already started": another device, or a prompt left open):
       // re-read today, so a prompt or strip that no longer applies goes away.
@@ -88,11 +106,22 @@ export function StartDayButton({
       <Button
         variant={variant}
         size={size}
-        commits
         pending={action.pending}
         pendingLabel="Starting…"
         data-slot="start-day"
+        // Tappable with no network (owner Q1), the one exception to the offline rule: the tap
+        // says "No network, tap again" instead of waiting greyed out.
+        commits={false}
         onClick={() => {
+          if (!navigator.onLine) {
+            const at = systemClock();
+            void offlineTries().then(({ recordOfflineTry, storage }) =>
+              recordOfflineTry(storage, at),
+            );
+            setNoNetwork(true);
+            return;
+          }
+          setNoNetwork(false);
           const minutes = lateMinutesAt(late, systemClock());
           if (minutes === null) action.run();
           else setLateMinutes(minutes);
@@ -101,7 +130,13 @@ export function StartDayButton({
         {label}
         {showTime ? <NowTime /> : null}
       </Button>
-      <ActionStatus action={action} className={statusClassName} />
+      {noNetwork ? (
+        <div data-slot="start-day-no-network" className={statusClassName}>
+          <ErrorText slot="form-alert">{NO_NETWORK_MESSAGE}</ErrorText>
+        </div>
+      ) : (
+        <ActionStatus action={action} className={statusClassName} />
+      )}
       {late ? (
         <LateSheetLazy
           open={lateMinutes !== null}
@@ -170,6 +205,7 @@ export function EndDayButton({
   const [minutes, setMinutes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [claim, setClaim] = useState(false);
+  const [noNetwork, setNoNetwork] = useState(false);
   const openClaims = useFollowUpTrigger();
 
   function reset() {
@@ -182,9 +218,27 @@ export function EndDayButton({
 
   return (
     <>
-      <Button variant="strong" size={size} onClick={() => setOpen(true)} data-slot="end-day">
+      <Button
+        variant="strong"
+        size={size}
+        onClick={() => {
+          // No network (owner Q1): nothing is sent or queued; the tap says so.
+          if (!navigator.onLine) {
+            setNoNetwork(true);
+            return;
+          }
+          setNoNetwork(false);
+          setOpen(true);
+        }}
+        data-slot="end-day"
+      >
         End day
       </Button>
+      {noNetwork ? (
+        <div data-slot="end-day-no-network">
+          <ErrorText slot="form-alert">{NO_NETWORK_MESSAGE}</ErrorText>
+        </div>
+      ) : null}
       <ConfirmDialogLazy
         open={open}
         onOpenChange={(next) => {

@@ -64,23 +64,30 @@ export function ChatComposer({
   const field = useRef<HTMLTextAreaElement>(null);
   const laptop = useFinePointer();
   const [error, setError] = useState<string | null>(null);
+  // One key per message (v7.0 unit 2): a Retry of the same words after a lost reply never posts
+  // them twice; words changed since are a new message, with a new key.
+  const keyed = useRef<{ key: string; body: string } | null>(null);
   const action = useAction(
     async () => {
+      if (keyed.current?.body !== body) keyed.current = { key: crypto.randomUUID(), body };
+      const requestKey = keyed.current.key;
       const result = await addTaskComment({
         taskId,
         body,
         onBehalfOf: writingFor === WRITING_AS_SELF ? null : writingFor,
+        requestKey,
       });
       if (!result.ok) {
         setError(result.error.fieldErrors?.body?.[0] ?? result.error.message);
         return;
       }
       onBodyChange("");
+      keyed.current = null;
       // Ready for the next message on a laptop (a clicked Send took the focus); on a phone the
       // keyboard is never opened again by itself.
       if (finePointer()) field.current?.focus();
     },
-    { creates: true },
+    { creates: true, keyed: true },
   );
   const { pending } = action;
 

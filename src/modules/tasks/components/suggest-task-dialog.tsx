@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { ResultError } from "@/core/errors";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { useRequestKey } from "@/core/ui/action/use-request-key";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -37,7 +38,8 @@ const NO_CLIENT = "__none__";
 /**
  * The "Suggest a task" form (4.6), a layer (§14.2 a): back closes it, and asks "Discard?" first
  * when something was typed (§14.2 f). The draft lives here, outside the `Dialog`, so "Keep
- * editing" brings it back. A create: a lost reply offers no Retry (it could suggest it twice).
+ * editing" brings it back. A create with a request key (v7.0 unit 2): a lost reply offers Retry,
+ * which is answered with the suggestion already sent, never a second one.
  */
 export function SuggestTaskDialog({
   clients,
@@ -54,12 +56,15 @@ export function SuggestTaskDialog({
   const [clientId, setClientId] = useState(NO_CLIENT);
   const [phase, setPhase] = useState<"form" | "discard">("form");
   const [error, setError] = useState<ResultError | null>(null);
+  // One per opening: the dialog is mounted for each "Suggest a task".
+  const { key: requestKey } = useRequestKey();
   const action = useAction(
     async () => {
       const result = await createRequest({
         title,
         details,
         clientId: clientId === NO_CLIENT ? null : clientId,
+        requestKey,
       });
       if (result.ok) {
         toast.success("Suggestion sent");
@@ -68,7 +73,7 @@ export function SuggestTaskDialog({
         setError(result.error);
       }
     },
-    { creates: true },
+    { creates: true, keyed: true },
   );
   const { pending } = action;
   const dirty =

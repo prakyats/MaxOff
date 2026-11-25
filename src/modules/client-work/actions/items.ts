@@ -92,6 +92,7 @@ export const addItem = action(async (input: AddItemInput): Promise<Result<{ id: 
     title: data.title,
     plannedDate: data.plannedDate ?? null,
     notes: data.notes || null,
+    requestKey: data.requestKey,
   });
   revalidate();
   return ok({ id });
