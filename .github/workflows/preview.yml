@@ -53,6 +53,7 @@ on:
           - perf-probe
           - image-probe
           - today-tail
+          - today-local
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -671,6 +672,63 @@ jobs:
                 errors: [(.logs // [])[] | select(.level == "error") | (.message | tostring | .[0:600])]
               }' "$RUNNER_TEMP/tail.json" | tee "$RUNNER_TEMP/tail-errors.txt" | head -60
           { echo "### Staging Worker errors while the Owner read \`$target\`"; echo; echo '```'; head -60 "$RUNNER_TEMP/tail-errors.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+
+  # Today, rendered on the runner (v2.0.1, 25 Nov; `wrangler tail` does not see a preview
+  # version's requests): this branch built as staging builds it, started with `next start` on
+  # the runner against the staging database, and read once by the perf probe signed in as the
+  # staging Owner (the probe signs in to localhost too). It prints Next's own server error lines
+  # for any render that failed: the message and its stack, never a header or a token. By hand
+  # only: Actions → Preview → Run workflow → this branch → `today-local`. Read-only, as the probe.
+  today-local:
+    name: today local (staging data)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'today-local'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: perf-probe
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build as staging builds it, pointed at the runner's own address
+        env:
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: pnpm build
+      - name: Start it, read it as the staging Owner, print the server's errors
+        env:
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          pnpm start --port 3000 >"$RUNNER_TEMP/server.log" 2>&1 &
+          server_pid=$!
+          for i in $(seq 1 60); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login)" = 200 ] && break
+            sleep 2
+          done
+          node scripts/perf-probe.mjs --base http://127.0.0.1:3000 --role owner --samples 1 --label "today-local" >"$RUNNER_TEMP/probe.out" 2>&1 || true
+          kill "$server_pid" 2>/dev/null || true
+          echo "server log lines: $(wc -l <"$RUNNER_TEMP/server.log")"
+          # Next prints a failed server render as "⨯ <error>" followed by its stack and digest.
+          grep -n -A24 -E '⨯|Error:|digest' "$RUNNER_TEMP/server.log" | cut -c1-400 | head -150 | tee "$RUNNER_TEMP/errors.txt"
+          { echo "### Server errors while the staging Owner read this branch, built on the runner"; echo; echo '```'; head -150 "$RUNNER_TEMP/errors.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
 
   # Perf probe (unit P, 2026-10-15; ARCHITECTURE §19 "Measuring the Worker"). By hand only:
   # Actions → Preview → Run workflow → this branch → `perf-probe`. It times what the Worker
