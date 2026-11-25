@@ -835,6 +835,16 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **pgTAP across IST midnight (25 Nov 2026, branch `fix-pgtap-midnight`):**
+  - **34's deadlock: fixed.** The v4.5 builder's local run hit `deadlock detected … while deleting tuple in relation "members"` at 18:25–18:30 UTC, while the */5 and 00:00 IST pg_cron jobs fired. The cause is a job writing member-referencing rows while the file deleted members.
+    - The fix: every pgTAP file that deletes members (91) includes `supabase/tests/lib/lock-job-tables.psql`. It takes every table the jobs write, plus `activity_log` and `members`, in EXCLUSIVE mode, all at once with NOWAIT in a savepoint, so it never waits while holding a lock.
+    - `145_job_tables_locked` fails when a job writes a table the list misses.
+    - Proved with a stand-in job session: deadlock before, none after.
+  - **07 test 208: not reproduced.** It failed once at 00:01 IST (18:31 UTC), in a run made without a `db:reset` right after the deadlocked one; the have/want rows were not kept. Why I don't think time is the cause:
+    - 07's dates come from `now()`, which is fixed for its transaction, and no function reads another clock;
+    - 07 passes with `app.now()` pinned at 00:01:30 IST and on the real clock at 01:50 IST, the same IST date;
+    - it now takes the job-table lock too, so a job can't write while it runs.
+    - If it fails again, keep the full `# have / # want` lines.
 
 - **A task's loading screen gets no "Still loading" or Retry (found in the #143 review, 13 Nov 2026; pre-existing).** The progress bar waits on `main [data-slot="loading-state"]` once the address has moved (`nav-progress.tsx`, `navigationDone`); the task page's `loading.tsx` (now `TaskPageSkeleton`) carries `loading-task`, not `loading-state`, in v1.9 too, so the bar finishes as soon as the task's skeleton is up, whether the router or `TaskTapSkeleton` drew it, and a stalled answer leaves the skeleton without the 8 s line or Retry (the tap copy gives up after 25 s). Fix: let the bar count a task's skeleton as a loading screen, then drop the copy's give-up for Retry; check the other drill-down skeletons for the same slot.
 - **v2.1, known bug: Settings → Thresholds puts back an edit typed just after a save (advisor, #89 6797797585, 11 Nov; in v1.9 too, not a v2 regression; ROADMAP v2.1, with unit 5 "Edit clashes").** `src/app/(app)/settings/thresholds/page.tsx:30` keys the form on the saved values (`key={JSON.stringify(settings)}`, so a save on another device re-seeds it), so a save's refresh remounts the form a moment after "Thresholds saved" and puts back an edit typed in between. Seen as CI 43026387689's `settings.spec` red; v2.0 fixed the spec only (it reloads after that save). Ways out: show the toast once the new form has mounted, or keep the form mounted for its own save. The fix comes with a red-first spec of exactly that sequence.

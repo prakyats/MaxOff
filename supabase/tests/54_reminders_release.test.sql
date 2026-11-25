@@ -8,6 +8,7 @@
 -- from the backfill; a dry run writes nothing; a second run arms nothing. (3) The staging dry run's
 -- acknowledgement preview (owner 2026-10-03) counts what the tick then really sends.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(29);
 

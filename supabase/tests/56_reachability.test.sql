@@ -11,6 +11,7 @@
 -- digest's "Can't be reached" line: 48 h or more, the Owner left out, 5 names then "+N more", and
 -- an old payload without the key.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(69);
 

@@ -6,6 +6,7 @@
 -- Owner (armed, sent, the Today risk rows); member_availability() answers for the Owner (Busy); and a
 -- task made the way they are today keeps every row unchanged. Neutral names only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(61);
 
