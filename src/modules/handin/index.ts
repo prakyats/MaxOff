@@ -23,3 +23,11 @@ export {
   statusOf,
   versionSummary,
 } from "./domain/summary";
+export {
+  failHandinFile,
+  finishHandinFile,
+  readHandinVersions,
+  reportHandinProgress,
+  startHandinFile,
+} from "./actions/background";
+export type { HandinFile, HandinRead, HandinVersion, StartAnswer } from "./data/handin";
