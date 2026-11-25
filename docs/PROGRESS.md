@@ -6,6 +6,41 @@
 > Keep it short: current state, what's next, and anything the next session must know.
 
 ## Current state
+- **v6.0 speed gate: local same-machine A/B, `main` 6e89d17 vs `phase-v60` 57730f2 (Wed 25 Nov 2026, v6.0 builder; the advisor's instruction). Verdict: no read differs and no read got slower on any route outside `/calendar`; the two-run fails (Admin `/leave`, Owner `/approvals`) are preview-to-preview noise. Nothing to fix; no code changed.**
+  - **How:** both trees built and served by `next start` (3201 `main`, 3202 v6.0) through one logging pass-through proxy in front of the local Supabase (every PostgREST/GoTrue request: path, params, start, last byte); one `pnpm db:reset` on v6.0's migrations, plus a local fixture (an Active client with a project, 12 plain tasks, 14 timed and 6 date-only event tasks); signed in as the seeded Owner, Admin and Crew (`@supabase/ssr` cookies, as the probe does); per route 4 warm loads then 11 paired loads (order alternating), each load's DB calls read back from the proxy. Three passes (11, 11, 21 rounds) at local latency, then one (9 rounds) with every read held 150 ms and six at a time (the Worker's limit), to make the waves show.
+  - **Read sets: identical on every route and role** (rpc/table, select, filter shape, count, and the start order's modal sequence), except `/calendar` for all three roles, where `listEventTasks` adds `created_by` to its select (v6.0, intended): one read either way. Response bytes equal (±0.1 %) except `/calendar` (+16 KB, the v6.0 calendar) and `/approvals` (v6.0 smaller by 1–7 KB).
+  - **The A/B (reads main/v6.0; summed DB time ms, TTFB and last-byte medians ms, main/v6.0; pass 2 local, then the 150 ms × 6 pass):**
+
+    | Route (role) | Reads | DB local | TTFB local | Last local | TTFB 150×6 | Last 150×6 |
+    |---|---|---|---|---|---|---|
+    | /leave (Admin) | 6/6 | 33/31 | 30/27 | 30/27 | 188/188 | 188/188 |
+    | /approvals (Admin) | 5/5 | 36/40 | 28/35 | 28/36 | 179/184 | 179/184 |
+    | /today (Admin) | 18/18 | 126/120 | 41/38 | 63/58 | 189/189 | 662/665 |
+    | /people (Admin) | 7/7 | 46/41 | 34/32 | 45/44 | 187/184 | 349/348 |
+    | /notifications (Admin) | 3/3 | 20/20 | 32/34 | 32/34 | 179/180 | 180/180 |
+    | /leave/extra-work (Admin) | 6/6 | 30/27 | 27/27 | 27/27 | 181/182 | 182/182 |
+    | a project (Admin) | 11/11 | 45/44 | 29/29 | 40/40 | 183/186 | 650/655 |
+    | /calendar (Admin) | 21/21 | 282/287 | 35/36 | 76/75 | 191/186 | 825/817 |
+    | /tasks (Admin) | 13/13 | 77/97 | 29/34 | 48/50 | 184/180 | 499/500 |
+    | /approvals (Owner) | 5/5 | 26/27 | 23/27 | 23/27 | 178/176 | 179/176 |
+    | /today (Owner) | 19/19 | 171/201 | 44/42 | 56/56 | 191/193 | 657/658 |
+    | /people (Owner) | 6/6 | 28/26 | 48/52 | 49/53 | 220/209 | 221/210 |
+    | /notifications (Owner) | 3/3 | 10/10 | 18/19 | 19/19 | 177/178 | 177/178 |
+    | /clients (Owner) | 6/6 | 28/33 | 26/28 | 26/28 | 181/182 | 182/182 |
+    | a client (Owner) | 8/8 | 34/39 | 26/25 | 30/32 | 182/181 | 340/338 |
+    | a project (Owner) | 11/11 | 47/42 | 26/25 | 40/39 | 185/184 | 659/657 |
+    | /calendar (Owner) | 15/15 | 129/103 | 32/27 | 64/52 | 179/181 | 650/645 |
+    | /tasks (Owner) | 13/13 | 78/71 | 31/34 | 46/45 | 178/184 | 498/500 |
+    | /diagnostics/timing (Owner) | 4/4 | 18/17 | 19/19 | 19/20 | 169/168 | 169/169 |
+    | /my-day (Crew) | 9/9 | 83/100 | 31/34 | 53/57 | – | – |
+    | /leave (Crew) | 6/6 | 33/31 | 29/31 | 29/32 | – | – |
+    | /notifications (Crew) | 3/3 | 21/21 | 32/30 | 32/31 | – | – |
+    | /calendar (Crew) | 10/10 | 114/108 | 31/35 | 65/63 | – | – |
+    | /tasks (Crew) | 7/7 | 91/98 | 35/39 | 63/67 | – | – |
+
+    Summed DB time is the sum of concurrent reads, so it swings with scheduling: Owner `/today` was 284/332, 171/201 and 170/161 in the three local passes, with identical reads against the same database. Per read, no shape moved the same way in every pass.
+  - **`member_availability()`, v6.0's body vs `main`'s** (main's re-created as `member_availability_main` inside a rolled-back transaction, called as the Owner, interleaved, p50 ms; 136 seeded members): seed + fixture (32 tasks): Today's 7 days for the team ids 2.12 → 2.19, the calendar's week for everyone 1.96 → 2.11, 62 days 15.1 → 16.1. With 400 more event tasks over two months (2–3 assignees each, a quarter date-only): 4.89 → 5.48, 4.87 → 5.46, 22.9 → 27.2. `explain analyze` of the events CTE alone, 62 days, the same 400: the same plan (`tasks_event_date_idx`, hash join on `task_assignees`) plus two small hash left joins (7 task types, 136 members), 908 → 1180 rows (the date-only events) and 2.0 → 5.3 ms, nearly all in building the bigger JSON blocks. So v6.0 costs ≤ 0.6 ms per Today-sized call even at that load, and ~4 ms for a 62-day call. **It cannot be in the probe's deltas either way:** the branch preview and the `main` preview both read the staging database, which has v6.0's migration (the Preview workflow's `staging-migrations` job), so both ran the same function; and neither Admin `/leave` nor Owner `/approvals` calls it.
+  - **Per two-run route:** Admin `/leave` (+82, +84 on the probe): same six reads in the same order, the same code (`git diff origin/main...HEAD` touches nothing under leave, attendance or the layout), local last byte 45/46, 30/27, 27/31 and 188/188 with the hop model: noise. Owner `/approvals` (+62, +238): same five reads, same order, 34/34, 23/27, 27/29 and 179/176: noise. The once-only routes (Admin `/today`, `/people`, `/leave/extra-work`, `/notifications`; Owner `/clients`, `/notifications`, a client, a project, `/diagnostics/timing`): identical read sets, every difference within ±5 ms locally and ±11 ms with the hop model, in both directions. **Next for the gate:** the A/A control the earlier handoff names (two previews of `main`), or a re-probe, is the advisor's call; nothing in the code is waiting on it.
 - **PAUSED at the owner's word (Wed 25 Nov 2026, ~14:10 UTC; v6.0 builder). `phase-v60` is pushed at 524b7e0 and clean. v6.0 is NOT READY: the speed gate has not passed.**
   - **Done and pushed:** Units A, 9, 12 and the `back-gesture.spec:94` fix (the entry below). Full CI on 3ba0323 green (run 45623217837: check jobs, pgTAP, all four Playwright shards). Full CI on 524b7e0 was running at the pause (run 45629589157): read its result first.
   - **Speed gate so far (paired with the `main` preview, `baseline_url=https://main-maxoff-staging.pixoraclips.workers.dev`):** Admin run 1 on 3ba0323 (45624195712): `/tasks` and `/calendar` pass; FAIL on `/people` +65 ms, `/leave` +82, `/leave/extra-work` +123, `/notifications` +57. Owner run 1 on 524b7e0 (45629609361): `/calendar` and `/tasks` pass (`/tasks` TTFB warning +58); FAIL on `/approvals` +62, `/clients` +144, `/notifications` +70, a client +108, `/diagnostics/timing` +58. The failing set changes between runs and includes a route with no v6.0 code; v6.0 touches no shared layout and no notifications code (`git diff origin/main...phase-v60 -- src` outside calendar, tasks and guide: the calendar page, People's `today-status.ts`, `/api/tasks/availability`, `core/lib/booking-words.ts`). Nothing is waived.
@@ -870,6 +905,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **Today's leave rows read the whole availability (found in the v6.0 A/B, 25 Nov 2026).** `listLeaveDays` (`src/modules/dashboards/data/signals.ts`, the Owner's and an Admin's Today) uses only `leave` from `member_availability()`, which also builds every event block; since v6.0 the blocks are bigger and include date-only events. Measured cost: ≤ 0.6 ms per Today-sized call with 400 event tasks, ~4 ms for 62 days. Not worth a new security-definer function now; if the team or the event volume grows, an expand-only leave-only function (same `availability.view` check, pgTAP per role) would drop it.
 - **v6.0 unit 9 finds (19 Nov 2026):** (a) `Timeline` still draws an Admin's "‹Name› busy" blocks and the month's strips an Admin's "Ravi busy": the timeline branch is dead now (only Crew have timelines, and they have no busy items); remove it with the next calendar change. (b) `calendar.spec`'s long-name freelancer fixture (`longNameOnLeave`) cleans up by a name prefix, and "…Calv18 mobile" is a prefix of "…Calv18 mobile-lg": when the two phone projects reach that test together one removes the other's person (seen once with `--workers=2`, the leave bar "not found"; passes alone). (c) The sticky bar's place at large text is right only once the band under it has measured itself again (as sticky-actions.spec already waits). (d) The Free list names everyone; if the team grows past a few dozen it wants a cap ("and 12 more"). (e) The guide run cannot build the Owner's day before 11:15 am IST even with `GUIDE_ANYTIME=1` (`attendance_end_day` on a day that has not reached its start time).
 
 - **A task's loading screen gets no "Still loading" or Retry (found in the #143 review, 13 Nov 2026; pre-existing).** The progress bar waits on `main [data-slot="loading-state"]` once the address has moved (`nav-progress.tsx`, `navigationDone`); the task page's `loading.tsx` (now `TaskPageSkeleton`) carries `loading-task`, not `loading-state`, in v1.9 too, so the bar finishes as soon as the task's skeleton is up, whether the router or `TaskTapSkeleton` drew it, and a stalled answer leaves the skeleton without the 8 s line or Retry (the tap copy gives up after 25 s). Fix: let the bar count a task's skeleton as a loading screen, then drop the copy's give-up for Retry; check the other drill-down skeletons for the same slot.
