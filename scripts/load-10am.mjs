@@ -85,7 +85,7 @@ async function preparePeople() {
         throw new Error(`Refused: ${row.email} is not a rush-test person.`);
       const { error } = await service
         .from("members")
-        .update({ status: "deactivated" })
+        .update({ status: "deactivated", deactivated_at: isoDaysAgo(0) })
         .eq("id", row.id);
       if (error) throw new Error(`deactivate failed: ${error.message}`);
     }
@@ -101,28 +101,46 @@ async function preparePeople() {
       if (row.status !== "active") {
         const { error } = await service
           .from("members")
-          .update({ status: "active" })
+          .update({ status: "active", deactivated_at: null })
           .eq("id", row.id);
         if (error) throw new Error(`reactivate failed: ${error.message}`);
       }
       continue;
     }
-    const created = await service.auth.admin.createUser({
-      email: person.email,
-      email_confirm: true,
-    });
-    if (created.error) throw new Error(`createUser failed: ${created.error.message}`);
+    const userId = await signInUserFor(person.email);
     const { error } = await service.from("members").insert({
-      id: created.data.user.id,
+      id: userId,
       org_id: orgs[0].id,
       email: person.email,
       full_name: person.fullName,
       role: "staff",
       status: "active",
+      // An active member has joined (members_active_has_joined): the day before the run, so the
+      // run's own day is an ordinary working day for them (never their joining day).
+      joined_at: isoDaysAgo(1),
     });
     if (error) throw new Error(`member insert failed: ${error.message}`);
   }
   process.stdout.write(`${people.length} rush-test people are active.\n`);
+}
+
+/** The person's sign-in: made now, or the one a failed earlier run left without a member. */
+async function signInUserFor(email) {
+  const created = await service.auth.admin.createUser({ email, email_confirm: true });
+  if (!created.error) return created.data.user.id;
+  if (created.error.code !== "email_exists") {
+    throw new Error(`createUser failed: ${created.error.message}`);
+  }
+  const { data, error } = await service.auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw new Error(`listUsers failed: ${error.message}`);
+  const found = data.users.find((user) => user.email?.toLowerCase() === email);
+  if (!found) throw new Error(`no sign-in found for ${email}`);
+  return found.id;
+}
+
+/** A date `days` before now (an instant; members.joined_at). */
+function isoDaysAgo(days) {
+  return new Date(performance.timeOrigin + performance.now() - days * 86_400_000).toISOString();
 }
 
 /** A session per person, minted slowly (GoTrue allows 30 sign-ins per 5 minutes per address). */
