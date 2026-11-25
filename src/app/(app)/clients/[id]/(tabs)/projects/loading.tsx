@@ -1,3 +1,4 @@
+import { PROJECT_ROW_STATE } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
@@ -33,8 +34,10 @@ export default function Loading() {
               </span>
               <Skeleton className="h-3 w-2/5" />
             </span>
-            <Skeleton className="h-4 w-16 shrink-0 rounded-sm" />
-            <Skeleton className="size-4 shrink-0 rounded-sm" />
+            <span className={PROJECT_ROW_STATE}>
+              <Skeleton className="h-4 w-16 shrink-0 rounded-sm" />
+              <Skeleton className="size-4 shrink-0 rounded-sm" />
+            </span>
           </li>
         ))}
       </ul>

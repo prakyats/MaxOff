@@ -31,3 +31,11 @@ export const LIST_ROW_MIN_H = "min-h-11";
  * above and below: 72px) beside a 44px button (owner 2026-10-09).
  */
 export const APPROVAL_ROW_MIN_H = "min-h-18";
+
+/**
+ * A project row's state column (v7.0, advisor: /clients/:id at 375): one width whatever the chip
+ * ("Open" to "Ready to complete", the widest) and its chevron, right-aligned, in rem so it grows
+ * with the text. The name's column then wraps the same way in the row and in its loading screen,
+ * which cannot know the state.
+ */
+export const PROJECT_ROW_STATE = "ml-auto flex w-[9.5rem] shrink-0 items-center justify-end gap-2";

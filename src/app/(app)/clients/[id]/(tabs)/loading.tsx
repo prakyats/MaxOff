@@ -1,6 +1,7 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { Card, CardContent } from "@/core/ui/primitives/card";
+import { PROJECT_ROW_STATE } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
@@ -60,7 +61,7 @@ export default async function Loading() {
                     </Skeleton>
                   </span>
                 </span>
-                <span className="ml-auto flex shrink-0 items-center gap-2">
+                <span className={PROJECT_ROW_STATE}>
                   <Skeleton className="h-5 w-16 rounded-full" />
                   <Skeleton className="size-4 rounded-sm" />
                 </span>
