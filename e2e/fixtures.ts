@@ -18,6 +18,7 @@ import { DocumentLoadWatcher, type DocumentLoadsPolicy } from "./document-loads"
 declare global {
   interface Window {
     __primaryViolations?: string[];
+    __primaryCheck?: () => void;
   }
 }
 
@@ -70,15 +71,24 @@ function watchPrimaries() {
       }
     }
   };
+  // One check per idle moment, not per frame (v7.0): `checkVisibility` on every solid button forces
+  // a style pass, and run on the frame after each change it cost the page ~100 ms of main thread
+  // in its first 3 s on /people, which every spec paid (the tap-feedback 100 ms check landed in
+  // it). The changes since the last check are checked together; the 250 ms timeout runs it even
+  // while the page stays busy, and the test's end runs one last check (`__primaryCheck`), so a
+  // layer that is on screen is still always checked. WebKit has no idle callback: a frame there.
   let queued = false;
+  const run = () => {
+    queued = false;
+    check();
+  };
   const schedule = () => {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      check();
-    });
+    if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 250 });
+    else requestAnimationFrame(run);
   };
+  window.__primaryCheck = check;
   new MutationObserver(schedule).observe(document, {
     subtree: true,
     childList: true,
@@ -113,7 +123,10 @@ export const test = base.extend<{
       await page.addInitScript(watchPrimaries);
       await use();
       const violations = await page
-        .evaluate(() => window.__primaryViolations ?? [])
+        .evaluate(() => {
+          window.__primaryCheck?.();
+          return window.__primaryViolations ?? [];
+        })
         .catch(() => [] as string[]);
       expect(violations, "one solid commit per layer, never beside a second solid button").toEqual(
         [],
