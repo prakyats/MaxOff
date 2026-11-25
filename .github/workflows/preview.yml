@@ -52,6 +52,7 @@ on:
           - push-band-count
           - perf-probe
           - image-probe
+          - today-tail
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -598,6 +599,78 @@ jobs:
             echo "${label}: ${code} ${type:-(none)}"
             echo "| ${label} | ${base} | ${code} | ${type:-(none)} |" >>"$GITHUB_STEP_SUMMARY"
           done
+
+  # Today tail (v2.0.1, 25 Nov: the Owner's /today errored on this branch's preview, digest only):
+  # the staging Worker's own error for a page. By hand only: Actions → Preview → Run workflow →
+  # this branch → `today-tail`. It tails the staging Worker (every version, previews included)
+  # while the perf probe signs in as the staging Owner and reads this branch's preview once, then
+  # prints only the requests that threw or logged an error: the path without its query, the
+  # exceptions' names and messages, and the error log lines, each cut to 600 characters. Never a
+  # header, a cookie or a token (they are not selected). Read-only: the probe only reads screens.
+  # Staging only: the staging environment's own credentials and addresses.
+  today-tail:
+    name: today tail (staging)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'today-tail'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: perf-probe
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Tail the staging Worker while the Owner reads this branch's preview (errors only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          case "$host" in
+            *.workers.dev) ;;
+            *) echo "::error::Staging's address '$host' is not a workers.dev host; this reads staging only." >&2; exit 1 ;;
+          esac
+          worker="${host%%.*}"
+          subdomain="${host#*.}"
+          branch="$GITHUB_REF_NAME"
+          alias="$(printf '%s' "$branch" | tr -c 'a-zA-Z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | tr 'A-Z' 'a-z')"
+          case "$alias" in [a-z]*) ;; *) alias="b-$alias" ;; esac
+          max=$(( 63 - ${#worker} - 1 ))
+          if [ "${#alias}" -gt "$max" ]; then
+            suffix="$(printf '%s' "$branch" | sha1sum | cut -c1-6)"
+            alias="$(printf '%s' "$alias" | cut -c1-"$(( max - 7 ))" | sed 's/-*$//')-$suffix"
+          fi
+          target="https://${alias}-${worker}.${subdomain}"
+          pnpm exec wrangler tail --env staging --format json >"$RUNNER_TEMP/tail.json" 2>"$RUNNER_TEMP/tail.err" &
+          tail_pid=$!
+          sleep 20
+          node scripts/perf-probe.mjs --base "$target" --role owner --samples 1 --label "today-tail" >/dev/null 2>&1 || true
+          sleep 10
+          kill "$tail_pid" 2>/dev/null || true
+          wait "$tail_pid" 2>/dev/null || true
+          echo "tail events: $(jq -s 'length' "$RUNNER_TEMP/tail.json" 2>/dev/null || echo 0)"
+          jq -c '
+            select(((.exceptions // []) | length) > 0 or ([(.logs // [])[] | select(.level == "error")] | length) > 0)
+            | {
+                outcome,
+                path: ((.event.request.url // "") | sub("^https?://[^/]+"; "") | sub("\\?.*$"; "")),
+                exceptions: [(.exceptions // [])[] | {name, message: ((.message // "") | tostring | .[0:600])}],
+                errors: [(.logs // [])[] | select(.level == "error") | (.message | tostring | .[0:600])]
+              }' "$RUNNER_TEMP/tail.json" | tee "$RUNNER_TEMP/tail-errors.txt" | head -60
+          { echo "### Staging Worker errors while the Owner read \`$target\`"; echo; echo '```'; head -60 "$RUNNER_TEMP/tail-errors.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
 
   # Perf probe (unit P, 2026-10-15; ARCHITECTURE §19 "Measuring the Worker"). By hand only:
   # Actions → Preview → Run workflow → this branch → `perf-probe`. It times what the Worker
