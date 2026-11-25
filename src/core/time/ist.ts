@@ -45,9 +45,32 @@ function toDate(instant: Instant): Date {
   return date;
 }
 
+/**
+ * Every IST formatting goes through here, remembered (v7.0): `formatInTimeZone` is slow (date-fns
+ * tokenises the pattern and asks Intl for the parts on every call), and a list formats the same
+ * instants on every render, the People table's "Since" column every time it renders after
+ * hydration (a 4× CPU profile, tap-feedback 178). The answer depends only on the instant and the
+ * pattern, so it is kept, keyed by both (an epoch number and a string that reads as one are told
+ * apart); a bad instant still throws and is never kept. The map is emptied at `FORMATTED_LIMIT`
+ * entries, so a long-running server never grows it without bound.
+ */
+const FORMATTED_LIMIT = 5000;
+const formatted = new Map<string, string>();
+
+function formatInIST(instant: Instant, pattern: string): string {
+  const key =
+    typeof instant === "string" ? `s${instant}|${pattern}` : `n${Number(instant)}|${pattern}`;
+  const known = formatted.get(key);
+  if (known !== undefined) return known;
+  const value = formatInTimeZone(toDate(instant), IST_TIMEZONE, pattern);
+  if (formatted.size >= FORMATTED_LIMIT) formatted.clear();
+  formatted.set(key, value);
+  return value;
+}
+
 /** The IST business date of an instant. `18:30:00Z` is already the next day. */
 export function toISTDate(instant: Instant): ISODate {
-  return formatInTimeZone(toDate(instant), IST_TIMEZONE, "yyyy-MM-dd");
+  return formatInIST(instant, "yyyy-MM-dd");
 }
 
 /** Today's IST business date. Pass a clock in tests. */
@@ -110,7 +133,7 @@ export function istInstant(date: ISODate, time: ISTTime): string {
 
 /** The IST wall-clock time of an instant, `HH:mm`: the other half of `istInstant`. */
 export function toISTTime(instant: Instant): ISTTime {
-  return formatInTimeZone(toDate(instant), IST_TIMEZONE, "HH:mm");
+  return formatInIST(instant, "HH:mm");
 }
 
 /**
@@ -123,7 +146,7 @@ const TIME_PATTERN = "h:mm aaa";
 
 /** Formats an instant in IST with a date-fns pattern. Default: `21 Sep 2026, 6:05 pm`. */
 export function formatIST(instant: Instant, pattern = `d MMM yyyy, ${TIME_PATTERN}`): string {
-  return formatInTimeZone(toDate(instant), IST_TIMEZONE, pattern);
+  return formatInIST(instant, pattern);
 }
 
 /** The IST time of day of an instant: `6:00 pm`, `9:51 am`. */

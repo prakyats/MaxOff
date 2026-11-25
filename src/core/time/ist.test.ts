@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addISTDays,
   formatIST,
+  formatTime,
   isISODate,
   isISTTime,
   istDayRange,
@@ -120,5 +121,37 @@ describe("istInstant and toISTTime (4.3: a deadline from a date and a time)", ()
     expect(isISTTime("18:00")).toBe(true);
     expect(isISTTime("7:00")).toBe(false);
     expect(isISTTime(1800)).toBe(false);
+  });
+});
+
+describe("IST formatting is remembered (v7.0)", () => {
+  it("answers the same for the same instant and pattern, however it is named", () => {
+    const iso = "2026-11-25T12:30:00.000Z";
+    const ms = Date.parse(iso);
+    expect(formatIST(iso, "d MMM yyyy")).toBe("25 Nov 2026");
+    expect(formatIST(iso, "d MMM yyyy")).toBe("25 Nov 2026");
+    expect(formatIST(ms, "d MMM yyyy")).toBe("25 Nov 2026");
+    expect(formatIST(new Date(ms), "d MMM yyyy")).toBe("25 Nov 2026");
+    expect(formatTime(iso)).toBe("6:00 pm");
+    expect(toISTDate("2026-11-25T18:30:00Z")).toBe("2026-11-26");
+    expect(toISTTime("2026-11-25T18:30:00Z")).toBe("00:00");
+  });
+
+  it("keeps patterns apart", () => {
+    const iso = "2026-11-25T12:30:00Z";
+    expect(formatIST(iso, "d MMM")).toBe("25 Nov");
+    expect(formatIST(iso, "yyyy")).toBe("2026");
+  });
+
+  it("never keeps a bad instant: it throws every time", () => {
+    expect(() => formatIST("not a time", "d MMM")).toThrow(RangeError);
+    expect(() => formatIST("not a time", "d MMM")).toThrow(RangeError);
+    expect(() => formatIST("2026-11-25", "d MMM")).toThrow(RangeError);
+  });
+
+  it("tells an epoch number from a string of the same digits", () => {
+    // 0 ms is 1 Jan 1970 (5:30 am IST); the string "0" is not an instant.
+    expect(formatIST(0, "yyyy")).toBe("1970");
+    expect(() => formatIST("0", "yyyy")).toThrow(RangeError);
   });
 });
