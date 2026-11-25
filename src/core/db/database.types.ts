@@ -5916,6 +5916,7 @@ export type Database = {
         Args: { coordinator_id: string; member_id: string; reason?: string };
         Returns: string;
       };
+      month_close: { Args: { month: string }; Returns: number };
       month_summary: {
         Args: { member_id?: string; month: string };
         Returns: {

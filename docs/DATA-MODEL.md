@@ -2176,7 +2176,7 @@ month_snapshots      id, org_id, month date (1st of the IST month), version int 
 feature_flags        key pk, enabled, description
 ```
 
-### 9a. The month snapshot's `data` (v3.5; WORKFLOWS §7; not built yet)
+### 9a. The month snapshot's `data` (v3.5; WORKFLOWS §7; the builder built in U2, see "As built" below)
 Decision 17 (owner 2026-10-09): "The snapshot holds everything the Owner's month reports show, with stable ids: revenue lines and totals (retainer items with value, method, approval, override; one-time projects; advances received and returned; billing status at close), client work progress, the people report, `month_summary()` per person, expense totals per person (approved and paid). Owner-only; no ADR change for the expense totals."
 
 **Versioned (v3.5 Q2, advisor autopilot 2026-11-25, owner to confirm):** `data.schema` is `1`. A reader checks it (zod in `modules/revenue`); a later shape is `schema: 2` and old rows keep reading as 1. Rows are never rewritten to a new shape.
@@ -2206,11 +2206,48 @@ data = {
 }
 ```
 - **Stable ids:** every line carries the id of the row it came from (cycle, item, one-time project, advance, override, member), and names are copied beside them as they read at close. "Changed since close" and a correction compare by these ids (WORKFLOWS §7.1), so a renamed client is not a change and a reopened deliverable is.
-- **Revenue comes from §7's own views** (`revenue_by_cycle_v` / `app.revenue_cycles`, `item_values_v` / `app.item_values`, `revenue_project_lines_v`, `revenue_advances_v`) for the month, so the snapshot and the live Revenue page share one definition. The field names above follow those views; U2 fixes the exact list against them and updates this block in the same commit.
+- **Revenue comes from §7's own views** (`revenue_by_cycle_v` / `app.revenue_cycles`, `item_values_v` / `app.item_values`, `revenue_project_lines_v`, `revenue_advances_v`) for the month, so the snapshot and the live Revenue page share one definition. The block above was the plan; **the exact field names are in "As built (U2)" below**, which wins.
 - **Billing status at close** is `billing_status` and `billed_on` on each cycle and one-time line. The live status is read beside it, and both show only when they differ (v3.5 Q13, advisor autopilot 2026-11-25, owner to confirm).
 - **Staging (v3.5 Q2, advisor autopilot 2026-11-25, owner to confirm):** U1–U2 build `revenue`, `expenses` and `month_summary`. `people` and `client_work` belong to v3.0 "Reports", which is not on this branch; they are added **after v3.0 is merged to `main` and `main` is merged into this branch**. A month closed before then gets them through a correction.
 - **No raw rows (v3.5 Q3, advisor autopilot 2026-11-25, owner to confirm):** the v3.5 snapshot holds report figures and revenue lines only. The raw rows the AI export needs (attendance, tasks, items) are not in it: exports are deferred (ROADMAP 9.5) and the rows come later via a correction.
 - **Expense totals** are read in SQL by the snapshot builder (`app.month_snapshot_build`, internal), per person, approved and paid, for claims with an expense date in the month. `modules/revenue` still imports nothing from `modules/expenses` (ADR-0007 amendment 2026-09-27); the totals reach the app only inside the Owner-only snapshot.
+
+**As built (U2, 25 Nov 2026; migration `v35_month_close`, pgTAP 161).** `app.month_snapshot_build(org, month)` returns exactly this (field names follow the money reads; the line objects are a superset of `revenue_month_read`'s, so the Revenue page can draw a closed month from the same shape):
+```
+data = {
+  schema: 1,
+  month: 'YYYY-MM-01',
+  revenue: {
+    cycles: [{ cycle_id, label, period_start, period_end, client_id, client_name, project_id, project_name,
+               category, amount, potential, achieved_calculated, achieved,
+               override: { id, calculated_value, adjusted_value, note, by_id, at } | null,
+               closed_not_achieved, remaining, added_value, added_count, not_priced_count, plan_count,
+               done_count, held, billing_status, billed_on, billing_note,
+               items: [{ item_id, title, position, kind (plan | added),
+                         method (explicit | split | added | not_priced | no_amount | excluded), value,
+                         in_potential, achieved, closed_not_achieved, leaf_item_id, leaf_state,
+                         approved_at, approved_by }] }],              -- app.revenue_cycles + app.item_values
+    projects: [{ project_id, cycle_id, client_id, client_name, project_name, category, state, delivery_date,
+                 amount, potential, achieved_calculated, achieved, override | null, closed_not_achieved,
+                 remaining, was_due, ready_to_complete, held, advances_kept, advances_returned,
+                 billing_status, billed_on, billing_note }],          -- revenue_project_lines_v, month = M
+    advances: [{ advance_id, event (received | returned), on_date, amount, note, returned, client_id,
+                 client_name, project_id, project_name }],            -- revenue_advances_v, month = M
+    totals:   { potential, achieved, remaining, closed_not_achieved, advances_received, advances_returned,
+                by_client: [{ client_id, client_name, potential, achieved, remaining, closed_not_achieved }],
+                by_category: [{ category, potential, achieved, remaining, closed_not_achieved }] }
+  },
+  expenses: [{ member_id, full_name, approved, approved_count, paid, paid_count }],
+  month_summary: [ month_summary(M)'s own columns, one object per row (id = the member) ]
+}
+```
+- **Which lines:** the org's retainer cycles whose `period_start` is in M (as `revenue_month_read`), each valued through `app.revenue_cycles` / `app.item_values` for just those cycles (a carried deliverable stays in its origin cycle); the one-time lines and advance events whose `month` is M. A one-time project's `remaining` is `greatest(potential − achieved, 0)`, as the page's `totalsOf` and `revenue_by_client_month_v`.
+- **Totals** are the stored lines summed (cycles and projects together), exactly as the page sums them; the advances apart (`advances_received`, `advances_returned`), never in Achieved.
+- **Expenses:** claims of the org's members with an `expense_date` in M; `approved` = state `approved` (approved, not paid yet: the month summary's expense line, `unpaidTotal`), `paid` = state `paid`; a person with neither is left out. Totals and counts only, never a claim.
+- **Deterministic:** every array is ordered by ids and dates only, never by a name (cycles by `period_start, cycle_id`; items, projects, expenses and `month_summary` by their ids; advances by `on_date, event, advance_id`; `by_client` by `client_id`, `by_category` by category), and **`built_at` is not stored** (the row's `closed_at` is the time): the same data always builds the same document (pgTAP 161 compares a stored snapshot with a fresh build). Readers sort for display.
+- **Live inputs that read today** stay as the live reads have them: a one-time project still open past its delivery month sits in the current month (`revenue_project_lines_v`), and `month_summary`'s `credits_expired` counts credits expired by today.
+- **The builder builds only for an Owner of `org`** (`finance.view` and the caller's organization = `org`, else `FORBIDDEN`): the money views are gated on the caller's `finance.view` and `month_summary()` reads the caller's organization, so it never builds an empty document by mistake. It runs inside the security-definer functions, where the views see every organization, so every read in it is filtered by `org` (pgTAP 161: another org's figures, clients and people never enter). Executable by `service_role` only.
+- **`app.first_priced_month(org)`** reads the tables, not the gated views (the reminder, U6, asks from a job with no caller): the earliest `period_start` month of a retainer cycle with `cycle_billing.cycle_amount` set, or the month of a one-time line priced by the view's own rules (the line's month as `revenue_project_lines_v`, `fixed_amount` set and month ≥ `priced_from`); ₹0 counts. pgTAP 161 pins it against the views. `service_role` only.
 
 **Functions (WORKFLOWS §7.4 has the checks and paths):**
 ```
@@ -2221,7 +2258,7 @@ month_correct(month date, note text) returns int  months.close; note 10-500; a f
 month_close_read(month date) returns jsonb        finance.view (security invoker): can it be closed, the waiting
                                                   list's counts, the latest snapshot, the versions' headers,
                                                   "Changed since close" (revenue lines and totals only)
-app.month_snapshot_build(org_id, month) returns jsonb   internal (service_role only): the document above
+app.month_snapshot_build(org_id, month) returns jsonb   internal (service_role only): the document above (U2)
 app.first_priced_month(org_id) returns date             internal: the earliest month with a cycle amount or a
                                                   priced one-time line in the org (v3.5 Q1, advisor autopilot
                                                   2026-11-25, owner to confirm); null when nothing is priced

@@ -60,6 +60,9 @@ const MONEY_NAMES = [
   "item_values",
   "revenue_cycles",
   "cycle_explicit_total",
+  // the month close (v3.5 U2; migration v35_month_close): the Owner's close and its internal builder
+  "month_close",
+  "month_snapshot_build",
 ];
 const MONEY_RELATIONS = MONEY_NAMES.join("|");
 

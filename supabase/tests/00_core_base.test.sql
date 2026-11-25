@@ -196,7 +196,10 @@ insert into app_internal values
   -- pgTAP 127)
   ('on_hold_guard'), ('project_resume_items'),
   -- 9.1: the money triggers and the Owner functions' own checks (migration money_tables, pgTAP 144)
-  ('item_billing_mark_added'), ('cycle_billing_copy_amount'), ('money_check'), ('cycle_explicit_total');
+  ('item_billing_mark_added'), ('cycle_billing_copy_amount'), ('money_check'), ('cycle_explicit_total'),
+  -- v3.5 U2: the month snapshot's builder and the first priced month, called only inside month_close (and
+  -- U3's functions), never by authenticated (migration v35_month_close, pgTAP 161)
+  ('month_snapshot_build'), ('first_priced_month');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -217,7 +220,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 142::bigint,
+             and p.proname in (select name from app_internal)), 144::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
