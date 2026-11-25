@@ -234,42 +234,51 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 
-  test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({
-    page,
-  }, info) => {
-    test.skip(!isPhone(info), "the title bar's bell is the phone's");
-    const prefix = prefixOf(info);
-    const crewId = await memberIdOf(crew(info));
-    const id = await adminCreates(info, {
-      title: `${prefix}heard`,
-      assignees: [crewId],
-      due: istInstant(workingDay(6), "18:00"),
-    });
-    await recordNavigation(page, info);
-    await signIn(page, crew(info), PASSWORD);
-    await expect(page).toHaveURL(/\/my-day$/);
-    await hydrated(page);
-    await explainOnIphone(page, info, () =>
-      expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on"),
-    );
-    const refresh = await holdNextRefresh(page, "/my-day");
-    // A change to their own task lands: the screen re-reads, and that re-read is held.
-    await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
-    await explainOnIphone(page, info, () => refresh.held);
-    const bell = page.locator('[data-slot="header-bell"]:visible');
-    // Bounded on the iPhone project only, so the record is taken inside the test's time.
-    await explainOnIphone(
+  // Its own describe for its own service-worker setting (v7.0, CI 45696917642 mobile-iphone: a
+  // 30 s timeout with no record): the held re-read is a `page.route` hold (`holdNextRefresh`),
+  // and with the app's worker in control WebKit sends the page's fetches past `page.route`, so
+  // the re-read was never held and `refresh.held` never came. Blocking the worker changes nothing
+  // this test is about (a tap during a re-read).
+  test.describe("with the service worker blocked", () => {
+    test.use({ serviceWorkers: "block" });
+
+    test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({
       page,
-      info,
-      () => bell.click(isIphone(info) ? { timeout: 10_000 } : {}),
-      bell,
-    );
-    refresh.release();
-    await explainOnIphone(page, info, async () => {
-      await expect(page).toHaveURL(/\/notifications$/);
-      await expect(pageHeader(page)).toContainText(/alerts|notifications/i);
+    }, info) => {
+      test.skip(!isPhone(info), "the title bar's bell is the phone's");
+      const prefix = prefixOf(info);
+      const crewId = await memberIdOf(crew(info));
+      const id = await adminCreates(info, {
+        title: `${prefix}heard`,
+        assignees: [crewId],
+        due: istInstant(workingDay(6), "18:00"),
+      });
+      await recordNavigation(page, info);
+      await signIn(page, crew(info), PASSWORD);
+      await expect(page).toHaveURL(/\/my-day$/);
+      await hydrated(page);
+      await explainOnIphone(page, info, () =>
+        expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on"),
+      );
+      const refresh = await holdNextRefresh(page, "/my-day");
+      // A change to their own task lands: the screen re-reads, and that re-read is held.
+      await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
+      await explainOnIphone(page, info, () => refresh.held);
+      const bell = page.locator('[data-slot="header-bell"]:visible');
+      // Bounded on the iPhone project only, so the record is taken inside the test's time.
+      await explainOnIphone(
+        page,
+        info,
+        () => bell.click(isIphone(info) ? { timeout: 10_000 } : {}),
+        bell,
+      );
+      refresh.release();
+      await explainOnIphone(page, info, async () => {
+        await expect(page).toHaveURL(/\/notifications$/);
+        await expect(pageHeader(page)).toContainText(/alerts|notifications/i);
+      });
+      await hydrated(page);
     });
-    await hydrated(page);
   });
 
   test("a change heard just before leaving My Day never re-reads the screen it moved to", async ({
