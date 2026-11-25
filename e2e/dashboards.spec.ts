@@ -326,6 +326,20 @@ test.describe("Crew: My Day (6.1)", () => {
       if (message.text().startsWith("[record]")) timeline.push(`${at()} ${message.text()}`);
     });
     await page.evaluate(() => {
+      // Who re-reads (CI 45711005375: the second /leave fetch was a refresh sent from /leave's
+      // tree, 318 ms after the change was heard): every `router.refresh()` with where it came from.
+      const router = (window as unknown as { next?: { router?: { refresh: () => void } } }).next
+        ?.router;
+      if (router) {
+        const refresh = router.refresh.bind(router);
+        router.refresh = () => {
+          const root = document.documentElement;
+          console.warn(
+            `[record] router.refresh at ${location.pathname} live=${root.dataset.live ?? ""} dashboard=${root.dataset.liveDashboard ?? ""} pending=${String(root.hasAttribute("data-nav-pending"))} stack=${(new Error().stack ?? "").split("\n").slice(1, 7).join(" < ")}`,
+          );
+          refresh();
+        };
+      }
       for (const kind of ["focus", "blur", "pageshow"])
         window.addEventListener(kind, () => console.warn(`[record] ${kind}`));
       document.addEventListener("visibilitychange", () =>
