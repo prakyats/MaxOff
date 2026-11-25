@@ -13,7 +13,14 @@
   - the Worker refusal and `images.unoptimized`, which close the image RCE and SSRF on any version;
   - `@sentry/nextjs` 10.78.0, `zod` 4.6.7 and `undici` 7.30.2.
 
-  Audit on that: 3 critical, all next's (`use cache`, `next/og`, unused; the image RCE, closed). **Next:** `pnpm check`, push, full CI, the same-machine A/B, Security section in READY.
+  Audit on that: 3 critical, all next's (`use cache`, `next/og`, unused; the image RCE, closed). **Done on `39be9d2`:**
+  - `pnpm check` and the targeted e2e green;
+  - CI 45693844941 green (all four shards);
+  - `image-probe` 45694902770: branch 404, staging 200, the `main` preview 200;
+  - the same-machine A/B PASS for the three roles (−3 to +5 ms, identical reads);
+  - **READY update with the Security section posted on #89 (7174409009).**
+
+  **Waiting on:** the owner's method acceptance, the India check and the phone walk (READY 7170244715), then the advisor's merge (with PR #151's body updated for the security items) and the Owner's tag.
 - **HANDOFF, v2.1 "Money in": pre-work done, 9.1 next in a fresh [H] session (Wed 18 Nov 2026, builder; branch `claude/lucid-turing-sfdv10` from `main` 8dde1879; owner answers via the advisor, #89 6984558164).** The pre-work lands as its own PR to `main`. **9.1 onward (the money tables, RLS, functions, then 9.2) is built by a fresh session at BUILD-GUIDE's [H] tier, from the `main` that carries this PR.** What the pre-work did:
   - **Money seals:** `MONEY_RELATIONS` (`eslint.config.mjs`) now names `project_advances` and `item_values_v`, with two lint fixtures that fail without them (`tests/lint-rules.test.ts`). pgTAP 46's "no money table in any publication" names `project_advances`. ARCHITECTURE §3.1 lists the same names and no longer calls the billing category "not money" (ADR-0007 amendment 2026-10-08).
   - **Docs:** PRODUCT §4.12 and WORKFLOWS §6 now say a one-time project is **one lump sum** (R1: completed by the Owner or the client's Admin; Q4: cancelled = ₹0; advances on their own line), plus **R4** (additions on top, recurring projects only), **Q1** (this month on) and **no extras on one-time projects** (the Owner changes the lump sum), using the owner's 18 Nov answers. ADR-0007 gains the two kickoff-9 amendments that were only on `kickoff-9`: **2026-10-02** (one-time lump sum, retainer split, `project_advances`), adapted to R1/R4/Q1/Q4, and **2026-10-09** (two kinds of Close, decision 24). The 18 Nov answers are in the kickoff refresh's OWNER ANSWERS block.
