@@ -9,6 +9,7 @@
  * What lives here is Google's protocol only. Who may upload where, and what a file must be, is the
  * caller's: a module passes an `UploadPolicy` and the folder id it has already authorised.
  */
+import { folderName } from "./folders";
 import { DriveApiError, DriveAuthError, type Fetch } from "./google";
 
 const UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
@@ -180,4 +181,119 @@ export async function fileStillThere(
     throw new DriveApiError(`File check failed (${response.status})`, response.status);
   const answer = (await response.json()) as { trashed?: boolean };
   return answer.trashed ? "removed" : "there";
+}
+
+/** Google's own record of a file a MaxOff session made (`drive.file` sees it). */
+export type FileFacts = {
+  id: string;
+  sizeBytes: number;
+  /** Absent for Google's own document types; a binary upload always has one. Lower case. */
+  md5: string | null;
+  parents: string[];
+  trashed: boolean;
+};
+
+/**
+ * What Google holds for a file, or null when Google answers 404 (gone, or never made). Any other
+ * refusal throws, so a passing outage is never read as "removed". (From v5.0's 4411041.)
+ */
+export async function fileFacts(
+  fetchImpl: Fetch,
+  accessToken: string,
+  fileId: string,
+): Promise<FileFacts | null> {
+  const response = await fetchImpl(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,size,md5Checksum,parents,trashed`,
+    { headers: { authorization: `Bearer ${accessToken}` } },
+  );
+  if (response.status === 404) return null;
+  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
+  const answer = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    size?: string;
+    md5Checksum?: string;
+    parents?: string[];
+    trashed?: boolean;
+    error?: { message?: string };
+  };
+  if (!response.ok || !answer.id) {
+    throw new DriveApiError(
+      answer.error?.message ?? `Drive call failed (${response.status})`,
+      response.status,
+    );
+  }
+  return {
+    id: answer.id,
+    sizeBytes: Number(answer.size ?? 0),
+    md5: answer.md5Checksum ? answer.md5Checksum.toLowerCase() : null,
+    parents: answer.parents ?? [],
+    trashed: answer.trashed === true,
+  };
+}
+
+/**
+ * The check before a finished file is recorded (v4.5 plan F1/F2): Google's answer against what
+ * the session was opened for and, when the browser computed one, its MD5.
+ */
+export function finishedFileProblem(
+  facts: FileFacts | null,
+  expected: { sizeBytes: number; parentId: string; md5?: string | null },
+): "missing" | "size_mismatch" | "wrong_folder" | "checksum_mismatch" | null {
+  if (!facts || facts.trashed) return "missing";
+  if (facts.sizeBytes !== expected.sizeBytes) return "size_mismatch";
+  if (!facts.parents.includes(expected.parentId)) return "wrong_folder";
+  if (expected.md5 && facts.md5 && facts.md5 !== expected.md5.toLowerCase()) {
+    return "checksum_mismatch";
+  }
+  return null;
+}
+
+/** A store of folders under one parent, keyed by a path ('' = the top folder itself). */
+export type SubfolderStore = {
+  find(relativePath: string): Promise<string | null>;
+  /** Insert or return: the folder that won a race is the one kept. */
+  put(relativePath: string, driveFolderId: string): Promise<string>;
+};
+
+/**
+ * The folder path a browser reported ("Day 1/CAM A"), cleaned: each part a safe folder name
+ * (`folderName`), empty, "." and ".." parts dropped, at most 8 levels. Never trusted as given.
+ */
+export function cleanRelativePath(relativePath: string): string {
+  return relativePath
+    .split(/[/\\]/)
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && part !== "." && part !== "..")
+    .slice(0, 8)
+    .map(folderName)
+    .join("/");
+}
+
+/**
+ * Makes `‹parent›/‹top›/‹a›/‹b›…` for a cleaned relative path, each folder once: the cache
+ * first, then Google, recording each before making the next, so a stopped run resumes where it
+ * stopped. Returns the Drive id of the deepest folder. (From v5.0's 4411041.)
+ */
+export async function ensureSubfolders(input: {
+  parentDriveId: string;
+  top: string;
+  relativePath: string;
+  store: SubfolderStore;
+  make: (folder: { name: string; parentId: string }) => Promise<{ id: string }>;
+}): Promise<string> {
+  const clean = cleanRelativePath(input.relativePath);
+  const parts = clean === "" ? [] : clean.split("/");
+  const keys = ["", ...parts.map((_, i) => parts.slice(0, i + 1).join("/"))];
+  const names = [folderName(input.top), ...parts];
+  let parent = input.parentDriveId;
+  for (const [i, key] of keys.entries()) {
+    const cached = await input.store.find(key);
+    if (cached) {
+      parent = cached;
+      continue;
+    }
+    const made = await input.make({ name: names[i] ?? "", parentId: parent });
+    parent = await input.store.put(key, made.id);
+  }
+  return parent;
 }
