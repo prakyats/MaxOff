@@ -219,8 +219,10 @@ begin
   limit 1;
 
   -- The uploader's Drive folder: the name, or "Sam (2)" when another uploader on this task has it.
+  -- A name shaped like a hand-in version folder ("v2", any case; v5.0) is never used as it is, so
+  -- an uploader's folder never sits beside a version's: "v2" becomes "v2 (2)".
   v_folder := v_name;
-  while exists (select 1 from public.upload_uploaders u
+  while v_folder ~* '^v[0-9]+$' or exists (select 1 from public.upload_uploaders u
                 where u.task_id = v_task.id and lower(u.folder_name) = lower(v_folder)) loop
     v_n := v_n + 1;
     v_folder := v_name || ' (' || v_n || ')';

@@ -58,7 +58,9 @@ export function matchAssignee(
  */
 export function uploaderFolderName(name: string, taken: readonly string[]): string {
   const used = new Set(taken.map(nameKey));
-  if (!used.has(nameKey(name))) return name;
+  // A name shaped like a hand-in version folder ("v2"; v5.0) is never used as it is.
+  const versionShaped = /^v[0-9]+$/i.test(name);
+  if (!versionShaped && !used.has(nameKey(name))) return name;
   for (let n = 2; ; n += 1) {
     const candidate = `${name} (${n})`;
     if (!used.has(nameKey(candidate))) return candidate;

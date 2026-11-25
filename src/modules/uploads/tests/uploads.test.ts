@@ -83,6 +83,10 @@ describe("the uploader's name", () => {
     expect(uploaderFolderName("Sam", [])).toBe("Sam");
     expect(uploaderFolderName("sam", ["Sam"])).toBe("sam (2)");
     expect(uploaderFolderName("Sam", ["Sam", "Sam (2)"])).toBe("Sam (3)");
+    // Never beside a hand-in version folder (v5.0).
+    expect(uploaderFolderName("v2", [])).toBe("v2 (2)");
+    expect(uploaderFolderName("V10", ["V10 (2)"])).toBe("V10 (3)");
+    expect(uploaderFolderName("v2a", [])).toBe("v2a");
   });
 });
 

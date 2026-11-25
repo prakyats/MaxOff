@@ -15,7 +15,7 @@
 -- Neutral names and documentation addresses only (example.com, 198.51.100.0/24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(355);
+select plan(356);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -472,6 +472,13 @@ select ok((pg_temp.uploader('u_fen')).on_task and (pg_temp.uploader('u_fen')).ma
 insert into fx select 'u_sam2', (public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-sam2'), 'Sam', null, null)
   ->> 'uploader_id')::uuid;
 select is((pg_temp.uploader('u_sam2')).folder_name, 'Sam (2)', 'a second Sam on the task gets the folder "Sam (2)"');
+-- In a savepoint, so the extra uploader and its notices leave the later counts alone.
+savepoint folder_v2;
+insert into fx select 'u_v2', (public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-v2'), 'V2', null, null)
+  ->> 'uploader_id')::uuid;
+select is((pg_temp.uploader('u_v2')).folder_name, 'V2 (2)',
+  'a name shaped like a hand-in version folder never sits beside one: "V2 (2)" (v5.0)');
+rollback to savepoint folder_v2;
 select pg_temp.as_system();
 select is((select count(*) from public.activity_log where entity = 'upload_uploaders' and action = 'started'
            and meta ->> 'task_id' = pg_temp.fx('t1')::text), 4::bigint, 'each new uploader is a history row (started)');
