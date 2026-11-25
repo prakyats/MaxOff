@@ -4,7 +4,7 @@
 -- the client's Admin, Crew, anon and another organization's Owner refused. Seed members.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -88,8 +88,12 @@ select is(pg_temp.billed_audits('c1'), 1, 'the line billed elsewhere has its one
 select is(pg_temp.code($$select public.billing_mark_unbilled(array[]::uuid[], null)$$), 'VALIDATION', 'nothing to mark is refused');
 select is(pg_temp.code($$select public.billing_mark_unbilled(array[null]::uuid[], null)$$), 'VALIDATION', 'a list of nulls is nothing to mark');
 select is(pg_temp.code($$select public.billing_mark_unbilled(null, null)$$), 'VALIDATION', 'no list at all is nothing to mark');
+select is(pg_temp.code($$select public.billing_mark_unbilled(array(select gen_random_uuid() from generate_series(1, 2001)), null)$$),
+  'VALIDATION', 'more than 2,000 at a time is refused');
+-- One call, one transaction (migration billing_mark_unbilled_one_call): 201 lines are no longer cut
+-- into batches; the whole list is judged together (unknown ids here, so NOT_FOUND, not the old cap).
 select is(pg_temp.code($$select public.billing_mark_unbilled(array(select gen_random_uuid() from generate_series(1, 201)), null)$$),
-  'VALIDATION', 'more than 200 at a time is refused');
+  'NOT_FOUND', 'more than 200 in one call is accepted as one list (the old cap of 200 is gone)');
 select is(pg_temp.code($$select public.billing_mark_unbilled(array[pg_temp.fx('c2')], app.today_ist() + 1)$$), 'VALIDATION',
   'a billed day in the future is refused');
 select is(pg_temp.code($$select public.billing_mark_unbilled(array[pg_temp.fx('c2'), gen_random_uuid()], null)$$), 'NOT_FOUND',

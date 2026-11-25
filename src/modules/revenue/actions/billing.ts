@@ -96,7 +96,7 @@ export const markBilled = action(async (input: MarkBilledInput): Promise<Result<
   const data = markBilledSchema.parse(input);
   await assertPermission("finance.edit");
   await repo.rpcMarkBilled({
-    cycleIds: [data.cycleId],
+    cycleId: data.cycleId,
     billed: true,
     billedOn: data.billedOn,
     note: data.note,
@@ -108,7 +108,7 @@ export const markBilled = action(async (input: MarkBilledInput): Promise<Result<
 export const markNotBilled = action(async (input: MarkNotBilledInput): Promise<Result<null>> => {
   const data = markNotBilledSchema.parse(input);
   await assertPermission("finance.edit");
-  await repo.rpcMarkBilled({ cycleIds: [data.cycleId], billed: false, billedOn: null, note: null });
+  await repo.rpcMarkBilled({ cycleId: data.cycleId, billed: false, billedOn: null, note: null });
   revalidateScreens();
   return ok(null);
 });

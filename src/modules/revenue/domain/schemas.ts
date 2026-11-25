@@ -63,8 +63,8 @@ export type ReturnAdvanceInput = z.input<typeof returnAdvanceSchema>;
 
 // --- v2.5 "Revenue every day" ---------------------------------------------------------------------
 
-/** The most cycles one "Mark all billed" sends (the function's own limit is 200 a call). */
-export const MARK_ALL_MAX = 1000;
+/** The most cycles one "Mark all billed" sends: the same as `billing_mark_unbilled`'s own limit (one transaction). */
+export const MARK_ALL_MAX = 2000;
 
 /** A note the Owner must write (an adjustment and its undoing): 1–500 characters. */
 const requiredNote = z
