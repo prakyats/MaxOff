@@ -37,6 +37,8 @@ const MONEY_NAMES = [
   "cycle_billing",
   "revenue_overrides",
   "project_advances",
+  // the month close's frozen snapshot (v3.5; ADR-0007 amendment 2026-11-25)
+  "month_snapshots",
   // views
   "item_values_v",
   "revenue_by_client_month_v",

@@ -2147,6 +2147,71 @@ export type Database = {
           },
         ];
       };
+      month_snapshots: {
+        Row: {
+          closed_at: string;
+          closed_by: string;
+          correction_note: string | null;
+          corrects_id: string | null;
+          data: Json;
+          id: string;
+          month: string;
+          org_id: string;
+          version: number;
+        };
+        Insert: {
+          closed_at?: string;
+          closed_by: string;
+          correction_note?: string | null;
+          corrects_id?: string | null;
+          data: Json;
+          id?: string;
+          month: string;
+          org_id: string;
+          version: number;
+        };
+        Update: {
+          closed_at?: string;
+          closed_by?: string;
+          correction_note?: string | null;
+          corrects_id?: string | null;
+          data?: Json;
+          id?: string;
+          month?: string;
+          org_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "month_snapshots_closed_by_fkey";
+            columns: ["closed_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "month_snapshots_closed_by_fkey";
+            columns: ["closed_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "month_snapshots_corrects_id_fkey";
+            columns: ["corrects_id"];
+            isOneToOne: false;
+            referencedRelation: "month_snapshots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "month_snapshots_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notification_deliveries: {
         Row: {
           attempts: number;

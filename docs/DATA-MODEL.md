@@ -2151,8 +2151,9 @@ eod_reports          id, org_id, report_date, data jsonb (check: an object), gen
 month_snapshots      id, org_id, month date (1st of the IST month), version int (1, 2, ...), data jsonb,
                      closed_by → members, closed_at, corrects_id null → month_snapshots, correction_note null,
                      unique(org_id, month, version)
-                     -- v3.5 "Month close" (WORKFLOWS §7; kickoff 9 decisions 10, 16-19; NOT BUILT YET: U1
-                     -- builds the table, RLS and pgTAP). Owned by modules/revenue (ADR-0007 amendment
+                     -- v3.5 "Month close" (WORKFLOWS §7; kickoff 9 decisions 10, 16-19; the table, RLS and
+                     -- pgTAP 160 built in U1, migration v35_month_snapshots; its functions are U2 and U3).
+                     -- Owned by modules/revenue (ADR-0007 amendment
                      -- 2026-11-25): the snapshot holds revenue, so it is a money table.
                      -- One row per version, never changed: version 1 is the close, version N+1 a
                      -- correction (corrects_id = the version it replaces, correction_note 10-500
@@ -2167,6 +2168,10 @@ month_snapshots      id, org_id, month date (1st of the IST month), version int 
                      -- left without a policy. Never in the Realtime publication (pgTAP 46 names it),
                      -- never in search, notifications or an Admin or Crew payload. Audited by the two
                      -- functions under the entity name month_snapshots, with no amount in meta.
+                     -- As built (U1): checks month = a 1st, version >= 1, data is a JSON object, the
+                     -- correction pair, the note's 10-500 trimmed characters, corrects_id <> id. NO
+                     -- audit_row_change() trigger, unlike the tables of §7: it would copy data (the
+                     -- amounts) into activity_log.diff.
                      -- eod_reports (above) keeps its own reports.all policy and holds no money.
 feature_flags        key pk, enabled, description
 ```
