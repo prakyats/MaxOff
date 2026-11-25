@@ -95,7 +95,10 @@ export type TaskTypeRow = Pick<
   | "position"
   | "default_reminders"
   | "color"
->;
+> & {
+  /** v5.0 "Has hand-in"; `templates_library()` carries no such column (read as on). */
+  has_handin?: boolean;
+};
 
 /** Task types from their rows, as `listTaskTypes` reads them or `templates_library()` carries them. */
 export function taskTypesFrom(rows: readonly TaskTypeRow[]): TaskType[] {
@@ -105,6 +108,7 @@ export function taskTypesFrom(rows: readonly TaskTypeRow[]): TaskType[] {
     kind: row.kind,
     hasLocation: row.has_location,
     showsOnCalendar: row.shows_on_calendar,
+    hasHandin: row.has_handin ?? true,
     archived: row.archived_at !== null,
     defaultReminders: parseReminderRules(row.default_reminders),
     color: row.color,
@@ -117,7 +121,7 @@ export async function listTaskTypes(): Promise<TaskType[]> {
   const { data, error } = await supabase
     .from("task_types")
     .select(
-      "id, name, kind, has_location, shows_on_calendar, archived_at, position, default_reminders, color",
+      "id, name, kind, has_location, shows_on_calendar, has_handin, archived_at, position, default_reminders, color",
     )
     .order("position", { ascending: true });
   if (error) throw error;

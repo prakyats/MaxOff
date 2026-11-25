@@ -155,6 +155,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     (a, b) => Number(b.isPrimary) - Number(a.isPrimary),
   );
   const type = data.types.find((option) => option.id === task.taskTypeId) ?? null;
+  // v5.0 "Has hand-in": the type's setting decides the card and Mark done's files line.
+  const hasHandin = type?.hasHandin ?? true;
   const client = task.clientId
     ? (data.labels.find((label) => label.id === task.clientId) ?? null)
     : null;
@@ -229,7 +231,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       names={names}
       approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
       primaryName={name(task.primaryOwnerId)}
-      doneExtra={<HandinDoneLineLazy taskId={task.id} />}
+      doneExtra={hasHandin ? <HandinDoneLineLazy taskId={task.id} /> : undefined}
     />
   );
 
@@ -237,9 +239,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const files = (
     // Its skeleton only when a version was handed in (the card then always shows); otherwise the
     // card may stay empty, so it streams in below the stages with no placeholder to jump.
-    <Suspense key="files" fallback={data.submissions.length > 0 ? <HandinCardSkeleton /> : null}>
+    <Suspense
+      key="files"
+      fallback={hasHandin && data.submissions.length > 0 ? <HandinCardSkeleton /> : null}
+    >
       <HandinFiles
         taskId={task.id}
+        hasHandin={hasHandin}
         names={names}
         viewerId={viewer.id}
         viewerMarksDone={actions.done !== null || task.primaryOwnerId === viewer.id}

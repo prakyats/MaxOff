@@ -56,6 +56,7 @@ const NORMAL: TaskType = {
   kind: "normal",
   hasLocation: false,
   showsOnCalendar: false,
+  hasHandin: true,
   archived: false,
   defaultReminders: TYPE,
   color: null,

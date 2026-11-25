@@ -531,7 +531,15 @@ list_items           id, org_id, list_key ('job_title'|...), name, description, 
                      -- it without expenses.decide, although Admins hold lists.manage
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
-                     is_system, archived_at, created_at, updated_at
+                     is_system, archived_at, created_at, updated_at,
+                     has_handin bool not null default true
+                     -- has_handin (v5.0 "Has hand-in", owner 25 Nov 2026; migration
+                     -- v50_task_type_has_handin, pgTAP 152): its tasks take hand-in files (the Files
+                     -- card, handin_file_start; app.task_type_has_handin). Every kind; on for every
+                     -- existing type and by default for new ones; the Owner turns it off in Settings ->
+                     -- Task types (settings.manage: the existing policy and owner guard; an API UPDATE
+                     -- column grant). Off: no file is taken (INVALID_STATE) and the card shows only a
+                     -- version that already holds files. Mark done never needs a file.
                      -- color (6.4b, kickoff 6 decision 25; migration task_type_colors, pgTAP 66): the
                      -- type's calendar colour, lower-case #rrggbb from the curated palette (blue #2563eb,
                      -- indigo #4f46e5, violet #7c3aed, purple #9333ea, magenta #c026d3, teal #0d9488,

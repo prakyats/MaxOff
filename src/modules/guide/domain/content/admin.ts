@@ -446,7 +446,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'When a task is marked done with files, its page shows them under "Files": the version (v1, v2…), who handed it in, when, and each file\'s name and size. Approvals says it too ("v2 · 14 files").',
+              text: 'When a task is marked done with files, its page shows them under "Files": the version (v1, v2…), who handed it in, when, and each file\'s name and size. Approvals says it too ("v2 · 14 files"). Task types the Owner set to have no hand-in (meetings or calls, for example) show no Files section.',
             },
             {
               kind: "steps",

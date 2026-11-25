@@ -37,6 +37,8 @@ export type TaskType = {
   hasLocation: boolean;
   /** Its event tasks sit on the calendar at their date and time (6.4, Kickoff 6 decision 14). */
   showsOnCalendar: boolean;
+  /** Its tasks take hand-in files (v5.0 "Has hand-in"; the Owner's setting, default on). */
+  hasHandin: boolean;
   archived: boolean;
   /** The type's default reminders (5.3); `[]` = the organisation's. */
   defaultReminders: ReminderRule[];

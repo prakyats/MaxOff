@@ -673,7 +673,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "An open task has a \"Files\" section. Files you add go straight into the studio's Google Drive, into the task's folder, at full quality. MaxOff keeps no copy and never changes them.",
+              text: "An open task has a \"Files\" section, unless its type has nothing to hand in (a meeting or a call, for example). Files you add go straight into the studio's Google Drive, into the task's folder, at full quality. MaxOff keeps no copy and never changes them.",
             },
             {
               kind: "steps",

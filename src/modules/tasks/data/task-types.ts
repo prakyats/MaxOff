@@ -23,7 +23,7 @@ export async function listTaskTypeSettings(): Promise<TaskTypeSetting[]> {
   const { data, error } = await supabase
     .from("task_types")
     .select(
-      "id, name, kind, shows_on_calendar, has_location, archived_at, position, default_reminders, color",
+      "id, name, kind, shows_on_calendar, has_location, has_handin, archived_at, position, default_reminders, color",
     )
     .order("position", { ascending: true });
   if (error) throw error;
@@ -33,6 +33,7 @@ export async function listTaskTypeSettings(): Promise<TaskTypeSetting[]> {
     kind: row.kind,
     showsOnCalendar: row.shows_on_calendar,
     hasLocation: row.has_location,
+    hasHandin: row.has_handin,
     archivedAt: row.archived_at,
     position: row.position,
     defaultReminders: parseReminderRules(row.default_reminders),
@@ -55,6 +56,7 @@ export async function insertTaskType(values: {
   kind: TaskTypeKind;
   showsOnCalendar: boolean;
   hasLocation: boolean;
+  hasHandin: boolean;
   color: string;
   defaultReminders: ReminderRule[];
 }): Promise<string> {
@@ -73,6 +75,7 @@ export async function insertTaskType(values: {
       kind: values.kind,
       shows_on_calendar: values.showsOnCalendar,
       has_location: values.hasLocation,
+      has_handin: values.hasHandin,
       color: values.color,
       default_reminders: values.defaultReminders as unknown as Json,
       position: nextPosition(last?.position ?? null),
@@ -89,6 +92,7 @@ export async function updateTaskType(
     name: string;
     showsOnCalendar: boolean;
     hasLocation: boolean;
+    hasHandin: boolean;
     color: string;
     defaultReminders: ReminderRule[];
   },
@@ -101,6 +105,7 @@ export async function updateTaskType(
         name: values.name,
         shows_on_calendar: values.showsOnCalendar,
         has_location: values.hasLocation,
+        has_handin: values.hasHandin,
         color: values.color,
         default_reminders: values.defaultReminders as unknown as Json,
       },

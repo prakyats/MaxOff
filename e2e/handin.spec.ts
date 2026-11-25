@@ -8,7 +8,9 @@ import {
   expectNoHorizontalScroll,
   hydrated,
   memberIdOf,
+  removeTaskTypesNamed,
   removeTasksTitled,
+  rowAction,
   rpcAs,
   runInstalled,
   serviceDelete,
@@ -181,6 +183,75 @@ test.describe("the Crew primary", () => {
     await expect(card(page).locator('[data-slot="handin-add"]')).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Mark done" }).first()).toBeVisible();
     await driveRow("connected");
+  });
+});
+
+test.describe("Has hand-in, the Owner's per-type setting", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("turned off in Settings → Task types, its tasks show no Files card and still mark done", async ({
+    page,
+    browser,
+  }, info) => {
+    // v5.0 "Has hand-in" (owner 25 Nov 2026): on for every type to start with; the Owner turns it
+    // off for a type with nothing to hand in.
+    await driveRow("connected");
+    await removeTasksTitled(prefixOf(info));
+    const typeName = `${prefixOf(info)}Call`;
+    await removeTaskTypesNamed(typeName);
+    await serviceInsert("task_types", {
+      org_id: await orgId(),
+      name: typeName,
+      kind: "normal",
+      position: "z9",
+    });
+    const [created] = await serviceSelect<{ id: string; has_handin: boolean }>(
+      `task_types?name=eq.${encodeURIComponent(typeName)}&select=id,has_handin`,
+    );
+    expect(created?.has_handin).toBe(true);
+
+    await page.goto("/settings/task-types");
+    await hydrated(page);
+    const row = page.locator('[data-slot="task-type"]', { hasText: typeName });
+    // On a phone a Settings row's Edit sits in its ⋯ sheet (V2, P2).
+    await rowAction(page, row, typeName, "Edit");
+    const edit = page.getByRole("dialog", { name: `Edit ${typeName}` });
+    const box = edit.getByRole("checkbox", { name: "Has hand-in" });
+    await expect(box).toBeChecked();
+    await box.click();
+    await edit.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Task type saved")).toBeVisible();
+    await expect(row).toContainText("Normal · no hand-in");
+
+    const staffId = await memberIdOf(staff.email);
+    const taskId = await rpcAs<string>(owner.email, owner.password, "task_create", {
+      title: `${prefixOf(info)}weekly call`,
+      description: null,
+      task_type_id: created?.id,
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(addISTDays(todayIST(), 3), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+    });
+    await started(taskId);
+    const crew = await browser.newContext({ storageState: storageStateFor("staff") });
+    try {
+      const crewPage = await crew.newPage();
+      await crewPage.goto(`/tasks/${taskId}`);
+      await taskReady(crewPage);
+      await expect(crewPage.getByRole("button", { name: "Mark done" }).first()).toBeVisible();
+      await expect(card(crewPage)).toHaveCount(0);
+      await crewPage.getByRole("button", { name: "Mark done" }).first().click();
+      const done = crewPage.getByRole("dialog", { name: "Mark done" });
+      await expect(done).toBeVisible();
+      await expect(done.locator('[data-slot="handin-done-line"]')).toHaveCount(0);
+    } finally {
+      await crew.close();
+      await removeTasksTitled(prefixOf(info));
+      await removeTaskTypesNamed(typeName);
+    }
   });
 });
 

@@ -252,6 +252,8 @@ function TaskTypeDialog({
   const [kind, setKind] = useState<TaskTypeKind>(type?.kind ?? "normal");
   const [showsOnCalendar, setShowsOnCalendar] = useState(type?.showsOnCalendar ?? true);
   const [hasLocation, setHasLocation] = useState(type?.hasLocation ?? false);
+  // v5.0 "Has hand-in" (owner 25 Nov 2026): every kind, on unless the Owner turns it off.
+  const [hasHandin, setHasHandin] = useState(type?.hasHandin ?? true);
   const [color, setColor] = useState<TaskTypeColor>(type?.color ?? DEFAULT_TASK_TYPE_COLOR);
   const colorName = useId();
   const [reminders, setReminders] = useState<ReminderDraft>(() =>
@@ -270,6 +272,7 @@ function TaskTypeDialog({
       const values = {
         showsOnCalendar: kind === "event" && showsOnCalendar,
         hasLocation: kind === "event" && hasLocation,
+        hasHandin,
         color,
         defaultReminders,
       };
@@ -373,6 +376,20 @@ function TaskTypeDialog({
               </Label>
             </div>
           ) : null}
+          <div className="flex flex-col gap-1" data-slot="task-type-handin">
+            <Label className="flex min-h-11 items-center gap-3">
+              <Checkbox
+                checked={hasHandin}
+                onCheckedChange={(next) => setHasHandin(next === true)}
+              />
+              <span>Has hand-in</span>
+            </Label>
+            <span className="text-muted-foreground text-xs">
+              Its tasks show the Hand-in card, where the person doing it adds photos and videos to
+              Google Drive. Files are never required to mark a task done. Turn it off for meetings,
+              calls and site visits.
+            </span>
+          </div>
           <fieldset className="flex min-w-0 flex-col gap-2" data-slot="task-type-colors">
             <legend className="mb-1.5 text-sm font-medium">Colour on the calendar</legend>
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">

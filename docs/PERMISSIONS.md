@@ -153,6 +153,7 @@
 | Signed out (`anon`) | no EXECUTE | — | no EXECUTE | no EXECUTE | — |
 | The Worker (`service_role`) | — | — | folders, sessions, done, the Drive check | — | — |
 
+- **"Has hand-in"** (`task_types.has_handin`, owner 25 Nov 2026): set by the Owner only, like every task-type field (`settings.manage`; an Admin's or Crew update changes no row). Off, nobody adds a file to that type's tasks (`handin_file_start` INVALID_STATE, `can_add` false); pgTAP 152.
 - Only the service role marks a file done, failed by Google's answer, or Removed in Drive; no member can.
 - Invariant 4 holds: the list names files only. Money is untouched. Crew never get studio Drive access (ADR-0010).
 - pgTAP 150: each row above, allowed and denied.

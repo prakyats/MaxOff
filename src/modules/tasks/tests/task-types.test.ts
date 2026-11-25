@@ -19,6 +19,7 @@ function type(overrides: Partial<TaskTypeSetting>): TaskTypeSetting {
     kind: "normal",
     showsOnCalendar: false,
     hasLocation: false,
+    hasHandin: true,
     archivedAt: null,
     position: "a0",
     defaultReminders: [],
@@ -35,6 +36,8 @@ describe("Settings → Task types (4C)", () => {
       "Event · on the calendar · asks for a location",
     );
     expect(taskTypeLine(type({ kind: "event" }))).toBe("Event · not on the calendar");
+    // v5.0 "Has hand-in": said only when off.
+    expect(taskTypeLine(type({ hasHandin: false }))).toBe("Normal · no hand-in");
   });
 
   it("keeps the last active type", () => {
@@ -68,6 +71,7 @@ describe("Settings → Task types (4C)", () => {
       kind: "normal",
       showsOnCalendar: false,
       hasLocation: false,
+      hasHandin: true,
       color: "#2563eb",
       defaultReminders: [],
     });
@@ -78,9 +82,21 @@ describe("Settings → Task types (4C)", () => {
       kind: "event",
       showsOnCalendar: true,
       hasLocation: false,
+      hasHandin: true,
       color: "#2563eb",
       defaultReminders: [],
     });
+    // v5.0 "Has hand-in": on unless turned off, for every kind; an edit must say which.
+    expect(
+      addTaskTypeSchema.parse({ name: "Call", kind: "normal", hasHandin: false }).hasHandin,
+    ).toBe(false);
+    expect(
+      editTaskTypeSchema.safeParse({
+        taskTypeId: "00000000-0000-4000-8000-000000000001",
+        name: "Call",
+        defaultReminders: [],
+      }).success,
+    ).toBe(false);
     expect(addTaskTypeSchema.safeParse({ name: "", kind: "normal" }).success).toBe(false);
     expect(addTaskTypeSchema.safeParse({ name: "x", kind: "project" }).success).toBe(false);
   });
@@ -89,6 +105,7 @@ describe("Settings → Task types (4C)", () => {
     const edit = {
       taskTypeId: "00000000-0000-4000-8000-000000000001",
       name: "Shoot",
+      hasHandin: true,
       defaultReminders: [],
     };
     expect(editTaskTypeSchema.parse({ ...edit, color: "#7C3AED" }).color).toBe("#7c3aed");
@@ -117,6 +134,7 @@ describe("Settings → Task types (4C)", () => {
       taskTypeId: "00000000-0000-4000-8000-000000000001",
       name: "Shoot",
       kind: "normal",
+      hasHandin: true,
       defaultReminders: [{ before: 6, unit: "hours" }],
     });
     expect(parsed).not.toHaveProperty("kind");
@@ -124,7 +142,11 @@ describe("Settings → Task types (4C)", () => {
   });
 
   it("checks a type's default reminders as every level's (5.3)", () => {
-    const edit = { taskTypeId: "00000000-0000-4000-8000-000000000001", name: "Shoot" };
+    const edit = {
+      taskTypeId: "00000000-0000-4000-8000-000000000001",
+      name: "Shoot",
+      hasHandin: true,
+    };
     expect(editTaskTypeSchema.safeParse({ ...edit, defaultReminders: [] }).success).toBe(true);
     expect(
       editTaskTypeSchema.safeParse({

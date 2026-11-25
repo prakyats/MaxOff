@@ -343,6 +343,9 @@ const taskTypeSwitches = {
   hasLocation: z.boolean().default(false),
 };
 
+/** Its tasks take hand-in files (v5.0 "Has hand-in", owner 25 Nov 2026): every kind, default on. */
+const taskTypeHasHandin = z.boolean().default(true);
+
 /** The type's calendar colour (Kickoff 6 decision 25): one of the palette, never red. */
 const taskTypeColorSchema = z
   .string()
@@ -359,6 +362,7 @@ export const addTaskTypeSchema = z
       error: "Choose what kind of task it is.",
     }),
     ...taskTypeSwitches,
+    hasHandin: taskTypeHasHandin,
     color: taskTypeColorSchema,
     /** Its tasks' default reminders (5.3); `[]` = the organisation's. */
     defaultReminders: reminderRulesSchema.default([]),
@@ -373,6 +377,7 @@ export const editTaskTypeSchema = z.object({
   taskTypeId: z.uuid(),
   name: taskTypeName,
   ...taskTypeSwitches,
+  hasHandin: z.boolean(),
   color: taskTypeColorSchema,
   defaultReminders: reminderRulesSchema,
 });

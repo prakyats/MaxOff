@@ -256,6 +256,15 @@
   - **Autopilot (advisor, 25 Nov, #89 7162359369 and 7162602164; the owner may reverse any):**
     - Q1–Q6 went with the recommendations: everyone on the task adds files; files are optional; Leave out; any type and size; Request changes takes a reason only; Drive links go to the Owner and the task's three Admins only;
     - the sample `docs/design/v50-hand-in-sample.html` is approved as drawn. Any change is made at the owner's walk.
+  - **"Has hand-in" (owner 25 Nov 2026, option b; default ON): built.**
+    - Migration `20261125140522_v50_task_type_has_handin`: `task_types.has_handin` default true (every existing type on), a column grant, `app.task_type_has_handin`, and `handin_can_add` / `handin_file_start` re-created with the type check (`20261125131800` is pushed, so it is never edited).
+    - pgTAP 152 (16): default and backfill, the Owner changes it, an Admin and Crew can't, off means no file and `can_add` false, on again takes files, Mark done with no file.
+    - Settings → Task types: a "Has hand-in" checkbox for every kind, with copy; a type that is off says "no hand-in" on its row.
+    - The task page hides the Files card (unless a version already holds files) and Mark done's files line when the type is off.
+    - Guide: Owner (Task types, the files topic), Admin, Crew.
+    - Playwright `handin.spec.ts` "Has hand-in…" at 1280, 375 and 430.
+    - `guide:screenshots` waits for READY.
+  - **Staging cleanup of the old `20261125122018`:** a one-off dispatch job on phase-v50 (b02d70f, `scripts/staging/v50-122018-*.sql`). The rehearsal passes (#89). The first dry run was cancelled by the shared `deploy-staging` queue; it waits for a slot from the advisor, then runs dry run → real run → staging-migrations, and the job is removed after. **Rule (advisor):** a pushed migration is never renamed, re-timestamped or edited.
   - **Shared plumbing (advisor, 25 Nov):** v4.5's integrator owns `core/drive/resumable.ts`, `core/drive/upload-session.ts` and `core/upload` (`createUploadEngine`, `Md5`; #89 7162679961). v5.0 codes against them.
     - **Done (merge of `phase-v45` 751f1ce):** the stand-ins are gone; the hand-in uses his `createUploadEngine`, `openUploadSession`, `driveFileFacts`, `finishedFileProblem` and `ensureSubfolders`.
     - **Done (merge of `phase-v45` 4cbd176, his migrations `upload_links` / `upload_links_public`):** `v50_handin_files` re-timestamped to `20261125131800` (after `20261125122610`); `task_submit_done` keeps his stop-link lines; v5.0's own `app.upload_manager` dropped (his has the same rule); pgTAP 40 / 49 count his eight kinds and `handin_space_held` (80). The folder depth is aligned: 8 levels everywhere (his `cleanRelativePath`, v5.0's domain and `app.handin_clean_path`; advisor, 25 Nov). The speed probe and `guide:screenshots` run once, at READY, after his migration is merged in (advisor).

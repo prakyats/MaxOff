@@ -47,6 +47,11 @@ export type HandinViewProps = {
   primaryName: string;
   /** The reason of the latest send-back, shown above the open version (sample §7). */
   changeReason: { by: string; reason: string } | null;
+  /**
+   * The task's type takes a hand-in (v5.0 "Has hand-in"). Off: the card shows only when a version
+   * already holds files (added before the Owner turned it off), never "Handed in with a note only".
+   */
+  hasHandin: boolean;
 };
 
 function nameOf(names: Record<string, string>, id: string | null): string {
@@ -76,6 +81,7 @@ export function HandinView(props: HandinViewProps) {
   const mayAddNow = read.taskOpen && read.canAdd;
   const driveOff = mayAddNow && read.drive !== "connected";
   if (!open && handedIn.length === 0 && !mayAddNow) return null;
+  if (!props.hasHandin && !read.versions.some((version) => version.files.length > 0)) return null;
 
   const latest = handedIn[0] ?? null;
   const older = handedIn.slice(1);

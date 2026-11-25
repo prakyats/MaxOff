@@ -4450,6 +4450,7 @@ export type Database = {
           color: string | null;
           created_at: string;
           default_reminders: Json;
+          has_handin: boolean;
           has_location: boolean;
           icon: string | null;
           id: string;
@@ -4466,6 +4467,7 @@ export type Database = {
           color?: string | null;
           created_at?: string;
           default_reminders?: Json;
+          has_handin?: boolean;
           has_location?: boolean;
           icon?: string | null;
           id?: string;
@@ -4482,6 +4484,7 @@ export type Database = {
           color?: string | null;
           created_at?: string;
           default_reminders?: Json;
+          has_handin?: boolean;
           has_location?: boolean;
           icon?: string | null;
           id?: string;

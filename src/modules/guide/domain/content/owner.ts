@@ -512,7 +512,7 @@ export const OWNER_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'When a task is marked done with files, its page shows them under "Files": the version (v1, v2…), who handed it in, when, and each file\'s name and size. Approvals says it too ("v2 · 14 files").',
+              text: 'When a task is marked done with files, its page shows them under "Files" (only for task types with "Has hand-in" on, which you set in Settings → Task types): the version (v1, v2…), who handed it in, when, and each file\'s name and size. Approvals says it too ("v2 · 14 files").',
             },
             {
               kind: "steps",
@@ -2005,9 +2005,12 @@ export const OWNER_GUIDE: Guide = {
             text(
               "Only you can change task types. They set the list in New task, and event types ask for a date, a location and a purpose.",
             ),
+            text(
+              '"Has hand-in" is on for every type to start with: its tasks show the Files section, where the person doing it adds photos and videos to the studio\'s Drive. Open a type that never has anything to hand in, such as a meeting, a call or a site visit, untick "Has hand-in" and Save. Its tasks then show no Files section, and its row says "no hand-in". Files are never required to mark a task done.',
+            ),
           ],
           link: { href: "/settings/task-types", label: "Open Task types" },
-          keywords: ["task type", "event", "types"],
+          keywords: ["task type", "event", "types", "hand-in", "files"],
         },
         {
           id: "owner-job-titles",
