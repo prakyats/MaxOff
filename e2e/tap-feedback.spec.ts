@@ -200,6 +200,28 @@ test.describe("the pressed state", () => {
   });
 });
 
+test.describe("the pressed state while the screen arrives", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("a button pressed while the list is still arriving shows it within 300 ms", async ({
+    page,
+  }) => {
+    // The arrival case kept honest (the advisor, 25 Nov 2026): the check above presses on the
+    // settled screen; here the press lands straight after `hydrated`, while /people's list is
+    // still streaming in and being laid out (one 60–120 ms task at 1x, a Chrome trace of CI's
+    // 187 ms). The pressed state then waits for that task, so it is held to the app's tap cap
+    // (ARCHITECTURE §14.1: tap → skeleton ≤ 300 ms), not to 100 ms.
+    await page.goto("/people");
+    await hydrated(page);
+    const button = page
+      .getByRole("button", { name: "Add person", exact: true })
+      .filter({ visible: true });
+    const pressed = await pressedLook(page, button);
+    expect(pressed.tint, "the neutral tint").toContain("gradient");
+    expect(pressed.elapsed).toBeLessThan(300);
+  });
+});
+
 test.describe("navigation shows it is on its way", () => {
   test.use({ storageState: storageStateFor("owner") });
 
