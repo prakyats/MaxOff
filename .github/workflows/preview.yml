@@ -734,7 +734,10 @@ jobs:
           kill "$server_pid" 2>/dev/null || true
           echo "server log lines: $(wc -l <"$RUNNER_TEMP/server.log")"
           # Next prints a failed server render as "⨯ <error>" followed by its stack and digest.
-          grep -n -A24 -E '⨯|Error:|digest' "$RUNNER_TEMP/server.log" | cut -c1-400 | head -150 | tee "$RUNNER_TEMP/errors.txt"
+          # No match is the good outcome: grep exits 1 then, which must not fail the step.
+          grep -n -A24 -E '⨯|Error:|digest' "$RUNNER_TEMP/server.log" | cut -c1-400 | head -150 >"$RUNNER_TEMP/errors.txt" || true
+          [ -s "$RUNNER_TEMP/errors.txt" ] || echo "No server errors." >"$RUNNER_TEMP/errors.txt"
+          cat "$RUNNER_TEMP/errors.txt"
           { echo "### Server errors while the staging Owner read this branch, built on the runner"; echo; echo '```'; head -150 "$RUNNER_TEMP/errors.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
 
   # Perf probe (unit P, 2026-10-15; ARCHITECTURE §19 "Measuring the Worker"). By hand only:
