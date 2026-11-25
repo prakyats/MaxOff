@@ -731,8 +731,10 @@ jobs:
       (inputs.job == 'load-test' || inputs.job == 'load-test-people' || inputs.job == 'load-test-people-off')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Its own queue, never perf-probe's: a pending run in a shared group cancels the one waiting
+    # before it (the advisor hands out probe slots). Never run beside a probe (runbook).
     concurrency:
-      group: perf-probe
+      group: rush-test
       cancel-in-progress: false
     environment:
       name: staging

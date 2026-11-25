@@ -35,8 +35,8 @@ Any compute upgrade the result suggests is the owner's cost decision, made with 
 
 1. Announce the run on the release issue, with the time.
 2. **Before 22:00 IST:** run `load-test-people` to make or reactivate the people.
-3. **After 22:00 IST**, Monday to Saturday and never while a speed probe is running (both jobs share
-   one queue): run `load-test`.
+3. **After 22:00 IST**, Monday to Saturday and never while a speed probe is queued or running (check
+   the Preview runs first; probe slots are the advisor's): run `load-test`.
    - It signs the 20 people in slowly first, one every 11 s, to stay inside GoTrue's limit of 30 sign-ins
      per 5 minutes per address. That takes about 4 minutes.
    - Then the 20 Start days are spread over 60 s.
