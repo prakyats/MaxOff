@@ -1,7 +1,8 @@
 import { ChevronRightIcon, PalmtreeIcon } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 
+import { getCurrentMember } from "@/core/auth/server";
 import { cn } from "@/core/lib/utils";
 import { addISTDays, formatTime, systemClock } from "@/core/time";
 
@@ -12,6 +13,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { getOwnToday } from "../data/attendance";
 import { getEarlyLeaveWait, getOwnHours } from "../data/hours";
 import { getNoteDays, hasOvertimeNote } from "../data/notes";
+import { getOwnStayPlanToday } from "../data/stay-plans";
+import { stayPlanStripLine } from "../domain/stay-plans";
 import {
   type HoursStrip,
   hoursStrip,
@@ -120,6 +123,14 @@ export async function TodayAttendanceStrip({
         </div>
       ) : null}
       <HoursRow facts={facts} hours={hours} workDate={today.workDate} />
+      {strip.action?.kind === "start" && hours?.rulesOn && hours.half !== "afternoon" ? (
+        // v7.0 (sample screen 6): a Stay until the Owner set ahead for today, before the day
+        // starts (once started, the end line says it). Read only on a day not yet started, and
+        // streamed after the strip: it never holds My Day or Today (ARCHITECTURE §19).
+        <Suspense fallback={null}>
+          <StayPlanLine />
+        </Suspense>
+      ) : null}
       {facts.refreshAt ? <RefreshAt at={facts.refreshAt} /> : null}
     </div>
   );
@@ -257,6 +268,21 @@ function HoursRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** "Stay until 8:00 pm today (set by Prishit)" (v7.0, sample screen 6), or nothing. */
+async function StayPlanLine() {
+  const member = await getCurrentMember();
+  const plan = member ? await getOwnStayPlanToday(member.id).catch(() => null) : null;
+  if (!plan) return null;
+  return (
+    <p
+      data-slot="attendance-stay-plan"
+      className="text-muted-foreground basis-full px-3 pb-2.5 text-sm"
+    >
+      {stayPlanStripLine(plan.until, plan.setBy)}
+    </p>
   );
 }
 

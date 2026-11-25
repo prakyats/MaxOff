@@ -125,7 +125,7 @@ export async function rpcChooseLeaveToday(
 }
 
 const HISTORY_COLUMNS =
-  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, late_minutes, late_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at), early:early_leave_requests(state, requested_at)";
+  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, late_minutes, late_reason, late_cleared_at, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at), early:early_leave_requests(state, requested_at)";
 
 /** v1.9 W4: the early leave a day shows, its latest request that ended it (or was answered). */
 function earlyLeaveOf(
@@ -176,6 +176,7 @@ export async function listDays(memberId: string, month: Month): Promise<HistoryD
     overtimeReason: row.overtime_reason,
     lateMinutes: row.late_minutes,
     lateReason: row.late_reason,
+    lateCleared: row.late_cleared_at !== null,
     earlyLeave: earlyLeaveOf(row.early),
     events: row.events.flatMap((event) =>
       isEventAction(event.action)

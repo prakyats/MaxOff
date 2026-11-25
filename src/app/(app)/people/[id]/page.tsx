@@ -5,9 +5,17 @@ import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
-import { formatIST, todayIST } from "@/core/time";
+import { formatIST, formatWallTime, todayIST } from "@/core/time";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
-import { getMonthSummary, monthLabel, monthOf } from "@/modules/attendance";
+import {
+  getMonthSummary,
+  listStayPlans,
+  monthLabel,
+  monthOf,
+  planDay,
+  planLine,
+} from "@/modules/attendance";
+import { StayPlansCard } from "@/modules/attendance/components/stay-plans-card";
 import { getCompBalance } from "@/modules/leave";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
@@ -64,8 +72,10 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   // `cache()`d) while the person's reads run; used only for someone with attendance.
   const month = monthOf(todayIST());
   const owner = can((await requirePermission("team.view")).role, "attendance.view_all");
+  // v7.0: the Stay until set ahead for them ("Stay until, coming up"), the Owner's, read with
+  // the summary: after the first wave, never a seventh read in it (ARCHITECTURE §19).
   const summaryRead = owner
-    ? Promise.all([getMonthSummary(month, id), getCompBalance(id)])
+    ? Promise.all([getMonthSummary(month, id), getCompBalance(id), listStayPlans(id)])
     : Promise.resolve(null);
   startEarly(summaryRead);
   const [{ viewer, person }, [titles, spells, directory]] = await checkThenRead(
@@ -91,6 +101,23 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
           leave={monthRow?.leaveDays ?? 0}
           compLeft={summary[1].availableDays}
           monthName={monthLabel(month).split(" ")[0] ?? "This month"}
+        />
+      ) : null}
+      {summary && person.status === "active" && can(viewer.role, "attendance.decide") ? (
+        <StayPlansCard
+          memberId={person.id}
+          name={displayName(person.fullName)}
+          workEnd={summary[2].workEnd}
+          workEndWords={formatWallTime(summary[2].workEnd)}
+          today={todayIST()}
+          plans={summary[2].plans.map((plan) => ({
+            id: plan.id,
+            workDate: plan.workDate,
+            line: planLine(plan, todayIST()),
+            day: planDay(plan.workDate),
+            until: formatIST(plan.until, "HH:mm"),
+            onLeave: plan.onLeave,
+          }))}
         />
       ) : null}
       {/* PP-person-2: one details card, its facts in the shared field grid (a cell each, a small

@@ -24,14 +24,17 @@ import type { DURATION_OPTIONS } from "../domain/notes";
 import { LateSheetLazy } from "./hours-sheets-lazy";
 
 /**
- * The offline try's store (`offline-tries.ts`), loaded only when a tap needs it: My Day's first
- * load carries none of it (ARCHITECTURE §19). Safe in a private window.
+ * The offline try's store and its note (`offline-try-note.ts`), loaded only when a tap needs it:
+ * My Day's first load carries none of it (ARCHITECTURE §19). Safe in a private window.
  */
-const offlineTries = () =>
-  import("../domain/offline-tries").then((module) => ({
-    ...module,
-    storage: module.safeStorage(() => window.localStorage),
-  }));
+const offlineTries = () => import("./offline-try-note");
+
+/** After a Start that landed: today's try with no network goes to the day as a note (v7.0). */
+function sendStoredTry(): void {
+  void offlineTries()
+    .then((module) => module.sendStoredTry())
+    .catch(() => undefined);
+}
 
 /**
  * The overtime fields (a select and a note) load when "Worked late? Add an overtime note" is
@@ -79,7 +82,11 @@ export function StartDayButton({
   late?: LateRule | null;
 }) {
   const router = useRouter();
-  const [lateMinutes, setLateMinutes] = useState<number | null>(null);
+  // The late sheet, when open: the minutes late, and today's try with no network (v7.0) when the
+  // phone remembers one, so the reason starts from it ("From your phone").
+  const [lateSheet, setLateSheet] = useState<{ minutes: number; phoneTry: string | null } | null>(
+    null,
+  );
   // v7.0 unit 2 (owner Q1): a tap with no network sends nothing and says so; the first such try
   // of the day is remembered on the phone (`offline-tries.ts`), a note beside the server's time.
   const [noNetwork, setNoNetwork] = useState(false);
@@ -87,9 +94,7 @@ export function StartDayButton({
   // (ARCHITECTURE §14.1): the tap is the start, so it must never be sent twice.
   const action = useAction(async () => {
     const result = await startDay();
-    if (result.ok) {
-      void offlineTries().then(({ clearOfflineTry, storage }) => clearOfflineTry(storage));
-    }
+    if (result.ok) sendStoredTry();
     if (!toastResult(result, { success: "Your day has started" })) {
       // Refused ("Your day has already started": another device, or a prompt left open):
       // re-read today, so a prompt or strip that no longer applies goes away.
@@ -115,16 +120,24 @@ export function StartDayButton({
         onClick={() => {
           if (!navigator.onLine) {
             const at = systemClock();
-            void offlineTries().then(({ recordOfflineTry, storage }) =>
-              recordOfflineTry(storage, at),
-            );
+            void offlineTries()
+              .then(({ rememberTry }) => rememberTry(at))
+              .catch(() => undefined);
             setNoNetwork(true);
             return;
           }
           setNoNetwork(false);
           const minutes = lateMinutesAt(late, systemClock());
-          if (minutes === null) action.run();
-          else setLateMinutes(minutes);
+          if (minutes === null) {
+            action.run();
+            return;
+          }
+          // The sheet opens with the phone's try when there is one; a store that cannot load
+          // opens it without (the reason is optional, the start never waits on the note).
+          void offlineTries()
+            .then(({ storedTryToday }) => storedTryToday())
+            .catch(() => null)
+            .then((phoneTry) => setLateSheet({ minutes, phoneTry }));
         }}
       >
         {label}
@@ -139,13 +152,15 @@ export function StartDayButton({
       )}
       {late ? (
         <LateSheetLazy
-          open={lateMinutes !== null}
-          onOpenChange={(open) => (open ? null : setLateMinutes(null))}
+          open={lateSheet !== null}
+          onOpenChange={(open) => (open ? null : setLateSheet(null))}
           mode="start"
-          minutes={lateMinutes ?? 0}
+          minutes={lateSheet?.minutes ?? 0}
           suggestion={late.suggestion}
+          phoneTry={lateSheet?.phoneTry ?? null}
           onDone={() => {
-            setLateMinutes(null);
+            setLateSheet(null);
+            sendStoredTry();
             if (onStarted) onStarted();
             else router.refresh();
           }}

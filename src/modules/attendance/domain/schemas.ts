@@ -125,6 +125,32 @@ export const stayUntilSchema = z.object({
 export type StayUntilInput = z.input<typeof stayUntilSchema>;
 
 /**
+ * v7.0: the Owner's "Stay until" for a date, today or later (`attendance_stay_plan_set`): the day
+ * and an IST time on it. The database checks the date, the time after the end time and leave.
+ */
+export const stayPlanSchema = z.object({
+  memberId: z.uuid(),
+  workDate: z.iso.date({ error: "Choose the day." }),
+  until: z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Choose a time, like 8:00 pm."),
+});
+export type StayPlanInput = z.input<typeof stayPlanSchema>;
+
+/** v7.0: "Back to 6:00 pm" for a Stay until set ahead (`attendance_stay_plan_clear`). */
+export const clearStayPlanSchema = z.object({ planId: z.uuid() });
+export type ClearStayPlanInput = z.input<typeof clearStayPlanSchema>;
+
+/** v7.0 (owner Q2): the Owner's Clear Late, or its Undo (`attendance_clear_late`). */
+export const clearLateSchema = z.object({ dayId: z.uuid(), undo: z.boolean().default(false) });
+export type ClearLateInput = z.input<typeof clearLateSchema>;
+
+/** v7.0 (owner Q2): the phone's first try with no network, sent once the Start has landed. */
+export const offlineTrySchema = z.object({ triedAt: z.iso.datetime({ offset: true }) });
+export type OfflineTryInput = z.input<typeof offlineTrySchema>;
+
+/**
  * An extra work note (PRODUCT §4.3a, 3b.2): the day (one of the last 8, the database checks the
  * window), its kind by the calendar, a rough duration for overtime, and what they worked on.
  */

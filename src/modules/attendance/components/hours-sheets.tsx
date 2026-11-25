@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon, SmartphoneIcon } from "lucide-react";
 import { Suspense, use, useEffect, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
@@ -31,6 +31,7 @@ import {
   LATE_SHEET_DESCRIPTION,
   lateSheetTitle,
 } from "../domain/hours";
+import { offlineTryReason } from "../domain/stay-plans";
 
 /**
  * The working-hours sheets (v1.9 W4; the approved sample `docs/design/v19-working-hours-sample.html`
@@ -51,6 +52,7 @@ export function LateSheet({
   mode,
   minutes,
   suggestion,
+  phoneTry = null,
   onDone,
 }: {
   open: boolean;
@@ -59,6 +61,12 @@ export function LateSheet({
   /** Minutes after the start time: worked out when the sheet opened. */
   minutes: number;
   suggestion: string | null;
+  /**
+   * v7.0 (owner Q2, sample screen 2): today's first Start try with no network, by the phone's
+   * clock. The reason then starts from "No network. First tried 9:58 am (phone time)", marked
+   * "From your phone", in place of the calendar's suggestion.
+   */
+  phoneTry?: string | null;
   onDone: () => void;
 }) {
   return (
@@ -69,6 +77,7 @@ export function LateSheet({
             mode={mode}
             minutes={minutes}
             suggestion={suggestion}
+            phoneTry={phoneTry}
             onDone={onDone}
             onCancel={() => onOpenChange(false)}
           />
@@ -82,16 +91,23 @@ function LateForm({
   mode,
   minutes,
   suggestion,
+  phoneTry,
   onDone,
   onCancel,
 }: {
   mode: "start" | "reason";
   minutes: number;
   suggestion: string | null;
+  phoneTry: string | null;
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [reason, setReason] = useState(suggestion ?? "");
+  const prefill = phoneTry
+    ? { text: offlineTryReason(phoneTry), from: "phone" as const }
+    : suggestion
+      ? { text: suggestion, from: "calendar" as const }
+      : null;
+  const [reason, setReason] = useState(prefill?.text ?? "");
   const [error, setError] = useState<ResultError | null>(null);
   const action = useAction(async () => {
     const result =
@@ -127,13 +143,18 @@ function LateForm({
       {summary ? (
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
       ) : null}
-      {suggestion ? (
+      {prefill ? (
         <p
           data-slot="late-suggestion"
+          data-from={prefill.from}
           className="bg-info-soft text-info inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
         >
-          <RotateCcwIcon aria-hidden className="size-3.5" />
-          Suggested from your calendar
+          {prefill.from === "phone" ? (
+            <SmartphoneIcon aria-hidden className="size-3.5" />
+          ) : (
+            <RotateCcwIcon aria-hidden className="size-3.5" />
+          )}
+          {prefill.from === "phone" ? "From your phone" : "Suggested from your calendar"}
         </p>
       ) : null}
       <FormField label="Reason (optional)" error={fieldError}>

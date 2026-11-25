@@ -19,6 +19,9 @@ export const ATTENDANCE_EVENT_ACTIONS = [
   "overtime_flagged",
   "started",
   "ended",
+  // v7.0 (owner Q2): the Owner's Clear Late, and its Undo.
+  "late_cleared",
+  "late_clear_undone",
 ] as const;
 export type AttendanceEventAction = (typeof ATTENDANCE_EVENT_ACTIONS)[number];
 
@@ -58,13 +61,24 @@ export type HistoryDay = {
   /** v1.9 W4: a Late start (minutes after the start time) and its one-line reason. */
   lateMinutes?: number | null;
   lateReason?: string | null;
+  /**
+   * v7.0 (owner Q2): the Owner cleared the Late (Clear Late): the minutes stay recorded, the day
+   * reads "Late · cleared" and the month's Late counts leave it out.
+   */
+  lateCleared?: boolean;
   /** v1.9 W4: how the day's last early-leave request ended, when it is one the day shows. */
   earlyLeave?: "approved" | "left_unanswered" | "corrected" | null;
 };
 
-/** "Late 22 min · “Traffic”": a Late start's flag (v1.9 W4; the screens sample §6). */
-function lateFlag(day: Pick<HistoryDay, "lateMinutes" | "lateReason">): string | null {
+/**
+ * "Late 22 min · “Traffic”": a Late start's flag (v1.9 W4; the screens sample §6). A Late the Owner
+ * cleared reads "Late · cleared" (v7.0, the Clear Late sample screen 3).
+ */
+function lateFlag(
+  day: Pick<HistoryDay, "lateMinutes" | "lateReason" | "lateCleared">,
+): string | null {
   if (day.lateMinutes == null) return null;
+  if (day.lateCleared) return "Late · cleared";
   const minutes =
     day.lateMinutes < 60
       ? `${day.lateMinutes} min`
@@ -280,6 +294,13 @@ export function describeEvent(
         text: `${w.who} flagged overtime`,
         note: event.reason ? `${w.theirNote}: ${event.reason}` : null,
       };
+    case "late_cleared":
+      return {
+        text: `${w.owner} cleared the Late`,
+        note: event.reason ? `${w.ownerReason}: ${event.reason}` : null,
+      };
+    case "late_clear_undone":
+      return { text: `${w.owner} put the Late back`, note: null };
   }
 }
 
