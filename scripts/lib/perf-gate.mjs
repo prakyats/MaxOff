@@ -76,6 +76,11 @@ export const MEMBER_ROUTES = [
   { name: "/clients", path: "/clients", roles: LEADS },
   { name: "/people", path: "/people", roles: LEADS },
   { name: "/reports", path: "/reports", roles: LEADS },
+  // v3.0: the Owner's reports (new: a baseline without them answers 404, so they are judged by
+  // the caps alone until the release is live).
+  { name: "/reports/people", path: "/reports/people", roles: ["owner"] },
+  { name: "/reports/stages", path: "/reports/stages", roles: ["owner"] },
+  { name: "/reports/client-work", path: "/reports/client-work", roles: ["owner"] },
   { name: "/leave", path: "/leave", roles: ["admin", "staff"] },
   { name: "/leave/attendance", path: "/leave/attendance", roles: ["admin", "staff"] },
   { name: "/leave/extra-work", path: "/leave/extra-work", roles: ["admin", "staff"] },
