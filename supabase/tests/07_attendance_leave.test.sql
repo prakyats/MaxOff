@@ -5,6 +5,7 @@
 -- migration: a day is opened by app.attendance_open_day(member, date) (as the system here, the way
 -- attendance_start_day() and the prompt's leave choice call it).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(236);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration

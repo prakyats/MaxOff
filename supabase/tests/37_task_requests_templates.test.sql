@@ -5,6 +5,7 @@
 -- / _convert, WORKFLOWS §3.4), task_type_move (the Owner's order) and task_counts (the badges,
 -- Kickoff 4 decision 16).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(81);
 

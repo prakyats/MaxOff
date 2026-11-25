@@ -1033,6 +1033,16 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **pgTAP across IST midnight (25 Nov 2026, branch `fix-pgtap-midnight`):**
+  - **34's deadlock: fixed.** The v4.5 builder's local run hit `deadlock detected … while deleting tuple in relation "members"` at 18:25–18:30 UTC, while the */5 and 00:00 IST pg_cron jobs fired. The cause is a job writing member-referencing rows while the file deleted members.
+    - The fix: every pgTAP file that deletes members (91) includes `supabase/tests/lib/lock-job-tables.psql`. It takes every table the jobs write, plus `activity_log` and `members`, in EXCLUSIVE mode, all at once with NOWAIT in a savepoint, so it never waits while holding a lock.
+    - `145_job_tables_locked` fails when a job writes a table the list misses.
+    - Proved with a stand-in job session: deadlock before, none after.
+  - **07 test 208: not reproduced.** It failed once at 00:01 IST (18:31 UTC), in a run made without a `db:reset` right after the deadlocked one; the have/want rows were not kept. Why I don't think time is the cause:
+    - 07's dates come from `now()`, which is fixed for its transaction, and no function reads another clock;
+    - 07 passes with `app.now()` pinned at 00:01:30 IST and on the real clock at 01:50 IST, the same IST date;
+    - it now takes the job-table lock too, so a job can't write while it runs.
+    - If it fails again, keep the full `# have / # want` lines.
 
 - **Local `pnpm check` around IST midnight (builder, 25 Nov 2026).** Two pgTAP runs between 18:25 and 18:32 UTC (00:00–00:02 IST) failed, with no SQL changed in the unit:
   - `34` with `deadlock detected … while deleting tuple in relation "members"`, as the midnight-IST jobs (`end_not_recorded`, `cycle_generate`) and the `*/5` jobs fired;

@@ -9,6 +9,7 @@
 -- push_band_census(): the band's 'unconfirmed' people and their active devices, active members only,
 -- read-only, service_role only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(40);
 

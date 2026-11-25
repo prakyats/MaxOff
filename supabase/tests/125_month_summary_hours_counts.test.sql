@@ -7,6 +7,7 @@
 -- or the one asked for; zeros for someone with nothing. The Owner only: Admin and Crew FORBIDDEN, a
 -- deactivated member UNAUTHENTICATED, anon no privilege, no month VALIDATION. Neutral names only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(22);
 
