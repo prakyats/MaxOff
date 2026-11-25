@@ -22,10 +22,10 @@ export default function Loading() {
         help={PEOPLE_DESCRIPTION}
       />
       <PeriodControls period={null} today={todayIST()} base="/reports/people" />
-      <div className="flex min-w-0 flex-col gap-6" data-slot="loading-people-report">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="loading-people-route-sections">
         <div className="flex min-w-0 flex-col gap-2">
           <ReportHeading id="loading-people-title">Tasks by person</ReportHeading>
-          <PeopleSkeleton period={{ kind: "month" }} />
+          <PeopleSkeleton period={{ kind: "month" }} slot="loading-people-route" />
         </div>
         <div className="flex min-w-0 flex-col gap-2">
           <ReportHeading id="loading-delays-title">Late and overdue tasks</ReportHeading>

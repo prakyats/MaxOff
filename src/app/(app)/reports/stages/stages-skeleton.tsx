@@ -5,14 +5,14 @@ import { CARD_GRID_CLASS, ReportHeading, StageCardSkeleton } from "@/modules/rep
  * project" over two project cards (a title, a client line and their rows), in the page's own
  * section and grid classes.
  */
-export function StagesSkeleton() {
+export function StagesSkeleton({
+  slot = "loading-stages-report",
+}: {
+  /** The route's `loading.tsx` passes its own, so the page's streamed fallback is the only one. */
+  slot?: string;
+}) {
   return (
-    <div
-      className="flex min-w-0 flex-col gap-6"
-      role="status"
-      aria-busy="true"
-      data-slot="loading-stages-report"
-    >
+    <div className="flex min-w-0 flex-col gap-6" role="status" aria-busy="true" data-slot={slot}>
       <span className="sr-only">Loading the stage durations</span>
       <div className="flex min-w-0 flex-col gap-2">
         <ReportHeading id="loading-stages-overall">Every project</ReportHeading>

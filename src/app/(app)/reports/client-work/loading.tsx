@@ -20,7 +20,7 @@ export default function Loading() {
         help={CLIENT_WORK_DESCRIPTION}
       />
       <PeriodControls period={null} today={todayIST()} base="/reports/client-work" />
-      <ClientWorkSkeleton />
+      <ClientWorkSkeleton slot="loading-client-work-route" />
     </>
   );
 }

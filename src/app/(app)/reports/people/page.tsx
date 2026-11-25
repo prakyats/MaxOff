@@ -124,7 +124,11 @@ async function PeopleSection({
     })),
   );
   const summaryOf = new Map((summaries ?? []).map((summary) => [summary.memberId, summary]));
-  const nobody = ENGAGEMENTS.every((engagement) => active[engagement].length === 0);
+  // Nobody at all (no active member, no facts): the quiet line alone. Otherwise every block shows,
+  // its cards and its quiet line, so the employees' label is always where the skeleton drew it.
+  const nobody = ENGAGEMENTS.every(
+    (engagement) => active[engagement].length === 0 && quiet[engagement].length === 0,
+  );
   if (nobody) {
     return (
       <p className="text-muted-foreground text-sm" data-slot="people-empty">

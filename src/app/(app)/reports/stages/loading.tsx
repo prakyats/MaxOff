@@ -20,7 +20,7 @@ export default function Loading() {
         help={STAGES_DESCRIPTION}
       />
       <PeriodControls period={null} today={todayIST()} base="/reports/stages" />
-      <StagesSkeleton />
+      <StagesSkeleton slot="loading-stages-route" />
     </>
   );
 }

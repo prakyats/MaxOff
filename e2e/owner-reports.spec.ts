@@ -71,8 +71,8 @@ test.describe("the Owner's reports", () => {
   test("a custom range keeps its own report's address", async ({ page }) => {
     await page.goto("/reports/stages?from=2026-10-01&to=2026-10-31");
     await expect(page.locator('[data-slot="custom-range"]')).toBeVisible();
-    await expect(page.getByLabel("From")).toHaveValue("2026-10-01");
-    await expect(page.getByLabel("To")).toHaveValue("2026-10-31");
+    await expect(page.getByLabel("From", { exact: true })).toHaveValue("2026-10-01");
+    await expect(page.getByLabel("To", { exact: true })).toHaveValue("2026-10-31");
   });
 });
 
