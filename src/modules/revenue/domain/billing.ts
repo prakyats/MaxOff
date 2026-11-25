@@ -40,6 +40,8 @@ export type BillingBasics = {
 export type CycleFigures = {
   cycleId: string;
   label: string | null;
+  /** The IST month the cycle counts in (its first day), for the closed-month line (v3.5 U5). */
+  month: string | null;
   /** This cycle's own amount; null = "No amount set" (a cycle from before the first amount). */
   amount: number | null;
   potential: number;
@@ -79,6 +81,8 @@ export type OneTimeBilling = {
   projectId: string;
   recurrence: "one_time";
   billing: BillingBasics;
+  /** The IST month the project counts in (its first day; null before it has a line), v3.5 U5. */
+  month: string | null;
   /** The delivery date, when the project is working and past it ("Was due 15 Nov"). */
   wasDue: string | null;
   readyToComplete: boolean;
@@ -147,6 +151,7 @@ export function toProjectBilling(value: unknown): ProjectBilling {
       projectId,
       recurrence,
       billing: toBasics(read.billing, recurrence),
+      month: textOrNull(line?.month),
       wasDue: line?.was_due === true ? textOrNull(line.delivery_date) : null,
       readyToComplete: line?.ready_to_complete === true,
       advancesKept: amount(line?.advances_kept),
@@ -173,6 +178,7 @@ export function toProjectBilling(value: unknown): ProjectBilling {
       ? {
           cycleId: text(cycle.cycle_id, "cycle"),
           label: textOrNull(cycle.label),
+          month: textOrNull(cycle.month),
           amount: amountOrNull(cycle.amount),
           potential: amount(cycle.potential),
           achieved: amount(cycle.achieved),
@@ -282,4 +288,21 @@ export function oneTimeStatusExpected(project: {
     project.itemStates.length > 0 &&
     !project.itemStates.some((state) => state === "open" || state === "done")
   );
+}
+
+/**
+ * A money sheet's line for a closed month (decision 10; WORKFLOWS §7.1): "September is closed. Its
+ * report changes only when you correct it." when `date`'s IST month is among `closedMonths` (their
+ * first days), else null. Editing stays allowed: the line only says the saved report does not
+ * follow (v3.5 U5). `date` is any day of the month; null (nothing dated yet) is never closed.
+ */
+export function closedMonthLine(
+  date: string | null,
+  closedMonths: readonly string[],
+): string | null {
+  if (!date || !/^\d{4}-\d{2}/.test(date)) return null;
+  const month = `${date.slice(0, 7)}-01`;
+  if (!closedMonths.includes(month)) return null;
+  const name = formatIST(istDayStart(month), "MMMM");
+  return `${name} is closed. Its report changes only when you correct it.`;
 }

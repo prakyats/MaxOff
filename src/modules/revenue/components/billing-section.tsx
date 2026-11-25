@@ -10,6 +10,7 @@ import {
   amountSheetNote,
   amountText,
   BILLING_CATEGORY_LABELS,
+  closedMonthLine,
   cycleAmountLabel,
   cycleAmountNote,
   longDay,
@@ -53,10 +54,16 @@ import { BillingSheetButton } from "./billing-sheet-button";
 export async function BillingSection({
   read,
   today,
+  closedMonths = null,
 }: {
   read: Promise<ProjectBilling>;
   /** Today in IST (`todayIST()`), for the sheets' dates and the first amount's month. */
   today: string;
+  /**
+   * The closed months' first days (`readClosedMonths`, v3.5 U5), for the sheets' "September is
+   * closed. Its report changes only when you correct it." line. Null: no line.
+   */
+  closedMonths?: Promise<readonly string[]> | null;
 }) {
   let billing: ProjectBilling;
   try {
@@ -65,6 +72,7 @@ export async function BillingSection({
     captureException(error);
     return <BillingError />;
   }
+  const closed = await closedMonthsOf(closedMonths);
   const { category, pricedFrom } = billing.billing;
   const current =
     billing.kind === "one_time" ? billing.billing.fixedAmount : billing.billing.cycleAmount;
@@ -111,17 +119,34 @@ export async function BillingSection({
               label,
               current,
               note: amountSheetNote(billing.recurrence, pricedFrom, today),
+              // A retainer's amount applies from this cycle on (never a closed month); a one-time
+              // project's lands in its own month.
+              closed: billing.kind === "one_time" ? closedMonthLine(billing.month, closed) : null,
             }}
           />
         </div>
         {billing.kind === "retainer" ? (
-          <RetainerRows billing={billing} />
+          <RetainerRows billing={billing} closed={closed} />
         ) : (
-          <OneTimeRows billing={billing} today={today} />
+          <OneTimeRows billing={billing} today={today} closed={closed} />
         )}
       </div>
     </section>
   );
+}
+
+/**
+ * The closed months, or none when the read failed (the line is a reminder, never a gate: the
+ * section and its sheets work without it). Reported once through the scrubber.
+ */
+async function closedMonthsOf(read: Promise<readonly string[]> | null): Promise<readonly string[]> {
+  if (!read) return [];
+  try {
+    return await read;
+  } catch (error) {
+    captureException(error);
+    return [];
+  }
 }
 
 /** The section when its read failed: the heading stays, the card says so and offers a retry. */
@@ -161,10 +186,17 @@ function Figure({ label, value, slot }: { label: string; value: number; slot: st
 }
 
 /** The cycle in view and what was added on top of it. */
-function RetainerRows({ billing }: { billing: RetainerBilling }) {
+function RetainerRows({
+  billing,
+  closed,
+}: {
+  billing: RetainerBilling;
+  closed: readonly string[];
+}) {
   const { cycle, added, recurrence } = billing;
   if (!cycle) return null;
   const period = periodWord(recurrence);
+  const closedLine = closedMonthLine(cycle.month, closed);
   return (
     <>
       <div className={BILLING_FIGURES} data-slot="billing-cycle">
@@ -197,6 +229,7 @@ function RetainerRows({ billing }: { billing: RetainerBilling }) {
               cycleId: cycle.cycleId,
               title: cycleAmountLabel(recurrence),
               note: cycleAmountNote(cycle.label, recurrence),
+              closed: closedLine,
             }}
           />
         </div>
@@ -230,6 +263,7 @@ function RetainerRows({ billing }: { billing: RetainerBilling }) {
                     title: item.title,
                     current: item.price,
                     period,
+                    closed: closedLine,
                   }}
                 />
               </li>
@@ -242,7 +276,15 @@ function RetainerRows({ billing }: { billing: RetainerBilling }) {
 }
 
 /** "Was due" / "Ready to complete" when true, then the advances. */
-function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: string }) {
+function OneTimeRows({
+  billing,
+  today,
+  closed,
+}: {
+  billing: OneTimeBilling;
+  today: string;
+  closed: readonly string[];
+}) {
   const { fixedAmount } = billing.billing;
   const status = [
     billing.wasDue ? `Was due ${shortDay(billing.wasDue)}` : null,
@@ -271,7 +313,7 @@ function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: strin
             <BillingSheetButton
               label="Record advance"
               slot="billing-advance-record"
-              sheet={{ kind: "advance", projectId: billing.projectId, today }}
+              sheet={{ kind: "advance", projectId: billing.projectId, today, closedMonths: closed }}
             />
           ) : null}
         </div>
@@ -283,7 +325,7 @@ function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: strin
         {billing.advances.length > 0 ? (
           <ul className="divide-border border-border divide-y border-t">
             {billing.advances.map((advance) => (
-              <AdvanceRow key={advance.id} advance={advance} today={today} />
+              <AdvanceRow key={advance.id} advance={advance} today={today} closed={closed} />
             ))}
           </ul>
         ) : null}
@@ -292,7 +334,15 @@ function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: strin
   );
 }
 
-function AdvanceRow({ advance, today }: { advance: Advance; today: string }) {
+function AdvanceRow({
+  advance,
+  today,
+  closed,
+}: {
+  advance: Advance;
+  today: string;
+  closed: readonly string[];
+}) {
   const received = `${formatRupees(advance.amount)} received on ${longDay(advance.receivedOn)}`;
   return (
     <li className={BILLING_ROW} data-slot="billing-advance-row">
@@ -322,6 +372,7 @@ function AdvanceRow({ advance, today }: { advance: Advance; today: string }) {
             summary: received,
             receivedOn: advance.receivedOn,
             today,
+            closedMonths: closed,
           }}
         />
       )}

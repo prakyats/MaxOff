@@ -48,6 +48,12 @@ const ROUTES: { path: string; roles: readonly Role[] }[] = [
   { path: "/reports", roles: LEADS },
   // v2.1 (9.2): the Owner's Revenue page; its one money read starts after the permission check.
   { path: "/reports/revenue", roles: ["owner"] },
+  // v3.5 U5: an ended month's Revenue page (a closed month draws its snapshot): the money read
+  // and the snapshot's light read both start after the permission check, as for this month.
+  {
+    path: `/reports/revenue?month=${addISTDays(`${todayIST().slice(0, 8)}01`, -1).slice(0, 7)}`,
+    roles: ["owner"],
+  },
   // v3.5 U4: an ended month's close screen; its one read starts after the permission check.
   {
     path: `/reports/close/${addISTDays(`${todayIST().slice(0, 8)}01`, -1).slice(0, 7)}`,

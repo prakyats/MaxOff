@@ -45,6 +45,8 @@ export type CycleLine = {
   planCount: number;
   doneCount: number;
   held: boolean;
+  /** Not billed / Billed (decision 7); null when the read does not say (an older answer). */
+  billingStatus: BillingStatus | null;
 };
 
 /** A one-time project sitting in the month: one lump sum. */
@@ -69,9 +71,17 @@ export type ProjectLine = {
   held: boolean;
   /** Advances received and not returned, over the project's life. */
   advancesKept: number;
+  /** Not billed / Billed (decision 7); null when the read does not say (an older answer). */
+  billingStatus: BillingStatus | null;
 };
 
 export type RevenueLine = CycleLine | ProjectLine;
+
+/** A cycle's or one-time project's billing status (DATA-MODEL §7 `billing_status`). */
+export type BillingStatus = "not_billed" | "billed";
+
+const billingStatus = (value: unknown): BillingStatus | null =>
+  value === "billed" || value === "not_billed" ? value : null;
 
 /** An advance received, or returned, in the month. Never Achieved. */
 export type AdvanceEvent = {
@@ -172,6 +182,7 @@ export function toRevenueMonth(value: unknown): RevenueMonth {
     planCount: count(row.plan_count),
     doneCount: count(row.done_count),
     held: row.held === true,
+    billingStatus: billingStatus(row.billing_status),
   }));
   const projects = rows(read.projects).map((row): ProjectLine => {
     const potential = amount(row.potential);
@@ -194,6 +205,7 @@ export function toRevenueMonth(value: unknown): RevenueMonth {
       readyToComplete: row.ready_to_complete === true,
       held: row.held === true,
       advancesKept: amount(row.advances_kept),
+      billingStatus: billingStatus(row.billing_status),
     };
   });
   return {

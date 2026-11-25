@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
 
+import type { SnapshotRevenue } from "../domain/closed-month";
 import { type MonthCloseRead, toMonthCloseRead } from "../domain/month-close";
 
 /**
@@ -27,24 +28,53 @@ export const readMonthClose = cache(async (month: string): Promise<MonthCloseRea
 });
 
 /**
- * The Revenue page's month header (v3.5 U4): is this month closed, since when, at which version.
- * Only the versions' numbers and dates, never `data` (no amount, no note): a light read of the
- * snapshot table under its own `finance.view` policy, so the Revenue page never pays for
- * `month_close_read`'s live rebuild. The page starts it only after its permission check, and only
- * for an ended month. `month` is the month's first day. `cache()`d per request.
+ * An ended month on the Revenue page (v3.5 U4, U5): is it closed, since when, at which version,
+ * and the **latest version's revenue section**, which a closed month's page draws instead of the
+ * live figures (v3.5 Q12). One light select of the snapshot table under its own `finance.view`
+ * policy: the versions' numbers and dates, and only `data->schema` and `data->revenue` (never the
+ * expense totals, the month summary or the note), so the page never pays for `month_close_read`'s
+ * live rebuild. A correction is rare, so every version's revenue section comes in the one request
+ * and only the latest is kept. The page starts it only after its permission check, and only for an
+ * ended month. `month` is the month's first day. `cache()`d per request.
  */
-export const readMonthVersions = cache(
-  async (month: string): Promise<{ version: number; closedAt: string }[]> => {
+export const readMonthSnapshots = cache(
+  async (
+    month: string,
+  ): Promise<{
+    versions: { version: number; closedAt: string }[];
+    latest: SnapshotRevenue | null;
+  }> => {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
       .from("month_snapshots")
-      .select("version, closed_at")
+      .select("version, closed_at, schema:data->schema, revenue:data->revenue")
       .eq("month", month)
       .order("version");
     if (error) throw error;
-    return data.map((row) => ({ version: row.version, closedAt: row.closed_at }));
+    const last = data.at(-1);
+    return {
+      versions: data.map((row) => ({ version: row.version, closedAt: row.closed_at })),
+      latest: last ? { schema: last.schema, revenue: last.revenue } : null,
+    };
   },
 );
+
+/**
+ * Which months are closed (v3.5 U5), for the money sheets' "September is closed. Its report
+ * changes only when you correct it." (decision 10). Only the months of the first versions: no
+ * version number beyond that, no date, never `data`. Owner only (the table's `finance.view`
+ * policy); the project page starts it beside its Billing read, after its own check. `cache()`d.
+ */
+export const readClosedMonths = cache(async (): Promise<string[]> => {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("month_snapshots")
+    .select("month")
+    .eq("version", 1)
+    .order("month");
+  if (error) throw error;
+  return data.map((row) => row.month);
+});
 
 /** Closes an ended month: its snapshot's version 1. Returns the version (1). */
 export async function rpcCloseMonth(month: string): Promise<number> {

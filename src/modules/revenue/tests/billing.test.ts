@@ -111,6 +111,7 @@ describe("toProjectBilling: the read's JSON as the section's shape", () => {
       cycle: {
         cycleId: OTHER,
         label: "November 2026",
+        month: "2026-11-01",
         amount: 40000,
         potential: 45000,
         achieved: 10000,
@@ -196,6 +197,7 @@ describe("toProjectBilling: the read's JSON as the section's shape", () => {
       kind: "one_time",
       projectId: ID,
       recurrence: "one_time",
+      month: "2026-11-01",
       billing: {
         category: "additional_work",
         categoryIsDefault: false,

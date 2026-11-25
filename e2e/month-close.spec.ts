@@ -348,6 +348,149 @@ test.describe("the Owner closes and corrects a month", () => {
   });
 });
 
+/** U5: each project's own month for the closed month on Revenue (none of the months above). */
+const REVENUE_MONTH: Record<string, number> = { desktop: 8, mobile: 10, "mobile-lg": 11 };
+
+test.describe("a closed month on the Revenue page (U5)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("the saved figures after an Admin's change, Changed since close, billing at close and now, the money sheet's line", async ({
+    page,
+    browser,
+  }, info) => {
+    const month = ownMonth(info, REVENUE_MONTH);
+    const client = nameOf(info, "revenue");
+    await removeMonthSnapshots(month);
+    const made = await closeFixture(client, month);
+    // A deliverable added on top of the month's plan, not priced yet: its price sheet is a money sheet.
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("project_items", {
+      org_id: org?.id,
+      project_id: made.projectId,
+      cycle_id: made.cycleId,
+      origin_cycle_id: made.cycleId,
+      title: "Extra poster",
+      position: "b0",
+    });
+    const projectPage = `/clients/${made.clientId}/projects/${made.projectId}?cycle=${made.cycleId}`;
+    const card = page.locator('[data-slot="revenue-client"]', { hasText: client });
+    const line = card.locator('[data-slot="revenue-line"]');
+    const changed = page.locator('[data-slot="revenue-changed"]');
+    const closedLine = `${shortMonth(month)} is closed. Its report changes only when you correct it.`;
+    const priceSheet = page.getByRole("dialog", { name: "Set the price" });
+    const priceRow = page.locator('[data-slot="billing-added-row"]', { hasText: "Extra poster" });
+    try {
+      // Before the close: the money sheet has no closed line, and Revenue reads live.
+      await page.goto(projectPage);
+      await hydrated(page);
+      await priceRow.getByRole("button", { name: "Set price of Extra poster" }).click();
+      await expect(priceSheet).toBeVisible();
+      await expect(priceSheet.locator('[data-slot="billing-closed-month"]')).toBeHidden();
+      await priceSheet.getByRole("button", { name: "Cancel" }).click();
+      await expect(priceSheet).toBeHidden();
+      await page.goto(`/reports/revenue?month=${slug(month)}`);
+      await hydrated(page);
+      await expect(page.locator('[data-slot="revenue"]')).not.toHaveAttribute("data-closed");
+      await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveCount(0);
+
+      // Closed: the saved figures, one billing status, nothing moved.
+      expect(await rpcAs<number>(owner.email, owner.password, "month_close", { month })).toBe(1);
+      await page.reload();
+      await hydrated(page);
+      await expectSettled(page);
+      await expect(page.locator('[data-slot="revenue"]')).toHaveAttribute("data-closed", "");
+      await expect(page.locator('[data-slot="revenue-close-link"]')).toHaveText(
+        `Closed ${closedToday} · v1`,
+      );
+      await expect(line.locator('[data-slot="revenue-line-figure"]')).toHaveText("₹20,000");
+      await expect(line.locator('[data-slot="revenue-line-achieved"]')).toHaveText(
+        "₹10,000 achieved",
+      );
+      await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveText("Not billed");
+      await expect(changed).toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+
+      // An Admin reopens the done deliverable: the page still shows the saved report, and says
+      // that the live figures moved.
+      await rpcAs(admin.email, admin.password, "item_reopen", {
+        item_id: made.items["Reel A"],
+        reason: "Needs another pass",
+      });
+      // The Owner marks the month's cycle billed after the close.
+      await rpcAs(owner.email, owner.password, "billing_mark", {
+        cycle_ids: [made.cycleId],
+        billed: true,
+        billed_on: null,
+        note: null,
+      });
+      await page.reload();
+      await hydrated(page);
+      await expectSettled(page);
+      await expect(line.locator('[data-slot="revenue-line-achieved"]')).toHaveText(
+        "₹10,000 achieved",
+      );
+      await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveText(
+        "Not billed at close · Billed now",
+      );
+      await expect(changed).toHaveText("Changed since close · See Month close");
+      await expect(changed).toHaveAttribute("href", `/reports/close/${slug(month)}`);
+      const [stored] = await serviceSelect<{ version: number }>(
+        `month_snapshots?month=eq.${month}&select=version`,
+      );
+      expect(stored?.version, "the snapshot is not touched").toBe(1);
+      await expectNoHorizontalScroll(page);
+      await changed.click();
+      await expect(page).toHaveURL(new RegExp(`/reports/close/${slug(month)}$`));
+      await hydrated(page);
+      await expect(page.locator('[data-slot="month-close-change"]').first()).toBeVisible();
+
+      // The money sheet of a closed month says so, and saving still works.
+      await page.goto(projectPage);
+      await hydrated(page);
+      await priceRow.getByRole("button", { name: "Set price of Extra poster" }).click();
+      await expect(priceSheet.locator('[data-slot="billing-closed-month"]')).toHaveText(closedLine);
+      await expectNoHorizontalScroll(page);
+      await priceSheet.getByLabel("Price (₹)").fill("5000");
+      await priceSheet.getByRole("button", { name: "Save price" }).click();
+      await expect(priceSheet).toBeHidden();
+      await expect(priceRow.locator('[data-slot="billing-price"]')).toHaveText("₹5,000");
+      // Revenue still shows the saved Potential.
+      await page.goto(`/reports/revenue?month=${slug(month)}`);
+      await hydrated(page);
+      await expect(line.locator('[data-slot="revenue-line-figure"]')).toHaveText("₹20,000");
+      await expect(changed).toBeVisible();
+
+      // The client's Admin opens the same project: no Billing, no word of the close.
+      const context = await browser.newContext({ storageState: storageStateFor("admin") });
+      try {
+        const adminPage = await context.newPage();
+        for (const headers of [undefined, { RSC: "1" }]) {
+          const answer = await adminPage.request.get(projectPage, {
+            ...(headers ? { headers } : {}),
+          });
+          expect(answer.ok()).toBe(true);
+          const body = await answer.text();
+          for (const secret of [
+            "is closed",
+            "Closed ",
+            "billing-closed-month",
+            "project-billing",
+          ]) {
+            expect(body.includes(secret), `the Admin's answer holds no "${secret}"`).toBe(false);
+          }
+        }
+        await adminPage.goto(`/reports/revenue?month=${slug(month)}`);
+        await expect(adminPage).toHaveURL(/\/forbidden/);
+      } finally {
+        await context.close();
+      }
+    } finally {
+      await removeMonthSnapshots(month);
+      await removeClientFixture(client);
+    }
+  });
+});
+
 test.describe("installed: the close screen (§14.2)", () => {
   test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
   test.use({ storageState: storageStateFor("owner") });
@@ -420,6 +563,9 @@ for (const role of ["admin", "staff"] as const) {
       await hydrated(page);
       await expect(screen(page)).toHaveCount(0);
       await expect(page.locator('[data-slot^="month-close"]')).toHaveCount(0);
+      // A closed month's Revenue page (U5) is refused the same way.
+      await page.goto(`/reports/revenue?month=${slug(month)}`);
+      await expect(page).toHaveURL(/\/forbidden/);
       // Not a month at all answers the same way: nothing tells which months exist or are closed.
       await page.goto("/reports/close/2019-13");
       await expect(page).toHaveURL(/\/forbidden/);

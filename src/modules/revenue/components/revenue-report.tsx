@@ -25,9 +25,16 @@ import {
   type RevenueLine,
   type RevenueMonth,
   revenueView,
+  type RevenueView,
   type Totals,
 } from "../domain/revenue";
-import { type CloseLink, closeLink } from "../domain/month-close-view";
+import {
+  type ClosedRevenueView,
+  closedRevenueMonth,
+  closedRevenueView,
+  type SnapshotRevenue,
+} from "../domain/closed-month";
+import { type CloseLink, closeHref, closeLink } from "../domain/month-close-view";
 
 import { BillingRetry } from "./billing-retry";
 import {
@@ -45,6 +52,12 @@ import {
   REVENUE_SECTION,
 } from "./revenue-layout";
 
+/** An ended month's snapshot versions and the latest one's revenue section (`readMonthSnapshots`). */
+type MonthSnapshots = {
+  versions: readonly { version: number; closedAt: string }[];
+  latest: SnapshotRevenue | null;
+};
+
 const ROW_FOCUS =
   "active:bg-muted/60 focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset";
 
@@ -58,23 +71,39 @@ const ROW_FOCUS =
  * **Owner only**: the route checks `finance.view` before it starts the read, and the read
  * refuses anyone else. A read that fails is this page's own error state with a "Try again"
  * (reported once through the scrubber; no amount is in a message). A server component.
+ *
+ * **A closed month** (v3.5 U5) shows its latest version's figures in the same layout, each line's
+ * billing status ("at close" and "now" only when they differ), and "Changed since close" under
+ * the month when the live figures moved; that line opens the close screen, which says what moved.
+ * When the snapshot read fails the page shows its error state rather than live figures that could
+ * be taken for the saved report.
  */
 export async function RevenueReport({
   read,
   category,
-  versions = null,
+  snapshots = null,
 }: {
   read: Promise<RevenueMonth>;
   category: CategoryFilter;
   /**
-   * An ended month's snapshot versions (v3.5 U4), for the month header's "Close month" or
-   * "Closed 3 Oct · v1"; null for this month (it cannot be closed yet).
+   * An ended month's snapshot versions and the latest one's revenue section (v3.5 U4, U5): the
+   * month header's "Close month" or "Closed 3 Oct · v1", and a closed month's figures. Null for
+   * this month (it cannot be closed yet).
    */
-  versions?: Promise<readonly { version: number; closedAt: string }[]> | null;
+  snapshots?: Promise<MonthSnapshots> | null;
 }) {
   let month: RevenueMonth;
+  let ended: MonthSnapshots | null;
+  let view: RevenueView;
+  let closed: ClosedRevenueView | null = null;
   try {
-    month = await read;
+    [month, ended] = await Promise.all([read, snapshots]);
+    // v3.5 U5 (Q12): a closed month draws its latest version's figures; the live read still gives
+    // the switcher, today's names, what needs a look, the billing status now and the change check.
+    closed = ended?.latest
+      ? closedRevenueView(closedRevenueMonth(ended.latest, month), month, category)
+      : null;
+    view = closed ?? revenueView(month, category);
   } catch (error) {
     captureException(error);
     return (
@@ -91,16 +120,15 @@ export async function RevenueReport({
       </div>
     );
   }
-  const view = revenueView(month, category);
+  const close = ended ? closeLink(month.month, ended.versions) : null;
   const switcher = monthSwitcher(month);
-  const close = await closeLinkOf(month.month, versions);
   const href = (next: { month?: string; category?: CategoryFilter }) =>
     revenueHref(
       { month: next.month ?? month.month, category: next.category ?? category },
       month.thisMonth,
     );
   return (
-    <div className={REVENUE_PAGE} data-slot="revenue">
+    <div className={REVENUE_PAGE} data-slot="revenue" data-closed={closed ? "" : undefined}>
       <div className={REVENUE_PAGER} role="group" aria-label="Month" data-slot="revenue-month">
         <PagerLink
           href={switcher.previous ? href({ month: switcher.previous }) : null}
@@ -122,6 +150,19 @@ export async function RevenueReport({
           <ChevronRightIcon aria-hidden />
         </PagerLink>
       </div>
+      {closed?.changed ? (
+        <DrillLink
+          href={closeHref(month.month)}
+          data-slot="revenue-changed"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring -mt-2 inline-flex min-h-11 items-center justify-center self-center rounded-md px-2 text-center text-xs font-medium outline-none focus-visible:ring-2 md:min-h-8"
+        >
+          <span>
+            <span className="text-foreground">Changed since close</span>
+            <span aria-hidden> · </span>
+            <span className="underline underline-offset-4">See Month close</span>
+          </span>
+        </DrillLink>
+      ) : null}
 
       <nav aria-label="Category" className={REVENUE_FILTER} data-slot="revenue-filter">
         {CATEGORY_FILTERS.map((option) => (
@@ -179,7 +220,11 @@ export async function RevenueReport({
               </h2>
               <div className="flex flex-col gap-3">
                 {view.clients.map((client) => (
-                  <ClientCard key={client.clientId} client={client} />
+                  <ClientCard
+                    key={client.clientId}
+                    client={client}
+                    billing={closed?.billing ?? null}
+                  />
                 ))}
               </div>
             </section>
@@ -192,22 +237,8 @@ export async function RevenueReport({
 
 /**
  * The month header's way to the close screen (v3.5 Q11; WORKFLOWS §7.1): "Close month" for an
- * ended month not closed yet, "Closed 3 Oct · v1" for a closed one. A read that fails leaves the
- * link out (the page itself still shows), reported once through the scrubber.
+ * ended month not closed yet, "Closed 3 Oct · v1" for a closed one.
  */
-async function closeLinkOf(
-  month: string,
-  versions: Promise<readonly { version: number; closedAt: string }[]> | null,
-): Promise<CloseLink | null> {
-  if (!versions) return null;
-  try {
-    return closeLink(month, await versions);
-  } catch (error) {
-    captureException(error);
-    return null;
-  }
-}
-
 function CloseMonthLink({ link }: { link: CloseLink }) {
   return (
     <DrillLink
@@ -293,7 +324,14 @@ function NeedsALook({ exceptions }: { exceptions: RevenueException[] }) {
   );
 }
 
-function ClientCard({ client }: { client: ClientGroup }) {
+function ClientCard({
+  client,
+  billing,
+}: {
+  client: ClientGroup;
+  /** A closed month's billing status per line (v3.5 Q13); null for an open month. */
+  billing: ReadonlyMap<string, string> | null;
+}) {
   const { totals } = client;
   return (
     <div className={REVENUE_CARD} data-slot="revenue-client">
@@ -307,7 +345,7 @@ function ClientCard({ client }: { client: ClientGroup }) {
       <ul className="divide-border divide-y">
         {client.lines.map((line) => (
           <li key={lineKey(line)}>
-            <Line line={line} />
+            <Line line={line} billing={billing?.get(lineKey(line)) ?? null} />
           </li>
         ))}
       </ul>
@@ -316,7 +354,7 @@ function ClientCard({ client }: { client: ClientGroup }) {
 }
 
 /** A retainer's cycle or a one-time project: it opens the project at its Billing section. */
-function Line({ line }: { line: RevenueLine }) {
+function Line({ line, billing }: { line: RevenueLine; billing: string | null }) {
   const notes = lineNotes(line);
   return (
     <DrillLink
@@ -332,6 +370,12 @@ function Line({ line }: { line: RevenueLine }) {
         </span>
         <span className="text-muted-foreground text-xs break-words" data-slot="revenue-line-status">
           {lineStatus(line)}
+          {billing ? (
+            <>
+              {" · "}
+              <span data-slot="revenue-line-billing">{billing}</span>
+            </>
+          ) : null}
         </span>
         {notes.length > 0 ? (
           <span className="text-xs break-words tabular-nums" data-slot="revenue-line-notes">

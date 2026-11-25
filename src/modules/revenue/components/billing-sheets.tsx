@@ -35,6 +35,7 @@ import {
   BILLING_CATEGORIES,
   BILLING_CATEGORY_LABELS,
   type BillingCategory,
+  closedMonthLine,
 } from "../domain/billing";
 import { parseWholeRupees } from "../domain/money";
 
@@ -51,6 +52,8 @@ export type BillingSheetRequest =
       current: number | null;
       /** Which cycles the amount covers, in words. */
       note: string;
+      /** "September is closed. …" when the amount lands in a closed month (v3.5 U5), else null. */
+      closed: string | null;
     }
   | {
       kind: "cycleAmount";
@@ -59,6 +62,8 @@ export type BillingSheetRequest =
       title: string;
       /** "Only November 2026. The project's amount is not changed." */
       note: string;
+      /** "September is closed. …" when the cycle's month is closed (v3.5 U5), else null. */
+      closed: string | null;
     }
   | { kind: "category"; projectId: string; current: BillingCategory }
   | {
@@ -68,8 +73,16 @@ export type BillingSheetRequest =
       current: number | null;
       /** "month" or "week". */
       period: string;
+      /** "September is closed. …" when the cycle's month is closed (v3.5 U5), else null. */
+      closed: string | null;
     }
-  | { kind: "advance"; projectId: string; today: string }
+  | {
+      kind: "advance";
+      projectId: string;
+      today: string;
+      /** The closed months' first days: the line follows the date picked (v3.5 U5). */
+      closedMonths: readonly string[];
+    }
   | {
       kind: "return";
       advanceId: string;
@@ -77,6 +90,8 @@ export type BillingSheetRequest =
       summary: string;
       receivedOn: string;
       today: string;
+      /** The closed months' first days: the line follows the date picked (v3.5 U5). */
+      closedMonths: readonly string[];
     };
 
 /**
@@ -185,10 +200,15 @@ function useSheetCommit({
   };
 }
 
-/** The sheet's frame: its title and line, the fields, the status line and the two buttons. */
+/**
+ * The sheet's frame: its title and line, the closed month's line (v3.5 U5, decision 10: editing
+ * stays allowed, the line says the saved report does not follow), the fields, the status line and
+ * the two buttons.
+ */
 function SheetForm({
   title,
   description,
+  closed = null,
   alert,
   action,
   submitLabel,
@@ -199,6 +219,7 @@ function SheetForm({
 }: {
   title: string;
   description: ReactNode;
+  closed?: string | null;
   alert: string | null;
   action: ReturnType<typeof useSheetCommit>["action"];
   submitLabel: string;
@@ -220,6 +241,13 @@ function SheetForm({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
+      <p
+        aria-live="polite"
+        data-slot="billing-closed-month"
+        className={cn("text-sm break-words", !closed && "hidden")}
+      >
+        {closed}
+      </p>
       {alert ? <ErrorText slot="form-alert">{alert}</ErrorText> : null}
       {children}
       <ActionStatus action={action} />
@@ -309,6 +337,7 @@ function AmountForm({ request, onClose, onBusy }: FormProps<"amount">) {
     <SheetForm
       title={request.current === null ? "Set the amount" : "Change the amount"}
       description={request.note}
+      closed={request.closed}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Save amount"
@@ -350,6 +379,7 @@ function CycleAmountForm({ request, onClose, onBusy }: FormProps<"cycleAmount">)
     <SheetForm
       title={request.title}
       description={request.note}
+      closed={request.closed}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Save amount"
@@ -452,6 +482,7 @@ function PriceForm({ request, onClose, onBusy }: FormProps<"price">) {
           this {request.period}. Its price comes on top of the {request.period}&apos;s amount.
         </>
       }
+      closed={request.closed}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Save price"
@@ -535,6 +566,7 @@ function AdvanceForm({ request, onClose, onBusy }: FormProps<"advance">) {
     <SheetForm
       title="Record an advance"
       description="Money received before delivery. It is not revenue until the project is completed."
+      closed={closedMonthLine(receivedOn, request.closedMonths)}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Record advance"
@@ -597,6 +629,7 @@ function ReturnForm({ request, onClose, onBusy }: FormProps<"return">) {
     <SheetForm
       title="Mark the advance returned"
       description={`${request.summary}. It stays in the list, marked as returned.`}
+      closed={closedMonthLine(returnedOn, request.closedMonths)}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Mark returned"

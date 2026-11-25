@@ -1647,6 +1647,9 @@ export const OWNER_GUIDE: Guide = {
               'The phone\'s back button leaves the page in one step, however many months or categories you looked at. A month with nothing says "No revenue this month."',
             ),
             note(
+              'A month you have closed shows its saved figures, with "Closed 3 Oct · v1" beside its name. See "Close a month".',
+            ),
+            note(
               `Only the Owner sees the Revenue page. Admins and ${CREW} have no Revenue row in Reports and cannot open it.`,
             ),
           ],
@@ -1691,6 +1694,15 @@ export const OWNER_GUIDE: Guide = {
             note(
               "Work goes on after a close: amounts, advances and deliverables stay editable, and an Admin can still reopen a deliverable. The saved report does not move; what moved shows under Changed since close.",
             ),
+            text(
+              "A closed month's Revenue page shows the saved figures, not today's. When today's figures differ, a line under the month's name says \"Changed since close · See Month close\"; tap it to see what moved.",
+            ),
+            text(
+              'Each line of a closed month shows its billing status as it was at the close, "Billed" or "Not billed". If it changed since, both are shown, for example "Not billed at close · Billed now".',
+            ),
+            text(
+              'When you change an amount, a price or an advance of a closed month, the sheet says "September is closed. Its report changes only when you correct it." Saving still works; the saved report changes only when you correct the month.',
+            ),
             note(
               "A month can be closed once it has ended, from the first month that has an amount. The current month says it hasn't ended yet. A closed month is never reopened: a mistake is fixed with a correction.",
             ),
@@ -1708,6 +1720,8 @@ export const OWNER_GUIDE: Guide = {
             "version",
             "report",
             "revenue",
+            "billed",
+            "changed since close",
           ],
         },
         {

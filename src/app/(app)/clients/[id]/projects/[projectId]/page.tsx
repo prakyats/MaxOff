@@ -55,6 +55,7 @@ import {
   BillingSection,
   BillingSkeleton,
   oneTimeStatusExpected,
+  readClosedMonths,
   readProjectBilling,
 } from "@/modules/revenue";
 import { stagePresetsFrom } from "@/modules/settings";
@@ -151,7 +152,10 @@ export default async function ProjectPage({
   const billing = can(viewer.role, "finance.view")
     ? readProjectBilling(project.id, chosen?.id ?? null)
     : null;
-  if (billing) startEarly(billing);
+  // v3.5 U5: the closed months (their first days only, never a snapshot) for the money sheets'
+  // "September is closed." line, beside the Billing read and under the same check.
+  const closedMonths = billing ? readClosedMonths() : null;
+  if (billing && closedMonths) startEarly(billing, closedMonths);
 
   const working = project.state === "open" || project.state === "in_progress";
   // v1.9 W8 (ADR-0016): a held project keeps its state; its deliverables read On hold and wait.
@@ -581,7 +585,7 @@ export default async function ProjectPage({
               />
             }
           >
-            <BillingSection read={billing} today={today} />
+            <BillingSection read={billing} today={today} closedMonths={closedMonths} />
           </Suspense>
         ) : null}
       </div>

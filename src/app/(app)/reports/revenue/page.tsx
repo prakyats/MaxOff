@@ -6,7 +6,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   parseCategory,
   parseMonth,
-  readMonthVersions,
+  readMonthSnapshots,
   readRevenueMonth,
   RevenueReport,
 } from "@/modules/revenue";
@@ -27,8 +27,10 @@ export const metadata: Metadata = { title: "Revenue" };
  * read is ever sent for them (the function would refuse it as well).
  *
  * **An ended month's header links to its close screen** (v3.5 U4, Q11): "Close month", or "Closed
- * 3 Oct · v1". Its versions are a light read beside the month's (numbers and dates only, never the
- * snapshot), started only for a month before this IST month.
+ * 3 Oct · v1". **A closed month shows its latest version's figures** (v3.5 U5, Q12). Both come from
+ * one light read beside the month's (the versions' numbers and dates and the latest version's
+ * revenue section, never `month_close_read`'s live rebuild), started only for a month before this
+ * IST month, so a closed month costs the same reads as an open ended one.
  */
 export default async function RevenuePage({
   searchParams,
@@ -39,7 +41,7 @@ export default async function RevenuePage({
   const month = parseMonth(params.month);
   const read = readRevenueMonth(month);
   const thisMonth = `${todayIST().slice(0, 7)}-01`;
-  const versions = month && month < thisMonth ? readMonthVersions(month) : null;
+  const snapshots = month && month < thisMonth ? readMonthSnapshots(month) : null;
   return (
     <>
       <PageHeader
@@ -48,7 +50,7 @@ export default async function RevenuePage({
         description={REVENUE_DESCRIPTION}
         help={REVENUE_DESCRIPTION}
       />
-      <RevenueReport read={read} category={parseCategory(params.category)} versions={versions} />
+      <RevenueReport read={read} category={parseCategory(params.category)} snapshots={snapshots} />
     </>
   );
 }
