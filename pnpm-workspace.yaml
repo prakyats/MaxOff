@@ -16,3 +16,6 @@ patchedDependencies:
   # address) must not scroll the page to its top (v1.9, issue #89; ARCHITECTURE §14.2 d). The
   # patch file's header has the upstream issue to file and how to check it on every Next upgrade.
   next@16.3.5: patches/next@16.3.5.patch
+  # sonner's stylesheet comes from `sonner/dist/styles.css` in the `(app)` layout instead of a
+  # 15 KB CSS string injected from JS on every signed-in route (v4.5; the patch file says more).
+  sonner@2.0.8: patches/sonner@2.0.8.patch
