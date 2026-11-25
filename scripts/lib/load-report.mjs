@@ -59,3 +59,49 @@ export function reportLines(result, steps) {
   ];
   return lines;
 }
+
+/** "200×7 · 400×13": how often each value came, most often first (ties in first-seen order). */
+export function tally(values) {
+  const counts = new Map();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts]
+    .sort((a, b) => b[1] - a[1])
+    .map(([value, count]) => `${value}×${count}`)
+    .join(" · ");
+}
+
+/**
+ * A refused Start day as one short line: its HTTP status and PostgREST's error (`app.fail`'s code
+ * and sentence), never more than 160 characters.
+ */
+export function refusalOf(status, body) {
+  let words = String(body ?? "");
+  try {
+    const parsed = JSON.parse(words);
+    words = [parsed.message, parsed.details].filter(Boolean).join(": ");
+  } catch {
+    // Not JSON: the body as it came.
+  }
+  return `${status} ${words}`.replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
+/** Minutes since IST midnight for an instant (ms since the epoch). IST has no daylight saving. */
+export function istMinutes(epochMs) {
+  const ist = Math.floor((epochMs + 330 * 60_000) / 60_000);
+  return ((ist % 1440) + 1440) % 1440;
+}
+
+/**
+ * Whether the Start days may go out now (Preview 45674894596): they must all land on one IST day,
+ * after 22:00 IST and no later than 23:45 IST, so the whole spread (and its stragglers) stays
+ * before midnight, when a day's Start belongs to the next date. Returns the refusal, or null.
+ */
+export function rushWindowRefusal(epochMs, spreadMs) {
+  const start = istMinutes(epochMs);
+  const end = start + Math.ceil(spreadMs / 60_000);
+  if (start < 22 * 60) return "Refused: the rush test starts after 22:00 IST.";
+  if (end > 23 * 60 + 45) {
+    return "Refused: the Start days would end after 23:45 IST and could cross midnight into the next IST date. Run it between 22:00 and 23:45 IST.";
+  }
+  return null;
+}

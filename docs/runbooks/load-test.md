@@ -36,12 +36,16 @@ Any compute upgrade the result suggests is the owner's cost decision, made with 
 
 1. Announce the run on the release issue, with the time.
 2. **Before 22:00 IST:** run `load-test-people` to make or reactivate the people.
-3. **After 22:00 IST**, Monday to Saturday and never while a speed probe is queued or running (check
-   the Preview runs first; probe slots are the advisor's): run `load-test`.
+3. **Between 22:00 and 23:30 IST** (the Start days must land by 23:45 IST: the script refuses a run
+   that could cross midnight into the next IST date, as Preview 45674894596 did at 23:59), Monday to
+   Saturday and never while a speed probe is queued or running (check the Preview runs first; probe
+   slots are the advisor's): run `load-test`.
    - It signs the 20 people in slowly first, one every 11 s, to stay inside GoTrue's limit of 30 sign-ins
      per 5 minutes per address. That takes about 4 minutes.
    - Then the 20 Start days are spread over 60 s.
-   - The table goes into the job summary, and the raw JSON is kept for 30 days.
+   - The table goes into the job summary, and the raw JSON is kept for 30 days. The log also tallies
+     each step's answers, the Start day refusals in the database's words, and the home screen's
+     redirects, so a failure is named without the JSON.
 4. Run `load-test-people-off` to deactivate the people.
 5. Copy the summary table into the release notes. **The first run is the baseline.**
 

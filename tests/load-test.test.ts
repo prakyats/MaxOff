@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { assertLoadTarget, isLoadEmail, loadPerson } from "../scripts/lib/load-guard.mjs";
-import { percentile, verdict } from "../scripts/lib/load-report.mjs";
+import {
+  istMinutes,
+  percentile,
+  refusalOf,
+  rushWindowRefusal,
+  tally,
+  verdict,
+} from "../scripts/lib/load-report.mjs";
 
 const STAGING_DB = "https://abcdefghijklmnop.supabase.co";
 const STAGING_APP = "https://maxoff-staging.example.workers.dev";
@@ -100,5 +107,46 @@ describe("the rush test's verdict (owner Q6)", () => {
     expect(verdict(failed).pass).toBe(false);
     const doubled = [...Array.from({ length: 19 }, () => person(900)), person(900, { rows: 2 })];
     expect(verdict(doubled).pass).toBe(false);
+  });
+});
+
+describe("the rush test's log lines (Preview 45674894596)", () => {
+  it("tallies answers, most often first", () => {
+    expect(tally([200, 400, 400, 200, 400])).toBe("400×3 · 200×2");
+    expect(tally([])).toBe("");
+  });
+
+  it("names a refusal in the database's own words, short", () => {
+    expect(
+      refusalOf(
+        400,
+        JSON.stringify({
+          code: "P0001",
+          message: "INVALID_STATE",
+          details: "Attendance starts tomorrow.",
+        }),
+      ),
+    ).toBe("400 INVALID_STATE: Attendance starts tomorrow.");
+    expect(refusalOf(429, "Too many\nrequests")).toBe("429 Too many requests");
+    expect(refusalOf(500, "x".repeat(400))).toHaveLength(160);
+  });
+});
+
+describe("the rush test's IST window (Preview 45674894596 crossed midnight)", () => {
+  const at = (iso: string) => Date.parse(iso);
+  it("reads IST minutes", () => {
+    expect(istMinutes(at("2026-11-25T18:29:20Z"))).toBe(23 * 60 + 59);
+    expect(istMinutes(at("2026-11-25T18:30:00Z"))).toBe(0);
+  });
+
+  it("allows 22:00 to 23:45 IST, the spread included", () => {
+    expect(rushWindowRefusal(at("2026-11-25T16:30:00Z"), 60_000)).toBeNull(); // 22:00
+    expect(rushWindowRefusal(at("2026-11-25T18:14:00Z"), 60_000)).toBeNull(); // 23:44 + 1 min
+  });
+
+  it("refuses before 22:00 and anything that could reach midnight", () => {
+    expect(rushWindowRefusal(at("2026-11-25T16:29:00Z"), 60_000)).toMatch(/after 22:00/);
+    expect(rushWindowRefusal(at("2026-11-25T18:29:20Z"), 60_000)).toMatch(/midnight/);
+    expect(rushWindowRefusal(at("2026-11-25T18:15:00Z"), 60_000)).toMatch(/23:45/);
   });
 });

@@ -22,7 +22,14 @@ import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
 
 import { assertLoadTarget, isLoadEmail, loadPerson } from "./lib/load-guard.mjs";
-import { reportLines, stepSummary, verdict } from "./lib/load-report.mjs";
+import {
+  refusalOf,
+  reportLines,
+  rushWindowRefusal,
+  stepSummary,
+  tally,
+  verdict,
+} from "./lib/load-report.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -203,8 +210,14 @@ const home = (cookie) =>
       signal: AbortSignal.timeout(30_000),
     });
     await response.arrayBuffer();
+    // Where a redirect sends the screen (its path only): a sign-in or another screen.
+    const location = response.headers.get("location");
+    home.redirects.push(
+      location ? `${response.status} → ${new URL(location, args.base).pathname}` : null,
+    );
     return response.status;
   });
+home.redirects = [];
 
 const startDay = (session) =>
   timed(async () => {
@@ -225,10 +238,14 @@ const startDay = (session) =>
       } catch {
         // Not JSON: no day id from this answer.
       }
+    } else {
+      // The refusal in the database's own words (`app.fail`: a code and a sentence; no secret).
+      startDay.refusals.push(refusalOf(response.status, body));
     }
     return response.status;
   });
 startDay.days = new Map();
+startDay.refusals = [];
 
 async function onePerson({ session, cookie }, delayMs) {
   await sleep(delayMs);
@@ -290,8 +307,16 @@ async function run() {
   const missing = people.filter((p) => members.get(p.email)?.status !== "active");
   if (missing.length)
     throw new Error(`Not active: ${missing.map((p) => p.email).join(", ")}. Run "people" first.`);
-  const sessions = await mintSessions();
   const spreadMs = Number(args.spread) * 1000;
+  // One IST day for every Start day (Preview 45674894596 began at 23:59:20 IST, and 13 of 20
+  // landed on the next date). Asked before the slow sign-ins and again after them. A local run
+  // (`--base` on this machine) is for correctness, at any hour.
+  const local = /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(args.base);
+  const outsideWindow = () =>
+    local ? null : rushWindowRefusal(performance.timeOrigin + performance.now(), spreadMs);
+  if (outsideWindow()) throw new Error(outsideWindow());
+  const sessions = await mintSessions();
+  if (outsideWindow()) throw new Error(outsideWindow());
   process.stdout.write(`T0: ${people.length} Start days over ${args.spread} s\n`);
   const results = await Promise.all(
     sessions.map((entry, i) => onePerson(entry, Math.round((i / people.length) * spreadMs))),
@@ -317,10 +342,33 @@ async function run() {
   const errors = results
     .flatMap((r) => [r.before, r.start, r.after])
     .filter((s) => s.status === 0 || s.status >= 500);
-  const lines = [...reportLines(outcome, steps), `5xx or no answer: ${errors.length}`];
+  const lines = [
+    ...reportLines(outcome, steps),
+    `5xx or no answer: ${errors.length}`,
+    // What each step answered, so a refusal is named in the job's log (Preview 45674894596: 13
+    // people failed with no 5xx, and the reason sat only in the kept JSON).
+    `Start day answers: ${tally(results.map((r) => r.start.status))}`,
+    `Start day refusals: ${tally(startDay.refusals) || "none"}`,
+    `home after answers: ${tally(results.map((r) => r.after.status))}`,
+    `home redirects: ${tally(home.redirects.filter(Boolean)) || "none"}`,
+  ];
   process.stdout.write(`${lines.join("\n")}\n`);
   if (args.out)
-    writeFileSync(args.out, JSON.stringify({ outcome, steps, perPerson, errors }, null, 2));
+    writeFileSync(
+      args.out,
+      JSON.stringify(
+        {
+          outcome,
+          steps,
+          perPerson,
+          errors,
+          refusals: startDay.refusals,
+          redirects: home.redirects,
+        },
+        null,
+        2,
+      ),
+    );
   if (!outcome.pass) process.exitCode = 1;
 }
 
