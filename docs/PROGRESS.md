@@ -251,6 +251,26 @@
 6. **V5a item 6b, the "only when unused" Delete kinds: DECIDED by the owner directly (22 Oct, "any reference counts as used": history, archived or deleted rows, paid or closed claims, a job title someone once held, old custom-field values, a task type named only by an archived or deleted template, a draft's contact, note, file, task label or request) and BUILT in V5e (item 6c) for task types, job titles, expense categories, custom fields, draft clients and contacts as a real row delete (DATA-MODEL §2 "The Owner-only Delete of what was never used"). The original question, for the record:** The rule lists task types, job titles, expense categories, custom fields, draft clients and contacts, "only when unused", but "unused" is not settled for any of them: (a) **does history count?** A job title once held by someone and since changed, an expense category on a past (paid) claim, a custom field whose values sit only in old activity diffs, a draft client's own creation history: if a deleted row's name is later needed to read that history, a real delete loses it (the "(deleted)" label approach would need a soft state on each of these tables too); (b) **do archived or deleted rows count?** A task type referenced only by an archived or deleted task template (whose foreign key stays); a contact on a draft client; (c) **draft clients:** is a draft with contacts, notes, files, a task label or a request "used"? Recommended: treat any reference at all, history included, as "used" (so Delete is offered only to a row nothing has ever pointed at), with a soft deleted state like templates so names in history keep reading; awaiting the owner.
 
 ## In-progress handoff
+- **IN PROGRESS (builder, 25 Nov 2026): v5.0 "Hand in work" on `phase-v50` (from `phase-v45`; rebase as v4.5 moves). Released after v4.5. Nothing user-visible is built yet.**
+  - **Owner decisions, 25 Nov (#89 7161998756):** Crew hand in photos and videos on a task inside MaxOff, straight into the task's Drive folder with v4.5's browser-to-Drive mechanism; one subfolder per version (v1, v2…), originals never touched; reviewers see the list in MaxOff and open the files in Drive; no copy in MaxOff's storage, and ADR-0010 is amended the same way; the approval route is unchanged.
+  - **Written, all "proposed":**
+    - the plan `docs/handoff/v50-hand-in-plan.md` (posted on #89 as 7162110813), with **six open questions** (§9: who adds files, whether files are optional, Leave out, file types, request changes per file, who opens files in Drive). Each has a recommendation;
+    - the sample `docs/design/v50-hand-in-sample.html` (7ea8a68). The advisor publishes it for the owner, and **the screens wait for its approval**;
+    - DATA-MODEL §8b, WORKFLOWS §5C (and a line in §3.3), the PERMISSIONS table, and the ADR-0010 amendment 2026-11-25.
+  - **Built (the parts the decisions settle):**
+    - `modules/handin/domain` (cleaning, versions, risky types, summary words; unit tests);
+    - migration `20261125122018_v50_handin_files` (tables, RLS with no API grant, `handin_versions`, `handin_file_start` / progress / failed / left_out, the Worker's service-role functions, the "Removed in Drive" check, `task_submit_done` re-created) with pgTAP 150 (114 assertions), and 40 / 49 counting `handin_space_held`. The full pgTAP suite is green locally;
+    - the shared plumbing for v4.5 and v5.0: `core/drive/resumable.ts` (open a session, the file's facts, session state, the finished-file check, version subfolders) and `core/upload` (chunked, resumable upload with an incremental MD5). Unit tests run against a fake Google.
+  - **Rebase notes when v4.5's migration lands:**
+    - re-timestamp `v50_handin_files` after it;
+    - keep v4.5's stop-link lines in `task_submit_done`;
+    - drop this migration's `app.upload_manager` if v4.5's is identical;
+    - v4.5's uploader-folder picker must treat names like `v3` as taken.
+  - **Next:**
+    1. The Worker glue: data layer, route handlers, and the server half using `core/drive` (session open, finish check, Drive check).
+    2. The screens after the sample's approval: the Hand-in card, the add sheet and progress pill, the Mark done change, the reviewer view and Approvals tag, `loading.tsx`, Playwright with the installed-mode back spec at 375 and 430, and the guide topics.
+    3. Review, then the speed probe on the task page and Approvals.
+  - **Gate:** v4.5's E0 step 2 (the cross-origin resume) covers v5.0 too.
 - **PAUSED (owner, 19 Nov 2026): v4.5 "upload link" on `phase-v45` (from `phase-v40`), docs only, nothing built.**
   - **Approved by the owner, 19 Nov:**
     - the screens: `docs/design/v45-upload-link-sample.html`, every question decided, republished by the advisor from 996e756;
