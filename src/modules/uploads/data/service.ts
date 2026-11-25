@@ -2,7 +2,17 @@ import "server-only";
 
 import { createServiceSupabase, type ServiceSupabase } from "@/core/db/service";
 
+import { spaceGuard, spaceOverrideNote } from "../domain/space";
 import { toBytea } from "./bytea";
+
+/** Logged once per isolate when the space guard's test override is active (staging only). */
+let spaceNoted = false;
+function noteSpaceOverride(): void {
+  if (spaceNoted) return;
+  spaceNoted = true;
+  const note = spaceOverrideNote(process.env);
+  if (note) console.warn(note);
+}
 
 /**
  * The upload link's service-role functions (v4.5, DATA-MODEL §8a "The public API's functions";
@@ -136,7 +146,11 @@ export function uploadService(client: ServiceSupabase = serviceClient()) {
       ip: string | null;
       userAgent: string | null;
     }): Promise<StartRow> {
-      const { data, error } = await client.rpc("upload_file_start", {
+      // The space guard's step and reserve: the decided 10 GB / 10 GB unless staging's Worker sets
+      // its test override (S7; `domain/space.ts`).
+      const space = spaceGuard(process.env);
+      noteSpaceOverride();
+      const { data, error } = await client.rpc("upload_file_start_v2", {
         p_token_hash: toBytea(input.token),
         p_device_key_hash: toBytea(input.device),
         p_name: input.name,
@@ -145,6 +159,8 @@ export function uploadService(client: ServiceSupabase = serviceClient()) {
         p_mime_hint: input.mimeType as string,
         p_ip: input.ip,
         p_user_agent: input.userAgent as string,
+        p_space_step: space.stepBytes,
+        p_space_reserve: space.reserveBytes,
       });
       if (error) throw error;
       return data as StartRow;

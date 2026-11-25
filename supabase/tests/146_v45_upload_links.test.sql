@@ -15,7 +15,7 @@
 -- Neutral names and documentation addresses only (example.com, 198.51.100.0/24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(372);
+select plan(378);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -265,6 +265,7 @@ select is((select count(*) from unnest(array[
     'public.upload_link_seal(uuid, bytea)', 'public.upload_resolve(bytea, bytea)',
     'public.upload_register(bytea, bytea, text, inet, text)',
     'public.upload_file_start(bytea, bytea, text, text, bigint, text, inet, text)',
+    'public.upload_file_start_v2(bytea, bytea, text, text, bigint, text, inet, text, bigint, bigint)',
     'public.upload_folder_put(uuid, text, text, text)', 'public.upload_session_set(uuid, text, text, text)',
     'public.upload_progress(bytea, bytea, uuid, bigint)', 'public.upload_file_failed(bytea, bytea, uuid, text)',
     'public.upload_file_done(uuid, text, bigint, text, text, text)', 'public.upload_said_done(bytea, bytea)',
@@ -274,7 +275,16 @@ select is((select count(*) from unnest(array[
     'public.upload_drive_check_daily(timestamptz, integer)', 'public.upload_drive_seen(uuid, text, timestamptz)']) f
   where has_function_privilege('service_role', f, 'execute') and not has_function_privilege('anon', f, 'execute')
     and not has_function_privilege('authenticated', f, 'execute')),
-  18::bigint, 'the eighteen public API and job functions: service_role only, never anon or authenticated');
+  19::bigint, 'the nineteen public API and job functions: service_role only, never anon or authenticated');
+-- The space guard's test override (S7, 20261125191730): the old start is a thin wrapper of _v2 with the
+-- decided 10 GB / 10 GB, so the rule lives once, and _v2 is security definer with an empty search_path.
+select ok((select pg_get_functiondef(p.oid) like '%public.upload_file_start_v2(%, 10000000000, 10000000000)%'
+                  and pg_get_functiondef(p.oid) not like '%quota%'
+           from pg_proc p where p.oid = 'public.upload_file_start(bytea, bytea, text, text, bigint, text, inet, text)'::regprocedure),
+  'upload_file_start delegates to upload_file_start_v2 with the decided 10 GB / 10 GB and holds no logic of its own');
+select ok((select p.prosecdef and p.proconfig @> array['search_path=""'] from pg_proc p
+           where p.oid = 'public.upload_file_start_v2(bytea, bytea, text, text, bigint, text, inet, text, bigint, bigint)'::regprocedure),
+  'upload_file_start_v2: SECURITY DEFINER with an empty search_path');
 select ok(has_function_privilege('authenticated', 'app.upload_manager(uuid)', 'execute')
           and not has_function_privilege('anon', 'app.upload_manager(uuid)', 'execute'),
   'app.upload_manager keeps the API grant (the activity_log policy reads it), never anon');
@@ -793,6 +803,21 @@ select ok((select state = 'held' and session_uri_encrypted is null from public.u
   'held: no session');
 select is(public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'bigger.mov', '', 7000000000, null, null, null) ->> 'result',
   'held', 'a second big file is held too');
+-- The decided rule against a small Drive, and staging's test override (S7; advisor, 25 Nov 2026): with
+-- 15 GB free even a 9 KB file is held under 10 GB / 10 GB (free space counts as 10 GB, less 10 GB);
+-- _v2 with a 1 GB step and no reserve lets it start; null is the decided value; a step under 1 GB counts
+-- as 1 GB.
+select is(public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'tiny.jpg', '', 9000, null, null, null) ->> 'result',
+  'held', 'the decided rule (the wrapper): 15 GB free holds even a 9 KB file');
+select is(public.upload_file_start_v2(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'tiny.jpg', '', 9000, null, null, null, null, null) ->> 'result',
+  'held', '_v2 with nulls is the decided rule');
+select is(public.upload_file_start_v2(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'tiny.jpg', '', 9000, null, null, null, 1, 0) ->> 'result',
+  'start', '_v2 with the test override (a step clamped to 1 GB, no reserve): the file starts');
+select is(public.upload_file_failed(pg_temp.h('tok-1'), pg_temp.h('dev-fen'),
+            (select id from public.upload_files where name = 'tiny.jpg' and uploader_id =
+               (select id from public.upload_uploaders where link_id = pg_temp.fx('l1') and device_key_hash = pg_temp.h('dev-fen'))),
+            'gave_up'),
+  'failed', 'the override''s file set aside (gave_up), so the rest runs as before');
 select pg_temp.as_system();
 select is(pg_temp.notes('owner', 'upload_space_held'), 1::bigint, 'the Owner is told once per link per IST day');
 select is(pg_temp.kind_total('upload_space_held'), 1::bigint, 'and nobody else');

@@ -6693,6 +6693,21 @@ export type Database = {
         };
         Returns: Json;
       };
+      upload_file_start_v2: {
+        Args: {
+          p_device_key_hash: string;
+          p_ip: unknown;
+          p_mime_hint: string;
+          p_name: string;
+          p_relative_path: string;
+          p_size_bytes: number;
+          p_space_reserve: number;
+          p_space_step: number;
+          p_token_hash: string;
+          p_user_agent: string;
+        };
+        Returns: Json;
+      };
       upload_files_received: {
         Args: { p_late_reason: string; p_link_id: string; p_mark_done: boolean };
         Returns: string;

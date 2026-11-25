@@ -300,6 +300,21 @@
       - the page's headers and no cookie;
       - the API's refusals (no token, an unknown token, no or another origin, not JSON, over 64 KB, GET);
       - **the J1 nonce-CSP guard as `test.fail()`, flipped by the step-3 commit** (advisor).
+  - **The upload unit, on staging (25 Nov):**
+    - `staging-drive-secrets` now also puts the owner's staging `UPLOAD_LINK_KEY` on a staging version. Its check shows the v45 preview holding all four names.
+    - `upload-roundtrip` (dispatch-only, `scripts/upload-roundtrip.mjs`) runs the whole path end to end on the v45 preview with the test Gmail:
+      - the staging Owner's magic-link sign-in;
+      - a test task of the Owner's own, then Get upload link (masked);
+      - a fresh browser sends 5 small files, including a folder;
+      - a read-only check of the rows, then All files received.
+      - Guards: staging previews only, never production's project, and only a Drive connected after 25 Nov 15:00 UTC.
+    - **Finding:** runs 45681565831 and 45682607072 held every file. Under the decided S7 rule a free 15 GB Gmail can never take one: 15 GB free rounds down to a 10 GB step, less the 10 GB reserve, leaves 0.
+    - **The advisor's decision: a test-only override, not a rule change.**
+      - Migration `20261125191730_upload_space_override`: `upload_file_start_v2` (the body identical but for the guard's two expressions), and `upload_file_start` a thin wrapper with 10 GB / 10 GB.
+      - The Worker calls `_v2` with `UPLOAD_SPACE_STEP_BYTES` / `UPLOAD_SPACE_RESERVE_BYTES` when set (`domain/space.ts`, one constant, unit-tested).
+      - **Staging sets a 1 GB step and no reserve in `wrangler.jsonc`**; production never names them.
+      - pgTAP 146 (378): the wrapper holds a 9 KB file on 15 GB free, `_v2` with the override starts it, both are service_role only, and the wrapper holds no logic.
+      - **"Staging uses a test override of S7" goes into the v4.5 READY**, and the owner's walk notes that a free Gmail can never take an upload in production terms.
   - **Next:**
     1. The upload unit (CORS unblocked): a real Google round trip on staging; confirm Google's daily-limit error codes (Ideas item 2).
     2. Guide screenshots for the two upload topics once the demo has a link.

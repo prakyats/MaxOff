@@ -4,8 +4,9 @@
   // Bindings are not inherited by environments, so each one repeats `assets` and `services`.
   // Runtime secrets (SUPABASE_SECRET_KEY) travel with each deploy (`--secrets-file`), never
   // here. Public NEXT_PUBLIC_* values are inlined by `next build`, so they come from the build
-  // environment (GitHub environment variables), not from `vars`. The one `vars` entry is
-  // production's CANONICAL_HOST (below): routing, not configuration.
+  // environment (GitHub environment variables), not from `vars`. The `vars` entries are
+  // production's CANONICAL_HOST (below), routing rather than configuration, and staging's v4.5
+  // test override of the upload space guard (never production's).
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "maxoff-dev",
   // `worker/index.js` re-exports OpenNext's handler (`.open-next/worker.js`, from
@@ -38,6 +39,11 @@
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging" }],
       "observability": { "enabled": true },
       "preview_urls": true,
+      // v4.5, a TEST override of the upload space guard (S7; advisor 25 Nov 2026), staging and its
+      // previews only: staging's Drive is a free 15 GB test Gmail, which can never take a file under
+      // the decided 10 GB step and 10 GB reserve. Production never names these, so it keeps the
+      // decided rule (`src/modules/uploads/domain/space.ts`). Not secret.
+      "vars": { "UPLOAD_SPACE_STEP_BYTES": "1000000000", "UPLOAD_SPACE_RESERVE_BYTES": "0" },
       "triggers": { "crons": ["30 21 * * *", "* * * * *", "35 3 * * *"] },
     },
     // Production: deployed from a `v*` tag. Workers Paid (the account's plan, see staging).
@@ -51,8 +57,8 @@
     // certificate in the maxoff.in zone; the deploy token needs the zone permissions README
     // names, or the owner attaches it once in the dashboard under Workers → maxoff → Domains &
     // Routes). The workers.dev address stays ON only so `worker/index.js` can send it to the
-    // custom domain (308, path and query kept), keyed on `CANONICAL_HOST`: the one `vars`
-    // entry in this file, production-only by construction. Never add the bare `maxoff.in`,
+    // custom domain (308, path and query kept), keyed on `CANONICAL_HOST`: production's one `vars`
+    // entry, production-only by construction (staging's are the v4.5 test override above). Never add the bare `maxoff.in`,
     // `www` or `mail.maxoff.in` here: the first two are reserved for a landing page, the
     // third belongs to Resend.
     "production": {

@@ -47,6 +47,7 @@ describe("the upload link's service-role repository", () => {
         userAgent: "UA",
       }),
     ).resolves.toEqual({ result: "already_sent" });
+    expect(calls[0]?.name).toBe("upload_file_start_v2");
     expect(calls[0]?.args[0]).toEqual({
       p_token_hash: HEX,
       p_device_key_hash: HEX,
@@ -56,6 +57,9 @@ describe("the upload link's service-role repository", () => {
       p_mime_hint: null,
       p_ip: "203.0.113.7",
       p_user_agent: "UA",
+      // The space guard's decided step and reserve (S7): the test override is unset here.
+      p_space_step: 10_000_000_000,
+      p_space_reserve: 10_000_000_000,
     });
   });
 
