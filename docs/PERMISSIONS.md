@@ -14,8 +14,8 @@
 | `settings.manage` | Company settings, days off, holidays, thresholds (since Kickoff 7 amendment C E5, owner 2026-10-08: the client-work escalation thresholds `item_overdue_escalate_hours` and `cycle_decide_escalate_days` too) | ✅ | | |
 | `drive.manage` | Connect, reconnect or disconnect the company Google account and see its status (`drive_status()`; never a token), set the archive root, retry failed archives | ✅ | | |
 | `drive.view_status` | See archive status on a submission ("Archived ✓", "Link is private") | ✅ | ✅ | ✅ (own tasks) |
-| `uploads.manage` (v4.5 (proposed)) | A task's **upload link** (WORKFLOWS §5B): see the Uploads card and each uploader's sheet, Get upload link, Copy link, Stop link, Make a new link, All files received. There is no Remove: a file is deleted in the studio's Google Drive, never by MaxOff (Q7, owner 19 Nov). **Only on tasks the caller manages** (Q1, owner 19 Nov: the Owner, and the task's Admin = its creator holding `tasks.create`, its approving Admin holding `tasks.approve_admin`, or the Admin who coordinates the freelancer who is its primary owner) | ✅ (every task) | ✅ (their tasks) | |
-| `uploads.network` (v4.5 (proposed)) | See an uploader's IP address and browser, and erase an uploader's network details before the 90 days (Q12: "the IP shown to the Owner only"; plan I4) | ✅ | | |
+| v4.5 (proposed, not granted yet): `uploads.manage` | A task's **upload link** (WORKFLOWS §5B): see the Uploads card and each uploader's sheet, Get upload link, Copy link, Stop link, Make a new link, All files received. There is no Remove: a file is deleted in the studio's Google Drive, never by MaxOff (Q7, owner 19 Nov). **Only on tasks the caller manages** (Q1, owner 19 Nov: the Owner, and the task's Admin = its creator holding `tasks.create`, its approving Admin holding `tasks.approve_admin`, or the Admin who coordinates the freelancer who is its primary owner) | ✅ (every task) | ✅ (their tasks) | |
+| v4.5 (proposed, not granted yet): `uploads.network` | See an uploader's IP address and browser, and erase an uploader's network details before the 90 days (Q12: "the IP shown to the Owner only"; plan I4) | ✅ | | |
 | `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (members currently assigned to open tasks they created or approve, and a freelancer's coordinator; status and reason only) | own devices only |
 | `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions ² | ✅ | ✅ ¹ | |
 | `templates.manage` | Project and task templates | ✅ | ✅ | |
@@ -128,7 +128,7 @@
 | Crew not on the task | `NOT_FOUND` | `NOT_FOUND` | `NOT_FOUND` | ❌ |
 | A freelancer | no login (ADR-0013); their "mark it done" goes to their coordinator | — | — | — |
 | A deactivated member | `UNAUTHENTICATED` | `UNAUTHENTICATED` | `UNAUTHENTICATED` | — |
-| `anon`, `authenticated` on the public functions | no EXECUTE | no EXECUTE | no EXECUTE | no EXECUTE |
+| The `anon` and `authenticated` roles on the public functions | no EXECUTE | no EXECUTE | no EXECUTE | no EXECUTE |
 | **Anyone with the link** (the uploader; no account, through the Worker as `service_role`) | **Only their own files from their own device** (Q4); the page shows the studio's name and the task's title only (Q5) | ❌ | ❌ ("I'm done" only tells the studio) | ❌ |
 
 - **Nobody removes a file in MaxOff** (Q7, owner 19 Nov): there is no Remove function, button or permission, for any role. The Owner or an Admin who wants a file gone deletes it in the studio's Google Drive. A recorded file later gone from Drive or in its bin is marked `missing_in_drive` ("Removed in Drive") **by the service role only** (the Worker's Drive metadata read, DATA-MODEL §8a); no member can set or clear it. The row and its history stay (invariant 9).
