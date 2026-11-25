@@ -56,6 +56,10 @@ export async function listRequests(
       .eq("state", "submitted")
       .not("supersedes_id", "is", null),
   ]);
+  // A page past the last request: PostgREST answers "range not satisfiable" (PGRST103) when the
+  // count is asked for, not an empty list. No rows, so the page sends the reader to the first
+  // (v7.5 plan §5.1, the G7 class).
+  if (list.error?.code === "PGRST103") return { requests: [], total: 0 };
   if (list.error) throw list.error;
   if (open.error) throw open.error;
 

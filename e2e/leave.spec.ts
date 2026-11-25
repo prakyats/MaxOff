@@ -13,6 +13,7 @@ import {
   serviceSelect,
   signIn,
   storageStateFor,
+  memberIdOf,
   USERS,
 } from "./helpers";
 
@@ -294,3 +295,25 @@ for (const { from, to } of OWNER_INSTEAD) {
     await context.close();
   });
 }
+
+// v7.5 (the G7 class): past the last page PostgREST answers "range not satisfiable" when the
+// count is asked for, and the leave lists showed "This page couldn't load". Now the read takes it
+// as no rows and the page goes to the first.
+test("a leave page past the last goes to the first: the member's own and the Owner's view", async ({
+  browser,
+}) => {
+  const crew = await browser.newContext({ storageState: storageStateFor("staff") });
+  const own = await crew.newPage();
+  await own.goto("/leave?page=9999");
+  await expect(own).toHaveURL(/\/leave$/);
+  await expect(own.locator('[data-slot="page-header"]').first()).toContainText("Attendance");
+  await crew.close();
+
+  const id = await memberIdOf(USERS.staff.email);
+  const owner = await browser.newContext({ storageState: storageStateFor("owner") });
+  const person = await owner.newPage();
+  await person.goto(`/people/${id}/leave?page=9999`);
+  await expect(person).toHaveURL(new RegExp(`/people/${id}/leave$`));
+  await expect(person.getByText("This page couldn't load")).toHaveCount(0);
+  await owner.close();
+});
