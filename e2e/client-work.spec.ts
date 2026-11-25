@@ -30,6 +30,7 @@ import {
   ownSession,
   controlHits,
 } from "./helpers";
+import { recordOnFailure } from "./failure-record";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
 
@@ -1917,11 +1918,45 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
 
     // The row's Mark done: held with an Undo; Undo sends nothing.
     const first = await itemId(projectId, "Reel 1");
+    // CI-only: after Undo the row stayed held (CI 45678861249, v2.0.1's too); never locally. On
+    // failure the error carries when each step ran, the toasts on screen, the mark-done sends and
+    // the item's state, so the next red run names the cause (no fix without one).
+    const steps: string[] = [];
+    const started = performance.now();
+    const step = (what: string) =>
+      steps.push(`+${Math.round(performance.now() - started)}ms ${what}`);
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/client-work/mark-done") step("mark-done sent");
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error") step(`console error: ${message.text().slice(0, 200)}`);
+    });
     await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done", exact: true }).click();
+    step("Mark done clicked");
     await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
     await expect(page.getByText("Marked Reel 1 done")).toBeVisible();
+    step("toast visible");
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect(itemRow(page, "Reel 1")).not.toHaveAttribute("data-held", "");
+    step("Undo clicked");
+    await recordOnFailure(
+      () => expect(itemRow(page, "Reel 1")).not.toHaveAttribute("data-held", ""),
+      async () => {
+        const toasts = await page
+          .locator("[data-sonner-toast]")
+          .evaluateAll((nodes) =>
+            nodes.map(
+              (node) =>
+                `${node.getAttribute("data-type") ?? ""} ${node.getAttribute("data-mounted") ?? ""}/${node.getAttribute("data-removed") ?? ""}: ${(node.textContent ?? "").trim().slice(0, 120)}`,
+            ),
+          );
+        return [
+          ...steps,
+          `toasts now: ${toasts.length ? toasts.join(" | ") : "(none)"}`,
+          `item state now: ${String(await itemState(first))}`,
+          `visibility: ${await page.evaluate(() => document.visibilityState)}`,
+        ].join("\n");
+      },
+    );
     expect(await itemState(first)).toBe("open");
     // Kept: sent when the Undo window ends, or at once when the app goes to the background; it
     // is approved in the same step.

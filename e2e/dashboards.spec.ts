@@ -26,6 +26,7 @@ import {
   USERS,
   streamedHeights,
 } from "./helpers";
+import { recordOnFailure } from "./failure-record";
 import { explainOnIphone, isIphone, recordNavigation } from "./webkit-diagnostics";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
@@ -300,6 +301,28 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on");
     // Every screen fetch of /leave from the tap on: the move's own, and any re-read after it.
     const fetches: string[] = [];
+    // CI-only: a second /leave fetch (CI 45678861249), never locally. On failure the error carries
+    // every screen fetch with its time and the router state it was sent from (a refresh sends the
+    // screen it stood on, a move the one it left), and the page's focus and visibility changes.
+    const started = performance.now();
+    const timeline: string[] = [];
+    const at = () => `+${Math.round(performance.now() - started)}ms`;
+    page.on("request", (request) => {
+      const headers = request.headers();
+      if (headers["rsc"] !== "1" || headers["next-router-prefetch"]) return;
+      const tree = decodeURIComponent(headers["next-router-state-tree"] ?? "").slice(0, 160);
+      timeline.push(`${at()} rsc ${new URL(request.url()).pathname} from-tree=${tree}`);
+    });
+    page.on("console", (message) => {
+      if (message.text().startsWith("[record]")) timeline.push(`${at()} ${message.text()}`);
+    });
+    await page.evaluate(() => {
+      for (const kind of ["focus", "blur", "pageshow"])
+        window.addEventListener(kind, () => console.warn(`[record] ${kind}`));
+      document.addEventListener("visibilitychange", () =>
+        console.warn(`[record] visibility ${document.visibilityState}`),
+      );
+    });
     page.on("request", (request) => {
       const headers = request.headers();
       if (
@@ -312,12 +335,18 @@ test.describe("Crew: My Day (6.1)", () => {
     // A change to their own task is heard, and the screen is left before its re-read is due.
     await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
     await heard;
+    timeline.push(`${at()} heard`);
     await page.locator('a[href="/leave"]:visible').first().click();
+    timeline.push(`${at()} clicked /leave`);
     await expect(page).toHaveURL(/\/leave$/);
+    timeline.push(`${at()} at /leave`);
     await expect(pageHeader(page)).toContainText(/leave/i);
     // Past the re-read's moment (400 ms after the event) and its answer.
     await page.waitForTimeout(1_500);
-    expect(fetches, "the move's own fetch, and no re-read after it").toHaveLength(1);
+    await recordOnFailure(
+      async () => expect(fetches, "the move's own fetch, and no re-read after it").toHaveLength(1),
+      async () => timeline.join("\n"),
+    );
   });
 
   test("installed: My Day → a task → one back lands on My Day", async ({ page }, info) => {
