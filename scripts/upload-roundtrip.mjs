@@ -249,7 +249,36 @@ async function main() {
     await page.locator('input[aria-label="Choose files"]').setInputFiles(loose);
     await page.locator('input[aria-label="Choose a folder"]').setInputFiles(folder);
     await page.getByRole("button", { name: /^Upload \d+ files?$/ }).click();
-    await page.locator('[data-slot="upload-received"]').waitFor({ timeout: 180_000 });
+    try {
+      await page.locator('[data-slot="upload-received"]').waitFor({ timeout: 180_000 });
+    } catch (error) {
+      // Where it stopped, without a name, id or session: each row's state and line, the banner,
+      // and the states MaxOff recorded (with their failure reasons).
+      const rows = await page
+        .locator('[data-slot="upload-file"]')
+        .evaluateAll((els) =>
+          els.map(
+            (el) =>
+              `${el.getAttribute("data-state")}: ${el.querySelector(".tabular-nums")?.textContent ?? ""}`,
+          ),
+        );
+      const banner = await page
+        .locator('[data-slot="upload-banner"]')
+        .getAttribute("data-banner")
+        .catch(() => null);
+      const { data: recorded } = await service
+        .from("upload_files")
+        .select("state, failed_reason, bytes_at_google, bytes_reported, size_bytes")
+        .eq("task_id", taskId);
+      process.stdout.write(`rows on the page: ${JSON.stringify(rows)}\n`);
+      process.stdout.write(`banner: ${banner ?? "none"}\n`);
+      process.stdout.write(`recorded: ${JSON.stringify(recorded)}\n`);
+      await page.screenshot({
+        path: join(process.env.RUNNER_TEMP ?? tmpdir(), "upload-roundtrip.png"),
+        fullPage: true,
+      });
+      throw error;
+    }
     record("upload", true, `${files.length} files received on the page`);
     record(
       "token in no URL",

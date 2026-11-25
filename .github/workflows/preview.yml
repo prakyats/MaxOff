@@ -614,6 +614,14 @@ jobs:
           export BASE="https://${alias}-${host}"
           echo "Preview: $BASE"
           node scripts/upload-roundtrip.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep the page as it stood (on a failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-roundtrip-${{ github.run_id }}
+          path: ${{ runner.temp }}/upload-roundtrip.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   reminders-backfill-dry-run:
     name: reminders backfill (dry run, staging)
