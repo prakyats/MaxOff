@@ -200,12 +200,12 @@ select is(pg_get_function_result('app.attendance_apply_leave(public.leave_reques
 select ok(
   has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_decide(uuid, text, text)', 'execute')
-  and has_function_privilege('authenticated', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
+  and has_function_privilege('authenticated', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text, text, boolean)', 'execute'),
   'authenticated may execute the re-created functions');
 select ok(
   not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_decide(uuid, text, text)', 'execute')
-  and not has_function_privilege('anon', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
+  and not has_function_privilege('anon', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text, text, boolean)', 'execute'),
   'anon may execute none of them');
 select ok(
   not has_function_privilege('authenticated', 'app.leave_supersede_gate(uuid, date, date, uuid, uuid)', 'execute')
