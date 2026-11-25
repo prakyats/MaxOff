@@ -1,6 +1,7 @@
 import type { ISODate } from "@/core/time";
 
 import { progressLine, progressOf, shortDate } from "./items";
+import { shortCycleLabel } from "./periods";
 import { cycleMeter, type CycleMeter, type MeterItem } from "./progress";
 import {
   PROJECT_STATE_LABELS,
@@ -24,6 +25,11 @@ export type ProjectSummary = {
   stateLabel: string;
   /** "Monthly · October 2026", "One-time · delivery 20 Oct". */
   meta: string;
+  /**
+   * The same line for a phone's row (v7.0): "Monthly · Oct 2026", the month's short name, so it
+   * stays one line beside the row's state column at 375 px, as its skeleton draws it.
+   */
+  metaShort: string;
   /**
    * "9/12 done · 1 closed", or "No deliverables in this cycle."; null for a finished
    * project (only working projects have a current cycle).
@@ -52,14 +58,15 @@ export type ProjectSummary = {
  * A working project's current cycle with its items' states (the data layer's `listCurrentCycles`:
  * open or in-progress projects, the period covering today, or a one-time cycle).
  */
-export type CurrentCycleStates = Pick<Cycle, "id" | "projectId" | "label"> & {
-  clientId: string;
-  states: readonly ItemState[];
-  /** The items with their dates and ticks (`listCurrentCycleMeters`), for the meter. */
-  items?: readonly MeterItem[];
-  /** Each item's planned date in `states`' order (`listCurrentCycles`), for a client's Due. */
-  plannedDates?: readonly (string | null)[];
-};
+export type CurrentCycleStates = Pick<Cycle, "id" | "projectId" | "label"> &
+  Partial<Pick<Cycle, "periodStart">> & {
+    clientId: string;
+    states: readonly ItemState[];
+    /** The items with their dates and ticks (`listCurrentCycleMeters`), for the meter. */
+    items?: readonly MeterItem[];
+    /** Each item's planned date in `states`' order (`listCurrentCycles`), for a client's Due. */
+    plannedDates?: readonly (string | null)[];
+  };
 
 export function projectSummaries(
   projects: readonly Project[],
@@ -71,10 +78,13 @@ export function projectSummaries(
     const finished = project.state === "completed" || project.state === "cancelled";
     const cycle = finished ? undefined : cycleOf.get(project.id);
     const parts = [RECURRENCE_LABELS[project.recurrence]];
+    let short: string | null = null;
     if (project.recurrence === "one_time" && project.deliveryDate) {
       parts.push(`delivery ${shortDate(project.deliveryDate)}`);
     } else if (cycle?.label) {
       parts.push(cycle.label);
+      if (project.recurrence !== "one_time" && cycle.periodStart)
+        short = shortCycleLabel(project.recurrence, cycle.periodStart);
     } else if (project.recurrence !== "one_time" && !finished) {
       parts.push("no current cycle");
     }
@@ -84,6 +94,7 @@ export function projectSummaries(
       state: project.state,
       stateLabel: PROJECT_STATE_LABELS[project.state],
       meta: parts.join(" · "),
+      metaShort: short === null ? parts.join(" · ") : [parts[0], short].join(" · "),
       progress: finished
         ? null
         : progressLine(progressOf((cycle?.states ?? []).map((state) => ({ state })))),

@@ -18,6 +18,7 @@ import { describeProjectActivity } from "../domain/activity";
 import { cycleProgressWords, onTime, onTimeWords, sitLongest, sitWords } from "../domain/kpis";
 import {
   cycleLabel,
+  shortCycleLabel,
   itemListCopy,
   itemListPeriods,
   nextStartable,
@@ -169,6 +170,11 @@ describe("cycles", () => {
     expect(cycleLabel("weekly", "2026-10-05")).toBe("5–11 Oct 2026");
     expect(cycleLabel("weekly", "2026-09-28")).toBe("28 Sep–4 Oct 2026");
     expect(cycleLabel("weekly", "2026-12-28")).toBe("28 Dec 2026–3 Jan 2027");
+    // A phone's row (v7.0): the month's short name; a week's label is already short.
+    expect(shortCycleLabel("monthly", "2026-09-01")).toBe("Sep 2026");
+    expect(shortCycleLabel("monthly", "2026-11-01")).toBe("Nov 2026");
+    expect(shortCycleLabel("monthly", "2027-05-01")).toBe("May 2027");
+    expect(shortCycleLabel("weekly", "2026-10-05")).toBe("5–11 Oct 2026");
   });
 
   it("offers the next period at most 7 days ahead, once (decision 3)", () => {
@@ -365,6 +371,49 @@ describe("the Projects tab", () => {
       // A finished project has no current cycle: no progress line.
       ["done", "One-time · delivery 20 Oct", null],
     ]);
+  });
+
+  it("has the phone's line with the month's short name, the rest as it is (v7.0)", () => {
+    const summaries = projectSummaries(
+      [
+        project({ id: "m" }),
+        project({ id: "w", name: "Weekly reels", recurrence: "weekly" }),
+        project({ id: "none", name: "No cycle" }),
+        project({
+          id: "once",
+          name: "Brand film",
+          recurrence: "one_time",
+          deliveryDate: "2026-10-20",
+        }),
+      ],
+      [
+        {
+          id: "c1",
+          projectId: "m",
+          clientId: "client",
+          label: "September 2026",
+          periodStart: "2026-09-01",
+          states: ["open"],
+        },
+        {
+          id: "c2",
+          projectId: "w",
+          clientId: "client",
+          label: "5–11 Oct 2026",
+          periodStart: "2026-10-05",
+          states: ["open"],
+        },
+      ],
+    );
+    expect(Object.fromEntries(summaries.map((summary) => [summary.id, summary.metaShort]))).toEqual(
+      {
+        m: "Monthly · Sep 2026",
+        w: "Weekly · 5–11 Oct 2026",
+        none: "Monthly · no current cycle",
+        once: "One-time · delivery 20 Oct",
+      },
+    );
+    expect(summaries.find((summary) => summary.id === "m")?.meta).toBe("Monthly · September 2026");
   });
 
   it("reads On hold only for a working project with a hold (X1; X5+ M6)", () => {

@@ -33,6 +33,20 @@ export function cycleLabel(recurrence: Exclude<Recurrence, "one_time">, start: I
 }
 
 /**
+ * The same label, short enough for a phone's project row (v7.0, the advisor's autopilot (i),
+ * 25 Nov 2026): a month with its short name ("Sep 2026"), so "Monthly · September 2026" never
+ * wraps beside the row's state column at 375 px where its skeleton draws one line; a week's
+ * label is already short and stays as it is.
+ */
+export function shortCycleLabel(
+  recurrence: Exclude<Recurrence, "one_time">,
+  start: ISODate,
+): string {
+  if (recurrence === "monthly") return at(start, "MMM yyyy");
+  return cycleLabel(recurrence, start);
+}
+
+/**
  * The next period "Start next cycle" may begin now (decision 3), or null: a one-time project, a
  * next period more than 7 days away, or one that already has its cycle.
  */

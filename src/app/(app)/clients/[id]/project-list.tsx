@@ -37,7 +37,12 @@ export function ProjectList({
           >
             <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
               <span className="text-sm font-medium break-words">{project.name}</span>
-              <span className="text-muted-foreground text-xs break-words">{project.meta}</span>
+              <span className="text-muted-foreground text-xs break-words">
+                {/* A phone's row has the month's short name (v7.0): one line beside the state
+                    column at 375 px, as the skeleton draws it; from sm up, the full name. */}
+                <span className="sm:hidden">{project.metaShort}</span>
+                <span className="hidden sm:inline">{project.meta}</span>
+              </span>
               {project.meter ? (
                 // The cycle's meter in miniature (6b.11 (5)). PP-client-1: the bar, its figure and
                 // the line under it are one measure, the stages, and say so ("50% of stages"; then
