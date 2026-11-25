@@ -364,10 +364,14 @@ function FileRow({
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium">{file.name}</span>
         <span className="text-muted-foreground truncate text-xs">{where}</span>
+        {/* Under the name, not beside it: on a phone a third chip pushed Leave out past the
+            card's edge (the v5.0 design pass). */}
+        {isRiskyName(file.name) ? (
+          <span className="mt-0.5 flex">
+            <StatusBadge status="risky" tone="neutral" label="Check before opening" />
+          </span>
+        ) : null}
       </span>
-      {isRiskyName(file.name) ? (
-        <StatusBadge status="risky" tone="neutral" label="Check before opening" />
-      ) : null}
       {file.state === "done" && reviewer && file.driveFileId ? (
         <a
           href={FILE_URL(file.driveFileId)}
