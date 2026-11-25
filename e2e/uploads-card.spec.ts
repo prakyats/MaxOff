@@ -258,7 +258,47 @@ test.describe("the task's Admin", () => {
 
     await uploads.getByRole("button", { name: "Copy link" }).click();
     await expect(page.getByText("Link copied")).toBeVisible();
+    // sonner's styles come from its stylesheet, not injected from JS (v4.5, patches/sonner):
+    // the toast still looks the same, in light and in dark.
+    const toastLook = () =>
+      page
+        .locator("[data-sonner-toast]")
+        .first()
+        .evaluate((toast) => {
+          const own = getComputedStyle(toast);
+          const list = getComputedStyle(toast.closest("[data-sonner-toaster]")!);
+          return {
+            position: list.position,
+            padding: own.paddingTop,
+            background: own.backgroundColor,
+            theme: toast.closest("[data-sonner-toaster]")!.getAttribute("data-sonner-theme"),
+          };
+        });
+    const light = await toastLook();
+    expect(light).toMatchObject({ position: "fixed", padding: "16px", theme: "light" });
+    expect(light.background).not.toBe("rgba(0, 0, 0, 0)");
+    expect(
+      await page.evaluate(() =>
+        [...document.querySelectorAll("style")].some((s) =>
+          s.textContent?.includes("[data-sonner-toaster]"),
+        ),
+      ),
+      "no stylesheet injected from JS",
+    ).toBe(false);
     expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(LINK);
+    // In dark, the same toast in its dark colours.
+    await page.emulateMedia({ colorScheme: "dark" });
+    await uploads.getByRole("button", { name: "Copy link" }).click();
+    const dark = await page
+      .locator('[data-sonner-toaster][data-sonner-theme="dark"] [data-sonner-toast]')
+      .first()
+      .evaluate((toast) => ({
+        padding: getComputedStyle(toast).paddingTop,
+        background: getComputedStyle(toast).backgroundColor,
+      }));
+    expect(dark.padding).toBe("16px");
+    expect(dark.background).not.toBe(light.background);
+    await page.emulateMedia({ colorScheme: "light" });
     // A copy leaves a history row (who copied it, to trace a leak); the link itself never does.
     const link = await uploads.getByRole("textbox", { name: "Upload link" }).inputValue();
     const token = link.split("#")[1]!;
@@ -268,7 +308,8 @@ test.describe("the task's Admin", () => {
     const history = await serviceSelect<{ action: string }>(
       `activity_log?entity=eq.upload_links&entity_id=eq.${row!.id}&select=action,diff,meta&order=at.asc`,
     );
-    expect(history.map((entry) => entry.action)).toEqual(["created", "copied"]);
+    // Two copies (light, then dark for the toast check): each leaves its own row.
+    expect(history.map((entry) => entry.action)).toEqual(["created", "copied", "copied"]);
     expect(JSON.stringify(history)).not.toContain(token);
   });
 

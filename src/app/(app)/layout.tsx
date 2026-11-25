@@ -1,3 +1,5 @@
+import "sonner/dist/styles.css";
+
 import { unstable_rethrow } from "next/navigation";
 import type { ReactNode } from "react";
 
