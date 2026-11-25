@@ -9,15 +9,29 @@ const STAGING_APP = "https://maxoff-staging.example.workers.dev";
 describe("the rush test's target guard (staging only)", () => {
   it("allows staging, a preview of it and this machine", () => {
     expect(() => assertLoadTarget({ base: STAGING_APP, supabaseUrl: STAGING_DB })).not.toThrow();
+    // Staging's real Worker shares the account's subdomain with production's (Preview run
+    // 45673706796 refused it as production).
+    for (const base of [
+      "https://maxoff-staging.pixoraclips.workers.dev",
+      "https://phase-v70-maxoff-staging.pixoraclips.workers.dev",
+    ]) {
+      expect(() => assertLoadTarget({ base, supabaseUrl: STAGING_DB })).not.toThrow();
+    }
     expect(() =>
       assertLoadTarget({ base: "http://localhost:3100", supabaseUrl: "http://127.0.0.1:54321" }),
     ).not.toThrow();
   });
 
   it("refuses production's app and production's database", () => {
-    expect(() =>
-      assertLoadTarget({ base: "https://app.maxoff.in", supabaseUrl: STAGING_DB }),
-    ).toThrow(/production/);
+    for (const base of [
+      "https://app.maxoff.in",
+      "https://maxoff.in",
+      // Production's own Worker (deploy.yml's smoke check; it redirects to app.maxoff.in).
+      "https://maxoff.pixoraclips.workers.dev",
+      "https://maxoff.example.workers.dev",
+    ]) {
+      expect(() => assertLoadTarget({ base, supabaseUrl: STAGING_DB })).toThrow(/production/);
+    }
     expect(() =>
       assertLoadTarget({
         base: STAGING_APP,
@@ -38,6 +52,13 @@ describe("the rush test's target guard (staging only)", () => {
     ).toThrow();
     expect(() =>
       assertLoadTarget({ base: "http://localhost:3100", supabaseUrl: STAGING_DB }),
+    ).toThrow();
+    // Another Worker on the account is not staging.
+    expect(() =>
+      assertLoadTarget({
+        base: "https://other-app.pixoraclips.workers.dev",
+        supabaseUrl: STAGING_DB,
+      }),
     ).toThrow();
     expect(() =>
       assertLoadTarget({ base: STAGING_APP, supabaseUrl: "https://db.example.com" }),

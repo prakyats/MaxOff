@@ -1,6 +1,7 @@
 import { type Locator, type Page, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { explainOnIphone, recordNavigation } from "./webkit-diagnostics";
 
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 
@@ -1045,6 +1046,8 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       const prefix = `Back ${info.project.name} `;
       await removeTasksTitled(prefix);
       await runInstalled(page);
+      // The iPhone project: the history and navigation record, for the step after Create.
+      await recordNavigation(page, info);
       await page.goto("/today");
       await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
       await expect(page).toHaveURL(/\/tasks$/);
@@ -1081,7 +1084,7 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await dialog.getByLabel("Deadline").fill(workingDay(17));
       await expectTargets(page);
       await dialog.getByRole("button", { name: "Create task" }).click();
-      await expect(page).toHaveURL(TASK_URL);
+      await explainOnIphone(page, info, () => expect(page).toHaveURL(TASK_URL));
       await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }]);
       // The form's entry is still under the task page, spent (the select sheet's entry was
       // backed out by Create, the form's was not: `overlay-history.ts` `reconcile`), so back #1

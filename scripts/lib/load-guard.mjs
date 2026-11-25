@@ -26,14 +26,25 @@ export function assertLoadTarget({ base, supabaseUrl }) {
   }
   if (base === undefined) return;
   const { protocol, hostname } = new URL(base);
-  if (/(^|\.)maxoff\.in$/.test(hostname) || hostname.includes("pixoraclips")) {
+  // Production: its domain, and its own Worker (`maxoff.<account>.workers.dev`, which redirects to
+  // app.maxoff.in). Staging's Worker shares the account's subdomain, so the account's name alone
+  // says nothing (Preview run 45673706796 refused staging that way).
+  const [worker] = hostname.split(".");
+  if (
+    /(^|\.)maxoff\.in$/.test(hostname) ||
+    (hostname.endsWith(".workers.dev") && worker === "maxoff")
+  ) {
     throw new Error(`Refused: ${hostname} is production. The rush test runs on staging only.`);
   }
   const local = hostname === "localhost" || hostname === "127.0.0.1";
-  const workers = protocol === "https:" && hostname.endsWith(".workers.dev");
-  if (!local && !workers) {
+  // Staging's Worker (`maxoff-staging`) or a branch preview of it (`<branch>-maxoff-staging`).
+  const staging =
+    protocol === "https:" &&
+    hostname.endsWith(".workers.dev") &&
+    (worker === "maxoff-staging" || (worker ?? "").endsWith("-maxoff-staging"));
+  if (!local && !staging) {
     throw new Error(
-      `Refused: ${hostname} is neither staging (*.workers.dev over https) nor this machine.`,
+      `Refused: ${hostname} is neither staging (maxoff-staging, or a preview of it, over https) nor this machine.`,
     );
   }
   if (local !== projectLocal) {

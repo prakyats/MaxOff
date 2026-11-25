@@ -5,9 +5,10 @@ is whether 20 people starting their day in the same minute all get through quick
 10:00 IST.
 
 **Never production.** The test runs on staging, after 22:00 IST, with 20 made-up people.
-`scripts/lib/load-guard.mjs` refuses production's app (`app.maxoff.in`) and production's Supabase
-project. It also refuses any host other than staging (or one of its previews) over https, or this
-machine.
+`scripts/lib/load-guard.mjs` refuses production's app (`*.maxoff.in` and its own Worker,
+`maxoff.<account>.workers.dev`) and production's Supabase project. It also refuses any host other
+than staging's Worker (`maxoff-staging`, or a `<branch>-maxoff-staging` preview of it) over https,
+or this machine.
 
 ## Pass (owner Q6)
 

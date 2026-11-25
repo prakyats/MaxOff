@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { expect, test, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
+import { explainOnIphone, isIphone } from "./webkit-diagnostics";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
@@ -81,7 +82,16 @@ export async function answerStartPrompt(page: Page): Promise<void> {
   if ((await mounted.count()) === 0) return;
   const prompt = startPrompt(page);
   await expect(prompt).toBeVisible();
-  await prompt.getByRole("button", { name: "Start day" }).click();
+  const start = prompt.getByRole("button", { name: "Start day" });
+  // The iPhone project: a click that never finds the button stable (CI 45668202247) fails at
+  // 15 s, inside the test's own time, with what the button and the sheet around it were doing.
+  const info = test.info();
+  await explainOnIphone(
+    page,
+    info,
+    () => start.click(isIphone(info) ? { timeout: 15_000 } : {}),
+    start,
+  );
   await expect(prompt).toBeHidden();
   await expect(mounted).toHaveCount(0);
 }
