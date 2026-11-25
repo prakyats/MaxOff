@@ -251,6 +251,35 @@
 6. **V5a item 6b, the "only when unused" Delete kinds: DECIDED by the owner directly (22 Oct, "any reference counts as used": history, archived or deleted rows, paid or closed claims, a job title someone once held, old custom-field values, a task type named only by an archived or deleted template, a draft's contact, note, file, task label or request) and BUILT in V5e (item 6c) for task types, job titles, expense categories, custom fields, draft clients and contacts as a real row delete (DATA-MODEL §2 "The Owner-only Delete of what was never used"). The original question, for the record:** The rule lists task types, job titles, expense categories, custom fields, draft clients and contacts, "only when unused", but "unused" is not settled for any of them: (a) **does history count?** A job title once held by someone and since changed, an expense category on a past (paid) claim, a custom field whose values sit only in old activity diffs, a draft client's own creation history: if a deleted row's name is later needed to read that history, a real delete loses it (the "(deleted)" label approach would need a soft state on each of these tables too); (b) **do archived or deleted rows count?** A task type referenced only by an archived or deleted task template (whose foreign key stays); a contact on a draft client; (c) **draft clients:** is a draft with contacts, notes, files, a task label or a request "used"? Recommended: treat any reference at all, history included, as "used" (so Delete is offered only to a row nothing has ever pointed at), with a soft deleted state like templates so names in history keep reading; awaiting the owner.
 
 ## In-progress handoff
+- **v4.5 screens unit, part A: the Uploads card (25 Nov 2026, `phase-v45`).** The server side is green: full CI 45662191402 on 8ef55c10.
+  - **Built:**
+    - `modules/uploads/components/uploads-card-body.tsx` (the markup, no hooks), `uploads-card-lazy.tsx` and `uploads-card.tsx` (the live card: Get upload link, Copy link, ⋯ Make a new link and Stop link with a named red confirm, uploader rows with chips, the closed card, the bands, All files received with its sheet and the late reason);
+    - `uploader-sheet.tsx` (one uploader's files: Removed in Drive, Check before opening, ⋯ Open in Drive; the Drive check only after the sheet is on screen; the IP and Erase for the Owner);
+    - `domain/card-view.ts`, with `tests/card-view.test.ts`;
+    - `readUploadCardForPage` in data;
+    - the task page wiring, guide topics `admin-upload-link` and `owner-upload-link`, and `e2e/uploads-card.spec.ts`. That spec joins the organisation-wide serial chain (`WORKING_HOURS_SPECS`); the run's server gets a throwaway `UPLOAD_LINK_KEY`. 20 passed at 1280, 375 and 430.
+  - **Also:**
+    - `sizeWords` moved to `core/lib/size-words.ts` (`core/drive/status` re-exports it), so domain code and the public page share it;
+    - `core/time/clock-words.ts` gains `dayKeyWords` and `dayClockWords`, so the card keeps date-fns out of the task page's bundle;
+    - the Drive file's description names the app (`NEXT_PUBLIC_APP_URL`), not the page's origin (J9).
+  - **Screen decisions (UI only, no business rule; for the release review):**
+    1. The card is read **beside** the task's reads (`startEarly`, anyone with `uploads.manage`; the database answers only the Owner and the task's three Admins, anyone else gets no card).
+       - It arrives with the page, so the task's `loading.tsx` is unchanged.
+       - Its first paint is the server-drawn `UploadsCardBody`. The live card (menu, dialogs, sheet, polling) loads **after the page** (`UploadsCardLazy`, `AfterPage`), so `/tasks/[id]` keeps its first-load budget (858.8 KB against 835 KB before the split). The e2e waits for `data-live` before tapping.
+       - Its first paint is the server-drawn `UploadsCardBody`. The live card (menu, dialogs, sheet, polling) loads **after the page** (`UploadsCardLazy`, `AfterPage`), so `/tasks/[id]` keeps its first-load budget (858.8 KB against 835 KB before the split). The e2e waits for `data-live` before tapping.
+    2. While a link is open the card leads the Work view (the sample §5); before a link and once closed it comes last.
+    3. Before any link, the card is drawn only where Get upload link can work (To do, In progress, Changes requested, with the Drive connected or waiting to be reconnected).
+    4. **All files received** is the page's one solid (green) button, sticky at a phone's foot, only when the page has no other next step. Otherwise it is an outline in the card, so a layer never holds two solid buttons (ADR-0015).
+    5. The link's address shows only after Get, Copy or Make a new link (the token is never stored). Copy writes the clipboard inside the tap (a `ClipboardItem` holding the answer, for Safari).
+  - **Owner decisions (advisor, 25 Nov):**
+    - **J9:** build the page on the same origin and keep it origin-agnostic. The owner decides `upload.maxoff.in`.
+    - **Two root layouts (option 1):** `/upload` lives at `src/app/(upload)/upload/` with its own minimal root layout. The **`(main)` move** (`git mv` of `layout.tsx`, `page.tsx`, `error.tsx`, `not-found.tsx`, `(app)`, `(auth)` and `offline` into `src/app/(main)/`, plus only the four tests that name those paths) is **one isolated commit, last on phase-v45, just before READY**. The branches merging after v4.5 (v5.0, v6.0, v6.5, v7.0) then rebase over one clean rename.
+    - The speed gate for v4.5 covers /login and /offline too.
+  - **Next:**
+    1. Part B, the public `/upload` page: `components/upload-page.tsx`, `upload-client.ts` and `upload-page-model.ts` (with tests) are written and not committed yet.
+       - Still to do: the `(upload)` root layout and route, the nonce CSP and J1–J8 headers in the proxy and `next.config`, the sw.js bypass, the `bundle-budget.json` entry, the `/upload` public path, and the e2e (screens, headers, refusals; the "no Playwright for the public API" item below).
+    2. The upload unit (CORS is unblocked).
+    3. Guide screenshots for the two upload topics once the demo has a link.
 - **PAUSED (owner, 25 Nov 2026 ~14:20 UTC, "pause everything, by saving everything"). v4.0 on `phase-v40`; v4.5 on `phase-v45`.**
   - **v4.0 (`phase-v40` 9281cfc, pushed):**
     - Code is ready: CI green on 11a3a67; speed accepted by the owner on 19 Nov.
@@ -903,6 +932,14 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+
+- **Local `pnpm check` around IST midnight (builder, 25 Nov 2026).** Two pgTAP runs between 18:25 and 18:32 UTC (00:00–00:02 IST) failed, with no SQL changed in the unit:
+  - `34` with `deadlock detected … while deleting tuple in relation "members"`, as the midnight-IST jobs (`end_not_recorded`, `cycle_generate`) and the `*/5` jobs fired;
+  - `07` test 208 ("the original and the cancellation end cancelled"), which looks date-sensitive across the IST day change.
+
+  The same suite passed at 18:09 and again away from midnight. To look at:
+  - pause `cron.job` for the length of `db:test`;
+  - pin `app.test_now` in `07`'s leave cases.
 
 - **v4.5 server side, decisions to confirm in the screens or upload unit (builder 25 Nov):**
   1. ~~The folder depth~~ **Done (25 Nov, advisor):** `cleanRelativePath` now matches `app.upload_clean_path`: 12 levels, split on "/" only, a backslash removed. `app.upload_clean` collapses runs of spaces like the Worker. One path is proved identical in pgTAP 146 and `resumable-folders.test.ts`.

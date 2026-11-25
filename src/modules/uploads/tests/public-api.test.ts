@@ -370,7 +370,10 @@ describe("the upload API: start opens Google's session (plan E1-E3)", () => {
       },
       file: { name: "clip.mp4", size: 1000, mimeType: "video/mp4" },
     });
-    expect(opened.file.description).toContain(`${ORIGIN}/tasks/task-1`);
+    // The link back names the app (NEXT_PUBLIC_APP_URL), not the page's origin (plan J9).
+    expect(opened.file.description).toContain(
+      `${new URL(process.env.NEXT_PUBLIC_APP_URL ?? ORIGIN).origin}/tasks/task-1`,
+    );
     // The cached folders are reused; a new one goes through upload_folder_put.
     await expect(opened.subfolders.find("")).resolves.toBe("f-sam");
     await expect(opened.subfolders.find("Day 1")).resolves.toBeNull();

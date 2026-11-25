@@ -3,6 +3,9 @@
  * `?drive=` outcome; the screen and its tests read the same lines. No token ever reaches here
  * (`drive_status()` holds none).
  */
+import { sizeWords } from "@/core/lib/size-words";
+
+export { sizeWords };
 
 export type DriveState = "connected" | "needs_reconnect" | "disconnected";
 
@@ -40,20 +43,6 @@ export function toDriveStatus(raw: unknown): DriveStatus {
     checkedAt: text(row.quota_checked_at),
     lastError: text(row.last_error),
   };
-}
-
-/** Bytes as people read storage: decimal units, like Google's own "2 TB". */
-export function sizeWords(value: number): string {
-  const units = ["bytes", "KB", "MB", "GB", "TB"] as const;
-  let size = value;
-  let unit = 0;
-  while (size >= 1000 && unit < units.length - 1) {
-    size /= 1000;
-    unit += 1;
-  }
-  if (unit === 0) return `${Math.round(size)} bytes`;
-  const rounded = size >= 100 ? Math.round(size) : Math.round(size * 10) / 10;
-  return `${rounded} ${units[unit]}`;
 }
 
 export type SpaceView = {

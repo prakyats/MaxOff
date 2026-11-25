@@ -20,3 +20,25 @@ export function clockWords(instant: Date): string {
   });
   return clock.format(instant).replace(/[  ]/g, " ").toLowerCase();
 }
+
+let key: Intl.DateTimeFormat | null = null;
+
+/** An instant's IST date, `2026-11-18`, without date-fns (the same as `toISTDate`). */
+export function dayKeyWords(instant: Date): string {
+  key ??= new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+  return key.format(instant);
+}
+
+/** date-fns' `MMM`: three letters every month (the browser's en-GB says "Sept"). */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** `18 Nov, 5:40 pm` without date-fns (the same words as `formatDateTime`). */
+export function dayClockWords(instant: Date): string {
+  const [, month, date] = dayKeyWords(instant).split("-").map(Number);
+  return `${date} ${MONTHS[(month ?? 1) - 1]}, ${clockWords(instant)}`;
+}

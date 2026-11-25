@@ -541,6 +541,52 @@ export const ADMIN_GUIDE: Guide = {
           keywords: ["on hold", "hold", "pause", "resume", "paused"],
         },
         {
+          id: "admin-upload-link",
+          title: "Get files in with an upload link",
+          summary:
+            "A private link that lets anyone send files straight into the task's Drive folder.",
+          blocks: [
+            {
+              kind: "text",
+              text: "On tasks you created, approve, or whose freelancer you coordinate, the Work view has an Uploads card. Make a link there and send it to a freelancer or cameraman: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open the task. In Work, tap Get upload link on the Uploads card.",
+                "Tap Copy link and send it to whoever has the files.",
+                "Watch the card: one row per person, with their files, data sent and last activity. Tap a row to see that person's files.",
+                "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "All files received stops the link. If you coordinate the task's freelancer, it also marks the task Done for them and it goes for approval as usual; otherwise the task's primary is told \"Files received: mark it done\".",
+            },
+            {
+              kind: "text",
+              text: 'Chips on a row: Uploading; "Not on this task · new name" (the name matches nobody on the task: it is only information); Stuck (red: nothing has moved for 15 min, and you are told); Said "I\'m done"; Looks finished (amber: every file is in and nothing has moved for 10 min). A name is typed by the uploader and is not checked.',
+            },
+            {
+              kind: "note",
+              text: 'MaxOff never deletes a file. To remove one, delete it in the studio\'s Google Drive: its row then says "Removed in Drive". Open footage in Drive\'s own player; never download and run a program from an upload folder ("Check before opening" marks programs and web pages).',
+            },
+            {
+              kind: "text",
+              text: `The ⋯ on the card has Make a new link (the old one stops working at once) and Stop link. The link also stops when the task is marked Done or cancelled. Only you, the task's other Admins and the Owner see the card; the ${CREW} never see the link.`,
+            },
+          ],
+          keywords: [
+            "upload",
+            "upload link",
+            "files",
+            "footage",
+            "freelancer",
+            "drive",
+            "send files",
+          ],
+        },
+        {
           id: "admin-task-remind",
           title: "Remind the people on a task",
           summary: "Nudge everyone on a task, once an hour.",

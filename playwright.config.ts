@@ -36,7 +36,7 @@ const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
  * v4.0: Settings → Google Drive joins them for the same reason: the connection is one row per
  * organisation (`drive_account`), which its spec sets and clears.
  */
-const WORKING_HOURS_SPECS = /(working-hours|drive-settings)\.spec\.ts$/;
+const WORKING_HOURS_SPECS = /(working-hours|drive-settings|uploads-card)\.spec\.ts$/;
 // The push and email dispatch through the cron route (owner decision 29): the dispatcher is
 // organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
 // one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).
@@ -377,6 +377,8 @@ export default defineConfig({
         GOOGLE_OAUTH_CLIENT_ID: "e2e-only.apps.googleusercontent.com",
         GOOGLE_OAUTH_CLIENT_SECRET: "e2e-only-google-secret",
         DRIVE_TOKEN_KEY: "ZTJlLW9ubHktZHJpdmUtdG9rZW4ta2V5LTMyLWJ5dGU=",
+        // The upload link (v4.5): a throwaway key, so Get upload link works; no link reaches Google.
+        UPLOAD_LINK_KEY: "ZTJlLW9ubHktdXBsb2FkLWxpbmsta2V5LTMyYnl0ZXM=",
       },
     },
   ],

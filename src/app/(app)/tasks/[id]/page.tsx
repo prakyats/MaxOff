@@ -57,6 +57,8 @@ import {
   type PeopleIndex,
 } from "@/modules/tasks";
 import { TaskActivityList } from "@/modules/tasks/components/task-activity-list";
+import { cardShown, readUploadCardForPage, UploadsCardBody } from "@/modules/uploads";
+import { UploadsCardLazy } from "@/modules/uploads/components/uploads-card-lazy";
 import { TaskChat } from "@/modules/tasks/components/task-chat";
 import { TaskHoldLine } from "@/modules/tasks/components/task-hold";
 import { TaskMenu } from "@/modules/tasks/components/task-menu";
@@ -110,6 +112,11 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const viewer = await requirePermission("tasks.work");
   const namesRead = loadNames(can(viewer.role, "team.view"), reads);
   startEarly(namesRead);
+  // v4.5: the Uploads card, read beside the task (not after it) for anyone who may manage uploads;
+  // the database answers only the Owner and the task's three Admins, so any other Admin gets no
+  // card (WORKFLOWS §5B.3).
+  const uploadsRead = can(viewer.role, "uploads.manage") ? readUploadCardForPage(id) : null;
+  if (uploadsRead) startEarly(uploadsRead);
   const data = await reads;
   const { task } = data;
   if (!task) notFound();
@@ -229,7 +236,46 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     />
   );
 
-  const work = workPanel({ data, task, actions, pair });
+  const uploadsCard = uploadsRead ? await uploadsRead : null;
+  const markDoneFor = actions.done
+    ? actions.done.onBehalfOf
+      ? name(actions.done.onBehalfOf)
+      : ""
+    : null;
+  const uploads =
+    uploadsCard?.kind === "failed" ||
+    (uploadsCard?.kind === "card" && cardShown(uploadsCard.card, task.state)) ? (
+      <UploadsCardLazy
+        key="uploads"
+        taskId={task.id}
+        taskTitle={task.title}
+        taskState={task.state}
+        initial={uploadsCard?.kind === "card" ? uploadsCard.card : null}
+        viewerName={names[viewer.id] ?? null}
+        network={can(viewer.role, "uploads.network")}
+        markDoneFor={markDoneFor}
+        completes={actions.done?.completes ?? false}
+        primaryName={name(task.primaryOwnerId)}
+        dueAt={task.dueAt}
+        solid={next === null}
+      >
+        {uploadsCard?.kind === "card" ? (
+          <UploadsCardBody
+            card={uploadsCard.card}
+            taskState={task.state}
+            now={systemClock()}
+            viewerName={names[viewer.id] ?? null}
+            solid={next === null}
+            markDoneFor={markDoneFor}
+          />
+        ) : null}
+      </UploadsCardLazy>
+    ) : null;
+  // While a link is open the card leads the Work view (the sample §5); closed, it follows.
+  const uploadsOpen =
+    uploadsCard?.kind === "card" &&
+    (uploadsCard.card.state === "active" || uploadsCard.card.state === "looks_finished");
+  const work = workPanel({ data, task, actions, pair, uploads, uploadsOpen });
   const chat = await chatData({ data, viewerId: viewer.id, names, faces, active });
   const activity = activityPanel({ data, names, viewerId: viewer.id });
   const details = detailsPanel({
@@ -458,7 +504,7 @@ type Pair = (actorId: string | null, onBehalfOf: string | null) => string;
 
 /**
  * Work (decision 27): the brief (the description, the event, the purpose), the stages and the
- * hand-in with its links (phase 8's uploads join it). The hand-in leads once the task is handed in
+ * hand-in with its links, and the Uploads card (v4.5) for the Owner and the task's Admins. The hand-in leads once the task is handed in
  * and locked, so a reviewer lands on it (decision 32); before that the stages lead.
  */
 function workPanel({
@@ -466,11 +512,16 @@ function workPanel({
   task,
   actions,
   pair,
+  uploads,
+  uploadsOpen,
 }: {
   data: TaskReads;
   task: LoadedTask;
   actions: ReturnType<typeof taskActions>;
   pair: Pair;
+  /** v4.5: the Uploads card (the Owner and the task's Admins only), or null. */
+  uploads: ReactNode;
+  uploadsOpen: boolean;
 }): ReactNode {
   const latest = data.submissions[0] ?? null;
   const locked = isLocked(task.state);
@@ -588,7 +639,8 @@ function workPanel({
     </Section>
   ) : null;
 
-  const parts = handInFirst(task.state) ? [handIn, brief, stages] : [brief, stages, handIn];
+  const ordered = handInFirst(task.state) ? [handIn, brief, stages] : [brief, stages, handIn];
+  const parts = uploadsOpen ? [uploads, ...ordered] : [...ordered, uploads];
   if (parts.every((part) => part === null)) {
     return (
       <p className="text-muted-foreground text-sm" data-slot="task-work-empty">

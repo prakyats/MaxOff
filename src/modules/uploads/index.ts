@@ -2,7 +2,7 @@
  * The upload link (v4.5, ADR-0010 amendment 2026-11-19, DATA-MODEL §8a, WORKFLOWS §5B): the
  * platform-free rules (the link token, the uploader's name, the Admin's signals, the public API's
  * shapes), the member actions and reads, the upload page's public API (`/api/upload/*`) and the
- * every-minute watch (`/api/cron/upload-watch`). The screens follow in their own unit.
+ * every-minute watch (`/api/cron/upload-watch`), and the Uploads card's words (`domain/card-view`).
  *
  * Client components are not exported here: a route imports them one file at a time from
  * `components/` (ADR-0011 amendment).
@@ -66,7 +66,16 @@ export type {
   UploaderSheet,
   UploaderSheetFile,
 } from "./domain/card";
-export { readUploadCard, readUploaderSheet } from "./data/links";
+export { canMakeLink, cardShown } from "./domain/card-view";
+// The card's server-drawn first paint (no hooks, not a client component; the live card is
+// `components/uploads-card-lazy`).
+export { UploadsCardBody } from "./components/uploads-card-body";
+export {
+  type CardRead,
+  readUploadCard,
+  readUploadCardForPage,
+  readUploaderSheet,
+} from "./data/links";
 export { LINK_KEY_OFF_MESSAGE, readLinkKey } from "./data/link-key";
 export {
   copyUploadLink,

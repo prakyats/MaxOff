@@ -95,6 +95,20 @@ function badLink(): Response {
   return answer(fail("NOT_FOUND", BAD_LINK_MESSAGE));
 }
 
+/**
+ * The app's own origin for a link back to the task, which is not the page's when the upload page
+ * has an origin of its own (plan J9, `upload.maxoff.in`): the configured app URL, else the page's.
+ */
+function appOrigin(pageOrigin: string): string {
+  try {
+    return process.env.NEXT_PUBLIC_APP_URL
+      ? new URL(process.env.NEXT_PUBLIC_APP_URL).origin
+      : pageOrigin;
+  } catch {
+    return pageOrigin;
+  }
+}
+
 /** What every handler is given once the token passed its shape check. */
 export type PublicCall = {
   token: Uint8Array;
@@ -250,7 +264,7 @@ async function openSession(
         name: row.name,
         size: Number(row.size_bytes),
         mimeType: row.mime_hint ?? "",
-        description: `Sent through a MaxOff upload link for "${row.task_title}": ${call.origin}/tasks/${row.task_id}`,
+        description: `Sent through a MaxOff upload link for "${row.task_title}": ${appOrigin(call.origin)}/tasks/${row.task_id}`,
       },
       // "Any type, any size" (decided); the database already refused over 5 TB.
       policy: {},

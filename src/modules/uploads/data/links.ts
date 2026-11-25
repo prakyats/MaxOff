@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerSupabase } from "@/core/db/server";
+import { toAppError } from "@/core/errors";
 
 import { type UploadCard, type UploaderSheet, toUploadCard, toUploaderSheet } from "../domain/card";
 import { fromBytea } from "./bytea";
@@ -17,6 +18,23 @@ export async function readUploadCard(taskId: string): Promise<UploadCard> {
   const { data, error } = await supabase.rpc("upload_card", { p_task_id: taskId });
   if (error) throw error;
   return toUploadCard(data);
+}
+
+/**
+ * The card for the task page, streamed in its own Suspense boundary (WORKFLOWS §5B.3): `none` when
+ * the caller isn't the task's Admin or the Owner (Crew, another Admin: the database refuses, and
+ * the page draws no card), `failed` for anything else, so the card offers Retry instead of
+ * failing the page.
+ */
+export type CardRead = { kind: "card"; card: UploadCard } | { kind: "none" } | { kind: "failed" };
+
+export async function readUploadCardForPage(taskId: string): Promise<CardRead> {
+  try {
+    return { kind: "card", card: await readUploadCard(taskId) };
+  } catch (error) {
+    const code = toAppError(error).code;
+    return code === "FORBIDDEN" || code === "NOT_FOUND" ? { kind: "none" } : { kind: "failed" };
+  }
 }
 
 export async function readUploaderSheet(uploaderId: string): Promise<UploaderSheet> {

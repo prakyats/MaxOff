@@ -624,6 +624,42 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["on hold", "hold", "pause", "resume", "paused"],
         },
         {
+          id: "owner-upload-link",
+          title: "Get files in with an upload link",
+          summary:
+            "A private link that lets anyone send files straight into the task's Drive folder.",
+          blocks: [
+            text(
+              "Every task's Work view has an Uploads card for you (and for the task's Admins). Make a link there and send it to a freelancer or cameraman: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff. The studio's Drive must be connected first (Settings, then Google Drive).",
+            ),
+            steps(
+              "Open the task. In Work, tap Get upload link on the Uploads card.",
+              "Tap Copy link and send it to whoever has the files.",
+              "Watch the card: one row per person, with their files, data sent and last activity. Tap a row to see that person's files, their device, and the IP address they sent from (only you see the IP).",
+              "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received.",
+            ),
+            next(
+              "All files received stops the link. On your own task it also marks it Done; on a freelancer's task you coordinate, Done for them; otherwise the task's primary is told \"Files received: mark it done\".",
+            ),
+            text(
+              'Chips on a row: Uploading; "Not on this task · new name" (only information); Stuck (red: nothing has moved for 15 min); Said "I\'m done"; Looks finished (amber: every file is in and nothing has moved for 10 min). You are told if Google\'s daily upload limit is reached or a file is waiting for space in the Drive.',
+            ),
+            note(
+              'MaxOff never deletes a file: delete it in the studio\'s Google Drive and its row says "Removed in Drive". Open footage in Drive\'s own player; never download and run a program from an upload folder ("Check before opening" marks programs and web pages). An uploader\'s IP and device are erased after 90 days, or now with "Erase IP and device details now" on their sheet.',
+            ),
+          ],
+          keywords: [
+            "upload",
+            "upload link",
+            "files",
+            "footage",
+            "freelancer",
+            "drive",
+            "send files",
+            "ip",
+          ],
+        },
+        {
           id: "owner-all-tasks",
           title: "Filter all tasks",
           summary: "Find any task by state, deadline, client, type or person.",
