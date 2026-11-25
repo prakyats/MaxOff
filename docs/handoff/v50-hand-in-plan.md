@@ -38,7 +38,7 @@ handin_files         v5.0. id, org_id, task_id → tasks, version int (≥ 1: th
                      when version is handed in), added_by → members (the actor), on_behalf_of null →
                      members (a freelancer assignee, ADR-0013), name (cleaned, ≤ 255, no / or \),
                      relative_path ('' on a phone; a laptop's folders under v‹n›, '/'-joined, depth
-                     ≤ 12, each part ≤ 120), size_bytes bigint ≥ 0, mime_hint null (≤ 100),
+                     ≤ 8 (the shared rule), each part ≤ 120), size_bytes bigint ≥ 0, mime_hint null (≤ 100),
                      state ('uploading' | 'done' | 'failed' | 'left_out' | 'missing_in_drive'),
                      failed_reason null ('damaged' | 'size_mismatch' | 'wrong_folder' | 'gave_up' |
                      'unreadable'), account_sub, drive_parent_id null, drive_file_id null (unique),

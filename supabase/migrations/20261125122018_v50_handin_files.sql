@@ -195,8 +195,8 @@ begin
   from (select app.handin_clean_part(x) c, n
         from unnest(regexp_split_to_array(coalesce(p, ''), '[/\\]')) with ordinality as u(x, n)) s
   where c not in ('', '.', '..');
-  if cardinality(v_parts) > 12 then
-    perform app.fail('VALIDATION', 'That folder is nested too deep: at most 12 folders inside each other.');
+  if cardinality(v_parts) > 8 then
+    perform app.fail('VALIDATION', 'That folder is nested too deep: at most 8 folders inside each other.');
   end if;
   return array_to_string(v_parts, '/');
 end;

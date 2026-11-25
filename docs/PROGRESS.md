@@ -258,7 +258,7 @@
     - the sample `docs/design/v50-hand-in-sample.html` is approved as drawn. Any change is made at the owner's walk.
   - **Shared plumbing (advisor, 25 Nov):** v4.5's integrator owns `core/drive/resumable.ts`, `core/drive/upload-session.ts` and `core/upload` (`createUploadEngine`, `Md5`; #89 7162679961). v5.0 codes against them.
     - **Done (merge of `phase-v45` 751f1ce):** the stand-ins are gone; the hand-in uses his `createUploadEngine`, `openUploadSession`, `driveFileFacts`, `finishedFileProblem` and `ensureSubfolders`.
-    - **Still to do when his migration lands (after his security review):** re-timestamp `v50_handin_files` after it, keep his stop-link lines in `task_submit_done`, and drop this migration's `app.upload_manager` if his is the same. His `cleanRelativePath` keeps 8 folder levels and v5.0's database allows 12; align them then.
+    - **Still to do when his migration lands (after his security review):** re-timestamp `v50_handin_files` after it, keep his stop-link lines in `task_submit_done`, and drop this migration's `app.upload_manager` if his is the same. The folder depth is aligned: 8 levels everywhere (his `cleanRelativePath`, v5.0's domain and `app.handin_clean_path`; advisor, 25 Nov). The speed probe and `guide:screenshots` run once, at READY, after his migration is merged in (advisor).
   - **Built:**
     - the plan (`docs/handoff/v50-hand-in-plan.md`) and the docs: DATA-MODEL §8b, WORKFLOWS §5C, PERMISSIONS, and the ADR-0010 amendment;
     - migration `20261125122018_v50_handin_files`, with pgTAP 150 (117 assertions) and 40 / 49 counting `handin_space_held`;

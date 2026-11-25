@@ -200,8 +200,8 @@ select is(pg_temp.raised($$select pg_temp.start('admin2', 'ftask', 'x.mp4', 1, '
 -- Cleaning and limits
 select is(pg_temp.raised($$select pg_temp.start('staff', 'task', E'\u200b ', 1)$$), 'VALIDATION', 'a name with nothing left: VALIDATION');
 select is(pg_temp.raised($$select pg_temp.start('staff', 'task', 'x.mp4', -1)$$), 'VALIDATION', 'a negative size: VALIDATION');
-select is(pg_temp.raised($$select pg_temp.start('staff', 'task', 'x.mp4', 1, 'a/b/c/d/e/f/g/h/i/j/k/l/m')$$), 'VALIDATION',
-  'a path deeper than 12: VALIDATION');
+select is(pg_temp.raised($$select pg_temp.start('staff', 'task', 'x.mp4', 1, 'a/b/c/d/e/f/g/h/i')$$), 'VALIDATION',
+  'a path deeper than 8 (the shared rule, cleanRelativePath): VALIDATION');
 insert into out values ('clean', pg_temp.start('staff', 'task', E'a/b\\c\u202e.jpg', 7, '../Day 2/./'));
 select is((select v ->> 'name' || '|' || (v ->> 'relative_path') from out where key = 'clean'), 'abc.jpg|Day 2',
   'the server cleans the name and the path itself');

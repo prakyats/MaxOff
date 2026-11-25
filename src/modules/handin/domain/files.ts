@@ -8,7 +8,7 @@
 /** A file's name is at most this long once cleaned (Drive accepts longer; this keeps it sane). */
 export const NAME_MAX = 255;
 /** A laptop's folder path under v‹n›: at most this many levels, each at most this long. */
-export const PATH_DEPTH_MAX = 12;
+export const PATH_DEPTH_MAX = 8;
 export const PATH_PART_MAX = 120;
 /** Safety limits (plan §4), not product caps: any type, any size. */
 export const FILES_PER_VERSION_MAX = 2000;
