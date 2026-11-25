@@ -1,7 +1,16 @@
 import type { Locator, Page } from "@playwright/test";
 
-import { addISTDays, todayIST } from "../src/core/time";
-import { openMoreOptions, serviceDelete } from "./helpers";
+import { addISTDays, systemClock, todayIST } from "../src/core/time";
+import {
+  memberIdOf,
+  openMoreOptions,
+  rpcAs,
+  serviceDelete,
+  serviceInsert,
+  serviceRest,
+  serviceSelect,
+  USERS,
+} from "./helpers";
 
 /**
  * The in-app guide's screenshots, one entry per picture (ROADMAP 6b.14, Release 2). Read by
@@ -228,6 +237,152 @@ const heldProject = (demo: DemoIds) => `/clients/${demo.clientId}/projects/${dem
  * runs the client): Put on hold… in ⋯, the reason sheet, the amber line or banner with Resume, and
  * the resume sheet, for a task and for a project.
  */
+/** The task the page shows (`/tasks/<id>`). */
+const taskOnPage = (page: Page) => new URL(page.url()).pathname.split("/").pop() ?? "";
+
+/**
+ * The Uploads card's pictures (v4.5): the studio's Drive "connected" (a placeholder the screen never
+ * opens), the task's upload rows cleared, then a link (sealed with a placeholder hash: nobody uploads
+ * through it) and three uploaders as on the approved sample. Local stack only (`serviceRest`).
+ */
+async function uploadState(page: Page, withLink: boolean): Promise<void> {
+  const taskId = taskOnPage(page);
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  const drive = await serviceSelect<{ org_id: string }>("drive_account?select=org_id");
+  if (drive.length === 0) {
+    await serviceInsert("drive_account", {
+      org_id: org!.id,
+      google_email: "studio-drive@example.com",
+      google_sub: "guide-account",
+      refresh_token_encrypted: "v1.placeholder.placeholder",
+      state: "connected",
+      connected_by: await memberIdOf(USERS.owner.email),
+      connected_at: new Date("2026-11-18T04:30:00Z").toISOString(),
+    });
+  }
+  await serviceDelete(`upload_files?task_id=eq.${taskId}`);
+  await serviceDelete(`upload_uploaders?task_id=eq.${taskId}`);
+  await serviceDelete(`upload_links?task_id=eq.${taskId}`);
+  if (withLink) {
+    const linkId = await rpcAs<string>(
+      USERS.admin.email,
+      USERS.admin.password,
+      "upload_link_create",
+      {
+        p_task_id: taskId,
+      },
+    );
+    await serviceRest("rpc/upload_link_seal", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ p_link_id: linkId, p_token_hash: `\\x${"ab".repeat(32)}` }),
+    });
+    const [account] = await serviceSelect<{ google_sub: string }>(
+      "drive_account?select=google_sub",
+    );
+    const base = { org_id: org!.id, link_id: linkId, task_id: taskId };
+    const ago = (minutes: number) =>
+      new Date(systemClock().getTime() - minutes * 60_000).toISOString();
+    const people = [
+      {
+        name: "Sam",
+        files: [
+          ["IMG_0419.MOV", 720_000_000, "done"],
+          ["IMG_0420.MOV", 980_000_000, "uploading"],
+        ],
+      },
+      {
+        name: "Alex",
+        files: [
+          ["VID_2026_1118_01.mp4", 2_100_000_000, "done"],
+          ["VID_2026_1118_05.mp4", 1_400_000_000, "uploading"],
+        ],
+      },
+      {
+        name: "Jordan",
+        said: true,
+        files: [
+          ["A001_C001.MP4", 3_200_000_000, "done"],
+          ["A001_C002.MP4", 2_700_000_000, "done"],
+        ],
+      },
+    ] as const;
+    for (const person of people) {
+      const uploader = await serviceInsert<{ id: string }>("upload_uploaders", {
+        ...base,
+        name: person.name,
+        name_key: person.name.toLowerCase(),
+        folder_name: person.name,
+        device_label: "phone · Android",
+        first_file_at: ago(40),
+        last_activity_at: ago("said" in person ? 30 : person.name === "Alex" ? 18 : 1),
+        // Sam is the task's Crew member (the demo's assignee); the others are new names.
+        ...(person.name === "Sam"
+          ? { on_task: true, matched_member_id: await memberIdOf(USERS.staff.email) }
+          : {}),
+        said_done_at: "said" in person ? ago(30) : null,
+      });
+      for (const [name, size, state] of person.files) {
+        await serviceInsert("upload_files", {
+          ...base,
+          uploader_id: uploader.id,
+          account_sub: account!.google_sub,
+          name,
+          size_bytes: size,
+          state,
+          drive_checked_at: systemClock().toISOString(),
+          ...(state === "done"
+            ? { drive_file_id: `guide-${uploader.id}-${name}`, done_at: ago(35), check_kind: "md5" }
+            : {
+                session_uri_encrypted: "v1.placeholder.placeholder",
+                session_opened_at: ago(person.name === "Alex" ? 30 : 1),
+                last_moved_at: ago(person.name === "Alex" ? 18 : 0),
+                bytes_at_google: Math.round(size * 0.4),
+              }),
+        });
+      }
+    }
+  }
+  await page.reload();
+  await page.locator('[data-slot="uploads-card"][data-live]').waitFor();
+}
+
+function uploadShots(role: "owner" | "admin"): GuideShot[] {
+  const card = (page: Page) => page.locator('[data-slot="uploads-card"]:visible');
+  return [
+    {
+      id: `${role}/upload-get`,
+      path: (demo) => `/tasks/${demo.tasks.notNoted}`,
+      prepare: (page) => uploadState(page, false),
+      highlight: (page) => card(page).getByRole("button", { name: "Get upload link" }),
+      crop: card,
+      alt: "A task's Uploads card before any link, with Get upload link highlighted.",
+    },
+    {
+      id: `${role}/upload-card`,
+      path: (demo) => `/tasks/${demo.tasks.notNoted}`,
+      prepare: (page) => uploadState(page, true),
+      highlight: (page) => card(page).locator('[data-uploader="Alex"]'),
+      crop: card,
+      badge: 3,
+      alt: "The Uploads card with three people sending files; Alex's row, marked Stuck, is highlighted.",
+    },
+    {
+      id: `${role}/upload-received`,
+      path: (demo) => `/tasks/${demo.tasks.notNoted}`,
+      prepare: async (page) => {
+        await uploadState(page, true);
+        await page.locator('[data-slot="uploads-received"]:visible').click();
+      },
+      highlight: (page) =>
+        layer(page).getByRole("button", { name: /^(Received, mark Done|Files received)$/ }),
+      crop: layer,
+      badge: 4,
+      alt: "The All files received sheet: the files and people, a file still uploading, and its button highlighted.",
+    },
+  ];
+}
+
 function holdShots(role: "owner" | "admin"): GuideShot[] {
   return [
     {
@@ -732,6 +887,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   ...holdShots("admin"),
+  ...uploadShots("admin"),
   {
     id: "admin/stage-presets",
     path: "/settings/templates#presets",
@@ -1028,6 +1184,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   ...holdShots("owner"),
+  ...uploadShots("owner"),
   {
     id: "owner/send-back",
     path: project,

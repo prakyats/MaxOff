@@ -341,6 +341,24 @@ export const GUIDE_SHOTS: Readonly<
     height: 471,
     alt: "The Resume sheet listing a deliverable that needs a new date and one from an ended month with its choices, highlighted.",
   },
+  "admin/upload-get": {
+    src: "/guide/admin/upload-get.webp",
+    width: 848,
+    height: 176,
+    alt: "A task's Uploads card before any link, with Get upload link highlighted.",
+  },
+  "admin/upload-card": {
+    src: "/guide/admin/upload-card.webp",
+    width: 870,
+    height: 517,
+    alt: "The Uploads card with three people sending files; Alex's row, marked Stuck, is highlighted.",
+  },
+  "admin/upload-received": {
+    src: "/guide/admin/upload-received.webp",
+    width: 432,
+    height: 342,
+    alt: "The All files received sheet: the files and people, a file still uploading, and its button highlighted.",
+  },
   "admin/stage-presets": {
     src: "/guide/admin/stage-presets.webp",
     width: 1190,

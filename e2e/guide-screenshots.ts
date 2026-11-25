@@ -293,6 +293,16 @@ async function makeDemo(): Promise<DemoIds> {
   const adminId = await memberIdOf(admin.email);
   const staffId = await memberIdOf(staff.email);
 
+  // The upload pictures' rows (v4.5) hang off the demo tasks: they go first (local stack only).
+  for (const table of [
+    "upload_alerts",
+    "upload_folders",
+    "upload_files",
+    "upload_uploaders",
+    "upload_links",
+  ]) {
+    await serviceRest(`${table}?id=not.is.null`, { method: "DELETE" });
+  }
   for (const title of TASK_TITLES) await removeTasksTitled(title);
   await removeRequestsTitled(REQUEST);
   await removeClientFixture(CLIENT);

@@ -553,10 +553,19 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the task. In Work, tap Get upload link on the Uploads card.",
+                {
+                  text: "Open the task. In Work, tap Get upload link (highlighted) on the Uploads card.",
+                  shot: "admin/upload-get",
+                },
                 "Tap Copy link and send it to whoever has the files.",
-                "Watch the card: one row per person, with their files, data sent and last activity. Tap a row to see that person's files.",
-                "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received.",
+                {
+                  text: "Watch the card: one row per person, with their files, data sent and last activity. Tap a row (highlighted) to see that person's files.",
+                  shot: "admin/upload-card",
+                },
+                {
+                  text: "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received and confirm (highlighted).",
+                  shot: "admin/upload-received",
+                },
               ],
             },
             {

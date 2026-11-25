@@ -636,7 +636,7 @@ export const OWNER_GUIDE: Guide = {
               "Open the task. In Work, tap Get upload link on the Uploads card.",
               "Tap Copy link and send it to whoever has the files.",
               "Watch the card: one row per person, with their files, data sent and last activity. Tap a row to see that person's files, their device, and the IP address they sent from (only you see the IP).",
-              "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received.",
+              "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received and confirm.",
             ),
             next(
               "All files received stops the link. On your own task it also marks it Done; on a freelancer's task you coordinate, Done for them; otherwise the task's primary is told \"Files received: mark it done\".",

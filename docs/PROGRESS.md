@@ -317,7 +317,10 @@
       - **"Staging uses a test override of S7" goes into the v4.5 READY**, and the owner's walk notes that a free Gmail can never take an upload in production terms.
   - **Next:**
     1. The upload unit (CORS unblocked): a real Google round trip on staging; confirm Google's daily-limit error codes (Ideas item 2).
-    2. Guide screenshots for the two upload topics once the demo has a link.
+    2. **Guide screenshots:**
+       - the Admin's three upload pictures are made (`admin/upload-get`, `-card`, `-received`; a night run, `GUIDE_ANYTIME`).
+       - **The Owner's three are still to make in a daytime run**, then put back on the `owner-upload-link` steps (the ids were taken off until the pictures exist). The Owner's demo can't run between IST midnight and the morning: it ends the Crew member's day at a time still to come (pre-existing). Do them with v4.0's run at 11:20 IST, `GUIDE_ONLY=owner/upload-get,owner/upload-card,owner/upload-received`.
+       - The demo setup now clears the local upload rows before it removes its tasks.
     3. **Last before READY:**
        - the `(main)` move (one pure `git mv` commit);
        - then `(upload)/layout.tsx` as the page's own root layout, with the proxy's nonce CSP (J1) and the J1 test flipped;
