@@ -511,7 +511,7 @@ jobs:
               const has = (n) => (text.includes(`"${n}"`) ? "yes" : "no");
               const label = v.annotations?.["workers/tag"] ?? v.annotations?.["workers/message"] ?? "";
               console.log(`| ${process.argv[2]} | ${String(label).slice(0, 40)} | ${has("GOOGLE_OAUTH_CLIENT_ID")} | ${has("GOOGLE_OAUTH_CLIENT_SECRET")} | ${has("DRIVE_TOKEN_KEY")} |`);
-            ' "$RUNNER_TEMP/v.json" "$id" >>"$GITHUB_STEP_SUMMARY"
+            ' "$RUNNER_TEMP/v.json" "$id" | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
   reminders-backfill-dry-run:
