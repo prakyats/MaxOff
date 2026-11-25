@@ -53,12 +53,13 @@ async function makeProject(
   name: string,
   items: string[],
   recurrence: "one_time" | "monthly" = "one_time",
+  stages: string[] = [],
 ): Promise<string> {
   return rpcAs<string>(admin.email, admin.password, "project_create", {
     client_id: clientId,
     name,
     recurrence,
-    stages: [],
+    stages,
     items,
     ...(recurrence === "one_time" ? { delivery_date: addISTDays(todayIST(), 10) } : {}),
   });
@@ -94,6 +95,22 @@ const readOnly = (page: Page) => page.locator('[data-slot="project-read-only"]')
 /** The project's state chip: the header's from md, the glance line's on a phone. */
 const stateChip = (page: Page, label: string) =>
   page.locator("[data-status]", { hasText: label }).filter({ visible: true });
+
+/**
+ * The project's row reads "Ready to complete" on the client's Overview (its active projects) and
+ * on its Projects tab, as drawn.
+ */
+async function expectReadyRow(page: Page, clientId: string, project: string): Promise<void> {
+  for (const path of [`/clients/${clientId}`, `/clients/${clientId}/projects`]) {
+    await page.goto(path);
+    await hydrated(page);
+    const row = page.locator('[data-slot="project-row"]', { hasText: project });
+    await expect(row.locator('[data-status="ready"]'), `${path}: the row's chip`).toHaveText(
+      "Ready to complete",
+    );
+    await expectNoHorizontalScroll(page);
+  }
+}
 
 /** Sends what waits for its Undo now: the app going to the background flushes it. */
 async function flushSends(page: Page): Promise<void> {
@@ -138,14 +155,28 @@ test.describe("the Owner", () => {
     await expectNoHorizontalScroll(page);
     expect(await itemStates(projectId)).toEqual(["approved", "open"]);
     // One solid commit, the Forest green one; the other two are quiet.
+    const heading = await ask
+      .getByRole("heading", { name: "Complete the project too?" })
+      .boundingBox();
+    expect(heading?.x ?? -1, "the title is not cut at the sheet's edge").toBeGreaterThan(
+      (await ask.boundingBox())?.x ?? 0,
+    );
     const complete = ask.getByRole("button", { name: "Mark done and complete project" });
     await expect(complete).toHaveAttribute("data-variant", "approve");
     await expect(ask.getByRole("button", { name: "Mark done only" })).toHaveAttribute(
       "data-variant",
       "secondary",
     );
+    const frame = await ask.boundingBox();
     for (const button of await ask.getByRole("button").all()) {
       const box = await button.boundingBox();
+      // Every button and the title sit inside the sheet at every width (nothing cut at its edge).
+      expect(box?.x ?? -1, "a button starts inside the sheet").toBeGreaterThanOrEqual(
+        frame?.x ?? 0,
+      );
+      expect((box?.x ?? 0) + (box?.width ?? 0), "and ends inside it").toBeLessThanOrEqual(
+        (frame?.x ?? 0) + (frame?.width ?? 0),
+      );
       if (info.project.name !== "desktop") {
         expect(box?.height ?? 0, "a 44 px target on a phone").toBeGreaterThanOrEqual(44);
       }
@@ -183,6 +214,70 @@ test.describe("the Owner", () => {
     await expect(readOnly(page)).toContainText("Completed");
     expect(await projectState(projectId)).toBe("completed");
     expect(await itemStates(projectId)).toEqual(["approved"]);
+    await removeClientFixture(client);
+  });
+
+  test("the row's ⋯ Mark done…, with a stage left, asks about the stage first and then about the project", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "owner menu");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Menu film", ["Final cut"], "one_time", ["Edit"]);
+    await openProject(page, `/clients/${clientId}/projects/${projectId}`, "owner");
+
+    // A stage is left: Mark done waits in the row's ⋯ and names what is unticked.
+    await expect(markDone(page, "Final cut")).toHaveCount(0);
+    await itemRow(page, "Final cut").getByRole("button", { name: "More for Final cut" }).click();
+    await page.getByRole("menuitem", { name: "Mark done…" }).click();
+    const early = page.getByRole("alertdialog", { name: "Mark Final cut done?" });
+    await expect(early).toContainText("1 stage isn't ticked.");
+    await early.getByRole("button", { name: "Mark done", exact: true }).click();
+    // That confirmation gives way to the project's question; nothing is marked yet.
+    const ask = prompt(page);
+    await expect(ask).toBeVisible();
+    await expect(early).toBeHidden();
+    expect(await itemStates(projectId)).toEqual(["open"]);
+    // Back closes the question alone (the hand-off left one layer, not two).
+    await page.goBack();
+    await expect(ask).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    expect(await itemStates(projectId)).toEqual(["open"]);
+
+    await itemRow(page, "Final cut").getByRole("button", { name: "More for Final cut" }).click();
+    await page.getByRole("menuitem", { name: "Mark done…" }).click();
+    await early.getByRole("button", { name: "Mark done", exact: true }).click();
+    await prompt(page).getByRole("button", { name: "Mark done and complete project" }).click();
+    await expect(readOnly(page)).toContainText("Completed");
+    expect(await projectState(projectId)).toBe("completed");
+    expect(await itemStates(projectId)).toEqual(["approved"]);
+    await removeClientFixture(client);
+  });
+
+  test("Mark done only as the Owner: its Undo, then Ready to complete on the page, the Overview and the Projects tab", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "owner only");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Owner film", ["Final cut"]);
+    await openProject(page, `/clients/${clientId}/projects/${projectId}`, "owner");
+
+    await markDone(page, "Final cut").click();
+    await prompt(page).getByRole("button", { name: "Mark done only" }).click();
+    await expect(itemRow(page, "Final cut")).toHaveAttribute("data-held", "");
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(itemRow(page, "Final cut")).not.toHaveAttribute("data-held", "");
+    expect(await itemStates(projectId)).toEqual(["open"]);
+
+    await markDone(page, "Final cut").click();
+    await prompt(page).getByRole("button", { name: "Mark done only" }).click();
+    await flushSends(page);
+    await expect.poll(() => itemStates(projectId)).toEqual(["approved"]);
+    expect(await projectState(projectId)).not.toBe("completed");
+    await expect(
+      page.locator("[data-sonner-toast]", { hasText: "All deliverables done" }),
+    ).toContainText("Owner film is ready to complete.");
+    await expect(stateChip(page, "Ready to complete")).toBeVisible();
+    await expectReadyRow(page, clientId, "Owner film");
     await removeClientFixture(client);
   });
 
@@ -282,6 +377,11 @@ test.describe("the client's Admin", () => {
     const list = await (await page.request.get(`/clients/${clientId}/projects`)).text();
     expect(list).toContain("Ready to complete");
     expect(list.includes("₹"), "no rupee sign in the Admin's project list").toBe(false);
+
+    // The Overview's active-project row and the Projects tab's, as drawn.
+    await expectReadyRow(page, clientId, "Brand film");
+    await page.goto(path);
+    await hydrated(page);
 
     // Complete from the project's ⋯ still works.
     await page.getByRole("button", { name: "Actions for Brand film" }).click();

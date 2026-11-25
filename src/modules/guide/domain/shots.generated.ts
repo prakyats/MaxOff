@@ -305,6 +305,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 260,
     alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
   },
+  "admin/complete-prompt": {
+    src: "/guide/admin/complete-prompt.webp",
+    width: 560,
+    height: 192,
+    alt: "The question Complete the project too? on a one-time project's last deliverable, with Mark done and complete project highlighted and Mark done only beside it.",
+  },
   "admin/project-hold-menu": {
     src: "/guide/admin/project-hold-menu.webp",
     width: 1186,
@@ -574,6 +580,12 @@ export const GUIDE_SHOTS: Readonly<
     width: 448,
     height: 260,
     alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
+  },
+  "owner/complete-prompt": {
+    src: "/guide/owner/complete-prompt.webp",
+    width: 560,
+    height: 192,
+    alt: "The question Complete the project too? on a one-time project's last deliverable, with Mark done and complete project highlighted and Mark done only beside it.",
   },
   "owner/project-hold-menu": {
     src: "/guide/owner/project-hold-menu.webp",

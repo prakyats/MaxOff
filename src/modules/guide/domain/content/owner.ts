@@ -1422,7 +1422,15 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("A completed or cancelled project becomes read-only."),
             text(
-              'A one-time project can be finished with its last deliverable. On the project page, "Mark done" on the last open deliverable asks "Complete the project too?". "Mark done and complete project" does both at once and has no Undo; "Mark done only" marks the deliverable as usual, with its Undo, and leaves the project open. A monthly or weekly project never asks.',
+              "A one-time project can be finished with its last deliverable. A monthly or weekly project never asks.",
+            ),
+            steps(
+              'On the project page, tap "Mark done" on the last open deliverable.',
+              {
+                text: 'It asks "Complete the project too?". Tap "Mark done and complete project" (highlighted) to do both at once; it has no Undo.',
+                shot: "owner/complete-prompt",
+              },
+              'Or tap "Mark done only": the deliverable is marked as usual, with its Undo, and the project stays open.',
             ),
             text(
               'If the last deliverable is marked done another way (from Today, with "Mark N done", or with "Mark done only"), nothing is lost: a message says "All deliverables done" with a "Complete project" button, and the project reads "Ready to complete" on its page and in the client\'s project list until you complete it.',

@@ -72,7 +72,9 @@ export function CompletePrompt({
   }
   return (
     <Dialog open={open} onOpenChange={(next) => (next || action.pending ? undefined : onClose())}>
-      <DialogContent data-slot="complete-prompt">
+      {/* Wider than the usual dialog from md: its three buttons sit on one row there, and wrap
+          rather than leave the box at large text. */}
+      <DialogContent data-slot="complete-prompt" className="md:max-w-lg">
         <DialogHeader>
           <DialogTitle>Complete the project too?</DialogTitle>
           <DialogDescription>
@@ -84,7 +86,7 @@ export function CompletePrompt({
         </DialogHeader>
         {error ? <ErrorText slot="form-alert">{error}</ErrorText> : null}
         <ActionStatus action={action} />
-        <DialogFooter>
+        <DialogFooter className="md:flex-wrap">
           <Button
             type="button"
             variant="ghost"

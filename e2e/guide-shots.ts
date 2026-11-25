@@ -272,6 +272,36 @@ function holdShots(role: "owner" | "admin"): GuideShot[] {
       alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
     },
     {
+      // v2.1 (kickoff 9 R1): the demo's one-time project has one deliverable, so it is its last:
+      // Mark done (in its ⋯ while stages are left, which asks first) opens "Complete the project
+      // too?". Nothing is tapped in it: the demo stays as it is for the pictures after.
+      id: `${role}/complete-prompt`,
+      path: (demo) => `/clients/${demo.clientId}/projects/${demo.oneTimeProjectId}`,
+      prepare: async (page) => {
+        await tap(page, "More for Launch film");
+        await page.getByRole("menuitem", { name: "Mark done…" }).click();
+        await page
+          .getByRole("alertdialog", { name: "Mark Launch film done?" })
+          .getByRole("button", { name: "Mark done", exact: true })
+          .click();
+        const ask = page.getByRole("dialog", { name: "Complete the project too?" });
+        await ask.waitFor();
+        // The confirmation before it has gone and the question has finished opening, so the
+        // crop is measured where the question rests.
+        await page.getByRole("alertdialog").waitFor({ state: "detached" });
+        await ask.evaluate((element) =>
+          Promise.all(
+            element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+          ),
+        );
+      },
+      highlight: (page) =>
+        layer(page).getByRole("button", { name: "Mark done and complete project" }),
+      crop: layer,
+      badge: 2,
+      alt: "The question Complete the project too? on a one-time project's last deliverable, with Mark done and complete project highlighted and Mark done only beside it.",
+    },
+    {
       id: `${role}/project-hold-menu`,
       path: project,
       prepare: (page) => tap(page, "Actions for Monthly retainer"),

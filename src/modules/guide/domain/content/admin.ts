@@ -1463,7 +1463,18 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "A one-time project can be finished with its last deliverable. On the project page, Mark done on the last open deliverable asks “Complete the project too?”. Mark done and complete project does both at once and has no Undo; Mark done only marks the deliverable as usual, with its Undo, and leaves the project open. A monthly or weekly project never asks.",
+              text: "A one-time project can be finished with its last deliverable. A monthly or weekly project never asks.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "On the project page, tap Mark done on the last open deliverable.",
+                {
+                  text: "It asks “Complete the project too?”. Tap Mark done and complete project (highlighted) to do both at once; it has no Undo.",
+                  shot: "admin/complete-prompt",
+                },
+                "Or tap Mark done only: the deliverable is marked as usual, with its Undo, and the project stays open.",
+              ],
             },
             {
               kind: "text",
