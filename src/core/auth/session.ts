@@ -7,7 +7,13 @@ import { applyResponseHeaders } from "@/core/http/response-headers";
 import { isolateTick, serverTiming } from "@/core/observability/isolate";
 
 import { HOME_HINT_COOKIE, rootRedirect } from "./home-hint";
-import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath, isUploadApiPath } from "./paths";
+import {
+  LOGIN_PATH,
+  isPublicPath,
+  isSignedOutOnlyPath,
+  isUploadApiPath,
+  isUploadPagePath,
+} from "./paths";
 import { classifySessionError } from "./session-errors";
 import { WARM_PATH, warmSessionVerification } from "./warm";
 
@@ -28,8 +34,8 @@ import { WARM_PATH, warmSessionVerification } from "./warm";
  *    tell a cold start from a slow Worker. Numbers only, no data.
  * 5. the warm-up (`/api/warm`, P2) passes straight through: its token is verified without a
  *    refresh, so this bundle's JWKS is cached, and nothing is redirected or written (`warm.ts`).
- * 6. the upload page's API (`/api/upload/*`, v4.5) passes straight through untouched: no session
- *    is read or refreshed and no cookie is set there (plan B5, J7).
+ * 6. the upload page (`/upload`) and its API (`/api/upload/*`, v4.5) pass straight through
+ *    untouched: no session is read or refreshed and no cookie is set there (plan B5, J7, J9).
  *
  * It reads no table on purpose (Next's own guidance for proxies). The decision that counts,
  * "is this an active member", is `requireMember()` in `server.ts`, run by the app layout.
@@ -37,6 +43,7 @@ import { WARM_PATH, warmSessionVerification } from "./warm";
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   if (request.nextUrl.pathname === WARM_PATH) return warmPassThrough(request);
   if (isUploadApiPath(request.nextUrl.pathname)) return NextResponse.next();
+  if (isUploadPagePath(request.nextUrl.pathname)) return NextResponse.next();
   const forward = () => {
     // Rebuilt after every cookie refresh: `request.cookies.set` rewrites the Cookie header.
     return NextResponse.next({ request: { headers: new Headers(request.headers) } });

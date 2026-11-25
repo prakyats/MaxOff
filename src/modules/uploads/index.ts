@@ -67,6 +67,7 @@ export type {
   UploaderSheetFile,
 } from "./domain/card";
 export { canMakeLink, cardShown } from "./domain/card-view";
+export { uploaderContact } from "./domain/contact";
 // The card's server-drawn first paint (no hooks, not a client component; the live card is
 // `components/uploads-card-lazy`).
 export { UploadsCardBody } from "./components/uploads-card-body";

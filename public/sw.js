@@ -536,11 +536,17 @@ self.addEventListener("message", (event) => {
   event.waitUntil(setShellViewer(data.viewer).catch(() => undefined));
 });
 
+/** The public upload page (v4.5): outside the app, so outside this worker (plan J8). */
+const UPLOAD_PAGE = "/upload";
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  // The upload page (v4.5, plan J8): never answered, cached or held by the app's worker; the
+  // browser fetches it itself, like the `/api/upload/*` calls above.
+  if (url.pathname === UPLOAD_PAGE) return;
 
   if (request.mode === "navigate") {
     const step = launchStep(request);

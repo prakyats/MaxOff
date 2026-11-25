@@ -10,7 +10,13 @@ export const SET_PASSWORD_PATH = "/set-password";
 export const WELCOME_PATH = "/me?welcome=1";
 
 /** Pages that exist for people without a session. */
-const PUBLIC_PAGES = new Set([LOGIN_PATH, FORGOT_PASSWORD_PATH, "/offline", "/robots.txt"]);
+const PUBLIC_PAGES = new Set([
+  LOGIN_PATH,
+  FORGOT_PASSWORD_PATH,
+  "/offline",
+  "/robots.txt",
+  "/upload",
+]);
 
 /**
  * Prefixes that never need a session: the auth link and sign-out handlers, the staging Sentry
@@ -26,6 +32,16 @@ export const UPLOAD_API_PREFIX = "/api/upload/";
 
 export function isUploadApiPath(pathname: string): boolean {
   return pathname.startsWith(UPLOAD_API_PREFIX);
+}
+
+/**
+ * The upload page itself (v4.5, WORKFLOWS §5B.2; plan B5, J9): public, and like its API it never
+ * reads, refreshes or sets a MaxOff session, so the page works the same from its own origin.
+ */
+export const UPLOAD_PAGE_PATH = "/upload";
+
+export function isUploadPagePath(pathname: string): boolean {
+  return pathname === UPLOAD_PAGE_PATH;
 }
 
 export function isPublicPath(pathname: string): boolean {

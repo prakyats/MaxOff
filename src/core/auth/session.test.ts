@@ -87,6 +87,17 @@ describe("the warm-up passes straight through (P2)", () => {
     // The session-refreshing `getClaims()` (no token argument) never ran.
     expect(claims).not.toHaveBeenCalled();
   });
+
+  it("/upload: the page itself is public, with no session read, no cookie and no redirect", async () => {
+    const session = `base64-${Buffer.from(JSON.stringify({ access_token: "a.b.c" })).toString("base64url")}`;
+    for (const cookie of [null, `sb-127-auth-token=${session}`]) {
+      const response = await updateSession(request("/upload", cookie ?? undefined));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
+    expect(claims).not.toHaveBeenCalled();
+  });
 });
 
 describe("the upload page's API passes straight through (v4.5, plan B5, J7)", () => {
@@ -102,6 +113,17 @@ describe("the upload page's API passes straight through (v4.5, plan B5, J7)", ()
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
     expect(response.headers.get("set-cookie")).toBeNull();
+    expect(claims).not.toHaveBeenCalled();
+  });
+
+  it("/upload: the page itself is public, with no session read, no cookie and no redirect", async () => {
+    const session = `base64-${Buffer.from(JSON.stringify({ access_token: "a.b.c" })).toString("base64url")}`;
+    for (const cookie of [null, `sb-127-auth-token=${session}`]) {
+      const response = await updateSession(request("/upload", cookie ?? undefined));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
     expect(claims).not.toHaveBeenCalled();
   });
 });

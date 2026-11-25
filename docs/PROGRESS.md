@@ -275,11 +275,39 @@
     - **J9:** build the page on the same origin and keep it origin-agnostic. The owner decides `upload.maxoff.in`.
     - **Two root layouts (option 1):** `/upload` lives at `src/app/(upload)/upload/` with its own minimal root layout. The **`(main)` move** (`git mv` of `layout.tsx`, `page.tsx`, `error.tsx`, `not-found.tsx`, `(app)`, `(auth)` and `offline` into `src/app/(main)/`, plus only the four tests that name those paths) is **one isolated commit, last on phase-v45, just before READY**. The branches merging after v4.5 (v5.0, v6.0, v6.5, v7.0) then rebase over one clean rename.
     - The speed gate for v4.5 covers /login and /offline too.
+  - **Part B, the public `/upload` page (pushed after part A):**
+    - `src/app/(upload)/upload/page.tsx` renders `modules/uploads/components/upload-page.tsx`, screens A–R of the sample:
+      - the name, the privacy line and its sheet;
+      - choosing files (and folders and drops on a laptop), the ready list with ✕, uploading with the overall line and time left, paused offline, "Carrying on" after a screen lock;
+      - Failed with Retry, the "All received" screen, "I'm done", the thanks, and "Welcome back";
+      - the banners for a stopped link, no space, Google's daily limit, too many tries and the Drive unavailable;
+      - the one bad-link screen.
+    - `upload-client.ts` does the token and device-key work:
+      - it reads the token from the fragment, keeps it in this tab's `sessionStorage`, and removes it from the address bar at once (A8);
+      - the device key lives in `localStorage` under a name made from the token's hash (B3);
+      - every call is `POST` JSON with `credentials: "omit"` and `no-referrer`, origin-agnostic for J9.
+    - `upload-page-model.ts` (with tests) holds the pure words and state.
+    - `(upload)/layout.tsx` is a **pass-through** until the `(main)` move.
+    - The proxy passes `/upload` through untouched (no session read, no cookie). `/upload` is a public page.
+    - `next.config` sends `/upload` no-store, noindex (production too), no-referrer, COOP, CORP and Permissions-Policy.
+    - `public/sw.js` never answers `/upload` (J8).
+    - `bundle-budget.json` `/upload` is 649 KB (618.1 KB measured under today's root layout; lowered after the move).
+    - `e2e/upload-page.spec.ts` (serial chain):
+      - the flow A → B → R → a waiting file → Welcome back → Not Sam;
+      - the token in no URL and gone from the address bar;
+      - the L screen for stopped, mistyped and missing links;
+      - the privacy sheet's back gesture;
+      - the page's headers and no cookie;
+      - the API's refusals (no token, an unknown token, no or another origin, not JSON, over 64 KB, GET);
+      - **the J1 nonce-CSP guard as `test.fail()`, flipped by the step-3 commit** (advisor).
   - **Next:**
-    1. Part B, the public `/upload` page: `components/upload-page.tsx`, `upload-client.ts` and `upload-page-model.ts` (with tests) are written and not committed yet.
-       - Still to do: the `(upload)` root layout and route, the nonce CSP and J1–J8 headers in the proxy and `next.config`, the sw.js bypass, the `bundle-budget.json` entry, the `/upload` public path, and the e2e (screens, headers, refusals; the "no Playwright for the public API" item below).
-    2. The upload unit (CORS is unblocked).
-    3. Guide screenshots for the two upload topics once the demo has a link.
+    1. The upload unit (CORS unblocked): a real Google round trip on staging; confirm Google's daily-limit error codes (Ideas item 2).
+    2. Guide screenshots for the two upload topics once the demo has a link.
+    3. **Last before READY:**
+       - the `(main)` move (one pure `git mv` commit);
+       - then `(upload)/layout.tsx` as the page's own root layout, with the proxy's nonce CSP (J1) and the J1 test flipped;
+       - then `/upload`'s budget lowered.
+       - The speed gate covers /login and /offline too.
 - **PAUSED (owner, 25 Nov 2026 ~14:20 UTC, "pause everything, by saving everything"). v4.0 on `phase-v40`; v4.5 on `phase-v45`.**
   - **v4.0 (`phase-v40` 9281cfc, pushed):**
     - Code is ready: CI green on 11a3a67; speed accepted by the owner on 19 Nov.

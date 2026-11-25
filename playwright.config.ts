@@ -36,7 +36,7 @@ const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
  * v4.0: Settings → Google Drive joins them for the same reason: the connection is one row per
  * organisation (`drive_account`), which its spec sets and clears.
  */
-const WORKING_HOURS_SPECS = /(working-hours|drive-settings|uploads-card)\.spec\.ts$/;
+const WORKING_HOURS_SPECS = /(working-hours|drive-settings|uploads-card|upload-page)\.spec\.ts$/;
 // The push and email dispatch through the cron route (owner decision 29): the dispatcher is
 // organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
 // one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).

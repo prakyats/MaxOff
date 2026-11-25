@@ -68,6 +68,25 @@ export const UPLOAD_API_ROUTE_HEADERS: readonly ResponseHeader[] = [
   },
 ];
 
+/**
+ * `/upload` (v4.5, plan J2, J3, J5, J6): the public upload page is never cached or indexed (in
+ * production too), sends no referrer, and is isolated from other origins. A rule after the global
+ * one. Its own nonce CSP (J1) comes with its own root layout (PROGRESS, the `(main)` move); until
+ * then it keeps the global `frame-ancestors 'none'`.
+ */
+export const UPLOAD_PAGE_ROUTE_SOURCE = "/upload";
+export const UPLOAD_PAGE_ROUTE_HEADERS: readonly ResponseHeader[] = [
+  { key: "Cache-Control", value: "no-store" },
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  },
+];
+
 /** Staging must never be indexed. Production stays indexable-by-choice (decided later). */
 export const NOINDEX_HEADER: ResponseHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
 
