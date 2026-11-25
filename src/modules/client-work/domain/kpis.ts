@@ -85,7 +85,7 @@ export function sitLongest(input: {
 }): SitRow[] {
   const stagesOf = stagesByItem(input.stages);
   const startOf = new Map(input.cycles.map((cycle) => [cycle.id, cycle.periodStart]));
-  const groups = new Map<string, number[]>();
+  const groups = new Map<string, { stage: string; days: number[] }>();
   for (const item of input.items) {
     if (item.state !== "open") continue;
     const stages = stagesOf.get(item.id) ?? [];
@@ -103,11 +103,15 @@ export function sitLongest(input: {
         : Date.parse(item.createdAt);
     const days = Math.max(0, (input.now.getTime() - since) / DAY_MS);
     // A stage in a named group is "Group · Stage" (6b): the same name in two groups is two rows.
+    // v3.0 (R7): names match ignoring case ("Edit" and "edit" are one row), shown as first seen.
     const name = groupStageLabel(stage.groupLabel, stage.name);
-    groups.set(name, [...(groups.get(name) ?? []), days]);
+    const key = name.toLocaleLowerCase("en-IN");
+    const group = groups.get(key) ?? { stage: name, days: [] };
+    group.days.push(days);
+    groups.set(key, group);
   }
-  return [...groups.entries()]
-    .map(([stage, days]) => ({ stage, count: days.length, medianDays: median(days) }))
+  return [...groups.values()]
+    .map(({ stage, days }) => ({ stage, count: days.length, medianDays: median(days) }))
     .sort(
       (a, b) => b.medianDays - a.medianDays || b.count - a.count || a.stage.localeCompare(b.stage),
     );

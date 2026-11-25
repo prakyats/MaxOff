@@ -29,8 +29,14 @@ export const ENGAGEMENT_LABELS: Record<Engagement, string> = {
 
 export type Period = { kind: "week" | "month" | "custom"; from: ISODate; to: ISODate };
 
-/** The longest custom range (a quarter): the report reads every hand-in in it. */
+/** The longest custom range of the Admin's report (a quarter): it reads every hand-in in it. */
 export const CUSTOM_MAX_DAYS = 92;
+
+/**
+ * The longest custom range of the Owner's reports (v3.0; kickoff 9 decision 12: "custom range
+ * ≤ 366 days"): they are counted in the database (`report_*`), never read row by row.
+ */
+export const OWNER_CUSTOM_MAX_DAYS = 366;
 
 /** The IST week (Monday to Sunday) holding `date`. */
 export function weekOf(date: ISODate): Period {
@@ -58,12 +64,13 @@ function days(period: Pick<Period, "from" | "to">): number {
 
 /**
  * The period the address asks for (`?period=week|month&at=<date>`, or `?from=&to=` for a custom
- * range), else this week. A custom range is clamped to `CUSTOM_MAX_DAYS` and never runs past
- * today; an unreadable one falls back to this week.
+ * range), else this week. A custom range is clamped to `maxDays` (the Admin's `CUSTOM_MAX_DAYS`
+ * unless given) and never runs past today; an unreadable one falls back to this week.
  */
 export function parsePeriod(
   params: Readonly<Record<string, string | string[] | undefined>>,
   today: ISODate,
+  maxDays: number = CUSTOM_MAX_DAYS,
 ): Period {
   const one = (key: string) => {
     const value = params[key];
@@ -73,7 +80,7 @@ export function parsePeriod(
   const to = one("to");
   if (isISODate(from) && isISODate(to) && from <= to && from <= today) {
     const end = to > today ? today : to;
-    const limit = addISTDays(from, CUSTOM_MAX_DAYS - 1);
+    const limit = addISTDays(from, maxDays - 1);
     return { kind: "custom", from, to: end > limit ? limit : end };
   }
   const at = one("at");
@@ -115,10 +122,14 @@ export function periodLabel(period: Period, today: ISODate): string {
   return `${day(period.from, "d MMM")} – ${day(period.to, "d MMM")}`;
 }
 
-/** The address of a period on /reports (a view control: written with replace). */
-export function periodHref(period: Period): string {
-  if (period.kind === "custom") return `/reports?from=${period.from}&to=${period.to}`;
-  return `/reports?period=${period.kind}&at=${period.from}`;
+/**
+ * The address of a period on a report (a view control: written with replace): `/reports` (the
+ * Admin's work report) unless `base` names another (the Owner's People, Stage durations, Client
+ * work).
+ */
+export function periodHref(period: Period, base: string = "/reports"): string {
+  if (period.kind === "custom") return `${base}?from=${period.from}&to=${period.to}`;
+  return `${base}?period=${period.kind}&at=${period.from}`;
 }
 
 // The facts and the numbers ----------------------------------------------------------------------------

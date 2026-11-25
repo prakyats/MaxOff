@@ -5,7 +5,10 @@
  * bordered list, and each row's height and padding around its label and description.
  */
 
-/** The reports the Owner can open today (kickoff 3b decision 30: Month is the first; 6.5: End of day). */
+/**
+ * The reports the Owner can open (kickoff 3b decision 30: Month is the first; 6.5: End of day;
+ * v3.0: People, Stage durations and Client work).
+ */
 export const OWNER_REPORTS = [
   {
     key: "month",
@@ -20,6 +23,26 @@ export const OWNER_REPORTS = [
     href: "/reports/end-of-day",
     description:
       "Each day's attendance, decisions, tasks, approvals and tomorrow's events: today live, every day before saved.",
+  },
+  {
+    key: "people",
+    label: "People",
+    href: "/reports/people",
+    description:
+      "Each person's tasks by week, month or a range: completed, on time, revision loops, and the tasks that ran late.",
+  },
+  {
+    key: "stages",
+    label: "Stage durations",
+    href: "/reports/stages",
+    description:
+      "How long each deliverable stage takes, by stage name across projects and per project.",
+  },
+  {
+    key: "client-work",
+    label: "Client work",
+    href: "/reports/client-work",
+    description: "Each client's deliverables: planned and done, on time, overdue and on hold.",
   },
 ] as const;
 

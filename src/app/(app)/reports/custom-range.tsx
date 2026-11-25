@@ -12,7 +12,18 @@ import { Label } from "@/core/ui/primitives/label";
  * and Show. A view control: the address follows with `replace`, so one back leaves the report
  * (ARCHITECTURE §14.2 d). The server clamps the range (`parsePeriod`).
  */
-export function CustomRange({ from, to, today }: { from: string; to: string; today: string }) {
+export function CustomRange({
+  from,
+  to,
+  today,
+  base = "/reports",
+}: {
+  from: string;
+  to: string;
+  today: string;
+  /** The report's own address (v3.0). */
+  base?: string;
+}) {
   const router = useRouter();
   const [start, setStart] = useState(from);
   const [end, setEnd] = useState(to);
@@ -23,7 +34,7 @@ export function CustomRange({ from, to, today }: { from: string; to: string; tod
       className="flex flex-wrap items-end gap-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid) router.replace(`/reports?from=${start}&to=${end}`, { scroll: false });
+        if (valid) router.replace(`${base}?from=${start}&to=${end}`, { scroll: false });
       }}
     >
       <div className="flex min-w-36 flex-1 flex-col gap-1.5">

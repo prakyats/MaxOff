@@ -5638,6 +5638,61 @@ export type Database = {
           state: string;
         }[];
       };
+      report_client_work: {
+        Args: { p_from: string; p_to: string };
+        Returns: {
+          client_id: string;
+          client_name: string;
+          done: number;
+          done_in_period: number;
+          done_on_time: number;
+          on_hold: number;
+          overdue_now: number;
+          planned: number;
+          projects_completed: number;
+        }[];
+      };
+      report_people: {
+        Args: { p_from: string; p_to: string };
+        Returns: {
+          ack_lag_hours: number;
+          completed: number;
+          hand_in_hours: number;
+          member_id: string;
+          on_time: number;
+          open_now: number;
+          overdue_now: number;
+          owned_completed: number;
+          revision_loops: number;
+        }[];
+      };
+      report_stage_durations: {
+        Args: { p_from: string; p_to: string };
+        Returns: {
+          client_name: string;
+          longest_days: number;
+          median_days: number;
+          project_id: string;
+          project_name: string;
+          stage_key: string;
+          stage_name: string;
+          ticks: number;
+        }[];
+      };
+      report_task_delays: {
+        Args: { p_from: string; p_to: string };
+        Returns: {
+          client_name: string;
+          due_at: string;
+          handed_in_at: string;
+          late_reason: string;
+          open: boolean;
+          primary_owner_id: string;
+          task_id: string;
+          title: string;
+          type_name: string;
+        }[];
+      };
       session_bundle: {
         Args: never;
         Returns: {

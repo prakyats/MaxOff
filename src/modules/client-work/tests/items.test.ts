@@ -622,6 +622,23 @@ describe("the item KPIs (7.4, PRODUCT §4.13)", () => {
       "8 waiting at Edit · median 3 days",
     );
   });
+
+  it("where items sit longest: one row per stage name, ignoring case (v3.0, R7)", () => {
+    const now = new Date("2026-10-08T06:30:00Z");
+    const rows = sitLongest({
+      items: [
+        { id: "a", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
+        { id: "b", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
+      ],
+      stages: [
+        stage({ id: "a1", itemId: "a", name: "Edit", position: "a0" }),
+        stage({ id: "b1", itemId: "b", name: "edit", position: "a0" }),
+      ],
+      cycles: [{ id: "c", periodStart: "2026-10-01" }],
+      now,
+    });
+    expect(rows.map((row) => [row.stage, row.count])).toEqual([["Edit", 2]]);
+  });
 });
 
 describe("the project's history (7A notes for 7B (a))", () => {

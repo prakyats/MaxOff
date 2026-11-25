@@ -13,18 +13,27 @@ import {
 } from "@/modules/reports";
 
 /**
- * The work report's period (6.3): Week · Month · Custom, a pager for a week or a month, and what
+ * A report's period (6.3; v3.0 the Owner's reports too): Week · Month · Custom, a pager for a week or a month, and what
  * is shown. View controls: `ViewLink`s replace the entry, so one back leaves the report
  * (ARCHITECTURE §14.2 d). `period` null: the loading skeleton (the same control, nothing chosen).
  */
-export function PeriodControls({ period, today }: { period: Period | null; today: string }) {
+export function PeriodControls({
+  period,
+  today,
+  base = "/reports",
+}: {
+  period: Period | null;
+  today: string;
+  /** The report's own address (v3.0: the Owner's reports each have theirs). */
+  base?: string;
+}) {
   const kinds = [
-    { kind: "week", label: "Week", href: periodHref(weekOf(today as Period["from"])) },
-    { kind: "month", label: "Month", href: periodHref(monthOf(today as Period["from"])) },
+    { kind: "week", label: "Week", href: periodHref(weekOf(today as Period["from"]), base) },
+    { kind: "month", label: "Month", href: periodHref(monthOf(today as Period["from"]), base) },
     {
       kind: "custom",
       label: "Custom",
-      href: periodHref({ ...(period ?? weekOf(today as Period["from"])), kind: "custom" }),
+      href: periodHref({ ...(period ?? weekOf(today as Period["from"])), kind: "custom" }, base),
     },
   ] as const;
   const before = period && period.kind !== "custom" ? previousPeriod(period) : null;
@@ -59,7 +68,7 @@ export function PeriodControls({ period, today }: { period: Period | null; today
         <div className="flex min-h-11 items-center justify-between gap-2 md:justify-start">
           {before ? (
             <ViewLink
-              href={periodHref(before)}
+              href={periodHref(before, base)}
               scroll={false}
               icon
               aria-label={period.kind === "week" ? "Previous week" : "Previous month"}
@@ -73,7 +82,7 @@ export function PeriodControls({ period, today }: { period: Period | null; today
           </span>
           {after ? (
             <ViewLink
-              href={periodHref(after)}
+              href={periodHref(after, base)}
               scroll={false}
               icon
               aria-label={period.kind === "week" ? "Next week" : "Next month"}
