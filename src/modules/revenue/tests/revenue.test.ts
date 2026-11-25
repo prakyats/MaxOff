@@ -6,11 +6,15 @@ import {
   exceptionsOf,
   filterLines,
   groupByClient,
+  lineBilling,
   lineFigure,
   lineHref,
   lineNotes,
   lineStatus,
+  markAllLabel,
   monthSwitcher,
+  onHoldOf,
+  onHoldText,
   parseCategory,
   parseMonth,
   revenueHref,
@@ -18,6 +22,7 @@ import {
   shiftMonth,
   toRevenueMonth,
   totalsOf,
+  unbilledCycleIds,
 } from "../domain/revenue";
 import { setCycleAmountSchema } from "../domain/schemas";
 
@@ -230,6 +235,7 @@ describe("totals: summed in paise", () => {
       potential: 102718,
       achieved: 13333.34,
       remaining: 89384.66,
+      onHold: 0,
       closedNotAchieved: 0,
     });
   });
@@ -249,7 +255,13 @@ describe("totals: summed in paise", () => {
   });
 
   it("is all zero for no lines", () => {
-    expect(totalsOf([])).toEqual({ potential: 0, achieved: 0, remaining: 0, closedNotAchieved: 0 });
+    expect(totalsOf([])).toEqual({
+      potential: 0,
+      achieved: 0,
+      remaining: 0,
+      onHold: 0,
+      closedNotAchieved: 0,
+    });
   });
 
   it("counts a cancelled one-time project as closed, not achieved", () => {
@@ -468,5 +480,77 @@ describe("set this month's amount", () => {
     }
     expect(setCycleAmountSchema.safeParse({ cycleId: "x", amount: 1 }).success).toBe(false);
     expect(setCycleAmountSchema.safeParse({ amount: 1 }).success).toBe(false);
+  });
+});
+
+describe("v2.5: On hold inside Remaining (R3)", () => {
+  it("a held cycle keeps its Remaining waiting; a held one-time line its Potential less Achieved", () => {
+    const lines = read({
+      cycles: [
+        cycle({ held: true, remaining: 29384.66 }),
+        cycle({ cycle_id: Y2, remaining: 1000 }),
+      ],
+      projects: [
+        project({ held: true, potential: 60000, achieved: 0 }),
+        project({
+          project_id: P3,
+          held: true,
+          state: "completed",
+          potential: 50000,
+          achieved: 55000,
+        }),
+      ],
+    }).lines;
+    expect(lines.map(onHoldOf)).toEqual([29384.66, 0, 60000, 0]);
+    const totals = totalsOf(lines);
+    expect(totals.onHold).toBe(89384.66);
+    // Neither earned nor lost: still inside Remaining, never in Achieved or Closed.
+    expect(totals.remaining).toBeGreaterThanOrEqual(totals.onHold);
+    expect(onHoldText(totals.onHold)).toBe("On hold ₹89,384.66");
+    expect(onHoldText(0)).toBe(null);
+  });
+
+  it("each client's card has its own On hold", () => {
+    const view = revenueView(
+      read({ cycles: [cycle({ held: true })], projects: [project({ held: false })] }),
+      "all",
+    );
+    const byClient = Object.fromEntries(view.clients.map((group) => [group.clientId, group]));
+    expect(byClient[C1]?.totals.onHold).toBe(29384.66);
+    expect(byClient[C2]?.totals.onHold).toBe(0);
+    expect(view.totals.onHold).toBe(29384.66);
+  });
+});
+
+describe("v2.5: Billed on every line, and Mark all billed", () => {
+  it("reads each line's mark and adjustment", () => {
+    const [first, second] = read({
+      cycles: [cycle({ billing_status: "billed", billed_on: "2026-12-03", adjusted: true })],
+      projects: [project({ cycle_id: A1, billing_status: "not_billed", billed_on: null })],
+    }).lines;
+    expect(first).toMatchObject({ billed: true, billedOn: "2026-12-03", adjusted: true });
+    expect(second).toMatchObject({ billed: false, billedOn: null, adjusted: false, cycleId: A1 });
+    expect(lineBilling(first!)).toBe("Billed 3 Dec");
+    expect(lineBilling(second!)).toBe("Not billed");
+  });
+
+  it("marks the lines shown that are not billed yet, each cycle once, one-time ones by their cycle", () => {
+    const lines = read({
+      cycles: [cycle(), cycle({ cycle_id: Y2, billing_status: "billed", billed_on: "2026-11-30" })],
+      projects: [
+        project({ cycle_id: A1 }),
+        // A one-time project without its cycle cannot be marked.
+        project({ project_id: P3, cycle_id: null }),
+      ],
+    }).lines;
+    expect(unbilledCycleIds(lines)).toEqual([Y1, A1]);
+    expect(revenueView(read({ cycles: [cycle()], projects: [] }), "all").unbilled).toEqual([Y1]);
+    // Under a category filter, only the lines it shows.
+    expect(
+      revenueView(read({ cycles: [cycle()], projects: [project({ cycle_id: A1 })] }), "project")
+        .unbilled,
+    ).toEqual([A1]);
+    expect(markAllLabel(3)).toBe("Mark all 3 billed");
+    expect(markAllLabel(1)).toBe("Mark 1 billed");
   });
 });

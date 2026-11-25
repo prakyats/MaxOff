@@ -5,6 +5,7 @@ import { cache } from "react";
 import { createServerSupabase } from "@/core/db/server";
 
 import { type BillingCategory, type ProjectBilling, toProjectBilling } from "../domain/billing";
+import { type HistoryEntry, historyEntries, toHistoryRows } from "../domain/history";
 
 /**
  * A project's billing (CLAUDE.md rule 3; DATA-MODEL §7). With the rest of `modules/revenue/data`,
@@ -116,4 +117,105 @@ export async function rpcSetCycleAmount(cycleId: string, amount: number): Promis
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("billing_set_cycle_amount", { cycle_id: cycleId, amount });
   if (error) throw error;
+}
+
+// --- v2.5 "Revenue every day" ---------------------------------------------------------------------
+
+/** `billing_mark` takes at most this many cycles a call. */
+const MARK_BATCH = 200;
+
+/**
+ * Billed (on a day, with a note) or back to Not billed, for one cycle or many: a one-time project
+ * through its one cycle. More than the function's 200 a call go in batches, each its own
+ * transaction (a month never comes near it; a refusal stops at the batch it met).
+ */
+export async function rpcMarkBilled(input: {
+  cycleIds: readonly string[];
+  billed: boolean;
+  billedOn: string | null;
+  note: string | null;
+}): Promise<number> {
+  const supabase = await createServerSupabase();
+  let marked = 0;
+  for (let start = 0; start < input.cycleIds.length; start += MARK_BATCH) {
+    const { data, error } = await supabase.rpc("billing_mark", {
+      cycle_ids: input.cycleIds.slice(start, start + MARK_BATCH),
+      billed: input.billed,
+      // Cast, with its reason: `billing_mark` takes a null day as today (IST) and ignores the day
+      // and the note when marking Not billed; both are nullable in the function. The generated
+      // argument types are non-null only because Supabase types every argument without a
+      // default that way.
+      billed_on: input.billedOn as string,
+      note: input.note as string,
+    });
+    if (error) throw error;
+    marked += data;
+  }
+  return marked;
+}
+
+/** The Owner's adjusted Achieved of a retainer cycle or a completed one-time project. */
+export async function rpcAdjust(input: {
+  scope: "cycle" | "project";
+  refId: string;
+  value: number;
+  note: string;
+}): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("revenue_override_set", {
+    scope: input.scope,
+    ref_id: input.refId,
+    adjusted_value: input.value,
+    note: input.note,
+  });
+  if (error) throw error;
+}
+
+/** "Back to calculated": the adjustment is kept, superseded, with the note. */
+export async function rpcClearAdjust(input: {
+  scope: "cycle" | "project";
+  refId: string;
+  note: string;
+}): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("revenue_override_clear", {
+    scope: input.scope,
+    ref_id: input.refId,
+    note: input.note,
+  });
+  if (error) throw error;
+}
+
+/** A planned deliverable's own value off the top of its cycle's amount; null = back to its share. */
+export async function rpcSetPlannedValue(itemId: string, value: number | null): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_value_set", {
+    item_id: itemId,
+    // Cast, with its reason: `item_value_set` takes null as "no value of its own" (back to the
+    // even share for a planned deliverable); the column and the argument are nullable. The
+    // generated type is non-null only because Supabase types every argument without a default
+    // that way.
+    value: value as number,
+  });
+  if (error) throw error;
+}
+
+/**
+ * A page of the project's Billing history (Q7): the newest `limit` audit rows of its money tables,
+ * worded. `rows` is how many the read answered (some are left out of the lines), so the screen
+ * knows whether older ones may exist.
+ */
+export async function readBillingHistory(input: {
+  projectId: string;
+  limit: number;
+  oneTime: boolean;
+}): Promise<{ rows: number; entries: HistoryEntry[] }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_billing_history", {
+    project_id: input.projectId,
+    limit_count: input.limit,
+  });
+  if (error) throw error;
+  const rows = toHistoryRows(data);
+  return { rows: rows.length, entries: historyEntries(rows, { oneTime: input.oneTime }) };
 }

@@ -4,7 +4,8 @@
 -- policy, rule or trigger added later that names the table makes a set below differ and this file goes red.
 --
 -- The family (the v3.5 migrations, by name):
---   public.month_close, public.month_correct, public.month_close_read, public.month_close_reminder
+--   public.month_close, public.month_correct, public.month_close_read, public.month_close_reminder,
+--   public.month_snapshots_read (migration v35_revenue_read_after_v25: the Revenue page's light read)
 --     the Owner's entry points: security definer, search_path set, never anon;
 --   app.first_priced_month, app.month_snapshot_build, app.month_snapshot_figures, app.month_revenue_changes,
 --   app.month_waiting, app.month_close_reminder, app.month_close_reminder_line
@@ -12,10 +13,11 @@
 --     security invoker on purpose: they run inside the definer functions above (or the digest job), as those
 --     functions' owner, and the builder checks the caller is an Owner of the organization itself.
 -- Of the family, the ones whose source names month_snapshots are exactly month_close, month_correct,
--- month_close_read and app.month_close_reminder; public.month_close_reminder reaches the table only through
+-- month_close_read, month_snapshots_read and app.month_close_reminder; public.month_close_reminder reaches the table only through
 -- app.month_close_reminder, whose only callers are it and app.digest_weekly_payload (the weekly digest's
--- payload, service_role only). The TypeScript reads of the table (modules/revenue data/month-close.ts) are
--- table selects under the select policy, not database objects, and are not listed here.
+-- payload, service_role only). The one TypeScript read of the table left (modules/revenue
+-- data/month-close.ts, readClosedMonths) is a table select under the select policy, not a database object,
+-- and is not listed here.
 -- Every name here is neutral.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -32,8 +34,9 @@ create temporary table refs on commit drop as
 -- 1. Who names the table --------------------------------------------------------------------------------------
 select is(
   array(select name from refs order by name),
-  array['app.month_close_reminder', 'public.month_close', 'public.month_close_read', 'public.month_correct']::text[],
-  'only month_close, month_correct, month_close_read and app.month_close_reminder name month_snapshots in their source');
+  array['app.month_close_reminder', 'public.month_close', 'public.month_close_read', 'public.month_correct',
+        'public.month_snapshots_read']::text[],
+  'only month_close, month_correct, month_close_read, month_snapshots_read and app.month_close_reminder name month_snapshots in their source');
 
 select is(
   array(select (n.nspname::text || '.' || p.proname::text) collate "C"
@@ -47,7 +50,7 @@ select is(
 select is_empty(
   $$ select 1 from refs r
      where r.name not in ('public.month_close', 'public.month_correct', 'public.month_close_read',
-                          'public.month_close_reminder', 'app.first_priced_month', 'app.month_snapshot_build',
+                          'public.month_close_reminder', 'public.month_snapshots_read', 'app.first_priced_month', 'app.month_snapshot_build',
                           'app.month_snapshot_figures', 'app.month_revenue_changes', 'app.month_waiting',
                           'app.month_close_reminder', 'app.month_close_reminder_line') $$,
   'no function outside the month-close family names month_snapshots');
@@ -89,7 +92,8 @@ select is_empty(
 select is(
   array(select (n.nspname::text || '.' || p.proname::text) collate "C"
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where (n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder'))
+     where (n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder',
+                                            'month_snapshots_read'))
         or (n.nspname = 'app' and p.proname in ('first_priced_month', 'month_snapshot_build', 'month_snapshot_figures',
                                                 'month_revenue_changes', 'month_waiting', 'month_close_reminder',
                                                 'month_close_reminder_line'))
@@ -97,12 +101,13 @@ select is(
   array['app.first_priced_month', 'app.month_close_reminder', 'app.month_close_reminder_line',
         'app.month_revenue_changes', 'app.month_snapshot_build', 'app.month_snapshot_figures',
         'app.month_waiting', 'public.month_close', 'public.month_close_read', 'public.month_close_reminder',
-        'public.month_correct']::text[],
-  'the family is eleven functions, one of each name (no overload)');
+        'public.month_correct', 'public.month_snapshots_read']::text[],
+  'the family is twelve functions, one of each name (no overload)');
 
 select is_empty(
   $$ select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where ((n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder'))
+     where ((n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder',
+                                            'month_snapshots_read'))
          or (n.nspname = 'app' and p.proname in ('first_priced_month', 'month_snapshot_build', 'month_snapshot_figures',
                                                  'month_revenue_changes', 'month_waiting', 'month_close_reminder',
                                                  'month_close_reminder_line')))
@@ -117,9 +122,10 @@ select is_empty(
 -- 4. The public entry points: security definer, never anon --------------------------------------------------------
 select is_empty(
   $$ select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder')
+     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder',
+                                            'month_snapshots_read')
        and not p.prosecdef $$,
-  'the four public functions are security definer');
+  'the five public functions are security definer');
 
 select is_empty(
   $$ select 1 from refs r join pg_proc p on p.oid = r.oid join pg_namespace n on n.oid = p.pronamespace
@@ -128,22 +134,25 @@ select is_empty(
 
 select is_empty(
   $$ select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder')
+     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder',
+                                            'month_snapshots_read')
        and has_function_privilege('anon', p.oid, 'execute') $$,
-  'anon may execute none of the four public functions');
+  'anon may execute none of the five public functions');
 
 select is_empty(
   $$ select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace,
        aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
-     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder')
+     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder',
+                                            'month_snapshots_read')
        and a.grantee = 0 $$,
-  'PUBLIC holds no execute on the four public functions');
+  'PUBLIC holds no execute on the five public functions');
 
 select is_empty(
   $$ select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder')
+     where n.nspname = 'public' and p.proname in ('month_close', 'month_correct', 'month_close_read', 'month_close_reminder',
+                                            'month_snapshots_read')
        and not has_function_privilege('authenticated', p.oid, 'execute') $$,
-  'authenticated may execute the four public functions (each checks the Owner''s permission itself)');
+  'authenticated may execute the five public functions (each checks the Owner''s permission itself)');
 
 -- 5. The app helpers: service_role only ---------------------------------------------------------------------------
 select is_empty(

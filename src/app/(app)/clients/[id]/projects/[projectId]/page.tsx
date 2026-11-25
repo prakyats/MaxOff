@@ -572,7 +572,10 @@ export default async function ProjectPage({
             fallback={
               <BillingSkeleton
                 retainer={project.recurrence !== "one_time"}
-                cycle={chosen !== null}
+                // A one-time project's Billed row needs its one cycle (v2.5); a retainer's figures,
+                // Billed, Adjust and planned list need a cycle in view.
+                cycle={project.recurrence === "one_time" ? ordered.length > 0 : chosen !== null}
+                completed={project.recurrence === "one_time" && project.state === "completed"}
                 status={
                   project.recurrence === "one_time" &&
                   oneTimeStatusExpected({

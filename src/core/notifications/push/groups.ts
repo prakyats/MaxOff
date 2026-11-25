@@ -100,6 +100,8 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   project_held: "other",
   project_resumed: "other",
   item_cancelled: "other",
+  // v2.5 (kickoff 9 Q3): the Owner is told an added deliverable is not priced in a priced month.
+  deliverable_not_priced: "other",
   carry_decided: "other",
   // 7A: the client's Admin decides unfinished items (issue #56 Q2): waiting for their decision.
   items_to_decide: "approvals",

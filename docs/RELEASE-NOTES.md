@@ -25,8 +25,9 @@ told that a month is closed, and their work is never locked by a close.
 - **A closed month on Revenue shows the saved figures**, not today's. When today's figures differ, a line says
   **"Changed since close · See Month close"**; the close screen lists what moved, before → after, and who changed
   a deliverable ("Reopened by Ravi").
-- **Billing at close and now.** Each line of a closed month shows "Billed" or "Not billed" as it was at the close,
-  and "Not billed at close · Billed now" when it changed since.
+- **Billing at close and now.** Each line of a closed month shows "Billed 3 Dec" or "Not billed" as it is today
+  (as every month does since v2.5), and adds how it was at the close when that differs: "Billed 3 Dec · Not billed
+  at close".
 - **Work goes on.** Amounts, prices and advances of a closed month stay editable; their sheets say "October is
   closed. Its report changes only when you correct it."
 - **Correct October** rebuilds the month from today's data as version 2, with your note (10 to 500 characters,
@@ -34,7 +35,11 @@ told that a month is closed, and their work is never locked by a close.
 - **The reminder.** From the 6th of the next month, Reports shows "October isn't closed yet" (the oldest month not
   closed, "and 1 more month" when there are several), opening its close screen; the weekly summary email has the
   same line last under "Now". No push, and closing or correcting notifies nobody.
-- **Months can be closed from the first month with an amount.** A month before it says "Nothing to close."
+- **Months can be closed from the first month with an amount.** A month before it has no "Close month" on Revenue,
+  and its close screen says "Nothing to close."
+- **What moved, in plain words.** Under "Changed since close", a line whose amount changed says "Amount changed";
+  one where only its figures moved (a deliverable reopened) says "Figures changed". The month's totals that moved
+  are one "Month total" row.
 - **The guide** has two new topics, "Close a month" and "Correct a closed month", and a note in "Read the Revenue
   page".
 
@@ -53,6 +58,27 @@ report and client-work progress inside the saved month (after v3.0 "Reports"); t
 ### Also fixed
 - The Revenue page's Admin test waits for the page to settle before it looks for the period control (a test
   timing fix; nothing changes in the app).
+
+## v2.5: revenue every day
+
+**Not released yet.** Release candidate: `phase-v25-revenue-daily` (after v2.1).
+
+The second part of Revenue (phase 9): the Owner keeps track of billing and sees the month's money every day. **Only the Owner sees any of it.**
+
+### What the Owner will notice
+- **Billed / Not billed** in each project's Billing section: for the month or week in view, or a one-time project as a whole. "Mark billed" (a day, today unless changed, and a note such as the invoice number) and "Mark not billed".
+- **Adjust what was achieved**: set the month's (or a completed one-time project's) Achieved by hand with a note; Billing then shows "Owner adjusted" with "System calculated" beside it. "Back to calculated" undoes it, with a note.
+- **A planned deliverable's own value**: under "Planned deliverables", give one deliverable its own value off the top of the month's amount (the others share the rest), or put it back to its share.
+- **Billing history** on every project: each change to its money, who made it and when, newest first, with "Show older".
+- **On the Revenue page**: "On hold ₹X" inside Remaining (work waiting on held projects, neither earned nor lost), "Billed" / "Not billed" and "Adjusted" on every line, and "Mark all N billed" for the month.
+- **The last line of Today**: "November · ₹ ••• achieved of ₹ ••• · 2 not priced". The amounts are hidden until you tap the line, and hidden again whenever Today opens. "Open Revenue" opens the month.
+- **A notification when someone adds a deliverable to a priced month**: "‹project›: a deliverable isn't priced". It opens that month's Billing, where the deliverable waits for its price. It never shows an amount.
+
+### What Admins will notice
+- Nothing. No amount, no billing word and no new notification.
+
+### What the Crew will notice
+- Nothing.
 
 ## v2.1: money in
 

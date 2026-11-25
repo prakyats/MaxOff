@@ -213,7 +213,7 @@ export type ChangeRow = {
   key: string;
   /** The line in plain words: "Reel 3 · Monthly posts". */
   what: string;
-  /** Who changed it ("Reopened by Ravi"), else what happened ("Amount changed"). */
+  /** Who changed it ("Reopened by Ravi"), else what happened ("Amount changed", "Figures changed"). */
   detail: string;
   /** Each moved figure, before → after: "Achieved ₹6,000 → ₹4,000". */
   figures: string[];
@@ -233,7 +233,26 @@ function detailOf(change: LineChange): string {
   }
   if (change.kind === "added") return "Added since the close";
   if (change.kind === "removed") return "No longer in the month";
-  return "Amount changed";
+  return amountMoved(change) ? "Amount changed" : "Figures changed";
+}
+
+/**
+ * Whether the line's own amount moved (a cycle's or one-time project's amount, a deliverable's
+ * value, an advance's amount): "Amount changed". A line where only Potential, Achieved, Remaining
+ * or the counts moved (a reopened deliverable's cycle) says "Figures changed" (U7 review).
+ */
+function amountMoved(change: LineChange): boolean {
+  if (!change.before || !change.after) return false;
+  switch (change.line) {
+    case "cycle":
+    case "project":
+      return change.before.amount !== change.after.amount;
+    case "item":
+      return change.before.value !== change.after.value;
+    case "advance_received":
+    case "advance_returned":
+      return change.before.amount !== change.after.amount;
+  }
 }
 
 function figuresOf(change: LineChange): string[] {
@@ -368,12 +387,18 @@ export function monthCloseView(read: MonthCloseRead): MonthCloseView {
 /** The Revenue page's link in the month header, for an ended month (v3.5 Q11). */
 export type CloseLink = { href: string; label: string; closed: boolean };
 
+/**
+ * "Closed 3 Oct · v1" for a closed month; "Close month" for an ended one from the organization's
+ * first priced month on (`firstPricedMonth`, its 1st); null before it, or when nothing is priced
+ * yet, whose close screen would only say "Nothing to close." (WORKFLOWS §7.1, Q2; U7 review).
+ */
 export function closeLink(
   month: string,
   versions: readonly Pick<SnapshotVersion, "version" | "closedAt">[],
-): CloseLink {
+  firstPricedMonth: string | null,
+): CloseLink | null {
   const closed = closedLine(versions);
-  return closed
-    ? { href: closeHref(month), label: closed, closed: true }
-    : { href: closeHref(month), label: "Close month", closed: false };
+  if (closed) return { href: closeHref(month), label: closed, closed: true };
+  if (firstPricedMonth === null || month.slice(0, 7) < firstPricedMonth.slice(0, 7)) return null;
+  return { href: closeHref(month), label: "Close month", closed: false };
 }

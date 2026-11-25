@@ -4,20 +4,33 @@ import { addISTDays, todayIST } from "@/core/time";
 
 import {
   addedHeading,
+  adjustmentLines,
   advanceSummary,
   amountLabel,
   amountSheetNote,
   amountText,
+  billedText,
+  canAdjust,
   isBillingCategory,
   longDay,
   monthName,
   oneTimeStatusExpected,
+  plannedHeading,
+  plannedValueNote,
+  plannedValueText,
   priceText,
   shortDay,
   toProjectBilling,
 } from "../domain/billing";
 import { parseWholeRupees } from "../domain/money";
 import {
+  adjustSchema,
+  clearAdjustSchema,
+  historySchema,
+  markAllBilledSchema,
+  markBilledSchema,
+  markNotBilledSchema,
+  plannedValueSchema,
   recordAdvanceSchema,
   returnAdvanceSchema,
   setAmountSchema,
@@ -115,8 +128,12 @@ describe("toProjectBilling: the read's JSON as the section's shape", () => {
         amount: 40000,
         potential: 45000,
         achieved: 10000,
+        achievedCalculated: 10000,
         remaining: 35000,
+        mark: { billed: false, billedOn: null, note: null },
+        adjustment: null,
       },
+      planned: [],
       added: [
         { itemId: ID, title: "Extra reel", price: 5000 },
         // "Not priced" is no price at all, never ₹0 (which is "Not billable").
@@ -226,6 +243,14 @@ describe("toProjectBilling: the read's JSON as the section's shape", () => {
           returnNote: "Paid twice",
         },
       ],
+      line: {
+        cycleId: null,
+        state: "in_progress",
+        achieved: 0,
+        achievedCalculated: 0,
+        mark: { billed: false, billedOn: null, note: null },
+        adjustment: null,
+      },
     });
   });
 
@@ -244,7 +269,12 @@ describe("toProjectBilling: the read's JSON as the section's shape", () => {
     };
     const onTime = toProjectBilling({
       ...base,
-      line: { was_due: false, ready_to_complete: false, delivery_date: "2026-12-01" },
+      line: {
+        was_due: false,
+        ready_to_complete: false,
+        delivery_date: "2026-12-01",
+        state: "open",
+      },
     });
     expect(onTime).toMatchObject({ wasDue: null, readyToComplete: false, advancesKept: 0 });
     expect(toProjectBilling({ ...base, line: null })).toMatchObject({ wasDue: null, advances: [] });
@@ -404,5 +434,187 @@ describe("oneTimeStatusExpected: the skeleton reserves the status line without a
         itemStates: ["approved"],
       }),
     ).toBe(false);
+  });
+});
+
+describe("v2.5: Billed, the adjustment and the planned values", () => {
+  const retainerRead = (over: Record<string, unknown> = {}) =>
+    toProjectBilling({
+      project_id: ID,
+      recurrence: "monthly",
+      billing: { category: "retainer", category_is_default: true, cycle_amount: 40000 },
+      cycle: {
+        cycle_id: OTHER,
+        label: "November 2026",
+        amount: 40000,
+        potential: 40000,
+        achieved: 9000,
+        achieved_calculated: 10000,
+        remaining: 31000,
+        billing_status: "billed",
+        billed_on: "2026-12-03",
+        billing_note: "Invoice 42",
+        override: {
+          adjusted_value: 9000,
+          calculated_value: 10000,
+          note: "Discount agreed",
+          at: "2026-12-03T10:00:00Z",
+        },
+      },
+      items: [
+        { item_id: ID, title: "Reel 1", method: "explicit", value: 10000, achieved: true },
+        { item_id: OTHER, title: "Reel 2", method: "split", value: 15000, achieved: false },
+        { item_id: OTHER, title: "Reel 3", method: "excluded", value: 0, achieved: false },
+      ],
+      added: [],
+      ...over,
+    });
+
+  it("reads the mark, the adjustment and the planned deliverables", () => {
+    const billing = retainerRead();
+    if (billing.kind !== "retainer" || !billing.cycle) throw new Error("a retainer with a cycle");
+    expect(billing.cycle.mark).toEqual({
+      billed: true,
+      billedOn: "2026-12-03",
+      note: "Invoice 42",
+    });
+    expect(billing.cycle.adjustment).toEqual({
+      adjustedValue: 9000,
+      calculatedValue: 10000,
+      note: "Discount agreed",
+      at: "2026-12-03T10:00:00Z",
+    });
+    expect(billing.cycle.achievedCalculated).toBe(10000);
+    expect(billing.planned.map((item) => [item.title, item.method, item.value])).toEqual([
+      ["Reel 1", "explicit", 10000],
+      ["Reel 2", "split", 15000],
+      ["Reel 3", "excluded", 0],
+    ]);
+    expect(() =>
+      retainerRead({ items: [{ item_id: ID, title: "X", method: "guess", value: 1 }] }),
+    ).toThrow();
+  });
+
+  it("a Not billed mark carries no day or note", () => {
+    const billing = retainerRead({
+      cycle: { cycle_id: OTHER, billing_status: "not_billed", billed_on: "2026-12-03" },
+    });
+    if (billing.kind !== "retainer" || !billing.cycle) throw new Error("a retainer with a cycle");
+    expect(billing.cycle.mark).toEqual({ billed: false, billedOn: null, note: null });
+    expect(billing.cycle.adjustment).toBe(null);
+  });
+
+  it("says Billed with its day and note, or Not billed", () => {
+    expect(billedText({ billed: true, billedOn: "2026-12-03", note: "Invoice 42" })).toBe(
+      "Billed on 3 Dec · Invoice 42",
+    );
+    expect(billedText({ billed: true, billedOn: "2026-12-03", note: null })).toBe(
+      "Billed on 3 Dec",
+    );
+    expect(billedText({ billed: false, billedOn: null, note: null })).toBe("Not billed");
+  });
+
+  it("the Adjust row: as calculated, or the Owner's figure with the system's beside it", () => {
+    expect(
+      adjustmentLines({ achieved: 10000, achievedCalculated: 10000, adjustment: null }),
+    ).toEqual({ label: "Achieved", value: "₹10,000", detail: "As calculated from approved work" });
+    expect(
+      adjustmentLines({
+        achieved: 9000,
+        achievedCalculated: 10000,
+        adjustment: { adjustedValue: 9000, calculatedValue: 10000, note: "Discount", at: "" },
+      }),
+    ).toEqual({
+      label: "Owner adjusted · Discount",
+      value: "₹9,000",
+      detail: "System calculated ₹10,000",
+    });
+  });
+
+  it("adjusts a retainer's cycle in view, and a one-time project only once completed", () => {
+    expect(canAdjust(retainerRead())).toBe(true);
+    expect(canAdjust(retainerRead({ cycle: null }))).toBe(false);
+    const oneTime = (state: string) =>
+      toProjectBilling({
+        project_id: ID,
+        recurrence: "one_time",
+        billing: { category: "project", category_is_default: true, fixed_amount: 60000 },
+        line: { state, cycle_id: OTHER, achieved: 0, achieved_calculated: 0 },
+        advances: [],
+      });
+    expect(canAdjust(oneTime("completed"))).toBe(true);
+    expect(canAdjust(oneTime("in_progress"))).toBe(false);
+    expect(canAdjust(oneTime("cancelled"))).toBe(false);
+  });
+
+  it("says each planned deliverable's value and how it is valued", () => {
+    const item = { itemId: ID, title: "Reel 1", value: 10000 };
+    expect(plannedValueText({ ...item, method: "explicit" })).toBe("₹10,000 · Own value");
+    expect(plannedValueText({ ...item, method: "split" })).toBe("₹10,000 · Share");
+    expect(plannedValueText({ ...item, method: "no_amount" })).toBe("No amount set");
+    expect(plannedValueText({ ...item, method: "excluded" })).toBe("Not counted");
+    expect(plannedHeading(4)).toBe("Planned deliverables · 4");
+    expect(plannedValueNote("Reel 1", 40000, "monthly")).toBe(
+      "Reel 1's own value comes off the top of this month's ₹40,000. The other planned deliverables share the rest.",
+    );
+    expect(plannedValueNote("Reel 1", null, "weekly")).toContain("this week's amount");
+  });
+});
+
+describe("v2.5 schemas", () => {
+  const TODAY = todayIST();
+
+  it("Billed: a day up to today and an optional note", () => {
+    expect(markBilledSchema.parse({ cycleId: ID, billedOn: TODAY, note: " " })).toEqual({
+      cycleId: ID,
+      billedOn: TODAY,
+      note: null,
+    });
+    expect(
+      markBilledSchema.safeParse({ cycleId: ID, billedOn: addISTDays(TODAY, 1) }).success,
+    ).toBe(false);
+    expect(markNotBilledSchema.safeParse({ cycleId: "x" }).success).toBe(false);
+  });
+
+  it("Mark all billed: at least one cycle, each a uuid", () => {
+    expect(markAllBilledSchema.safeParse({ cycleIds: [], billedOn: TODAY }).success).toBe(false);
+    expect(markAllBilledSchema.safeParse({ cycleIds: [ID, OTHER], billedOn: TODAY }).success).toBe(
+      true,
+    );
+    expect(markAllBilledSchema.safeParse({ cycleIds: ["x"], billedOn: TODAY }).success).toBe(false);
+  });
+
+  it("an adjustment: whole rupees and a note, both required; back to calculated needs a note", () => {
+    const base = { scope: "cycle", refId: ID };
+    expect(adjustSchema.safeParse({ ...base, value: 9000, note: "Discount" }).success).toBe(true);
+    expect(adjustSchema.safeParse({ ...base, value: 9000, note: "  " }).success).toBe(false);
+    expect(adjustSchema.safeParse({ ...base, value: 90.5, note: "x" }).success).toBe(false);
+    expect(adjustSchema.safeParse({ scope: "month", refId: ID, value: 1, note: "x" }).success).toBe(
+      false,
+    );
+    expect(clearAdjustSchema.safeParse({ ...base, note: "" }).success).toBe(false);
+    expect(clearAdjustSchema.safeParse({ ...base, note: "Paid in full" }).success).toBe(true);
+  });
+
+  it("a planned value: whole rupees, or null for back to the share", () => {
+    expect(plannedValueSchema.parse({ itemId: ID, value: null })).toEqual({
+      itemId: ID,
+      value: null,
+    });
+    expect(plannedValueSchema.safeParse({ itemId: ID, value: -1 }).success).toBe(false);
+  });
+
+  it("a history page: the project, 1–200 rows, and whether it is one-time, from the query", () => {
+    expect(historySchema.parse({ projectId: ID, limit: "40", oneTime: "1" })).toEqual({
+      projectId: ID,
+      limit: 40,
+      oneTime: true,
+    });
+    expect(historySchema.safeParse({ projectId: ID, limit: "201", oneTime: "0" }).success).toBe(
+      false,
+    );
+    expect(historySchema.safeParse({ projectId: ID, limit: "20", oneTime: null }).success).toBe(
+      false,
+    );
   });
 });

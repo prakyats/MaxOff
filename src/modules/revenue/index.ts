@@ -10,7 +10,8 @@
  * `components/` (ADR-0011 amendment, task 2.8), because a barrel is not tree-shaken per route.
  * `BillingSection` and `BillingSkeleton` are server components (the section's sheets are client
  * code it loads on the first tap), and so are the Revenue page's `RevenueReport` and
- * `RevenueSkeleton` (its month and category controls are `ViewLink`s).
+ * `RevenueSkeleton` (its month and category controls are `ViewLink`s), and the Owner's Today
+ * line `TodayRevenueLine` with its fallback (v2.5: a native `<details>`, no client code).
  */
 export { BillingSection } from "./components/billing-section";
 export { BillingSkeleton } from "./components/billing-skeleton";
@@ -49,3 +50,6 @@ export type {
   TotalChange,
   WaitingList,
 } from "./domain/month-close";
+export { TodayRevenueLine, TodayRevenueLineSkeleton } from "./components/today-revenue-line";
+export { readMonthTotals } from "./data/today";
+export { readBillingHistoryPage, type BillingHistoryPage } from "./actions/background";

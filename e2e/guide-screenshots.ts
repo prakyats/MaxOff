@@ -379,6 +379,18 @@ async function makeDemo(): Promise<DemoIds> {
     `project_cycles?project_id=eq.${pricedProjectId}&select=id&order=period_start.desc&limit=1`,
   );
   await rpc(admin, "item_add", { cycle_id: pricedCycle?.id, title: "Extra poster" });
+  // v2.5: that addition tells the Owner (deliverable_not_priced); the demo's alert lists stay as
+  // they were, so the Owner's alert pictures and counts do not change.
+  await serviceRest(
+    `notifications?recipient_id=eq.${await memberIdOf(owner.email)}&kind=eq.deliverable_not_priced`,
+    { method: "DELETE" },
+  );
+  // v2.5: Post A's own value (the planned values picture: one own value, three shares), which
+  // Billing history lists too.
+  const [postA] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${pricedProjectId}&title=eq.Post%20A&select=id`,
+  );
+  await rpc(owner, "item_value_set", { item_id: postA?.id, value: 12000 });
   const items = await serviceSelect<{ id: string; title: string }>(
     `project_items?project_id=eq.${projectId}&select=id,title&order=position`,
   );

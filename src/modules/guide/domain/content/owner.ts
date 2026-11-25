@@ -1608,8 +1608,21 @@ export const OWNER_GUIDE: Guide = {
             note(
               "This is for monthly and weekly projects. A one-time project has one amount for everything in it.",
             ),
+            note(
+              'When someone else adds a deliverable to a month or week that has an amount, you get a notification: "‹project›: a deliverable isn\'t priced". Tap it: the project opens on that month, at Billing, where the new deliverable says "Not priced". The notification never shows an amount, and nobody else gets it.',
+            ),
           ],
-          keywords: ["extra", "added", "not priced", "price", "billing", "additional", "on top"],
+          keywords: [
+            "extra",
+            "added",
+            "not priced",
+            "price",
+            "billing",
+            "additional",
+            "on top",
+            "notification",
+            "isn't priced",
+          ],
         },
         {
           id: "owner-revenue-page",
@@ -1639,6 +1652,16 @@ export const OWNER_GUIDE: Guide = {
             text(
               '"By client" has one card per client with its own Potential, Achieved and Remaining, then one line per project. A monthly or weekly project shows the month and how many deliverables are done ("November 2026 · 4 of 12 done"). A one-time project shows "Due 15 Nov", "Completed" or "Cancelled". A line can also say "+₹2,718 added", "Advance ₹30,000" or "On hold". Tap a line to open the project.',
             ),
+            text(
+              '"On hold ₹12,000" under Remaining is the part of Remaining whose project is on hold: it is neither earned nor lost, it waits until the project is resumed. Each client\'s card says it too, after its Remaining.',
+            ),
+            text(
+              'Every line says "Not billed" or "Billed 3 Dec", and "Adjusted" when you changed its Achieved by hand.',
+            ),
+            steps(
+              'To mark the month billed in one go, tap "Mark all 3 billed" under the three figures. It counts the lines of the month, in the category you are looking at, that are not billed yet.',
+              'Check "Date billed" (today unless you change it; it can\'t be in the future) and tap "Mark 3 billed". Each line then reads "Billed" with that day.',
+            ),
             steps(
               "To see another month, tap the arrows beside the month's name.",
               "To see one kind of work, tap All, Retainer, Project or Additional Work. The figures and the lists then count only that category.",
@@ -1666,6 +1689,11 @@ export const OWNER_GUIDE: Guide = {
             "no amount set",
             "category",
             "rupees",
+            "on hold",
+            "billed",
+            "not billed",
+            "mark all billed",
+            "adjusted",
           ],
         },
         {
@@ -1698,7 +1726,7 @@ export const OWNER_GUIDE: Guide = {
               "A closed month's Revenue page shows the saved figures, not today's. When today's figures differ, a line under the month's name says \"Changed since close · See Month close\"; tap it to see what moved.",
             ),
             text(
-              'Each line of a closed month shows its billing status as it was at the close, "Billed" or "Not billed". If it changed since, both are shown, for example "Not billed at close · Billed now".',
+              'Each line of a closed month says "Billed 3 Dec" or "Not billed" as it is today, as on any month. If that changed since the close, the line also says how it was then, for example "Billed 3 Dec · Not billed at close".',
             ),
             text(
               'When you change an amount, a price or an advance of a closed month, the sheet says "September is closed. Its report changes only when you correct it." Saving still works; the saved report changes only when you correct the month.',
@@ -1739,7 +1767,7 @@ export const OWNER_GUIDE: Guide = {
             "Save a closed month again from today's data, with a note. Earlier versions stay.",
           blocks: [
             text(
-              'A closed month\'s screen lists "Changed since close": each revenue line and month total that moved since it was saved, before → after, and who changed a deliverable when MaxOff knows, for example "Reopened by Ravi". Other changes say "Amount changed".',
+              'A closed month\'s screen lists "Changed since close": each revenue line that moved since it was saved, before → after, and who changed a deliverable when MaxOff knows, for example "Reopened by Ravi". A line whose amount, price or advance changed says "Amount changed"; a line where only its figures moved, such as Achieved after a reopened deliverable, says "Figures changed". Last, one "Month total" row lists each of the month\'s totals that moved.',
             ),
             steps(
               "Open the month's close screen: on the Revenue page, tap \"Closed 3 Oct · v1\" beside the month's name.",
@@ -1800,6 +1828,127 @@ export const OWNER_GUIDE: Guide = {
             ),
           ],
           keywords: ["advance", "deposit", "balance", "returned", "refund", "one-time", "billing"],
+        },
+        {
+          id: "owner-mark-billed",
+          title: "Mark a month billed",
+          summary: "Keep track of what you have invoiced, month by month or project by project.",
+          blocks: [
+            text(
+              'Billing has a "Billing" row that says "Not billed" or "Billed on 3 Dec", with your note after it. On a monthly or weekly project it is for the month or week you are looking at; on a one-time project it is for the whole project.',
+            ),
+            steps(
+              "Open the project and scroll down to Billing. On a monthly or weekly project, pick the month with the month tabs first.",
+              'Tap "Mark billed".',
+              '"Date billed" starts as today; change it if you sent the invoice earlier (it can\'t be in the future). Add a note if you like, such as the invoice number, and tap "Mark billed".',
+            ),
+            next('The row reads "Billed on 3 Dec · Invoice 42".'),
+            note(
+              'Marked by mistake? Tap "Mark not billed", then "Mark not billed" again in the sheet. Billing history keeps both.',
+            ),
+            note(
+              'To mark a whole month at once, use "Mark all billed" on the Revenue page (Read the Revenue page).',
+            ),
+          ],
+          keywords: ["billed", "invoice", "not billed", "mark billed", "billing status", "sent"],
+        },
+        {
+          id: "owner-adjust-achieved",
+          title: "Adjust what was achieved",
+          summary:
+            "Set Achieved by hand when the month earned something other than the calculation.",
+          blocks: [
+            text(
+              'MaxOff calculates Achieved from approved work. When the month really earned something else (a discount, a part payment), you can set your own figure. Billing\'s Achieved row then says "Owner adjusted", with your note, and "System calculated" with MaxOff\'s figure under it, so you always see both.',
+            ),
+            steps(
+              "Open the project and scroll down to Billing. On a monthly or weekly project, pick the month first.",
+              'In the Achieved row, tap "Adjust".',
+              'Type the achieved amount in whole rupees and a note saying why (the note is required), then tap "Save adjustment".',
+            ),
+            next(
+              "Your figure counts everywhere: the month's Achieved and Remaining, the Revenue page (where the line says Adjusted) and the Today line.",
+            ),
+            steps(
+              'To undo it, tap "Back to calculated", write why, and tap "Back to calculated". The calculated figure counts again; Billing history keeps your adjustment.',
+            ),
+            note(
+              "A one-time project can be adjusted once it is completed: until then nothing is achieved.",
+            ),
+          ],
+          keywords: [
+            "adjust",
+            "override",
+            "achieved",
+            "discount",
+            "system calculated",
+            "owner adjusted",
+            "back to calculated",
+          ],
+        },
+        {
+          id: "owner-planned-values",
+          title: "Give a deliverable its own value",
+          summary: "A month's amount is shared evenly; give one deliverable a value of its own.",
+          blocks: [
+            text(
+              'A monthly or weekly project\'s amount is shared evenly by the month\'s planned deliverables. Billing lists them under "Planned deliverables · 4", each with its value and "Share" or "Own value".',
+            ),
+            steps(
+              'Open the project, pick the month, scroll down to Billing and tap "Planned deliverables" to open the list.',
+              'Tap "Set value" on the deliverable.',
+              'Type its value in whole rupees and tap "Save value".',
+            ),
+            next(
+              "Its value comes off the top of the month's amount; the other planned deliverables share what is left. Potential stays the month's amount.",
+            ),
+            example(
+              "The month is ₹30,000 for three reels, ₹10,000 each. Give Reel 1 ₹12,000: Reel 2 and Reel 3 are then ₹9,000 each.",
+            ),
+            note(
+              "To undo it, tap \"Back to share\" on that deliverable. The values together can't be more than the month's amount: Billing says so if they would be.",
+            ),
+          ],
+          keywords: ["value", "own value", "share", "split", "planned", "deliverable", "price"],
+        },
+        {
+          id: "owner-billing-history",
+          title: "See a project's Billing history",
+          summary: "Every change to a project's money, who made it and when.",
+          blocks: [
+            steps(
+              "Open the project and scroll down to Billing.",
+              'Tap "Billing history" to open it.',
+            ),
+            next(
+              'The newest 20 changes, newest first: each with its day and time, who made it, and what changed, such as "Amount set to ₹10,000 (was ₹8,000)", "Marked billed on 3 Dec", "Advance ₹30,000 received", "Adjusted to ₹9,000: Discount agreed" or "Price of Reel 2 set to ₹2,000". Tap "Show older" for the 20 before them.',
+            ),
+            note(
+              "Opening and closing the history doesn't change anything, and the phone's back button doesn't close it: it leaves the page as usual.",
+            ),
+            note(
+              `Billing history is yours alone. It is not part of the project's Activity, which Admins see.`,
+            ),
+          ],
+          keywords: ["history", "billing history", "changes", "audit", "who changed", "log"],
+        },
+        {
+          id: "owner-today-revenue",
+          title: "This month's revenue on Today",
+          summary: "One line at the end of Today, its amounts hidden until you tap it.",
+          blocks: [
+            text(
+              'The last line of Today reads, for example, "November · ₹ ••• achieved of ₹ ••• · 2 not priced". The amounts are hidden, so they are not on screen when someone looks over your shoulder.',
+            ),
+            steps("Tap the line to show the amounts; tap it again to hide them."),
+            next(
+              'It then reads "November · ₹45,000 achieved of ₹1,20,000". "2 not priced" means deliverables added this month still need a price; "1 with no amount" is a project of the month without an amount. Tap "Open Revenue" for the whole month.',
+            ),
+            note(
+              `The amounts are hidden again whenever Today opens. Admins and ${CREW} never see this line.`,
+            ),
+          ],
+          keywords: ["today", "revenue", "achieved", "hidden", "masked", "this month", "money"],
         },
       ],
     },

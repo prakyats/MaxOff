@@ -159,13 +159,22 @@ describe("the screen's state", () => {
     ]);
   });
 
+  it("the Revenue header's link: no link before the first priced month (Nothing to close.)", () => {
+    expect(closeLink("2026-08-01", [], SEPT)).toBeNull();
+    expect(closeLink(SEPT, [], null)).toBeNull();
+    // A closed month keeps its link whatever the first priced month says now.
+    expect(closeLink("2026-08-01", [v1], SEPT)?.label).toBe("Closed 3 Oct · v1");
+    expect(closeLink("2026-08-01", [v1], null)?.closed).toBe(true);
+  });
+
   it("the Revenue header's link: Close month, or Closed 3 Oct · v1", () => {
-    expect(closeLink(SEPT, [])).toEqual({
+    expect(closeLink(SEPT, [], SEPT)).toEqual({
       href: "/reports/close/2026-09",
       label: "Close month",
       closed: false,
     });
-    expect(closeLink(SEPT, [v1])).toEqual({
+    expect(closeLink(SEPT, [], "2026-08-01")?.label).toBe("Close month");
+    expect(closeLink(SEPT, [v1], SEPT)).toEqual({
       href: "/reports/close/2026-09",
       label: "Closed 3 Oct · v1",
       closed: true,
@@ -197,7 +206,7 @@ describe("Changed since close in words", () => {
     });
   });
 
-  it("a line with no cause says Amount changed, with no name, and only the figures that moved", () => {
+  it("a line with no cause whose amount stayed says Figures changed, with no name, and only the figures that moved", () => {
     const [row] = changeRows([
       {
         kind: "changed",
@@ -222,8 +231,35 @@ describe("Changed since close in words", () => {
         cause: null,
       },
     ]);
-    expect(row?.detail).toBe("Amount changed");
+    expect(row?.detail).toBe("Figures changed");
     expect(row?.figures).toEqual(["Achieved ₹10,000 → ₹5,000", "Remaining ₹20,000 → ₹25,000"]);
+  });
+
+  it("a line whose own amount moved says Amount changed (a cycle, an advance)", () => {
+    const figures = { potential: 30000, achieved: 0, remaining: 30000, closed_not_achieved: 0 };
+    const rows = changeRows([
+      {
+        kind: "changed",
+        line: "cycle",
+        id: "c2",
+        cycleId: null,
+        what: "Monthly posts · First client · October 2026",
+        before: { amount: 30000, ...figures },
+        after: { amount: 35000, ...figures, potential: 35000, remaining: 35000 },
+        cause: null,
+      },
+      {
+        kind: "changed",
+        line: "advance_received",
+        id: "a2",
+        cycleId: null,
+        what: "Advance received · Launch film",
+        before: { amount: 20000 },
+        after: { amount: 25000 },
+        cause: null,
+      },
+    ]);
+    expect(rows.map((row) => row.detail)).toEqual(["Amount changed", "Amount changed"]);
   });
 
   it("an added line, a removed advance, an unpriced value and the totals", () => {

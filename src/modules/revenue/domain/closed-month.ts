@@ -15,7 +15,7 @@ import {
  * A **closed** month on the Revenue page (v3.5 U5; WORKFLOWS §7.1 decisions 10 and 18, v3.5 Q12
  * and Q13): the figures come from the latest snapshot, not the live read, in the same layout. The
  * live read still runs (as for an open month, so the page costs the same): it gives the month
- * switcher, today's names, what still needs a look, the billing status "now", and a cheap
+ * switcher, today's names, what still needs a look, the Billed mark "now", and a cheap
  * "Changed since close" check. Pure, and **Owner only**: the snapshot is money (invariant 2).
  */
 
@@ -112,49 +112,57 @@ const STATUS_WORDS: Record<BillingStatus, string> = {
 };
 
 /**
- * A closed month's line's billing status (decision 10, v3.5 Q13): the status at close, and the one
- * now beside it only when they differ ("Billed at close · Not billed now"); otherwise one status
- * ("Billed"). A line no longer in the live month shows its status at close. Null when the stored
- * line has none.
+ * A closed month's line's billing status at close (decision 10, v3.5 Q13), said beside v2.5's
+ * live "Billed 3 Dec" / "Not billed" only when it differs from the status now: "Not billed at
+ * close". Null when they agree, when the stored line has none, or when the line is no longer in
+ * the live month (its line then shows the status it had at close, with nothing beside it).
  */
-export function billingStatusText(
+export function billingAtCloseText(
   atClose: BillingStatus | null,
   now: BillingStatus | null,
 ): string | null {
-  if (atClose === null) return null;
-  if (now === null || now === atClose) return STATUS_WORDS[atClose];
-  return `${STATUS_WORDS[atClose]} at close · ${STATUS_WORDS[now]} now`;
+  if (atClose === null || now === null || now === atClose) return null;
+  return `${STATUS_WORDS[atClose]} at close`;
 }
 
 /** What a closed month's page draws, beyond an open month's view. */
 export type ClosedRevenueView = RevenueView & {
   /** The live figures moved since the latest version (the cheap check above). */
   changed: boolean;
-  /** Each shown line's billing status, by `lineKey`. */
-  billing: Map<string, string>;
+  /** "Not billed at close" / "Billed at close", by `lineKey`, only where it differs from now. */
+  atClose: Map<string, string>;
 };
 
 /**
- * A closed month's view: the totals, groups and lines from the snapshot; **Needs a look** from the
- * live read (it is the Owner's list of what to do today: a "No amount set" fixed since the close is
- * not asked again); the billing status at close and now; and whether anything moved.
+ * A closed month's view: the totals, groups and figures from the snapshot; **Needs a look** from
+ * the live read (it is the Owner's list of what to do today: a "No amount set" fixed since the
+ * close is not asked again); each line's Billed mark **now** (v2.5's display and "Mark all N
+ * billed" follow today's marks, as on an open month), with the status at close beside it where it
+ * differs; and whether anything moved.
  */
 export function closedRevenueView(
   stored: RevenueMonth,
   live: RevenueMonth,
   filter: CategoryFilter,
 ): ClosedRevenueView {
-  const view = revenueView(stored, filter);
-  const now = new Map(live.lines.map((line) => [lineKey(line), line.billingStatus]));
-  const billing = new Map<string, string>();
+  const now = new Map(live.lines.map((line) => [lineKey(line), line]));
+  const lines = stored.lines.map((line): RevenueLine => {
+    const current = now.get(lineKey(line));
+    return current ? { ...line, billed: current.billed, billedOn: current.billedOn } : line;
+  });
+  const view = revenueView({ ...stored, lines }, filter);
+  const atClose = new Map<string, string>();
   for (const line of filterLines(stored.lines, filter)) {
-    const text = billingStatusText(line.billingStatus, now.get(lineKey(line)) ?? null);
-    if (text) billing.set(lineKey(line), text);
+    const text = billingAtCloseText(
+      line.billingStatus,
+      now.get(lineKey(line))?.billingStatus ?? null,
+    );
+    if (text) atClose.set(lineKey(line), text);
   }
   return {
     ...view,
     exceptions: exceptionsOf(filterLines(live.lines, filter)),
     changed: changedSinceCloseQuick(stored, live),
-    billing,
+    atClose,
   };
 }

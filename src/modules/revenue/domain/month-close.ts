@@ -164,6 +164,18 @@ const snapshotTotals = z.object({
   by_category: z.array(z.object({ category: z.string(), ...figures })),
 });
 
+/**
+ * `month_snapshots_read`'s answer (the Revenue page's light read of an ended month): the versions'
+ * numbers and dates, the latest version's schema and revenue section (read by
+ * `closedRevenueMonth`, which refuses a schema it does not know), and the organization's first
+ * priced month (its 1st), null when nothing is priced yet. Never a value in a message.
+ */
+export const monthSnapshotsSchema = z.object({
+  versions: z.array(z.object({ version: z.number().int().positive(), closed_at: z.string() })),
+  latest: z.object({ schema: z.unknown(), revenue: z.unknown() }).nullable(),
+  first_priced_month: z.iso.date().nullable(),
+});
+
 /** The month's frozen report, `schema: 1`. A later shape is `schema: 2` and is refused here. */
 export const snapshotDataSchema = z.object({
   schema: z.literal(1, { error: "This snapshot is in a shape MaxOff does not read yet." }),

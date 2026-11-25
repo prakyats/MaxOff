@@ -18,6 +18,7 @@ const KINDS = [
   "coordinator_missing",
   "coordinator_removed",
   "cycle_generated",
+  "deliverable_not_priced",
   "early_leave_decided",
   "early_leave_requested",
   "end_day_reminder",

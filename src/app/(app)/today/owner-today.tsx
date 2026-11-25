@@ -2,6 +2,7 @@ import { FolderClockIcon, ListChecksIcon } from "lucide-react";
 import { Suspense } from "react";
 
 import type { CurrentMember } from "@/core/auth/server";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { addISTDays, systemClock, todayIST, type ISODate } from "@/core/time";
 import { ApprovalRowSkeletons } from "@/core/ui/composites/approval-group-skeleton";
@@ -17,6 +18,7 @@ import {
   TodayAttendanceCard,
 } from "@/modules/attendance";
 import { buildCalendar, parseCalendarQuery } from "@/modules/calendar";
+import { readMonthTotals, TodayRevenueLine, TodayRevenueLineSkeleton } from "@/modules/revenue";
 import {
   ApprovalPersonRow,
   DashSection,
@@ -118,6 +120,8 @@ import {
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists
  * (decision 4): the revenue snapshot. The rule for every later addition (decision 24): exceptions
  * only, a count rather than a list where possible, one tap to the list, hidden when empty.
+ * **v2.5 (R5):** the last line is the month's revenue for whoever holds `finance.view` (the
+ * Owner), its amounts masked until tapped, streamed after the page (`TodayRevenueLine`).
  */
 export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const today = todayIST();
@@ -159,6 +163,12 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     // v1.9 W4: who started Late and who ended after their end time (two lines, hidden at zero).
     getHoursToday(),
   ]);
+  // v2.5 (R5): the Owner's revenue line, one read (`revenue_month_totals`), started once the role
+  // is known and the page's own reads have answered: never beside the session read (an Admin's
+  // request never sends it; Today's first wave is unchanged) and never ahead of the page's reads
+  // in the Worker's six connections. It streams after the page in its own boundary at the end.
+  const revenue = can(viewer.role, "finance.view") ? readMonthTotals() : null;
+  if (revenue) startEarly(revenue);
   const [days, requests, notes, claims, toDecide, earlyLeave] = approvals;
   // v1.9 W4 Q2: "Leaving early" first (it is decided within the hour), then "Left early, not
   // answered", both in Needs you's one list; Approvals has their Stay and Correct….
@@ -500,6 +510,15 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
           </>
         }
       />
+      {/* v2.5 (R5): the month's revenue, masked until tapped; the Owner's alone and the last thing
+          on Today: under both columns on a laptop, under This week on a phone. */}
+      {revenue ? (
+        <div className="mt-6 min-w-0" data-slot="today-revenue-place">
+          <Suspense fallback={<TodayRevenueLineSkeleton />}>
+            <TodayRevenueLine read={revenue} />
+          </Suspense>
+        </div>
+      ) : null}
     </>
   );
 }

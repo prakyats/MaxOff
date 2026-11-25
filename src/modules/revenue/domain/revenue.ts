@@ -47,6 +47,11 @@ export type CycleLine = {
   held: boolean;
   /** Not billed / Billed (decision 7); null when the read does not say (an older answer). */
   billingStatus: BillingStatus | null;
+  /** v2.5: Billed (with its day) or Not billed. */
+  billed: boolean;
+  billedOn: string | null;
+  /** v2.5: the Owner adjusted this cycle's Achieved. */
+  adjusted: boolean;
 };
 
 /** A one-time project sitting in the month: one lump sum. */
@@ -73,6 +78,11 @@ export type ProjectLine = {
   advancesKept: number;
   /** Not billed / Billed (decision 7); null when the read does not say (an older answer). */
   billingStatus: BillingStatus | null;
+  /** v2.5: the project's one cycle, through which it is marked Billed; null if it has none. */
+  cycleId: string | null;
+  billed: boolean;
+  billedOn: string | null;
+  adjusted: boolean;
 };
 
 export type RevenueLine = CycleLine | ProjectLine;
@@ -107,6 +117,8 @@ export type Totals = {
   potential: number;
   achieved: number;
   remaining: number;
+  /** v2.5 (R3): the part of Remaining whose project is on hold: neither earned nor lost. */
+  onHold: number;
   closedNotAchieved: number;
 };
 
@@ -156,6 +168,19 @@ function projectState(value: unknown): ProjectLine["state"] {
   return state;
 }
 
+/** v2.5: a line's Billed mark and whether its Achieved was adjusted. */
+function billingOf(row: Json): { billed: boolean; billedOn: string | null; adjusted: boolean } {
+  const billed = row.billing_status === "billed";
+  return {
+    billed,
+    billedOn: billed ? textOrNull(row.billed_on) : null,
+    // The live read says `adjusted`; a month snapshot (v3.5, schema 1) stores the override itself.
+    adjusted:
+      row.adjusted === true ||
+      (row.adjusted === undefined && typeof row.override === "object" && row.override !== null),
+  };
+}
+
 /** Rupees as whole paise. */
 const paise = (rupees: number): number => Math.round(rupees * 100);
 
@@ -183,6 +208,7 @@ export function toRevenueMonth(value: unknown): RevenueMonth {
     doneCount: count(row.done_count),
     held: row.held === true,
     billingStatus: billingStatus(row.billing_status),
+    ...billingOf(row),
   }));
   const projects = rows(read.projects).map((row): ProjectLine => {
     const potential = amount(row.potential);
@@ -206,6 +232,8 @@ export function toRevenueMonth(value: unknown): RevenueMonth {
       held: row.held === true,
       advancesKept: amount(row.advances_kept),
       billingStatus: billingStatus(row.billing_status),
+      cycleId: textOrNull(row.cycle_id),
+      ...billingOf(row),
     };
   });
   return {
@@ -299,8 +327,47 @@ export function totalsOf(lines: readonly RevenueLine[]): Totals {
     potential: sum((line) => line.potential),
     achieved: sum((line) => line.achieved),
     remaining: sum((line) => line.remaining),
+    onHold: sum(onHoldOf),
     closedNotAchieved: sum((line) => line.closedNotAchieved),
   };
+}
+
+/**
+ * v2.5 (R3): what a line keeps waiting while its project is on hold: a cycle's Remaining, a
+ * one-time project's Potential less its Achieved (never below zero); 0 when not held.
+ */
+export function onHoldOf(line: RevenueLine): number {
+  if (!line.held) return 0;
+  if (line.kind === "cycle") return line.remaining;
+  return Math.max(paise(line.potential) - paise(line.achieved), 0) / 100;
+}
+
+/** "On hold ₹12,000", or null when nothing is held. */
+export function onHoldText(onHold: number): string | null {
+  return onHold > 0 ? `On hold ${formatRupees(onHold)}` : null;
+}
+
+/** "Billed 3 Dec" or "Not billed": a line's billing word on the Revenue page (v2.5). */
+export function lineBilling(line: RevenueLine): string {
+  return line.billed && line.billedOn ? `Billed ${shortDay(line.billedOn)}` : "Not billed";
+}
+
+/**
+ * "Mark all N billed" (v2.5): the cycles of the lines shown that are not billed yet, a one-time
+ * project through its one cycle (one without a cycle cannot be marked). Each cycle once.
+ */
+export function unbilledCycleIds(lines: readonly RevenueLine[]): string[] {
+  const ids = new Set<string>();
+  for (const line of lines) {
+    if (line.billed) continue;
+    if (line.cycleId) ids.add(line.cycleId);
+  }
+  return [...ids];
+}
+
+/** "Mark all 3 billed", "Mark 1 billed". */
+export function markAllLabel(count: number): string {
+  return count === 1 ? "Mark 1 billed" : `Mark all ${count} billed`;
 }
 
 /**
@@ -469,6 +536,8 @@ export type RevenueView = {
   clients: ClientGroup[];
   /** Nothing at all in the month under this filter. */
   empty: boolean;
+  /** v2.5: the lines shown that are not billed yet, by cycle, for "Mark all N billed". */
+  unbilled: string[];
 };
 
 export function revenueView(read: RevenueMonth, filter: CategoryFilter): RevenueView {
@@ -481,5 +550,6 @@ export function revenueView(read: RevenueMonth, filter: CategoryFilter): Revenue
     exceptions: exceptionsOf(lines),
     clients: groupByClient(lines),
     empty: lines.length === 0 && advances.received === 0 && advances.returned === 0,
+    unbilled: unbilledCycleIds(lines),
   };
 }

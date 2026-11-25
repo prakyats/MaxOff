@@ -228,14 +228,21 @@ test.describe("the Owner closes and corrects a month", () => {
       await expect(
         reel.locator('[data-slot="month-close-change-figure"]', { hasText: "Achieved" }),
       ).toHaveText(/^Achieved ₹[\d,]+ → ₹0$/);
-      // The cycle's own line moved too: no cause there, so no name.
+      // The cycle's own line moved too: no cause there, so no name; its amount stayed, so
+      // "Figures changed", not "Amount changed".
       const cycleLine = page.locator('[data-slot="month-close-change"]', {
         hasText: `Close reels · ${client}`,
       });
       await expect(cycleLine.locator('[data-slot="month-close-change-detail"]')).toHaveText(
-        "Amount changed",
+        "Figures changed",
       );
-      await expect(page.locator('[data-slot="month-close-total"]').first()).toBeVisible();
+      // The month's totals that moved sit in one "Month total" row.
+      const total = page.locator('[data-slot="month-close-total"]');
+      await expect(total).toHaveCount(1);
+      await expect(total).toContainText("Month total");
+      await expect(
+        total.locator('[data-slot="month-close-total-figure"]', { hasText: "Achieved" }),
+      ).toHaveText(/^Achieved ₹[\d,]+ → ₹[\d,]+$/);
       // Still the saved report: the header still says v1.
       await expect(page.locator('[data-slot="month-close-closed"]')).toHaveText(
         `Closed ${closedToday} · v1`,
@@ -392,7 +399,9 @@ test.describe("a closed month on the Revenue page (U5)", () => {
       await page.goto(`/reports/revenue?month=${slug(month)}`);
       await hydrated(page);
       await expect(page.locator('[data-slot="revenue"]')).not.toHaveAttribute("data-closed");
-      await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveCount(0);
+      // v2.5's Billed mark is on every line; an open month has nothing "at close".
+      await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveText("Not billed");
+      await expect(line.locator('[data-slot="revenue-line-billing-at-close"]')).toHaveCount(0);
 
       // Closed: the saved figures, one billing status, nothing moved.
       expect(await rpcAs<number>(owner.email, owner.password, "month_close", { month })).toBe(1);
@@ -408,6 +417,7 @@ test.describe("a closed month on the Revenue page (U5)", () => {
         "₹10,000 achieved",
       );
       await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveText("Not billed");
+      await expect(line.locator('[data-slot="revenue-line-billing-at-close"]')).toHaveCount(0);
       await expect(changed).toHaveCount(0);
       await expectNoHorizontalScroll(page);
 
@@ -430,8 +440,12 @@ test.describe("a closed month on the Revenue page (U5)", () => {
       await expect(line.locator('[data-slot="revenue-line-achieved"]')).toHaveText(
         "₹10,000 achieved",
       );
+      // The Billed mark now (v2.5's), with the status at close beside it since they differ.
       await expect(line.locator('[data-slot="revenue-line-billing"]')).toHaveText(
-        "Not billed at close · Billed now",
+        `Billed ${closedToday} · Not billed at close`,
+      );
+      await expect(line.locator('[data-slot="revenue-line-billing-at-close"]')).toHaveText(
+        "· Not billed at close",
       );
       await expect(changed).toHaveText("Changed since close · See Month close");
       await expect(changed).toHaveAttribute("href", `/reports/close/${slug(month)}`);

@@ -416,8 +416,15 @@ test.describe("the Owner's Today (6.2)", () => {
     await expect(
       page.locator('[data-slot="risk-row"] [data-slot="badge"][data-tone="danger"]').first(),
     ).toContainText(" late");
-    // Nothing that has no data yet (decision 4): no item approvals, client progress or revenue.
-    await expect(page.locator("main")).not.toContainText(/revenue|client progress|coming soon/i);
+    // Nothing that has no data yet (decision 4): no item approvals or client progress, and no
+    // revenue but v2.5's own line at the end (R5), its amounts masked (`revenue-daily.spec`).
+    const outsideTheLine = await page.locator("main").evaluate((main) => {
+      const copy = main.cloneNode(true) as HTMLElement;
+      copy.querySelectorAll('[data-slot="today-revenue"]').forEach((line) => line.remove());
+      return copy.textContent ?? "";
+    });
+    expect(outsideTheLine).not.toMatch(/revenue|client progress|coming soon/i);
+    await expect(page.locator('[data-slot="today-revenue-masked"]:visible')).toContainText("₹ •••");
 
     // The overdue task is a risk row (the first five, or behind "See all").
     const risk = page

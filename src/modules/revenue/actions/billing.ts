@@ -6,6 +6,18 @@ import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/billing";
 import {
+  type AdjustInput,
+  adjustSchema,
+  type ClearAdjustInput,
+  clearAdjustSchema,
+  type MarkAllBilledInput,
+  markAllBilledSchema,
+  type MarkBilledInput,
+  markBilledSchema,
+  type MarkNotBilledInput,
+  markNotBilledSchema,
+  type PlannedValueInput,
+  plannedValueSchema,
   type RecordAdvanceInput,
   recordAdvanceSchema,
   type ReturnAdvanceInput,
@@ -73,6 +85,71 @@ export const returnAdvance = action(async (input: ReturnAdvanceInput): Promise<R
   const data = returnAdvanceSchema.parse(input);
   await assertPermission("finance.edit");
   await repo.rpcReturnAdvance(data);
+  revalidateScreens();
+  return ok(null);
+});
+
+// --- v2.5 "Revenue every day": Billed, the adjustment, planned values, the history -------------------
+
+/** Billed on a day (up to today, IST) with an optional note: a cycle, or a one-time project's. */
+export const markBilled = action(async (input: MarkBilledInput): Promise<Result<null>> => {
+  const data = markBilledSchema.parse(input);
+  await assertPermission("finance.edit");
+  await repo.rpcMarkBilled({
+    cycleIds: [data.cycleId],
+    billed: true,
+    billedOn: data.billedOn,
+    note: data.note,
+  });
+  revalidateScreens();
+  return ok(null);
+});
+
+export const markNotBilled = action(async (input: MarkNotBilledInput): Promise<Result<null>> => {
+  const data = markNotBilledSchema.parse(input);
+  await assertPermission("finance.edit");
+  await repo.rpcMarkBilled({ cycleIds: [data.cycleId], billed: false, billedOn: null, note: null });
+  revalidateScreens();
+  return ok(null);
+});
+
+/** The Revenue page's "Mark all N billed": the month's lines not billed yet, in one go. */
+export const markAllBilled = action(
+  async (input: MarkAllBilledInput): Promise<Result<{ marked: number }>> => {
+    const data = markAllBilledSchema.parse(input);
+    await assertPermission("finance.edit");
+    const marked = await repo.rpcMarkBilled({
+      cycleIds: data.cycleIds,
+      billed: true,
+      billedOn: data.billedOn,
+      note: null,
+    });
+    revalidateScreens();
+    return ok({ marked });
+  },
+);
+
+export const adjustAchieved = action(async (input: AdjustInput): Promise<Result<null>> => {
+  const data = adjustSchema.parse(input);
+  await assertPermission("finance.edit");
+  await repo.rpcAdjust(data);
+  revalidateScreens();
+  return ok(null);
+});
+
+export const backToCalculated = action(async (input: ClearAdjustInput): Promise<Result<null>> => {
+  const data = clearAdjustSchema.parse(input);
+  await assertPermission("finance.edit");
+  await repo.rpcClearAdjust(data);
+  revalidateScreens();
+  return ok(null);
+});
+
+/** A planned deliverable's own value, or null: back to its share of the amount. */
+export const setPlannedValue = action(async (input: PlannedValueInput): Promise<Result<null>> => {
+  const data = plannedValueSchema.parse(input);
+  await assertPermission("finance.edit");
+  await repo.rpcSetPlannedValue(data.itemId, data.value);
   revalidateScreens();
   return ok(null);
 });

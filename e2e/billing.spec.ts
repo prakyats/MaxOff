@@ -502,6 +502,11 @@ test.describe("the Owner's Billing section", () => {
         "the category row": '[data-slot="billing-skeleton"] [data-row]:nth-child(1)',
         "the amount row": '[data-slot="billing-skeleton"] [data-row]:nth-child(2)',
         "the cycle's figures": '[data-slot="billing-skeleton"] [data-row]:nth-child(3)',
+        // v2.5: Billed, Adjust, the planned deliverables and Billing history, fixed rows.
+        "the Billed row": '[data-slot="billing-skeleton-billed"]',
+        "the Adjust row": '[data-slot="billing-skeleton-adjust"]',
+        "the planned deliverables": '[data-slot="billing-skeleton-planned"]',
+        "Billing history": '[data-slot="billing-skeleton-history"]',
       });
       const skeletonHeight = (await skeleton.boundingBox())?.height ?? 0;
       await expectNoHorizontalScroll(page);
@@ -518,6 +523,10 @@ test.describe("the Owner's Billing section", () => {
         "the category row": '[data-slot="billing-category"]',
         "the amount row": '[data-slot="billing-amount"]',
         "the cycle's figures": '[data-slot="billing-cycle"]',
+        "the Billed row": '[data-slot="billing-billed"]',
+        "the Adjust row": '[data-slot="billing-adjust"]',
+        "the planned deliverables": '[data-slot="billing-planned"]',
+        "Billing history": '[data-slot="billing-history"]',
       });
       const moved = Object.keys(before).flatMap((name) => {
         const from = before[name];
@@ -627,6 +636,11 @@ test.describe("the Billing skeleton's other shapes (9.2 review)", () => {
           held: '[data-slot="billing-skeleton"] [data-row]:nth-child(2)',
           settled: '[data-slot="billing-amount"]',
         },
+        // v2.5: without a cycle, Billing history alone follows.
+        "Billing history": {
+          held: '[data-slot="billing-skeleton-history"]',
+          settled: '[data-slot="billing-history"]',
+        },
       });
       await expect(section(page).locator('[data-slot="billing-cycle"]')).toHaveCount(0);
     } finally {
@@ -663,8 +677,17 @@ test.describe("the Billing skeleton's other shapes (9.2 review)", () => {
           held: '[data-slot="billing-skeleton-status"]',
           settled: '[data-slot="billing-status"]',
         },
+        // v2.5: Billed (through the project's one cycle) and Billing history, then Advances.
+        "the Billed row": {
+          held: '[data-slot="billing-skeleton-billed"]',
+          settled: '[data-slot="billing-billed"]',
+        },
+        "Billing history": {
+          held: '[data-slot="billing-skeleton-history"]',
+          settled: '[data-slot="billing-history"]',
+        },
         advances: {
-          held: '[data-slot="billing-skeleton"] [data-row]:nth-child(4)',
+          held: '[data-slot="billing-skeleton"] [data-row]:nth-child(6)',
           settled: '[data-slot="billing-advances"]',
         },
       });
@@ -752,7 +775,10 @@ test.describe("the client's Admin", () => {
         }
         expect(body.includes("project-billing"), `${what} has no Billing section`).toBe(false);
         expect(
-          /No amount set|Not priced|Amount per month/.test(body),
+          // v2.5's rows too: Billed, the adjustment, the planned values, the history.
+          /No amount set|Not priced|Amount per month|Not billed|Mark billed|System calculated|Owner adjusted|Planned deliverables|Billing history/.test(
+            body,
+          ),
           `${what}: no billing words`,
         ).toBe(false);
       }

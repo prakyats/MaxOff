@@ -5,7 +5,7 @@ import { cache } from "react";
 import { createServerSupabase } from "@/core/db/server";
 
 import type { SnapshotRevenue } from "../domain/closed-month";
-import { type MonthCloseRead, toMonthCloseRead } from "../domain/month-close";
+import { type MonthCloseRead, monthSnapshotsSchema, toMonthCloseRead } from "../domain/month-close";
 import { type MonthReminder, monthReminderSchema } from "../domain/month-reminder";
 
 /**
@@ -30,13 +30,14 @@ export const readMonthClose = cache(async (month: string): Promise<MonthCloseRea
 
 /**
  * An ended month on the Revenue page (v3.5 U4, U5): is it closed, since when, at which version,
- * and the **latest version's revenue section**, which a closed month's page draws instead of the
- * live figures (v3.5 Q12). One light select of the snapshot table under its own `finance.view`
- * policy: the versions' numbers and dates, and only `data->schema` and `data->revenue` (never the
- * expense totals, the month summary or the note), so the page never pays for `month_close_read`'s
- * live rebuild. A correction is rare, so every version's revenue section comes in the one request
- * and only the latest is kept. The page starts it only after its permission check, and only for an
- * ended month. `month` is the month's first day. `cache()`d per request.
+ * the **latest version's revenue section**, which a closed month's page draws instead of the live
+ * figures (v3.5 Q12), and the organization's **first priced month**, before which the header has
+ * no "Close month" (its close screen would say "Nothing to close."). One light call,
+ * `month_snapshots_read` (`finance.view`, refused for everyone else): the versions' numbers and
+ * dates, only `data->schema` and `data->revenue` of the latest (never the expense totals, the
+ * month summary or the note), so the page never pays for `month_close_read`'s live rebuild. The
+ * page starts it only after its permission check, and only for an ended month, beside the month's
+ * own read. `month` is the month's first day. `cache()`d per request.
  */
 export const readMonthSnapshots = cache(
   async (
@@ -44,18 +45,16 @@ export const readMonthSnapshots = cache(
   ): Promise<{
     versions: { version: number; closedAt: string }[];
     latest: SnapshotRevenue | null;
+    firstPricedMonth: string | null;
   }> => {
     const supabase = await createServerSupabase();
-    const { data, error } = await supabase
-      .from("month_snapshots")
-      .select("version, closed_at, schema:data->schema, revenue:data->revenue")
-      .eq("month", month)
-      .order("version");
+    const { data, error } = await supabase.rpc("month_snapshots_read", { month });
     if (error) throw error;
-    const last = data.at(-1);
+    const read = monthSnapshotsSchema.parse(data);
     return {
-      versions: data.map((row) => ({ version: row.version, closedAt: row.closed_at })),
-      latest: last ? { schema: last.schema, revenue: last.revenue } : null,
+      versions: read.versions.map((row) => ({ version: row.version, closedAt: row.closed_at })),
+      latest: read.latest ? { schema: read.latest.schema, revenue: read.latest.revenue } : null,
+      firstPricedMonth: read.first_priced_month,
     };
   },
 );

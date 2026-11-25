@@ -40,7 +40,8 @@ export default async function RevenuePage({
   const [, params] = await Promise.all([requirePermission("finance.view"), searchParams]);
   const month = parseMonth(params.month);
   const read = readRevenueMonth(month);
-  const thisMonth = `${todayIST().slice(0, 7)}-01`;
+  const today = todayIST();
+  const thisMonth = `${today.slice(0, 7)}-01`;
   const snapshots = month && month < thisMonth ? readMonthSnapshots(month) : null;
   return (
     <>
@@ -50,7 +51,12 @@ export default async function RevenuePage({
         description={REVENUE_DESCRIPTION}
         help={REVENUE_DESCRIPTION}
       />
-      <RevenueReport read={read} category={parseCategory(params.category)} snapshots={snapshots} />
+      <RevenueReport
+        read={read}
+        category={parseCategory(params.category)}
+        snapshots={snapshots}
+        today={today}
+      />
     </>
   );
 }

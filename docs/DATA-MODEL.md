@@ -1726,6 +1726,12 @@ All amounts are `numeric(12,2)` in INR.
 
 **The retainer views are functions asked for everything (migration `money_reads_scoped`).** `app.item_values(p_cycle_ids uuid[])` and `app.revenue_cycles(p_cycle_ids uuid[])` hold the logic; `item_values_v` and `revenue_by_cycle_v` are `select … from app.item_values(null)` / `app.revenue_cycles(null)` with the same names and columns. A list of cycles values only those cycles' deliverables (the split is per cycle and a carried deliverable is followed from its origin cycle, so a whole cycle is always valued correctly alone); **null means every cycle, so a caller that has no cycle must pass an empty array, never null**. Both functions are **security invoker** (the tables' own `finance.view` policies apply) **and carry the `finance.view` gate themselves**; the views keep `security_invoker`. They are granted like every `app` function (authenticated and service_role, never anon). `revenue_month_read`, `project_billing_read` and `app.cycle_explicit_total` ask only for their own cycles. pgTAP 146 proves the scoped read equals the whole view for the same month, a carried deliverable included. All three names are in the money-lint list.
 
+**v2.5 "Revenue every day" (migration `revenue_every_day`, pgTAP 148).**
+- `project_billing_history(project_id, limit_count default 50) returns jsonb` (Q7; security invoker, FORBIDDEN without `finance.view`): the project's Billing history from the money tables' own `activity_log` rows (`project_billing`, its cycles' `cycle_billing`, its deliverables' `item_billing` **price changes only** (`value_set` / `value_cleared`; the bare "added" mark is not listed), its `project_advances`, and the `revenue_overrides` of the project or its cycles), newest first, at most 200: when, what (entity, action), who (the member's name), the old and new values, and the cycle or deliverable it was about. Never mixed into the project's Activity panel the Admin reads.
+- `revenue_month_totals() returns jsonb` (R5; same gate): this IST month's `potential`, `achieved` (the Owner-adjusted figure), `remaining`, and the `not_priced` and `no_amount` counts, for the Owner's Today line; it equals the Revenue page's month (pgTAP 148).
+- `project_billing_read` gains `cycle.billing_status / billed_on / billing_note / achieved_calculated / override {adjusted_value, calculated_value, note, at}`, the same on a one-time `line` (with its `cycle_id`, through which it is marked Billed), and `items` (the cycle's plan deliverables with method and value); `revenue_month_read`'s cycles and projects gain `billing_status`, `billed_on`, `adjusted`. New keys only.
+- The notification `deliverable_not_priced` (WORKFLOWS §9) is raised by `app.item_billing_mark_added` when the cycle's amount is more than ₹0; it carries the project id, and `item_id` / `cycle_id` in its payload, never an amount.
+
 **Not money, but beside it:** `item_mark_done_and_complete(item_id) returns project_state` (migration `item_mark_done_and_complete`, pgTAP 147; §5's transitions): for a **one-time** project's last open deliverable, `item_mark_done` and `project_complete` in one transaction (`items.tick` and `projects.complete`; the Owner or the client's Admin). Each keeps its own checks, history entry and notifications; if the project cannot be completed nothing is marked; a deliverable that is not open is refused. It reads and shows no amount; completing is what makes the lump sum count (WORKFLOWS §6).
 
 **The Billing section's read:** `project_billing_read(project_id, cycle_id default null) returns jsonb` (security invoker, FORBIDDEN without `finance.view`; migration `money_billing_read`, pgTAP 145): category and amount, a retainer cycle's figures and its added deliverables, or a one-time project's line and advances, in one trip.
@@ -2180,6 +2186,8 @@ month_snapshots      id, org_id, month date (1st of the IST month), version int 
                      -- month column only (never data) for the Reports line and the weekly digest. pgTAP
                      -- 168 (U7) pins the catalog: only month_close, month_correct, month_close_read and
                      -- app.month_close_reminder name the table, no view, rule, trigger or other policy.
+                     -- After the v2.5 merge (migration v35_revenue_read_after_v25): month_snapshots_read
+                     -- (the Revenue page's light read) names it too; pgTAP 168 lists it.
                      -- eod_reports (above) keeps its own reports.all policy and holds no money.
 feature_flags        key pk, enabled, description
 ```
@@ -2266,6 +2274,10 @@ month_correct(month date, note text) returns int  months.close; note 10-500; a f
 month_close_read(month date) returns jsonb        finance.view (security definer, its own check; U3): can it be closed, the waiting
                                                   list's counts, the latest snapshot, the versions' headers,
                                                   "Changed since close" (revenue lines and totals only)
+month_snapshots_read(month date) returns jsonb    finance.view (security definer, its own check; after the
+                                                  v2.5 merge): the Revenue page's light read of an ended month:
+                                                  the versions (number, closed_at), the latest version's schema
+                                                  and revenue section, and the first priced month
 app.month_snapshot_build(org_id, month) returns jsonb   internal (service_role only): the document above (U2)
 app.first_priced_month(org_id) returns date             internal: the earliest month with a cycle amount or a
                                                   priced one-time line in the org (v3.5 Q1, advisor autopilot

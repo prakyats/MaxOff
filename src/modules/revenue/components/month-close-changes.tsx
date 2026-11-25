@@ -2,7 +2,7 @@ import type { ChangeRow } from "../domain/month-close-view";
 
 import { CLOSE_CARD, CLOSE_ROW, CLOSE_ROW_TEXT } from "./month-close-layout";
 
-/** "Changed since close": each line that moved, then the month's totals that moved. */
+/** "Changed since close": each line that moved, then one "Month total" row with each total that moved. */
 export function ChangeList({
   changes,
   totals,
@@ -48,14 +48,22 @@ export function ChangeList({
           </span>
         </li>
       ))}
-      {totals.map((total) => (
-        <li key={total.key} className={CLOSE_ROW} data-slot="month-close-total">
+      {totals.length > 0 ? (
+        <li className={CLOSE_ROW} data-slot="month-close-total">
           <span className={CLOSE_ROW_TEXT}>
             <span className="font-medium">Month total</span>
-            <span className="text-xs break-words tabular-nums">{total.text}</span>
+            {totals.map((total) => (
+              <span
+                key={total.key}
+                className="text-xs break-words tabular-nums"
+                data-slot="month-close-total-figure"
+              >
+                {total.text}
+              </span>
+            ))}
           </span>
         </li>
-      ))}
+      ) : null}
     </ul>
   );
 }

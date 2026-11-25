@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { closedMonthLine } from "../domain/billing";
 import {
-  billingStatusText,
+  billingAtCloseText,
   changedSinceCloseQuick,
   closedRevenueMonth,
   closedRevenueView,
@@ -157,44 +157,69 @@ describe("changedSinceCloseQuick: the cheap check on the Revenue page", () => {
   });
 });
 
-describe("billingStatusText: at close and now only when they differ (Q13)", () => {
-  it("says one status when they agree, or when there is no live line", () => {
-    expect(billingStatusText("billed", "billed")).toBe("Billed");
-    expect(billingStatusText("not_billed", null)).toBe("Not billed");
+describe("billingAtCloseText: the status at close, only where it differs from now (Q13)", () => {
+  it("says nothing when they agree, or when there is no live line", () => {
+    expect(billingAtCloseText("billed", "billed")).toBeNull();
+    expect(billingAtCloseText("not_billed", null)).toBeNull();
   });
 
-  it("says both when they differ", () => {
-    expect(billingStatusText("not_billed", "billed")).toBe("Not billed at close · Billed now");
-    expect(billingStatusText("billed", "not_billed")).toBe("Billed at close · Not billed now");
+  it("says the status at close when it differs", () => {
+    expect(billingAtCloseText("not_billed", "billed")).toBe("Not billed at close");
+    expect(billingAtCloseText("billed", "not_billed")).toBe("Billed at close");
   });
 
   it("says nothing without a stored status", () => {
-    expect(billingStatusText(null, "billed")).toBeNull();
+    expect(billingAtCloseText(null, "billed")).toBeNull();
   });
 });
 
 describe("closedRevenueView", () => {
-  it("takes totals from the snapshot, Needs a look from the live read, and each line's billing", () => {
+  it("takes totals from the snapshot, Needs a look and the Billed mark from the live read", () => {
     const view = closedRevenueView(
       closedRevenueMonth(snapshot(), live()),
       live({
-        cycles: [cycle({ billing_status: "billed", achieved: 0, remaining: 40000 })],
+        cycles: [
+          cycle({
+            billing_status: "billed",
+            billed_on: "2026-10-03",
+            achieved: 0,
+            remaining: 40000,
+          }),
+        ],
         projects: [project({ was_due: false, amount: null, potential: 0, remaining: 0 })],
       }),
       "all",
     );
     expect(view.totals.achieved).toBe(10000);
     expect(view.exceptions.map((exception) => exception.kind)).toEqual(["no_amount"]);
-    expect(view.billing.get(`cycle:${Y1}`)).toBe("Not billed at close · Billed now");
-    expect(view.billing.get(`project:${P2}`)).toBe("Not billed");
+    const lines = view.clients.flatMap((client) => client.lines);
+    const y1 = lines.find((line) => line.kind === "cycle" && line.cycleId === Y1);
+    // v2.5's "Billed 3 Oct" follows today's mark; the figures stay the snapshot's.
+    expect(y1).toMatchObject({ billed: true, billedOn: "2026-10-03", achieved: 10000 });
+    expect(view.atClose.get(`cycle:${Y1}`)).toBe("Not billed at close");
+    expect(view.atClose.has(`project:${P2}`)).toBe(false);
+    // "Mark all N billed" counts what is not billed now.
+    expect(view.unbilled).not.toContain(Y1);
     expect(view.changed).toBe(true);
   });
 
   it("follows the category filter", () => {
-    const view = closedRevenueView(closedRevenueMonth(snapshot(), live()), live(), "project");
+    const now = live({
+      cycles: [cycle({ billing_status: "billed" })],
+      projects: [project({ billing_status: "billed" })],
+    });
+    const view = closedRevenueView(closedRevenueMonth(snapshot(), live()), now, "project");
     expect(view.clients.map((client) => client.clientId)).toEqual([C2]);
-    expect([...view.billing.keys()]).toEqual([`project:${P2}`]);
-    expect(view.changed).toBe(false);
+    expect([...view.atClose.keys()]).toEqual([`project:${P2}`]);
+  });
+
+  it("reads a stored line's adjustment from the snapshot's override", () => {
+    const stored = closedRevenueMonth(
+      snapshot({ cycles: [cycle({ override: { adjusted_value: 9000 } })] }),
+      live(),
+    );
+    expect(stored.lines.find((line) => line.kind === "cycle")?.adjusted).toBe(true);
+    expect(closedRevenueMonth(snapshot(), live()).lines.every((line) => !line.adjusted)).toBe(true);
   });
 });
 

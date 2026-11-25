@@ -5927,6 +5927,7 @@ export type Database = {
       month_close_read: { Args: { month: string }; Returns: Json };
       month_close_reminder: { Args: never; Returns: Json };
       month_correct: { Args: { month: string; note: string }; Returns: number };
+      month_snapshots_read: { Args: { month: string }; Returns: Json };
       month_summary: {
         Args: { member_id?: string; month: string };
         Returns: {
@@ -6037,6 +6038,10 @@ export type Database = {
           id: number;
           meta: Json;
         }[];
+      };
+      project_billing_history: {
+        Args: { limit_count?: number; project_id: string };
+        Returns: Json;
       };
       project_billing_read: {
         Args: { cycle_id?: string; project_id: string };
@@ -6249,6 +6254,7 @@ export type Database = {
         }[];
       };
       revenue_month_read: { Args: { month?: string }; Returns: Json };
+      revenue_month_totals: { Args: never; Returns: Json };
       revenue_override_clear: {
         Args: { note: string; ref_id: string; scope: string };
         Returns: boolean;
