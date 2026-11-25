@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/core/db";
 import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
-import { applyResponseHeaders } from "@/core/http/response-headers";
+import { applyResponseHeaders, uploadPageCsp } from "@/core/http/response-headers";
 import { isolateTick, serverTiming } from "@/core/observability/isolate";
 
 import { HOME_HINT_COOKIE, rootRedirect } from "./home-hint";
@@ -43,7 +43,7 @@ import { WARM_PATH, warmSessionVerification } from "./warm";
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   if (request.nextUrl.pathname === WARM_PATH) return warmPassThrough(request);
   if (isUploadApiPath(request.nextUrl.pathname)) return NextResponse.next();
-  if (isUploadPagePath(request.nextUrl.pathname)) return NextResponse.next();
+  if (isUploadPagePath(request.nextUrl.pathname)) return uploadPagePassThrough(request);
   const forward = () => {
     // Rebuilt after every cookie refresh: `request.cookies.set` rewrites the Cookie header.
     return NextResponse.next({ request: { headers: new Headers(request.headers) } });
@@ -140,4 +140,21 @@ function withCookies(target: NextResponse, source: NextResponse): NextResponse {
   for (const cookie of source.cookies.getAll()) target.cookies.set(cookie);
   applyResponseHeaders(target.headers);
   return target;
+}
+
+/**
+ * `/upload` (v4.5, plan J1): no session, no cookie (B5), and a nonce of its own on every request.
+ * The request carries the CSP so Next puts the nonce on the scripts it renders, and `x-nonce` for
+ * the page's own layout; the answer carries the same CSP.
+ */
+function uploadPagePassThrough(request: NextRequest): NextResponse {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = btoa(String.fromCharCode(...bytes));
+  const csp = uploadPageCsp(nonce, request.nextUrl.protocol === "https:");
+  const headers = new Headers(request.headers);
+  headers.set("content-security-policy", csp);
+  headers.set("x-nonce", nonce);
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }

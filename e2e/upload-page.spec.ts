@@ -136,6 +136,14 @@ test.describe("anyone with the link", () => {
     const link = await linkFor(browser, info, "flow");
     const token = link.split("#")[1]!;
     const urls = watchUrls(page);
+    // Every CSP violation the page meets (plan J1): there must be none.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      (window as unknown as { cspSeen: string[] }).cspSeen = seen;
+      document.addEventListener("securitypolicyviolation", (event) =>
+        seen.push(`${event.violatedDirective} ${event.blockedURI}`),
+      );
+    });
     await page.goto(link);
 
     await expect(page.locator('[data-slot="upload-task"]')).toHaveText(titleOf(info, "flow"));
@@ -172,6 +180,9 @@ test.describe("anyone with the link", () => {
     await expect(row).toContainText("starts by itself");
 
     for (const url of urls) expect(url, "no URL or header carries the token").not.toContain(token);
+    expect(await page.evaluate(() => (window as unknown as { cspSeen: string[] }).cspSeen)).toEqual(
+      [],
+    );
     // The uploader is recorded with the name and nothing else of theirs is shown to the page.
     const [uploader] = await serviceSelect<{ name: string; on_task: boolean }>(
       `upload_uploaders?name=eq.Sam&select=name,on_task&order=created_at.desc&limit=1`,
@@ -248,15 +259,37 @@ test.describe("the page and its API (plan B5, J)", () => {
     await context.close();
   });
 
-  test("J1: the page sends its own nonce CSP", async ({ page }) => {
-    // Red until the page has its own root layout (the commit after the `(main)` move, PROGRESS):
-    // under today's root layout its inline scripts carry no nonce. That commit flips this test.
-    test.fail();
+  test("J8: the app's service worker never answers or keeps /upload", async ({ browser }) => {
+    // A member's browser that already runs the app's worker (registered by the app's pages).
+    const context = await browser.newContext({ storageState: storageStateFor("owner") });
+    const page = await context.newPage();
+    await page.goto("/offline");
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+    const response = await page.goto("/upload");
+    expect(response!.fromServiceWorker(), "fetched by the browser, not the worker").toBe(false);
+    const kept = await page.evaluate(async () => {
+      const urls: string[] = [];
+      for (const name of await caches.keys()) {
+        for (const request of await (await caches.open(name)).keys()) urls.push(request.url);
+      }
+      return urls.filter((url) => new URL(url).pathname.startsWith("/upload"));
+    });
+    expect(kept).toEqual([]);
+    await context.close();
+  });
+
+  test("J1: the page sends its own nonce CSP, a new nonce each time", async ({ page }) => {
     const response = await page.goto("/upload");
     const csp = response!.headers()["content-security-policy"] ?? "";
     expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
     expect(csp).toContain("connect-src 'self' https://www.googleapis.com");
     expect(csp).toContain("frame-ancestors 'none'");
+    const again = (await page.goto("/upload"))!.headers()["content-security-policy"] ?? "";
+    const nonce = (text: string) => /'nonce-([^']+)'/.exec(text)?.[1];
+    expect(nonce(again)).toBeTruthy();
+    expect(nonce(again)).not.toBe(nonce(csp));
+    // The page's own root layout: no app manifest, no service worker registered from it.
+    await expect(page.locator('link[rel="manifest"]')).toHaveCount(0);
   });
 
   test("the API: POST of JSON only, the one bad-link answer, nothing from another origin", async ({

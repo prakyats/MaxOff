@@ -71,8 +71,7 @@ export const UPLOAD_API_ROUTE_HEADERS: readonly ResponseHeader[] = [
 /**
  * `/upload` (v4.5, plan J2, J3, J5, J6): the public upload page is never cached or indexed (in
  * production too), sends no referrer, and is isolated from other origins. A rule after the global
- * one. Its own nonce CSP (J1) comes with its own root layout (PROGRESS, the `(main)` move); until
- * then it keeps the global `frame-ancestors 'none'`.
+ * one. Its CSP (J1) is per request, with a nonce, so the proxy sets it (`uploadPageCsp`).
  */
 export const UPLOAD_PAGE_ROUTE_SOURCE = "/upload";
 export const UPLOAD_PAGE_ROUTE_HEADERS: readonly ResponseHeader[] = [
@@ -86,6 +85,30 @@ export const UPLOAD_PAGE_ROUTE_HEADERS: readonly ResponseHeader[] = [
     value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   },
 ];
+
+/**
+ * The upload page's Content-Security-Policy (v4.5, plan J1): scripts only from this origin or with
+ * this request's nonce (Next puts it on its own scripts when the request carries this header),
+ * connections only to this origin and to Google's upload API, nothing framed, no forms, no plugins.
+ * `upgrade-insecure-requests` only over https (a local http run would otherwise lose its assets).
+ */
+export function uploadPageCsp(nonce: string, https: boolean): string {
+  return [
+    "default-src 'none'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self' https://www.googleapis.com",
+    "worker-src 'self' blob:",
+    "manifest-src 'none'",
+    "form-action 'none'",
+    "base-uri 'none'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    ...(https ? ["upgrade-insecure-requests"] : []),
+  ].join("; ");
+}
 
 /** Staging must never be indexed. Production stays indexable-by-choice (decided later). */
 export const NOINDEX_HEADER: ResponseHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };

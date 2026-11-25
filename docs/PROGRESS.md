@@ -343,19 +343,16 @@
       - the leftover risks (A9/E5, B3, D, B1, S7) for the owner to accept at his walk;
       - the Cloudflare WAF and rate-limit rules on `/api/upload/*` as an owner dashboard step (also v7.5 Q4);
       - "staging uses a test override of S7".
-  - **The `(main)` move and J1 are prepared in `/home/user/wt/v45move` (branch `v45-main-move`), uncommitted.**
-    - The move:
-      - 168 renames into `src/app/(main)/` (`globals.css` too);
-      - path-only fixes in 9 tests, `components.json`, and the two history panels' relative `../api` imports.
-    - J1:
-      - `(upload)/layout.tsx` is its own root layout, with a nonced theme script;
-      - `uploadPageCsp` sits in `core/http/response-headers.ts`, and `session.ts` adds a per-request nonce;
-      - `e2e/upload-page.spec.ts` has J1 flipped, plus a CSP-violation check; 20 passed.
-    - It must be re-applied on top of the calendar cut (the move adds a 114-byte chunk split to every route, which tipped `/calendar` 1 byte over budget).
-  - **The calendar cut** (advisor: v4.5 carries its own headroom):
-    - `core/time/date-words.ts` (`dateWords`, unit-tested equal to `formatIST(istDayStart(…))`);
-    - `calendar-screen.tsx` and `calendar-client.tsx` swap 8 lines, so `date-fns-tz` leaves `/calendar`'s first load.
-    - Tell v6.0 (session_015vyzMVbsSmbeQ9jX6CkLqj) the exact lines and the sha, and add it to #89's merge-risk register.
+  - **Done on phase-v45 (25 Nov night):**
+    - the sonner patch: −15,288 bytes on every signed-in route;
+    - the `(main)` move: one pure rename commit plus path-only fixes;
+    - J1: `(upload)` has its own root layout and a per-request nonce CSP from the proxy;
+    - the J1 e2e is a normal test, with a CSP-violation check across the flow;
+    - J8's e2e: the worker never answers or keeps `/upload`;
+    - `/upload`'s budget is down to 612 KB.
+    - The worktree `/home/user/wt/v45move` is obsolete (branch `v45-main-move`, never pushed).
+
+  - **The calendar cut was tried and reverted:** `date-fns-tz` runs through the calendar's own code. The owner chose the sonner patch instead.
   - **Next:**
     1. The upload unit (CORS unblocked): a real Google round trip on staging; confirm Google's daily-limit error codes (Ideas item 2).
     2. **Guide screenshots:**
