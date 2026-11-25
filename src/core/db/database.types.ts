@@ -1658,6 +1658,220 @@ export type Database = {
           },
         ];
       };
+      handin_files: {
+        Row: {
+          account_sub: string;
+          added_by: string;
+          bytes_at_google: number;
+          bytes_reported: number;
+          check_kind: string | null;
+          created_at: string;
+          done_at: string | null;
+          drive_checked_at: string | null;
+          drive_file_id: string | null;
+          drive_parent_id: string | null;
+          failed_reason: string | null;
+          id: string;
+          last_moved_at: string | null;
+          left_out_at: string | null;
+          left_out_by: string | null;
+          md5_drive: string | null;
+          md5_page: string | null;
+          mime_hint: string | null;
+          missing_seen_at: string | null;
+          name: string;
+          on_behalf_of: string | null;
+          org_id: string;
+          relative_path: string;
+          session_opened_at: string | null;
+          session_uri_encrypted: string | null;
+          size_bytes: number;
+          state: string;
+          submission_id: string | null;
+          task_id: string;
+          updated_at: string;
+          version: number;
+        };
+        Insert: {
+          account_sub: string;
+          added_by: string;
+          bytes_at_google?: number;
+          bytes_reported?: number;
+          check_kind?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          drive_checked_at?: string | null;
+          drive_file_id?: string | null;
+          drive_parent_id?: string | null;
+          failed_reason?: string | null;
+          id?: string;
+          last_moved_at?: string | null;
+          left_out_at?: string | null;
+          left_out_by?: string | null;
+          md5_drive?: string | null;
+          md5_page?: string | null;
+          mime_hint?: string | null;
+          missing_seen_at?: string | null;
+          name: string;
+          on_behalf_of?: string | null;
+          org_id: string;
+          relative_path?: string;
+          session_opened_at?: string | null;
+          session_uri_encrypted?: string | null;
+          size_bytes: number;
+          state?: string;
+          submission_id?: string | null;
+          task_id: string;
+          updated_at?: string;
+          version: number;
+        };
+        Update: {
+          account_sub?: string;
+          added_by?: string;
+          bytes_at_google?: number;
+          bytes_reported?: number;
+          check_kind?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          drive_checked_at?: string | null;
+          drive_file_id?: string | null;
+          drive_parent_id?: string | null;
+          failed_reason?: string | null;
+          id?: string;
+          last_moved_at?: string | null;
+          left_out_at?: string | null;
+          left_out_by?: string | null;
+          md5_drive?: string | null;
+          md5_page?: string | null;
+          mime_hint?: string | null;
+          missing_seen_at?: string | null;
+          name?: string;
+          on_behalf_of?: string | null;
+          org_id?: string;
+          relative_path?: string;
+          session_opened_at?: string | null;
+          session_uri_encrypted?: string | null;
+          size_bytes?: number;
+          state?: string;
+          submission_id?: string | null;
+          task_id?: string;
+          updated_at?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "handin_files_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_left_out_by_fkey";
+            columns: ["left_out_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_left_out_by_fkey";
+            columns: ["left_out_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_submission_id_fkey";
+            columns: ["submission_id"];
+            isOneToOne: false;
+            referencedRelation: "task_submissions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_files_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      handin_folders: {
+        Row: {
+          account_sub: string;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          org_id: string;
+          relative_path: string;
+          task_id: string;
+          version: number;
+        };
+        Insert: {
+          account_sub: string;
+          created_at?: string;
+          drive_folder_id: string;
+          id?: string;
+          org_id: string;
+          relative_path?: string;
+          task_id: string;
+          version: number;
+        };
+        Update: {
+          account_sub?: string;
+          created_at?: string;
+          drive_folder_id?: string;
+          id?: string;
+          org_id?: string;
+          relative_path?: string;
+          task_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "handin_folders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "handin_folders_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       holidays: {
         Row: {
           created_at: string;
@@ -5393,6 +5607,95 @@ export type Database = {
       };
       file_fail: { Args: { file_id: string }; Returns: string };
       file_mark_deleted: { Args: { file_id: string }; Returns: string };
+      handin_drive_check_claim: {
+        Args: { p_file_ids: string[] };
+        Returns: {
+          account_sub: string;
+          drive_file_id: string;
+          file_id: string;
+        }[];
+      };
+      handin_drive_seen: {
+        Args: { p_file_id: string; p_seen: string };
+        Returns: string;
+      };
+      handin_file_done: {
+        Args: {
+          p_drive_file_id: string;
+          p_file_id: string;
+          p_md5_drive: string;
+          p_md5_page?: string;
+          p_parent_id: string;
+          p_size: number;
+        };
+        Returns: string;
+      };
+      handin_file_failed: {
+        Args: { p_file_id: string; p_reason: string };
+        Returns: undefined;
+      };
+      handin_file_left_out: {
+        Args: { p_file_id: string; p_on_behalf_of?: string };
+        Returns: undefined;
+      };
+      handin_file_start: {
+        Args: {
+          p_mime_hint?: string;
+          p_name: string;
+          p_on_behalf_of?: string;
+          p_relative_path: string;
+          p_size_bytes: number;
+          p_task_id: string;
+        };
+        Returns: Json;
+      };
+      handin_folder_find: {
+        Args: {
+          p_account_sub: string;
+          p_relative_path: string;
+          p_task_id: string;
+          p_version: number;
+        };
+        Returns: string;
+      };
+      handin_folder_put: {
+        Args: {
+          p_account_sub: string;
+          p_drive_folder_id: string;
+          p_relative_path: string;
+          p_task_id: string;
+          p_version: number;
+        };
+        Returns: string;
+      };
+      handin_progress: {
+        Args: { p_bytes: number; p_file_id: string };
+        Returns: undefined;
+      };
+      handin_session_get: {
+        Args: { p_file_id: string };
+        Returns: {
+          account_sub: string;
+          drive_parent_id: string;
+          name: string;
+          relative_path: string;
+          session_uri_encrypted: string;
+          size_bytes: number;
+          state: string;
+          task_id: string;
+          version: number;
+        }[];
+      };
+      handin_session_set: {
+        Args: {
+          p_account_sub: string;
+          p_drive_parent_id: string;
+          p_file_id: string;
+          p_session_uri_encrypted: string;
+        };
+        Returns: undefined;
+      };
+      handin_versions: { Args: { p_task_id: string }; Returns: Json };
       holiday_delete: { Args: { holiday_id: string }; Returns: undefined };
       item_add: {
         Args: {

@@ -97,8 +97,8 @@ select is((select actionable from public.notification_kinds where kind = 'task_a
   'task assigned stays an email fallback for a member with no working push');
 select is((select array_agg(kind order by kind) from public.notification_kinds where actionable),
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'cycle_generated', 'drive_needs_reconnect', 'drive_space_low', 'expense_decided',
-        'extra_work_decided', 'item_rejected', 'items_to_decide', 'leave_decided', 'task_assigned', 'task_changes_requested'],
-  'fallback only: assigned, changes requested, the leave / attendance / extra-work decisions, comp leave, an expense decided; 7A''s cycle generated, item sent back and items to decide; v4.0 D1''s two Drive notices to the Owner');
+        'extra_work_decided', 'handin_space_held', 'item_rejected', 'items_to_decide', 'leave_decided', 'task_assigned', 'task_changes_requested'],
+  'fallback only: assigned, changes requested, the leave / attendance / extra-work decisions, comp leave, an expense decided; 7A''s cycle generated, item sent back and items to decide; v4.0 D1''s two Drive notices to the Owner; v5.0''s hand-in space notice to the Owner');
 select is((select count(*) from public.notification_kinds where always_email and kind not like 'reminder\_%' and kind not like 'escalation\_%' and kind not in ('owner_digest', 'owner_digest_weekly', 'member_unreachable')), 0::bigint,
   'no 5.1 kind is always emailed (5.3''s reminders and escalations are 51''s, the Owner digest 55''s, the unreachable alert 56''s)');
 select is((select array_agg(kind order by kind) from public.notification_kinds

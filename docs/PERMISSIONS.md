@@ -140,6 +140,23 @@
 - **Money is untouched** (invariant 2): no amount in any upload read, notification or response. **Invariant 4 holds:** Crew never see the client through the card or the page (the uploader's page names no client, Q5).
 - **pgTAP (plan §7.1):** every function above for each row of this table, allowed and denied; the exact key set of `upload_resolve`; the history rows' policy (the Owner and `app.upload_manager` only).
 
+**v5.0 (proposed): hand in work** (WORKFLOWS §5C, DATA-MODEL §8b; plan `docs/handoff/v50-hand-in-plan.md`, questions Q1 and Q6 open with these recommendations). **No new key:** adding files is `tasks.work` with the task's actor rule (`app.task_actor`); reviewing is the existing `tasks.approve_admin` / `tasks.approve_final`. The hand-in tables have no API grant (RLS on, no policy).
+
+| Who | See the hand-in list (`handin_versions`: names, sizes, states) | Open in Drive (`drive_file_id`, `folder_id`) | Add files (`handin_file_start`) | Leave out | Mark done (hands the version in) |
+|---|---|---|---|---|---|
+| Owner | every task | every task | on a task they are on | own files; any as the primary | as the primary owner (own task: completes) |
+| The task's Admin (`app.upload_manager`: creator with `tasks.create`, approving Admin with `tasks.approve_admin`, the Admin coordinating a freelancer primary) | ✅ | ✅ | when on the task, or for a freelancer assignee they coordinate | own files; any as a freelancer primary's coordinator | as today |
+| Another Admin who sees the task | ✅ | ❌ (null) | when on the task | own files | as today |
+| Crew on the task (assignee, primary, a Crew coordinator) | ✅ | ❌ never | ✅ | own files; any as the primary | the primary only |
+| Crew not on the task, an Admin who can't see it | `NOT_FOUND` | — | `FORBIDDEN` (not an assignee) | `NOT_FOUND` | — |
+| A deactivated member | `UNAUTHENTICATED` | — | `UNAUTHENTICATED` | `UNAUTHENTICATED` | — |
+| `anon` | no EXECUTE | — | no EXECUTE | no EXECUTE | — |
+| The Worker (`service_role`) | — | — | folders, sessions, done, the Drive check | — | — |
+
+- Only the service role marks a file done, failed by Google's answer, or Removed in Drive; no member can.
+- Invariant 4 holds: the list names files only. Money is untouched. Crew never get studio Drive access (ADR-0010).
+- pgTAP 150: each row above, allowed and denied.
+
 ## 2. Visibility rules (RLS)
 
 | Data | Owner | Admin | Staff |

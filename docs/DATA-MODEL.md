@@ -1905,6 +1905,45 @@ upload_rate_hits     v4.5 (proposed). bucket ('bad_link' | 'open'), key_hash byt
 - **Indexes (proposed):** `upload_links(task_id) where stopped_at is null` (unique), `upload_links(token_hash)` (unique), `upload_uploaders(link_id, device_key_hash)`, `upload_files(uploader_id, state)`, `upload_files(state, last_moved_at) where state = 'uploading'`, `upload_files(link_id, drive_checked_at) where state = 'done'` (the Drive check), `upload_uploaders(created_at) where network_erased_at is null`.
 - The upload link does not use `drive_jobs`: a file's own row is its retry state (WORKFLOWS §5B). Where the code lives (`core/drive` beside v4.0, or a new module the task page imports) is the new ADR's to settle (plan §9 row 6).
 
+### 8b. Hand in work (v5.0 (proposed))
+
+> **v5.0 (proposed), not released.** The owner's decisions of 25 Nov 2026 (#89 7161998756), the plan `docs/handoff/v50-hand-in-plan.md` (its §9 questions still open) and ADR-0010's amendment of 2026-11-25. Migration `v50_handin_files` (pgTAP 150) is built on `phase-v50` and is released after v4.5. Expand-only: two new tables, new functions, one new kind, `task_submit_done` re-created with its signature and grants.
+
+A task's **hand-in version** is the files that go with a Mark done. While the task is open, the people on it add files to the **open version** (`coalesce(max(task_submissions.version), 0) + 1`); each goes from the browser straight into `‹task folder›/v‹n›/…` in the studio Drive through a Google resumable session the Worker opened (no MaxOff copy). Mark done writes `task_submissions` version `n` as before and ties the version's files to it.
+
+```
+handin_files         v5.0 (proposed). id, org_id, task_id → tasks, version int (≥ 1), submission_id null →
+                     task_submissions (set by task_submit_done), added_by → members, on_behalf_of null →
+                     members (a freelancer assignee, ADR-0013), name (cleaned, 1–255, no / or \),
+                     relative_path ('' on a phone; a laptop's folders under v‹n›, depth ≤ 12, parts ≤ 120),
+                     size_bytes bigint ≥ 0, mime_hint null (≤ 100), state ('uploading' | 'done' | 'failed' |
+                     'left_out' | 'missing_in_drive'), failed_reason null ('damaged' | 'size_mismatch' |
+                     'wrong_folder' | 'gave_up' | 'unreadable'), account_sub, drive_parent_id null,
+                     drive_file_id null (unique), session_uri_encrypted null (AES-GCM), session_opened_at null,
+                     bytes_at_google, bytes_reported, last_moved_at null, md5_page null, md5_drive null,
+                     check_kind null ('md5' | 'size_only'), done_at null, left_out_at null, left_out_by null,
+                     drive_checked_at null, missing_seen_at null, created_at, updated_at
+                     -- checks: done / missing_in_drive ⇒ drive_file_id, done_at, check_kind; missing ⇒
+                     -- missing_seen_at; failed ⇔ failed_reason; left_out ⇔ left_out_at and left_out_by;
+                     -- submission_id ⇒ done or missing; a session address only while uploading or failed
+handin_folders       v5.0 (proposed). id, org_id, task_id → tasks, version, account_sub, relative_path
+                     ('' = the v‹n› folder), drive_folder_id, created_at; unique (task_id, account_sub,
+                     version, relative_path)
+```
+
+- **RLS on both, no policy, every API privilege revoked from `anon` and `authenticated`** (session addresses). No audit trigger: the functions write history rows on **entity `tasks`, entity_id = the task** (so the task's own history policy decides who reads them), with no Drive id and no session address: `handin_file_added` (name, path, size, version, check_kind; actor = the adder, `on_behalf_of_id`), `handin_file_left_out`, `handin_file_missing_in_drive`, `handin_file_back_in_drive`.
+- **Helpers:** `app.upload_manager(task)` (the Owner, the creator with `tasks.create`, the approving Admin with `tasks.approve_admin`, the active Admin coordinating an active freelancer primary; v4.5 Q1; one definition shared with §8a), `app.handin_clean_name` / `app.handin_clean_path` (the v4.5 B2 cleaning), `app.handin_open_version(task)`, `app.handin_can_add(task)` (an active assignee with `tasks.work`, or a freelancer assignee's current coordinator).
+- **Member functions** (security definer; NOT_FOUND when the caller cannot see the task, FORBIDDEN when they see it but may not act, UNAUTHENTICATED for a non-member; no EXECUTE for anon):
+  - `handin_versions(task)` → jsonb: `open_version`, `task_open`, `can_add`, `drive` (the Drive state, or `never`), `reviewer`, and `versions` newest first, each with `handed_in`, the submission's id, time and people, `folder_id`, and `files` (name, path, size, state, bytes, adder, on behalf of, `mine`, done / left-out stamps, check_kind, `after_handin`, `drive_file_id`). **`drive_file_id` and `folder_id` only for `app.upload_manager`** (Q6); never a session address.
+  - `handin_file_start(task, name, relative_path, size, mime_hint, on_behalf_of)` → jsonb `outcome`: `already_added` (a done file of the open version with the same path, name and size, whoever added it), `resume` (the caller's own uploading or failed try of it: carries on with that row), `wait` (6 of the caller's files already uploading on this task), `space_full` (free space − 10 GB − bytes in flight is smaller than the file; the Owner gets `handin_space_held` once an IST day), `start` (a new row, uploading). Refused unless `app.task_actor` allows the caller, the task is `todo` / `in_progress` / `changes_requested` and not archived (INVALID_STATE), and the Drive is `connected` (INVALID_STATE); VALIDATION for a name with nothing left, a negative size, a path deeper than 12, or a 2,001st file in a version.
+  - `handin_progress(file, bytes)` (the adder's own uploading file; at most one write per 5 s) and `handin_file_failed(file, reason)` (`damaged` | `gave_up` | `unreadable`). Not history.
+  - `handin_file_left_out(file, on_behalf_of)` (Q3): the open version only (INVALID_STATE once handed in); the adder or the primary owner (or a freelancer primary's coordinator); the session address dropped. Nothing is deleted.
+- **Service-role functions (the Worker):** `handin_folder_find` / `handin_folder_put` (insert or return), `handin_session_set` (the file must be uploading), `handin_session_get`, `handin_file_done(file, drive_file_id, size, md5_drive, parent_id, md5_page)` (after the Worker asked Google itself: size or parent wrong → failed `size_mismatch` / `wrong_folder`; an MD5 mismatch → failed `damaged`; otherwise done, session cleared, history `handin_file_added`; idempotent for the same Drive id), `handin_drive_check_claim(file_ids)` (done or missing files not checked for 10 minutes, stamped in the same statement) and `handin_drive_seen(file, 'present' | 'not_found' | 'trashed')` (done ⇄ missing_in_drive, with history).
+- **`task_submit_done` (re-created, every path):** refuses with INVALID_STATE ("2 files are still uploading. Wait for them, or leave them out.") while a file of the open version is uploading; after writing the version, sets `submission_id` on its done files; the `submitted` / `completed` history row's meta gains `files` and `bytes`; the `task_submitted` / `task_completed` body gains " · v2 · 14 files" when there are files.
+- **New kind:** `handin_space_held` (actionable, email only as the fallback; the Owner).
+- **Money is untouched; Realtime is unchanged** (no hand-in table in the publication).
+- **Supersedes the unbuilt `submission_items`** (§6: R2 uploads, previews, retention, `drive_link`): never migrated; task hand-ins use `handin_files` (ADR-0010 amendment 2026-11-25).
+
 ## 9. Files, notifications, audit, reports
 ```
 files                id, org_id, storage_key, name, mime, size_bytes, sha256 null, uploaded_by,
