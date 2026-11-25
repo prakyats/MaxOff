@@ -1,5 +1,6 @@
 import { type Page, type Request, type TestInfo } from "@playwright/test";
 
+import { recordOnFailure } from "./failure-record";
 import { expect, test } from "./fixtures";
 
 import { addISTDays, istInstant, todayIST } from "../src/core/time";
@@ -873,6 +874,31 @@ async function makeFixture(
 }
 
 /** Each point's top (document coordinates) on its first visible match, or null. */
+/**
+ * The blocks above and around a traced point, for an on-failure record (v7.0: /clients/:client
+ * moved 32 px on CI only, never locally): each visible element down to three levels under the
+ * body, with its slot, top and height, so the record names the block whose height differs.
+ */
+async function layoutOf(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const lines: string[] = [];
+    const walk = (element: Element, depth: number) => {
+      for (const child of element.children) {
+        const box = child.getBoundingClientRect();
+        if (box.height === 0 || !(child as HTMLElement).checkVisibility?.()) continue;
+        const slot = child.getAttribute("data-slot") ?? child.getAttribute("aria-label") ?? "";
+        lines.push(
+          `${"  ".repeat(depth)}${child.tagName.toLowerCase()}${slot ? `[${slot}]` : ""} top=${(box.top + window.scrollY).toFixed(0)} h=${box.height.toFixed(0)} "${(child.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 60)}"`,
+        );
+        if (depth < 4) walk(child, depth + 1);
+      }
+    };
+    const main = document.getElementById("main") ?? document.body;
+    walk(main, 0);
+    return lines.slice(0, 120);
+  });
+}
+
 async function topsOf(page: Page, selectors: Record<string, string>) {
   return page.evaluate((points) => {
     const tops: Record<string, number | null> = {};
@@ -945,6 +971,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
             .poll(() => held.caught(), { message: `the page's ${screen.hold} read is held` })
             .toBe(true);
           const skeleton = await topsOf(page, pick(screen.trace, "held"));
+          const heldLayout = await layoutOf(page);
           if (phone) {
             for (const scale of [100, 130, 200]) {
               await page.evaluate((percent) => {
@@ -965,10 +992,20 @@ for (const role of ["owner", "admin", "staff"] as const) {
           await hydrated(page);
           await screen.settle?.(page);
           const settled = await topsOf(page, pick(screen.trace, "settled"));
-          expect(
-            movesOf(screen.trace, skeleton, settled),
-            "nothing moves when the data arrives",
-          ).toEqual([]);
+          await recordOnFailure(
+            async () =>
+              expect(
+                movesOf(screen.trace, skeleton, settled),
+                "nothing moves when the data arrives",
+              ).toEqual([]),
+            async () =>
+              [
+                "held (skeleton):",
+                ...heldLayout,
+                "settled (data):",
+                ...(await layoutOf(page)),
+              ].join("\n"),
+          );
         } finally {
           held.release();
           await remove?.();
