@@ -145,17 +145,18 @@ function Line({ line }: { line: TeamLine }) {
     <li
       data-slot="team-today-line"
       data-kind={line.kind}
-      className="flex min-h-11 min-w-0 items-center justify-between gap-3 py-2 text-sm"
+      className="flex min-w-0 flex-col py-2 text-sm"
     >
       {/*
-        One line per person, always 44 px, so the skeleton traces it (§14.1): the name gives way
-        first (cut at 45%), then the booking ("…"); the whole of it stays in the title.
+        Two lines per person, always the same height, so the skeleton traces it (§14.1): the name,
+        then what they are on. In the laptop's narrow column a booking needs the whole width to
+        keep its time (the v6.5 design pass); a very long one ends in "…", in full in the title.
       */}
-      <span className="block max-w-[45%] min-w-0 shrink-0 truncate font-medium">{line.name}</span>
+      <span className="block h-5 min-w-0 truncate font-medium">{line.name}</span>
       <span
         title={detail}
         className={cn(
-          "block min-w-0 flex-1 truncate text-right",
+          "block h-5 min-w-0 truncate",
           line.kind === "free" ? "text-success" : "text-muted-foreground",
         )}
       >
@@ -218,9 +219,13 @@ export function TeamTodaySkeleton({ slot }: { slot: string }) {
       <div className="flex min-w-0 flex-col">
         <div className="divide-border flex flex-col divide-y">
           {Array.from({ length: TEAM_FIRST_LINES }, (_, index) => (
-            <div key={index} className="flex min-h-11 items-center justify-between gap-3 py-2">
-              <Skeleton className="h-4 w-24 max-w-[40%]" />
-              <Skeleton className="h-4 w-32 max-w-[50%]" />
+            <div key={index} className="flex flex-col py-2">
+              <div className="flex h-5 items-center">
+                <Skeleton className="h-4 w-28 max-w-[60%]" />
+              </div>
+              <div className="flex h-5 items-center">
+                <Skeleton className="h-3.5 w-44 max-w-[80%]" />
+              </div>
             </div>
           ))}
         </div>
