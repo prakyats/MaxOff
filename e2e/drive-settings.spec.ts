@@ -164,6 +164,8 @@ test.describe("the Owner", () => {
       alerts: 0,
       needsReconnect: 0,
       failed: [],
+      // v4.5: the daily "Removed in Drive" pass over upload-link files (none here).
+      uploads: { checked: 0, removed: 0, restored: 0 },
     });
   });
 });
