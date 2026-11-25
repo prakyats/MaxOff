@@ -54,6 +54,7 @@ on:
           - staging-drive-secrets
           - staging-drive-secrets-check
           - drive-cors-check
+          - upload-roundtrip
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -563,6 +564,56 @@ jobs:
           export ORIGIN="https://${alias}-${host}"
           echo "Page origin: $ORIGIN"
           node scripts/drive-cors-check.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # v4.5 upload link end to end on staging (the upload unit; advisor 25 Nov 2026): the staging Owner
+  # (the perf probe's magic-link sign-in) makes one test task of their own and taps Get upload
+  # link on this branch's preview; a fresh browser sends small generated files and a folder
+  # through the link into the TEST Gmail's Drive; the upload rows are then read (service key,
+  # read-only) and All files received closes it. The link is masked; nothing secret is printed;
+  # no SQL is written. `scripts/upload-roundtrip.mjs`.
+  upload-roundtrip:
+    name: upload round trip (staging, test Gmail)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'upload-roundtrip'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: upload-roundtrip
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Staging only
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ "$SUPABASE_PROJECT_REF" != "jcejebyjaqwcumyzrhge" ]; then
+            echo "::error::This round trip only ever runs on staging (jcejebyjaqwcumyzrhge)." >&2
+            exit 1
+          fi
+      - name: Make a link, upload through it, check what MaxOff recorded
+        env:
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          alias="$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'a-zA-Z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | tr 'A-Z' 'a-z')"
+          export BASE="https://${alias}-${host}"
+          echo "Preview: $BASE"
+          node scripts/upload-roundtrip.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
   reminders-backfill-dry-run:
     name: reminders backfill (dry run, staging)
