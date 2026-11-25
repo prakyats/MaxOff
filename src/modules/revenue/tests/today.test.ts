@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { MASKED_AMOUNT, type MonthTotals, todayRevenueLine, toMonthTotals } from "../domain/today";
+import {
+  MASKED_AMOUNT,
+  maskedTodayLine,
+  type MonthTotals,
+  todayRevenueLine,
+  toMonthTotals,
+} from "../domain/today";
 
 const totals = (over: Partial<MonthTotals> = {}): MonthTotals => ({
   month: "2026-11-01",
@@ -63,6 +69,24 @@ describe("toMonthTotals: the read's JSON", () => {
     expect(() => toMonthTotals({ potential: 1 })).toThrow();
     expect(() => toMonthTotals({ month: "2026-11-01", potential: "lots" })).toThrow(
       /^The month's totals hold an amount that is not one\.$/,
+    );
+  });
+});
+
+describe("maskedTodayLine: the line before the tap, from the date alone (v2.5 review)", () => {
+  it("names the IST month and masks both amounts: no digit, no count", () => {
+    expect(maskedTodayLine("2026-11-25")).toBe(
+      `November · ${MASKED_AMOUNT} achieved of ${MASKED_AMOUNT}`,
+    );
+    expect(maskedTodayLine("2026-12-01")).toBe(
+      `December · ${MASKED_AMOUNT} achieved of ${MASKED_AMOUNT}`,
+    );
+    expect(maskedTodayLine("2026-11-25")).not.toMatch(/\d/);
+  });
+
+  it("is the read's masked line without its counts", () => {
+    expect(maskedTodayLine("2026-11-25")).toBe(
+      todayRevenueLine(totals({ notPriced: 0, noAmount: 0 }), { masked: true }),
     );
   });
 });

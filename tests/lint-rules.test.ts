@@ -113,7 +113,7 @@ const EXPECTED_COUNTS: Record<string, number> = {
   "modules/tasks/components/denied-money-month-close.ts": 3,
   "modules/tasks/components/denied-money-month-correct.ts": 5,
   "modules/tasks/components/denied-money-month-reminder.ts": 2,
-  "modules/tasks/components/denied-money-v25-functions.ts": 2,
+  "modules/tasks/components/denied-money-v25-functions.ts": 3,
 };
 
 const toPosix = (path: string) => path.replaceAll("\\", "/");

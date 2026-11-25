@@ -121,37 +121,51 @@ export async function rpcSetCycleAmount(cycleId: string, amount: number): Promis
 
 // --- v2.5 "Revenue every day" ---------------------------------------------------------------------
 
-/** `billing_mark` takes at most this many cycles a call. */
-const MARK_BATCH = 200;
-
 /**
- * Billed (on a day, with a note) or back to Not billed, for one cycle or many: a one-time project
- * through its one cycle. More than the function's 200 a call go in batches, each its own
- * transaction (a month never comes near it; a refusal stops at the batch it met).
+ * Billed (on a day, with a note) or back to Not billed, for one cycle: a one-time project through its
+ * one cycle. One call, one transaction.
  */
 export async function rpcMarkBilled(input: {
-  cycleIds: readonly string[];
+  cycleId: string;
   billed: boolean;
   billedOn: string | null;
   note: string | null;
 }): Promise<number> {
   const supabase = await createServerSupabase();
-  let marked = 0;
-  for (let start = 0; start < input.cycleIds.length; start += MARK_BATCH) {
-    const { data, error } = await supabase.rpc("billing_mark", {
-      cycle_ids: input.cycleIds.slice(start, start + MARK_BATCH),
-      billed: input.billed,
-      // Cast, with its reason: `billing_mark` takes a null day as today (IST) and ignores the day
-      // and the note when marking Not billed; both are nullable in the function. The generated
-      // argument types are non-null only because Supabase types every argument without a
-      // default that way.
-      billed_on: input.billedOn as string,
-      note: input.note as string,
-    });
-    if (error) throw error;
-    marked += data;
-  }
-  return marked;
+  const { data, error } = await supabase.rpc("billing_mark", {
+    cycle_ids: [input.cycleId],
+    billed: input.billed,
+    // Cast, with its reason: `billing_mark` takes a null day as today (IST) and ignores the day
+    // and the note when marking Not billed; both are nullable in the function. The generated
+    // argument types are non-null only because Supabase types every argument without a
+    // default that way.
+    billed_on: input.billedOn as string,
+    note: input.note as string,
+  });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * "Mark all N billed" (the Revenue page): Billed on a day for the cycles given that are **not billed
+ * yet**. `billing_mark_unbilled` leaves a line billed since the page was drawn exactly as it is (its
+ * day and its note) and answers how many it changed. The whole list is **one call, one transaction**
+ * (the function takes up to 2,000): every line is marked, or, on any refusal, none is.
+ */
+export async function rpcMarkUnbilled(input: {
+  cycleIds: readonly string[];
+  billedOn: string | null;
+}): Promise<number> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("billing_mark_unbilled", {
+    cycle_ids: [...input.cycleIds],
+    // Cast, with its reason: `billing_mark_unbilled` takes a null day as today (IST); the
+    // argument is nullable in the function. The generated type is non-null only because
+    // Supabase types every argument without a default that way.
+    billed_on: input.billedOn as string,
+  });
+  if (error) throw error;
+  return data;
 }
 
 /** The Owner's adjusted Achieved of a retainer cycle or a completed one-time project. */

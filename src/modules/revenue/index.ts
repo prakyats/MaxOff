@@ -11,7 +11,8 @@
  * `BillingSection` and `BillingSkeleton` are server components (the section's sheets are client
  * code it loads on the first tap), and so are the Revenue page's `RevenueReport` and
  * `RevenueSkeleton` (its month and category controls are `ViewLink`s), and the Owner's Today
- * line `TodayRevenueLine` with its fallback (v2.5: a native `<details>`, no client code).
+ * line `TodayRevenueLine` (v2.5 review: it reads nothing; its tap is client code loaded after the
+ * page, which asks `GET /api/revenue/month-totals` → `readTodayRevenue`).
  */
 export { BillingSection } from "./components/billing-section";
 export { BillingSkeleton } from "./components/billing-skeleton";
@@ -50,6 +51,9 @@ export type {
   TotalChange,
   WaitingList,
 } from "./domain/month-close";
-export { TodayRevenueLine, TodayRevenueLineSkeleton } from "./components/today-revenue-line";
-export { readMonthTotals } from "./data/today";
-export { readBillingHistoryPage, type BillingHistoryPage } from "./actions/background";
+export { TodayRevenueLine } from "./components/today-revenue-line";
+export {
+  readBillingHistoryPage,
+  readTodayRevenue,
+  type BillingHistoryPage,
+} from "./actions/background";

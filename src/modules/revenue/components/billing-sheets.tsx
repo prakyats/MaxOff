@@ -212,7 +212,8 @@ function useSheetCommit({
   creates = false,
 }: {
   attempt: () => Attempt;
-  saved: string;
+  /** The toast; worded from what the save answered when it depends on it ("2 marked billed"). */
+  saved: string | ((data: unknown) => string);
   onClose: () => void;
   onBusy: (busy: boolean) => void;
   creates?: boolean;
@@ -241,7 +242,7 @@ function useSheetCommit({
           }
           return;
         }
-        toast.success(saved);
+        toast.success(typeof saved === "string" ? saved : saved(result.data));
         onClose();
       } finally {
         onBusy(false);
@@ -987,12 +988,25 @@ function ShareForm({ request, onClose, onBusy }: FormProps<"share">) {
   );
 }
 
-/** The Revenue page's "Mark all N billed": the month's lines not billed yet, on one day. */
+/** How many "Mark all" marked: the read's count of the lines it changed. */
+function markedText(data: unknown, fallback: number): string {
+  const marked =
+    typeof data === "object" && data !== null && "marked" in data && typeof data.marked === "number"
+      ? data.marked
+      : fallback;
+  return marked === 1 ? "1 marked billed" : `${marked} marked billed`;
+}
+
+/**
+ * The Revenue page's "Mark all N billed": the month's lines not billed yet that have something to
+ * bill (no "No amount set", no ₹0 "Not billable"), on one day. A line billed on another screen
+ * since the page was drawn is left as it is, so the toast says how many were really marked.
+ */
 function MarkAllForm({ request, onClose, onBusy }: FormProps<"markAll">) {
   const [billedOn, setBilledOn] = useState(request.today);
   const count = request.cycleIds.length;
   const commit = useSheetCommit({
-    saved: count === 1 ? "1 marked billed" : `${count} marked billed`,
+    saved: (data) => markedText(data, count),
     onClose,
     onBusy,
     attempt: () => {
@@ -1005,7 +1019,7 @@ function MarkAllForm({ request, onClose, onBusy }: FormProps<"markAll">) {
   return (
     <SheetForm
       title={count === 1 ? "Mark 1 billed" : `Mark all ${count} billed`}
-      description={`${sentenceCase(what)} of ${request.month} not billed yet are marked billed on this day. Each one's Billing history keeps it.`}
+      description={`${sentenceCase(what)} of ${request.month} not billed yet are marked billed on this day. Lines with no amount set or at ₹0 are left out. Each one's Billing history keeps it.`}
       alert={commit.alert}
       action={commit.action}
       submitLabel={count === 1 ? "Mark 1 billed" : `Mark ${count} billed`}

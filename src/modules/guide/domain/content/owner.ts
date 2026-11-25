@@ -1659,7 +1659,7 @@ export const OWNER_GUIDE: Guide = {
               'Every line says "Not billed" or "Billed 3 Dec", and "Adjusted" when you changed its Achieved by hand.',
             ),
             steps(
-              'To mark the month billed in one go, tap "Mark all 3 billed" under the three figures. It counts the lines of the month, in the category you are looking at, that are not billed yet.',
+              'To mark the month billed in one go, tap "Mark all 3 billed" under the three figures. It counts the lines of the month, in the category you are looking at, that are not billed yet and have something to bill: a line with no amount set or at ₹0 is left out, a line on hold is included. A line billed on another screen meanwhile keeps its own date and note.',
               'Check "Date billed" (today unless you change it; it can\'t be in the future) and tap "Mark 3 billed". Each line then reads "Billed" with that day.',
             ),
             steps(
@@ -1935,17 +1935,19 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-today-revenue",
           title: "This month's revenue on Today",
-          summary: "One line at the end of Today, its amounts hidden until you tap it.",
+          summary: "One line at the end of Today's main list, its amounts hidden until you tap it.",
           blocks: [
             text(
-              'The last line of Today reads, for example, "November · ₹ ••• achieved of ₹ ••• · 2 not priced". The amounts are hidden, so they are not on screen when someone looks over your shoulder.',
+              'The last line of Today\'s main list (above "This week" on a phone) reads, for example, "November · ₹ ••• achieved of ₹ ••• · Show". The amounts are hidden, so they are not on screen when someone looks over your shoulder.',
             ),
-            steps("Tap the line to show the amounts; tap it again to hide them."),
+            steps(
+              "Tap the line: the figures are fetched at that moment (a short grey bar while they come) and shown; tap it again to hide them.",
+            ),
             next(
-              'It then reads "November · ₹45,000 achieved of ₹1,20,000". "2 not priced" means deliverables added this month still need a price; "1 with no amount" is a project of the month without an amount. Tap "Open Revenue" for the whole month.',
+              'It then reads "November · ₹45,000 achieved of ₹1,20,000 · Hide". "2 not priced" means deliverables added this month still need a price; "1 with no amount" is a project of the month without an amount. Tap "Open Revenue" for the whole month.',
             ),
             note(
-              `The amounts are hidden again whenever Today opens. Admins and ${CREW} never see this line.`,
+              `The figures are never part of Today itself, only fetched when you tap, and they are hidden again whenever Today opens. If they can't load, the line says "Revenue couldn't load" beside "Open Revenue". Admins and ${CREW} never see this line.`,
             ),
           ],
           keywords: ["today", "revenue", "achieved", "hidden", "masked", "this month", "money"],

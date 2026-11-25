@@ -70,7 +70,8 @@ type Fixture =
   | "task to check"
   | "task page"
   | "notification"
-  | "client work";
+  | "client work"
+  | "revenue";
 
 type LoadingScreen = {
   role: SessionRole;
@@ -371,13 +372,19 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
-  // Reports → Revenue (9.2, v2.1): the month row, the category filter and the month's three
-  // figures, held by the page's one read (started only after its permission check).
+  // Reports → Revenue (9.2, v2.1; v2.5 review M1): the month row, the category filter, the
+  // month's figures, then the summary card's height (its "Mark all N billed" row, the usual
+  // state: a line not billed yet) and the first section below it (its heading and first card:
+  // "By client", or "Needs a look" when another spec's line needs one, which sits in the same
+  // boxes), held by the page's one read (started only after its permission check). The fixture is
+  // a priced retainer in "Additional Work", shown alone through the filter; nothing in it is held,
+  // advanced or closed (the On hold, Advances and Closed lines show only then: not drawn).
   {
     role: "owner",
-    path: "/reports/revenue",
+    path: "/reports/revenue?category=additional_work",
     marker: 'data-slot="loading-revenue"',
     hold: "/rest/v1/rpc/revenue_month_read",
+    fixture: "revenue",
     trace: {
       "month row": {
         held: '[data-slot="loading-revenue-month"]',
@@ -390,6 +397,19 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       "the month's figures": {
         held: '[data-slot="loading-revenue-summary"]',
         settled: '[data-slot="revenue-summary"]',
+      },
+      // The summary card's height: where the next box starts.
+      "below the summary": {
+        held: '[data-slot="loading-revenue-summary"] + *',
+        settled: '[data-slot="revenue-summary"] + *',
+      },
+      "first section's heading": {
+        held: '[data-slot="loading-revenue-summary"] + * > :first-child',
+        settled: '[data-slot="revenue-summary"] + section > h2',
+      },
+      "first section's first card": {
+        held: '[data-slot="loading-revenue-summary"] + * > :nth-child(2)',
+        settled: '[data-slot="revenue-summary"] + section > :nth-child(2)',
       },
     },
   },
@@ -844,6 +864,33 @@ async function makeFixture(
       client: client.id,
       ...(projects[0] ? { project: projects[0] } : {}),
     };
+  }
+  if (fixture === "revenue") {
+    // One priced retainer in "Additional Work": its line is not billed yet, so the summary card
+    // has its "Mark all" row, and no "Needs a look" of its own.
+    const name = `Rv${shortTag(prefix)}`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(admin.email),
+    });
+    await rpcAs(owner.email, owner.password, "client_activate", { client_id: client.id });
+    const project = await rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: client.id,
+      name: `Reels${shortTag(prefix)}`,
+      recurrence: "monthly",
+      stages: ["Edit"],
+      items: ["Reel 1"],
+    });
+    await rpcAs(owner.email, owner.password, "billing_set_project", {
+      project_id: project,
+      amount: 30000,
+      set_amount: true,
+      category: "additional_work",
+    });
+    return { remove: () => removeClientFixture(name), client: client.id, project };
   }
   if (fixture === "template") {
     await insertAs(owner.email, owner.password, "task_templates", {

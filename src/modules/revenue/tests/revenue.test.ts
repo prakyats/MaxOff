@@ -11,6 +11,7 @@ import {
   lineHref,
   lineNotes,
   lineStatus,
+  hasSomethingToBill,
   markAllLabel,
   monthSwitcher,
   onHoldOf,
@@ -552,5 +553,49 @@ describe("v2.5: Billed on every line, and Mark all billed", () => {
     ).toEqual([A1]);
     expect(markAllLabel(3)).toBe("Mark all 3 billed");
     expect(markAllLabel(1)).toBe("Mark 1 billed");
+  });
+
+  it("leaves out the lines with nothing to bill (No amount set, ₹0 Not billable), keeps held ones", () => {
+    const nothing = {
+      added_value: 0,
+      added_count: 0,
+      not_priced_count: 0,
+      achieved: 0,
+      remaining: 0,
+    };
+    const lines = read({
+      cycles: [
+        cycle(),
+        // No amount set, nothing on top.
+        cycle({ cycle_id: Y2, amount: null, potential: 0, ...nothing }),
+        // ₹0 "Not billable", nothing on top.
+        cycle({ project_id: P3, cycle_id: A2, amount: 0, potential: 0, ...nothing }),
+      ],
+      projects: [
+        // On hold: its work so far can still be billed.
+        project({ cycle_id: A1, held: true }),
+        // A one-time project with no amount set.
+        project({
+          project_id: P4,
+          cycle_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          amount: null,
+          potential: 0,
+        }),
+      ],
+    }).lines;
+    expect(lines.map(hasSomethingToBill)).toEqual([true, false, false, true, false]);
+    expect(unbilledCycleIds(lines)).toEqual([Y1, A1]);
+    expect(markAllLabel(unbilledCycleIds(lines).length)).toBe("Mark all 2 billed");
+  });
+
+  it("a line with no amount of its own but priced work on top has something to bill", () => {
+    const [line] = read({
+      cycles: [cycle({ amount: null, potential: 2718, added_value: 2718 })],
+      projects: [],
+    }).lines;
+    expect(hasSomethingToBill(line!)).toBe(true);
+    expect(unbilledCycleIds([line!])).toEqual([Y1]);
+    const [zero] = read({ cycles: [cycle({ amount: 0, potential: 500 })], projects: [] }).lines;
+    expect(unbilledCycleIds([zero!])).toEqual([Y1]);
   });
 });

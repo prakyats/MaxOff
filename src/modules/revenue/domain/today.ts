@@ -3,9 +3,10 @@ import { formatIST, istDayStart } from "@/core/time";
 
 /**
  * The Owner's **Today line** (v2.5 "Revenue every day", kickoff 9 R5): this IST month's Achieved
- * of its Potential at the end of Today, with what needs a look, its amounts **masked** ("₹ •••")
- * until the Owner taps the line. Pure, and **Owner only**: the read refuses anyone without
- * `finance.view` and Today asks for it only for the Owner (invariant 2).
+ * of its Potential at the end of Today's main column, its amounts **masked** ("₹ •••") until the
+ * Owner taps it. The masked line is drawn from the month alone (no read: owner answer, v2.5
+ * review, "Today's figures load on tap"); the tap reads the totals, with what needs a look. Pure,
+ * and **Owner only**: the read refuses anyone without `finance.view` (invariant 2).
  */
 
 /** What `revenue_month_totals` answers, in the app's own names. */
@@ -56,13 +57,26 @@ export function toMonthTotals(value: unknown): MonthTotals {
   };
 }
 
+/** "November": the month of an IST date (its first day or any other). */
+function monthWord(date: string): string {
+  return formatIST(istDayStart(`${date.slice(0, 7)}-01`), "MMMM");
+}
+
 /**
- * "November · ₹ ••• achieved of ₹ ••• · 2 not priced · 1 with no amount" (masked), or the same
- * with the real figures once tapped. The counts are left out at zero.
+ * The line before the tap: "November · ₹ ••• achieved of ₹ •••", from today's IST date alone. No
+ * figure and no count: nothing of the money is read until the Owner asks for it.
+ */
+export function maskedTodayLine(today: string): string {
+  return `${monthWord(today)} · ${MASKED_AMOUNT} achieved of ${MASKED_AMOUNT}`;
+}
+
+/**
+ * "November · ₹45,000 achieved of ₹1,20,000 · 2 not priced · 1 with no amount" once tapped (or
+ * the same masked). The counts are left out at zero.
  */
 export function todayRevenueLine(totals: MonthTotals, { masked }: { masked: boolean }): string {
   const money = (value: number) => (masked ? MASKED_AMOUNT : formatRupees(value));
-  const month = formatIST(istDayStart(`${totals.month.slice(0, 7)}-01`), "MMMM");
+  const month = monthWord(totals.month);
   return [
     `${month} · ${money(totals.achieved)} achieved of ${money(totals.potential)}`,
     totals.notPriced > 0 ? `${totals.notPriced} not priced` : null,

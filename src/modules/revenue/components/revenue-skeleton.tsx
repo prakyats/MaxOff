@@ -17,9 +17,14 @@ import {
 
 /**
  * The Revenue page traced (ARCHITECTURE §14.1), in the page's own boxes: the month row with its
- * two arrows, the category filter's four cells, the month's three figures, then "By client" and
- * one client's card with two lines. It holds no word and no figure: the route's loading screen
- * is drawn before the role is known to the page, and must hint at no money.
+ * two arrows, the category filter's four cells, the month's three figures and, under them, the
+ * "Mark all N billed" row (v2.5 review M1: the usual state, a line not billed yet; the page has
+ * no such row only once every line is billed), then the first section's heading and one card with
+ * two lines ("By client", or "Needs a look", which sits in the same boxes). The "On hold ₹X" line
+ * under Remaining, "Advances received" and "Closed, not achieved" show only when the month has
+ * held, advanced or closed work, the less usual case, so they are not drawn. It holds no word and
+ * no figure: the route's loading screen is drawn before the role is known to the page, and must
+ * hint at no money.
  */
 export function RevenueSkeleton() {
   return (
@@ -54,6 +59,18 @@ export function RevenueSkeleton() {
               </span>
             </span>
           ))}
+        </div>
+        {/* v2.5: "Billing · N lines not billed yet" beside "Mark all N billed". */}
+        <div className={REVENUE_LINE} data-slot="loading-revenue-mark-all">
+          <span className={REVENUE_LINE_TEXT}>
+            <span className="flex h-4 items-center">
+              <Skeleton className="h-3 w-12" />
+            </span>
+            <span className="flex h-5 items-center">
+              <Skeleton className="h-3.5 w-36" />
+            </span>
+          </span>
+          <Skeleton className="h-11 w-32 shrink-0 rounded-lg md:h-8" />
         </div>
       </div>
       <div aria-hidden className={REVENUE_SECTION}>
