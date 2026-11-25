@@ -64,6 +64,9 @@ export async function TeamToday({
   const team = teamToday(crew, today, systemClock());
   const first = team.lines.slice(0, TEAM_FIRST_LINES);
   const rest = team.lines.slice(TEAM_FIRST_LINES);
+  // Never prefetched: the address carries a date, and the shell already prefetches /calendar
+  // (`usePrefetchTabs`), so the tap is instant without it (instant-skeleton.spec, "what the worker
+  // keeps carries no member data").
   const dayHref = `/calendar?view=day&date=${today}`;
   const titleId = `${slot}-title`;
 
@@ -79,6 +82,7 @@ export async function TeamToday({
         </h2>
         <Link
           href={dayHref}
+          prefetch={false}
           data-slot="team-today-calendar"
           className="pressable focus-visible:ring-ring text-muted-foreground hover:text-foreground -my-3 inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-sm font-medium outline-none focus-visible:ring-2"
         >
@@ -115,6 +119,7 @@ export async function TeamToday({
       ) : null}
       <Link
         href={dayHref}
+        prefetch={false}
         data-slot="team-today-book"
         className="pressable border-border focus-visible:ring-ring hover:bg-accent flex min-h-11 items-center justify-center rounded-md border text-sm font-medium outline-none focus-visible:ring-2"
       >
