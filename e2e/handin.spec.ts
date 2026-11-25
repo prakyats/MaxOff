@@ -232,3 +232,121 @@ test.describe("the approving Admin", () => {
     await expect(page.locator("body")).toContainText("v1 · 2 files");
   });
 });
+
+test.describe("the Crew primary, uploading", () => {
+  test.use({ storageState: storageStateFor("staff") });
+
+  test("moving around MaxOff keeps an upload going; back on the task, the card shows it (fake Google)", async ({
+    page,
+  }, info) => {
+    await driveRow("connected");
+    await removeTasksTitled(prefixOf(info));
+    const taskId = await handinTask(`${prefixOf(info)}footage`);
+    await started(taskId);
+
+    // MaxOff's own calls answered here (the session is a fake Google address)…
+    const FAKE =
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=e2e";
+    const fileId = "00000000-0000-4000-8000-00000000e2e5";
+    await page.route("**/api/handin/start", (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          data: { kind: "open", fileId, version: 1, sessionUrl: FAKE, resumed: false },
+        },
+      }),
+    );
+    let finished = false;
+    await page.route("**/api/handin/progress", (route) =>
+      route.fulfill({ json: { ok: true, data: null } }),
+    );
+    await page.route("**/api/handin/finish", (route) => {
+      finished = true;
+      return route.fulfill({ json: { ok: true, data: { state: "done" } } });
+    });
+    // …and Google's side by a fake that holds the first chunk until the test lets it go.
+    const size = 10 * 1024 * 1024;
+    let received = 0;
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let firstChunk: () => void = () => undefined;
+    const sawFirst = new Promise<void>((resolve) => {
+      firstChunk = resolve;
+    });
+    const cors = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "PUT, POST, OPTIONS",
+      "access-control-expose-headers": "range",
+    };
+    await page.route("https://www.googleapis.com/upload/**", async (route) => {
+      const request = route.request();
+      if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+      const range = request.headers()["content-range"] ?? "";
+      const chunk = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(range);
+      if (!chunk) {
+        // "How far did it get?"
+        return route.fulfill({
+          status: 308,
+          headers: received > 0 ? { ...cors, range: `bytes=0-${received - 1}` } : cors,
+        });
+      }
+      if (Number(chunk[1]) === 0) {
+        firstChunk();
+        await held;
+      }
+      received = Number(chunk[2]) + 1;
+      if (received >= size) {
+        return route.fulfill({
+          status: 200,
+          headers: cors,
+          json: {
+            id: "e2e-drive-file",
+            name: "long-take.mov",
+            size: String(size),
+            mimeType: "video/quicktime",
+          },
+        });
+      }
+      return route.fulfill({ status: 308, headers: { ...cors, range: `bytes=0-${received - 1}` } });
+    });
+
+    await page.goto(`/tasks/${taskId}`);
+    await taskReady(page);
+    await expect(card(page).locator('[data-slot="handin-add"]')).toBeVisible();
+    // A marker that a full reload would wipe.
+    await page.evaluate(() => {
+      (window as unknown as { __stay?: boolean }).__stay = true;
+    });
+    await card(page)
+      .locator('[data-slot="handin-file-input"]')
+      .setInputFiles({
+        name: "long-take.mov",
+        mimeType: "video/quicktime",
+        buffer: Buffer.alloc(size, 7),
+      });
+    await sawFirst;
+    await expect(card(page).locator('[data-slot="handin-keep-open"]')).toBeVisible();
+
+    // Away to another screen inside MaxOff (a client navigation, the app's own link), then the
+    // held chunk goes through.
+    await page.locator('a[href="/my-day"]:visible').first().click();
+    await expect(page).toHaveURL(/\/my-day$/);
+    release();
+    await expect.poll(() => finished, { message: "the upload finished while away" }).toBe(true);
+    expect(received).toBe(size);
+
+    // Back on the task (history back, still a client navigation): the card re-attaches to the
+    // running engine and shows the file.
+    await page.goBack();
+    await taskReady(page);
+    await expect(
+      card(page).locator('[data-slot="handin-local-file"]', { hasText: "long-take.mov" }),
+    ).toHaveAttribute("data-state", "done");
+    expect(await page.evaluate(() => (window as unknown as { __stay?: boolean }).__stay)).toBe(
+      true,
+    );
+  });
+});

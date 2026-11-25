@@ -5,26 +5,31 @@ import type { ServiceSupabase } from "@/core/db/service";
 import { ensureTaskFolder } from "./ensure";
 import { readDriveEnv } from "./env";
 import { ROOT_FOLDER, type TaskFolderInput } from "./folders";
-import { createFolder, DriveApiError, DriveAuthError, type Fetch, renameFolder } from "./google";
-import { openResumableSession, type UploadPolicy } from "./resumable";
+import { createFolder, type Fetch, renameFolder } from "./google";
+import {
+  ensureSubfolders,
+  type FileFacts,
+  fileFacts,
+  openResumableSession,
+  type SubfolderStore,
+  type UploadPolicy,
+} from "./resumable";
 import { type AccountRow, folderStore, withDrive } from "./server";
 import { decryptToken, encryptToken } from "./token-crypto";
 
 /**
- * The Worker's side of one upload filed under a task's folder (ADR-0010 amendments 2026-11-19
- * and 2026-11-25), on top of the shared session protocol (`./resumable`, owned by v4.5). Used by
- * v5.0's hand-in versions (`‹task›/v‹n›/…`). The caller's database function has already said who
- * may upload what; this makes the folders, opens the session on the connected account and seals
- * its address for storage. The browser is given the address only, never a token.
- *
- * TEMPORARY (advisor, 25 Nov): the v4.5 integrator takes this file into `phase-v45` with the same
- * exported names (#89 7162679961); v5.0 drops this copy, and its `fileFacts` /
- * `finishedFileProblem` (which move to `./resumable`), when that push lands.
+ * The Worker's side of one browser-to-Drive upload (shared: v4.5 upload links, v5.0 hand-ins;
+ * ADR-0010 amendment 2026-11-19, accepted 25 Nov 2026; adapted from v5.0's aeff0d5). The caller has
+ * already passed its own permission, scope and state checks in the database; this makes the task's
+ * folder and the caller's subfolders (`‹task›/‹top›/‹relative path›`: an uploader's name, or a
+ * hand-in's `v2`), opens the session under the caller's policy, and seals its address for storage.
+ * The browser is given the address only, never a token.
  */
 
 const ACCOUNT_COLUMNS =
   "org_id, google_sub, refresh_token_encrypted, access_token_encrypted, token_expires_at, root_folder_id";
 
+/** Drive is not set up, not connected, needs reconnecting, or was switched to another account. */
 export class DriveUnavailableError extends Error {
   constructor() {
     super("Google Drive is not connected.");
@@ -45,56 +50,26 @@ async function connectedAccount(service: ServiceSupabase, orgId: string): Promis
   return data;
 }
 
-/** A store of folders under one task folder, keyed by a path ('' = the first folder itself). */
-export type SubfolderStore = {
-  find(relativePath: string): Promise<string | null>;
-  /** Insert or return: the folder that won a race is the one kept. */
-  put(relativePath: string, driveFolderId: string): Promise<string>;
-};
-
-/**
- * Makes `‹parent›/‹top›/‹a›/‹b›…` for a relative path, each folder once: the cache first, then
- * Google, recording each before making the next, so a stopped run resumes where it stopped.
- * Returns the Drive id of the deepest folder.
- */
-export async function ensureSubfolders(input: {
-  parentDriveId: string;
-  top: string;
-  relativePath: string;
-  store: SubfolderStore;
-  make: (folder: { name: string; parentId: string }) => Promise<{ id: string }>;
-}): Promise<string> {
-  const parts = input.relativePath === "" ? [] : input.relativePath.split("/");
-  const keys = ["", ...parts.map((_, i) => parts.slice(0, i + 1).join("/"))];
-  const names = [input.top, ...parts];
-  let parent = input.parentDriveId;
-  for (const [i, key] of keys.entries()) {
-    const cached = await input.store.find(key);
-    if (cached) {
-      parent = cached;
-      continue;
-    }
-    const made = await input.make({ name: names[i] ?? "", parentId: parent });
-    parent = await input.store.put(key, made.id);
-  }
-  return parent;
-}
-
-export type OpenedUpload = {
+export type UploadSession = {
+  /** Google's session address, for the browser that sends this file. */
   sessionUrl: string;
+  /** The same, sealed (`encryptToken`), for the caller's row. */
   sealedSession: string;
+  /** The Drive folder the file goes into (for the finished-file check). */
   parentId: string;
+  /** The Google account the session lives in. */
   accountId: string;
 };
 
 export async function openUploadSession(input: {
   service: ServiceSupabase;
   orgId: string;
-  /** The account the database recorded for this file: a switch in between refuses the upload. */
-  accountId: string;
+  /** The account the caller recorded for this upload: a switch in between refuses it. */
+  accountId: string | null;
   task: TaskFolderInput;
-  /** The first folder under the task's ("v2"). */
+  /** The first folder under the task's ("v2", or an uploader's name). */
   top: string;
+  /** The folder path inside what the person chose, as the browser reported it (cleaned here). */
   relativePath: string;
   subfolders: SubfolderStore;
   file: { name: string; size: number; mimeType: string; description?: string };
@@ -102,9 +77,9 @@ export async function openUploadSession(input: {
   origin: string;
   fetchImpl: Fetch;
   now: Date;
-}): Promise<OpenedUpload> {
+}): Promise<UploadSession> {
   const row = await connectedAccount(input.service, input.orgId);
-  if (row.google_sub !== input.accountId) throw new DriveUnavailableError();
+  if (input.accountId && row.google_sub !== input.accountId) throw new DriveUnavailableError();
   const env = readDriveEnv();
   if (env.mode === "off") throw new DriveUnavailableError();
   const store = folderStore(input.service, input.orgId);
@@ -150,60 +125,11 @@ export async function openUploadSession(input: {
   return { ...opened, sealedSession: await encryptToken(opened.sessionUrl, env.tokenKey) };
 }
 
-/** A stored session address, opened again (to hand back to the browser, or to ask Google). */
+/** A stored session address, opened again to hand back to the browser that resumes it. */
 export async function unsealSession(sealed: string): Promise<string> {
   const env = readDriveEnv();
   if (env.mode === "off") throw new DriveUnavailableError();
   return decryptToken(sealed, env.tokenKey);
-}
-
-/** What Google holds for a file MaxOff's session made (`drive.file` sees it). */
-export type FileFacts = {
-  id: string;
-  sizeBytes: number;
-  md5: string | null;
-  parents: string[];
-  trashed: boolean;
-};
-
-async function fileFacts(fetchImpl: Fetch, accessToken: string, fileId: string) {
-  const response = await fetchImpl(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,size,md5Checksum,parents,trashed`,
-    { headers: { authorization: `Bearer ${accessToken}` } },
-  );
-  if (response.status === 404) return null;
-  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
-  const answer = (await response.json().catch(() => ({}))) as {
-    id?: string;
-    size?: string;
-    md5Checksum?: string;
-    parents?: string[];
-    trashed?: boolean;
-  };
-  if (!response.ok || !answer.id) {
-    throw new DriveApiError(`Drive call failed (${response.status})`, response.status);
-  }
-  return {
-    id: answer.id,
-    sizeBytes: Number(answer.size ?? 0),
-    md5: answer.md5Checksum ? answer.md5Checksum.toLowerCase() : null,
-    parents: answer.parents ?? [],
-    trashed: answer.trashed === true,
-  } satisfies FileFacts;
-}
-
-/** The check before a finished file is recorded (v4.5 F1): Google's answer against what was set. */
-export function finishedFileProblem(
-  facts: FileFacts | null,
-  expected: { sizeBytes: number; parentId: string; md5?: string | null },
-): "missing" | "size_mismatch" | "wrong_folder" | "checksum_mismatch" | null {
-  if (!facts || facts.trashed) return "missing";
-  if (facts.sizeBytes !== expected.sizeBytes) return "size_mismatch";
-  if (!facts.parents.includes(expected.parentId)) return "wrong_folder";
-  if (expected.md5 && facts.md5 && expected.md5.toLowerCase() !== facts.md5) {
-    return "checksum_mismatch";
-  }
-  return null;
 }
 
 /** What Google holds for a file (`null` = 404), asked by the Worker itself (v4.5 F1). */

@@ -27,11 +27,25 @@ export type OpenedSession = {
   sessionUrl: string;
   /** The module's own id for the file's row, passed back in every `report`. */
   fileId: string;
+  /**
+   * True when this is a session the module opened before (the same file after a reload or on
+   * another visit): the engine first asks Google how much arrived and sends only the rest.
+   */
+  resumed?: boolean;
 };
 
 /** Why the module refused to open a session; shown on the file's row, never retried. */
 export type SessionRefusal = {
-  refused: "too_big" | "type_not_allowed" | "empty" | "bad_name" | "stopped" | "limit" | "no_space";
+  refused:
+    | "too_big"
+    | "type_not_allowed"
+    | "empty"
+    | "bad_name"
+    | "stopped"
+    | "limit"
+    | "no_space"
+    /** The same path, name and size is already in Drive from this sender (plan B4): "Already added". */
+    | "already_sent";
 };
 
 /** Asks the module's server for a session for this file (or the module's refusal). */
@@ -47,6 +61,12 @@ export type Report = (
         /** Google's id for the finished file, and its checksum when Google gives one. */
         driveFileId: string;
         md5Checksum: string | null;
+        /**
+         * The MD5 the engine computed from the file's own bytes (lower-case hex), for the server's
+         * damaged-transfer check against Google's `md5Checksum` (plan F1/F2). Null only when it
+         * could not be computed (the file could not be read back).
+         */
+        localMd5: string | null;
       }
     | { kind: "failed"; fileId: string; reason: string },
 ) => Promise<void>;

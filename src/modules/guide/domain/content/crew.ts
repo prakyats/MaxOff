@@ -680,7 +680,7 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 "Open the task.",
                 'Under Files, tap "Add photos and videos" on a phone, or "Choose files" or "Choose a folder" on a laptop (you can also drop files or folders there). A laptop keeps your folders as they are.',
-                'Keep MaxOff open until every file says "In Drive". You can move around MaxOff meanwhile; closing it stops the upload. A lost connection carries on by itself.',
+                'Keep MaxOff open until every file says "In Drive". Uploads keep going while you move around MaxOff; open the task to see progress. Closing MaxOff stops them. A lost connection carries on by itself.',
                 'When everything is in, the primary owner taps "Mark done". The sheet says what is handed in ("Hand-in v1 · 12 files").',
               ],
             },

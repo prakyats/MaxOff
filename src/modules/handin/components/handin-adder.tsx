@@ -2,24 +2,24 @@
 
 import { UploadIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { postInBackground } from "@/core/http/background";
 import { cn } from "@/core/lib/utils";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
-import type {
-  ItemState,
-  OpenedSession,
-  SessionRefusal,
-  UploadEngine,
-  UploadItem,
-} from "@/core/upload/types";
+import {
+  createUploadEngine,
+  type ItemState,
+  type OpenedSession,
+  type SessionRefusal,
+  type UploadEngine,
+  type UploadItem,
+} from "@/core/upload";
 
 import type { StartAnswer } from "../data/handin";
 import { cleanRelativePath, sameFileKey, typeLabel } from "../domain/files";
 import { formatSize, progressLines, statusOf } from "../domain/summary";
-import { createUploadEngine } from "./upload-engine";
 
 /**
  * v5.0: adding files to the open version (the approved sample §1, §3, §4). The phone's picker, or
@@ -30,14 +30,7 @@ import { createUploadEngine } from "./upload-engine";
  * keep-open band, and the browser's own warning on leaving the page.
  */
 
-/**
- * Until v4.5's engine lands with its final contract (#89 7162679961), `already_sent` and
- * `resumed` are not yet in `core/upload/types.ts`: these local types carry them meanwhile.
- */
-type Refused = SessionRefusal["refused"] | "already_sent";
-type RowState = Exclude<ItemState, { state: "refused" }> | { state: "refused"; refused: Refused };
-type Opened = OpenedSession & { resumed?: boolean };
-type Row = { key: string; name: string; relativePath: string; size: number; state: RowState };
+type Row = { key: string; name: string; relativePath: string; size: number; state: ItemState };
 
 const REFUSED_WORDS: Record<string, string> = {
   limit: "Waiting for a free slot. Try again in a moment.",
@@ -58,7 +51,7 @@ function folderOf(file: File): string {
   return cleaned.ok ? cleaned.path : "";
 }
 
-function rowStatus(state: RowState): {
+function rowStatus(state: ItemState): {
   label: string;
   tone: "info" | "success" | "danger" | "neutral";
 } {
@@ -83,6 +76,85 @@ function rowStatus(state: RowState): {
   }
 }
 
+/**
+ * One upload engine per task (and per freelancer acted for), kept at **module level**, outside
+ * React (advisor, 25 Nov): moving around MaxOff unmounts the card but not the engine, so the
+ * files keep going; coming back to the task re-attaches to it and shows the live progress. Only
+ * a full unload stops them, and the leave-page warning covers that. No pill elsewhere (v7.5 idea).
+ */
+type Store = {
+  engine: UploadEngine;
+  rows: ReadonlyMap<string, Row>;
+  meta: Map<string, { name: string; relativePath: string; size: number }>;
+  listeners: Set<() => void>;
+  /** Called when a file settles: the mounted card re-reads the page (one at a time). */
+  settled: Set<() => void>;
+};
+
+const stores = new Map<string, Store>();
+const EMPTY: ReadonlyMap<string, Row> = new Map();
+
+function storeFor(taskId: string, onBehalfOf: string | null): Store {
+  const id = `${taskId}:${onBehalfOf ?? ""}`;
+  const existing = stores.get(id);
+  if (existing) return existing;
+  const store: Store = {
+    rows: new Map(),
+    meta: new Map(),
+    listeners: new Set(),
+    settled: new Set(),
+    engine: createUploadEngine({
+      openSession: async (item: UploadItem): Promise<OpenedSession | SessionRefusal> => {
+        const result = await postInBackground<StartAnswer>("/api/handin/start", {
+          taskId,
+          name: item.file.name,
+          relativePath: item.relativePath,
+          size: item.file.size,
+          mimeType: item.file.type || null,
+          onBehalfOf,
+        });
+        if (!result.ok) return { refused: "stopped" };
+        const answer = result.data;
+        if (answer.kind === "open") {
+          return { sessionUrl: answer.sessionUrl, fileId: answer.fileId, resumed: answer.resumed };
+        }
+        return { refused: answer.kind === "already_added" ? "already_sent" : answer.refused };
+      },
+      report: async (event) => {
+        if (event.kind === "progress") {
+          await postInBackground("/api/handin/progress", {
+            fileId: event.fileId,
+            bytes: event.sent,
+          });
+        } else if (event.kind === "done") {
+          await postInBackground("/api/handin/finish", {
+            fileId: event.fileId,
+            driveFileId: event.driveFileId,
+            localMd5: event.localMd5,
+          });
+        } else {
+          await postInBackground("/api/handin/fail", { fileId: event.fileId, reason: "gave_up" });
+        }
+      },
+      onChange: (key, state) => {
+        const facts = store.meta.get(key);
+        if (!facts) return;
+        set(store, key, { key, ...facts, state });
+        if (state.state === "done" || state.state === "failed") {
+          for (const settle of store.settled) settle();
+        }
+      },
+    }),
+  };
+  stores.set(id, store);
+  return store;
+}
+
+function set(store: Store, key: string, row: Row) {
+  store.rows = new Map(store.rows).set(key, row);
+  for (const listener of store.listeners) listener();
+}
+
 export function HandinAdder({
   taskId,
   onBehalfOf,
@@ -94,7 +166,19 @@ export function HandinAdder({
   alreadyInDrive: readonly string[];
 }) {
   const router = useRouter();
-  const [rows, setRows] = useState<ReadonlyMap<string, Row>>(new Map());
+  const storeKey = `${taskId}:${onBehalfOf ?? ""}`;
+  // The store is made on the first add (an event); a store already running is re-attached.
+  const rows = useSyncExternalStore(
+    (onChange) => {
+      const store = stores.get(storeKey);
+      if (!store) return () => undefined;
+      store.listeners.add(onChange);
+      return () => store.listeners.delete(onChange);
+    },
+    () => stores.get(storeKey)?.rows ?? EMPTY,
+    () => EMPTY,
+  );
+  const [attached, setAttached] = useState(0);
   const [dragging, setDragging] = useState(false);
   const filesInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
@@ -103,67 +187,22 @@ export function HandinAdder({
   useEffect(() => {
     known.current = inDrive;
   }, [inDrive]);
-  const meta = useRef(new Map<string, { name: string; relativePath: string; size: number }>());
-  const refreshSoon = useRef<number | null>(null);
 
-  const engineRef = useRef<UploadEngine | null>(null);
-  // Made on the first add (an event, never during render), and kept for the page's life.
-  function engine(): UploadEngine {
-    engineRef.current ??= createUploadEngine({
-      openSession: async (item: UploadItem): Promise<OpenedSession | SessionRefusal> => {
-        const refuse = (refused: Refused) => ({ refused }) as unknown as SessionRefusal;
-        const result = await postInBackground<StartAnswer>("/api/handin/start", {
-          taskId,
-          name: item.file.name,
-          relativePath: item.relativePath,
-          size: item.file.size,
-          mimeType: item.file.type || null,
-          onBehalfOf,
-        });
-        if (!result.ok) return refuse("stopped");
-        const answer = result.data;
-        if (answer.kind === "open") {
-          const opened: Opened = {
-            sessionUrl: answer.sessionUrl,
-            fileId: answer.fileId,
-            resumed: answer.resumed,
-          };
-          return opened;
-        }
-        return refuse(answer.kind === "already_added" ? "already_sent" : answer.refused);
-      },
-      report: async (event) => {
-        if (event.kind === "progress") {
-          await postInBackground("/api/handin/progress", {
-            fileId: event.fileId,
-            bytes: event.sent,
-          });
-        } else if (event.kind === "done") {
-          const localMd5 = (event as { localMd5?: string | null }).localMd5 ?? null;
-          await postInBackground("/api/handin/finish", {
-            fileId: event.fileId,
-            driveFileId: event.driveFileId,
-            localMd5,
-          });
-        } else {
-          await postInBackground("/api/handin/fail", { fileId: event.fileId, reason: "gave_up" });
-        }
-      },
-      onChange: (key, state) => {
-        const facts = meta.current.get(key);
-        if (!facts) return;
-        setRows((current) =>
-          new Map(current).set(key, { key, ...facts, state: state as RowState }),
-        );
-        if (state.state === "done" || state.state === "failed") {
-          if (refreshSoon.current !== null) window.clearTimeout(refreshSoon.current);
-          refreshSoon.current = window.setTimeout(() => router.refresh(), 1500);
-        }
-      },
-    });
-    return engineRef.current;
-  }
-  useEffect(() => () => engineRef.current?.dispose(), []);
+  // While mounted, a settled file re-reads the page (debounced), so it moves into the list above.
+  useEffect(() => {
+    const store = stores.get(storeKey);
+    if (!store) return;
+    let timer: number | null = null;
+    const settle = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => router.refresh(), 1500);
+    };
+    store.settled.add(settle);
+    return () => {
+      store.settled.delete(settle);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [storeKey, router, attached]);
 
   const list = [...rows.values()];
   const busy = list.some((row) => row.state.state === "uploading" || row.state.state === "waiting");
@@ -175,26 +214,28 @@ export function HandinAdder({
   }, [busy]);
 
   function add(files: readonly File[]) {
+    const fresh = !stores.has(storeKey);
+    const store = storeFor(taskId, onBehalfOf);
+    if (fresh) setAttached((n) => n + 1);
     const items: UploadItem[] = [];
-    const skipped = new Map<string, Row>();
     for (const file of files) {
       const relativePath = folderOf(file);
       const key = sameFileKey({ relativePath, name: file.name, size: file.size });
       const facts = { name: file.name, relativePath, size: file.size };
-      meta.current.set(key, facts);
+      store.meta.set(key, facts);
       if (known.current.has(key)) {
-        skipped.set(key, {
-          key,
-          ...facts,
-          state: { state: "refused", refused: "already_sent" as never },
-        });
+        set(store, key, { key, ...facts, state: { state: "refused", refused: "already_sent" } });
         continue;
       }
-      if (rows.has(key) && rows.get(key)?.state.state !== "failed") continue;
+      const current = store.rows.get(key)?.state.state;
+      if (current && current !== "failed" && current !== "refused") continue;
       items.push({ key, file, relativePath });
     }
-    if (skipped.size > 0) setRows((current) => new Map([...current, ...skipped]));
-    if (items.length > 0) engine().add(items);
+    if (items.length > 0) store.engine.add(items);
+  }
+
+  function retry(key: string) {
+    stores.get(storeKey)?.engine.retry(key);
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
@@ -283,7 +324,7 @@ export function HandinAdder({
                   </span>
                 </span>
                 {row.state.state === "failed" && row.state.canRetry ? (
-                  <Button variant="destructive" size="sm" onClick={() => engine().retry(row.key)}>
+                  <Button variant="destructive" size="sm" onClick={() => retry(row.key)}>
                     Retry
                   </Button>
                 ) : (

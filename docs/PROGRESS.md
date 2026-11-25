@@ -257,8 +257,8 @@
     - Q1–Q6 went with the recommendations: everyone on the task adds files; files are optional; Leave out; any type and size; Request changes takes a reason only; Drive links go to the Owner and the task's three Admins only;
     - the sample `docs/design/v50-hand-in-sample.html` is approved as drawn. Any change is made at the owner's walk.
   - **Shared plumbing (advisor, 25 Nov):** v4.5's integrator owns `core/drive/resumable.ts`, `core/drive/upload-session.ts` and `core/upload` (`createUploadEngine`, `Md5`; #89 7162679961). v5.0 codes against them.
-    - Until his push lands, `phase-v50` keeps two temporary stand-ins: `core/drive/upload-session.ts`, with his exported names, and `modules/handin/components/upload-engine.ts`, which marks every file "not switched on yet".
-    - When it lands: rebase, delete both stand-ins, import `createUploadEngine` from `@/core/upload` and `fileFacts` / `finishedFileProblem` from `./resumable`, drop the local `Refused` / `Opened` types in `handin-adder.tsx`, and re-timestamp `v50_handin_files` after his migration (keep his stop-link lines in `task_submit_done`; drop this migration's `app.upload_manager` if his is the same).
+    - **Done (merge of `phase-v45` 751f1ce):** the stand-ins are gone; the hand-in uses his `createUploadEngine`, `openUploadSession`, `driveFileFacts`, `finishedFileProblem` and `ensureSubfolders`.
+    - **Still to do when his migration lands (after his security review):** re-timestamp `v50_handin_files` after it, keep his stop-link lines in `task_submit_done`, and drop this migration's `app.upload_manager` if his is the same. His `cleanRelativePath` keeps 8 folder levels and v5.0's database allows 12; align them then.
   - **Built:**
     - the plan (`docs/handoff/v50-hand-in-plan.md`) and the docs: DATA-MODEL §8b, WORKFLOWS §5C, PERMISSIONS, and the ADR-0010 amendment;
     - migration `20261125122018_v50_handin_files`, with pgTAP 150 (117 assertions) and 40 / 49 counting `handin_space_held`;
@@ -268,7 +268,7 @@
     - the Playwright spec `e2e/handin.spec.ts`, in the serial organisation-wide chain.
   - **Left:**
     1. Swap to v4.5's engine and session code (above).
-    2. The global upload pill while moving around MaxOff (sample §1C). It needs the engine to live above the page (a shared-layout change), so it waits for the real engine and its speed-gate cost.
+    2. ~~The global upload pill~~: not in v5.0 (advisor, 25 Nov). The engine is a module-level store per task, so uploads keep going across client navigation and the card re-attaches; e2e proves it against a fake Google. The pill is a v7.5 idea (Ideas).
     3. "Removed in Drive": the check on a reviewer's card is built (`/api/handin/check`). The daily pass in `drive_space_check` is still to add, after v4.5's version of that job lands, so the two are not built twice.
     4. `pnpm guide:screenshots` for the new topics.
     5. The full CI run, the review, and the speed probe on `/tasks/[id]` and `/approvals` for each role.
@@ -897,6 +897,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **Global upload pill (v7.5 idea; advisor, 25 Nov, v5.0):** a small "Brand reel · 9 of 12 in Drive" pill on every screen while a hand-in uploads, tapping back to the task (the v5.0 sample §1C). It needs the upload engine in the shared layout, so it was kept out of v5.0 to keep that release off shared-layout territory. v5.0 keeps the engine at module level instead (uploads continue across client navigation, and the card re-attaches).
 
 - **v4.0 Drive, for D2 (review 18 Nov):** (1) two parallel folder walks can both make a folder and the loser's stays orphaned in Drive (the cache keeps one): claim-then-make or a per-key lock before D2 runs jobs in parallel; (2) `drive_status().last_error` is read but not shown on Settings → Google Drive; (3) the space alert re-arms exactly at 80 %, so usage hovering around it alerts at every crossing (owner Q5 said "re-armed after dropping back below"; a gap such as below 75 % would be an owner question); (4) Back after the Google sign-in returns through Google's own pages (they are in the history; the app cannot remove them): on the Owner's phone walk, check Connect on iOS and Android installed, including that the callback lands in the app with its session.
 
