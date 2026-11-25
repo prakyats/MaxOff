@@ -4,6 +4,27 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v2.5: revenue every day
+
+**Not released yet.** Release candidate: `phase-v25-revenue-daily` (after v2.1).
+
+The second part of Revenue (phase 9): the Owner keeps track of billing and sees the month's money every day. **Only the Owner sees any of it.**
+
+### What the Owner will notice
+- **Billed / Not billed** in each project's Billing section: for the month or week in view, or a one-time project as a whole. "Mark billed" (a day, today unless changed, and a note such as the invoice number) and "Mark not billed".
+- **Adjust what was achieved**: set the month's (or a completed one-time project's) Achieved by hand with a note; Billing then shows "Owner adjusted" with "System calculated" beside it. "Back to calculated" undoes it, with a note.
+- **A planned deliverable's own value**: under "Planned deliverables", give one deliverable its own value off the top of the month's amount (the others share the rest), or put it back to its share.
+- **Billing history** on every project: each change to its money, who made it and when, newest first, with "Show older".
+- **On the Revenue page**: "On hold ₹X" inside Remaining (work waiting on held projects, neither earned nor lost), "Billed" / "Not billed" and "Adjusted" on every line, and "Mark all N billed" for the month.
+- **The last line of Today**: "November · ₹ ••• achieved of ₹ ••• · 2 not priced". The amounts are hidden until you tap the line, and hidden again whenever Today opens. "Open Revenue" opens the month.
+- **A notification when someone adds a deliverable to a priced month**: "‹project›: a deliverable isn't priced". It opens that month's Billing, where the deliverable waits for its price. It never shows an amount.
+
+### What Admins will notice
+- Nothing. No amount, no billing word and no new notification.
+
+### What the Crew will notice
+- Nothing.
+
 ## v2.1: money in
 
 **Not released yet.** Release candidate: `phase-v21-money` (the head named in #89's READY FOR OWNER post).

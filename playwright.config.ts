@@ -84,6 +84,9 @@ const VIEW_SCROLL_SPECS = /view-scroll\.spec\.ts$/;
 const BILLING_SPECS = /billing\.spec\.ts$/;
 // v2.1 (9.2): the Owner's Revenue page, and an Admin kept away from it.
 const REVENUE_SPECS = /revenue\.spec\.ts$/;
+// v2.5 "Revenue every day": Billed, Adjust, planned values, Billing history, the Revenue page's
+// On hold and Mark all billed, the Owner's Today line, and an Admin kept away from all of it.
+const REVENUE_DAILY_SPECS = /revenue-daily\.spec\.ts$/;
 // v2.1 (kickoff 9 R1): a one-time project's last deliverable, "Mark done and complete project".
 const COMPLETE_PROMPT_SPECS = /complete-prompt\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
@@ -233,6 +236,7 @@ export default defineConfig({
       // And a view switch then a live refresh keeps the scroll (v1.9, the Next patch): both widths.
       // And the Owner's Billing section (v2.1, 9.2): its rows, sheets and skeleton at both widths.
       // And the Owner's Revenue page (v2.1, 9.2): its figures, controls and the Admin kept away.
+      // And v2.5's billing rows, sheets, Revenue additions and Today line, installed at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -287,6 +291,7 @@ export default defineConfig({
         BILLING_SPECS,
         REVENUE_SPECS,
         COMPLETE_PROMPT_SPECS,
+        REVENUE_DAILY_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

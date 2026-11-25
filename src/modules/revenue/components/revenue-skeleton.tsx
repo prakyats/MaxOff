@@ -78,6 +78,10 @@ export function RevenueSkeleton() {
                 <span className="flex h-4 items-center">
                   <Skeleton className="h-3 w-3/5" />
                 </span>
+                {/* v2.5: the line's "Billed 3 Dec" / "Not billed". */}
+                <span className="flex h-4 items-center">
+                  <Skeleton className="h-3 w-16" />
+                </span>
               </span>
               <span className={REVENUE_LINE_FIGURE}>
                 <span className="flex h-5 items-center">

@@ -1,20 +1,31 @@
+import { ChevronRightIcon } from "lucide-react";
+
 import { formatRupees } from "@/core/lib/rupees";
 import { cn } from "@/core/lib/utils";
 import { captureException } from "@/core/observability/capture";
 
 import {
+  type Adjustment,
   type Advance,
   addedHeading,
+  adjustmentLines,
   advanceSummary,
   amountLabel,
   amountSheetNote,
   amountText,
   BILLING_CATEGORY_LABELS,
+  type BillingMark,
+  billedText,
+  canAdjust,
   cycleAmountLabel,
   cycleAmountNote,
   longDay,
   type OneTimeBilling,
   periodWord,
+  type PlannedDeliverable,
+  plannedHeading,
+  plannedValueNote,
+  plannedValueText,
   priceText,
   type ProjectBilling,
   type RetainerBilling,
@@ -23,13 +34,17 @@ import {
 
 import {
   BILLING_CARD,
+  BILLING_CHEVRON,
+  BILLING_DISCLOSURE,
   BILLING_FIGURE,
   BILLING_FIGURES,
   BILLING_FIGURES_GRID,
   BILLING_ROW,
   BILLING_ROW_TEXT,
   BILLING_SECTION,
+  BILLING_SUMMARY,
 } from "./billing-layout";
+import { BillingHistory } from "./billing-history";
 import { BillingRetry } from "./billing-retry";
 import { BillingSheetButton } from "./billing-sheet-button";
 
@@ -115,13 +130,205 @@ export async function BillingSection({
           />
         </div>
         {billing.kind === "retainer" ? (
-          <RetainerRows billing={billing} />
+          <RetainerRows billing={billing} today={today} />
         ) : (
           <OneTimeRows billing={billing} today={today} />
         )}
       </div>
     </section>
   );
+}
+
+/**
+ * v2.5: **Billed / Not billed**, one 64 px row (its label over one line: "Not billed", or "Billed
+ * on 3 Dec · ‹note›", cut to the line), with "Mark billed" or "Mark not billed" beside it.
+ */
+function BilledRow({
+  cycleId,
+  mark,
+  what,
+  today,
+}: {
+  cycleId: string;
+  mark: BillingMark;
+  /** "November 2026", "this week", "this project": what the sheet marks. */
+  what: string;
+  today: string;
+}) {
+  const words = billedText(mark);
+  return (
+    <div className={BILLING_ROW} data-slot="billing-billed" data-billed={mark.billed}>
+      <div className={BILLING_ROW_TEXT}>
+        <p className="text-muted-foreground text-xs">Billing</p>
+        <p data-slot="billing-value" className="truncate" title={words}>
+          {words}
+        </p>
+      </div>
+      {mark.billed ? (
+        <BillingSheetButton
+          label="Mark not billed"
+          slot="billing-not-billed"
+          sheet={{ kind: "markNotBilled", cycleId, what, billed: words }}
+        />
+      ) : (
+        <BillingSheetButton
+          label="Mark billed"
+          slot="billing-mark-billed"
+          sheet={{ kind: "markBilled", cycleId, what, today }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * v2.5: **Adjust** (decision 6), one row of three lines: "Achieved" or "Owner adjusted · ‹note›",
+ * the headline figure, and "As calculated from approved work" or "System calculated ₹Y". Its
+ * control: "Adjust", or "Back to calculated" once adjusted.
+ */
+function AdjustRow({
+  scope,
+  refId,
+  figures,
+}: {
+  scope: "cycle" | "project";
+  refId: string;
+  figures: { achieved: number; achievedCalculated: number; adjustment: Adjustment | null };
+}) {
+  const lines = adjustmentLines(figures);
+  const calculated = formatRupees(figures.achievedCalculated);
+  return (
+    <div
+      className={BILLING_ROW}
+      data-slot="billing-adjust"
+      data-adjusted={figures.adjustment !== null}
+    >
+      <div className={BILLING_ROW_TEXT}>
+        <p className="text-muted-foreground truncate text-xs" title={lines.label}>
+          {lines.label}
+        </p>
+        <p data-slot="billing-value" className="truncate font-medium tabular-nums">
+          {lines.value}
+        </p>
+        <p
+          data-slot="billing-adjust-detail"
+          className="text-muted-foreground truncate text-xs tabular-nums"
+        >
+          {lines.detail}
+        </p>
+      </div>
+      {figures.adjustment ? (
+        <BillingSheetButton
+          label="Back to calculated"
+          slot="billing-adjust-clear"
+          sheet={{
+            kind: "clearAdjust",
+            scope,
+            refId,
+            adjusted: formatRupees(figures.adjustment.adjustedValue),
+            calculated,
+          }}
+        />
+      ) : (
+        <BillingSheetButton
+          label="Adjust"
+          name="Adjust achieved"
+          slot="billing-adjust-set"
+          sheet={{ kind: "adjust", scope, refId, calculated }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * v2.5: the cycle's **planned deliverables' values**, collapsed to one row ("Planned deliverables
+ * · 4"); opened, each with its value and how it is valued (its own, or a share), and "Set value"
+ * or "Change" and "Back to share". A function's refusal (over the amount, no amount yet) is said
+ * in the sheet, plainly.
+ */
+function PlannedList({
+  planned,
+  amount,
+  recurrence,
+}: {
+  planned: PlannedDeliverable[];
+  amount: number | null;
+  recurrence: "weekly" | "monthly";
+}) {
+  return (
+    <details className={BILLING_DISCLOSURE} data-slot="billing-planned">
+      <summary className={BILLING_SUMMARY} data-slot="billing-planned-toggle">
+        <span className={BILLING_ROW_TEXT}>
+          <span className="font-medium">{plannedHeading(planned.length)}</span>
+          <span className="text-muted-foreground truncate text-xs">
+            Each one&apos;s value: its own, or a share of the amount
+          </span>
+        </span>
+        <ChevronRightIcon aria-hidden className={BILLING_CHEVRON} />
+      </summary>
+      {planned.length === 0 ? (
+        <p className="text-muted-foreground border-border border-t px-4 py-3">
+          No planned deliverables in this {periodWord(recurrence)}.
+        </p>
+      ) : (
+        <ul className="divide-border border-border divide-y border-t">
+          {planned.map((item) => (
+            <li
+              key={item.itemId}
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2"
+              data-slot="billing-planned-row"
+              data-method={item.method}
+            >
+              <div className="flex min-h-11 min-w-0 flex-[1_1_10rem] flex-col justify-center gap-0.5">
+                <p className="break-words">{item.title}</p>
+                <p
+                  data-slot="billing-planned-value"
+                  className="text-muted-foreground text-xs tabular-nums"
+                >
+                  {plannedValueText(item)}
+                </p>
+              </div>
+              {item.method === "excluded" ? null : (
+                <div className="ml-auto flex shrink-0 gap-2">
+                  {item.method === "explicit" ? (
+                    <BillingSheetButton
+                      label="Back to share"
+                      name={`Back to share: ${item.title}`}
+                      slot="billing-planned-share"
+                      sheet={{
+                        kind: "share",
+                        itemId: item.itemId,
+                        title: item.title,
+                        value: formatRupees(item.value),
+                      }}
+                    />
+                  ) : null}
+                  <BillingSheetButton
+                    label={item.method === "explicit" ? "Change" : "Set value"}
+                    name={`${item.method === "explicit" ? "Change the value of" : "Set value of"} ${item.title}`}
+                    slot="billing-planned-set"
+                    sheet={{
+                      kind: "plannedValue",
+                      itemId: item.itemId,
+                      title: item.title,
+                      current: item.method === "explicit" ? item.value : null,
+                      note: plannedValueNote(item.title, amount, recurrence),
+                    }}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
+
+/** What the section shows, as one string: an open Billing history reads again when it moves. */
+function revisionOf(billing: ProjectBilling): string {
+  return JSON.stringify(billing);
 }
 
 /** The section when its read failed: the heading stays, the card says so and offers a retry. */
@@ -160,10 +367,18 @@ function Figure({ label, value, slot }: { label: string; value: number; slot: st
   );
 }
 
-/** The cycle in view and what was added on top of it. */
-function RetainerRows({ billing }: { billing: RetainerBilling }) {
+/**
+ * The cycle in view: its figures, then (v2.5) Billed, Adjust, the planned deliverables' values
+ * and Billing history, each a fixed row the skeleton draws too; then what varies with the data
+ * (an earlier cycle's own amount, the deliverables added on top), which only grows downward.
+ * Without a cycle in view, Billing history alone.
+ */
+function RetainerRows({ billing, today }: { billing: RetainerBilling; today: string }) {
   const { cycle, added, recurrence } = billing;
-  if (!cycle) return null;
+  const history = (
+    <BillingHistory projectId={billing.projectId} oneTime={false} revision={revisionOf(billing)} />
+  );
+  if (!cycle) return history;
   const period = periodWord(recurrence);
   return (
     <>
@@ -180,6 +395,17 @@ function RetainerRows({ billing }: { billing: RetainerBilling }) {
           <Figure label="Remaining" value={cycle.remaining} slot="billing-remaining" />
         </dl>
       </div>
+      <BilledRow
+        cycleId={cycle.cycleId}
+        mark={cycle.mark}
+        what={cycle.label ?? `this ${period}`}
+        today={today}
+      />
+      {canAdjust(billing) ? (
+        <AdjustRow scope="cycle" refId={cycle.cycleId} figures={cycle} />
+      ) : null}
+      <PlannedList planned={billing.planned} amount={cycle.amount} recurrence={recurrence} />
+      {history}
       {/* Q1: a cycle from before the first amount is priced alone, here; the project's amount
           never reaches it. Its own row under the figures, so nothing above moves. Only once the
           project has an amount: before that, "Set amount" above is the one control. */}
@@ -250,6 +476,7 @@ function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: strin
   ].filter(Boolean);
   const summary = advanceSummary(fixedAmount, billing.advancesKept);
   const canRecord = fixedAmount !== null && fixedAmount > billing.advancesKept;
+  const { line } = billing;
   return (
     <>
       {status.length > 0 ? (
@@ -257,6 +484,14 @@ function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: strin
           {status.join(" · ")}
         </p>
       ) : null}
+      {/* v2.5: Billed (through the project's one cycle), Adjust once completed, the history. */}
+      {line?.cycleId ? (
+        <BilledRow cycleId={line.cycleId} mark={line.mark} what="this project" today={today} />
+      ) : null}
+      {line && canAdjust(billing) ? (
+        <AdjustRow scope="project" refId={billing.projectId} figures={line} />
+      ) : null}
+      <BillingHistory projectId={billing.projectId} oneTime revision={revisionOf(billing)} />
       <div data-slot="billing-advances">
         <div className={BILLING_ROW}>
           <div className={BILLING_ROW_TEXT}>

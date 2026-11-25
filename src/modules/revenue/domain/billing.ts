@@ -36,6 +36,27 @@ export type BillingBasics = {
   pricedFrom: string | null;
 };
 
+/**
+ * Billed / Not billed (v2.5; decision 7): a retainer cycle's, or a one-time project's through its
+ * single cycle. `billedOn` is set exactly when it is billed.
+ */
+export type BillingMark = {
+  billed: boolean;
+  billedOn: string | null;
+  note: string | null;
+};
+
+/**
+ * The Owner's adjustment of Achieved (v2.5; decision 6): what he set, beside what the system had
+ * calculated when he set it, with his note. Null = Achieved is as calculated.
+ */
+export type Adjustment = {
+  adjustedValue: number;
+  calculatedValue: number;
+  note: string;
+  at: string;
+};
+
 /** The figures of the retainer cycle in view. */
 export type CycleFigures = {
   cycleId: string;
@@ -43,8 +64,29 @@ export type CycleFigures = {
   /** This cycle's own amount; null = "No amount set" (a cycle from before the first amount). */
   amount: number | null;
   potential: number;
+  /** The headline Achieved: the Owner's adjusted figure when there is one. */
   achieved: number;
+  /** What approved work adds up to, whatever the Owner adjusted ("System calculated"). */
+  achievedCalculated: number;
   remaining: number;
+  mark: BillingMark;
+  adjustment: Adjustment | null;
+};
+
+/**
+ * How a planned deliverable is valued (v2.5; WORKFLOWS §6): its own value off the top of the
+ * cycle's amount (`explicit`), an even share of what is left (`split`), nothing while the cycle
+ * has no amount (`no_amount`), or left out of Potential ("Not needed", cancelled before the cycle
+ * started: `excluded`).
+ */
+export type PlannedMethod = "explicit" | "split" | "no_amount" | "excluded";
+
+/** One of the cycle's planned deliverables with its value (v2.5). */
+export type PlannedDeliverable = {
+  itemId: string;
+  title: string;
+  method: PlannedMethod;
+  value: number;
 };
 
 /** A deliverable added to the cycle after its item list: priced on top of the amount (R4). */
@@ -71,7 +113,20 @@ export type RetainerBilling = {
   recurrence: "weekly" | "monthly";
   billing: BillingBasics;
   cycle: CycleFigures | null;
+  /** The cycle's planned deliverables (v2.5), in the list's order; empty with no cycle in view. */
+  planned: PlannedDeliverable[];
   added: AddedDeliverable[];
+};
+
+/** A one-time project's line (v2.5): its Billed mark, through its single cycle, and its Achieved. */
+export type OneTimeLine = {
+  /** The project's one cycle, through which it is marked Billed; null if it has none. */
+  cycleId: string | null;
+  state: "open" | "in_progress" | "completed" | "cancelled";
+  achieved: number;
+  achievedCalculated: number;
+  mark: BillingMark;
+  adjustment: Adjustment | null;
 };
 
 export type OneTimeBilling = {
@@ -85,6 +140,7 @@ export type OneTimeBilling = {
   /** The advances received and not returned, summed. */
   advancesKept: number;
   advances: Advance[];
+  line: OneTimeLine | null;
 };
 
 export type ProjectBilling = RetainerBilling | OneTimeBilling;
@@ -119,6 +175,47 @@ function amountOrNull(value: unknown): number | null {
 }
 
 const amount = (value: unknown): number => amountOrNull(value) ?? 0;
+
+function toMark(row: Json): BillingMark {
+  const billed = row.billing_status === "billed";
+  return {
+    billed,
+    billedOn: billed ? textOrNull(row.billed_on) : null,
+    note: billed ? textOrNull(row.billing_note) : null,
+  };
+}
+
+function toAdjustment(value: unknown): Adjustment | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const row = value as Json;
+  return {
+    adjustedValue: amount(row.adjusted_value),
+    calculatedValue: amount(row.calculated_value),
+    note: typeof row.note === "string" ? row.note : "",
+    at: typeof row.at === "string" ? row.at : "",
+  };
+}
+
+const PLANNED_METHODS: readonly PlannedMethod[] = ["explicit", "split", "no_amount", "excluded"];
+
+function plannedMethod(value: unknown): PlannedMethod {
+  const method = PLANNED_METHODS.find((known) => known === value);
+  if (!method) throw new Error("The billing read holds a value method MaxOff does not know.");
+  return method;
+}
+
+const LINE_STATES: readonly OneTimeLine["state"][] = [
+  "open",
+  "in_progress",
+  "completed",
+  "cancelled",
+];
+
+function lineState(value: unknown): OneTimeLine["state"] {
+  const state = LINE_STATES.find((known) => known === value);
+  if (!state) throw new Error("The billing read holds a project state MaxOff does not know.");
+  return state;
+}
 
 function toBasics(value: unknown, recurrence: BillingRecurrence): BillingBasics {
   const row = record(value, "billing");
@@ -158,6 +255,16 @@ export function toProjectBilling(value: unknown): ProjectBilling {
         returnedOn: textOrNull(row.returned_on),
         returnNote: textOrNull(row.return_note),
       })),
+      line: line
+        ? {
+            cycleId: textOrNull(line.cycle_id),
+            state: lineState(line.state),
+            achieved: amount(line.achieved),
+            achievedCalculated: amount(line.achieved_calculated),
+            mark: toMark(line),
+            adjustment: toAdjustment(line.override),
+          }
+        : null,
     };
   }
   if (recurrence !== "weekly" && recurrence !== "monthly") {
@@ -176,9 +283,18 @@ export function toProjectBilling(value: unknown): ProjectBilling {
           amount: amountOrNull(cycle.amount),
           potential: amount(cycle.potential),
           achieved: amount(cycle.achieved),
+          achievedCalculated: amount(cycle.achieved_calculated ?? cycle.achieved),
           remaining: amount(cycle.remaining),
+          mark: toMark(cycle),
+          adjustment: toAdjustment(cycle.override),
         }
       : null,
+    planned: rows(read.items).map((row) => ({
+      itemId: text(row.item_id, "deliverable"),
+      title: text(row.title, "deliverable title"),
+      method: plannedMethod(row.method),
+      value: amount(row.value),
+    })),
     added: rows(read.added).map((row) => ({
       itemId: text(row.item_id, "deliverable"),
       title: text(row.title, "deliverable title"),
@@ -282,4 +398,78 @@ export function oneTimeStatusExpected(project: {
     project.itemStates.length > 0 &&
     !project.itemStates.some((state) => state === "open" || state === "done")
   );
+}
+
+// --- v2.5 "Revenue every day": Billed, the adjustment, planned values ----------------------------
+
+/** "Not billed", or "Billed on 3 Dec · Invoice 42" (the note when there is one). */
+export function billedText(mark: BillingMark): string {
+  if (!mark.billed || mark.billedOn === null) return "Not billed";
+  const on = `Billed on ${shortDay(mark.billedOn)}`;
+  return mark.note ? `${on} · ${mark.note}` : on;
+}
+
+/**
+ * The Adjust row's three lines (decision 6): its small label, the headline figure and the line
+ * under it. Adjusted: "Owner adjusted · ‹note›", the Owner's figure, "System calculated ₹Y". As
+ * calculated: "Achieved", the figure, "As calculated from approved work".
+ */
+export function adjustmentLines(figures: {
+  achieved: number;
+  achievedCalculated: number;
+  adjustment: Adjustment | null;
+}): { label: string; value: string; detail: string } {
+  if (figures.adjustment === null) {
+    return {
+      label: "Achieved",
+      value: formatRupees(figures.achieved),
+      detail: "As calculated from approved work",
+    };
+  }
+  const { note, adjustedValue } = figures.adjustment;
+  return {
+    label: note ? `Owner adjusted · ${note}` : "Owner adjusted",
+    value: formatRupees(adjustedValue),
+    detail: `System calculated ${formatRupees(figures.achievedCalculated)}`,
+  };
+}
+
+/**
+ * Whether the Adjust row shows: a retainer's cycle in view, or a one-time project once it is
+ * completed (the function refuses an adjustment before that, INVALID_STATE).
+ */
+export function canAdjust(billing: ProjectBilling): boolean {
+  if (billing.kind === "retainer") return billing.cycle !== null;
+  return billing.line?.state === "completed";
+}
+
+/** A planned deliverable's value as its row says it: "₹10,000 · Own value", "₹7,500 · Share". */
+export function plannedValueText(item: PlannedDeliverable): string {
+  switch (item.method) {
+    case "explicit":
+      return `${formatRupees(item.value)} · Own value`;
+    case "split":
+      return `${formatRupees(item.value)} · Share`;
+    case "no_amount":
+      return "No amount set";
+    case "excluded":
+      return "Not counted";
+  }
+}
+
+/** "Planned deliverables · 4": the collapsed list's own line. */
+export function plannedHeading(count: number): string {
+  return `Planned deliverables · ${count}`;
+}
+
+/** What the Set value sheet says: the value comes off the top, the others share the rest. */
+export function plannedValueNote(
+  title: string,
+  amount: number | null,
+  recurrence: "weekly" | "monthly",
+): string {
+  const period = periodWord(recurrence);
+  const of =
+    amount === null ? `this ${period}'s amount` : `this ${period}'s ${formatRupees(amount)}`;
+  return `${title}'s own value comes off the top of ${of}. The other planned deliverables share the rest.`;
 }

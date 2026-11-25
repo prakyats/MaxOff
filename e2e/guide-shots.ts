@@ -1099,6 +1099,75 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: (page) => slot(page, "project-billing"),
     alt: "A monthly project's Billing section: under Added this month, Extra poster says Not priced and its Set price button is highlighted.",
   },
+  // v2.5 "Revenue every day": Billed, Adjust, the planned values, Billing history, Mark all
+  // billed and the Today line. Owner pictures only; the demo's own projects.
+  {
+    id: "owner/billing-billed",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.oneTimeProjectId}`,
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "billing-mark-billed"),
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A one-time project's Billing section: the Billing row says Not billed and its Mark billed button is highlighted.",
+  },
+  {
+    id: "owner/billing-adjust",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.pricedProjectId}`,
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "billing-adjust-set"),
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A monthly project's Billing section: the Achieved row, as calculated from approved work, with its Adjust button highlighted.",
+  },
+  {
+    id: "owner/billing-planned",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.pricedProjectId}`,
+    prepare: async (page) => {
+      await slot(page, "billing-planned-toggle").click();
+      await page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      );
+    },
+    highlight: (page) => slot(page, "billing-planned-set").nth(1),
+    crop: (page) => slot(page, "billing-planned"),
+    alt: "Planned deliverables · 4 opened: Post A has its own value of ₹12,000, the others share the rest, and Post B's Set value button is highlighted.",
+  },
+  {
+    id: "owner/billing-history",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.pricedProjectId}`,
+    prepare: async (page) => {
+      await slot(page, "billing-history-toggle").click();
+      await slot(page, "billing-history-rows").waitFor();
+      await page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      );
+    },
+    highlight: (page) => slot(page, "billing-history-rows"),
+    crop: (page) => slot(page, "billing-history"),
+    alt: "Billing history opened: the project's changes newest first, each with its day and time and who made it, highlighted.",
+  },
+  {
+    id: "owner/revenue-mark-all",
+    path: "/reports/revenue",
+    highlight: (page) => slot(page, "revenue-mark-all-billed"),
+    crop: (page) => slot(page, "revenue-summary"),
+    alt: "The Revenue page's figures for this month with the Mark all billed button highlighted under them.",
+  },
+  {
+    id: "owner/today-revenue",
+    path: "/today",
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "today-revenue-toggle"),
+    crop: (page) => slot(page, "today-revenue"),
+    alt: "The last line of Today: this month's achieved and potential amounts hidden as dots, highlighted, with Open Revenue beside it.",
+  },
   // v2.1 (9.2): Reports → Revenue, the month in rupees. The Owner's alone.
   {
     id: "owner/revenue",

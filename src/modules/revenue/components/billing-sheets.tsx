@@ -24,10 +24,16 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError } from "@/core/ui/toast";
 
 import {
+  adjustAchieved,
+  backToCalculated,
+  markAllBilled,
+  markBilled,
+  markNotBilled,
   recordAdvance,
   returnAdvance,
   setCycleAmount,
   setDeliverablePrice,
+  setPlannedValue,
   setProjectAmount,
   setProjectCategory,
 } from "../actions/billing";
@@ -77,6 +83,52 @@ export type BillingSheetRequest =
       summary: string;
       receivedOn: string;
       today: string;
+    }
+  // v2.5 "Revenue every day":
+  | {
+      kind: "markBilled";
+      cycleId: string;
+      /** "November 2026", or the one-time project's "this project". */
+      what: string;
+      today: string;
+    }
+  | {
+      kind: "markNotBilled";
+      cycleId: string;
+      what: string;
+      /** "Billed on 3 Dec · Invoice 42". */
+      billed: string;
+    }
+  | {
+      kind: "adjust";
+      scope: "cycle" | "project";
+      refId: string;
+      /** "₹10,000": what approved work adds up to. */
+      calculated: string;
+    }
+  | {
+      kind: "clearAdjust";
+      scope: "cycle" | "project";
+      refId: string;
+      /** "₹9,000", the Owner's figure, and "₹10,000", the system's. */
+      adjusted: string;
+      calculated: string;
+    }
+  | {
+      kind: "plannedValue";
+      itemId: string;
+      title: string;
+      current: number | null;
+      /** Where the value comes from, in words. */
+      note: string;
+    }
+  | { kind: "share"; itemId: string; title: string; value: string }
+  | {
+      kind: "markAll";
+      cycleIds: string[];
+      /** "November 2026". */
+      month: string;
+      today: string;
     };
 
 /**
@@ -102,6 +154,15 @@ export function BillingSheet({
         {request.kind === "price" ? <PriceForm request={request} {...form} /> : null}
         {request.kind === "advance" ? <AdvanceForm request={request} {...form} /> : null}
         {request.kind === "return" ? <ReturnForm request={request} {...form} /> : null}
+        {request.kind === "markBilled" ? <MarkBilledForm request={request} {...form} /> : null}
+        {request.kind === "markNotBilled" ? (
+          <MarkNotBilledForm request={request} {...form} />
+        ) : null}
+        {request.kind === "adjust" ? <AdjustForm request={request} {...form} /> : null}
+        {request.kind === "clearAdjust" ? <ClearAdjustForm request={request} {...form} /> : null}
+        {request.kind === "plannedValue" ? <PlannedValueForm request={request} {...form} /> : null}
+        {request.kind === "share" ? <ShareForm request={request} {...form} /> : null}
+        {request.kind === "markAll" ? <MarkAllForm request={request} {...form} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -205,7 +266,8 @@ function SheetForm({
   pendingLabel: string;
   onSubmit: () => void;
   onClose: () => void;
-  children: ReactNode;
+  /** The fields; a sheet that only confirms has none. */
+  children?: ReactNode;
 }) {
   return (
     <form
@@ -486,14 +548,17 @@ function NoteField({
   onChange,
   error,
   placeholder,
+  required = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   error: string | undefined;
   placeholder: string;
+  /** A note the function insists on (an adjustment): the label says so. */
+  required?: boolean;
 }) {
   return (
-    <FormField label="Note (optional)" error={error}>
+    <FormField label={required ? "Note" : "Note (optional)"} error={error}>
       {(control) => (
         <Textarea
           {...control}
@@ -629,6 +694,301 @@ function ReturnForm({ request, onClose, onBusy }: FormProps<"return">) {
         error={commit.fields.note}
         placeholder="e.g. Project called off, refunded by bank transfer"
       />
+    </SheetForm>
+  );
+}
+
+// --- v2.5 "Revenue every day" ---------------------------------------------------------------------
+
+/** A note that must be there (1–500 characters): the database checks it again. */
+function noteProblem(note: string): string | undefined {
+  return note.trim() === "" ? "Add a note saying why." : undefined;
+}
+
+/** Billed on a day (today by default, never in the future), with an optional note. */
+function MarkBilledForm({ request, onClose, onBusy }: FormProps<"markBilled">) {
+  const [billedOn, setBilledOn] = useState(request.today);
+  const [note, setNote] = useState("");
+  const commit = useSheetCommit({
+    saved: "Marked billed",
+    onClose,
+    onBusy,
+    attempt: () => {
+      const day = dayProblem(billedOn, request.today);
+      if (day) return { fix: { billedOn: day } };
+      return { request: () => markBilled({ cycleId: request.cycleId, billedOn, note }) };
+    },
+  });
+  return (
+    <SheetForm
+      title="Mark billed"
+      description={`Record that ${request.what} was billed to the client.`}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Mark billed"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    >
+      <FormField label="Date billed" error={commit.fields.billedOn}>
+        {(control) => (
+          <DateInput
+            {...control}
+            name="billedOn"
+            max={request.today}
+            value={billedOn}
+            onChange={(event) => {
+              setBilledOn(event.target.value);
+              commit.clear("billedOn");
+            }}
+            required
+          />
+        )}
+      </FormField>
+      <NoteField
+        value={note}
+        onChange={(next) => {
+          setNote(next);
+          commit.clear("note");
+        }}
+        error={commit.fields.note}
+        placeholder="e.g. Invoice 42"
+      />
+    </SheetForm>
+  );
+}
+
+function MarkNotBilledForm({ request, onClose, onBusy }: FormProps<"markNotBilled">) {
+  const commit = useSheetCommit({
+    saved: "Marked not billed",
+    onClose,
+    onBusy,
+    attempt: () => ({ request: () => markNotBilled({ cycleId: request.cycleId }) }),
+  });
+  return (
+    <SheetForm
+      title="Mark not billed"
+      description={`${sentenceCase(request.what)} reads "${request.billed}" now. It goes back to Not billed; Billing history keeps the earlier mark.`}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Mark not billed"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    />
+  );
+}
+
+const sentenceCase = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** The Owner's own Achieved, in whole rupees, with the note saying why. */
+function AdjustForm({ request, onClose, onBusy }: FormProps<"adjust">) {
+  const [text, setText] = useState("");
+  const [note, setNote] = useState("");
+  const commit = useSheetCommit({
+    saved: "Achieved adjusted",
+    onClose,
+    onBusy,
+    attempt: () => {
+      const entry = parseWholeRupees(text);
+      const why = noteProblem(note);
+      if (!entry.ok || why) {
+        return { fix: { value: entry.ok ? undefined : entry.message, note: why } };
+      }
+      return {
+        request: () =>
+          adjustAchieved({
+            scope: request.scope,
+            refId: request.refId,
+            value: entry.value,
+            note,
+          }),
+      };
+    },
+  });
+  return (
+    <SheetForm
+      title="Adjust achieved"
+      description={`System calculated ${request.calculated} from approved work. Your figure is shown instead, with the calculated one beside it.`}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Save adjustment"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    >
+      <RupeeField
+        label="Achieved"
+        name="value"
+        value={text}
+        onChange={(next) => {
+          setText(next);
+          commit.clear("value");
+        }}
+        error={commit.fields.value}
+        hint="Whole rupees."
+      />
+      <NoteField
+        required
+        value={note}
+        onChange={(next) => {
+          setNote(next);
+          commit.clear("note");
+        }}
+        error={commit.fields.note}
+        placeholder="e.g. Agreed a discount for the late delivery"
+      />
+    </SheetForm>
+  );
+}
+
+function ClearAdjustForm({ request, onClose, onBusy }: FormProps<"clearAdjust">) {
+  const [note, setNote] = useState("");
+  const commit = useSheetCommit({
+    saved: "Back to calculated",
+    onClose,
+    onBusy,
+    attempt: () => {
+      const why = noteProblem(note);
+      if (why) return { fix: { note: why } };
+      return {
+        request: () => backToCalculated({ scope: request.scope, refId: request.refId, note }),
+      };
+    },
+  });
+  return (
+    <SheetForm
+      title="Back to calculated"
+      description={`Achieved goes back from your ${request.adjusted} to the calculated ${request.calculated}. Billing history keeps your adjustment.`}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Back to calculated"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    >
+      <NoteField
+        required
+        value={note}
+        onChange={(next) => {
+          setNote(next);
+          commit.clear("note");
+        }}
+        error={commit.fields.note}
+        placeholder="e.g. The client paid in full after all"
+      />
+    </SheetForm>
+  );
+}
+
+/** A planned deliverable's own value, off the top of the cycle's amount. */
+function PlannedValueForm({ request, onClose, onBusy }: FormProps<"plannedValue">) {
+  const [text, setText] = useState(asText(request.current));
+  const commit = useSheetCommit({
+    saved: "Value saved",
+    onClose,
+    onBusy,
+    attempt: () => {
+      const entry = parseWholeRupees(text);
+      if (!entry.ok) return { fix: { value: entry.message } };
+      return { request: () => setPlannedValue({ itemId: request.itemId, value: entry.value }) };
+    },
+  });
+  return (
+    <SheetForm
+      title={request.current === null ? "Set the value" : "Change the value"}
+      description={request.note}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Save value"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    >
+      <RupeeField
+        label={`Value of ${request.title}`}
+        name="value"
+        value={text}
+        onChange={(next) => {
+          setText(next);
+          commit.clear("value");
+        }}
+        error={commit.fields.value}
+        hint="Whole rupees."
+      />
+    </SheetForm>
+  );
+}
+
+/** Back to the even share: the deliverable's own value is cleared. */
+function ShareForm({ request, onClose, onBusy }: FormProps<"share">) {
+  const commit = useSheetCommit({
+    saved: "Back to its share",
+    onClose,
+    onBusy,
+    attempt: () => ({ request: () => setPlannedValue({ itemId: request.itemId, value: null }) }),
+  });
+  return (
+    <SheetForm
+      title="Back to share"
+      description={
+        <>
+          <span className="text-foreground font-medium break-words">{request.title}</span> has its
+          own value of {request.value}. It goes back to an even share of the amount, with the other
+          planned deliverables.
+        </>
+      }
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Back to share"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    />
+  );
+}
+
+/** The Revenue page's "Mark all N billed": the month's lines not billed yet, on one day. */
+function MarkAllForm({ request, onClose, onBusy }: FormProps<"markAll">) {
+  const [billedOn, setBilledOn] = useState(request.today);
+  const count = request.cycleIds.length;
+  const commit = useSheetCommit({
+    saved: count === 1 ? "1 marked billed" : `${count} marked billed`,
+    onClose,
+    onBusy,
+    attempt: () => {
+      const day = dayProblem(billedOn, request.today);
+      if (day) return { fix: { billedOn: day } };
+      return { request: () => markAllBilled({ cycleIds: request.cycleIds, billedOn }) };
+    },
+  });
+  const what = count === 1 ? "the 1 line" : `all ${count} lines`;
+  return (
+    <SheetForm
+      title={count === 1 ? "Mark 1 billed" : `Mark all ${count} billed`}
+      description={`${sentenceCase(what)} of ${request.month} not billed yet are marked billed on this day. Each one's Billing history keeps it.`}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel={count === 1 ? "Mark 1 billed" : `Mark ${count} billed`}
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    >
+      <FormField label="Date billed" error={commit.fields.billedOn}>
+        {(control) => (
+          <DateInput
+            {...control}
+            name="billedOn"
+            max={request.today}
+            value={billedOn}
+            onChange={(event) => {
+              setBilledOn(event.target.value);
+              commit.clear("billedOn");
+            }}
+            required
+          />
+        )}
+      </FormField>
     </SheetForm>
   );
 }

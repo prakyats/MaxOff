@@ -14,12 +14,15 @@ import {
   CATEGORY_FILTERS,
   type CategoryFilter,
   type ClientGroup,
+  lineBilling,
   lineFigure,
   lineHref,
   lineKey,
   lineNotes,
   lineStatus,
+  markAllLabel,
   monthSwitcher,
+  onHoldText,
   type RevenueException,
   revenueHref,
   type RevenueLine,
@@ -29,6 +32,7 @@ import {
 } from "../domain/revenue";
 
 import { BillingRetry } from "./billing-retry";
+import { BillingSheetButton } from "./billing-sheet-button";
 import {
   REVENUE_CARD,
   REVENUE_CLIENT_HEAD,
@@ -61,9 +65,12 @@ const ROW_FOCUS =
 export async function RevenueReport({
   read,
   category,
+  today,
 }: {
   read: Promise<RevenueMonth>;
   category: CategoryFilter;
+  /** Today in IST (`todayIST()`): "Mark all N billed" marks them on this day by default. */
+  today: string;
 }) {
   let month: RevenueMonth;
   try {
@@ -134,6 +141,29 @@ export async function RevenueReport({
 
       <div className={REVENUE_CARD} data-slot="revenue-summary">
         <Figures totals={view.totals} />
+        {/* v2.5: the month's lines not billed yet, marked billed together (a confirm sheet). */}
+        {view.unbilled.length > 0 ? (
+          <div className={REVENUE_LINE} data-slot="revenue-mark-all">
+            <div className={REVENUE_LINE_TEXT}>
+              <p className="text-muted-foreground text-xs">Billing</p>
+              <p className="break-words">
+                {view.unbilled.length === 1
+                  ? "1 line not billed yet"
+                  : `${view.unbilled.length} lines not billed yet`}
+              </p>
+            </div>
+            <BillingSheetButton
+              label={markAllLabel(view.unbilled.length)}
+              slot="revenue-mark-all-billed"
+              sheet={{
+                kind: "markAll",
+                cycleIds: view.unbilled,
+                month: switcher.label,
+                today,
+              }}
+            />
+          </div>
+        ) : null}
         {view.advances.received > 0 || view.advances.returned > 0 ? (
           <p className="px-4 py-3 break-words tabular-nums" data-slot="revenue-advances">
             Advances received{" "}
@@ -210,12 +240,22 @@ function Figures({ totals }: { totals: Totals }) {
     ["Achieved", totals.achieved, "revenue-achieved"],
     ["Remaining", totals.remaining, "revenue-remaining"],
   ] as const;
+  // v2.5 (R3): what of Remaining waits on held projects, inside Remaining: neither earned nor lost.
+  const onHold = onHoldText(totals.onHold);
   return (
     <dl className={REVENUE_FIGURES} data-slot="revenue-figures">
       {figures.map(([label, value, slot]) => (
         <div key={slot} className={REVENUE_FIGURE} data-slot={slot}>
           <dt className="text-muted-foreground text-xs">{label}</dt>
           <dd className="font-medium break-words tabular-nums">{formatRupees(value)}</dd>
+          {slot === "revenue-remaining" && onHold ? (
+            <dd
+              className="text-muted-foreground text-xs break-words tabular-nums"
+              data-slot="revenue-on-hold"
+            >
+              {onHold}
+            </dd>
+          ) : null}
         </div>
       ))}
     </dl>
@@ -260,6 +300,9 @@ function ClientCard({ client }: { client: ClientGroup }) {
         <p className="text-muted-foreground text-xs break-words tabular-nums">
           Potential {formatRupees(totals.potential)} · Achieved {formatRupees(totals.achieved)} ·
           Remaining {formatRupees(totals.remaining)}
+          {totals.onHold > 0 ? (
+            <span data-slot="revenue-client-on-hold"> ({onHoldText(totals.onHold)})</span>
+          ) : null}
         </p>
       </div>
       <ul className="divide-border divide-y">
@@ -290,6 +333,18 @@ function Line({ line }: { line: RevenueLine }) {
         </span>
         <span className="text-muted-foreground text-xs break-words" data-slot="revenue-line-status">
           {lineStatus(line)}
+        </span>
+        {/* v2.5: Billed / Not billed, and the Owner's adjustment, on every line. */}
+        <span className="text-xs break-words" data-slot="revenue-line-billing">
+          <span className={line.billed ? "text-muted-foreground" : undefined}>
+            {lineBilling(line)}
+          </span>
+          {line.adjusted ? (
+            <span className="text-muted-foreground" data-slot="revenue-line-adjusted">
+              {" "}
+              · Adjusted
+            </span>
+          ) : null}
         </span>
         {notes.length > 0 ? (
           <span className="text-xs break-words tabular-nums" data-slot="revenue-line-notes">

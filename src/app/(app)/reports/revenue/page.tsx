@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { requirePermission } from "@/core/permissions/server";
+import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { parseCategory, parseMonth, readRevenueMonth, RevenueReport } from "@/modules/revenue";
 
@@ -34,7 +35,7 @@ export default async function RevenuePage({
         description={REVENUE_DESCRIPTION}
         help={REVENUE_DESCRIPTION}
       />
-      <RevenueReport read={read} category={parseCategory(params.category)} />
+      <RevenueReport read={read} category={parseCategory(params.category)} today={todayIST()} />
     </>
   );
 }
