@@ -1446,3 +1446,50 @@ export async function createFromNewProject(dialog: Locator): Promise<void> {
   await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
   await dialog.getByRole("button", { name: "Create project" }).click();
 }
+
+/** The page's own hold on its keepalive calls (`holdKeepaliveInPage`). */
+type KeepaliveHold = { held: string[]; release: () => void };
+
+/**
+ * Holds the page's `keepalive` fetches to `path` inside the page, until `release()` (v7.0, the
+ * iPhone project). The app sends its background writes with `keepalive` (`postInBackground`: a
+ * read receipt must reach the server when the page is left), and WebKit sends those outside the
+ * page's network stack, where `page.route` never sees them (CI 45625411243, mobile-iphone). The
+ * hold sits in front of `fetch` instead, so it holds them in every engine. Installed for the next
+ * document load: call it before the `goto`.
+ */
+export async function holdKeepaliveInPage(
+  page: Page,
+  path: string,
+): Promise<{ held: () => Promise<string[]>; release: () => Promise<void> }> {
+  await page.addInitScript((heldPath) => {
+    const original = window.fetch.bind(window);
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const hold: KeepaliveHold = { held: [], release };
+    (window as unknown as { __keepaliveHold: KeepaliveHold }).__keepaliveHold = hold;
+    window.fetch = async (input, init) => {
+      const href =
+        typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const url = new URL(href, window.location.href);
+      if (init?.keepalive && url.pathname === heldPath) {
+        hold.held.push(url.pathname);
+        await released;
+      }
+      return original(input, init);
+    };
+  }, path);
+  return {
+    held: () =>
+      page.evaluate(() => {
+        const hold = (window as unknown as { __keepaliveHold?: KeepaliveHold }).__keepaliveHold;
+        return hold ? [...hold.held] : [];
+      }),
+    release: () =>
+      page.evaluate(() => {
+        (window as unknown as { __keepaliveHold?: KeepaliveHold }).__keepaliveHold?.release();
+      }),
+  };
+}

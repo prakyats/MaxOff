@@ -10,6 +10,7 @@ import {
   expectNoHorizontalScroll,
   expectSettled,
   holdNextRefresh,
+  holdKeepaliveInPage,
   hydrated,
   memberIdOf,
   removeTasksTitled,
@@ -264,6 +265,9 @@ test.describe("the bell and Alerts", () => {
     const total = await unreadOf(staff);
 
     await signIn(page, staff, PASSWORD);
+    // The receipt is a keepalive call: held in the page, which every engine routes (WebKit sends
+    // keepalive calls where `page.route` cannot see them).
+    const receipt = await holdKeepaliveInPage(page, "/api/notifications/read-record");
     await page.goto("/tasks");
     await hydrated(page);
     await expect.poll(() => bellCount(page)).toBe(total);
@@ -315,13 +319,7 @@ test.describe("the bell and Alerts", () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`));
     await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
     // The read is sent, held, and the bell has already dropped on the device.
-    await expect
-      .poll(() =>
-        held.some(
-          (request) => new URL(request.url()).pathname === "/api/notifications/read-record",
-        ),
-      )
-      .toBe(true);
+    await expect.poll(() => receipt.held()).toContain("/api/notifications/read-record");
     await expect.poll(() => bellCount(page)).toBe(total - about);
     // Views tapped at once, while the receipt is still out (V5a: Activity is the header's
     // History sheet now; Chat on a desktop, Details on a phone).
@@ -334,6 +332,7 @@ test.describe("the bell and Alerts", () => {
       );
     }
     release();
+    await receipt.release();
     await expect.poll(() => unreadOf(staff)).toBe(total - about);
     // Every answer (the read, the live bell's count) landed and painted.
     await expect.poll(() => inFlight.size).toBe(0);
@@ -449,6 +448,9 @@ test.describe("the bell and Alerts", () => {
 
     try {
       await signIn(page, staff, PASSWORD);
+      // The receipt is a keepalive call: held in the page (never released), which every engine
+      // routes (WebKit sends keepalive calls where `page.route` cannot see them).
+      const receipt = await holdKeepaliveInPage(page, "/api/notifications/read-record");
       await page.goto("/tasks");
       await hydrated(page);
       await expect(page.locator("html")).not.toHaveAttribute("data-live", "on");
@@ -464,13 +466,7 @@ test.describe("the bell and Alerts", () => {
       expect(held, "the count was held").toContain(count);
       expect(ended.has(count), "the count is still unanswered").toBe(false);
       // Opening the task sends its read receipt the same way: out, held, and the page is open.
-      await expect
-        .poll(() =>
-          held.some(
-            (request) => new URL(request.url()).pathname === "/api/notifications/read-record",
-          ),
-        )
-        .toBe(true);
+      await expect.poll(() => receipt.held()).toContain("/api/notifications/read-record");
       expect(
         held.filter((request) => request.headers()["next-action"]),
         "no server action was sent without a tap",

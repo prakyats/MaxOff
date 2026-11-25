@@ -104,6 +104,10 @@ test.describe("overlays close on back", () => {
     // without cancelling a navigation started from inside an overlay. `onPopState` skips it,
     // so one back press still leaves /today rather than being silently swallowed.
     await page.goto("/calendar");
+    // Hydrated first, as every other back here: on WebKit `load` comes before hydration, and
+    // the router's own history write during it would settle the back press before the real
+    // traversal starts (CI 45625411243, mobile-iphone).
+    await hydrated(page);
     await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
