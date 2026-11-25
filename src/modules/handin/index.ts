@@ -32,4 +32,4 @@ export {
   startHandinFile,
 } from "./actions/background";
 export type { HandinFile, HandinRead, HandinVersion, StartAnswer } from "./data/handin";
-export { countHandinFiles, readHandin } from "./data/handin";
+export { countHandinFiles, readHandin, runHandinDailyCheck } from "./data/handin";

@@ -9,7 +9,7 @@
 -- Neutral names and example.com addresses only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(117);
+select plan(120);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -451,7 +451,14 @@ select is(public.handin_drive_seen(pg_temp.file_of((select v from out where key 
   'a file in the Drive bin is Removed in Drive');
 select is(public.handin_drive_seen(pg_temp.file_of((select v from out where key = 'a1')), 'present'), 'done',
   'and comes back when restored');
+select pg_temp.as_service();
+select ok((select count(*) from public.handin_drive_check_daily(now() + interval '1 hour')) >= 1,
+  'the daily pass claims handed-in files not checked in the last 10 minutes');
+select is((select count(*) from public.handin_drive_check_daily(now() + interval '1 hour')), 0::bigint,
+  'and not again in the same run window');
 select pg_temp.as_member('owner');
+select is(pg_temp.raised('select * from public.handin_drive_check_daily(now())'),
+  'permission denied for function handin_drive_check_daily', 'no member runs the daily pass');
 select is(pg_temp.raised(format('select public.handin_drive_seen(%L, ''trashed'')', pg_temp.file_of((select v from out where key = 'a1')))),
   'permission denied for function handin_drive_seen', 'no member can mark a file removed');
 select pg_temp.as_system();

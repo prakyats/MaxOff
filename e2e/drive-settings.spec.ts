@@ -158,12 +158,16 @@ test.describe("the Owner", () => {
     expect((await page.request.post("/api/cron/drive-space-check")).status()).toBe(401);
     const run = await page.request.post("/api/cron/drive-space-check", { headers: CRON });
     expect(run.status()).toBe(200);
-    expect(await run.json()).toEqual({
+    const body = (await run.json()) as Record<string, unknown>;
+    expect(body).toEqual({
       job: "drive_space_check",
       checked: 0,
       alerts: 0,
       needsReconnect: 0,
       failed: [],
+      // v5.0: the daily "Removed in Drive" pass runs after it. With no Drive connected it reads
+      // nothing (files other specs handed in are skipped, so their count is not pinned here).
+      handin: { checked: 0, skipped: expect.any(Number) },
     });
   });
 });

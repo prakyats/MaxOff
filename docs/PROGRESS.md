@@ -269,7 +269,7 @@
   - **Left:**
     1. Swap to v4.5's engine and session code (above).
     2. ~~The global upload pill~~: not in v5.0 (advisor, 25 Nov). The engine is a module-level store per task, so uploads keep going across client navigation and the card re-attaches; e2e proves it against a fake Google. The pill is a v7.5 idea (Ideas).
-    3. "Removed in Drive": the check on a reviewer's card is built (`/api/handin/check`). The daily pass in `drive_space_check` is still to add, after v4.5's version of that job lands, so the two are not built twice.
+    3. ~~"Removed in Drive"~~: built. The check on a reviewer's card (`/api/handin/check`), and the daily pass after `drive_space_check` (`handin_drive_check_daily`, `runHandinDailyCheck`; pgTAP 150 now has 120 assertions; the cron's answer gains `handin`).
     4. `pnpm guide:screenshots` for the new topics.
     5. The full CI run, the review, and the speed probe on `/tasks/[id]` and `/approvals` for each role.
   - **Gate:** v4.5's E0 step 2 (the cross-origin resume) covers v5.0 too.

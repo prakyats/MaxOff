@@ -782,6 +782,27 @@ begin
 end;
 $$;
 
+-- The daily pass (WORKFLOWS §5C, in the drive_space_check run): handed-in files received, or
+-- seen missing, in the last 30 days and not checked in the last 10 minutes, at most p_limit,
+-- claimed in one statement (drive_checked_at = now) so two runs never read Drive twice.
+create or replace function public.handin_drive_check_daily(p_now timestamptz, p_limit integer default 500)
+returns table (file_id uuid, org_id uuid, drive_file_id text)
+language sql
+security definer
+set search_path = ''
+as $$
+  update public.handin_files h
+  set drive_checked_at = p_now
+  where h.id in (
+    select c.id from public.handin_files c
+    where c.state in ('done', 'missing_in_drive') and c.submission_id is not null
+      and (c.done_at >= p_now - interval '30 days' or c.missing_seen_at >= p_now - interval '30 days')
+      and (c.drive_checked_at is null or c.drive_checked_at < p_now - interval '10 minutes')
+    order by c.drive_checked_at nulls first, c.done_at
+    limit greatest(least(coalesce(p_limit, 500), 2000), 1))
+  returning h.id, h.org_id, h.drive_file_id;
+$$;
+
 do $$
 declare
   f text;
@@ -793,7 +814,8 @@ begin
     'public.handin_session_get(uuid)',
     'public.handin_file_done(uuid, text, bigint, text, text, text)',
     'public.handin_drive_check_claim(uuid[])',
-    'public.handin_drive_seen(uuid, text)'] loop
+    'public.handin_drive_seen(uuid, text)',
+    'public.handin_drive_check_daily(timestamptz, integer)'] loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

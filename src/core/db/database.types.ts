@@ -5623,6 +5623,14 @@ export type Database = {
           file_id: string;
         }[];
       };
+      handin_drive_check_daily: {
+        Args: { p_limit?: number; p_now: string };
+        Returns: {
+          drive_file_id: string;
+          file_id: string;
+          org_id: string;
+        }[];
+      };
       handin_drive_seen: {
         Args: { p_file_id: string; p_seen: string };
         Returns: string;

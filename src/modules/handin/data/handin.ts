@@ -483,3 +483,44 @@ export async function checkHandinFiles(taskId: string): Promise<number> {
   }
   return checked;
 }
+
+export type HandinDailyReport = { checked: number; skipped: number };
+
+/**
+ * The daily "Removed in Drive" pass (WORKFLOWS §5C), run after `drive_space_check`: handed-in
+ * files of the last 30 days, each at most every 10 minutes, claimed by the database so two runs
+ * never read Drive twice. Metadata only; only 404 or the bin marks a file removed, and a file
+ * restored from the bin comes back. Anything else (a reconnect needed, an outage) records nothing.
+ */
+export async function runHandinDailyCheck(now: Date): Promise<HandinDailyReport> {
+  const service = createServiceSupabase();
+  const { data: due, error } = await service.rpc("handin_drive_check_daily", {
+    p_now: now.toISOString(),
+  });
+  if (error) throw error;
+  const report: HandinDailyReport = { checked: 0, skipped: 0 };
+  for (const file of due ?? []) {
+    if (!file.drive_file_id) continue;
+    let facts;
+    try {
+      facts = await driveFileFacts({
+        service,
+        orgId: file.org_id,
+        driveFileId: file.drive_file_id,
+        fetchImpl: fetch,
+        now,
+      });
+    } catch {
+      report.skipped += 1;
+      continue;
+    }
+    const seen = facts === null ? "not_found" : facts.trashed ? "trashed" : "present";
+    const { error: seenError } = await service.rpc("handin_drive_seen", {
+      p_file_id: file.file_id,
+      p_seen: seen,
+    });
+    if (seenError) throw seenError;
+    report.checked += 1;
+  }
+  return report;
+}
