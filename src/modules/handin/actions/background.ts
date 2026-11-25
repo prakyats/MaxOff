@@ -37,8 +37,14 @@ const failSchema = z.object({
 
 const finishSchema = z.object({
   fileId: z.uuid(),
-  /** The page's own MD5 of the bytes it sent, when the engine made one (else size only). */
-  md5Page: z
+  /** Google's id for the finished file, as the engine got it from the session's last answer. */
+  driveFileId: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/^[\w-]+$/),
+  /** The engine's own MD5 of the bytes Google confirmed (`localMd5`), or null (size only). */
+  localMd5: z
     .string()
     .regex(/^[0-9a-f]{32}$/)
     .nullable(),
@@ -75,9 +81,7 @@ export async function failHandinFile(input: unknown): Promise<null> {
 }
 
 /** `POST /api/handin/finish`: Google said the file is complete; the Worker checks it itself. */
-export async function finishHandinFile(
-  input: unknown,
-): Promise<{ state: "done" | "failed" | "uploading" }> {
+export async function finishHandinFile(input: unknown): Promise<{ state: "done" | "failed" }> {
   const data = finishSchema.parse(input);
   await assertPermission("tasks.work");
   return { state: await repo.finishFile(data) };

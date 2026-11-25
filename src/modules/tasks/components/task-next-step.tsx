@@ -59,6 +59,7 @@ export function TaskNextStep({
   names,
   approverName,
   primaryName,
+  doneExtra,
 }: {
   taskId: string;
   dueAt: string;
@@ -70,6 +71,8 @@ export function TaskNextStep({
   names: Record<string, string>;
   approverName: string | null;
   primaryName: string;
+  /** v5.0: what the Mark done sheet shows above the note (the hand-in's files), from the page. */
+  doneExtra?: ReactNode;
 }) {
   const { dialog, setDialog } = useTaskView();
   const keyboard = isKeyboardOpen(useKeyboard());
@@ -174,6 +177,7 @@ export function TaskNextStep({
           onBehalfOf={done.onBehalfOf}
           forName={forName(done)}
           completes={done.completes}
+          extra={doneExtra}
         />
       ) : null}
 

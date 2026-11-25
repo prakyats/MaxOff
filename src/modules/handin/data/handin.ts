@@ -6,8 +6,9 @@ import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { UploadPolicyError } from "@/core/drive/resumable";
 import {
+  driveFileFacts,
+  finishedFileProblem,
   openUploadSession,
-  storedSessionStatus,
   type SubfolderStore,
   unsealSession,
 } from "@/core/drive/upload-session";
@@ -292,10 +293,14 @@ export async function startFile(input: {
       top: versionFolderName(file.version),
       relativePath: file.relative_path,
       subfolders: versionFolders(input.taskId, file.version, file.account_sub),
-      file: { name: file.name, size: Number(file.size_bytes), mimeType: input.mimeType ?? "" },
+      file: {
+        name: file.name,
+        size: Number(file.size_bytes),
+        mimeType: input.mimeType ?? "",
+        description: `Handed in on MaxOff: ${origin}/tasks/${input.taskId} (v${file.version})`,
+      },
       // Q4 (autopilot 25 Nov): any type, any size.
       policy: {},
-      description: `Handed in on MaxOff: ${origin}/tasks/${input.taskId} (v${file.version})`,
       origin,
       fetchImpl: fetch,
       now: systemClock(),
@@ -342,15 +347,17 @@ export async function markFailed(
 }
 
 /**
- * The browser says Google finished a file. Only the file's adder may say so (their own
- * `handin_progress` refuses anyone else: FORBIDDEN / NOT_FOUND). The Worker then asks the stored
- * session itself and records Google's answer (its file id, size and MD5), never the browser's
- * claim (v4.5 F1); the parent is the one the session was opened with.
+ * The browser says Google finished a file (the engine's `done` report: Google's id for it and the
+ * engine's own MD5 of the bytes Google confirmed). Only the file's adder may say so (their own
+ * `handin_progress` refuses anyone else: FORBIDDEN / NOT_FOUND). The Worker then asks Google
+ * itself and records Google's answer, checked against the size and folder the session was opened
+ * with (v4.5 F1); a checksum that differs fails the file as damaged.
  */
 export async function finishFile(input: {
   fileId: string;
-  md5Page: string | null;
-}): Promise<"done" | "failed" | "uploading"> {
+  driveFileId: string;
+  localMd5: string | null;
+}): Promise<"done" | "failed"> {
   const supabase = await createServerSupabase();
   const { error: ownError } = await supabase.rpc("handin_progress", {
     p_file_id: input.fileId,
@@ -366,24 +373,34 @@ export async function finishFile(input: {
   const file = rows?.[0];
   if (!file) throw new AppError("NOT_FOUND");
   if (file.state === "done") return "done";
-  if (!file.session_uri_encrypted || !file.drive_parent_id) return "failed";
-  const status = await storedSessionStatus({
-    sealedSession: file.session_uri_encrypted,
-    size: Number(file.size_bytes),
+  const { data: task, error: taskError } = await service
+    .from("tasks")
+    .select("org_id")
+    .eq("id", file.task_id)
+    .single();
+  if (taskError) throw taskError;
+  const facts = await driveFileFacts({
+    service,
+    orgId: task.org_id,
+    driveFileId: input.driveFileId,
     fetchImpl: fetch,
+    now: systemClock(),
   });
-  if (status.state === "incomplete") return "uploading";
-  if (status.state === "gone") {
-    await markFailed(input.fileId, "gave_up");
+  const parentId = file.drive_parent_id ?? "";
+  const problem = finishedFileProblem(facts, { sizeBytes: Number(file.size_bytes), parentId });
+  if (problem === "missing" || !facts) {
+    // Google holds no such file in reach: the browser's claim is wrong; the file can be retried.
+    await markFailed(input.fileId, "unreadable");
     return "failed";
   }
+  // The database repeats the checks (size, folder, MD5) and records the failure reason itself.
   const { data: outcome, error: doneError } = await service.rpc("handin_file_done", {
     p_file_id: input.fileId,
-    p_drive_file_id: status.file.id,
-    p_size: status.file.size,
-    p_md5_drive: status.file.md5Checksum ?? "",
-    p_parent_id: file.drive_parent_id,
-    ...(input.md5Page ? { p_md5_page: input.md5Page } : {}),
+    p_drive_file_id: facts.id,
+    p_size: facts.sizeBytes,
+    p_md5_drive: facts.md5 ?? "",
+    p_parent_id: facts.parents.includes(parentId) ? parentId : (facts.parents[0] ?? ""),
+    ...(input.localMd5 ? { p_md5_page: input.localMd5 } : {}),
   });
   if (doneError) throw doneError;
   return outcome === "done" ? "done" : "failed";

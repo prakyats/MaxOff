@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { ResultError } from "@/core/errors/result";
 import { systemClock } from "@/core/time";
@@ -37,6 +37,7 @@ export function DoneDialog({
   onBehalfOf,
   forName,
   completes = false,
+  extra,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,6 +47,8 @@ export function DoneDialog({
   forName: string | null;
   /** The Owner's own task (6b.2): Done completes it, with no check or approval. */
   completes?: boolean;
+  /** v5.0: shown above the note while the sheet is open (the hand-in's files, WORKFLOWS §5C). */
+  extra?: ReactNode;
 }) {
   const [note, setNote] = useState("");
   const [lateReason, setLateReason] = useState("");
@@ -129,6 +132,7 @@ export function DoneDialog({
                 : "It goes for review. The task is locked until then; comments stay open."}
             </DialogDescription>
           </DialogHeader>
+          {open ? extra : null}
           {summary ? (
             <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}

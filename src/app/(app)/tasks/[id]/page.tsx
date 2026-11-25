@@ -64,10 +64,13 @@ import { TaskNextStep } from "@/modules/tasks/components/task-next-step";
 import { TaskRemind } from "@/modules/tasks/components/task-remind";
 import { TaskStages } from "@/modules/tasks/components/task-stages";
 import { TaskTabs, TaskViewPanel, TaskViewProvider } from "@/modules/tasks/components/task-view";
+import { HandinCardSkeleton } from "@/modules/handin/components/handin-card-skeleton";
+import { HandinDoneLine } from "@/modules/handin/components/handin-done-line";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { loadTaskFormSetup } from "../task-form-setup";
 
+import { HandinFiles } from "./handin-files";
 import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
 /**
@@ -226,10 +229,31 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       names={names}
       approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
       primaryName={name(task.primaryOwnerId)}
+      doneExtra={<HandinDoneLine taskId={task.id} />}
     />
   );
 
-  const work = workPanel({ data, task, actions, pair });
+  // v5.0 (WORKFLOWS §5C): the hand-in files, streamed beside the rest of the Work view.
+  const files = (
+    // Its skeleton only when a version was handed in (the card then always shows); otherwise the
+    // card may stay empty, so it streams in below the stages with no placeholder to jump.
+    <Suspense key="files" fallback={data.submissions.length > 0 ? <HandinCardSkeleton /> : null}>
+      <HandinFiles
+        taskId={task.id}
+        names={names}
+        viewerId={viewer.id}
+        viewerMarksDone={actions.done !== null || task.primaryOwnerId === viewer.id}
+        onBehalfOf={actions.done?.onBehalfOf ?? null}
+        primaryName={name(task.primaryOwnerId)}
+        changeReason={
+          changeRequest?.reason
+            ? { by: name(changeRequest.reviewerId), reason: changeRequest.reason }
+            : null
+        }
+      />
+    </Suspense>
+  );
+  const work = workPanel({ data, task, actions, pair, files });
   const chat = await chatData({ data, viewerId: viewer.id, names, faces, active });
   const activity = activityPanel({ data, names, viewerId: viewer.id });
   const details = detailsPanel({
@@ -466,11 +490,13 @@ function workPanel({
   task,
   actions,
   pair,
+  files,
 }: {
   data: TaskReads;
   task: LoadedTask;
   actions: ReturnType<typeof taskActions>;
   pair: Pair;
+  files: ReactNode;
 }): ReactNode {
   const latest = data.submissions[0] ?? null;
   const locked = isLocked(task.state);
@@ -588,13 +614,17 @@ function workPanel({
     </Section>
   ) : null;
 
-  const parts = handInFirst(task.state) ? [handIn, brief, stages] : [brief, stages, handIn];
-  if (parts.every((part) => part === null)) {
-    return (
-      <p className="text-muted-foreground text-sm" data-slot="task-work-empty">
+  // v5.0: the files sit with the hand-in once there is one, below the stages while it is open.
+  const parts = handInFirst(task.state)
+    ? [handIn, files, brief, stages]
+    : [brief, stages, files, handIn];
+  if ([handIn, brief, stages].every((part) => part === null)) {
+    return [
+      <p key="empty" className="text-muted-foreground text-sm" data-slot="task-work-empty">
         No brief or stages on this task.
-      </p>
-    );
+      </p>,
+      files,
+    ];
   }
   return parts;
 }

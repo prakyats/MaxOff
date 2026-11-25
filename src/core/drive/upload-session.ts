@@ -5,14 +5,8 @@ import type { ServiceSupabase } from "@/core/db/service";
 import { ensureTaskFolder } from "./ensure";
 import { readDriveEnv } from "./env";
 import { ROOT_FOLDER, type TaskFolderInput } from "./folders";
-import { createFolder, type Fetch, renameFolder } from "./google";
-import {
-  fileStillThere,
-  openResumableSession,
-  type SessionStatus,
-  sessionStatus,
-  type UploadPolicy,
-} from "./resumable";
+import { createFolder, DriveApiError, DriveAuthError, type Fetch, renameFolder } from "./google";
+import { openResumableSession, type UploadPolicy } from "./resumable";
 import { type AccountRow, folderStore, withDrive } from "./server";
 import { decryptToken, encryptToken } from "./token-crypto";
 
@@ -23,8 +17,9 @@ import { decryptToken, encryptToken } from "./token-crypto";
  * may upload what; this makes the folders, opens the session on the connected account and seals
  * its address for storage. The browser is given the address only, never a token.
  *
- * Advisor, 25 Nov: kept here until the v4.5 integrator says whether his side covers it; nothing
- * more is added to the shared plumbing from v5.0.
+ * TEMPORARY (advisor, 25 Nov): the v4.5 integrator takes this file into `phase-v45` with the same
+ * exported names (#89 7162679961); v5.0 drops this copy, and its `fileFacts` /
+ * `finishedFileProblem` (which move to `./resumable`), when that push lands.
  */
 
 const ACCOUNT_COLUMNS =
@@ -102,9 +97,8 @@ export async function openUploadSession(input: {
   top: string;
   relativePath: string;
   subfolders: SubfolderStore;
-  file: { name: string; size: number; mimeType: string };
+  file: { name: string; size: number; mimeType: string; description?: string };
   policy: UploadPolicy;
-  description: string;
   origin: string;
   fetchImpl: Fetch;
   now: Date;
@@ -144,7 +138,7 @@ export async function openUploadSession(input: {
           name: input.file.name,
           size: input.file.size,
           mimeType: input.file.mimeType,
-          description: input.description,
+          ...(input.file.description ? { description: input.file.description } : {}),
         },
         policy: input.policy,
         origin: input.origin,
@@ -163,32 +157,71 @@ export async function unsealSession(sealed: string): Promise<string> {
   return decryptToken(sealed, env.tokenKey);
 }
 
-/**
- * Where a stored session stands, asked by the Worker itself (v4.5 F1): a file the browser says
- * is done is recorded from Google's own answer, never from the browser's claim.
- */
-export async function storedSessionStatus(input: {
-  sealedSession: string;
-  size: number;
-  fetchImpl: Fetch;
-}): Promise<SessionStatus> {
-  const sessionUrl = await unsealSession(input.sealedSession);
-  return sessionStatus(input.fetchImpl, { sessionUrl, size: input.size });
+/** What Google holds for a file MaxOff's session made (`drive.file` sees it). */
+export type FileFacts = {
+  id: string;
+  sizeBytes: number;
+  md5: string | null;
+  parents: string[];
+  trashed: boolean;
+};
+
+async function fileFacts(fetchImpl: Fetch, accessToken: string, fileId: string) {
+  const response = await fetchImpl(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,size,md5Checksum,parents,trashed`,
+    { headers: { authorization: `Bearer ${accessToken}` } },
+  );
+  if (response.status === 404) return null;
+  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
+  const answer = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    size?: string;
+    md5Checksum?: string;
+    parents?: string[];
+    trashed?: boolean;
+  };
+  if (!response.ok || !answer.id) {
+    throw new DriveApiError(`Drive call failed (${response.status})`, response.status);
+  }
+  return {
+    id: answer.id,
+    sizeBytes: Number(answer.size ?? 0),
+    md5: answer.md5Checksum ? answer.md5Checksum.toLowerCase() : null,
+    parents: answer.parents ?? [],
+    trashed: answer.trashed === true,
+  } satisfies FileFacts;
 }
 
-/** "Removed in Drive": Drive's metadata for a file MaxOff made (404 or in the bin = removed). */
-export async function driveFileThere(input: {
+/** The check before a finished file is recorded (v4.5 F1): Google's answer against what was set. */
+export function finishedFileProblem(
+  facts: FileFacts | null,
+  expected: { sizeBytes: number; parentId: string; md5?: string | null },
+): "missing" | "size_mismatch" | "wrong_folder" | "checksum_mismatch" | null {
+  if (!facts || facts.trashed) return "missing";
+  if (facts.sizeBytes !== expected.sizeBytes) return "size_mismatch";
+  if (!facts.parents.includes(expected.parentId)) return "wrong_folder";
+  if (expected.md5 && facts.md5 && expected.md5.toLowerCase() !== facts.md5) {
+    return "checksum_mismatch";
+  }
+  return null;
+}
+
+/** What Google holds for a file (`null` = 404), asked by the Worker itself (v4.5 F1). */
+export async function driveFileFacts(input: {
   service: ServiceSupabase;
   orgId: string;
   driveFileId: string;
   fetchImpl: Fetch;
   now: Date;
-}): Promise<"there" | "removed"> {
+}): Promise<FileFacts | null> {
   const row = await connectedAccount(input.service, input.orgId);
-  const answer = await withDrive(
+  // Wrapped, so Google's 404 (null facts) is told apart from no usable connection (null).
+  const read = await withDrive(
     { service: input.service, row, fetchImpl: input.fetchImpl, now: input.now },
-    (connection) => fileStillThere(input.fetchImpl, connection.accessToken, input.driveFileId),
+    async (connection) => ({
+      facts: await fileFacts(input.fetchImpl, connection.accessToken, input.driveFileId),
+    }),
   );
-  if (!answer) throw new DriveUnavailableError();
-  return answer;
+  if (!read) throw new DriveUnavailableError();
+  return read.facts;
 }
