@@ -1,4 +1,4 @@
-<title>Clear Late sample</title>
+<title>Stay until and Clear Late</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <style>
@@ -48,7 +48,7 @@ ul.rules{margin:0;padding-left:18px;max-width:84ch;display:flex;flex-direction:c
 </style>
 <div class="wrap">
   <header style="display:flex;flex-direction:column;gap:8px">
-    <h1>Clear Late: sample for the owner (v7.0)</h1>
+    <h1>Stay until ahead, and Clear Late: samples for the owner (v7.0)</h1>
     <p class="lede">What you chose on 14 Nov (Q2): when someone is Late only because their signal was down, their day shows "Tried at 9:58, no network (phone time)", and Approvals gives you a one-tap <b>Clear Late</b>. Nothing is cleared by itself.</p>
     <ul class="rules">
       <li><b>The server's time stays the record.</b> The phone's time is only a note beside it, because a phone clock can be changed.</li>
@@ -58,6 +58,63 @@ ul.rules{margin:0;padding-left:18px;max-width:84ch;display:flex;flex-direction:c
     </ul>
   </header>
 
+
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:20px">Part 1 · Stay until, ahead of time</h2>
+    <p class="lede">Your request of 12 Nov, built on your four answers (25 Nov): one date at a time; not on a leave day; it can be set before they start, and they are told at once; the person's page lists the days ahead with Change and "Back to 6:00 pm". Today's way (Today → Attendance → ⋯ → Stay until) is unchanged.</p>
+  </header>
+  <div class="screens">
+    <div class="shot">
+      <h2>4 · You, a person's page</h2>
+      <div class="mx">
+        <div class="bar"><b>Asha Rao</b><span class="muted small">⋯</span></div>
+        <div class="body">
+          <div class="card">
+            <div class="row"><b>Stay until, coming up</b></div>
+            <div class="row"><span>Fri 28 Nov · until 8:00 pm</span><span class="muted small">Change</span></div>
+            <button class="btn full">Back to 6:00 pm</button>
+          </div>
+          <button class="btn primary full">Stay until…</button>
+        </div>
+      </div>
+      <p class="cap">Only you see this. A day already started is changed from Today's attendance, as now.</p>
+    </div>
+    <div class="shot">
+      <h2>5 · You, "Stay until…"</h2>
+      <div class="mx">
+        <div class="sheet">
+          <div class="handle"></div>
+          <b style="font-size:17px">Asha stays until…</b>
+          <span class="muted small">Day</span>
+          <div class="field">Fri 28 Nov</div>
+          <span class="muted small">Until</span>
+          <div class="field">8:00 pm</div>
+          <span class="muted small">Asha is told now. Their end time that day moves to 8:00 pm.</span>
+          <button class="btn primary full">Set Stay until</button>
+          <button class="btn full">Cancel</button>
+        </div>
+      </div>
+      <p class="cap">A day with approved leave is refused ("Asha is on leave that day"). A leave approved later wins, and the row reads "Not used: on leave".</p>
+    </div>
+    <div class="shot">
+      <h2>6 · Asha, that morning</h2>
+      <div class="mx">
+        <div class="bar"><b>My Day</b><span class="muted small">Fri 28 Nov</span></div>
+        <div class="body">
+          <div class="card">
+            <div class="row"><span>Not started</span><span class="muted small">Starts 10:00 am</span></div>
+            <span class="small">Stay until 8:00 pm today (set by Prishit)</span>
+            <button class="btn primary full">Start day · 9:52 am</button>
+          </div>
+        </div>
+      </div>
+      <p class="cap">The alert came when you set it: "Please stay until 8:00 pm on Fri 28 Nov". Once started, it is the day's end time, as today's Stay until.</p>
+    </div>
+  </div>
+
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h2 style="font-size:20px">Part 2 · Clear Late</h2>
+  </header>
   <div class="screens">
     <div class="shot">
       <h2>1 · Crew, 9:58, no signal</h2>

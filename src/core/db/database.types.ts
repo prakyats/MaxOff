@@ -151,10 +151,14 @@ export type Database = {
           final_status: Database["public"]["Enums"]["day_status"] | null;
           id: string;
           is_day_off: boolean;
+          late_clear_reason: string | null;
+          late_cleared_at: string | null;
+          late_cleared_by: string | null;
           late_minutes: number | null;
           late_reason: string | null;
           leave_request_id: string | null;
           member_id: string;
+          offline_tried_at: string | null;
           overtime_flag: boolean;
           overtime_reason: string | null;
           proposed_by_system: boolean;
@@ -178,10 +182,14 @@ export type Database = {
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           id?: string;
           is_day_off?: boolean;
+          late_clear_reason?: string | null;
+          late_cleared_at?: string | null;
+          late_cleared_by?: string | null;
           late_minutes?: number | null;
           late_reason?: string | null;
           leave_request_id?: string | null;
           member_id: string;
+          offline_tried_at?: string | null;
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
@@ -205,10 +213,14 @@ export type Database = {
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           id?: string;
           is_day_off?: boolean;
+          late_clear_reason?: string | null;
+          late_cleared_at?: string | null;
+          late_cleared_by?: string | null;
           late_minutes?: number | null;
           late_reason?: string | null;
           leave_request_id?: string | null;
           member_id?: string;
+          offline_tried_at?: string | null;
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
@@ -233,6 +245,20 @@ export type Database = {
           {
             foreignKeyName: "attendance_days_decided_by_fkey";
             columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_late_cleared_by_fkey";
+            columns: ["late_cleared_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_late_cleared_by_fkey";
+            columns: ["late_cleared_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -325,6 +351,102 @@ export type Database = {
             columns: ["attendance_day_id"];
             isOneToOne: false;
             referencedRelation: "attendance_days";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      attendance_stay_plans: {
+        Row: {
+          applied_day_id: string | null;
+          cleared_at: string | null;
+          cleared_by: string | null;
+          id: string;
+          member_id: string;
+          org_id: string;
+          set_at: string;
+          set_by: string;
+          until: string;
+          work_date: string;
+        };
+        Insert: {
+          applied_day_id?: string | null;
+          cleared_at?: string | null;
+          cleared_by?: string | null;
+          id?: string;
+          member_id: string;
+          org_id: string;
+          set_at?: string;
+          set_by: string;
+          until: string;
+          work_date: string;
+        };
+        Update: {
+          applied_day_id?: string | null;
+          cleared_at?: string | null;
+          cleared_by?: string | null;
+          id?: string;
+          member_id?: string;
+          org_id?: string;
+          set_at?: string;
+          set_by?: string;
+          until?: string;
+          work_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attendance_stay_plans_applied_day_id_fkey";
+            columns: ["applied_day_id"];
+            isOneToOne: false;
+            referencedRelation: "attendance_days";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_cleared_by_fkey";
+            columns: ["cleared_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_cleared_by_fkey";
+            columns: ["cleared_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_stay_plans_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
             referencedColumns: ["id"];
           },
         ];
@@ -4696,6 +4818,10 @@ export type Database = {
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
       };
+      attendance_clear_late: {
+        Args: { day_id: string; undo?: boolean };
+        Returns: undefined;
+      };
       attendance_decide: {
         Args: {
           day_id: string;
@@ -4764,6 +4890,10 @@ export type Database = {
         }[];
       };
       attendance_late_reason: { Args: { reason: string }; Returns: string };
+      attendance_note_offline_try: {
+        Args: { tried_at: string };
+        Returns: undefined;
+      };
       attendance_own_hours: {
         Args: never;
         Returns: {
@@ -4815,6 +4945,14 @@ export type Database = {
         }[];
       };
       attendance_start_day: { Args: never; Returns: string };
+      attendance_stay_plan_clear: {
+        Args: { plan_id: string };
+        Returns: undefined;
+      };
+      attendance_stay_plan_set: {
+        Args: { member_id: string; until: string; work_date: string };
+        Returns: string;
+      };
       attendance_stay_until: {
         Args: { member_id: string; until: string };
         Returns: string;
