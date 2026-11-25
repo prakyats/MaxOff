@@ -1237,6 +1237,7 @@ declare
   v_matches boolean;
   v_pair uuid;
   v_other uuid;
+  v_old public.leave_requests;
 begin
   select r.caller_id, r.org_id into v_caller, v_org from app.attendance_require_decider() r;
 
@@ -1319,7 +1320,8 @@ begin
     v_split := comp_half is not null and v_to = 'leave';
 
     if v_req.id is not null and v_req.state = 'submitted' then
-      if v_req.type::text = v_to::text then
+      -- v2.0.1: a split day is never the gate's request approved as it stands.
+      if v_req.type::text = v_to::text and not v_split then
         perform set_config('app.audit_override', jsonb_build_object(
           'action', 'approved', 'meta', jsonb_build_object('via', 'attendance', 'reason', v_reason))::text, true);
         update public.leave_requests
@@ -1345,6 +1347,23 @@ begin
                  and (v_to <> 'half_day'
                       or ((half is null or v_req.half is not distinct from half)
                           and (comp_half is null) = (v_req.credit_days is null)));
+    if v_split or (v_to = 'half_day' and not v_matches) then
+      -- v2.0.1: the Owner's halves replace the day's own: an approved request linked to this day
+      -- and covering only this date is superseded and its comp credit goes back, so correcting a
+      -- day twice never books the date or the credit twice. Leave over several days stays.
+      for v_old in
+        select r.* from public.leave_requests r
+        where r.id in (v_day.leave_request_id, v_day.second_leave_request_id)
+          and r.state = 'approved' and r.start_date = v_day.work_date and r.end_date = v_day.work_date
+        for update
+      loop
+        perform set_config('app.audit_override', jsonb_build_object(
+          'action', 'superseded', 'meta', jsonb_build_object('by_owner', true, 'via', 'correction',
+                                                             'reason', v_reason))::text, true);
+        update public.leave_requests set state = 'superseded' where id = v_old.id;
+        perform app.comp_credit_settle(v_old.id, 'released');
+      end loop;
+    end if;
     if v_split then
       -- v2.0.1: a split day, ½ comp + ½ leave: two approved half days, born together (pair_id),
       -- the comp half drawing ½ credit valid on that date and using it at once.
@@ -1645,3 +1664,53 @@ comment on function public.month_summary(date, uuid) is
   'included, + absent; comp leave never counts), days_off_worked, pending_days, overtime notes and '
   'grants, the month''s unrevoked comp credits granted / used / expired. Decided = approved | '
   'corrected. Live: no snapshot. No money. Notifies nobody.';
+
+-- 17. The Approvals badge counts a waiting split day once ----------------------------------------
+-- The body of 20261102144808_session_bundle_early_leaves with one change: pending_leave counts a
+-- pair (leave_submit_split's two halves) as one request, as Approvals lists it.
+create or replace function public.session_bundle()
+returns table (
+  not_noted integer,
+  changes_requested integer,
+  badge integer,
+  to_decide integer,
+  unread integer,
+  pending_days integer,
+  pending_requests integer,
+  pending_notes integer,
+  pending_claims integer,
+  pending_early_leaves integer
+)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select tc.not_noted,
+         tc.changes_requested,
+         tc.badge,
+         tc.to_decide,
+         (select count(*) from public.notifications n where n.read_at is null)::integer,
+         case when (select app.has_permission('attendance.decide')) then
+           (select count(*) from public.attendance_days d where d.state = 'pending_review')::integer
+         end,
+         case when (select app.has_permission('attendance.decide')) then
+           -- v2.0.1: a waiting split day (two halves sharing a pair_id) is one request.
+           (select count(distinct coalesce(r.pair_id, r.id)) from public.leave_requests r
+            where r.state = 'submitted' and r.source <> 'attendance')::integer
+         end,
+         case when (select app.has_permission('attendance.decide')) then
+           (select count(*) from public.extra_work_notes x where x.state = 'submitted')::integer
+         end,
+         case when (select app.has_permission('attendance.decide'))
+                and (select app.has_permission('expenses.decide')) then
+           (select count(*) from public.expense_claims c where c.state = 'submitted')::integer
+         end,
+         case when (select app.has_permission('attendance.decide')) then
+           (select count(*) from public.early_leave_requests e
+            where e.state in ('waiting', 'left_unanswered'))::integer
+         else 0
+         end
+  from (values (1)) as one (x)
+  left join lateral public.task_counts() tc on true;
+$$;

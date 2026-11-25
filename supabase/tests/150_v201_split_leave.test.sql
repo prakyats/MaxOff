@@ -7,7 +7,7 @@
 -- half; holiday release; who may do each. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(94);
+select plan(100);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -181,6 +181,12 @@ select is((select count(*)::integer from public.leave_requests r where r.pair_id
   'the member reads both halves');
 
 -- 4. Deciding: a waiting pair together; halves on their own ----------------------------------------
+select pg_temp.as_member('owner');
+select is((select b.pending_requests - (select count(*)::integer from public.leave_requests r
+                                     where r.state = 'submitted' and r.source <> 'attendance' and r.pair_id is null)
+           from public.session_bundle() b),
+  (select count(distinct r.pair_id)::integer from public.leave_requests r where r.state = 'submitted' and r.pair_id is not null),
+  'the Approvals badge counts a waiting pair once');
 select pg_temp.as_member('admin');
 select is(pg_temp.err(format($$ select * from public.leave_decide(%L, 'approve') $$, (pg_temp.req('sa', 9, 'morning')).id)),
   'FORBIDDEN: Only the Owner decides attendance and leave.', 'an Admin can''t decide it');
@@ -330,6 +336,16 @@ select is((select row(d.final_status, d.second_leave_request_id, r.half, r.credi
            from public.attendance_days d join public.leave_requests r on r.id = d.leave_request_id
            where d.id = pg_temp.fx('dayd')),
   '(half_day,,morning,0.5)', 'the day links the new ½ comp morning only');
+select is((select string_agg(r.half || ':' || r.state, ',' order by r.half) from public.leave_requests r
+           where r.member_id = pg_temp.fx('sd') and r.pair_id is not null),
+  'afternoon:superseded,morning:superseded', 'the split''s halves are replaced, not kept beside it');
+select is(pg_temp.credit('sd'), 'reserved 0.0 used 0.5', 'so the credit is used once, not twice');
+select is(public.attendance_decide(pg_temp.fx('dayd'), 'correct', 'leave', 'Split again 150', null, 'morning')::text,
+  'corrected', 'a second split correction');
+select is((select count(*)::integer from public.leave_requests r
+           where r.member_id = pg_temp.fx('sd') and r.state = 'approved' and r.start_date = app.today_ist()),
+  2, 'leaves exactly two approved halves on the date');
+select is(pg_temp.credit('sd'), 'reserved 0.0 used 0.5', 'and ½ credit used');
 
 -- 9. Asking to change or cancel keeps the half -----------------------------------------------------------
 select pg_temp.as_member('sa');

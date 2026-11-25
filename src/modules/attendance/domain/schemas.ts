@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { ATTENDANCE_REASON_MAX_LENGTH, OVERTIME_REASON_MIN_LENGTH } from "./limits";
 
-import { DAY_STATUSES, PROMPT_LEAVE_CHOICES } from "./choices";
-import { EARLY_REASON_MAX_LENGTH, HALVES, LATE_REASON_MAX_LENGTH } from "./hours";
+import { CORRECT_CHOICES, DAY_STATUSES, type DayStatus, PROMPT_LEAVE_CHOICES } from "./choices";
+import { EARLY_REASON_MAX_LENGTH, type Half, HALVES, LATE_REASON_MAX_LENGTH } from "./hours";
 import { DURATION_OPTIONS, EXTRA_WORK_KINDS, NOTE_DECISIONS } from "./notes";
 
 const isoDate = z.iso.date({ error: "The date is missing. Reload the page." });
@@ -184,16 +184,74 @@ export const approveDaysSchema = z.object({
 });
 export type ApproveDaysInput = z.input<typeof approveDaysSchema>;
 
-/** A correction always asks for a reason, which the member reads (owner decision 2026-09-24). */
-export const correctDaySchema = z.object({
-  dayId: z.uuid(),
-  status: z.enum(DAY_STATUSES, { error: "Choose what the day should be." }),
-  reason: z
-    .string()
-    .trim()
-    .min(OVERTIME_REASON_MIN_LENGTH, "Please write a few more words.")
-    .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`),
-});
+/**
+ * A correction always asks for a reason, which the member reads (owner decision 2026-09-24).
+ * v2.0.1 (WORKFLOWS §2 "Settled in v2.0.1"): **Half day** names the half that is off (`half`,
+ * required) and may be a ½ comp day (`comp`: that same half is comp leave); **"Full day: ½ comp +
+ * ½ leave"** (`split`) names the comp half (`half`, required). The output is
+ * `attendance_decide`'s own arguments: a split day is status `leave` with `compHalf`, a ½ comp day
+ * `half_day` with `half` = `compHalf`; every other status sends neither.
+ */
+export const correctDaySchema = z
+  .object({
+    dayId: z.uuid(),
+    status: z.enum(CORRECT_CHOICES, { error: "Choose what the day should be." }),
+    half: z.enum(HALVES, { error: "Choose Morning or Afternoon." }).nullable().default(null),
+    comp: z.boolean().default(false),
+    reason: z
+      .string()
+      .trim()
+      .min(OVERTIME_REASON_MIN_LENGTH, "Please write a few more words.")
+      .max(
+        ATTENDANCE_REASON_MAX_LENGTH,
+        `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`,
+      ),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "half_day" && value.half === null) {
+      ctx.addIssue({ code: "custom", path: ["half"], message: "Choose which half was off." });
+    }
+    if (value.status === "split" && value.half === null) {
+      ctx.addIssue({ code: "custom", path: ["half"], message: "Choose which half is comp leave." });
+    }
+  })
+  .transform(
+    (
+      value,
+    ): {
+      dayId: string;
+      status: DayStatus;
+      half: Half | null;
+      compHalf: Half | null;
+      reason: string;
+    } => {
+      if (value.status === "split") {
+        return {
+          dayId: value.dayId,
+          status: "leave",
+          half: null,
+          compHalf: value.half,
+          reason: value.reason,
+        };
+      }
+      if (value.status === "half_day") {
+        return {
+          dayId: value.dayId,
+          status: "half_day",
+          half: value.half,
+          compHalf: value.comp ? value.half : null,
+          reason: value.reason,
+        };
+      }
+      return {
+        dayId: value.dayId,
+        status: value.status,
+        half: null,
+        compHalf: null,
+        reason: value.reason,
+      };
+    },
+  );
 export type CorrectDayInput = z.input<typeof correctDaySchema>;
 
 export { ATTENDANCE_REASON_MAX_LENGTH, OVERTIME_REASON_MIN_LENGTH };

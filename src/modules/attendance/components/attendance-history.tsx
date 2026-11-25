@@ -92,6 +92,10 @@ export function AttendanceHistory({
       workDate: day.workDate,
       current: day.finalStatus ?? day.submittedChoice,
       leaveType: leaveStatusOf(day),
+      // v2.0.1: a half day starts from its half and its ½ comp, so saving it as it is changes nothing.
+      ...(day.finalStatus === "half_day" && day.leave
+        ? { currentHalf: day.leave.half, currentComp: day.leave.comp }
+        : {}),
       compDays: owner.compDays ?? null,
     });
   };

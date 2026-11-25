@@ -1160,7 +1160,12 @@ public.attendance_end_day(overtime_note default null, overtime_minutes default n
   `attendance_decide(…, half default null, comp_half default null)`: a correction to Half day names the
   half off, and with comp_half the same half it is a ½ comp day; Leave with comp_half is a split day
   (½ comp + ½ leave: two approved half days sharing a pair_id, the day linking both). Comp draws and
-  uses the member's credits valid on that date, as the full comp day does.
+  uses the member's credits valid on that date, as the full comp day does. A half-day or split correction **replaces** the
+  day's own halves: an approved request linked to the day and covering only that date is superseded
+  (its credit released) first, so a day corrected twice never books the date or the credit twice; a
+  waiting gate request is rejected, never approved as a split. Leave over several days stays.
+- **The Approvals badge** (`session_bundle().pending_requests`) counts a waiting pair as one request,
+  as Approvals lists it.
 - **month_summary** counts a decided `leave` day linking one comp half and one ordinary half as ½ comp
   and ½ additional leave, and as one of the half days; days_worked is unchanged.
 

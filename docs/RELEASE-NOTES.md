@@ -4,6 +4,42 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v2.0.1: flexible comp leave
+
+**Not released yet.** Branch `claude/lucid-turing-sfdv10` (from `main` 6e89d173); READY FOR OWNER on #89 when CI
+and the speed gate are green. One expand-only migration, `split_leave_days`.
+
+The owner's words (23 and 25 Nov 2026): "make the requirements as flexible as possible so people can make use of
+their comp leave, half day or full day; if it's a half-day comp leave, the other half can be their normal leave."
+
+### What the Crew (and Admins) will notice
+- **Two halves of one day can be different kinds.** Morning and afternoon can each be off on their own: ½ comp
+  leave in the morning and ½ leave in the afternoon, two comp halves, or two ordinary halves. A half that is already
+  taken is named: "You already have the morning off on 25 Nov. Request the afternoon instead."
+- **"Full day: ½ comp + ½ leave" in one go.** With half a day of comp leave, Request leave offers it: pick the date
+  and which half is comp; the other half is ordinary leave. It shows as one card, "Full day · ½ comp + ½ leave".
+- **Each half says which half it is:** "Half day · morning off", "Half day · comp · afternoon off".
+- **Once approved, each half can be cancelled on its own** ("Ask to cancel the afternoon"); a cancelled comp half
+  gives its ½ day back.
+
+### What the Owner will notice
+- **Approvals shows a split day as one row** ("Full day · ½ comp (morning) + ½ leave"): one Approve or Reject
+  decides both halves, and the badge counts it once.
+- **Edit** on a half day asks which half is off and can use ½ comp leave; **Correct** can set a half day (which
+  half), a ½ comp day, or a full day of ½ comp + ½ leave.
+- **The month counts it fairly:** a day of ½ comp + ½ leave is ½ comp leave and ½ additional leave; nothing worked.
+- A holiday added on such a day gives the comp half back and keeps the ordinary half.
+
+### Fixed
+- **A change request lost the half of a half day.** Asking to change (or cancel) a half day kept no record of which
+  half was off, so the Late and leaving-early rules stopped applying correctly. The half is now kept.
+- **The Owner's Edit turned a ½ comp day into ordinary leave.** Editing a half comp day dropped its half and released
+  its comp credit; the edited day became ordinary leave. Edit now keeps the half and the ½ comp unless the Owner
+  changes them.
+
+### Nothing happens on its own
+No job, no backfill: existing requests and days are untouched. A day already recorded keeps its status.
+
 ## v2.0: fast and settled
 
 **Released Sat 14 Nov 2026, about 12:40 IST** (tag `v2.0` on `main` 6e9f19cc, PR #143; the Owner approved the production deploy, run 43569568961: 14 migrations applied, smoke checks passed). The tag is `v2.0`, not `v2.0.0`.
