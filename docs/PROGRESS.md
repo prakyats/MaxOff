@@ -29,6 +29,21 @@
 
   **Not in v3.0:** the 6-period trends table (decision 14), noted in ROADMAP.
 
+  **PAUSED (25 Nov 2026, about 14:10 UTC; the owner, relayed: "pause all builders at a safe checkpoint").** Head `e4eae34`, everything pushed. Its gates so far:
+  - Full CI #2 (45624218411) green on the first attempt.
+  - Owner probes 1–3: `/reports` passes by the two-run rule (only run 2 was slow), and the three new routes pass every run.
+  - One one-off on "a client" (run 3), which needs Owner run 4.
+  - The Admin probe (45630468291) was queued when the pause came. Read it if it finished; otherwise re-run it alone.
+
+  **To resume:**
+  1. Ask the advisor for the perf-probe slot. Dispatch **one probe at a time**: a second dispatch replaces the pending one.
+     - Owner run 4: `preview.yml`, job `perf-probe`, role owner, baseline `https://main-preview-maxoff-staging.pixoraclips.workers.dev`.
+     - Then the Admin alone.
+     - Tell the advisor "slot free" afterwards.
+  2. In the 11:15 am – 5:30 pm IST window, re-shoot `owner/reports` (below), check the picture, commit and push.
+  3. Merge `origin/main` if v2.1 / v2.5 have landed (then the Client work revenue slot).
+  4. Open the PR to `main` and post READY FOR OWNER on #89, with CI, the probe table and `docs/handoff/v3.0-owner-walk-script.md`.
+
   **Open:**
   - **Re-shoot the guide's `owner/reports` picture** (the Reports list now has five rows) in the daytime window, 11:15 am – 5:30 pm IST: `GUIDE_ONLY=owner/reports pnpm guide:screenshots`. Its setup asks to leave early, which is refused after the day's end time.
 - **ADVISOR MOVED TO THE CLOUD (17 Nov 2026).** Read `docs/handoff/ADVISOR-HANDOFF.md` first: role, state, the release plan, the briefs to send on "proceed v2.1", and the laptop memory notes in `docs/handoff/advisor-memory/`.
