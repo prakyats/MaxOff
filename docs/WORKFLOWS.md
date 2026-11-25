@@ -563,7 +563,7 @@ Carry-ins are valued from their **origin** cycle.
 - **v2.1's screens** are the Billing section (amount, category, additions, advances), the Revenue page and the complete prompt. The override, Billed / Not billed and a planned deliverable's own value exist as functions and get their screens in v2.5.
 
 ## 7. Month close and snapshots (Owner only)
-Kickoff 9 decisions 10 and 16–19 (owner 2026-10-09, confirmed "still valid" by the refresh of 14 Nov 2026, `docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`), the refresh's R2 and Q2 (owner 2026-11-14), and the v3.5 answers on issue #89 (reply to 7164699016), each marked **(v3.5 Q‹n›, advisor autopilot 2026-11-25, owner to confirm)**. Release v3.5 "Month close" (`docs/handoff/release-plan.md`). **Not built yet:** this section is the contract units U1–U7 build from (ROADMAP, phase 9).
+Kickoff 9 decisions 10 and 16–19 (owner 2026-10-09, confirmed "still valid" by the refresh of 14 Nov 2026, `docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`), the refresh's R2 and Q2 (owner 2026-11-14), and the v3.5 answers on issue #89 (reply to 7164699016), each marked **(v3.5 Q‹n›, advisor autopilot 2026-11-25, owner to confirm)**. Release v3.5 "Month close" (`docs/handoff/release-plan.md`). **Built on `phase-v35` (U1–U6; U7 is the guide, the release review and the speed gate), not released yet:** this section is the contract the units built from; each subsection's "As built" lines record what was built.
 
 ```
 month M (IST) open ──Owner close──► closed (snapshot v1, immutable)

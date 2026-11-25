@@ -2176,6 +2176,10 @@ month_snapshots      id, org_id, month date (1st of the IST month), version int 
                      -- (org_id, month, corrects_id) -> it (a correction corrects a version of the same org
                      -- and month); unique (corrects_id) (a version is corrected once): the versions of a
                      -- month form one line v1 <- v2 <- v3, whoever writes.
+                     -- As built (U6, migration v35_month_reminder): app.month_close_reminder reads the
+                     -- month column only (never data) for the Reports line and the weekly digest. pgTAP
+                     -- 168 (U7) pins the catalog: only month_close, month_correct, month_close_read and
+                     -- app.month_close_reminder name the table, no view, rule, trigger or other policy.
                      -- eod_reports (above) keeps its own reports.all policy and holds no money.
 feature_flags        key pk, enabled, description
 ```

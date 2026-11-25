@@ -4,6 +4,56 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v3.5: month close
+
+**Not released yet.** Release candidate: `phase-v35` (built on `phase-v21-money`, so it ships after v2.1). The
+head named in #89's READY FOR OWNER post; the guide's pictures, full CI and the speed gate are still owed.
+
+The second part of Revenue (phase 9, 9.4): the Owner can **close a month**, which saves its revenue report as it
+is, and **correct** it later as a new version. **Only the Owner sees any of it.** Admins and the Crew are never
+told that a month is closed, and their work is never locked by a close.
+
+### What the Owner will notice
+- **Revenue → an ended month → "Close month"** beside the month's name opens the new **Month close** screen
+  (`/reports/close/2026-10`). The current month has no link: it hasn't ended.
+- **What is still waiting.** The close screen lists, as counts with no amount, what is still open for the month:
+  attendance, leave, leaving early never answered, extra work, expense claims, open work, carry decisions, no
+  amount set and ready to complete. Each row opens the place it is settled. Until the 5th it also says
+  "Expense claims for October can still be added until 5 Nov."
+- **Nothing blocks the close.** The button says "Close October with 4 things still waiting"; a sheet asks once,
+  then the month reads **"Closed 26 Nov · v1"**, on the close screen and beside its name on Revenue.
+- **A closed month on Revenue shows the saved figures**, not today's. When today's figures differ, a line says
+  **"Changed since close · See Month close"**; the close screen lists what moved, before → after, and who changed
+  a deliverable ("Reopened by Ravi").
+- **Billing at close and now.** Each line of a closed month shows "Billed" or "Not billed" as it was at the close,
+  and "Not billed at close · Billed now" when it changed since.
+- **Work goes on.** Amounts, prices and advances of a closed month stay editable; their sheets say "October is
+  closed. Its report changes only when you correct it."
+- **Correct October** rebuilds the month from today's data as version 2, with your note (10 to 500 characters,
+  "Corrected: …"); version 1 is kept. With nothing different it says "Nothing changed." and saves nothing.
+- **The reminder.** From the 6th of the next month, Reports shows "October isn't closed yet" (the oldest month not
+  closed, "and 1 more month" when there are several), opening its close screen; the weekly summary email has the
+  same line last under "Now". No push, and closing or correcting notifies nobody.
+- **Months can be closed from the first month with an amount.** A month before it says "Nothing to close."
+- **The guide** has two new topics, "Close a month" and "Correct a closed month", and a note in "Read the Revenue
+  page".
+
+### What Admins will notice
+- Nothing. They can still reopen or send back a deliverable of a closed month exactly as before, and nothing on
+  any screen, message or email says a month is closed.
+
+### What the Crew will notice
+- Nothing.
+
+### Not in this release
+The Month, People and Client-work reports reading a closed month's saved figures (later releases); the people
+report and client-work progress inside the saved month (after v3.0 "Reports"); the raw rows for the AI export
+(with exports).
+
+### Also fixed
+- The Revenue page's Admin test waits for the page to settle before it looks for the period control (a test
+  timing fix; nothing changes in the app).
+
 ## v2.1: money in
 
 **Not released yet.** Release candidate: `phase-v21-money` (the head named in #89's READY FOR OWNER post).
