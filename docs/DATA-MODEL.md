@@ -2148,12 +2148,80 @@ eod_reports          id, org_id, report_date, data jsonb (check: an object), gen
                      -- own reopens, each with the reason; approved holds only approvals made apart
                      -- before amendment D3 (a report saved before has no reopened: zero). Read in
                      -- the app through modules/reports (zod-checked).
-month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
-                     corrects_id null, correction_note, unique(org_id, month, version)
-                     -- month_snapshots contain revenue; both are Owner-only tables
-                     -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
+month_snapshots      id, org_id, month date (1st of the IST month), version int (1, 2, ...), data jsonb,
+                     closed_by → members, closed_at, corrects_id null → month_snapshots, correction_note null,
+                     unique(org_id, month, version)
+                     -- v3.5 "Month close" (WORKFLOWS §7; kickoff 9 decisions 10, 16-19; NOT BUILT YET: U1
+                     -- builds the table, RLS and pgTAP). Owned by modules/revenue (ADR-0007 amendment
+                     -- 2026-11-25): the snapshot holds revenue, so it is a money table.
+                     -- One row per version, never changed: version 1 is the close, version N+1 a
+                     -- correction (corrects_id = the version it replaces, correction_note 10-500
+                     -- characters; both null on version 1, both set after it: a check). The latest
+                     -- version is the month's report; every earlier one is kept.
+                     -- RLS: ONE policy, select for has_permission('finance.view') in the caller's org
+                     -- (the Owner). Was 'reports.all' in this document until v3.5 (v3.5 Q5, advisor
+                     -- autopilot 2026-11-25, owner to confirm): the snapshot is money, so it reads
+                     -- like every table of §7. No insert, update or delete grant to anyone: rows are
+                     -- written only by month_close() / month_correct() (months.close), and UPDATE and
+                     -- DELETE are REVOKED from authenticated (append-only, ARCHITECTURE §6), not just
+                     -- left without a policy. Never in the Realtime publication (pgTAP 46 names it),
+                     -- never in search, notifications or an Admin or Crew payload. Audited by the two
+                     -- functions under the entity name month_snapshots, with no amount in meta.
+                     -- eod_reports (above) keeps its own reports.all policy and holds no money.
 feature_flags        key pk, enabled, description
 ```
+
+### 9a. The month snapshot's `data` (v3.5; WORKFLOWS §7; not built yet)
+Decision 17 (owner 2026-10-09): "The snapshot holds everything the Owner's month reports show, with stable ids: revenue lines and totals (retainer items with value, method, approval, override; one-time projects; advances received and returned; billing status at close), client work progress, the people report, `month_summary()` per person, expense totals per person (approved and paid). Owner-only; no ADR change for the expense totals."
+
+**Versioned (v3.5 Q2, advisor autopilot 2026-11-25, owner to confirm):** `data.schema` is `1`. A reader checks it (zod in `modules/revenue`); a later shape is `schema: 2` and old rows keep reading as 1. Rows are never rewritten to a new shape.
+
+```
+data = {
+  schema: 1,
+  month: 'YYYY-MM-01', built_at: timestamptz,
+  revenue: {                                       -- U2 (first stage)
+    cycles:   [{ id (cycle), client_id, client, project_id, project, category, amount, potential,
+                 achieved_calculated, achieved (headline), override {id, adjusted_value, note} | null,
+                 closed_not_achieved, added_total, not_priced, billing_status, billed_on,
+                 items: [{ id (item), title, kind (plan | added), value,
+                           method (explicit | split | added | not_priced | no_amount),
+                           in_potential, achieved, closed_not_achieved, approved_at, approved_by }] }],
+    projects: [{ id (project), client_id, client, project, category, amount, potential, achieved,
+                 override | null, was_due, ready_to_complete, held, billing_status, billed_on }],
+    advances: [{ id (advance), project_id, kind (received | returned), amount, on }],
+    totals:   { potential, achieved, remaining, closed_not_achieved, advances_received,
+                advances_returned, by_client: [{client_id, ...}], by_category: [{category, ...}] }
+  },
+  expenses: [{ member_id, full_name, approved, paid }],   -- U2; totals per person for the month
+  month_summary: [ one object per member: the columns of month_summary(month), §7b ],   -- U2
+  -- Added later, same schema number while only keys are added (below):
+  -- people:      the people report of v3.0 "Reports"
+  -- client_work: client work progress of v3.0 "Reports"
+}
+```
+- **Stable ids:** every line carries the id of the row it came from (cycle, item, one-time project, advance, override, member), and names are copied beside them as they read at close. "Changed since close" and a correction compare by these ids (WORKFLOWS §7.1), so a renamed client is not a change and a reopened deliverable is.
+- **Revenue comes from §7's own views** (`revenue_by_cycle_v` / `app.revenue_cycles`, `item_values_v` / `app.item_values`, `revenue_project_lines_v`, `revenue_advances_v`) for the month, so the snapshot and the live Revenue page share one definition. The field names above follow those views; U2 fixes the exact list against them and updates this block in the same commit.
+- **Billing status at close** is `billing_status` and `billed_on` on each cycle and one-time line. The live status is read beside it, and both show only when they differ (v3.5 Q13, advisor autopilot 2026-11-25, owner to confirm).
+- **Staging (v3.5 Q2, advisor autopilot 2026-11-25, owner to confirm):** U1–U2 build `revenue`, `expenses` and `month_summary`. `people` and `client_work` belong to v3.0 "Reports", which is not on this branch; they are added **after v3.0 is merged to `main` and `main` is merged into this branch**. A month closed before then gets them through a correction.
+- **No raw rows (v3.5 Q3, advisor autopilot 2026-11-25, owner to confirm):** the v3.5 snapshot holds report figures and revenue lines only. The raw rows the AI export needs (attendance, tasks, items) are not in it: exports are deferred (ROADMAP 9.5) and the rows come later via a correction.
+- **Expense totals** are read in SQL by the snapshot builder (`app.month_snapshot_build`, internal), per person, approved and paid, for claims with an expense date in the month. `modules/revenue` still imports nothing from `modules/expenses` (ADR-0007 amendment 2026-09-27); the totals reach the app only inside the Owner-only snapshot.
+
+**Functions (WORKFLOWS §7.4 has the checks and paths):**
+```
+month_close(month date) returns int               months.close; version 1; refused for the current or a later
+                                                  month, a month before the first priced month, a closed month
+month_correct(month date, note text) returns int  months.close; note 10-500; a full rebuild as version N+1,
+                                                  corrects_id = the latest; "Nothing changed" when equal
+month_close_read(month date) returns jsonb        finance.view (security invoker): can it be closed, the waiting
+                                                  list's counts, the latest snapshot, the versions' headers,
+                                                  "Changed since close" (revenue lines and totals only)
+app.month_snapshot_build(org_id, month) returns jsonb   internal (service_role only): the document above
+app.first_priced_month(org_id) returns date             internal: the earliest month with a cycle amount or a
+                                                  priced one-time line in the org (v3.5 Q1, advisor autopilot
+                                                  2026-11-25, owner to confirm); null when nothing is priced
+```
+**pgTAP for v3.5 is numbered from 160** (150 is v2.0.1's and 151 is v6.5's `151_v65_next_booking`).
 
 ## 10. Key indexes
 - Every FK column.

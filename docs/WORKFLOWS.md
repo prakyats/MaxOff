@@ -562,13 +562,80 @@ Carry-ins are valued from their **origin** cycle.
 - **The complete prompt, as built (v2.1, 25 Nov 2026; kickoff 9 R1):** on the **project page only**, Mark done on a one-time project's last open deliverable (the row, its ⋯, the deliverable's sheet) asks whoever holds `items.tick` and `projects.complete` "Complete the project too?": **Mark done and complete project** calls `item_mark_done_and_complete` (one transaction, at once, no Undo, as Complete from ⋯; a refusal is said in the sheet and nothing is marked), **Mark done only** is the usual delayed send with its 6-second Undo. The rule is `isLastOpenOfOneTime` (`modules/client-work/domain/projects.ts`): working, not on hold, the deliverable open, no other one open or waiting (one still inside its Undo window counts as open). From **Today** or a bulk **Mark N done** the deliverable is only marked done; so nothing is missed, the mark's answer names a project it left with every deliverable done (for `projects.complete` only) and the screen says "All deliverables done" with **Complete project** (the project's own confirmation on its page; from Today it opens the project), the project reads "Ready to complete" on its page and in the client's project list, and on the Owner's Revenue page under "Needs a look". No amount in any of it.
 - **v2.1's screens** are the Billing section (amount, category, additions, advances), the Revenue page and the complete prompt. The override, Billed / Not billed and a planned deliverable's own value exist as functions and get their screens in v2.5.
 
-## 7. Month close and snapshots
+## 7. Month close and snapshots (Owner only)
+Kickoff 9 decisions 10 and 16–19 (owner 2026-10-09, confirmed "still valid" by the refresh of 14 Nov 2026, `docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`), the refresh's R2 and Q2 (owner 2026-11-14), and the v3.5 answers on issue #89 (reply to 7164699016), each marked **(v3.5 Q‹n›, advisor autopilot 2026-11-25, owner to confirm)**. Release v3.5 "Month close" (`docs/handoff/release-plan.md`). **Not built yet:** this section is the contract units U1–U7 build from (ROADMAP, phase 9).
+
 ```
 month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
                                      └──Owner correct(note)──► snapshot v2 (links v1; v1 kept)
 ```
-- A snapshot is a JSON document holding every figure in the monthly report plus the raw rows the AI export needs (attendance, tasks, items, revenue lines, metrics).
-- Closing doesn't lock operational data. It freezes the **report**. Reports for closed months read the latest snapshot version.
+
+### 7.1 The rules
+- **Which months (decision 16; Q2).** "Close any ended month, any order, never the current one; nothing blocks". "Months can be closed from the **first priced month**" (Q2, owner 2026-11-14). **The first priced month is the earliest month with a cycle amount or a priced one-time line, across the whole organisation** (v3.5 Q1, advisor autopilot 2026-11-25, owner to confirm). A month before it cannot be closed and is never asked for. The current month is the IST month of `app.today_ist()`.
+- **No reopen (decision 16).** A closed month is never opened again. A mistake is fixed by a correction (below).
+- **Closing freezes the report, not the work (decision 10; R2).** "After close, amounts, values, advances and overrides stay editable with "September is closed. Its report changes only when you correct it."" Reopening or sending back work from a closed month "is **allowed**. The snapshot never changes; the Owner's report shows "Changed since close"" (R2, owner 2026-11-14). No money function and no client-work function checks whether a month is closed (§6 "as built": no state check on the money functions), and **an Admin or a Crew member never learns that a month is closed**: nothing they can read, no refusal, no notification (PERMISSIONS).
+- **The snapshot (decision 17).** "The snapshot holds everything the Owner's month reports show, with stable ids: revenue lines and totals (retainer items with value, method, approval, override; one-time projects; advances received and returned; billing status at close), client work progress, the people report, `month_summary()` per person, expense totals per person (approved and paid). Owner-only; no ADR change for the expense totals." It is one JSON document per version (DATA-MODEL §9 has the shape), **versioned with `schema: 1`** (v3.5 Q2, advisor autopilot 2026-11-25, owner to confirm).
+  - **Built in two stages (v3.5 Q2, same marking).** U1–U2 build the **revenue lines and totals, the expense totals per person and `month_summary()` per person**. The **people report and the client-work progress** sections come from v3.0 "Reports", which is not on this branch: they are added to the snapshot **after v3.0 is merged to `main` and `main` is merged into this branch**. Until then a snapshot does not hold them, and a month closed before then gets them only through a correction.
+  - **No raw rows for the AI export** (v3.5 Q3, advisor autopilot 2026-11-25, owner to confirm). Exports are deferred past the launch (ROADMAP 9.5), so the v3.5 snapshot holds **report figures and revenue lines only**. The raw rows (attendance, tasks, items) come later, through a correction of the months already closed. This replaces this section's earlier line "plus the raw rows the AI export needs".
+- **After close (decision 18).** ""Closed 3 Oct · v1"; **"Changed since close"** with what moved; **Correct** = a full rebuild from live data with the differences shown and a required note, v1 kept; never a hand edit."
+  - **"Changed since close" compares revenue lines and totals only**, by stable id: rebuild the month live, then compare with the latest snapshot version. People, attendance and expense figures are not compared (v3.5 Q6, advisor autopilot 2026-11-25, owner to confirm). A difference names the line and what moved (the refresh's example: "−₹X: "Reel 3 reopened by Ravi""). It is the Owner's alone, so it may show amounts.
+  - **The correction note is 10 to 500 characters. A correction with no differences is refused with "Nothing changed"** (v3.5 Q10, advisor autopilot 2026-11-25, owner to confirm).
+  - **Billing status** (decision 10: "billing status shows live beside the snapshot"): the snapshot keeps the status at close; the screen shows **"at close" and "now" together only when they differ**, otherwise one status (v3.5 Q13, advisor autopilot 2026-11-25, owner to confirm).
+- **What reads a snapshot.** **In v3.5 only the Revenue screen reads the snapshot for a closed month.** The Month, People and Client-work screens keep reading live in v3.5 and move to the snapshot later (v3.5 Q12, advisor autopilot 2026-11-25, owner to confirm). The Revenue page of an open month reads live as today (`revenue_month_read`, §6).
+- **Where Close is reached.** From the **Revenue page's month header** and from the **Reports reminder line** (v3.5 Q11, advisor autopilot 2026-11-25, owner to confirm).
+
+### 7.2 The waiting list (the close screen)
+Decision 16: "the close screen lists what is waiting (attendance, leave, extra work, expense claims, items not approved, carry decisions, no amount, "Ready to complete"); until the 5th "Expense claims for September can still be added until 5 Oct."; "Close September with 4 things still waiting"." **Nothing on the list blocks the close.**
+
+**v3.5 Q7 (advisor autopilot 2026-11-25, owner to confirm):** the list holds **only what is genuinely still open for the month, and no amounts**. Decision 16's **"items not approved" is dropped**: since amendment D3 (owner 2026-10-09) marking a deliverable done approves it, so that state no longer exists. Each kind is a count that opens the screen where it is settled. The kinds the existing data supports:
+
+| Kind | What counts, for month M | Read from |
+|---|---|---|
+| Attendance | days of M still waiting for the Owner (`pending_review`) | `attendance_days`; `month_summary().pending_days` |
+| Leave | leave requests touching M still waiting for a decision | `leave_requests` |
+| Leaving early | requests of M's days never answered ("Left early, not answered", `left_unanswered`) | `early_leave_requests` |
+| Extra work | notes of M's days not yet decided | `extra_work_notes` |
+| Expense claims | claims with an expense date in M not yet decided | `expense_claims` (a count only, through the SQL builder; never an amount) |
+| Open work | deliverables of M's cycles neither done nor closed | `project_items` of the cycles whose period starts in M |
+| Carry decisions | ended cycles of M with deliverables not yet carried, closed or left pending | `project_items.carry_decision` (§5.2) |
+| No amount | M's cycles and one-time lines reading "No amount set" (the words, no figure) | `revenue_by_cycle_v`, `revenue_project_lines_v` |
+| Ready to complete | one-time projects in M with every deliverable done, not completed | `revenue_project_lines_v.ready_to_complete` |
+
+The expense line "Expense claims for September can still be added until 5 Oct." shows until the 5th of the month after M. The close button counts the kinds' totals: "Close September with 4 things still waiting"; with nothing waiting, "Close September".
+
+> **Open question (U0, for the owner; nothing is built on a guess):** (1) whether **staff tasks** of the month that are still open or waiting for approval belong on the list: decision 16 does not name them, so they are **left out** until the owner says. (2) "Open work" and "Carry decisions" overlap for an ended cycle (the same deliverable is open and undecided): U4 shows such a deliverable **once, under Carry decisions**, unless the owner wants both lines. (3) Whether a ₹0 amount ("Not billable") makes a month "priced" for the first-priced-month rule: this section reads "priced" as **an amount that is set, ₹0 included** (decision 5: ₹0 is "Not billable", never flagged), to be confirmed with v3.5 Q1.
+
+### 7.3 The reminder
+Decision 19: "from the 6th until closed, a line on Reports and one line in the 08:00 digest ("September isn't closed yet"); no push, no new job; a close or correction notifies nobody."
+- **Only months from the first priced month on, oldest first, one line** (v3.5 Q9, advisor autopilot 2026-11-25, owner to confirm): from the 6th of the month after M, while M is ended, priced-or-later and not closed. With several months unclosed, the line names the **oldest**; closing it brings up the next.
+- **The Reports line** sits on the Owner's Reports screen and opens the close screen for that month. It is read with the Owner's Reports data (no read added to the shared layout).
+- **The digest line names the month only, never an amount** (v3.5 Q8, advisor autopilot 2026-11-25, owner to confirm): "September isn't closed yet". It is a line in the digest's content function, written by the existing job (§8): **no new job, no new notification kind, no push**.
+- **A close or a correction notifies nobody** (§9 has no row for either).
+
+> **Open question (U0, for the owner):** decision 19 says "the 08:00 digest", written when the Owner's digest was daily. Since 6.5 the digest is **weekly** (`digest_weekly`, 08:00 IST on the digest day, §8; `digest_daily` is kept only as history). Until the owner says otherwise U6 puts the line in the **weekly** digest sent on or after the 6th, and the Reports line is the daily reminder. Also open: whether a week whose every other count is zero still sends a digest for this line alone (today such a week is skipped).
+
+### 7.4 Functions (ADR-0006; `modules/revenue`, ADR-0007 amendment 2026-11-25)
+All three take `month` as any date of the month and work on its 1st (IST). The current month and "ended" come from `app.today_ist()`, never the clock. Refusals carry no amount.
+
+**`month_close(month date) returns int`** (the version, 1). Security definer, `months.close`.
+1. `FORBIDDEN` without `months.close` in the caller's organisation (an Admin, a Crew member, a deactivated member).
+2. `VALIDATION` when the month has not ended (the current IST month or a later one): "‹Month› hasn't ended yet."
+3. `VALIDATION` when the month is before the first priced month, or no month is priced yet: "Nothing to close."
+4. `INVALID_STATE` when the month already has a snapshot: "‹Month› is already closed." (an advisory lock per organisation and month, then the check; the unique `(org_id, month, version)` is the backstop, so two taps never store two v1).
+5. Otherwise: builds the snapshot from live data (`app.month_snapshot_build(org, month)`, internal, `service_role` only), inserts version 1 (`closed_by`, `closed_at`), writes the history entry, returns 1.
+
+**`month_correct(month date, note text) returns int`** (the new version). Security definer, `months.close`.
+1. `FORBIDDEN` as above.
+2. `VALIDATION` when the trimmed note is shorter than 10 or longer than 500 characters.
+3. `INVALID_STATE` when the month is not closed: "‹Month› isn't closed."
+4. Rebuilds the snapshot from live data and compares it with the latest version. **No difference: refused, `INVALID_STATE`, "Nothing changed"**, nothing stored.
+5. Otherwise: inserts version N+1 with `corrects_id` = the latest version's id and `correction_note` = the note; **every earlier version stays as it was** ("v1 kept; never a hand edit"); writes the history entry; returns N+1.
+
+**`month_close_read(month date) returns jsonb`** (the close screen's and the closed month's one read). Security invoker, `FORBIDDEN` without `finance.view` (the snapshot table's read policy, DATA-MODEL §9). It answers, in one trip: whether the month can be closed (ended, at or after the first priced month) and why not; the waiting list's counts (§7.2) for a month not closed; for a closed month the latest version's `data`, the versions' headers ("Closed 3 Oct · v1", "Corrected: ‹note›" with who and when), and **"Changed since close"**: the live rebuild compared with the latest version, revenue lines and totals only, by stable id (added, removed and changed lines; the totals that moved). A month before the first priced month answers "Nothing to close." and no figures.
+
+**History and notifications.** Each close and each correction writes one `activity_log` entry under the entity name **`month_snapshots`** (actions `closed`, `corrected`; `meta` = the month and the version only). **The audit rows carry no amounts and not the note** (the note lives on the snapshot row, which only the Owner reads); no Admin-readable `activity_log` policy matches the entity. **Neither function writes a notification.** `month_snapshots` is never in the Realtime publication.
+
+**pgTAP (U1–U3, files numbered from 160):** every path above for each role (Owner allowed; Admin, Crew, freelancer, deactivated member and `anon` refused on all three functions and on the table); the table's UPDATE and DELETE refused for everyone; a second close refused; a correction keeps v1 byte for byte; "Nothing changed"; the note's bounds; the IST month boundary at explicit instants; the audit rows hold no amount.
 
 ## 8. Scheduled jobs (all idempotent, times in IST)
 **Runs in:** `pg_cron` = a SQL function inside Postgres (database-only work). `worker` = a Cloudflare Cron Trigger calling `/api/cron/<job>` with `CRON_SECRET` and the service role (anything that needs the network: Web Push signing, Google Drive, R2, Resend). `gha` = GitHub Actions.
