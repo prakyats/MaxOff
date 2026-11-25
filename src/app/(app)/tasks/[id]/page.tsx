@@ -65,7 +65,7 @@ import { TaskRemind } from "@/modules/tasks/components/task-remind";
 import { TaskStages } from "@/modules/tasks/components/task-stages";
 import { TaskTabs, TaskViewPanel, TaskViewProvider } from "@/modules/tasks/components/task-view";
 import { HandinCardSkeleton } from "@/modules/handin/components/handin-card-skeleton";
-import { HandinDoneLine } from "@/modules/handin/components/handin-done-line";
+import { HandinDoneLineLazy } from "@/modules/handin/components/handin-lazy";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { loadTaskFormSetup } from "../task-form-setup";
@@ -229,7 +229,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       names={names}
       approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
       primaryName={name(task.primaryOwnerId)}
-      doneExtra={<HandinDoneLine taskId={task.id} />}
+      doneExtra={<HandinDoneLineLazy taskId={task.id} />}
     />
   );
 

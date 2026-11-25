@@ -431,3 +431,57 @@ export async function countHandinFiles(
   }
   return counts;
 }
+
+/**
+ * "Removed in Drive" (WORKFLOWS §5C, as §5B): for a reviewer with the card on screen, the
+ * handed-in files of this task not checked in the last 10 minutes are claimed (one Drive read
+ * for two reviewers opening at once), then asked of Google by metadata only. Only 404 or the bin
+ * counts as removed; any other answer records nothing. Never on the page's first render.
+ */
+/** Returns how many files Google answered for (the card re-reads when any were). */
+export async function checkHandinFiles(taskId: string): Promise<number> {
+  const read = await readHandin(taskId);
+  if (!read.reviewer) throw new AppError("FORBIDDEN");
+  const ids = read.versions
+    .filter((version) => version.handedIn)
+    .flatMap((version) => version.files)
+    .filter((file) => file.state === "done" || file.state === "missing_in_drive")
+    .map((file) => file.id);
+  if (ids.length === 0) return 0;
+  const service = createServiceSupabase();
+  const { data: claimed, error } = await service.rpc("handin_drive_check_claim", {
+    p_file_ids: ids,
+  });
+  if (error) throw error;
+  if (!claimed || claimed.length === 0) return 0;
+  const { data: task, error: taskError } = await service
+    .from("tasks")
+    .select("org_id")
+    .eq("id", taskId)
+    .single();
+  if (taskError) throw taskError;
+  let checked = 0;
+  for (const file of claimed) {
+    if (!file.drive_file_id) continue;
+    let facts;
+    try {
+      facts = await driveFileFacts({
+        service,
+        orgId: task.org_id,
+        driveFileId: file.drive_file_id,
+        fetchImpl: fetch,
+        now: systemClock(),
+      });
+    } catch {
+      continue; // Reconnect needed, an outage, a refusal: nothing is recorded.
+    }
+    const seen = facts === null ? "not_found" : facts.trashed ? "trashed" : "present";
+    const { error: seenError } = await service.rpc("handin_drive_seen", {
+      p_file_id: file.file_id,
+      p_seen: seen,
+    });
+    if (seenError) throw seenError;
+    checked += 1;
+  }
+  return checked;
+}

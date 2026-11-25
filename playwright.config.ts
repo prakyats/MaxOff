@@ -34,9 +34,9 @@ const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
  * of the other specs would feel. So the suite runs with the switch off (`global-setup.ts`) and
  * these specs run alone, one file at a time, after every other project (like owner-bulk).
  * v4.0: Settings → Google Drive joins them for the same reason: the connection is one row per
- * organisation (`drive_account`), which its spec sets and clears.
+ * organisation (`drive_account`), which its spec sets and clears; v5.0's hand-in spec sets it too.
  */
-const WORKING_HOURS_SPECS = /(working-hours|drive-settings)\.spec\.ts$/;
+const WORKING_HOURS_SPECS = /(working-hours|drive-settings|handin)\.spec\.ts$/;
 // The push and email dispatch through the cron route (owner decision 29): the dispatcher is
 // organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
 // one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).

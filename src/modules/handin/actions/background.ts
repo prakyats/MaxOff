@@ -86,3 +86,10 @@ export async function finishHandinFile(input: unknown): Promise<{ state: "done" 
   await assertPermission("tasks.work");
   return { state: await repo.finishFile(data) };
 }
+
+/** `POST /api/handin/check`: the reviewer's card on screen asks whether its files are still in Drive. */
+export async function checkHandinInDrive(input: unknown): Promise<{ checked: number }> {
+  const { taskId } = taskSchema.parse(input);
+  await assertPermission("tasks.work");
+  return { checked: await repo.checkHandinFiles(taskId) };
+}

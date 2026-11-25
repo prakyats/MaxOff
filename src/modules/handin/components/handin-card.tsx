@@ -1,399 +1,78 @@
 "use client";
 
-import { ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { cn } from "@/core/lib/utils";
-import { formatDateTime } from "@/core/time";
-import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { postInBackground } from "@/core/http/background";
+import { ConfirmDialogLazy } from "@/core/ui/composites/confirm-dialog-lazy";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
 import { leaveOutFile } from "../actions/handin";
-import type { HandinFile, HandinRead, HandinVersion } from "../data/handin";
-import { isRiskyName, sameFileKey, typeLabel } from "../domain/files";
-import { formatSize, statusOf, versionSummary } from "../domain/summary";
-import { HandinAdder } from "./handin-adder";
 
 /**
- * v5.0 "Hand in work" on the task's Work view (the approved sample §1, §5–§7; WORKFLOWS §5C): the
- * version the next Mark done hands in, with its files as they reach the studio Drive, and the
- * versions already handed in. The Owner and the task's Admins get Open in Drive (Q6); everyone
- * else on the task sees names and sizes. Nothing from the files themselves is loaded into MaxOff.
- * The add area and its progress are `HandinAdder`'s.
+ * v5.0 hand-in, the card's small client parts. The card itself is server-rendered on the task
+ * page (`app/(app)/tasks/[id]/handin-view.tsx`), so its markup costs no first-load JavaScript
+ * (`/tasks/[id]`'s budget is never raised). Here: a file's Leave out with its confirm (a layer:
+ * back closes it), and the "Removed in Drive" check a reviewer's card asks once it is on screen.
+ * The add area is `HandinAdderLazy` (`handin-lazy.tsx`).
  */
 
-/** How many files a version shows before "Show all N" (expands in place; no history step). */
-const FIRST_FILES = 5;
-
-const FILE_URL = (id: string) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
-const FOLDER_URL = (id: string) =>
-  `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
-
-export type HandinCardProps = {
-  taskId: string;
-  read: HandinRead;
-  /** Member id → display name, as the task page has them. */
-  names: Record<string, string>;
-  viewerId: string;
-  /** The viewer marks Done (the primary owner, or a freelancer primary's coordinator). */
-  viewerMarksDone: boolean;
-  /** The freelancer the viewer acts for, when they coordinate the primary owner. */
-  onBehalfOf: string | null;
-  primaryName: string;
-  /** The reason of the latest send-back, shown above the open version (sample §7). */
-  changeReason: { by: string; reason: string } | null;
-};
-
-function nameOf(names: Record<string, string>, id: string | null): string {
-  return id ? (names[id] ?? "Someone") : "Someone";
-}
-
-function shown(files: HandinFile[]): { visible: HandinFile[]; leftOut: HandinFile[] } {
-  return {
-    visible: files.filter((file) => file.state !== "left_out"),
-    leftOut: files.filter((file) => file.state === "left_out"),
-  };
-}
-
-function counted(files: HandinFile[]): { count: number; bytes: number } {
-  const inDrive = files.filter(
-    (file) => file.state === "done" || file.state === "missing_in_drive",
-  );
-  return { count: inDrive.length, bytes: inDrive.reduce((sum, file) => sum + file.size, 0) };
-}
-
-export function HandinCard(props: HandinCardProps) {
-  const { read } = props;
-  const open = read.versions.find((version) => !version.handedIn) ?? null;
-  const handedIn = read.versions.filter((version) => version.handedIn);
-  const mayAddNow = read.taskOpen && read.canAdd;
-  const driveOff = mayAddNow && read.drive !== "connected";
-  if (!open && handedIn.length === 0 && !mayAddNow) return null;
-
-  const latest = handedIn[0] ?? null;
-  const older = handedIn.slice(1);
-  const showOpen = read.taskOpen && (open !== null || mayAddNow);
-
-  return (
-    <section
-      aria-labelledby="task-handin-files-title"
-      data-slot="handin-card"
-      className="border-border bg-card flex min-w-0 flex-col rounded-lg border"
-    >
-      <header className="border-border flex min-h-11 flex-wrap items-center gap-2 border-b px-3 py-2">
-        <h2 id="task-handin-files-title" className="text-sm font-semibold">
-          Files
-        </h2>
-        {showOpen ? (
-          <StatusBadge
-            status="handin_open"
-            tone="neutral"
-            label={`v${read.openVersion} · not handed in yet`}
-          />
-        ) : latest ? (
-          <StatusBadge status="handin_done" tone="success" label={`v${latest.version} handed in`} />
-        ) : null}
-      </header>
-
-      {showOpen ? (
-        <div className="flex min-w-0 flex-col gap-3 p-3" data-slot="handin-open">
-          {props.changeReason ? (
-            <div
-              className="bg-attention-soft flex flex-col gap-1 rounded-md px-3 py-2 text-sm"
-              data-slot="handin-change-reason"
-            >
-              <span className="text-attention font-medium">
-                Changes requested by {props.changeReason.by}
-              </span>
-              <span className="break-words">{props.changeReason.reason}</span>
-            </div>
-          ) : null}
-          {driveOff ? (
-            <p
-              className="bg-neutral-soft rounded-md px-3 py-2 text-sm"
-              data-slot="handin-drive-off"
-            >
-              Handing in files is off until the Owner reconnects Google Drive. You can still mark
-              the task done with a note.
-            </p>
-          ) : null}
-          {open ? (
-            <VersionFiles {...props} version={open} openVersion summary={null} emptyText={null} />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              Add the photos and videos for this task. They go straight into the studio&apos;s Drive
-              and stay full quality.
-            </p>
-          )}
-          {mayAddNow && !driveOff ? (
-            <HandinAdder
-              taskId={props.taskId}
-              onBehalfOf={props.onBehalfOf}
-              alreadyInDrive={(open?.files ?? [])
-                .filter((file) => file.state === "done")
-                .map((file) => sameFileKey(file))}
-            />
-          ) : null}
-          {mayAddNow && !props.viewerMarksDone ? (
-            <p className="text-muted-foreground text-xs" data-slot="handin-who-hands-in">
-              {props.primaryName} marks it done and hands it in.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {latest ? (
-        <div
-          className={cn("flex min-w-0 flex-col gap-2 p-3", showOpen && "border-border border-t")}
-          data-slot="handin-latest"
-        >
-          <VersionHead version={latest} names={props.names} reviewer={read.reviewer} />
-          <VersionFiles
-            {...props}
-            version={latest}
-            openVersion={false}
-            summary={null}
-            emptyText="Handed in with a note only."
-          />
-        </div>
-      ) : null}
-
-      {older.map((version) => (
-        <details
-          key={version.version}
-          className="group border-border min-w-0 border-t"
-          data-slot="handin-older"
-        >
-          <summary className="focus-visible:ring-ring flex min-h-[52px] cursor-pointer items-center gap-2 px-3 text-sm outline-none focus-visible:ring-2">
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="font-medium">
-                v{version.version} · {versionSummary(...countPair(version.files))}
-              </span>
-              <span className="text-muted-foreground text-xs">
-                Handed in {version.submittedAt ? formatDateTime(version.submittedAt) : ""}
-              </span>
-            </span>
-            <ChevronRightIcon
-              aria-hidden
-              className="text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
-            />
-          </summary>
-          <div className="flex min-w-0 flex-col gap-2 px-3 pb-3">
-            <VersionHead version={version} names={props.names} reviewer={read.reviewer} />
-            <VersionFiles
-              {...props}
-              version={version}
-              openVersion={false}
-              summary={null}
-              emptyText="Handed in with a note only."
-            />
-          </div>
-        </details>
-      ))}
-    </section>
-  );
-}
-
-function countPair(files: HandinFile[]): [number, number] {
-  const { count, bytes } = counted(files);
-  return [count, bytes];
-}
-
-function VersionHead({
-  version,
-  names,
-  reviewer,
-}: {
-  version: HandinVersion;
-  names: Record<string, string>;
-  reviewer: boolean;
-}) {
-  const who = version.onBehalfOf
-    ? `${nameOf(names, version.submittedBy)} for ${nameOf(names, version.onBehalfOf)}`
-    : nameOf(names, version.submittedBy);
-  const [count, bytes] = countPair(version.files);
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="text-muted-foreground min-w-0 flex-1 text-xs break-words">
-        v{version.version} · {who}
-        {version.submittedAt ? ` · ${formatDateTime(version.submittedAt)}` : ""} ·{" "}
-        {versionSummary(count, bytes)}
-      </span>
-      {reviewer && version.folderId ? (
-        <a
-          href={FOLDER_URL(version.folderId)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex min-h-11 items-center gap-1 text-sm underline underline-offset-4"
-          data-slot="handin-folder-link"
-        >
-          Open the v{version.version} folder in Drive
-          <ExternalLinkIcon aria-hidden className="size-3.5" />
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
-function VersionFiles({
-  version,
-  openVersion,
-  emptyText,
-  names,
-  viewerId,
-  viewerMarksDone,
-  onBehalfOf,
-  read,
-}: HandinCardProps & {
-  version: HandinVersion;
-  openVersion: boolean;
-  summary: null;
-  emptyText: string | null;
-}) {
-  const [all, setAll] = useState(false);
-  const { visible, leftOut } = shown(version.files);
-  if (visible.length === 0 && leftOut.length === 0) {
-    return emptyText ? <p className="text-muted-foreground text-sm">{emptyText}</p> : null;
-  }
-  const rows = all ? visible : visible.slice(0, FIRST_FILES);
-  return (
-    <div className="flex min-w-0 flex-col">
-      <ul className="flex min-w-0 flex-col" aria-label={`Files in v${version.version}`}>
-        {rows.map((file) => (
-          <FileRow
-            key={file.id}
-            file={file}
-            addedBy={file.mine ? null : nameOf(names, file.onBehalfOf ?? file.addedBy)}
-            reviewer={read.reviewer}
-            canLeaveOut={openVersion && read.taskOpen && (file.mine || viewerMarksDone)}
-            onBehalfOf={file.mine ? null : onBehalfOf}
-            viewerId={viewerId}
-          />
-        ))}
-      </ul>
-      {visible.length > FIRST_FILES || leftOut.length > 0 ? (
-        <Button
-          variant="ghost"
-          className="self-center"
-          onClick={() => setAll((value) => !value)}
-          data-slot="handin-show-all"
-          aria-expanded={all}
-        >
-          {all
-            ? "Show fewer"
-            : [
-                visible.length > FIRST_FILES ? `Show all ${visible.length}` : null,
-                leftOut.length > 0 ? `${leftOut.length} left out` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-        </Button>
-      ) : null}
-      {all && leftOut.length > 0 ? (
-        <ul className="flex min-w-0 flex-col opacity-80" aria-label="Left out">
-          {leftOut.map((file) => (
-            <FileRow
-              key={file.id}
-              file={file}
-              addedBy={file.leftOutBy ? `left out by ${nameOf(names, file.leftOutBy)}` : "left out"}
-              reviewer={read.reviewer}
-              canLeaveOut={false}
-              onBehalfOf={null}
-              viewerId={viewerId}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function FileRow({
-  file,
-  addedBy,
-  reviewer,
-  canLeaveOut,
+export function HandinLeaveOut({
+  fileId,
+  name,
   onBehalfOf,
 }: {
-  file: HandinFile;
-  addedBy: string | null;
-  reviewer: boolean;
-  canLeaveOut: boolean;
+  fileId: string;
+  name: string;
   onBehalfOf: string | null;
-  viewerId: string;
 }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
-  const status = statusOf(file.state);
-  const where = [file.relativePath, formatSize(file.size), addedBy].filter(Boolean).join(" · ");
-  const leaveable = canLeaveOut && file.state !== "left_out" && file.state !== "missing_in_drive";
   return (
-    <li
-      className="border-border flex min-h-[60px] min-w-0 items-center gap-3 border-t py-2 first:border-t-0"
-      data-slot="handin-file"
-      data-state={file.state}
-    >
-      <span
-        aria-hidden
-        className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-md text-xs font-semibold"
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setConfirm(true)}
+        aria-label={`Leave out ${name}`}
+        data-slot="handin-leave-out"
       >
-        {typeLabel(file.name)}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium">{file.name}</span>
-        <span className="text-muted-foreground truncate text-xs">{where}</span>
-      </span>
-      {isRiskyName(file.name) ? (
-        <StatusBadge status="risky" tone="neutral" label="Check before opening" />
-      ) : null}
-      {file.state === "done" && reviewer && file.driveFileId ? (
-        <a
-          href={FILE_URL(file.driveFileId)}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Open ${file.name} in Drive`}
-          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 text-sm underline underline-offset-4"
-          data-slot="handin-open-file"
-        >
-          <span className="hidden sm:inline">Open in Drive</span>
-          <ExternalLinkIcon aria-hidden className="size-4" />
-        </a>
-      ) : file.state === "done" && file.afterHandin ? (
-        <StatusBadge status="after" tone="neutral" label="Arrived after hand-in" />
-      ) : (
-        <StatusBadge status={file.state} tone={status.tone} label={status.label} />
-      )}
-      {leaveable ? (
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirm(true)}
-            aria-label={`Leave out ${file.name}`}
-            data-slot="handin-leave-out"
-          >
-            Leave out
-          </Button>
-          <ConfirmDialog
-            open={confirm}
-            onOpenChange={setConfirm}
-            title={`Leave out ${file.name}?`}
-            description="It won't be part of this version and isn't counted. It stays in the studio's Drive folder, because MaxOff never deletes files. Someone with the studio Drive can delete it there."
-            confirmLabel="Leave it out"
-            pendingLabel="Leaving it out…"
-            cancelLabel="Keep it"
-            onConfirm={async () => {
-              const result = await leaveOutFile({ fileId: file.id, onBehalfOf });
-              toastResult(result, { success: `${file.name} left out` });
-              if (result.ok) router.refresh();
-              return result.ok;
-            }}
-          />
-        </>
-      ) : null}
-    </li>
+        Leave out
+      </Button>
+      <ConfirmDialogLazy
+        open={confirm}
+        onOpenChange={setConfirm}
+        title={`Leave out ${name}?`}
+        description="It won't be part of this version and isn't counted. It stays in the studio's Drive folder, because MaxOff never deletes files. Someone with the studio Drive can delete it there."
+        confirmLabel="Leave it out"
+        pendingLabel="Leaving it out…"
+        cancelLabel="Keep it"
+        onConfirm={async () => {
+          const result = await leaveOutFile({ fileId, onBehalfOf });
+          toastResult(result, { success: `${name} left out` });
+          if (result.ok) router.refresh();
+          return result.ok;
+        }}
+      />
+    </>
   );
+}
+
+/**
+ * "Removed in Drive": asked once the reviewer's card is on screen, never on the page's first
+ * render (WORKFLOWS §5C); the page re-reads only when Google answered for some file.
+ */
+export function HandinDriveCheck({ taskId }: { taskId: string }) {
+  const router = useRouter();
+  useEffect(() => {
+    let live = true;
+    void postInBackground<{ checked: number }>("/api/handin/check", { taskId }).then((result) => {
+      if (live && result.ok && result.data.checked > 0) router.refresh();
+    });
+    return () => {
+      live = false;
+    };
+  }, [taskId, router]);
+  return null;
 }

@@ -506,6 +506,35 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["approve", "request changes", "review", "send back"],
         },
         {
+          id: "owner-handin-files",
+          title: "Open the files handed in",
+          summary: "See what was handed in with a task and open it in the studio's Drive.",
+          blocks: [
+            {
+              kind: "text",
+              text: 'When a task is marked done with files, its page shows them under "Files": the version (v1, v2…), who handed it in, when, and each file\'s name and size. Approvals says it too ("v2 · 14 files").',
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open the task.",
+                'Tap "Open in Drive" on a file, or "Open the v2 folder in Drive" for all of them. They open in the studio\'s Google Drive, so use the studio\'s account in your browser.',
+                'Approve, or tap "Request changes" and name the files that need changing.',
+              ],
+            },
+            {
+              kind: "next",
+              text: "After Request changes, new files go into the next version's folder; earlier versions never change.",
+            },
+            {
+              kind: "note",
+              text: `Only the Owner and the task's Admins (its creator, its approving Admin, the Admin who coordinates a freelancer who owns it) get the Drive links; the ${CREW} see names and sizes only. A file deleted in Drive shows "Removed in Drive". "Check before opening" marks programs and web pages: open them only if you expected them. MaxOff never deletes a file.`,
+            },
+          ],
+          link: { href: "/approvals", label: "Open Approvals" },
+          keywords: ["files", "drive", "hand-in", "version", "photos", "videos", "open", "review"],
+        },
+        {
           id: "owner-own-task",
           title: "Finish a task you own",
           summary: "When you are the primary owner, Done completes it.",

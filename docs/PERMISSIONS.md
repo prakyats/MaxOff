@@ -150,7 +150,7 @@
 | Crew on the task (assignee, primary, a Crew coordinator) | ✅ | ❌ never | ✅ | own files; any as the primary | the primary only |
 | Crew not on the task, an Admin who can't see it | `NOT_FOUND` | — | `FORBIDDEN` (not an assignee) | `NOT_FOUND` | — |
 | A deactivated member | `UNAUTHENTICATED` | — | `UNAUTHENTICATED` | `UNAUTHENTICATED` | — |
-| `anon` | no EXECUTE | — | no EXECUTE | no EXECUTE | — |
+| Signed out (`anon`) | no EXECUTE | — | no EXECUTE | no EXECUTE | — |
 | The Worker (`service_role`) | — | — | folders, sessions, done, the Drive check | — | — |
 
 - Only the service role marks a file done, failed by Google's answer, or Removed in Drive; no member can.

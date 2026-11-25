@@ -1,3 +1,5 @@
+"use client";
+
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**

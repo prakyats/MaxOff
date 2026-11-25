@@ -667,6 +667,46 @@ export const CREW_GUIDE: Guide = {
           keywords: ["finish", "complete", "submit", "done", "late", "hand in", "link", "review"],
         },
         {
+          id: "hand-in-files",
+          title: "Add your photos and videos",
+          summary: "Put the files for a task straight into the studio's Drive, then Mark done.",
+          blocks: [
+            {
+              kind: "text",
+              text: "An open task has a \"Files\" section. Files you add go straight into the studio's Google Drive, into the task's folder, at full quality. MaxOff keeps no copy and never changes them.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open the task.",
+                'Under Files, tap "Add photos and videos" on a phone, or "Choose files" or "Choose a folder" on a laptop (you can also drop files or folders there). A laptop keeps your folders as they are.',
+                'Keep MaxOff open until every file says "In Drive". You can move around MaxOff meanwhile; closing it stops the upload. A lost connection carries on by itself.',
+                'When everything is in, the primary owner taps "Mark done". The sheet says what is handed in ("Hand-in v1 · 12 files").',
+              ],
+            },
+            {
+              kind: "next",
+              text: "Mark done hands the files in as one version (v1). If changes are requested, the files you add next go into v2; v1 stays exactly as it was.",
+            },
+            {
+              kind: "note",
+              text: 'Everyone on the task can add files; only the primary owner marks it done. Added the wrong file? Tap "Leave out" on it before Mark done: it is not counted, and it stays in the studio\'s Drive because MaxOff never deletes files. A file already added (same name, size and folder) is skipped as "Already added". Files are optional: a task with nothing to hand in is marked done with a note, as before.',
+            },
+          ],
+          link: { href: "/tasks", label: "Open Tasks" },
+          keywords: [
+            "upload",
+            "photos",
+            "videos",
+            "files",
+            "hand in",
+            "drive",
+            "footage",
+            "leave out",
+            "version",
+          ],
+        },
+        {
           id: "changes-requested",
           title: "When changes are requested",
           summary: "Read the reason, make the changes, then Mark done again.",

@@ -24,6 +24,7 @@ export {
   versionSummary,
 } from "./domain/summary";
 export {
+  checkHandinInDrive,
   failHandinFile,
   finishHandinFile,
   readHandinVersions,

@@ -1208,6 +1208,9 @@ export async function removeTasksTitled(prefix: string): Promise<void> {
   for (const table of [
     "task_warnings",
     "task_reviews",
+    // v5.0: a hand-in's files and folders point at the task and its versions.
+    "handin_files",
+    "handin_folders",
     "task_submissions",
     "task_comments",
     "task_stages",
