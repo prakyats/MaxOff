@@ -35,7 +35,7 @@ export {
   countOpenAssignments,
   countOpenTasksForClient,
   countTasks,
-  listFinishedTaskRows,
+  listAllTaskRows,
   listOpenTaskRows,
   listOpenTaskRowsDueBetween,
   listTasksAtBothSteps,

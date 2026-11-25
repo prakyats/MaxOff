@@ -547,17 +547,34 @@ export async function countOpenTasksForClient(clientId: string): Promise<number>
   return count ?? 0;
 }
 
-/** The finished tasks, the latest first, at most `limit` (the full list's window). */
-export async function listFinishedTaskRows(limit: number): Promise<TaskListRow[]> {
+/**
+ * The full list's rows in one read (v7.0, `tasks_list_all()`; ARCHITECTURE §19 "Six connections"):
+ * every open task and the latest `finishedLimit` finished ones, which were two reads of `tasks`
+ * before the page's first answer. Security invoker: RLS decides the rows, as before. The function
+ * promises no order, so the halves are sorted here as the two reads sorted them: open by due time,
+ * finished newest first. One answer is at most 1000 rows (PostgREST), as each read was.
+ */
+export async function listAllTaskRows(
+  finishedLimit: number,
+): Promise<{ open: TaskListRow[]; finished: TaskListRow[] }> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
-    .from("tasks")
-    .select(LIST_COLUMNS)
-    .in("state", ["completed", "cancelled"])
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+    .rpc("tasks_list_all", { finished_limit: finishedLimit })
+    .select(`${LIST_COLUMNS}, updated_at`);
   if (error) throw error;
-  return (data as ListRowData[]).map(toListRow);
+  const rows = data as unknown as (ListRowData & { updated_at: string })[];
+  const finished = (row: { state: TaskState }) =>
+    row.state === "completed" || row.state === "cancelled";
+  return {
+    open: rows
+      .filter((row) => !finished(row))
+      .sort((a, b) => a.due_at.localeCompare(b.due_at) || a.id.localeCompare(b.id))
+      .map(toListRow),
+    finished: rows
+      .filter(finished)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
+      .map(toListRow),
+  };
 }
 
 /**

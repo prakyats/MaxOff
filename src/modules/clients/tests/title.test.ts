@@ -35,10 +35,26 @@ import { getContactName } from "../data/clients";
 
 const CLIENT = "0b7c2a52-3f1e-4c3a-9d1e-2f6a8b9c0d11";
 const RECORD = "5d1e7f20-8a4b-4c6d-9e0f-1a2b3c4d5e6f";
+const CONTACT_ROW = {
+  id: RECORD,
+  org_id: CLIENT,
+  client_id: CLIENT,
+  name: "",
+  designation: null,
+  email: null,
+  phone: null,
+  is_primary: false,
+  custom_fields: {},
+  archived_at: null,
+  created_at: "2026-11-25T00:00:00Z",
+  updated_at: "2026-11-25T00:00:00Z",
+};
 
 /**
  * The contact page's tab title (v1.8): Next resolves `generateMetadata` on every prefetch of it,
- * so the title is one column of one row under RLS, this client's only, never the page's reads.
+ * so the title is one row under RLS, this client's only, never the page's other reads. Since v7.0
+ * the row has every column: the page reads the same row (`getClientContact`, `cache()`d), so a
+ * full page reads `client_contacts` once.
  */
 describe("getContactName", () => {
   beforeEach(() => {
@@ -46,14 +62,14 @@ describe("getContactName", () => {
     fake.answer = { data: null, error: null };
   });
 
-  it("reads the name column alone, of that contact of that client alone", async () => {
-    fake.answer = { data: { name: "Asha Rao" }, error: null };
+  it("reads one row, of that contact of that client alone (the page shares it, v7.0)", async () => {
+    fake.answer = { data: { ...CONTACT_ROW, name: "Asha Rao" }, error: null };
     expect(await getContactName(CLIENT, RECORD)).toBe("Asha Rao");
     expect(fake.calls).toEqual([
       {
         table: "client_contacts",
         steps: [
-          ["select", "name"],
+          ["select", "*"],
           ["eq", "id", RECORD],
           ["eq", "client_id", CLIENT],
           ["maybeSingle"],

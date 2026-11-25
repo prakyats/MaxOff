@@ -1,10 +1,12 @@
 import { FolderKanbanIcon } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead } from "@/core/lib/start-early";
 import { todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { Skeleton } from "@/core/ui/primitives/skeleton";
 import {
   listClientProjects,
   listCurrentCycleMeters,
@@ -46,15 +48,11 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
   assertClientId(id);
   const today = todayIST();
   // One wave (ARCHITECTURE §19): the projects and their current cycles' progress read together.
-  const [{ client }, [projects, current, presets, templates, definitions]] = await checkThenRead(
+  // v7.0: New project's setup (the stage presets, the templates, the project fields) is not in
+  // the first wave (§19 "Six connections"): it streams in once the client is checked.
+  const [{ client }, [projects, current]] = await checkThenRead(
     loadClientWork(id),
-    Promise.all([
-      listClientProjects(id),
-      listCurrentCycleMeters(today, id),
-      listStagePresets(),
-      listProjectTemplates(),
-      listDefinitions("project"),
-    ]),
+    Promise.all([listClientProjects(id), listCurrentCycleMeters(today, id)]),
   );
   const summaries = projectSummaries(projects, current, today);
   const working = summaries.filter((summary) => !summary.finished);
@@ -66,28 +64,9 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Projects</h2>
         {canCreate ? (
-          <NewProjectButton
-            clientId={client.id}
-            clientName={client.name}
-            today={today}
-            presets={presets
-              .filter((preset) => !preset.archived)
-              .map(({ id: presetId, name, stages }) => ({ id: presetId, name, stages }))}
-            templates={templates
-              .filter((template) => !template.archived)
-              .map((template) => ({
-                id: template.id,
-                name: template.name,
-                description: template.description,
-                recurrence: template.recurrence,
-                stages: template.stages,
-                items: template.items,
-                stageGroups: template.stageGroups,
-                deliverables: template.deliverables,
-                fieldDefaults: template.fieldDefaults,
-              }))}
-            definitions={definitions.filter((definition) => definition.archivedAt === null)}
-          />
+          <Suspense fallback={<NewProjectButtonSkeleton />}>
+            <NewProject clientId={client.id} clientName={client.name} today={today} />
+          </Suspense>
         ) : (
           <p className="text-muted-foreground text-xs">No new projects on an Inactive client.</p>
         )}
@@ -113,4 +92,54 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
       )}
     </div>
   );
+}
+
+/**
+ * New project with its setup (v7.0): the stage presets, the templates and the project fields,
+ * read after the client's check, so the tab's first wave stays at six. The button is the same in
+ * its fallback's place.
+ */
+async function NewProject({
+  clientId,
+  clientName,
+  today,
+}: {
+  clientId: string;
+  clientName: string;
+  today: string;
+}) {
+  const [presets, templates, definitions] = await Promise.all([
+    listStagePresets(),
+    listProjectTemplates(),
+    listDefinitions("project"),
+  ]);
+  return (
+    <NewProjectButton
+      clientId={clientId}
+      clientName={clientName}
+      today={today}
+      presets={presets
+        .filter((preset) => !preset.archived)
+        .map(({ id: presetId, name, stages }) => ({ id: presetId, name, stages }))}
+      templates={templates
+        .filter((template) => !template.archived)
+        .map((template) => ({
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          recurrence: template.recurrence,
+          stages: template.stages,
+          items: template.items,
+          stageGroups: template.stageGroups,
+          deliverables: template.deliverables,
+          fieldDefaults: template.fieldDefaults,
+        }))}
+      definitions={definitions.filter((definition) => definition.archivedAt === null)}
+    />
+  );
+}
+
+/** New project's place while its setup streams: the loading screen's own button shape. */
+function NewProjectButtonSkeleton() {
+  return <Skeleton aria-hidden className="h-11 w-36 rounded-lg md:h-8" />;
 }

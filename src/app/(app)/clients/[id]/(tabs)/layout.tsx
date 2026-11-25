@@ -35,7 +35,7 @@ export default async function ClientLayout({
   return (
     <>
       <Suspense fallback={null}>
-        <RecordReadReceipt entity="clients" id={id} />
+        <ClientReadReceipt id={id} />
       </Suspense>
       <Suspense
         fallback={
@@ -68,6 +68,16 @@ export default async function ClientLayout({
       {children}
     </>
   );
+}
+
+/**
+ * The client's unread alerts marked read (`RecordReadReceipt`), once the client has come back
+ * (v7.0): its count is never in the first wave (ARCHITECTURE §19 "Six connections"; a client's
+ * Projects tab had ten), and nothing is marked for a client the viewer may not open.
+ */
+async function ClientReadReceipt({ id }: { id: string }) {
+  await loadClient(id);
+  return <RecordReadReceipt entity="clients" id={id} />;
 }
 
 async function ClientHeader({ id }: { id: string }) {

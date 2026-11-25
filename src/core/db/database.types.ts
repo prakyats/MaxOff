@@ -6045,6 +6045,30 @@ export type Database = {
         Args: { request_id: string };
         Returns: Database["public"]["Enums"]["request_state"];
       };
+      task_requests_list: {
+        Args: { decided_limit: number };
+        Returns: {
+          client_id: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          details: string | null;
+          id: string;
+          org_id: string;
+          requested_by: string;
+          state: Database["public"]["Enums"]["request_state"];
+          task_id: string | null;
+          title: string;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "task_requests";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       task_resume: {
         Args: { new_due_at?: string; task_id: string };
         Returns: string;
@@ -6097,6 +6121,54 @@ export type Database = {
       task_update_assignment: {
         Args: { changes: Json; task_id: string; warnings?: Json };
         Returns: string[];
+      };
+      tasks_list_all: {
+        Args: { finished_limit: number };
+        Returns: {
+          admin_approved_at: string | null;
+          admin_step: Database["public"]["Enums"]["admin_step"];
+          approving_admin_id: string | null;
+          archived_at: string | null;
+          cancelled_at: string | null;
+          cancelled_reason: string | null;
+          client_id: string | null;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string;
+          custom_fields: Json;
+          description: string | null;
+          due_at: string;
+          event_date: string | null;
+          event_end_at: string | null;
+          event_start_at: string | null;
+          held_at: string | null;
+          held_by: string | null;
+          hold_reason: string | null;
+          id: string;
+          late_reason: string | null;
+          location: string | null;
+          org_id: string;
+          primary_owner_id: string;
+          priority: Database["public"]["Enums"]["priority"];
+          purpose: string | null;
+          reminder_rules: Json;
+          resumed_at: string | null;
+          search: unknown;
+          state: Database["public"]["Enums"]["task_state"];
+          submitted_at: string | null;
+          submitted_by: string | null;
+          submitted_on_behalf_of: string | null;
+          task_type_id: string;
+          template_id: string | null;
+          title: string;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "tasks";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
       template_delete: {
         Args: { kind: string; template_id: string };

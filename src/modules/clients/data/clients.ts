@@ -288,25 +288,36 @@ export async function listContacts(clientId: string): Promise<ClientContact[]> {
 const TITLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * A contact's name alone, for the browser tab (`generateMetadata`): one column, under the same
- * RLS as `listContacts`, and only when it belongs to the client in the address, so a contact the
- * reader may not see (or another client's) is null and the tab stays neutral. Next resolves a
- * route's metadata on every prefetch of it, so this is all the title adds to a prefetch, never
- * the page's reads (P2 item 6). Not ids: null, with no read. `cache()`d per request.
+ * One contact of one client, every column, under RLS: null for a contact the reader may not see,
+ * another client's, or anything that is not an id (with no read). `cache()`d per request (v7.0),
+ * so the contact's page and its tab title (`getContactName`) make one read of `client_contacts`
+ * between them (ARCHITECTURE §19 "none twice"), and a prefetch of the route, which resolves the
+ * title, still reads one row and never the page's list.
  */
-export const getContactName = cache(
-  async (clientId: string, contactId: string): Promise<string | null> => {
+export const getClientContact = cache(
+  async (clientId: string, contactId: string): Promise<ClientContact | null> => {
     if (!TITLE_ID.test(clientId) || !TITLE_ID.test(contactId)) return null;
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
       .from("client_contacts")
-      .select("name")
+      .select("*")
       .eq("id", contactId)
       .eq("client_id", clientId)
       .maybeSingle();
     if (error) throw error;
-    return data?.name ?? null;
+    return data ? toContact(data) : null;
   },
+);
+
+/**
+ * A contact's name alone, for the browser tab (`generateMetadata`): from `getClientContact`, so
+ * only a contact of the client in the address, and null (a neutral tab) for one the reader may not
+ * see. Next resolves a route's metadata on every prefetch of it, so this is all the title adds to a
+ * prefetch: one row, never the page's other reads (P2 item 6).
+ */
+export const getContactName = cache(
+  async (clientId: string, contactId: string): Promise<string | null> =>
+    (await getClientContact(clientId, contactId))?.name ?? null,
 );
 
 export async function getContact(contactId: string): Promise<ClientContact | null> {

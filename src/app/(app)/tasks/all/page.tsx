@@ -10,7 +10,7 @@ import {
   deadlineLabel,
   isOverdue,
   lateLabel,
-  listFinishedTaskRows,
+  listAllTaskRows,
   listUnreadCounts,
   stateLabel,
   type TaskListRow,
@@ -19,7 +19,7 @@ import { type TaskListItem, TaskListTable } from "@/modules/tasks/components/tas
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
-import { readClientLabels, readDirectory, readOpenTasks, readTaskTypes } from "../reads";
+import { readClientLabels, readDirectory, readTaskTypes } from "../reads";
 
 export const metadata: Metadata = { title: "All tasks" };
 
@@ -35,20 +35,18 @@ const DESCRIPTION = `Every open task, and the latest ${FINISHED_LIMIT} finished 
  * too.
  */
 export default async function AllTasksPage() {
-  const openRows = readOpenTasks();
-  const finishedRows = listFinishedTaskRows(FINISHED_LIMIT);
-  const [viewer, [open, finished, directory, labels, types, unread]] = await checkThenRead(
+  // v7.0: the open and the finished rows in one read (`tasks_list_all()`), so the first wave
+  // stays at six (ARCHITECTURE §19).
+  const rows = listAllTaskRows(FINISHED_LIMIT);
+  const [viewer, [{ open, finished }, directory, labels, types, unread]] = await checkThenRead(
     requirePermission("tasks.work"),
     Promise.all([
-      openRows,
-      finishedRows,
+      rows,
       readDirectory(),
       readClientLabels(),
       readTaskTypes(),
       // The rows' unread comments, for these rows only (A-S4).
-      Promise.all([openRows, finishedRows]).then((lists) =>
-        listUnreadCounts(lists.flat().map((row) => row.id)),
-      ),
+      rows.then((both) => listUnreadCounts([...both.open, ...both.finished].map((row) => row.id))),
     ]),
   );
   const team = can(viewer.role, "tasks.create");

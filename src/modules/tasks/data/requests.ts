@@ -22,25 +22,25 @@ type Functions = Database["public"]["Functions"];
 const COLUMNS =
   "id, requested_by, title, details, client_id, state, decided_by, decided_at, decision_reason, task_id, created_at, task:tasks!task_id(id)";
 
-/** The requests the viewer sees: pending first, then the latest decided (at most `limit` of those). */
+/**
+ * The requests the viewer sees: pending first (oldest first), then the latest decided (at most
+ * `limit` of those, newest first). One read since v7.0 (`task_requests_list()`, ARCHITECTURE §19
+ * "Six connections"; it was two of `task_requests` before the page's first answer). Security
+ * invoker: RLS decides the rows. The function promises no order, so they are sorted here.
+ */
 export async function listTaskRequests(limit: number): Promise<TaskRequest[]> {
   const supabase = await createServerSupabase();
-  const [pending, decided] = await Promise.all([
-    supabase
-      .from("task_requests")
-      .select(COLUMNS)
-      .eq("state", "pending")
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("task_requests")
-      .select(COLUMNS)
-      .neq("state", "pending")
-      .order("updated_at", { ascending: false })
-      .limit(limit),
-  ]);
-  if (pending.error) throw pending.error;
-  if (decided.error) throw decided.error;
-  return [...pending.data, ...decided.data].map((row) => ({
+  const { data, error } = await supabase
+    .rpc("task_requests_list", { decided_limit: limit })
+    .select(`${COLUMNS}, updated_at`);
+  if (error) throw error;
+  const pending = data
+    .filter((row) => row.state === "pending")
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const decided = data
+    .filter((row) => row.state !== "pending")
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
+  return [...pending, ...decided].map((row) => ({
     id: row.id,
     requestedBy: row.requested_by,
     title: row.title,

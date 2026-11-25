@@ -94,33 +94,61 @@ async function makeFixtures(): Promise<Fixtures> {
       approving_admin_id: await memberIdOf(USERS.admin.email),
       stages: [],
     }));
-  const [client] = await serviceSelect<{ id: string; org_id: string }>(
-    `clients?name=eq.${encodeURIComponent(FIXTURE)}&select=id,org_id&limit=1`,
-  );
-  let clientId = client?.id;
-  let orgId = client?.org_id;
-  if (!clientId) {
+  const findClient = async () =>
+    (
+      await serviceSelect<{ id: string; org_id: string }>(
+        `clients?name=eq.${encodeURIComponent(FIXTURE)}&select=id,org_id&limit=1`,
+      )
+    )[0];
+  let client = await findClient();
+  if (!client) {
     const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    // Another worker may make it first (a fresh database; the name is unique): then it is used.
     const row = await serviceInsert<{ id: string }>("clients", {
       org_id: org?.id,
       name: FIXTURE,
       admin_id: await memberIdOf(USERS.admin.email),
-    });
-    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", { client_id: row.id });
-    clientId = row.id;
-    orgId = org?.id;
+    }).catch(() => null);
+    if (row) {
+      await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+        client_id: row.id,
+      });
+      client = { id: row.id, org_id: org!.id };
+    } else {
+      client = await findClient();
+      expect(client, "the fixture client, made by another worker").toBeTruthy();
+    }
   }
-  const [project] = await serviceSelect<{ id: string }>(
-    `projects?client_id=eq.${clientId}&select=id&limit=1`,
-  );
+  const clientId = client!.id;
+  const orgId = client!.org_id;
+  // Made by another worker a moment ago: it may not be Active yet.
+  await expect
+    .poll(
+      async () =>
+        (await serviceSelect<{ state: string }>(`clients?id=eq.${clientId}&select=state`))[0]
+          ?.state,
+    )
+    .toBe("active");
+  const findProject = async () =>
+    (
+      await serviceSelect<{ id: string }>(
+        `projects?client_id=eq.${clientId}&select=id&order=created_at.asc&limit=1`,
+      )
+    )[0]?.id;
+  // Another worker may make it between the look and the create (a fresh database): the
+  // database refuses a second open project of the name, and the first one is used.
   const projectId =
-    project?.id ??
+    (await findProject()) ??
     (await rpcAs<string>(USERS.admin.email, USERS.admin.password, "project_create", {
       client_id: clientId,
       name: FIXTURE,
       recurrence: "monthly",
       stages: [],
       items: ["First wave item"],
+    }).catch(async (error: unknown) => {
+      const made = await findProject();
+      if (made) return made;
+      throw error;
     }));
   const [contact] = await serviceSelect<{ id: string }>(
     `client_contacts?client_id=eq.${clientId}&select=id&limit=1`,

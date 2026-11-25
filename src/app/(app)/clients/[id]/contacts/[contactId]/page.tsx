@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead } from "@/core/lib/start-early";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
-import { getContactName, listContacts } from "@/modules/clients";
+import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { getClientContact, getContactName, listContacts } from "@/modules/clients";
 import { ContactMenu, ContactRecord } from "@/modules/clients/components/contact-record";
 
 import { assertClientId, loadClient, loadPeople } from "../../client";
@@ -39,15 +41,17 @@ export default async function ContactPage({
   const { id, contactId } = await params;
   // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
   assertClientId(id);
-  const [{ viewer, client, canEdit }, [contacts, definitions, people]] = await checkThenRead(
+  // v7.0: the contact alone (the read its tab title shares, `cache()`d), so the first wave reads
+  // `client_contacts` once; the other contacts, which only the editor's ⋯ needs, stream in after.
+  const [{ viewer, client, canEdit }, [contact, definitions, people]] = await checkThenRead(
     loadClient(id),
-    Promise.all([listContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
+    Promise.all([
+      getClientContact(id, contactId),
+      listDefinitions("contact", { clientId: id }),
+      loadPeople(),
+    ]),
   );
-  const contact = contacts.find((candidate) => candidate.id === contactId);
   if (!contact) notFound();
-  const others = contacts
-    .filter((other) => other.id !== contact.id && other.archivedAt === null)
-    .map((other) => ({ id: other.id, name: other.name }));
 
   return (
     <>
@@ -57,7 +61,13 @@ export default async function ContactPage({
         back={{ href: `/clients/${client.id}`, label: client.name }}
         menu={
           canEdit ? (
-            <ContactMenu contact={contact} others={others} canDelete={viewer.role === "owner"} />
+            <Suspense fallback={<Skeleton aria-hidden className="size-11 rounded-lg" />}>
+              <ContactMenuWithOthers
+                clientId={client.id}
+                contact={contact}
+                canDelete={viewer.role === "owner"}
+              />
+            </Suspense>
           ) : undefined
         }
       />
@@ -85,4 +95,23 @@ export default async function ContactPage({
       </div>
     </>
   );
+}
+
+/**
+ * The contact's ⋯ with the client's other live contacts (the candidates to become primary), read
+ * once the page has checked the client (v7.0): never in the first wave.
+ */
+async function ContactMenuWithOthers({
+  clientId,
+  contact,
+  canDelete,
+}: {
+  clientId: string;
+  contact: NonNullable<Awaited<ReturnType<typeof getClientContact>>>;
+  canDelete: boolean;
+}) {
+  const others = (await listContacts(clientId))
+    .filter((other) => other.id !== contact.id && other.archivedAt === null)
+    .map((other) => ({ id: other.id, name: other.name }));
+  return <ContactMenu contact={contact} others={others} canDelete={canDelete} />;
 }
