@@ -14,6 +14,8 @@ import {
   setAmountSchema,
   type SetCategoryInput,
   setCategorySchema,
+  type SetCycleAmountInput,
+  setCycleAmountSchema,
   type SetPriceInput,
   setPriceSchema,
 } from "../domain/schemas";
@@ -28,6 +30,15 @@ export const setProjectAmount = action(async (input: SetAmountInput): Promise<Re
   const data = setAmountSchema.parse(input);
   await assertPermission("finance.edit");
   await repo.rpcSetAmount(data.projectId, data.amount);
+  revalidateScreens();
+  return ok(null);
+});
+
+/** One cycle's amount alone: a month or week from before the project's first amount (Q1). */
+export const setCycleAmount = action(async (input: SetCycleAmountInput): Promise<Result<null>> => {
+  const data = setCycleAmountSchema.parse(input);
+  await assertPermission("finance.edit");
+  await repo.rpcSetCycleAmount(data.cycleId, data.amount);
   revalidateScreens();
   return ok(null);
 });

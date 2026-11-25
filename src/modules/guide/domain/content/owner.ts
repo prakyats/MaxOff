@@ -1519,6 +1519,14 @@ export const OWNER_GUIDE: Guide = {
               'Type the amount in whole rupees, such as 40000, and tap "Save amount".',
               'To change the category, tap "Change" beside Category, pick Retainer, Project or Additional Work, and tap "Save category".',
             ),
+            text(
+              'A month or week that began before you entered the first amount stays "No amount set". To give one of them its own amount:',
+            ),
+            steps(
+              "Switch to that month with the month tabs at the top of the project page, and scroll down to Billing.",
+              'Under the three figures, the row with the month\'s name says "No amount set". Tap "Set this month\'s amount" (on a weekly project, "Set this week\'s amount").',
+              'Type the amount in whole rupees and tap "Save amount". Only that month changes: the project\'s amount and the other months stay as they are.',
+            ),
             next(
               "On a monthly or weekly project, under the amount, the month or week you are looking at shows Potential (what it can bring in), Achieved (the part whose deliverables are done) and Remaining. Switch the month tabs at the top of the page to see another one.",
             ),
@@ -1527,6 +1535,9 @@ export const OWNER_GUIDE: Guide = {
             ),
             note(
               "Amounts are whole rupees: no paise. ₹0 is allowed and reads “Not billable”. A new project starts as Retainer when it repeats and as Project when it is one-time.",
+            ),
+            note(
+              'If the section says "Billing couldn\'t load.", the rest of the project page still works and nothing was changed. Tap "Try again".',
             ),
             note(
               `Only the Owner sees Billing. Admins and ${CREW} never see the section or any amount, on any screen.`,
@@ -1556,7 +1567,10 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               "Open the project and scroll down to Billing.",
-              'Under "Added this month", find the deliverable that says "Not priced" and tap "Set price".',
+              {
+                text: 'Under "Added this month", find the deliverable that says "Not priced" and tap "Set price" (highlighted).',
+                shot: "owner/billing-price",
+              },
               'Type the price in whole rupees and tap "Save price".',
             ),
             next(
@@ -1573,6 +1587,60 @@ export const OWNER_GUIDE: Guide = {
             ),
           ],
           keywords: ["extra", "added", "not priced", "price", "billing", "additional", "on top"],
+        },
+        {
+          id: "owner-revenue-page",
+          title: "Read the Revenue page",
+          summary: "One month of client work in rupees, client by client. Only you see it.",
+          blocks: [
+            steps("Open More, then Reports.", {
+              text: 'Tap "Revenue". The page shows one month, with three figures for the whole month at the top (highlighted).',
+              shot: "owner/revenue",
+            }),
+            text(
+              "Potential is what the month can bring in: every monthly or weekly project's amount for the month, plus the priced extras, plus every one-time project due this month.",
+            ),
+            text(
+              "Achieved is the part that is earned. On a monthly or weekly project it is the value of the deliverables that are done. On a one-time project it is the whole amount, once the project is completed.",
+            ),
+            text("Remaining is Potential minus Achieved."),
+            text(
+              '"Advances received" is on its own line, with what was returned. An advance is never part of Achieved. "Closed, not achieved" appears when work with a value was cancelled.',
+            ),
+            text(
+              '"Needs a look" lists what to check first. Each row names the client and the project; tap it to open that project at its Billing section.',
+            ),
+            text(
+              '"No amount set" is a month, week or one-time project without an amount. "2 not priced" means deliverables added during the month still need a price. "Ready to complete" is a one-time project whose deliverables are all done: completing it moves its amount to Achieved. "Was due 15 Nov" is a one-time project past its delivery date and not completed.',
+            ),
+            text(
+              '"By client" has one card per client with its own Potential, Achieved and Remaining, then one line per project. A monthly or weekly project shows the month and how many deliverables are done ("November 2026 · 4 of 12 done"). A one-time project shows "Due 15 Nov", "Completed" or "Cancelled". A line can also say "+₹2,718 added", "Advance ₹30,000" or "On hold". Tap a line to open the project.',
+            ),
+            steps(
+              "To see another month, tap the arrows beside the month's name.",
+              "To see one kind of work, tap All, Retainer, Project or Additional Work. The figures and the lists then count only that category.",
+            ),
+            note(
+              'The phone\'s back button leaves the page in one step, however many months or categories you looked at. A month with nothing says "No revenue this month."',
+            ),
+            note(
+              `Only the Owner sees the Revenue page. Admins and ${CREW} have no Revenue row in Reports and cannot open it.`,
+            ),
+          ],
+          keywords: [
+            "revenue",
+            "potential",
+            "achieved",
+            "remaining",
+            "month",
+            "money",
+            "report",
+            "advances",
+            "not priced",
+            "no amount set",
+            "category",
+            "rupees",
+          ],
         },
         {
           id: "owner-record-advance",

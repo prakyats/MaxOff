@@ -107,3 +107,13 @@ export async function rpcReturnAdvance(input: {
   });
   if (error) throw error;
 }
+
+/**
+ * One retainer cycle's own amount (Q1's "until the Owner fills each one"): only that cycle; the
+ * project's amount and every other cycle are untouched.
+ */
+export async function rpcSetCycleAmount(cycleId: string, amount: number): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("billing_set_cycle_amount", { cycle_id: cycleId, amount });
+  if (error) throw error;
+}

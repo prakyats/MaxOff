@@ -202,10 +202,16 @@ select ok((select bool_and(c.reloptions @> array['security_invoker=true']) and c
              and c.relname in ('item_values_v', 'revenue_by_cycle_v', 'revenue_project_lines_v', 'revenue_advances_v',
                                'revenue_by_client_month_v')),
   'the five views are security invoker');
-select ok((select bool_and(pg_get_viewdef(c.oid) like '%finance.view%') from pg_class c
+select ok((select bool_and(pg_get_viewdef(c.oid) like '%finance.view%') and count(*) = 2 from pg_class c
            where c.relnamespace = 'public'::regnamespace and c.relkind = 'v'
-             and c.relname in ('item_values_v', 'revenue_by_cycle_v', 'revenue_project_lines_v', 'revenue_advances_v')),
-  'and each base view is gated on finance.view itself');
+             and c.relname in ('revenue_project_lines_v', 'revenue_advances_v'))
+          -- The two retainer views are app.item_values / app.revenue_cycles asked for every cycle (migration
+          -- money_reads_scoped): the gate is in those functions, which are invoker like the views.
+          and (select pg_get_viewdef('public.item_values_v'::regclass) like '%app.item_values(%'
+                  and pg_get_viewdef('public.revenue_by_cycle_v'::regclass) like '%app.revenue_cycles(%')
+          and (select bool_and(p.prosrc like '%finance.view%' and not p.prosecdef) and count(*) = 2 from pg_proc p
+               where p.pronamespace = 'app'::regnamespace and p.proname in ('item_values', 'revenue_cycles')),
+  'and each base view is gated on finance.view itself (the retainer views through their invoker functions)');
 select ok((select bool_and(has_function_privilege('authenticated', p.oid, 'execute')
                            and not has_function_privilege('anon', p.oid, 'execute')
                            and p.prosecdef and p.proconfig @> array['search_path=""']) and count(*) = 8

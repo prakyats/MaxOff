@@ -623,6 +623,18 @@ export const GUIDE_SHOTS: Readonly<
     height: 367,
     alt: "A one-time project's Billing section with one advance received and the Record advance button highlighted.",
   },
+  "owner/billing-price": {
+    src: "/guide/owner/billing-price.webp",
+    width: 1184,
+    height: 385,
+    alt: "A monthly project's Billing section: under Added this month, Extra poster says Not priced and its Set price button is highlighted.",
+  },
+  "owner/revenue": {
+    src: "/guide/owner/revenue.webp",
+    width: 1222,
+    height: 800,
+    alt: "The Revenue page for this month: Potential, Achieved and Remaining highlighted at the top, then Needs a look and each client's projects.",
+  },
   "owner/send-back": {
     src: "/guide/owner/send-back.webp",
     width: 408,

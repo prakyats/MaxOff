@@ -82,6 +82,8 @@ const ON_HOLD_SPECS = /on-hold\.spec\.ts$/;
 const VIEW_SCROLL_SPECS = /view-scroll\.spec\.ts$/;
 // v2.1 (9.2): the Owner's Billing section and its sheets, and the Admin's page without it.
 const BILLING_SPECS = /billing\.spec\.ts$/;
+// v2.1 (9.2): the Owner's Revenue page, and an Admin kept away from it.
+const REVENUE_SPECS = /revenue\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
 const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
@@ -228,6 +230,7 @@ export default defineConfig({
       // And the likely-next prefetch (P2 item 6): rows prefetched near the top, at both widths.
       // And a view switch then a live refresh keeps the scroll (v1.9, the Next patch): both widths.
       // And the Owner's Billing section (v2.1, 9.2): its rows, sheets and skeleton at both widths.
+      // And the Owner's Revenue page (v2.1, 9.2): its figures, controls and the Admin kept away.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -280,6 +283,7 @@ export default defineConfig({
         ON_HOLD_SPECS,
         VIEW_SCROLL_SPECS,
         BILLING_SPECS,
+        REVENUE_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

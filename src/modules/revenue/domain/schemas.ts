@@ -32,6 +32,10 @@ const note = z
 export const setAmountSchema = z.object({ projectId: z.uuid(), amount: wholeRupees });
 export type SetAmountInput = z.input<typeof setAmountSchema>;
 
+/** One retainer cycle's own amount (a cycle from before the project's first amount, Q1). */
+export const setCycleAmountSchema = z.object({ cycleId: z.uuid(), amount: wholeRupees });
+export type SetCycleAmountInput = z.input<typeof setCycleAmountSchema>;
+
 export const setCategorySchema = z.object({
   projectId: z.uuid(),
   category: z.enum(BILLING_CATEGORIES, { error: "Choose a category." }),

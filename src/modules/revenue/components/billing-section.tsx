@@ -10,6 +10,8 @@ import {
   amountSheetNote,
   amountText,
   BILLING_CATEGORY_LABELS,
+  cycleAmountLabel,
+  cycleAmountNote,
   longDay,
   type OneTimeBilling,
   periodWord,
@@ -178,6 +180,27 @@ function RetainerRows({ billing }: { billing: RetainerBilling }) {
           <Figure label="Remaining" value={cycle.remaining} slot="billing-remaining" />
         </dl>
       </div>
+      {/* Q1: a cycle from before the first amount is priced alone, here; the project's amount
+          never reaches it. Its own row under the figures, so nothing above moves. Only once the
+          project has an amount: before that, "Set amount" above is the one control. */}
+      {cycle.amount === null && billing.billing.cycleAmount !== null ? (
+        <div className={BILLING_ROW} data-slot="billing-cycle-amount">
+          <div className={BILLING_ROW_TEXT}>
+            <p className="break-words">{cycle.label ?? `This ${period}`}</p>
+            <p className="text-muted-foreground text-xs">No amount set</p>
+          </div>
+          <BillingSheetButton
+            label={cycleAmountLabel(recurrence)}
+            slot="billing-cycle-amount-set"
+            sheet={{
+              kind: "cycleAmount",
+              cycleId: cycle.cycleId,
+              title: cycleAmountLabel(recurrence),
+              note: cycleAmountNote(cycle.label, recurrence),
+            }}
+          />
+        </div>
+      ) : null}
       {added.length > 0 ? (
         <div data-slot="billing-added">
           <h3 className="text-muted-foreground px-4 pt-3 text-xs">{addedHeading(recurrence)}</h3>

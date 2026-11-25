@@ -235,6 +235,16 @@ export function amountSheetNote(
     : `Applies from this ${word} on. Earlier ones keep their amount.`;
 }
 
+/** "Set this month's amount" / "Set this week's amount": one earlier cycle, priced alone (Q1). */
+export function cycleAmountLabel(recurrence: "weekly" | "monthly"): string {
+  return `Set this ${periodWord(recurrence)}'s amount`;
+}
+
+/** What the cycle amount sheet says: which cycle it prices, and that the project's amount stays. */
+export function cycleAmountNote(label: string | null, recurrence: "weekly" | "monthly"): string {
+  return `Only ${label ?? `this ${periodWord(recurrence)}`}. The project's amount is not changed.`;
+}
+
 /** "15 Nov": a date as the section's lines say it. */
 export function shortDay(date: string): string {
   return formatIST(istDayStart(date), "d MMM");

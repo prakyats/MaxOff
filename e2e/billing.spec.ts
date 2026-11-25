@@ -14,7 +14,9 @@ import {
   rpcAs,
   rpcRefusedAs,
   serviceInsert,
+  serviceRest,
   serviceSelect,
+  serviceUpdate,
   storageStateFor,
   USERS,
   watchReads,
@@ -74,6 +76,40 @@ async function cycleOf(projectId: string): Promise<{ id: string; label: string }
   );
   expect(cycle, "the project's cycle").toBeTruthy();
   return cycle!;
+}
+
+/**
+ * Last month's cycle of a retainer, with one plan deliverable: a month from before the project's
+ * first amount. No function makes a past cycle, so the service role inserts it (as the
+ * client-work specs do), and marks its deliverable as part of that month's plan (a row written
+ * outside the cycle's own list is otherwise counted as added on top).
+ */
+async function earlierCycle(projectId: string): Promise<{ id: string; label: string }> {
+  const monthStart = `${todayIST().slice(0, 8)}01`;
+  const end = addISTDays(monthStart, -1);
+  const start = `${end.slice(0, 8)}01`;
+  const label = formatIST(istDayStart(start), "MMMM yyyy");
+  const [project] = await serviceSelect<{ org_id: string }>(
+    `projects?id=eq.${projectId}&select=org_id`,
+  );
+  const cycle = await serviceInsert<{ id: string }>("project_cycles", {
+    org_id: project?.org_id,
+    project_id: projectId,
+    period_start: start,
+    period_end: end,
+    label,
+    generated_by: "schedule",
+  });
+  const item = await serviceInsert<{ id: string }>("project_items", {
+    org_id: project?.org_id,
+    project_id: projectId,
+    cycle_id: cycle.id,
+    origin_cycle_id: cycle.id,
+    title: "Earlier reel",
+    position: "a0",
+  });
+  await serviceUpdate(`item_billing?item_id=eq.${item.id}`, { added: false });
+  return { id: cycle.id, label };
 }
 
 const section = (page: Page) => page.locator('[data-slot="project-billing"]');
@@ -303,6 +339,77 @@ test.describe("the Owner's Billing section", () => {
     await removeClientFixture(nameOf(info, "one-time"));
   });
 
+  test("a month from before the first amount is priced alone: Set this month's amount", async ({
+    page,
+  }, info) => {
+    const clientId = await workClient(nameOf(info, "earlier"));
+    const projectId = await makeProject(clientId, "Billing earlier", { items: ["Reel 1"] });
+    await rpcAs(owner.email, owner.password, "billing_set_project", {
+      project_id: projectId,
+      amount: 40000,
+      set_amount: true,
+      category: null,
+    });
+    const current = await cycleOf(projectId);
+    const earlier = await earlierCycle(projectId);
+    const path = `/clients/${clientId}/projects/${projectId}`;
+    try {
+      // The month in view has its amount: no such control.
+      await page.goto(path);
+      await hydrated(page);
+      const billing = section(page);
+      await expect(figure(page, "potential")).toHaveText("₹40,000");
+      await expect(billing.locator('[data-slot="billing-cycle-amount"]')).toHaveCount(0);
+
+      // Last month began before the first amount: "No amount set", and its own control.
+      await page.goto(`${path}?cycle=${earlier.id}`);
+      await hydrated(page);
+      await expectSettled(page);
+      await expect(billing.locator('[data-slot="billing-cycle"]')).toContainText(
+        `${earlier.label} · No amount set`,
+      );
+      await expect(figure(page, "potential")).toHaveText("₹0");
+      const row = billing.locator('[data-slot="billing-cycle-amount"]');
+      await expect(row).toContainText(earlier.label);
+      await expect(row).toContainText("No amount set");
+      await expectNoHorizontalScroll(page);
+      await row.getByRole("button", { name: "Set this month's amount" }).click();
+      const dialog = sheet(page, "Set this month's amount");
+      await expect(dialog).toContainText(
+        `Only ${earlier.label}. The project's amount is not changed.`,
+      );
+      const field = dialog.getByLabel("Amount (₹)");
+      await dialog.getByRole("button", { name: "Save amount" }).click();
+      await expect(fieldError(dialog)).toHaveText("Enter the amount in rupees.");
+      await field.fill("25000.50");
+      await dialog.getByRole("button", { name: "Save amount" }).click();
+      await expect(fieldError(dialog)).toHaveText("Whole rupees only, no paise.");
+      await field.fill("25,000");
+      await dialog.getByRole("button", { name: "Save amount" }).click();
+      await expect(dialog).toBeHidden();
+
+      // That month's Potential is its own amount; the control is gone with the gap it filled.
+      await expect(figure(page, "potential")).toHaveText("₹25,000");
+      await expect(figure(page, "remaining")).toHaveText("₹25,000");
+      await expect(row).toHaveCount(0);
+      await expect(billing.locator('[data-slot="billing-cycle"]')).not.toContainText(
+        "No amount set",
+      );
+      // The project's amount and this month are as they were.
+      await expect(valueOf(billing.locator('[data-slot="billing-amount"]'))).toHaveText("₹40,000");
+      const now = await rpcAs<{ cycle: { amount: number }; billing: { cycle_amount: number } }>(
+        owner.email,
+        owner.password,
+        "project_billing_read",
+        { project_id: projectId, cycle_id: current.id },
+      );
+      expect(now.cycle.amount).toBe(40000);
+      expect(now.billing.cycle_amount).toBe(40000);
+    } finally {
+      await removeClientFixture(nameOf(info, "earlier"));
+    }
+  });
+
   test("a billing read that fails stays in the section: the page is intact, Try again re-reads", async ({
     page,
   }, info) => {
@@ -428,6 +535,142 @@ test.describe("the Owner's Billing section", () => {
     } finally {
       held.release();
       await removeClientFixture(nameOf(info, "skeleton"));
+    }
+  });
+});
+
+test.describe("the Billing skeleton's other shapes (9.2 review)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  /** The tops (in the page) of the first visible match of each selector. */
+  const tops = (page: Page, selectors: Record<string, string>) =>
+    page.evaluate((points) => {
+      const found: Record<string, number | null> = {};
+      for (const [name, selector] of Object.entries(points)) {
+        const element = [...document.querySelectorAll<HTMLElement>(selector)].find(
+          (candidate) =>
+            candidate.getBoundingClientRect().height > 0 && candidate.checkVisibility(),
+        );
+        found[name] = element ? element.getBoundingClientRect().top + window.scrollY : null;
+      }
+      return found;
+    }, selectors);
+
+  /** Holds the billing read, measures the skeleton, releases, measures the section. */
+  async function traced(
+    page: Page,
+    path: string,
+    points: Record<string, { held: string; settled: string }>,
+  ): Promise<void> {
+    const session = await ownSession(page, owner.email, owner.password);
+    const held = await holdReads("/rest/v1/rpc/project_billing_read", session);
+    try {
+      await page.goto(path, { waitUntil: "commit" });
+      const skeleton = page.locator('[data-slot="billing-skeleton"]');
+      await expect(skeleton).toBeVisible();
+      await expect.poll(() => held.caught(), { message: "the billing read is held" }).toBe(true);
+      const before = await tops(
+        page,
+        Object.fromEntries(Object.entries(points).map(([name, point]) => [name, point.held])),
+      );
+      const skeletonHeight = (await skeleton.boundingBox())?.height ?? 0;
+      held.release();
+      await expect(skeleton).toHaveCount(0);
+      await expect(section(page)).toBeVisible();
+      await hydrated(page);
+      await expectSettled(page);
+      const after = await tops(
+        page,
+        Object.fromEntries(Object.entries(points).map(([name, point]) => [name, point.settled])),
+      );
+      const moved = Object.keys(points).flatMap((name) => {
+        const from = before[name];
+        const to = after[name];
+        if (from === null || from === undefined) return [`${name}: not in the skeleton`];
+        if (to === null || to === undefined) return [`${name}: not on the page`];
+        return Math.abs(to - from) > 1 ? [`${name}: ${from.toFixed(1)} → ${to.toFixed(1)}`] : [];
+      });
+      expect(moved, "nothing moves when the billing arrives").toEqual([]);
+      const sectionHeight = (await section(page).boundingBox())?.height ?? 0;
+      expect(Math.abs(sectionHeight - skeletonHeight), "the skeleton's height").toBeLessThanOrEqual(
+        1,
+      );
+    } finally {
+      held.release();
+    }
+  }
+
+  test("a retainer with no cycle in view: Category and Amount only, the same height", async ({
+    page,
+  }, info) => {
+    const clientId = await workClient(nameOf(info, "no cycle"));
+    const projectId = await makeProject(clientId, "Billing no cycle", { items: [] });
+    // A fixture without any cycle (no function removes one): the page then has none in view.
+    await serviceRest(`cycle_billing?project_id=eq.${projectId}`, { method: "DELETE" });
+    await serviceRest(`project_items?project_id=eq.${projectId}`, { method: "DELETE" });
+    await serviceRest(`project_cycles?project_id=eq.${projectId}`, { method: "DELETE" });
+    expect(
+      await serviceSelect(`project_cycles?project_id=eq.${projectId}&select=id`),
+      "the fixture has no cycle",
+    ).toEqual([]);
+    try {
+      await traced(page, `/clients/${clientId}/projects/${projectId}`, {
+        heading: {
+          held: '[data-slot="billing-skeleton"] > :first-child',
+          settled: '[data-slot="project-billing"] > h2',
+        },
+        "the category row": {
+          held: '[data-slot="billing-skeleton"] [data-row]:nth-child(1)',
+          settled: '[data-slot="billing-category"]',
+        },
+        "the amount row": {
+          held: '[data-slot="billing-skeleton"] [data-row]:nth-child(2)',
+          settled: '[data-slot="billing-amount"]',
+        },
+      });
+      await expect(section(page).locator('[data-slot="billing-cycle"]')).toHaveCount(0);
+    } finally {
+      await removeClientFixture(nameOf(info, "no cycle"));
+    }
+  });
+
+  test("a one-time project past its date: the status line is traced, Advances does not move", async ({
+    page,
+  }, info) => {
+    const clientId = await workClient(nameOf(info, "late"));
+    const projectId = await makeProject(clientId, "Billing late", {
+      recurrence: "one_time",
+      items: ["Film"],
+      delivery: addISTDays(todayIST(), 5),
+    });
+    await rpcAs(owner.email, owner.password, "billing_set_project", {
+      project_id: projectId,
+      amount: 60000,
+      set_amount: true,
+      category: null,
+    });
+    // Past its date (a fixture's date moved back: no function sets one in the past).
+    await serviceUpdate(`projects?id=eq.${projectId}`, {
+      delivery_date: addISTDays(todayIST(), -2),
+    });
+    try {
+      await traced(page, `/clients/${clientId}/projects/${projectId}`, {
+        "the amount row": {
+          held: '[data-slot="billing-skeleton"] [data-row]:nth-child(2)',
+          settled: '[data-slot="billing-amount"]',
+        },
+        "the status line": {
+          held: '[data-slot="billing-skeleton-status"]',
+          settled: '[data-slot="billing-status"]',
+        },
+        advances: {
+          held: '[data-slot="billing-skeleton"] [data-row]:nth-child(4)',
+          settled: '[data-slot="billing-advances"]',
+        },
+      });
+      await expect(section(page).locator('[data-slot="billing-status"]')).toContainText("Was due");
+    } finally {
+      await removeClientFixture(nameOf(info, "late"));
     }
   });
 });

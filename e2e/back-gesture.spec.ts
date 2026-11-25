@@ -1084,6 +1084,61 @@ test.describe("installed: the Owner's Billing sheets on a project (v2.1, 9.2)", 
     await removeClientFixture(name);
   });
 
+  test("a month before the first amount: back closes Set this month's amount, then leaves", async ({
+    page,
+  }, info) => {
+    const name = `Back billing earlier (${info.project.name})`;
+    const { path, projectId } = await billingProject(name, {
+      recurrence: "monthly",
+      items: ["Reel A"],
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "billing_set_project", {
+      project_id: projectId,
+      amount: 40000,
+      set_amount: true,
+      category: null,
+    });
+    // Last month's cycle, from before the amount (inserted by the service role: no function
+    // makes a past cycle).
+    const [project] = await serviceSelect<{ org_id: string }>(
+      `projects?id=eq.${projectId}&select=org_id`,
+    );
+    const end = addISTDays(`${todayIST().slice(0, 8)}01`, -1);
+    const earlier = await serviceInsert<{ id: string }>("project_cycles", {
+      org_id: project?.org_id,
+      project_id: projectId,
+      period_start: `${end.slice(0, 8)}01`,
+      period_end: end,
+      label: "Last month",
+      generated_by: "schedule",
+    });
+    const there = `${path}?cycle=${earlier.id}`;
+    await runInstalled(page);
+    await page.goto("/today");
+    await page.goto(there);
+    await hydrated(page);
+    const billing = page.locator('[data-slot="project-billing"]');
+    await expect(billing).toBeVisible();
+
+    await billing.getByRole("button", { name: "Set this month's amount" }).click();
+    const amount = page.getByRole("dialog", { name: "Set this month's amount" });
+    await expect(amount).toBeVisible();
+    await amount.getByLabel("Amount (₹)").fill("25000");
+    // Backing out saves nothing, and the next back leaves the project.
+    await expectBackStack(page, [
+      { closes: amount, url: new RegExp(`cycle=${earlier.id}$`) },
+      { url: /\/today$/ },
+    ]);
+    const read = await rpcAs<{ cycle: { amount: number | null } }>(
+      USERS.owner.email,
+      USERS.owner.password,
+      "project_billing_read",
+      { project_id: projectId, cycle_id: earlier.id },
+    );
+    expect(read.cycle.amount).toBeNull();
+    await removeClientFixture(name);
+  });
+
   test("a one-time project: back closes Record advance and Mark returned, then leaves", async ({
     page,
   }, info) => {

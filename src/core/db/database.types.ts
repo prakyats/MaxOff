@@ -977,13 +977,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "cycle_billing_cycle_id_fkey";
-            columns: ["cycle_id"];
-            isOneToOne: true;
-            referencedRelation: "revenue_by_cycle_v";
-            referencedColumns: ["cycle_id"];
-          },
-          {
             foreignKeyName: "cycle_billing_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -1635,20 +1628,6 @@ export type Database = {
             foreignKeyName: "item_billing_item_id_fkey";
             columns: ["item_id"];
             isOneToOne: true;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["item_id"];
-          },
-          {
-            foreignKeyName: "item_billing_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: true;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["leaf_item_id"];
-          },
-          {
-            foreignKeyName: "item_billing_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: true;
             referencedRelation: "project_items";
             referencedColumns: ["id"];
           },
@@ -1690,20 +1669,6 @@ export type Database = {
           reviewer_id?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "item_reviews_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["item_id"];
-          },
-          {
-            foreignKeyName: "item_reviews_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["leaf_item_id"];
-          },
           {
             foreignKeyName: "item_reviews_item_id_fkey";
             columns: ["item_id"];
@@ -2872,20 +2837,6 @@ export type Database = {
             foreignKeyName: "project_item_stage_list_item_id_fkey";
             columns: ["item_id"];
             isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["item_id"];
-          },
-          {
-            foreignKeyName: "project_item_stage_list_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["leaf_item_id"];
-          },
-          {
-            foreignKeyName: "project_item_stage_list_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: false;
             referencedRelation: "project_items";
             referencedColumns: ["id"];
           },
@@ -2954,20 +2905,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_item_stages_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["item_id"];
-          },
-          {
-            foreignKeyName: "project_item_stages_item_id_fkey";
-            columns: ["item_id"];
-            isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["leaf_item_id"];
           },
           {
             foreignKeyName: "project_item_stages_item_id_fkey";
@@ -3119,20 +3056,6 @@ export type Database = {
             foreignKeyName: "project_items_carried_from_item_id_fkey";
             columns: ["carried_from_item_id"];
             isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["item_id"];
-          },
-          {
-            foreignKeyName: "project_items_carried_from_item_id_fkey";
-            columns: ["carried_from_item_id"];
-            isOneToOne: false;
-            referencedRelation: "item_values_v";
-            referencedColumns: ["leaf_item_id"];
-          },
-          {
-            foreignKeyName: "project_items_carried_from_item_id_fkey";
-            columns: ["carried_from_item_id"];
-            isOneToOne: false;
             referencedRelation: "project_items";
             referencedColumns: ["id"];
           },
@@ -3172,13 +3095,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "project_items_cycle_id_fkey";
-            columns: ["cycle_id"];
-            isOneToOne: false;
-            referencedRelation: "revenue_by_cycle_v";
-            referencedColumns: ["cycle_id"];
-          },
-          {
             foreignKeyName: "project_items_done_by_fkey";
             columns: ["done_by"];
             isOneToOne: false;
@@ -3205,13 +3121,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "project_cycles";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_items_origin_cycle_id_fkey";
-            columns: ["origin_cycle_id"];
-            isOneToOne: false;
-            referencedRelation: "revenue_by_cycle_v";
-            referencedColumns: ["cycle_id"];
           },
           {
             foreignKeyName: "project_items_project_id_fkey";
@@ -5032,57 +4941,7 @@ export type Database = {
           title: string | null;
           value: number | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "project_items_cycle_id_fkey";
-            columns: ["cycle_id"];
-            isOneToOne: false;
-            referencedRelation: "project_cycles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_items_cycle_id_fkey";
-            columns: ["cycle_id"];
-            isOneToOne: false;
-            referencedRelation: "revenue_by_cycle_v";
-            referencedColumns: ["cycle_id"];
-          },
-          {
-            foreignKeyName: "project_items_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_items_project_id_fkey";
-            columns: ["project_id"];
-            isOneToOne: false;
-            referencedRelation: "projects";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_items_project_id_fkey";
-            columns: ["project_id"];
-            isOneToOne: false;
-            referencedRelation: "revenue_project_lines_v";
-            referencedColumns: ["project_id"];
-          },
-          {
-            foreignKeyName: "projects_client_id_fkey";
-            columns: ["client_id"];
-            isOneToOne: false;
-            referencedRelation: "client_labels";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "projects_client_id_fkey";
-            columns: ["client_id"];
-            isOneToOne: false;
-            referencedRelation: "clients";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
       member_directory: {
         Row: {
@@ -5205,43 +5064,7 @@ export type Database = {
           project_id: string | null;
           remaining: number | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "project_cycles_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_cycles_project_id_fkey";
-            columns: ["project_id"];
-            isOneToOne: false;
-            referencedRelation: "projects";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "project_cycles_project_id_fkey";
-            columns: ["project_id"];
-            isOneToOne: false;
-            referencedRelation: "revenue_project_lines_v";
-            referencedColumns: ["project_id"];
-          },
-          {
-            foreignKeyName: "projects_client_id_fkey";
-            columns: ["client_id"];
-            isOneToOne: false;
-            referencedRelation: "client_labels";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "projects_client_id_fkey";
-            columns: ["client_id"];
-            isOneToOne: false;
-            referencedRelation: "clients";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
       revenue_project_lines_v: {
         Row: {
@@ -5823,6 +5646,10 @@ export type Database = {
       item_mark_done: {
         Args: { item_id: string };
         Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_mark_done_and_complete: {
+        Args: { item_id: string };
+        Returns: Database["public"]["Enums"]["project_state"];
       };
       item_reject: {
         Args: { item_id: string; reason: string };

@@ -357,6 +357,28 @@ async function makeDemo(): Promise<DemoIds> {
     received_on: todayIST(),
     note: "On signing",
   });
+  // v2.1 (9.2): a project of its own for "Price added deliverables" and the Revenue page: its
+  // amount set, then one deliverable added by the Admin, which waits for its price.
+  const pricedProjectId = await rpc<string>(admin, "project_create_grouped", {
+    client_id: client.id,
+    name: "Monthly posts",
+    recurrence: "monthly",
+    stage_groups: [{ label: null, stages: ["Draft", "Final"] }],
+    deliverables: ["Post A", "Post B", "Post C", "Post D"].map((title) => ({
+      title,
+      stage_groups: null,
+    })),
+  });
+  await rpc(owner, "billing_set_project", {
+    project_id: pricedProjectId,
+    amount: 40000,
+    set_amount: true,
+    category: null,
+  });
+  const [pricedCycle] = await serviceSelect<{ id: string }>(
+    `project_cycles?project_id=eq.${pricedProjectId}&select=id&order=period_start.desc&limit=1`,
+  );
+  await rpc(admin, "item_add", { cycle_id: pricedCycle?.id, title: "Extra poster" });
   const items = await serviceSelect<{ id: string; title: string }>(
     `project_items?project_id=eq.${projectId}&select=id,title&order=position`,
   );
@@ -516,6 +538,7 @@ async function makeDemo(): Promise<DemoIds> {
     clientId: client.id,
     projectId,
     oneTimeProjectId,
+    pricedProjectId,
     heldProjectId,
     staffId,
     tasks: { notNoted, started, handedIn, checked, ownerOnly, held },

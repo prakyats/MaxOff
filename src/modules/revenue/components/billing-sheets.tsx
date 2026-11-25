@@ -26,6 +26,7 @@ import { describeError } from "@/core/ui/toast";
 import {
   recordAdvance,
   returnAdvance,
+  setCycleAmount,
   setDeliverablePrice,
   setProjectAmount,
   setProjectCategory,
@@ -49,6 +50,14 @@ export type BillingSheetRequest =
       label: string;
       current: number | null;
       /** Which cycles the amount covers, in words. */
+      note: string;
+    }
+  | {
+      kind: "cycleAmount";
+      cycleId: string;
+      /** "Set this month's amount" / "Set this week's amount". */
+      title: string;
+      /** "Only November 2026. The project's amount is not changed." */
       note: string;
     }
   | { kind: "category"; projectId: string; current: BillingCategory }
@@ -88,6 +97,7 @@ export function BillingSheet({
     <Dialog open onOpenChange={(open) => (open || busy ? undefined : onClose())}>
       <DialogContent data-slot="billing-sheet" data-kind={request.kind}>
         {request.kind === "amount" ? <AmountForm request={request} {...form} /> : null}
+        {request.kind === "cycleAmount" ? <CycleAmountForm request={request} {...form} /> : null}
         {request.kind === "category" ? <CategoryForm request={request} {...form} /> : null}
         {request.kind === "price" ? <PriceForm request={request} {...form} /> : null}
         {request.kind === "advance" ? <AdvanceForm request={request} {...form} /> : null}
@@ -308,6 +318,47 @@ function AmountForm({ request, onClose, onBusy }: FormProps<"amount">) {
     >
       <RupeeField
         label={request.label}
+        name="amount"
+        value={text}
+        onChange={(next) => {
+          setText(next);
+          commit.clear("amount");
+        }}
+        error={commit.fields.amount}
+        hint="Whole rupees. ₹0 means not billable."
+      />
+    </SheetForm>
+  );
+}
+
+/** One earlier cycle's amount, alone (Q1): the project's amount and other cycles stay. */
+function CycleAmountForm({ request, onClose, onBusy }: FormProps<"cycleAmount">) {
+  const [text, setText] = useState("");
+  const commit = useSheetCommit({
+    saved: "Amount saved",
+    onClose,
+    onBusy,
+    attempt: () => {
+      const entry = parseWholeRupees(text);
+      if (!entry.ok) return { fix: { amount: entry.message } };
+      return {
+        request: () => setCycleAmount({ cycleId: request.cycleId, amount: entry.value }),
+      };
+    },
+  });
+  return (
+    <SheetForm
+      title={request.title}
+      description={request.note}
+      alert={commit.alert}
+      action={commit.action}
+      submitLabel="Save amount"
+      pendingLabel="Saving…"
+      onClose={onClose}
+      onSubmit={commit.submit}
+    >
+      <RupeeField
+        label="Amount"
         name="amount"
         value={text}
         onChange={(next) => {

@@ -24,6 +24,11 @@ export type DemoIds = {
   projectId: string;
   /** "Launch video": a one-time project with its amount set and one advance received (v2.1). */
   oneTimeProjectId: string;
+  /**
+   * "Monthly posts": a monthly project with its amount set and one deliverable added and not
+   * priced (v2.1). Its own project, so the other pictures' deliverable counts stay as they are.
+   */
+  pricedProjectId: string;
   /** "Festive campaign": a monthly project On hold, one deliverable's date passed, one from last month. */
   heldProjectId: string;
   staffId: string;
@@ -1051,6 +1056,26 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => slot(page, "billing-advance-record"),
     crop: (page) => slot(page, "project-billing"),
     alt: "A one-time project's Billing section with one advance received and the Record advance button highlighted.",
+  },
+  {
+    id: "owner/billing-price",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.pricedProjectId}`,
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "billing-price-set"),
+    badge: 2,
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A monthly project's Billing section: under Added this month, Extra poster says Not priced and its Set price button is highlighted.",
+  },
+  // v2.1 (9.2): Reports → Revenue, the month in rupees. The Owner's alone.
+  {
+    id: "owner/revenue",
+    path: "/reports/revenue",
+    highlight: (page) => slot(page, "revenue-summary"),
+    crop: main,
+    alt: "The Revenue page for this month: Potential, Achieved and Remaining highlighted at the top, then Needs a look and each client's projects.",
   },
   {
     id: "owner/send-back",

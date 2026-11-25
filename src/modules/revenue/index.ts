@@ -9,10 +9,15 @@
  * Client components are not exported here: a route imports them one file at a time from
  * `components/` (ADR-0011 amendment, task 2.8), because a barrel is not tree-shaken per route.
  * `BillingSection` and `BillingSkeleton` are server components (the section's sheets are client
- * code it loads on the first tap).
+ * code it loads on the first tap), and so are the Revenue page's `RevenueReport` and
+ * `RevenueSkeleton` (its month and category controls are `ViewLink`s).
  */
 export { BillingSection } from "./components/billing-section";
 export { BillingSkeleton } from "./components/billing-skeleton";
 export { readProjectBilling } from "./data/billing";
 export { oneTimeStatusExpected } from "./domain/billing";
 export type { BillingRecurrence, ProjectBilling } from "./domain/billing";
+export { RevenueReport } from "./components/revenue-report";
+export { RevenueSkeleton } from "./components/revenue-skeleton";
+export { readRevenueMonth } from "./data/revenue";
+export { parseCategory, parseMonth } from "./domain/revenue";
