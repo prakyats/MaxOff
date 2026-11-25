@@ -37,6 +37,11 @@
  * token its own clock calls expired (the proxy renews it first), so a real expired JWT cannot be
  * made to reach PostgREST on purpose; this is the answer PostgREST gives when one does.
  *
+ * **What can be held after a write** (v7.0): a "wait" registered with `{ afterWrite: true }`
+ * passes everything until a write (any method but GET and HEAD) to its path has been answered,
+ * then holds that path's reads (GET). A server action that reads, writes and re-renders the
+ * screen in one answer has its own read and write pass and its re-render's read held.
+ *
  * **What can be watched** (P2 item 6, 2026-10-16): a hold registered with `{ answer: "watch" }`
  * holds nothing: each matching request is reported (`{"caught":path,"agent":user-agent}`, so the
  * server's own fetches can be told from a browser's) and passed on at once. Its path may be `*`,
@@ -95,6 +100,10 @@ type Hold = {
   path: string;
   session: string;
   answer: HoldAnswer;
+  /** A "wait" that holds only the reads (GET) that follow a write to its path (`afterWrite`). */
+  afterWrite: boolean;
+  /** For `afterWrite`: a write to the path has been answered, so its reads are held from now on. */
+  written: boolean;
   report: (line: object) => void;
 };
 
@@ -157,16 +166,19 @@ export function createHoldProxy(upstream: URL): Server {
     drained.delete(member);
   }
 
-  const holdsFor = (path: string, session: string | null): Hold[] =>
+  const holdsFor = (path: string, session: string | null, method = "GET"): Hold[] =>
     [...holds].filter(
       (hold) =>
+        (!hold.afterWrite || (hold.written && method === "GET")) &&
         (hold.path === path ||
           (hold.path === EVERY_PATH && (hold.answer !== "wave" || path.startsWith(WAVE_PREFIX)))) &&
         hold.session === session,
     );
   /** What keeps a request waiting: a "wait" hold on its path, or a wave, and its session. */
-  const waitsFor = (path: string, session: string | null): boolean =>
-    holdsFor(path, session).some((hold) => hold.answer === "wait" || hold.answer === "wave");
+  const waitsFor = (path: string, session: string | null, method?: string): boolean =>
+    holdsFor(path, session, method).some(
+      (hold) => hold.answer === "wait" || hold.answer === "wave",
+    );
 
   function forward(request: IncomingMessage, response: ServerResponse): void {
     const member = claimOf(request.headers.authorization, "sub");
@@ -222,7 +234,7 @@ export function createHoldProxy(upstream: URL): Server {
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
-      let body: { path?: unknown; session?: unknown; answer?: unknown } = {};
+      let body: { path?: unknown; session?: unknown; answer?: unknown; afterWrite?: unknown } = {};
       try {
         body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as typeof body;
       } catch {
@@ -248,6 +260,11 @@ export function createHoldProxy(upstream: URL): Server {
         response.writeHead(400).end('path "*" is only watched or waved, and a wave is "*"');
         return;
       }
+      const afterWrite = body.afterWrite === true;
+      if (afterWrite && (answer !== "wait" || body.path === EVERY_PATH)) {
+        response.writeHead(400).end("afterWrite is a wait on one path");
+        return;
+      }
       response.writeHead(200, {
         "content-type": "application/x-ndjson",
         "cache-control": "no-store",
@@ -256,6 +273,8 @@ export function createHoldProxy(upstream: URL): Server {
         path: body.path,
         session: body.session,
         answer,
+        afterWrite,
+        written: false,
         report: (line) => response.write(`${JSON.stringify(line)}\n`),
       };
       response.on("error", () => undefined);
@@ -320,7 +339,22 @@ export function createHoldProxy(upstream: URL): Server {
       return;
     }
     const session = claimOf(request.headers.authorization, "session_id");
-    const holding = holdsFor(url.pathname, session);
+    const method = request.method ?? "GET";
+    // A write that arms an `afterWrite` hold passes, and arms it once it has been answered.
+    if (method !== "GET" && method !== "HEAD") {
+      const arming = [...holds].filter(
+        (hold) =>
+          hold.afterWrite &&
+          !hold.written &&
+          hold.path === url.pathname &&
+          hold.session === session,
+      );
+      if (arming.length > 0)
+        response.on("finish", () => {
+          for (const hold of arming) hold.written = true;
+        });
+    }
+    const holding = holdsFor(url.pathname, session, method);
     if (holding.length === 0) {
       forward(request, response);
       return;
@@ -334,7 +368,7 @@ export function createHoldProxy(upstream: URL): Server {
       return;
     }
     // Only watched: reported, then passed on at once.
-    if (!waitsFor(url.pathname, session)) {
+    if (!waitsFor(url.pathname, session, method)) {
       forward(request, response);
       return;
     }

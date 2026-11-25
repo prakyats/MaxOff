@@ -267,7 +267,9 @@ test.describe("Owner", () => {
     const overdue = page.getByLabel("Overdue deliverable → you after (hours)");
     await expect(overdue).toHaveValue("24");
     await reminder.fill("21:15");
-    const hold = await holdReads("/rest/v1/org_settings", session);
+    // The save's own read and write pass; the re-read that follows them is held (the action
+    // answers with the re-rendered screen, so a hold on every read held the save itself).
+    const hold = await holdReads("/rest/v1/org_settings", session, "wait", { afterWrite: true });
     try {
       await page.getByRole("button", { name: "Save thresholds" }).click();
       await expect(page.getByText("Thresholds saved")).toBeVisible();
@@ -279,8 +281,11 @@ test.describe("Owner", () => {
     await expect(page.locator('[data-slot="threshold-summary"]').first()).toContainText("9:15 pm");
     await expect(overdue, "the edit typed after Save is still there").toHaveValue("30");
     await expect(reminder).toHaveValue("21:15");
+    // The first save's "Thresholds saved" must be gone, or it stands for this save and the
+    // reload below races it (as in the test above).
+    await expect(page.getByText("Thresholds saved")).toBeHidden();
     await page.getByRole("button", { name: "Save thresholds" }).click();
-    await expect(page.getByText("Thresholds saved").first()).toBeVisible();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
     await openThresholdGroups(page, "Working day", "Client work");
     await expect(overdue, "and its Save stored it").toHaveValue("30");

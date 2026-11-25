@@ -1055,6 +1055,7 @@ export async function holdReads(
   path: string,
   session: string,
   answer: "wait" | "jwt-expired" = "wait",
+  options: { afterWrite?: boolean } = {},
 ): Promise<{ caught: () => boolean; release: () => void; active: () => Promise<number> }> {
   let caught = false;
   const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
@@ -1081,7 +1082,7 @@ export async function holdReads(
         }
       });
     });
-    request.end(JSON.stringify({ path, session, answer }));
+    request.end(JSON.stringify({ path, session, answer, afterWrite: options.afterWrite === true }));
   });
   return {
     caught: () => caught,
