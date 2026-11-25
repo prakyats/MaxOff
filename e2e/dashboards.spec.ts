@@ -238,6 +238,27 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(page).toHaveURL(/\/today$/);
   });
 
+  test("the Owner's in-app move to My Day lands on Today without a reload, by replace", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== "desktop", "one check is enough");
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/reports");
+    await hydrated(page);
+    // No screen links the Owner to My Day, so the router's own push stands in for a soft move
+    // (a stale in-app link): the server's redirect is followed by the router, never a document
+    // load (the reload guard fails the test otherwise), and it replaces the entry.
+    await page.evaluate(() =>
+      (
+        window as unknown as { next: { router: { push: (href: string) => void } } }
+      ).next.router.push("/my-day"),
+    );
+    await expect(page).toHaveURL(/\/today$/);
+    await expect(page.locator('[data-slot="day-columns"]')).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/reports$/);
+  });
+
   test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({
     page,
   }, info) => {
