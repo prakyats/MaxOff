@@ -14,8 +14,15 @@ import { ApprovalScreen } from "@/core/ui/composites/approval-group";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Button } from "@/core/ui/primitives/button";
-import { listEarlyLeaveRequests, listPendingDays, listPendingNotes } from "@/modules/attendance";
+import {
+  lateNoNetworkWords,
+  listEarlyLeaveRequests,
+  listLateNoNetwork,
+  listPendingDays,
+  listPendingNotes,
+} from "@/modules/attendance";
 import { EarlyLeaveGroup } from "@/modules/attendance/components/early-leave-group";
+import { LateNoNetworkGroup } from "@/modules/attendance/components/late-no-network-group";
 import { reachedAt, waitingFor, type Waiting } from "@/modules/dashboards";
 import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
 import { PendingNotesGroup } from "@/modules/attendance/components/pending-notes-group";
@@ -72,6 +79,10 @@ export default async function ApprovalsPage() {
     directoryRead,
     // v1.9 W4: early-leave requests (waiting, and left without an answer); RLS: the Owner's.
     whenWaiting(counts, (bundle) => bundle.pending.earlyLeaves, listEarlyLeaveRequests),
+    // v7.0 Clear Late (owner Q2): the Late days tried with no network, the Owner's. Rare, so
+    // never in the first wave: it starts once the counts say the viewer decides attendance
+    // (`pending.days` is null for anyone else), beside the other lists.
+    whenWaiting(counts, (bundle) => (bundle.pending.days === null ? 0 : 1), listLateNoNetwork),
   ]);
   startEarly(lists, steps);
   const viewer = await requirePermission([
@@ -79,17 +90,18 @@ export default async function ApprovalsPage() {
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  const [[days, requests, notes, pendingClaims, directory, earlyLeave], [toDecide, unread]] =
-    await Promise.all([
-      lists,
-      // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
-      steps
-        .then((both) => (can(viewer.role, "tasks.approve_final") ? both.final : both.check))
-        .then(
-          async (items) =>
-            [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
-        ),
-    ]);
+  const [
+    [days, requests, notes, pendingClaims, directory, earlyLeave, lateNoNetwork],
+    [toDecide, unread],
+  ] = await Promise.all([
+    lists,
+    // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
+    steps
+      .then((both) => (can(viewer.role, "tasks.approve_final") ? both.final : both.check))
+      .then(
+        async (items) => [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
+      ),
+  ]);
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
@@ -109,6 +121,9 @@ export default async function ApprovalsPage() {
     days: decidesAttendance ? days : [],
     requests: decidesAttendance ? requests : [],
     notes: decidesAttendance ? notes : [],
+    late: decidesAttendance
+      ? lateNoNetwork.map((day) => ({ ...day, ...lateNoNetworkWords(day, todayIST()) }))
+      : [],
   };
   // How long each has waited for its decision (B4 context, V3): the same words as Today's rows.
   const now = systemClock();
@@ -128,6 +143,7 @@ export default async function ApprovalsPage() {
   const groupsShown = [
     own.early.filter((request) => request.state === "waiting"),
     own.early.filter((request) => request.state === "left_unanswered"),
+    own.late,
     own.days,
     own.requests,
     own.notes,
@@ -136,6 +152,7 @@ export default async function ApprovalsPage() {
   ].filter((rows) => rows.length > 0).length;
   const nothing =
     own.early.length === 0 &&
+    own.late.length === 0 &&
     own.days.length === 0 &&
     own.requests.length === 0 &&
     own.notes.length === 0 &&
@@ -176,6 +193,7 @@ export default async function ApprovalsPage() {
               <>
                 {/* v1.9 W4: time-sensitive, so first (the working-hours sample §3). */}
                 <EarlyLeaveGroup requests={own.early} today={todayIST()} now={now.toISOString()} />
+                <LateNoNetworkGroup rows={own.late} />
                 <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
                 <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
                 <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />

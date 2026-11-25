@@ -598,6 +598,116 @@ test("the switch off: Start day and End day are today's, no Late, no ask", async
   expect((await dayOf(email))?.late_minutes ?? null).toBeNull();
 });
 
+/** The person's member id and full name. */
+async function whoIs(email: string): Promise<{ id: string; name: string }> {
+  const [row] = await serviceSelect<{ id: string; full_name: string }>(
+    `members?email=eq.${encodeURIComponent(email)}&select=id,full_name`,
+  );
+  return { id: row!.id, name: row!.full_name };
+}
+
+test("Stay until ahead (v7.0): the Owner sets it on a person's page, they read it, Back to the end", async ({
+  page,
+  browser,
+}, info) => {
+  const email = person("staff", info);
+  await resetAttendanceAndLeaveOf(email);
+  const { end } = await hoursAround(5, 30);
+  const { id, name } = await whoIs(email);
+  const first = name.split(" ")[0]!;
+  const owner = await ownerPage(browser, info);
+  await owner.goto(`/people/${id}`);
+  await hydrated(owner);
+  const card = owner.locator('[data-slot="stay-plans"]');
+  await expect(card).toContainText("Stay until, coming up");
+  await expect(card.locator('[data-slot="stay-plans-empty"]')).toHaveText(
+    `Nothing set ahead. Their day ends at ${wall(end)}.`,
+  );
+  await card.locator('[data-slot="stay-plan-open"]').click();
+  const sheet = owner.locator('[data-slot="stay-plan-sheet"]');
+  await expect(sheet).toContainText(`${first} stays until…`);
+  await expectFits(owner, sheet, info);
+  const until = end + Math.min(30, LAST_MINUTE - end);
+  await sheet.getByLabel("Until").fill(hhmm(until));
+  await expect(sheet).toContainText(`Their end time that day moves to ${wall(until)}.`);
+  await sheet.locator('[data-slot="stay-plan-set"]').click();
+  await expect(sheet).toBeHidden();
+  await expect(card.locator('[data-slot="stay-plan-line"]')).toHaveText(
+    `Today · until ${wall(until)}`,
+  );
+  const [plan] = await serviceSelect<{ id: string; cleared_at: string | null }>(
+    `attendance_stay_plans?member_id=eq.${id}&select=id,cleared_at`,
+  );
+  expect(plan?.cleared_at ?? null).toBeNull();
+
+  // The person, before Start day: the morning line, with who set it.
+  await signIn(page, email, PASSWORD, { day: "stop" });
+  await startPrompt(page).getByRole("button", { name: "Just looking" }).click();
+  await expect(startPrompt(page)).toBeHidden();
+  await expect(strip(page).locator('[data-slot="attendance-stay-plan"]')).toHaveText(
+    new RegExp(`^Stay until ${wall(until)} today \\(set by .+\\)$`),
+  );
+
+  // Back to the end time: the plan is cleared, kept (invariant 9).
+  await card.locator('[data-slot="stay-plan-clear"]').click();
+  await expect(card.locator('[data-slot="stay-plans-empty"]')).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [row] = await serviceSelect<{ cleared_at: string | null }>(
+        `attendance_stay_plans?id=eq.${plan!.id}&select=cleared_at`,
+      );
+      return row?.cleared_at ?? null;
+    })
+    .not.toBeNull();
+  await owner.context().close();
+});
+
+test("Clear Late (v7.0): a Late start tried with no network, one tap in Approvals, then Undo", async ({
+  browser,
+}, info) => {
+  const email = person("admin", info);
+  await resetAttendanceAndLeaveOf(email);
+  await hoursAround(40, 120);
+  const { name } = await whoIs(email);
+  const triedAt = new Date(systemClock().getTime() - 30 * 60_000).toISOString();
+  await rpcAs(email, PASSWORD, "attendance_start_day", {});
+  await rpcAs(email, PASSWORD, "attendance_note_offline_try", { tried_at: triedAt });
+  const day = await dayOf(email);
+  expect(day?.late_minutes ?? 0, "a Late start").toBeGreaterThan(0);
+
+  const owner = await ownerPage(browser, info);
+  await owner.goto("/approvals");
+  await hydrated(owner);
+  const group = owner.locator('[data-group="late-no-network"][data-slot="approval-group"]');
+  const row = group.locator('[data-slot="approval-row"][data-state="waiting"]', { hasText: name });
+  await expect(group.getByRole("heading")).toContainText("Late, no network");
+  await expect(row).toContainText(/Started \d{1,2}:\d{2} [ap]m/);
+  await expect(row).toContainText(/Late \d+ min/);
+  await expect(row.locator('[data-slot="late-tried"]')).toHaveText(
+    /^Tried at \d{1,2}:\d{2} [ap]m, no network \(phone time\)$/,
+  );
+  await expectFits(owner, row, info);
+  await row.locator('[data-slot="clear-late"]').click();
+  const toast = owner.locator("[data-sonner-toast]", { hasText: `Late cleared for ${name}` });
+  await expect(toast).toBeVisible();
+  await expect(
+    group.locator('[data-slot="approval-row"][data-state="decided"]', { hasText: name }),
+  ).toContainText("Late cleared");
+  const cleared = async () =>
+    (
+      await serviceSelect<{ late_cleared_at: string | null; late_minutes: number | null }>(
+        `attendance_days?id=eq.${day!.id}&select=late_cleared_at,late_minutes`,
+      )
+    )[0];
+  await expect.poll(async () => (await cleared())?.late_cleared_at ?? null).not.toBeNull();
+  // The Late minutes stay in the history: a correction beside the original (invariant 7).
+  expect((await cleared())?.late_minutes).toBe(day?.late_minutes);
+
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect.poll(async () => (await cleared())?.late_cleared_at ?? null).toBeNull();
+  await owner.context().close();
+});
+
 test.describe("installed (ARCHITECTURE §14.2): the new sheets close one per back", () => {
   test("the late sheet, the ask sheet and Stay until", async ({ page, browser }, info) => {
     test.skip(!isPhone(info), "the installed app is a phone");
@@ -639,6 +749,31 @@ test.describe("installed (ARCHITECTURE §14.2): the new sheets close one per bac
     const stay = owner.locator('[data-slot="stay-until-sheet"]');
     await expect(stay).toBeVisible();
     await expectBackStack(owner, [{ closes: stay, url: /\/today\/people$/ }, { url: /\/today$/ }]);
+    await owner.context().close();
+  });
+
+  test("v7.0: a person's Stay until… sheet", async ({ browser }, info) => {
+    test.skip(!isPhone(info), "the installed app is a phone");
+    const email = person("staff", info);
+    await resetAttendanceAndLeaveOf(email);
+    await hoursAround(5, 30);
+    const { id } = await whoIs(email);
+    const owner = await ownerPage(browser, info);
+    await runInstalled(owner);
+    await owner.goto("/people");
+    await owner.goto(`/people/${id}`);
+    await hydrated(owner);
+    await owner.locator('[data-slot="stay-plan-open"]').click();
+    const sheet = owner.locator('[data-slot="stay-plan-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expectBackStack(owner, [
+      { closes: sheet, url: new RegExp(`/people/${id}$`) },
+      { url: /\/people$/ },
+    ]);
+    const plans = await serviceSelect<{ id: string }>(
+      `attendance_stay_plans?member_id=eq.${id}&select=id`,
+    );
+    expect(plans, "back sends nothing").toHaveLength(0);
     await owner.context().close();
   });
 });

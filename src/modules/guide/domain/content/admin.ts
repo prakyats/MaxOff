@@ -221,7 +221,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Only the Owner decides attendance, early leave and “Stay until”. You never decide anyone else’s day and get no one else’s late or early-leave alerts, and your own is never overwritten: a correction sits beside the original. On leave, a half day asks “Morning off” or “Afternoon off”. With no network, Start day and End day say “No network, tap again.” Nothing is saved or kept to send later: a tap counts only when it reaches MaxOff, so tap again once you have signal.",
+              text: "Only the Owner decides attendance, early leave and “Stay until”. The Owner can ask you to stay late on a later day: you are told at once, and that morning your day says “Stay until 8:00 pm today”. You never decide anyone else’s day and get no one else’s late or early-leave alerts, and your own is never overwritten: a correction sits beside the original. On leave, a half day asks “Morning off” or “Afternoon off”. With no network, Start day and End day say “No network, tap again.” Nothing is saved or kept to send later: a tap counts only when it reaches MaxOff, so tap again once you have signal. If your start then lands late, the reason is filled in for you (“No network. First tried 9:58 am (phone time)”) and you can change it; the Owner may clear that Late.",
             },
           ],
           link: { href: "/leave/attendance", label: "See your attendance" },

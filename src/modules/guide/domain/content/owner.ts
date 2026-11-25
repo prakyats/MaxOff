@@ -265,6 +265,45 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["stay late", "stay until", "overtime", "end time", "work late"],
         },
         {
+          id: "owner-stay-until-ahead",
+          title: "Ask someone to stay late on a later day",
+          summary: "Set Stay until ahead from their page; they are told at once.",
+          blocks: [
+            steps(
+              "Open People and tap the person.",
+              'At the bottom, under "Stay until, coming up", tap "Stay until…".',
+              'Pick the day (today or later) and the time, after the end time, then tap "Set Stay until".',
+            ),
+            next(
+              'They are told at once ("Please stay until 8:00 pm on Sat 28 Nov"), and that morning My Day says "Stay until 8:00 pm today (set by you)". When they start that day, it becomes the day\'s end time. The card lists each day ahead with Change and "Back to 6:00 pm".',
+            ),
+            note(
+              'One day at a time. A day with approved leave is refused; a leave approved later wins, and the row reads "Not used: on leave". A day already started is changed from Today\'s attendance, as before. It shows only while working hours are on.',
+            ),
+          ],
+          link: { href: "/people", label: "Open People" },
+          keywords: ["stay late", "stay until", "ahead", "later day", "overtime", "plan"],
+        },
+        {
+          id: "owner-clear-late",
+          title: "Clear a Late caused by no network",
+          summary: "One tap in Approvals, with Undo; the history keeps the Late.",
+          blocks: [
+            text(
+              'When someone tapped Start day before the start time but had no network, and their start then landed Late, Approvals shows them under "Late, no network": "Started 10:22 am · Late 22 min" and "Tried at 9:58 am, no network (phone time)".',
+            ),
+            steps(
+              'Tap "Clear Late". There is no dialog: the reason is written for you ("No network at the start; tried 9:58 am by the phone\'s clock").',
+              '"Late cleared for Asha" shows with Undo for a few seconds.',
+            ),
+            note(
+              "The server's start time stays the record; the phone's time is only a note, because a phone clock can be changed. A cleared Late stays in their history as \"Late · cleared\" and no longer counts in the month's Late days. Nobody is notified. Every other Late day is unchanged, and nothing is cleared by itself.",
+            ),
+          ],
+          link: { href: "/approvals", label: "Open Approvals" },
+          keywords: ["late", "clear late", "no network", "signal", "offline", "phone time"],
+        },
+        {
           id: "owner-decide-leave",
           title: "Decide a leave request",
           summary: "Approve it, or reject it with a reason.",

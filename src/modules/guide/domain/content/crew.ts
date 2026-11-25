@@ -139,7 +139,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work. Work starts at 10:00 am; the line says so before you start. If you start more than 15 minutes after that, MaxOff asks for a short reason first (see Starting late). With no network, Start day and End day say “No network, tap again.” Nothing is saved or kept to send later: a tap counts only when it reaches MaxOff, so tap again once you have signal.",
+              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work. Work starts at 10:00 am; the line says so before you start. If you start more than 15 minutes after that, MaxOff asks for a short reason first (see Starting late). With no network, Start day and End day say “No network, tap again.” Nothing is saved or kept to send later: a tap counts only when it reaches MaxOff, so tap again once you have signal. If your start then lands late, the reason is filled in for you (“No network. First tried 9:58 am (phone time)”) and you can change it; the Owner may clear that Late.",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -254,7 +254,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'Your day ends at 6:00 pm, later when a shoot runs on ("Your shoot runs till 7:30 pm, so today ends at 7:30 pm") or when the Owner asks you to stay. Before then, End day reads "Ask to leave early".',
+              text: 'Your day ends at 6:00 pm, later when a shoot runs on ("Your shoot runs till 7:30 pm, so today ends at 7:30 pm") or when the Owner asks you to stay. The Owner can ask ahead for a later day: you are told at once, and that morning My Day says "Stay until 8:00 pm today", with who set it. Before then, End day reads "Ask to leave early".',
             },
             {
               kind: "steps",

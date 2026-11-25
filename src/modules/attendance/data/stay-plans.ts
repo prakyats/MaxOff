@@ -19,6 +19,11 @@ export type PersonStayPlans = {
   plans: StayPlan[];
   /** `org_settings.work_end_time` (`HH:MM`): "Back to 6:00 pm" and the sheet's first time. */
   workEnd: string;
+  /**
+   * `org_settings.working_hours_on`: Stay until exists only with working hours, and
+   * `attendance_stay_plan_set` refuses a plan with them off, so the card is drawn only when on.
+   */
+  workingHoursOn: boolean;
 };
 
 /**
@@ -45,7 +50,7 @@ export async function listStayPlans(memberId: string): Promise<PersonStayPlans> 
       .eq("member_id", memberId)
       .eq("state", "approved")
       .gte("end_date", today),
-    supabase.from("org_settings").select("work_end_time").maybeSingle(),
+    supabase.from("org_settings").select("work_end_time, working_hours_on").maybeSingle(),
   ]);
   if (plans.error) throw plans.error;
   if (leaves.error) throw leaves.error;
@@ -63,6 +68,7 @@ export async function listStayPlans(memberId: string): Promise<PersonStayPlans> 
       onLeave: planOnLeave(plan.work_date, approved),
     })),
     workEnd: (settings.data?.work_end_time ?? "18:00").slice(0, 5),
+    workingHoursOn: settings.data?.working_hours_on ?? false,
   };
 }
 

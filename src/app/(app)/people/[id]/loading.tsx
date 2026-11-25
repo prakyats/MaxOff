@@ -9,12 +9,13 @@ import { StayPlansSkeleton } from "./stay-plans-skeleton";
 
 /**
  * A person's Profile (3.4) under the layout's header and tabs (which stay painted), traced: for
- * the Owner the summary first (PP-person-3: days waiting, leave this month, comp leave left) and
- * "Stay until, coming up" (v7.0: its heading, its one line and the Stay until… button), then
+ * the Owner the summary first (PP-person-3: days waiting, leave this month, comp leave left), then
  * the one details card (PP-person-2): the avatar beside the facts' field grid (phone; for the
  * Owner also sign-in and joined; on a phone the status), then the Profile record's heading (with
  * Edit for the Owner, the same member check as the page) and its three values (name, role, job
- * title), each a label line over a value line.
+ * title), each a label line over a value line. Last, for the Owner, "Stay until, coming up"
+ * (v7.0: its heading, its one line and the Stay until… button), drawn by the page only with
+ * working hours on: at the end, so when it is not drawn nothing above it moves.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
@@ -29,7 +30,6 @@ export default async function Loading() {
       className="flex flex-col gap-4"
     >
       {owner ? <PersonSummarySkeleton /> : null}
-      {owner ? <StayPlansSkeleton /> : null}
       <Card aria-hidden>
         <CardContent className="flex flex-col gap-4 text-sm">
           <div className="flex items-start gap-4">
@@ -51,6 +51,7 @@ export default async function Loading() {
           <FieldLines count={3} />
         </CardContent>
       </Card>
+      {owner ? <StayPlansSkeleton /> : null}
       <span className="sr-only">Loading their profile</span>
     </div>
   );

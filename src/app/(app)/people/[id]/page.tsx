@@ -103,23 +103,6 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
           monthName={monthLabel(month).split(" ")[0] ?? "This month"}
         />
       ) : null}
-      {summary && person.status === "active" && can(viewer.role, "attendance.decide") ? (
-        <StayPlansCard
-          memberId={person.id}
-          name={displayName(person.fullName)}
-          workEnd={summary[2].workEnd}
-          workEndWords={formatWallTime(summary[2].workEnd)}
-          today={todayIST()}
-          plans={summary[2].plans.map((plan) => ({
-            id: plan.id,
-            workDate: plan.workDate,
-            line: planLine(plan, todayIST()),
-            day: planDay(plan.workDate),
-            until: toISTTime(plan.until),
-            onLeave: plan.onLeave,
-          }))}
-        />
-      ) : null}
       {/* PP-person-2: one details card, its facts in the shared field grid (a cell each, a small
           label over the value), then the Profile record; the role and status are not repeated. */}
       <Card>
@@ -199,6 +182,27 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
           spells={spells}
           names={new Map(directory.map((member) => [member.id, member.fullName]))}
           canManage={canManage}
+        />
+      ) : null}
+      {/* v7.0: last, so with working hours off (no card) nothing above it moves. */}
+      {summary &&
+      summary[2].workingHoursOn &&
+      person.status === "active" &&
+      can(viewer.role, "attendance.decide") ? (
+        <StayPlansCard
+          memberId={person.id}
+          name={displayName(person.fullName)}
+          workEnd={summary[2].workEnd}
+          workEndWords={formatWallTime(summary[2].workEnd)}
+          today={todayIST()}
+          plans={summary[2].plans.map((plan) => ({
+            id: plan.id,
+            workDate: plan.workDate,
+            line: planLine(plan, todayIST()),
+            day: planDay(plan.workDate),
+            until: toISTTime(plan.until),
+            onLeave: plan.onLeave,
+          }))}
         />
       ) : null}
     </div>
