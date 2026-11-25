@@ -11,7 +11,8 @@ import type { ReactNode } from "react";
  *
  * No transitions while the theme changes, and only then: `quietThemeChanges`, started by the
  * signed-in shell's after-page helpers (`PwaAfterPage`; the theme menu and the Appearance sheet
- * are the shell's). next-themes' `disableTransitionOnChange` also ran on mount, restyling the
+ * are the shell's) and by the signed-out layout (`QuietThemeWatch`: a System flip on sign-in,
+ * final review S8). next-themes' `disableTransitionOnChange` also ran on mount, restyling the
  * whole page twice for nothing (v2.0 X3 (d)).
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {

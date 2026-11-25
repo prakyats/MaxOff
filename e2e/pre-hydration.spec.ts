@@ -2,7 +2,7 @@ import { type Locator, type Page, type Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { hydrated, pageHeader, runInstalled, storageStateFor } from "./helpers";
+import { calendarReady, hydrated, pageHeader, runInstalled, storageStateFor } from "./helpers";
 
 /**
  * Taps before hydration (ARCHITECTURE §14.2 l, task 2.8). Until React hydrates, the back
@@ -339,7 +339,6 @@ test.describe("a tap before hydration is held for the app, installed at phone wi
  */
 test.describe("a tap on the calendar before its script is live is held, never lost", () => {
   test.use({ storageState: storageStateFor("owner"), serviceWorkers: "block" });
-  test.skip(({ isMobile }) => !isMobile, "the phone's calendar: its handle and day boxes");
 
   async function beforeHydration(page: Page) {
     const held: Route[] = [];
@@ -350,6 +349,9 @@ test.describe("a tap on the calendar before its script is live is held, never lo
     });
     await page.goto("/calendar", { waitUntil: "commit" });
     await expect(pageHeader(page)).toBeVisible();
+    // The whole document is parsed (its scripts, async, are still held): nothing streamed later
+    // moves the boxes between measuring a control and tapping it.
+    await page.waitForFunction(() => document.readyState !== "loading");
     return async () => {
       flow = true;
       for (const route of held.splice(0)) await route.fallback();
@@ -357,12 +359,28 @@ test.describe("a tap on the calendar before its script is live is held, never lo
   }
 
   async function tapAt(page: Page, target: Locator) {
+    // Mid-screen first: on the laptop today's box can sit at the window's foot, under the
+    // Owner's fixed "Notifications are off" banner, which then took the tap.
+    await target.evaluate((element) => element.scrollIntoView({ block: "center" }));
     const box = await target.boundingBox();
     if (!box) throw new Error("the control is not on screen");
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    expect(
+      await target.evaluate(
+        (element, point) => element.contains(document.elementFromPoint(point.x, point.y)),
+        { x, y },
+      ),
+      "the tap reaches the control, not something over it",
+    ).toBe(true);
+    await page.mouse.click(x, y);
   }
 
-  test("the handle: tapped before hydration, the month still grows, once", async ({ page }) => {
+  test("the handle: tapped before hydration, the month still grows, once", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "the handle is the phone's (the laptop has no sizes)");
     // Every click on the handle (the tap, then the replay), counted before the page's own
     // scripts see it (window, capture): no wait decides "once" (X5+, batch 4's sleeps).
     await page.addInitScript(() => {
@@ -424,21 +442,147 @@ test.describe("a tap on the calendar before its script is live is held, never lo
     ).toEqual(["3"]);
   });
 
-  test("a day box: tapped before hydration, its day is still chosen", async ({ page }) => {
+  test("a day box: tapped before hydration, its day is still chosen", async ({
+    page,
+    isMobile,
+  }) => {
+    // Phones and the laptop alike (final review S7: the CI failure behind the hold was on desktop
+    // too). The phone's compact month chooses the day under it; the laptop's month opens the day's
+    // sheet. Today's box on the laptop: always in the shown month (another month's box moves the
+    // month instead), and the laptop's month has no chosen day to avoid.
     const release = await beforeHydration(page);
-    const day = page.locator('[data-slot="calendar-day"]:visible:not([data-selected])').first();
+    const day = isMobile
+      ? page.locator('[data-slot="calendar-day"]:visible:not([data-selected])').first()
+      : page.locator(
+          '[data-slot="calendar-laptop"] [data-slot="calendar-day"][aria-current="date"]',
+        );
     await expect(day).toBeVisible();
     await expect(day, "the tap lands before hydration").not.toHaveAttribute("data-live");
     const date = await day.getAttribute("data-date");
     await tapAt(page, day);
     await release();
-    await expect(
-      page.locator(`[data-slot="calendar-day"][data-date="${date}"]:visible`),
-      "the held tap chose the day",
-    ).toHaveAttribute("data-selected", "");
+    if (isMobile) {
+      await expect(
+        page.locator(`[data-slot="calendar-day"][data-date="${date}"]:visible`),
+        "the held tap chose the day",
+      ).toHaveAttribute("data-selected", "");
+      await expect(page.locator('[data-slot="calendar-detail"]:visible').first()).toHaveAttribute(
+        "data-date",
+        date!,
+      );
+    } else {
+      await expect(
+        page.locator('[data-calendar="day-sheet"]'),
+        "the held tap opened the day",
+      ).toHaveAttribute("data-date", date!);
+    }
+  });
+
+  /**
+   * The week strip's day (`strip:<date>`, final review M4/S7). It cannot be tapped before
+   * hydration: the strip is drawn only at size 1, which only a hydrated control reaches (the page
+   * opens at size 2, the compact month, `OPENING_SIZE`), so no strip day exists in the server's
+   * markup. What its mark must never do is hold a tap React can answer: every strip day is live
+   * (`markLive`) from the commit that inserts it, before any tap can reach it, and a tap on it is
+   * answered at once, once, with no held-tap timer started.
+   */
+  test("a week-strip day: live from its first frame, a tap chooses it at once, once", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "the week strip is the phone's");
+    await page.addInitScript(() => {
+      const w = window as unknown as {
+        stripInserted: { date: string | null; live: boolean }[];
+        stripClicks: number;
+        heldTimers: number;
+      };
+      w.stripInserted = [];
+      w.stripClicks = 0;
+      w.heldTimers = 0;
+      // The held tap's own poll (`HELD_TAP_POLL_MS`, 50 ms): started only when a tap is held.
+      const setTimer = window.setInterval.bind(window);
+      window.setInterval = ((handler: TimerHandler, ms?: number, ...rest: unknown[]) => {
+        if (ms === 50) w.heldTimers += 1;
+        return setTimer(handler, ms, ...rest);
+      }) as typeof window.setInterval;
+      // A MutationObserver's callback runs right after the task that inserted the strip, before
+      // any event task: a strip day not live here could take a tap that React does not own.
+      new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (!(node instanceof Element)) continue;
+            const days = node.matches('[data-slot="calendar-strip-day"]')
+              ? [node]
+              : [...node.querySelectorAll('[data-slot="calendar-strip-day"]')];
+            for (const day of days) {
+              w.stripInserted.push({
+                date: day.getAttribute("data-date"),
+                live: day.hasAttribute("data-live"),
+              });
+            }
+          }
+        }
+      }).observe(document, { subtree: true, childList: true });
+      window.addEventListener(
+        "click",
+        (event) => {
+          if ((event.target as Element | null)?.closest?.('[data-slot="calendar-strip-day"]'))
+            w.stripClicks += 1;
+        },
+        true,
+      );
+    });
+    await page.goto("/calendar");
+    await hydrated(page);
+    await calendarReady(page);
+    const phone = page.locator('[data-slot="calendar-phone"]');
+    const handle = page.locator('button[data-slot="calendar-handle"]');
+    await expect(phone).toHaveAttribute("data-size", "2");
+    await expect(page.locator('[data-slot="calendar-strip-day"]')).toHaveCount(0);
+    // The handle: the full month, then "Show less" back to the week.
+    await handle.click();
+    await expect(phone).toHaveAttribute("data-size", "3");
+    await handle.click();
+    await expect(phone).toHaveAttribute("data-size", "1");
+    const strip = page.locator('[data-slot="calendar-strip-day"]');
+    await expect(strip).toHaveCount(7);
+    const inserted = await page.evaluate(
+      () =>
+        (window as unknown as { stripInserted: { date: string | null; live: boolean }[] })
+          .stripInserted,
+    );
+    expect(inserted.length, "the strip's days were seen as they were inserted").toBe(7);
+    expect(
+      inserted.filter((day) => !day.live),
+      "every strip day is live in the frame it appears",
+    ).toEqual([]);
+    for (const day of inserted) {
+      await expect(strip.and(page.locator(`[data-date="${day.date}"]`))).toHaveAttribute(
+        "data-hold-tap",
+        `strip:${day.date}`,
+      );
+    }
+    const timersBefore = await page.evaluate(
+      () => (window as unknown as { heldTimers: number }).heldTimers,
+    );
+    const other = page.locator('[data-slot="calendar-strip-day"][aria-pressed="false"]').first();
+    const date = await other.getAttribute("data-date");
+    await other.click();
+    await expect(strip.and(page.locator(`[data-date="${date}"]`))).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(page.locator('[data-slot="calendar-detail"]:visible').first()).toHaveAttribute(
       "data-date",
       date!,
     );
+    expect(
+      await page.evaluate(() => {
+        const w = window as unknown as { stripClicks: number; heldTimers: number };
+        return { clicks: w.stripClicks, heldTimers: w.heldTimers };
+      }),
+      "answered by React at once: one click, no held tap",
+    ).toEqual({ clicks: 1, heldTimers: timersBefore });
   });
 });

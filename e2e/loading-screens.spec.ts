@@ -671,6 +671,27 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // The same Overview for its Admin (final review S6): the skeleton branches on role (the active
+  // projects through `projects.manage`, no Owner's notes card), so it is traced for an Admin too.
+  // The records below the contacts are not traced, for either role: the Details skeleton draws
+  // two filled-in rows, and how many a client has is its data (this fixture has none).
+  {
+    role: "admin",
+    path: "/clients/:client",
+    marker: 'data-slot="loading-client-overview"',
+    hold: "/rest/v1/rpc/client_overview",
+    fixture: "client work",
+    trace: {
+      "key people": {
+        held: '[data-slot="loading-client-overview"] > div:nth-child(2)',
+        settled: '[data-slot="client-glance"]',
+      },
+      contacts: {
+        held: '[data-slot="loading-client-overview"] > div:nth-child(4) ul',
+        settled: '[data-slot="contact-list"]',
+      },
+    },
+  },
   // A project's page (the Owner): the cycle's progress card, then the first deliverable.
   {
     role: "owner",

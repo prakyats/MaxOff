@@ -290,4 +290,15 @@ describe("the screens (W8)", () => {
     expect(matchesState(filterable(false), "on_hold")).toBe(false);
     expect(matchesState(filterable(false), "open")).toBe(true);
   });
+
+  it("My Day draws no On hold line when nothing of the viewer's is held", () => {
+    // The page's own composition (my-day/page.tsx: `onHoldLine(heldOpen(rows, viewer).length)`).
+    expect(onHoldLine(heldOpen([row], asha).length)).toBeNull();
+    expect(onHoldLine(heldOpen([], asha).length)).toBeNull();
+    // Someone else's held task is not the viewer's: still no line.
+    expect(
+      onHoldLine(heldOpen([row, heldRow], { id: "ravi", role: "staff", coordinates: [] }).length),
+    ).toBeNull();
+    expect(onHoldLine(heldOpen([row, heldRow], asha).length)).toBe("On hold · 1");
+  });
 });

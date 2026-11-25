@@ -532,7 +532,17 @@ test.describe("the Owner's Today (6.2)", () => {
       // The list has the same height in the server's first flush as with all its rows in (X5,
       // loading-screens:790: it streamed empty, then its rows pushed the card down): each group's
       // fallback traces its rows.
-      const { firstFlush, allIn } = await streamedHeights(page, "/today", "today-approval-rows");
+      const {
+        firstFlush,
+        allIn,
+        rows: streamedRows,
+      } = await streamedHeights(
+        page,
+        "/today",
+        "today-approval-rows",
+        '[data-slot="approval-row"]',
+      );
+      expect(streamedRows, "the second height measured the real rows").toBeGreaterThan(0);
       expect(firstFlush, "Needs you's list in the first flush, then with all its rows in").toBe(
         allIn,
       );

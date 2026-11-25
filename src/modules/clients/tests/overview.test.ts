@@ -30,6 +30,39 @@ describe("readClientOverview", () => {
     });
   });
 
+  it("a client the caller may not see: the fold's empty answer, never an error", async () => {
+    // `client_overview()` is security invoker: for a client RLS hides, every part is empty (no
+    // contacts, no owner_notes key, 0 open tasks); only the company-wide field definitions,
+    // which RLS shows to every member, come back. Nothing of the hidden client leaks through.
+    const companyWide = {
+      id: "f-company",
+      org_id: "o-1",
+      entity: "client",
+      client_id: null,
+      task_type_id: null,
+      key: "gst",
+      label: "GST number",
+      help_text: null,
+      type: "text",
+      options: null,
+      position: "a0",
+      required: false,
+      section: null,
+      archived_at: null,
+      created_at: "2026-11-01T00:00:00Z",
+      updated_at: "2026-11-01T00:00:00Z",
+    };
+    fake.answer = { ...EMPTY, client_fields: [companyWide] };
+    const overview = await readClientOverview("k-hidden");
+    expect(overview).toMatchObject({
+      contacts: [],
+      ownerNotes: null,
+      openTasks: 0,
+      contactFields: [],
+    });
+    expect(overview.clientFields.map((field) => field.id)).toEqual(["f-company"]);
+  });
+
   it("the Owner's notes when the key is there, null when it is empty", async () => {
     fake.answer = { ...EMPTY, owner_notes: "Pays late" };
     expect((await readClientOverview("k-owner")).ownerNotes).toBe("Pays late");
