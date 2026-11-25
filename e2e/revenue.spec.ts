@@ -407,6 +407,10 @@ test.describe("an Admin and the Revenue page", () => {
       await page.goto("/reports");
       await answerStartPrompt(page);
       await hydrated(page);
+      // The loading screen traces the period control (its own `report-period`, §14.1), and React
+      // streams the page in hidden (`<div hidden id="S:…">`) before its batched `$RC` reveal: until
+      // the swap both are in the DOM, one of them hidden. Settled first, then the strict locator.
+      await expectSettled(page);
       await expect(page.locator('[data-slot="report-period"]')).toBeVisible();
       await expect(page.locator('[data-slot="report-link"]')).toHaveCount(0);
       await expect(page.getByRole("link", { name: /Revenue/ })).toHaveCount(0);
