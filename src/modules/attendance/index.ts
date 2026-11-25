@@ -74,9 +74,4 @@ export { readLateRule, readReviewWeek } from "./actions/background";
 export type { ReviewContext, WeekDay } from "./domain/review-context";
 /** v7.0: Stay until set ahead (a person's page, the strip) and Clear Late (Approvals). */
 export { listLateNoNetwork, listStayPlans } from "./data/stay-plans";
-export {
-  type LateNoNetwork,
-  planDay,
-  planLine,
-  type StayPlan,
-} from "./domain/stay-plans";
+export { type LateNoNetwork, planDay, planLine, type StayPlan } from "./domain/stay-plans";

@@ -6,7 +6,7 @@
 -- refused the second time by its unique index. Neutral names only; everything is rolled back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(44);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -162,6 +162,14 @@ select is(public.item_add_once(pg_temp.fx('k8'), pg_temp.fx('cycle'), 'Item 145'
 insert into fx values ('item_g', public.item_add_grouped_once(pg_temp.fx('k9'), pg_temp.fx('cycle'), 'Item 145 g'));
 select is(public.item_add_grouped_once(pg_temp.fx('k9'), pg_temp.fx('cycle'), 'Item 145 g'), pg_temp.fx('item_g'),
   'a grouped deliverable: the same key returns the first');
+select pg_temp.as_system();
+
+-- 43-44: a member sends a keyed comment through the API's own grants (the CI catch, v70_comment_key_grant).
+select pg_temp.as_member('staff');
+select lives_ok(format($$ insert into public.task_comments (task_id, body, request_key) values (%L, 'Keyed by Crew 145', %L) $$,
+  pg_temp.fx('task'), pg_temp.fx('k9')), 'Crew on the task send a keyed comment');
+select throws_ok(format($$ insert into public.task_comments (task_id, body, request_key) values (%L, 'Keyed by Crew 145', %L) $$,
+  pg_temp.fx('task'), pg_temp.fx('k9')), '23505', null, 'and the same key again is refused');
 select pg_temp.as_system();
 
 select * from finish();

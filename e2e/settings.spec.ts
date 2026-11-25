@@ -55,7 +55,11 @@ test.describe("Owner", () => {
       ["Templates", "Templates"],
     ] as const) {
       await page.goto("/settings");
-      await page.getByRole("link", { name, exact: true }).click();
+      // A row is named by its section and its line (v7.0, WCAG 2.5.3): the section comes first.
+      await page
+        .locator('[data-slot="settings-section"]')
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .click();
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
       await page.getByRole("link", { name: "Settings" }).first().click();
       await expect(page).toHaveURL(/\/settings$/);

@@ -5,7 +5,7 @@ import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
-import { formatIST, formatWallTime, todayIST } from "@/core/time";
+import { formatIST, formatWallTime, todayIST, toISTTime } from "@/core/time";
 import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import {
   getMonthSummary,
@@ -115,7 +115,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
             workDate: plan.workDate,
             line: planLine(plan, todayIST()),
             day: planDay(plan.workDate),
-            until: formatIST(plan.until, "HH:mm"),
+            until: toISTTime(plan.until),
             onLeave: plan.onLeave,
           }))}
         />

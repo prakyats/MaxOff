@@ -57,7 +57,11 @@ export function StayPlansCard({
   const [target, setTarget] = useState<StayPlanTarget | null>(null);
   const base = { memberId, name, workEnd, today };
   return (
-    <section aria-labelledby="stay-plans-heading" data-slot="stay-plans" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="stay-plans-heading"
+      data-slot="stay-plans"
+      className="flex flex-col gap-3"
+    >
       <Card>
         <CardContent className="flex flex-col gap-3 text-sm">
           <h2 id="stay-plans-heading" className="font-medium">
