@@ -835,6 +835,8 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **The guide-coverage guard (26 Nov 2026, `tests/guide-coverage.test.ts`, branch `v80-prep`):** every screen, for every role that opens it, needs a topic in that role's guide linking to it. Today's gaps are pinned in `KNOWN_GAPS` (v8.0 empties it; the list is in `docs/handoff/v8.0-plan.md` §2).
+  - **Merge register:** a branch that adds a screen (v2.5, v3.5, v4.5, v5.0, v6.0, v6.5, v7.0) hits this test once it takes `main`. It must add a topic link for each role that opens the new screen, or a `KNOWN_GAPS` entry with the reason in its PR. A screen guarded by a loader or a redirect gets an `AUDIENCE` entry.
 - **pgTAP across IST midnight (25 Nov 2026, branch `fix-pgtap-midnight`):**
   - **34's deadlock: fixed.** The v4.5 builder's local run hit `deadlock detected … while deleting tuple in relation "members"` at 18:25–18:30 UTC, while the */5 and 00:00 IST pg_cron jobs fired. The cause is a job writing member-referencing rows while the file deleted members.
     - The fix: every pgTAP file that deletes members (91) includes `supabase/tests/lib/lock-job-tables.psql`. It takes every table the jobs write, plus `activity_log` and `members`, in EXCLUSIVE mode, all at once with NOWAIT in a savepoint, so it never waits while holding a lock.
