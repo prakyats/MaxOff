@@ -1,11 +1,11 @@
 "use client";
 
-import { PauseIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 
 import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { HoldCallout } from "@/core/ui/composites/hold-callout";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
@@ -80,60 +80,55 @@ export function TaskHoldLine({
   const { dialog, setDialog } = useTaskView();
   const resume = useResumeTask(facts);
   return (
-    <div
-      role="status"
-      data-slot="task-hold-line"
-      className="border-border bg-attention-soft flex min-w-0 flex-col gap-2 rounded-lg border px-3 py-2.5 text-sm md:flex-row md:items-center md:gap-3 md:py-2"
+    <HoldCallout
+      slot="task-hold-line"
+      action={
+        canResume ? (
+          <>
+            <div className="flex min-w-0 flex-col gap-1 md:shrink-0 md:items-end">
+              <Button
+                type="button"
+                variant={solid ? "primary" : "secondary"}
+                commits
+                className={cn("min-h-11 w-full md:min-h-8 md:w-auto")}
+                pending={resume.action.pending}
+                pendingLabel="Resuming…"
+                data-slot="task-resume"
+                onClick={resume.start}
+              >
+                Resume
+              </Button>
+              <ActionStatus action={resume.action} />
+            </div>
+            <TaskResumeDialog
+              open={dialog === "resume"}
+              onOpenChange={(open) => setDialog(open ? "resume" : null)}
+              taskId={facts.taskId}
+              title={facts.title}
+              dueAt={facts.dueAt}
+              dueLabel={facts.dueLabel}
+            />
+          </>
+        ) : null
+      }
     >
-      <p className="flex min-w-0 flex-1 items-start gap-2 break-words">
-        <PauseIcon aria-hidden className="text-attention mt-0.5 size-4 shrink-0" />
-        <span className="min-w-0">
-          <span className="text-attention font-semibold" data-slot="task-hold-since">
-            {title}
+      <span className="text-attention font-semibold" data-slot="task-hold-since">
+        {title}
+      </span>
+      {reason ? (
+        <>
+          <span className="max-md:hidden"> · </span>
+          <span className="block md:inline" data-slot="task-hold-reason">
+            {reason.by ? <span className="max-md:hidden">{reason.by}: </span> : null}
+            {reason.text}
           </span>
-          {reason ? (
-            <>
-              <span className="max-md:hidden"> · </span>
-              <span className="block md:inline" data-slot="task-hold-reason">
-                {reason.by ? <span className="max-md:hidden">{reason.by}: </span> : null}
-                {reason.text}
-              </span>
-            </>
-          ) : null}
-          {note ? (
-            <span className="text-muted-foreground block text-xs" data-slot="task-hold-note">
-              {note}
-            </span>
-          ) : null}
+        </>
+      ) : null}
+      {note ? (
+        <span className="text-muted-foreground block text-xs" data-slot="task-hold-note">
+          {note}
         </span>
-      </p>
-      {canResume ? (
-        <div className="flex min-w-0 flex-col gap-1 md:shrink-0 md:items-end">
-          <Button
-            type="button"
-            variant={solid ? "primary" : "secondary"}
-            commits
-            className={cn("min-h-11 w-full md:min-h-8 md:w-auto")}
-            pending={resume.action.pending}
-            pendingLabel="Resuming…"
-            data-slot="task-resume"
-            onClick={resume.start}
-          >
-            Resume
-          </Button>
-          <ActionStatus action={resume.action} />
-        </div>
       ) : null}
-      {canResume ? (
-        <TaskResumeDialog
-          open={dialog === "resume"}
-          onOpenChange={(open) => setDialog(open ? "resume" : null)}
-          taskId={facts.taskId}
-          title={facts.title}
-          dueAt={facts.dueAt}
-          dueLabel={facts.dueLabel}
-        />
-      ) : null}
-    </div>
+    </HoldCallout>
   );
 }

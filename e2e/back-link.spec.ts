@@ -348,7 +348,7 @@ test.describe("the owner's report (15 Oct 2026), as it happened", () => {
   }, info) => {
     if (info.project.name !== "desktop") await runInstalled(page);
     await open(page, "/settings");
-    await page.getByRole("link", { name: "Templates", exact: true }).click();
+    await page.getByRole("link", { name: /^Templates / }).click();
     await expect(page).toHaveURL(exactly("/settings/templates"));
     await hydrated(page);
     await page.getByRole("button", { name: "Add preset" }).first().click();

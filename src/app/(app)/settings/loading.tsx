@@ -1,5 +1,6 @@
 import { ChevronRightIcon } from "lucide-react";
 
+import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { getCurrentMember } from "@/core/auth/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Badge } from "@/core/ui/primitives/badge";
@@ -20,9 +21,12 @@ import {
 /** Text kept in the layout but not shown: a pulsing bar the size of the words. */
 function Unseen({ children }: { children: string }) {
   return (
-    <span className="bg-muted inline-block max-w-full truncate rounded-md align-top text-transparent select-none motion-safe:animate-pulse">
+    <Skeleton
+      as="span"
+      className="inline-block max-w-full truncate align-top text-transparent select-none"
+    >
       {children}
-    </span>
+    </Skeleton>
   );
 }
 
@@ -50,9 +54,9 @@ export default async function Loading() {
           {settingsGroupsFor(role).map((group) => (
             <section key={group.key}>
               <h2 className={GROUP_HEADING_CLASS}>
-                <span className="bg-muted rounded-md text-transparent select-none motion-safe:animate-pulse">
+                <Skeleton as="span" className="text-transparent select-none">
                   {group.label}
-                </span>
+                </Skeleton>
               </h2>
               <ul className={GROUP_LIST_CLASS}>
                 {group.sections.map((section) => (
@@ -96,9 +100,9 @@ export default async function Loading() {
         </div>
         <section aria-hidden className={HELP_GROUP_CLASS}>
           <h2 className={GROUP_HEADING_CLASS}>
-            <span className="bg-muted rounded-md text-transparent select-none motion-safe:animate-pulse">
+            <Skeleton as="span" className="text-transparent select-none">
               Help
-            </span>
+            </Skeleton>
           </h2>
           <ul className={HELP_LIST_CLASS}>
             <li>

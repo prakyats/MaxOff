@@ -774,7 +774,7 @@ test("Settings → Templates → Stage presets: an Admin adds, edits and deletes
   await page.goto("/settings");
   // The Stage presets card left the Settings grid: they are the Templates page's first section
   // (6b.6 owner note).
-  await page.getByRole("link", { name: "Templates", exact: true }).click();
+  await page.getByRole("link", { name: /^Templates / }).click();
   await expect(page).toHaveURL(/\/settings\/templates$/);
   await hydrated(page);
   await page.getByRole("button", { name: "Add preset" }).click();

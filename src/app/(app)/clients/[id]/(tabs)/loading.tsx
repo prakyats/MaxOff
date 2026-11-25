@@ -52,9 +52,12 @@ export default async function Loading() {
                   {/* The progress line as text-shaped bars of the usual words, so it wraps
                       where the real line wraps (two lines in a 375 px row, one at 430). */}
                   <span className="text-xs break-words">
-                    <span className="bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse">
+                    <Skeleton
+                      as="span"
+                      className="box-decoration-clone text-transparent select-none"
+                    >
                       0 of 4 stages · 0 of 2 deliverables done
-                    </span>
+                    </Skeleton>
                   </span>
                 </span>
                 <span className="ml-auto flex shrink-0 items-center gap-2">

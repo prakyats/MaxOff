@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  CheckIcon,
-  MoreHorizontalIcon,
-  PauseIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +11,7 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { HistoryButton } from "@/core/ui/composites/history-button";
+import { HoldCallout } from "@/core/ui/composites/hold-callout";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -391,14 +385,7 @@ export function ItemSheet({
           {current.onHold && !editing ? (
             // v2.0 X1 (the owner's walk, 2026-11-04): why the ticks wait shows when the sheet
             // opens, for everyone who opens it, not only once a tick is refused.
-            <p
-              role="status"
-              data-slot="item-hold-note"
-              className="border-border bg-attention-soft flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm"
-            >
-              <PauseIcon aria-hidden className="text-attention mt-0.5 size-4 shrink-0" />
-              <span className="min-w-0">{ITEM_HELD_NOTE}</span>
-            </p>
+            <HoldCallout slot="item-hold-note">{ITEM_HELD_NOTE}</HoldCallout>
           ) : null}
           {editing ? (
             <form

@@ -2,6 +2,7 @@ import type * as SentryBrowser from "@sentry/nextjs";
 
 import { observabilityEnv } from "./env";
 import { createEarlyReporter, type EarlyReporter, whenIdleAfterLoad } from "./early";
+import { setViewerRole } from "./viewer-role";
 
 /**
  * The browser's error reporting (ARCHITECTURE §18.2). The Sentry SDK is not in the first load
@@ -25,8 +26,12 @@ export function captureException(error: unknown): void {
   reporter?.capture(error);
 }
 
-/** The member id on browser reports, set by `<SentryUser>` in the signed-in shell. */
-export function setClientSentryUser(id: string | null): void {
+/**
+ * The member id on browser error reports, set by `<SentryUser>` in the signed-in shell, and the
+ * role on the real-user speed measures (never the id: `web-vitals.ts`).
+ */
+export function setClientSentryUser(id: string | null, role: string | null = null): void {
+  setViewerRole(id ? role : null);
   reporter?.setUser(id);
 }
 

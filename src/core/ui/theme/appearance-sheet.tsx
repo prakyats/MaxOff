@@ -2,7 +2,7 @@
 
 import { CheckIcon } from "lucide-react";
 import { useTheme } from "next-themes";
-import type { RefObject } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import {
@@ -55,8 +55,16 @@ export function AppearanceSheet({
             Light, dark or follow this device&rsquo;s setting
           </SheetDescription>
         </SheetHeader>
-        <div role="radiogroup" aria-label="Appearance" className="flex flex-col px-2">
-          {THEME_OPTIONS.map(({ value, label, Icon }) => {
+        {/* A radio group as a keyboard expects one (v2.0 review P1, v7.0): only the ticked row is
+            in the tab order, so the sheet opens on it, and Up / Down move between the rows.
+            Choosing stays on Enter, Space or a tap, because choosing closes the sheet. */}
+        <div
+          role="radiogroup"
+          aria-label="Appearance"
+          className="flex flex-col px-2"
+          onKeyDown={moveBetweenRows}
+        >
+          {THEME_OPTIONS.map(({ value, label, hint, Icon }) => {
             const chosen = current === value;
             return (
               <button
@@ -64,6 +72,7 @@ export function AppearanceSheet({
                 type="button"
                 role="radio"
                 aria-checked={chosen}
+                tabIndex={chosen ? 0 : -1}
                 data-slot="appearance-option"
                 data-value={value}
                 className="pressable-row focus-visible:ring-ring flex min-h-11 items-center gap-3 rounded-lg px-3 text-left text-base outline-none focus-visible:ring-2"
@@ -82,10 +91,8 @@ export function AppearanceSheet({
                 <Icon aria-hidden className="text-muted-foreground size-5 shrink-0" />
                 <span className="flex-1">
                   {label}
-                  {value === "system" ? (
-                    <span className="text-muted-foreground block text-sm">
-                      Follows this device&rsquo;s setting
-                    </span>
+                  {hint ? (
+                    <span className="text-muted-foreground block text-sm">{hint}</span>
                   ) : null}
                 </span>
                 {chosen ? <CheckIcon aria-hidden className="size-5 shrink-0" /> : null}
@@ -96,4 +103,19 @@ export function AppearanceSheet({
       </SheetContent>
     </Sheet>
   );
+}
+
+/** Up / Down (and Left / Right) move focus to the next row, wrapping; Home / End to the ends. */
+function moveBetweenRows(event: KeyboardEvent<HTMLDivElement>) {
+  const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+  const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+  if (at === -1) return;
+  const step: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+  let next: number | undefined;
+  if (event.key in step) next = (at + step[event.key]! + rows.length) % rows.length;
+  else if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = rows.length - 1;
+  if (next === undefined) return;
+  event.preventDefault();
+  rows[next]?.focus();
 }

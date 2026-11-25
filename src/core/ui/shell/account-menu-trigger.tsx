@@ -22,7 +22,9 @@ export function AccountMenuTrigger({
       variant="ghost"
       size="icon"
       className="rounded-full"
-      aria-label="Account menu"
+      // The initials are visible, so they are part of the name (WCAG 2.5.3, axe
+      // label-content-name-mismatch; v7.0 unit 4): "Account menu, LA".
+      aria-label={`Account menu, ${initialsOf(viewer.name)}`}
       {...props}
     >
       <Avatar size="sm">

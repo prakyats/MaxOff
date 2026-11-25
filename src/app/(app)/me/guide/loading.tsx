@@ -13,8 +13,7 @@ import { GUIDE_HEADER } from "./header";
 const SECTIONS_DRAWN = 3;
 
 /** Words drawn unseen, each line a bar: they wrap exactly as the page's own words do. */
-const UNSEEN =
-  "bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse";
+const UNSEEN = "box-decoration-clone text-transparent select-none";
 
 /**
  * Traces the guide: the role line, the 44px search box and its count line, then the reader's own
@@ -54,7 +53,9 @@ export default async function Loading() {
         {sections.map((section) => (
           <div key={section.id} aria-hidden className="flex flex-col gap-2">
             <p className="px-1 text-sm font-medium">
-              <span className={UNSEEN}>{section.title}</span>
+              <Skeleton as="span" className={UNSEEN}>
+                {section.title}
+              </Skeleton>
             </p>
             <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
               {section.topics.map((topic) => (
@@ -64,7 +65,9 @@ export default async function Loading() {
                   <div className={cn("flex items-center gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}>
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="text-sm font-medium break-words">
-                        <span className={UNSEEN}>{topic.title}</span>
+                        <Skeleton as="span" className={UNSEEN}>
+                          {topic.title}
+                        </Skeleton>
                       </span>
                       {/* The summary is one line (`truncate`): a bar in its 16px line box. */}
                       <span className="flex h-4 items-center">

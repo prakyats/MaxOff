@@ -1,11 +1,10 @@
-import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
-import { DrillLink } from "@/core/ui/composites/drill-link";
+import { MoreLink } from "@/core/ui/composites/more-link";
 import { EmptyRow } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getOwnHours, getOwnToday, TodayAttendanceStrip } from "@/modules/attendance";
@@ -27,6 +26,7 @@ import {
   listUnreadCounts,
   MY_GROUP_TITLES,
   myTaskGroups,
+  ON_HOLD_HREF,
   onHoldLine,
   rowMeta,
   stateLabel,
@@ -166,14 +166,9 @@ export default async function MyDayPage() {
             )}
 
             {held ? (
-              <DrillLink
-                href="/tasks/all?state=on_hold"
-                data-slot="my-day-on-hold"
-                className="border-border bg-card focus-visible:ring-ring flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium outline-none focus-visible:ring-2"
-              >
-                <span className="min-w-0 break-words">{held}</span>
-                <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-              </DrillLink>
+              <MoreLink href={ON_HOLD_HREF} slot="my-day-on-hold">
+                {held}
+              </MoreLink>
             ) : null}
 
             {/* PP-crew-2: "Suggest a task" is a quiet link at the foot, not a button. */}

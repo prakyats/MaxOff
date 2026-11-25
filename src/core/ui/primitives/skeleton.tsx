@@ -1,8 +1,17 @@
 import { cn } from "cn";
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * A placeholder bar. `as="span"` draws it inside text: a description `<p>`, or a text-shaped bar
+ * that wraps with its words (`box-decoration-clone`), so no screen hand-types these classes
+ * (v2.0 review P6, v7.0).
+ */
+function Skeleton({
+  as: Tag = "div",
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { as?: "div" | "span" }) {
   return (
-    <div
+    <Tag
       data-slot="skeleton"
       // `motion-safe:` keeps the shimmer off under prefers-reduced-motion (ARCHITECTURE §14.1).
       // `max-w-full`: a bar's width is in rem, so at 200% system text a `w-20` is 160px; it never

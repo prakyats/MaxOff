@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { diagnosticsLimiter, tooManyRequests } from "@/core/http/member-rate-limit";
 import { getSessionState, getSessionUserId, withSessionUserId } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
@@ -52,7 +53,10 @@ export type ApprovalsTiming = {
  */
 export async function GET(): Promise<Response> {
   // Signed out, nothing is read (X6 review, as `/diagnostics/timing`): the verified claims first.
-  if (!(await getSessionUserId())) notFound();
+  const userId = await getSessionUserId();
+  if (!userId) notFound();
+  // v7.0: at most 60 a minute per member (`member-rate-limit.ts`), before any read.
+  if (!diagnosticsLimiter.allow(userId)) return tooManyRequests();
   const waveStart = performance.now();
   const since = () => Math.round(performance.now() - waveStart);
   const timed = <T>(read: Promise<T>) => read.then((value) => ({ value, ms: since() }));

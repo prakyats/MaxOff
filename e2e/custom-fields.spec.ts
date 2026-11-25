@@ -169,7 +169,7 @@ test.describe("Owner", () => {
     if (isMobile) await runInstalled(page);
     await page.goto("/settings");
     await expect(pageHeader(page)).toBeVisible();
-    await page.getByRole("link", { name: "Custom fields", exact: true }).click();
+    await page.getByRole("link", { name: /^Custom fields / }).click();
     await expect(page).toHaveURL(/\/settings\/custom-fields$/);
     await hydrated(page);
     await tabs(page).getByRole("link", { name: "Contacts", exact: true }).click();
@@ -202,7 +202,7 @@ test.describe("Owner", () => {
     await runInstalled(page);
     await page.goto("/settings");
     await expect(pageHeader(page)).toBeVisible();
-    await page.getByRole("link", { name: "Custom fields", exact: true }).click();
+    await page.getByRole("link", { name: /^Custom fields / }).click();
     await expect(page).toHaveURL(/\/settings\/custom-fields$/);
     await hydrated(page);
     await tabs(page).getByRole("link", { name: "Deliverables", exact: true }).click();

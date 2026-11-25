@@ -51,6 +51,9 @@ on:
           - notifications-removal-dry-run
           - push-band-count
           - perf-probe
+          - load-test-people
+          - load-test
+          - load-test-people-off
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -714,3 +717,56 @@ jobs:
           path: ${{ runner.temp }}/probe-*.json
           if-no-files-found: ignore
           retention-days: 14
+
+  # The 10:00 rush test (v7.0 unit 6; owner Q5–Q7, 14 Nov 2026; docs/runbooks/load-test.md). By hand
+  # only, **staging only**: Actions → Preview → Run workflow → `load-test-people` (make or reactivate
+  # the 20 made-up Crew people), then after 22:00 IST `load-test` (20 Start days in one minute
+  # against staging, pass = all through, none doubled, 19 of 20 under 3 s), then
+  # `load-test-people-off` (deactivate them; nothing is deleted). The keys are the `staging`
+  # environment's and `scripts/lib/load-guard.mjs` refuses production's app and database.
+  load-test:
+    name: rush test (staging)
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.job == 'load-test' || inputs.job == 'load-test-people' || inputs.job == 'load-test-people-off')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: perf-probe
+      cancel-in-progress: false
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run the rush test step
+        env:
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          JOB: ${{ inputs.job }}
+        run: |
+          set -euo pipefail
+          case "$JOB" in
+            load-test-people) node scripts/load-10am.mjs people --count 20 ;;
+            load-test-people-off) node scripts/load-10am.mjs people --count 20 --off ;;
+            load-test)
+              node scripts/load-10am.mjs run --base "$STAGING_URL" --count 20 --spread 60 \
+                --out "$RUNNER_TEMP/rush-test.json" | tee "$RUNNER_TEMP/rush-test.txt"
+              { echo "### The 10:00 rush test (staging)"; echo; cat "$RUNNER_TEMP/rush-test.txt"; } >>"$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+      - name: Keep the raw numbers
+        if: always() && inputs.job == 'load-test'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rush-test-${{ github.run_id }}
+          path: ${{ runner.temp }}/rush-test.*
+          if-no-files-found: ignore
+          retention-days: 30

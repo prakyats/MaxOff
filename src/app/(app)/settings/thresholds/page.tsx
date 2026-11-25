@@ -25,9 +25,9 @@ export default async function ThresholdsSettingsPage() {
         title="Thresholds"
         {...SETTINGS_HEADERS.thresholds}
       />
-      {/* Keyed by the saved values: a save on another device re-seeds the form's state when the
-          screen is re-read (6b.17a), instead of keeping what was shown before. */}
-      <ThresholdsForm key={JSON.stringify(settings)} thresholds={settings} />
+      {/* The form re-seeds itself from the saved values when the screen is re-read (6b.17a), unless
+          an edit is unsaved (v7.0: the remount used to put back an edit typed just after Save). */}
+      <ThresholdsForm thresholds={settings} />
     </>
   );
 }

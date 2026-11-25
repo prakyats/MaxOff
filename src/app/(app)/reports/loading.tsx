@@ -45,9 +45,12 @@ export default async function Loading() {
                   {/* The description's own words, unseen, each line a bar: it wraps to exactly the
                       page's lines at every width and text size. */}
                   <span className="text-sm">
-                    <span className="bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse">
+                    <Skeleton
+                      as="span"
+                      className="box-decoration-clone text-transparent select-none"
+                    >
                       {report.description}
-                    </span>
+                    </Skeleton>
                   </span>
                 </span>
                 <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />

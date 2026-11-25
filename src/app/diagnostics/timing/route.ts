@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { getSessionState, getSessionUserId } from "@/core/auth/server";
 import { getSessionBundle } from "@/core/auth/session-bundle";
+import { diagnosticsLimiter, tooManyRequests } from "@/core/http/member-rate-limit";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { isolateState } from "@/core/observability/isolate";
 import { can } from "@/core/permissions";
@@ -27,6 +28,8 @@ export async function GET(): Promise<Response> {
   const userId = await getSessionUserId();
   const claims = Math.round(performance.now() - started);
   if (!userId) notFound();
+  // v7.0: at most 60 a minute per member (`member-rate-limit.ts`), before any read.
+  if (!diagnosticsLimiter.allow(userId)) return tooManyRequests();
 
   const waveStart = performance.now();
   const timed = <T>(read: Promise<T>) =>

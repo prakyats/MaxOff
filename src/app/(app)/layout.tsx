@@ -140,7 +140,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     // warning (2.9) reaches it from any screen.
     <LogoutProvider hasWorkingDay={can(viewer.role, "attendance.self")}>
       <AppShell viewer={viewer} badges={badges} unread={unread}>
-        <SentryUser id={viewer.id} />
+        <SentryUser id={viewer.id} role={viewer.role} />
         <RefreshOnReturn />
         {prompt}
         <PushSync publicKey={publicKey} endpoints={endpoints} />

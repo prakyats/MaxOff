@@ -46,6 +46,38 @@ import { FormError } from "./form-error";
  * task's reminders are worked out when it is created or its deadline moves.
  */
 export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
+  // Re-seeded from the saved values when they change (a save here, or on another device, re-read
+  // with the screen; 6b.17a), but **never while an edit is unsaved**: the remount put back an edit
+  // typed straight after a save, between its "Thresholds saved" and the refresh (v2.0 X6 review,
+  // fixed in v7.0). An edit since the last Save keeps the form as typed; the next Save stores it,
+  // and the last save wins (owner Q4, 14 Nov 2026).
+  const saved = JSON.stringify(thresholds);
+  const [seen, setSeen] = useState(saved);
+  const [seed, setSeed] = useState(0);
+  const [edited, setEdited] = useState(false);
+  if (saved !== seen) {
+    setSeen(saved);
+    if (!edited) setSeed((value) => value + 1);
+  }
+  return (
+    <ThresholdsFields
+      key={seed}
+      thresholds={thresholds}
+      onEdit={() => setEdited(true)}
+      onSave={() => setEdited(false)}
+    />
+  );
+}
+
+function ThresholdsFields({
+  thresholds,
+  onEdit,
+  onSave,
+}: {
+  thresholds: Thresholds;
+  onEdit: () => void;
+  onSave: () => void;
+}) {
   const [reminders, setReminders] = useState<ReminderDraft>(() =>
     draftFromRules(thresholds.defaultTaskReminders),
   );
@@ -103,6 +135,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
       return;
     }
     const data = new FormData(event.currentTarget);
+    onSave();
     startTransition(() => formAction(data));
   }
   const fieldErrors = error?.fieldErrors ?? {};
@@ -116,7 +149,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
       : undefined);
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    // Any typing, tick or choice is an edit (`onInput` for the native fields; the lists and the
+    // weekday call `onEdit` themselves).
+    <form onSubmit={submit} onInput={onEdit} noValidate className="flex flex-col gap-4">
       <FormError error={error} />
       <p className="text-muted-foreground text-sm">
         Open a group to change it. Save keeps every group&apos;s changes at once.
@@ -320,7 +355,10 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setHighTimes((times) => times.filter((_, at) => at !== index))}
+                  onClick={() => {
+                    onEdit();
+                    setHighTimes((times) => times.filter((_, at) => at !== index));
+                  }}
                   aria-label={`Remove reminder ${index + 1}`}
                 >
                   Remove
@@ -333,7 +371,10 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
               type="button"
               variant="secondary"
               className="self-start"
-              onClick={() => setHighTimes((times) => [...times, "16:00"])}
+              onClick={() => {
+                onEdit();
+                setHighTimes((times) => [...times, "16:00"]);
+              }}
             >
               Add a time
             </Button>
@@ -464,6 +505,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
           <ReminderRulesEditor
             draft={reminders}
             onChange={(next) => {
+              onEdit();
               setReminders(next);
               setRemindersBlocked(false);
             }}
@@ -611,7 +653,10 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
                 value={String(digestDay)}
                 onValueChange={(next) => {
                   const day = Number(next);
-                  if (isWeekdayIndex(day)) setDigestDay(day);
+                  if (isWeekdayIndex(day)) {
+                    onEdit();
+                    setDigestDay(day);
+                  }
                 }}
               >
                 <SelectTrigger
@@ -660,8 +705,8 @@ function readList(text: string): UpdateThresholdsInput["defaultTaskReminders"] {
 }
 
 /**
- * The groups open in this page view: a save re-reads the screen and re-seeds the form (keyed by the
- * saved values, 6b.17a), which must not fold the group being edited. Cleared on a full load.
+ * The groups open in this page view: a save re-reads the screen and can re-seed the form
+ * (`ThresholdsForm`, 6b.17a), which must not fold the group being edited. Cleared on a full load.
  */
 const OPEN_GROUPS = new Set<string>();
 

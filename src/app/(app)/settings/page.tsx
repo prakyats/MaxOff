@@ -60,13 +60,12 @@ export default async function SettingsPage() {
               {group.sections.map((section) => (
                 <li key={section.key} data-slot="settings-row" className="relative">
                   {section.ready ? (
-                    // The whole row is the link (44px+ at every size), named by the section alone;
-                    // its one line describes it.
+                    // The whole row is the link (44px+ at every size), named by what it shows: the
+                    // section and its one line (WCAG 2.5.3, axe label-content-name-mismatch;
+                    // v7.0 unit 4: a name of the section alone left the line out).
                     <DrillLink
                       href={section.href}
                       data-slot="settings-section"
-                      aria-label={section.label}
-                      aria-describedby={`settings-line-${section.key}`}
                       className={cn(
                         SECTION_ROW_CLASS,
                         "hover:bg-muted/50 active:bg-muted/60 focus-visible:ring-ring transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset",
@@ -74,9 +73,7 @@ export default async function SettingsPage() {
                     >
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className={SECTION_LABEL_CLASS}>{section.label}</span>
-                        <span id={`settings-line-${section.key}`} className={SECTION_LINE_CLASS}>
-                          {section.description}
-                        </span>
+                        <span className={SECTION_LINE_CLASS}>{section.description}</span>
                       </span>
                       <ChevronRightIcon
                         className="text-muted-foreground size-4 shrink-0"

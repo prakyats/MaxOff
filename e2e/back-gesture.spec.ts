@@ -243,7 +243,7 @@ test.describe("installed: overlays and view controls", () => {
       // serial push-cron project may move it (push-quiet.spec), so no push elsewhere is held.
       await runInstalled(page);
       await page.goto("/settings");
-      await page.getByRole("link", { name: "Thresholds", exact: true }).click();
+      await page.getByRole("link", { name: /^Thresholds / }).click();
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
       // 6b.6: the group opens in place (a view control): no history either.
       await openThresholdGroups(page, "Notifications");
@@ -279,7 +279,7 @@ test.describe("installed: overlays and view controls", () => {
       // 5.3. Opened and looked at, never saved: the default is the organisation's.
       await runInstalled(page);
       await page.goto("/settings");
-      await page.getByRole("link", { name: "Thresholds", exact: true }).click();
+      await page.getByRole("link", { name: /^Thresholds / }).click();
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
       await openThresholdGroups(page, "Tasks");
       const summary = page.locator('[data-slot="reminder-summary"]');
@@ -299,7 +299,7 @@ test.describe("installed: overlays and view controls", () => {
     }) => {
       await runInstalled(page);
       await page.goto("/settings");
-      await page.getByRole("link", { name: "Task types", exact: true }).click();
+      await page.getByRole("link", { name: /^Task types / }).click();
       await expect(page).toHaveURL(/\/settings\/task-types$/);
       await page.getByRole("button", { name: "Add task type" }).click();
       const add = page.getByRole("dialog", { name: "Add a task type" });

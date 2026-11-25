@@ -302,7 +302,9 @@ export function MonthGrid({
                       // owner's correction of 23 Oct).
                       isSelected && !isToday ? "border-foreground" : "border-border/60",
                       isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
-                      !inMonth(date) && "opacity-45",
+                      // v7.0 unit 4 (owner 14 Nov: at least 4.5:1): another month's day is marked
+                      // by its muted date number below, never by fading the whole box, which put
+                      // its text under the contrast line.
                       "active:bg-muted/60",
                     )}
                   >
@@ -314,7 +316,7 @@ export function MonthGrid({
                         className={cn(
                           "flex shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
                           density === "laptop" ? "size-6" : "size-5",
-                          day?.weeklyOff && "text-muted-foreground",
+                          (day?.weeklyOff || !inMonth(date)) && "text-muted-foreground",
                           lines?.holidayHidden && "text-holiday",
                           // PP-calendar-1: today is the filled red circle.
                           isToday && "bg-destructive-solid text-destructive-solid-foreground",

@@ -146,7 +146,7 @@ test.describe("Owner: the company logo", () => {
     if (isMobile) await runInstalled(page);
     await page.goto("/settings");
     await expect(pageHeader(page)).toBeVisible();
-    await page.getByRole("link", { name: "Company", exact: true }).click();
+    await page.getByRole("link", { name: /^Company / }).click();
     await expect(page).toHaveURL(/\/settings\/company$/);
     await hydrated(page);
     await page.getByRole("button", { name: /^(Add|Change) logo$/ }).click();

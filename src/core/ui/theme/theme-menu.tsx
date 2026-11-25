@@ -33,10 +33,13 @@ export function ThemeMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
-          {THEME_OPTIONS.map(({ value, label, Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <Icon aria-hidden />
-              {label}
+          {THEME_OPTIONS.map(({ value, label, hint, Icon }) => (
+            <DropdownMenuRadioItem key={value} value={value} className="items-start">
+              <Icon aria-hidden className="mt-0.5" />
+              <span>
+                {label}
+                {hint ? <span className="text-muted-foreground block text-xs">{hint}</span> : null}
+              </span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

@@ -80,6 +80,9 @@ export function splitOnHold<T extends { heldAt?: string | null }>(
   return { active, onHold };
 }
 
+/** Where the "On hold · n" line leads: the full list, filtered to the held tasks. */
+export const ON_HOLD_HREF = "/tasks/all?state=on_hold";
+
 /** "On hold · 2", or null when nothing is held (the line is not drawn). */
 export function onHoldLine(count: number): string | null {
   return count > 0 ? `On hold · ${count}` : null;

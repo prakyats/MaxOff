@@ -9,6 +9,7 @@ import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
+import { MoreLink } from "@/core/ui/composites/more-link";
 import { EmptyRow, EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { DayColumns, ThisWeek } from "@/modules/dashboards";
@@ -24,6 +25,7 @@ import {
   needsYou,
   needsYouSummary,
   type NeedsYouItem,
+  ON_HOLD_HREF,
   onHoldLine,
   openByDeadline,
   PRIORITY_LABELS,
@@ -50,9 +52,6 @@ import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks } from "../reads";
 
 export const metadata: Metadata = { title: "Tasks" };
-
-/** Where "On hold · n" leads: the full list on its On hold state (v1.9 W8, a drill-down). */
-const ON_HOLD_HREF = "/tasks/all?state=on_hold";
 
 /** The open tasks shown on the first screen before "See all tasks" (PRODUCT §2: depth one tap). */
 const OPEN_ON_FIRST_SCREEN = 15;
@@ -519,18 +518,5 @@ function CountRow({
         </DrillLink>
       )}
     </li>
-  );
-}
-
-function MoreLink({ href, slot, children }: { href: string; slot: string; children: ReactNode }) {
-  return (
-    <DrillLink
-      href={href}
-      data-slot={slot}
-      className="border-border bg-card focus-visible:ring-ring flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium outline-none focus-visible:ring-2"
-    >
-      <span className="min-w-0 break-words">{children}</span>
-      <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-    </DrillLink>
   );
 }

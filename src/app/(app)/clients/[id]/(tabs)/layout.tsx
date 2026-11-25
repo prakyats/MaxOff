@@ -49,7 +49,7 @@ export default async function ClientLayout({
             // The state chip's line under the name (X5+ M7: without it the page below moved
             // 13 px down when the header streamed in). A span: the description is a <p>.
             description={
-              <span className="bg-muted inline-block h-5 w-16 rounded-full align-middle motion-safe:animate-pulse" />
+              <Skeleton as="span" className="inline-block h-5 w-16 rounded-full align-middle" />
             }
             back={BACK}
             className="flex-wrap"

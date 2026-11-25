@@ -3,8 +3,10 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 import {
+  holdReads,
   memberIdOf,
   openThresholdGroups,
+  ownSession,
   removeJobTitles,
   serviceInsert,
   serviceRest,
@@ -241,6 +243,44 @@ test.describe("Owner", () => {
     await expect(undecided).toHaveValue("3");
     await overdue.fill("24");
     await undecided.fill("2");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
+  });
+
+  test("keeps an edit typed straight after Save when the saved values arrive (v7.0)", async ({
+    page,
+  }) => {
+    // The v2.0 X6 review's known bug (ROADMAP v2.1, "The Thresholds form puts back an edit"): the
+    // toast shows as the action returns and the re-read screen lands a moment later; the form,
+    // keyed on the saved values, remounted then and put back whatever was typed in between. The
+    // re-read's settings are held here, so "in between" lasts as long as the test needs.
+    const session = await ownSession(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/settings/thresholds");
+    await openThresholdGroups(page, "Working day", "Client work");
+    const reminder = page.getByLabel("End-of-day reminder");
+    const overdue = page.getByLabel("Overdue deliverable → you after (hours)");
+    await expect(overdue).toHaveValue("24");
+    await reminder.fill("21:15");
+    const hold = await holdReads("/rest/v1/org_settings", session);
+    try {
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved")).toBeVisible();
+      await overdue.fill("30");
+    } finally {
+      hold.release();
+    }
+    // The saved values have arrived once the Working day row's summary reads the new time.
+    await expect(page.locator('[data-slot="threshold-summary"]').first()).toContainText("9:15 pm");
+    await expect(overdue, "the edit typed after Save is still there").toHaveValue("30");
+    await expect(reminder).toHaveValue("21:15");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved").first()).toBeVisible();
+    await page.reload();
+    await openThresholdGroups(page, "Working day", "Client work");
+    await expect(overdue, "and its Save stored it").toHaveValue("30");
+    // Put both back for the other specs.
+    await reminder.fill("20:30");
+    await overdue.fill("24");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
   });
@@ -482,7 +522,7 @@ test.describe("Admin", () => {
 
   test("gets the lists but none of the company settings", async ({ page }) => {
     await page.goto("/settings");
-    await expect(page.getByRole("link", { name: "Job titles", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Job titles / })).toBeVisible();
     // Task types are the Owner's too (Kickoff 4 decision 15), although the lists are theirs.
     for (const ownerOnly of [
       "Company",

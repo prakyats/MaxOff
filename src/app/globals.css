@@ -404,8 +404,9 @@
   }
 
   /* Sheets and dialogs never chain their scroll to the page behind (§14.1: no scroll chaining),
-   * and keep momentum scrolling inside. */
-  [data-slot="sheet-content"],
+   * and keep momentum scrolling inside. A sheet is matched by its role and side, not its slot: a
+   * named sheet passes its own `data-slot`, which replaces "sheet-content" (v2.0 review P3, v7.0). */
+  [role="dialog"][data-side],
   [data-slot$="dialog-content"],
   [data-slot="detail-sheet-body"] {
     overscroll-behavior: contain;
@@ -970,6 +971,14 @@ html[data-nav-slide="forward"] [data-slot="route"] {
   @media (prefers-reduced-motion: reduce) {
     [data-slot="dropdown-menu-content"] {
       --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+    }
+    /* Sheets fade only, as the menus do (v2.0 review P2, v7.0): no slide in or out. Keyed on the
+     * role and side, never the slot (P3). */
+    [role="dialog"][data-side] {
+      --tw-enter-translate-x: 0 !important;
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-x: 0 !important;
       --tw-exit-translate-y: 0 !important;
     }
   }

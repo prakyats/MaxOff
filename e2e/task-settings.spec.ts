@@ -93,7 +93,7 @@ test.describe("task types and per-type fields, the flows", () => {
     const name = `${prefix}Recce`;
 
     await page.goto("/settings");
-    await page.getByRole("link", { name: "Task types", exact: true }).click();
+    await page.getByRole("link", { name: /^Task types / }).click();
     await expect(page).toHaveURL(/\/settings\/task-types$/);
     await page.getByRole("button", { name: "Add task type" }).click();
     const add = page.getByRole("dialog", { name: "Add a task type" });
