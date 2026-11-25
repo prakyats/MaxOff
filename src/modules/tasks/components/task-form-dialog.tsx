@@ -495,6 +495,9 @@ function TaskForm({
 
   const answered = needsCheck && checked?.key === daysKey ? checked : null;
   const window = draftEventWindow(draft, type);
+  const pickerPeople = loaded?.people;
+  const viewerId = loaded?.viewerId ?? "";
+  const ownerId = pickerPeople?.find((person) => person.role === "owner")?.id ?? null;
   const warnings: AssignmentWarning[] =
     loaded && answered && draft.assigneeIds.length > 0
       ? assignmentWarnings({
@@ -505,6 +508,8 @@ function TaskForm({
           threshold: loaded.threshold,
           availability: answered.rows,
           current,
+          viewerId,
+          ownerId,
         })
       : [];
 
@@ -518,8 +523,6 @@ function TaskForm({
       : dueDay
         ? { kind: "deadline", date: dueDay }
         : null;
-  const pickerPeople = loaded?.people;
-  const viewerId = loaded?.viewerId ?? "";
   const list = useMemo(
     () =>
       pickerList({
@@ -527,7 +530,7 @@ function TaskForm({
         when,
         availability: answered && !answered.failed ? answered.rows : null,
         viewerId,
-        ownerId: pickerPeople?.find((person) => person.role === "owner")?.id ?? null,
+        ownerId,
         current,
       }),
     // `when` is rebuilt every render: its parts are what the list depends on.
@@ -540,6 +543,7 @@ function TaskForm({
       window?.endAt,
       answered,
       viewerId,
+      ownerId,
       current,
     ],
   );

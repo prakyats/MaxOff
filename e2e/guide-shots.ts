@@ -643,7 +643,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     prepare: newShootWithPeople,
     highlight: (page) => slot(page, "people-column"),
     crop: layer,
-    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, and one under Busy then with a Clashes chip.",
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, one under Busy then with a Clashes chip, and the Owner in their own group with no Free.",
   },
   {
     id: "admin/task-review",
@@ -956,7 +956,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     prepare: newShootWithPeople,
     highlight: (page) => slot(page, "people-column"),
     crop: layer,
-    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, and one under Busy then with a Clashes chip.",
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, one under Busy then with a Clashes chip, and the Owner in their own group with no Free.",
   },
   {
     id: "owner/task-approve",

@@ -329,7 +329,10 @@ test.describe("staff tasks, the flows", () => {
         dialog.locator(`[data-slot="task-warning"][data-member="${id}"][data-kind="${kind}"]`);
       await expect(warning(helperId, "workload")).toContainText("4 tasks already due");
       await expect(warning(helperId, "workload")).toContainText(helper.name);
-      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 am – 12:00 pm");
+      // A clash says the booking as the picker does: the type, the time and who booked it.
+      await expect(warning(staffId, "overlap")).toHaveText(
+        `${staff.name}: Clashes: Shoot / Site Visit 10:00 am – 12:00 pm · booked by you`,
+      );
       await expect(warning(awayId, "on_leave")).toContainText("Leave requested");
       await expect(dialog.locator('[data-slot="task-warning"]')).toHaveCount(3);
       await expect(dialog.locator('[data-slot="task-warning-summary"]')).toContainText(

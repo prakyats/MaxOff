@@ -189,7 +189,7 @@ export const GUIDE_SHOTS: Readonly<
     src: "/guide/admin/new-task.webp",
     width: 944,
     height: 741,
-    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, and one under Busy then with a Clashes chip.",
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, one under Busy then with a Clashes chip, and the Owner in their own group with no Free.",
   },
   "admin/task-review": {
     src: "/guide/admin/task-review.webp",
@@ -465,7 +465,7 @@ export const GUIDE_SHOTS: Readonly<
     src: "/guide/owner/new-task-people.webp",
     width: 944,
     height: 741,
-    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, and one under Busy then with a Clashes chip.",
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, one under Busy then with a Clashes chip, and the Owner in their own group with no Free.",
   },
   "owner/task-approve": {
     src: "/guide/owner/task-approve.webp",

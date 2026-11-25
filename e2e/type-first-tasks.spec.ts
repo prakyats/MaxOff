@@ -151,6 +151,8 @@ async function inPicker(
 
 const TASK_URL = /\/tasks\/[0-9a-f-]{36}$/;
 const OWNER = { email: USERS.owner.email, password: USERS.owner.password };
+/** The seeded Owner's name, as the picker lists them. */
+const OWNER_NAME = "Prishit Shetty";
 const LOCAL_ADMIN = {
   email: USERS.admin.email,
   password: USERS.admin.password,
@@ -280,6 +282,17 @@ test.describe("New task, type first: the flows", () => {
           0,
         );
         await expect(pickerRow(busy, helper.name)).toHaveCount(0);
+        // The Owner is offered (6b.2) but never listed as Free (PERMISSIONS §2, v6.0): with
+        // nothing booked, in their own Owner group after Busy then, with no line at all.
+        const owner = picker.locator('[data-slot="picker-owner"]');
+        await expect(owner.getByRole("heading")).toContainText("Owner");
+        await expect(pickerRow(owner, OWNER_NAME)).toHaveCount(1);
+        await expect(pickerRow(owner, OWNER_NAME).locator('[data-slot="picker-line"]')).toHaveCount(
+          0,
+        );
+        await expect(pickerRow(owner, OWNER_NAME)).not.toContainText("Free");
+        await expect(pickerRow(free, OWNER_NAME)).toHaveCount(0);
+        await expect(pickerRow(busy, OWNER_NAME)).toHaveCount(0);
         await expect(picker).not.toContainText("secret");
       });
 
@@ -314,9 +327,10 @@ test.describe("New task, type first: the flows", () => {
       await field(dialog, "To").fill("17:30");
       await expect(doneBy).toContainText(`Done by ${dayWords(day)}, 7:00 pm`);
 
-      // The people chosen are chips with what the list said of them; someone on leave can be
-      // picked, and the warning is kept and recorded as before.
-      await addTaskPeople(page, dialog, [staff.name, coord.name]);
+      // The people chosen are chips with what the list said of them; someone on leave or busy
+      // can be picked, and the warning is kept and recorded as before. A clash says the booking
+      // as the picker does: its type, its time (all day) and who booked it, by full name.
+      await addTaskPeople(page, dialog, [staff.name, coord.name, away.name]);
       const chip = (id: string) =>
         dialog.locator(`[data-slot="task-assignee"][data-member="${id}"]`);
       await expect(chip(staffId as string)).toContainText("Free");
@@ -327,7 +341,11 @@ test.describe("New task, type first: the flows", () => {
           `[data-slot="task-warning"][data-member="${coordId}"][data-kind="on_leave"]`,
         ),
       ).toHaveCount(1);
-      await expect(dialog.locator('[data-slot="task-warning"]')).toHaveCount(1);
+      await expect(chip(awayId as string)).toContainText("Clashes");
+      await expect(
+        dialog.locator(`[data-slot="task-warning"][data-member="${awayId}"][data-kind="overlap"]`),
+      ).toHaveText(`${away.name}: Clashes: Meeting all day · booked by ${LOCAL_ADMIN.name}`);
+      await expect(dialog.locator('[data-slot="task-warning"]')).toHaveCount(2);
 
       await create.click();
       await expect(page).toHaveURL(TASK_URL);
@@ -345,12 +363,16 @@ test.describe("New task, type first: the flows", () => {
       const onIt = await serviceSelect<{ member_id: string }>(
         `task_assignees?task_id=eq.${taskId}&removed_at=is.null&select=member_id`,
       );
-      expect(onIt.map((row) => row.member_id).sort()).toEqual([staffId, coordId].sort());
+      expect(onIt.map((row) => row.member_id).sort()).toEqual([staffId, coordId, awayId].sort());
+      // Both kept warnings are recorded; the all-day clash with only what task_create accepts.
       expect(
-        await serviceSelect<{ kind: string; member_id: string }>(
-          `task_warnings?task_id=eq.${taskId}&select=kind,member_id`,
+        await serviceSelect<{ kind: string; member_id: string; details: Record<string, unknown> }>(
+          `task_warnings?task_id=eq.${taskId}&select=kind,member_id,details&order=kind`,
         ),
-      ).toEqual([{ kind: "on_leave", member_id: coordId }]);
+      ).toEqual([
+        { kind: "on_leave", member_id: coordId, details: { date: day, leave: "leave" } },
+        { kind: "overlap", member_id: awayId, details: { date: day } },
+      ]);
     });
 
     test("Edit task is the same form: the type, the event and the people as they stand; the task's own booking is no clash with itself", async ({

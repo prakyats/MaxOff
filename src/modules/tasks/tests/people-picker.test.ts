@@ -71,10 +71,12 @@ const everyone = (overrides: Record<string, Partial<AvailabilityDay>> = {}) =>
   PEOPLE.map((person) => day(person.id, overrides[person.id]));
 
 describe("Who's on it? for an event (v6.0): Free then and Busy then", () => {
-  it("free: everyone with nothing that day, in the order given, the Owner too", () => {
+  it("free: everyone with nothing that day, in the order given; the Owner offered, never Free", () => {
     const list = event(everyone());
     expect(list.busy).toEqual([]);
-    expect(list.free.map((row) => row.memberId)).toEqual(PEOPLE.map((person) => person.id));
+    expect(list.free.map((row) => row.memberId)).toEqual(
+      PEOPLE.filter((person) => person.id !== OWNER).map((person) => person.id),
+    );
     expect(list.free[0]).toEqual({
       memberId: "arjun",
       name: "Arjun Mehta",
@@ -82,8 +84,57 @@ describe("Who's on it? for an event (v6.0): Free then and Busy then", () => {
       chips: [],
       short: "Free",
     });
-    // The Owner may be on a task (6b.2), so the Owner is offered, free like anyone.
-    expect(pickerRowOf(list, OWNER)).toMatchObject({ lines: ["Free"], short: "Free" });
+    // The Owner may be on a task (6b.2), so the Owner is offered, but is never listed as Free
+    // (PERMISSIONS §2, v6.0): in their own group after Busy then, with no line and no word.
+    expect(list.owner).toEqual([
+      { memberId: OWNER, name: "Prishit Shetty", lines: [], chips: [], short: "" },
+    ]);
+  });
+
+  it("the Owner: busy when a booking clashes, else in the Owner group with only what else is on", () => {
+    const busy = event(
+      everyone({ [OWNER]: { eventBlocks: [block("14:00", "16:00", { bookedById: VIEWER })] } }),
+    );
+    expect(busy.busy.map((row) => row.memberId)).toEqual([OWNER]);
+    expect(busy.owner).toEqual([]);
+    expect(pickerRowOf(busy, OWNER)).toMatchObject({
+      lines: ["Shoot 2:00 pm – 4:00 pm · booked by you"],
+      chips: ["clashes"],
+      short: "Clashes",
+    });
+    const around = event(
+      everyone({
+        [OWNER]: {
+          eventBlocks: [
+            block("11:00", "13:00", { typeName: "Site visit", bookedById: OWNER }),
+            block("18:00", "19:00", { typeName: "Meeting" }),
+          ],
+        },
+      }),
+    );
+    expect(around.owner).toEqual([
+      {
+        memberId: OWNER,
+        name: "Prishit Shetty",
+        lines: [
+          "Earlier: Site visit 11:00 am – 1:00 pm · booked by Owner",
+          "Later: Meeting 6:00 pm – 7:00 pm · booked by Sana Khan",
+        ],
+        chips: [],
+        short: "",
+      },
+    ]);
+    // No answer for the Owner: still in the Owner group, never under Free then.
+    const partial = event([day("asha")]);
+    expect(partial.owner.map((row) => row.memberId)).toEqual([OWNER]);
+    expect(partial.free.some((row) => row.memberId === OWNER)).toBe(false);
+    // Find a person keeps the Owner's group.
+    expect(searchPicker(around, "prishit")).toMatchObject({
+      free: [],
+      busy: [],
+      owner: [{ memberId: OWNER }],
+    });
+    expect(pickerCount(around)).toBe(PEOPLE.length);
   });
 
   it("free with an earlier or a later booking: said, with its type, time and who booked it", () => {
@@ -168,7 +219,7 @@ describe("Who's on it? for an event (v6.0): Free then and Busy then", () => {
         meera: { leave: "comp_leave" },
       }),
     );
-    expect(list.free.map((row) => row.memberId)).toEqual(["arjun", "kiran", OWNER, "zed"]);
+    expect(list.free.map((row) => row.memberId)).toEqual(["arjun", "kiran", "zed"]);
     expect(list.busy.map((row) => row.memberId)).toEqual(["asha", "meera"]);
     expect(pickerRowOf(list, "arjun")).toMatchObject({
       lines: ["Half day that day"],
@@ -317,6 +368,10 @@ describe("Who's on it? for a deadline only (v6.0): one list, no groups, no Clash
     expect(pickerRowOf(list, "kiran")?.lines).toEqual(["On leave that day"]);
     expect(pickerRowOf(list, "meera")?.lines).toEqual(["Leave requested"]);
     expect(pickerRowOf(list, "zed")?.lines).toEqual(["Nothing that day"]);
+    // The Owner's day is never claimed empty (their leave is not in the answer).
+    expect(pickerRowOf(list, OWNER)?.lines).toEqual([]);
+    const busyOwner = deadline(everyone({ [OWNER]: { openTasksDue: 2 } }));
+    expect(pickerRowOf(busyOwner, OWNER)?.lines).toEqual(["2 tasks already due"]);
     // Never a chip: a deadline clashes with nothing.
     const rows = list.kind === "day" ? list.rows : [];
     expect(rows.every((row) => row.chips.length === 0 && row.short === "")).toBe(true);
@@ -368,7 +423,7 @@ describe("Who's on it? before its day is known, and Find a person", () => {
     // A person the answer does not hold is offered, with nothing claimed about their day.
     const partial = event([day("asha")]);
     expect(pickerRowOf(partial, "kiran")).toMatchObject({ lines: [], short: "" });
-    expect(partial.free).toHaveLength(PEOPLE.length);
+    expect(partial.free).toHaveLength(PEOPLE.length - 1);
     // Another day's rows say nothing about this one.
     const stale = event(everyone().map((row) => ({ ...row, day: "2026-11-15", leave: "leave" })));
     expect(stale.busy).toEqual([]);
@@ -377,7 +432,12 @@ describe("Who's on it? before its day is known, and Find a person", () => {
   it("search: by any part of the name, whatever its case, accents or spacing, in both groups", () => {
     const list = event(everyone({ asha: { leave: "leave" } }));
     const found = searchPicker(list, "  RAO ");
-    expect(found).toMatchObject({ kind: "event", free: [], busy: [{ memberId: "asha" }] });
+    expect(found).toMatchObject({
+      kind: "event",
+      free: [],
+      busy: [{ memberId: "asha" }],
+      owner: [],
+    });
     expect(pickerCount(searchPicker(list, "a"))).toBe(5);
     expect(pickerCount(searchPicker(list, "nobody here"))).toBe(0);
     expect(searchPicker(list, "   ")).toBe(list);

@@ -395,13 +395,13 @@ export const OWNER_GUIDE: Guide = {
               },
             ),
             text(
-              "“Who’s on it?” shows each person’s day at the task’s time, so you can see who to pick. For an event the list has two parts. “Free then”: people with nothing at that time. A booking earlier or later that day is still mentioned, a half day reads “Half day that day”, and a leave request you have not answered reads “Leave requested”. “Busy then”: people with a booking that overlaps, shown as its type, its time and who booked it, such as “Shoot 2:00 pm – 4:00 pm · booked by Asha Rao”, with a “Clashes” chip. A booking with no time reads “all day”. A person on leave for the whole day reads “On leave that day”, with an “On leave” chip. Change the date or the time and the list changes with it. For a task with only a deadline it is one list: each person with what they have that day and how many tasks are already due.",
+              "“Who’s on it?” shows each person’s day at the task’s time, so you can see who to pick. For an event the list has two parts. “Free then”: people with nothing at that time. A booking earlier or later that day is still mentioned, a half day reads “Half day that day”, and a leave request you have not answered reads “Leave requested”. “Busy then”: people with a booking that overlaps, shown as its type, its time and who booked it, such as “Shoot 2:00 pm – 4:00 pm · booked by Asha Rao”, with a “Clashes” chip. A booking with no time reads “all day”. A person on leave for the whole day reads “On leave that day”, with an “On leave” chip. You are listed too, never as free: under “Busy then” when one of your bookings clashes, otherwise in a small “Owner” part at the end. Change the date or the time and the list changes with it. For a task with only a deadline it is one list: each person with what they have that day and how many tasks are already due.",
             ),
             next(
               'The task page opens. Each person you assigned taps "Task Noted" to say they have seen it.',
             ),
             note(
-              "You can still pick someone who is busy or on leave: the form shows the warning under the names, and saving records that you saw it. The list never shows the title, client or place of someone else’s task. Edit task, in a task’s ⋯ menu, opens the same form. A client label is only a label: it does not link the task to client work.",
+              "You can still pick someone who is busy or on leave: the form shows the warning under the names, such as “Clashes: Shoot 2:00 pm – 4:00 pm · booked by Asha Rao”, and saving records that you saw it. The list never shows the title, client or place of someone else’s task. Edit task, in a task’s ⋯ menu, opens the same form. A client label is only a label: it does not link the task to client work.",
             ),
           ],
           link: { href: "/tasks", label: "Open Tasks" },

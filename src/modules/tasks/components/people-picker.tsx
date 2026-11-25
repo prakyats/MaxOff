@@ -36,8 +36,9 @@ export type PickerCheck = "idle" | "checking" | "ready" | "failed";
  * "Who's on it?" (v6.0 "Admin calendar", the owner-approved samples): the people, each with a
  * checkbox, their name and what their day holds at the task's time (`domain/people-picker.ts`).
  * An event's list is two groups, **Free then** and **Busy then** (a clash says the type, the
- * time and who booked it, with a "Clashes" chip; a full day of leave an "On leave" chip); a
- * deadline's is one list. It follows the date and time live: the form hands it a new list.
+ * time and who booked it, with a "Clashes" chip; a full day of leave an "On leave" chip), and the
+ * Owner, when not busy then, in a small **Owner** group after them (never "Free"); a deadline's
+ * is one list. It follows the date and time live: the form hands it a new list.
  *
  * The same list is the phone's sheet (`PeopleSheet`) and the laptop dialog's right-hand column.
  * A tick puts the person on the task at once; nothing here is a commit. Never blocking: someone
@@ -63,7 +64,7 @@ export function PeoplePicker({
   const [query, setQuery] = useState("");
   const searchId = useId();
   const found = useMemo(() => searchPicker(list, query), [list, query]);
-  const row = (person: PickerRow, group: "free" | "busy" | "day") => (
+  const row = (person: PickerRow, group: "free" | "busy" | "owner" | "day") => (
     <PickerRowItem
       key={person.memberId}
       row={person}
@@ -125,6 +126,12 @@ export function PeoplePicker({
             <PickerGroup title="Busy then" count={found.busy.length} slot="picker-busy">
               {found.busy.map((person) => row(person, "busy"))}
             </PickerGroup>
+            {/* The Owner, when not busy then: never under Free then (PERMISSIONS §2). */}
+            {found.owner.length > 0 ? (
+              <PickerGroup title="Owner" count={found.owner.length} slot="picker-owner">
+                {found.owner.map((person) => row(person, "owner"))}
+              </PickerGroup>
+            ) : null}
           </>
         ) : (
           <ul className="divide-border flex flex-col divide-y" data-slot="picker-day">
@@ -176,7 +183,7 @@ function PickerRowItem({
   onToggle,
 }: {
   row: PickerRow;
-  group: "free" | "busy" | "day";
+  group: "free" | "busy" | "owner" | "day";
   face: PickerFace | undefined;
   checked: boolean;
   checking: boolean;

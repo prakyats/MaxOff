@@ -1,4 +1,5 @@
-import { formatIST, formatTime, type ISODate } from "@/core/time";
+import { bookedByWord, bookingTime } from "@/core/lib/booking-words";
+import { formatIST, type ISODate } from "@/core/time";
 
 /**
  * Assignment warnings (4.3; WORKFLOWS §3.1 "Assignment warnings", kickoff 4 decisions 11–13).
@@ -11,6 +12,8 @@ import { formatIST, formatTime, type ISODate } from "@/core/time";
  * - `overlap`: one of their event tasks overlaps this task's event window (no end = one hour).
  *   Since v6.0 (owner 13 Nov 2026) a date-only event is busy all day: it clashes with every
  *   event that day, and a new date-only event clashes with anything the person has that day.
+ *   Said as the picker says the booking: "Clashes: Shoot 2:00 pm – 4:00 pm · booked by Nikhil
+ *   Rao", "Clashes: Meeting all day · booked by you".
  * - `on_leave`: approved leave, a half day or comp leave on the deadline's date or the event's,
  *   or a pending request ("Leave requested"). Never for a freelancer: their `leave` is always null.
  */
@@ -70,6 +73,10 @@ export type WarningInput = {
   threshold: number;
   availability: readonly AvailabilityDay[];
   current?: CurrentAssignment | undefined;
+  /** Who is looking, so their own booking says "booked by you". */
+  viewerId?: string | undefined;
+  /** The organisation's Owner, so the Owner's booking says "booked by Owner". */
+  ownerId?: string | null | undefined;
 };
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -138,8 +145,18 @@ function dayLabel(date: ISODate): string {
   return formatIST(`${date}T12:00:00+05:30`, "d MMM");
 }
 
-function timeLabel(instant: string): string {
-  return formatTime(instant);
+/**
+ * A booking as the picker and the calendar say it (v6.0): "Shoot 2:00 pm – 4:00 pm · booked by
+ * Nikhil Rao"; "Shoot all day · booked by you"; "booked by Owner" for the Owner's.
+ */
+export function bookingLine(block: EventBlock, viewerId: string, ownerId: string | null): string {
+  const time = block.startAt ? bookingTime(block) : "all day";
+  const by = bookedByWord(
+    { id: block.bookedById ?? null, name: block.bookedByName ?? null },
+    viewerId,
+    ownerId,
+  );
+  return `${block.typeName?.trim() || "Event"} ${time}${by ? ` · booked by ${by}` : ""}`;
 }
 
 const LEAVE_TEXT: Record<LeaveMark, string> = {
@@ -188,20 +205,17 @@ export function assignmentWarnings(input: WarningInput): AssignmentWarning[] {
               ? { window: current.eventWindow }
               : null,
         })[0];
-        const window = clash ? blockWindow(clash) : null;
-        if (clash && window) {
+        if (clash) {
+          const window = blockWindow(clash);
           warnings.push({
             kind: "overlap",
             memberId,
-            details: { date: input.eventDate, start_at: window.startAt, end_at: window.endAt },
-            text: `Busy ${timeLabel(window.startAt)} – ${timeLabel(window.endAt)} on ${dayLabel(input.eventDate)}`,
-          });
-        } else if (clash) {
-          warnings.push({
-            kind: "overlap",
-            memberId,
-            details: { date: input.eventDate, all_day: "true" },
-            text: `Busy all day on ${dayLabel(input.eventDate)}`,
+            // What `task_create` accepts for an overlap (date, start_at, end_at): a date-only
+            // booking is the date alone.
+            details: window
+              ? { date: input.eventDate, start_at: window.startAt, end_at: window.endAt }
+              : { date: input.eventDate },
+            text: `Clashes: ${bookingLine(clash, input.viewerId ?? "", input.ownerId ?? null)}`,
           });
         }
       }

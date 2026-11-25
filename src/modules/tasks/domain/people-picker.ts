@@ -1,9 +1,9 @@
-import { bookedByWord, bookingTime } from "@/core/lib/booking-words";
 import { formatDateTime, formatIST, formatTime, type ISODate } from "@/core/time";
 
 import {
   type AvailabilityDay,
   blockClashes,
+  bookingLine,
   type CurrentAssignment,
   type EventBlock,
   type EventWindow,
@@ -26,6 +26,11 @@ import {
  *   by Owner".
  * - **A deadline only**: one list, each person with that day's lines (their bookings, leave, how
  *   many tasks are already due), no groups and no Clashes chip.
+ * - **The Owner** (assignable since 6b.2) is never said to be Free (PERMISSIONS §2, v6.0:
+ *   `member_availability()` answers the Owner's bookings only, never leave). With a booking that
+ *   clashes, the Owner is under Busy then like anyone; otherwise in a small **Owner** group after
+ *   Busy then, with no "Free" line (only what else they have that day: "Earlier: Meeting …").
+ *   For a deadline the Owner's row says their bookings and tasks due, never "Nothing that day".
  *
  * Never a title, a client or a location of someone else's task: the data holds none. Editing, the
  * task's own booking and its own count are no line against itself. Pure (ADR-0011).
@@ -56,7 +61,13 @@ export type PickerWhen =
   | { kind: "deadline"; date: ISODate };
 
 export type PickerList =
-  | { kind: "event"; free: PickerRow[]; busy: PickerRow[] }
+  | {
+      kind: "event";
+      free: PickerRow[];
+      busy: PickerRow[];
+      /** The Owner when not busy then: never under Free then (PERMISSIONS §2). */
+      owner: PickerRow[];
+    }
   /** A deadline only: one list. Also everyone, with no line, while no day is known. */
   | { kind: "day"; rows: PickerRow[] };
 
@@ -74,16 +85,7 @@ export type PickerInput = {
   current?: CurrentAssignment | undefined;
 };
 
-/** "Shoot 2:00 pm – 4:00 pm · booked by Nikhil Rao"; "Shoot all day · booked by you". */
-export function bookingLine(block: EventBlock, viewerId: string, ownerId: string | null): string {
-  const time = block.startAt ? bookingTime(block) : "all day";
-  const by = bookedByWord(
-    { id: block.bookedById ?? null, name: block.bookedByName ?? null },
-    viewerId,
-    ownerId,
-  );
-  return `${block.typeName?.trim() || "Event"} ${time}${by ? ` · booked by ${by}` : ""}`;
-}
+export { bookingLine };
 
 /** The line of a person with nothing at the task's time, the one line the list draws in green. */
 export const FREE_LINE = "Free";
@@ -103,7 +105,7 @@ function eventRow(
   window: EventWindow | null,
   own: { window: EventWindow | null } | null,
   input: PickerInput,
-): { group: "free" | "busy"; row: PickerRow } {
+): { group: "free" | "busy" | "owner"; row: PickerRow } {
   const blocks = withoutOwnBlock(row.eventBlocks, own);
   const clashes = blocks.filter((block) => blockClashes(block, window));
   const onLeave = row.leave !== null && FULL_LEAVE.includes(row.leave);
@@ -127,7 +129,6 @@ function eventRow(
   }
 
   // Free then. What else they have that day is said, so a tight day is not a surprise.
-  const head = softLeaveWords(row.leave) ?? FREE_LINE;
   const others = blocks.map((block) => {
     const earlier =
       window !== null &&
@@ -135,6 +136,20 @@ function eventRow(
       Date.parse(block.endAt) <= Date.parse(window.startAt);
     return `${earlier ? "earlier" : "later"}: ${say(block)}`;
   });
+  if (person.id === input.ownerId) {
+    // The Owner is never said to be Free: only what else they have that day.
+    return {
+      group: "owner",
+      row: {
+        memberId: person.id,
+        name: person.name,
+        lines: others.map(capitalise),
+        chips: [],
+        short: "",
+      },
+    };
+  }
+  const head = softLeaveWords(row.leave) ?? FREE_LINE;
   const [first, ...rest] = others;
   return {
     group: "free",
@@ -170,7 +185,8 @@ function dayRow(
   return {
     memberId: person.id,
     name: person.name,
-    lines: lines.length > 0 ? lines : ["Nothing that day"],
+    // The Owner's day is never claimed empty: their leave is not in the answer.
+    lines: lines.length > 0 || person.id === input.ownerId ? lines : ["Nothing that day"],
     chips: [],
     short: "",
   };
@@ -208,18 +224,17 @@ export function pickerList(input: PickerInput): PickerList {
     };
   }
 
-  const free: PickerRow[] = [];
-  const busy: PickerRow[] = [];
+  const groups: Record<"free" | "busy" | "owner", PickerRow[]> = { free: [], busy: [], owner: [] };
   for (const person of input.people) {
     const row = rows.get(person.id);
     // A person with no answer is offered, with nothing claimed about their day.
-    if (!row) free.push(unknown(person));
+    if (!row) groups[person.id === input.ownerId ? "owner" : "free"].push(unknown(person));
     else {
       const placed = eventRow(person, row, when.window, ownBlock(person.id), input);
-      (placed.group === "busy" ? busy : free).push(placed.row);
+      groups[placed.group].push(placed.row);
     }
   }
-  return { kind: "event", free, busy };
+  return { kind: "event", ...groups };
 }
 
 function fold(text: string): string {
@@ -233,17 +248,19 @@ export function searchPicker(list: PickerList, query: string): PickerList {
   const keep = (rows: readonly PickerRow[]) =>
     rows.filter((row) => fold(row.name).includes(needle));
   return list.kind === "event"
-    ? { kind: "event", free: keep(list.free), busy: keep(list.busy) }
+    ? { kind: "event", free: keep(list.free), busy: keep(list.busy), owner: keep(list.owner) }
     : { kind: "day", rows: keep(list.rows) };
 }
 
 export function pickerCount(list: PickerList): number {
-  return list.kind === "event" ? list.free.length + list.busy.length : list.rows.length;
+  return list.kind === "event"
+    ? list.free.length + list.busy.length + list.owner.length
+    : list.rows.length;
 }
 
 /** A row by person, for the chips in the form. */
 export function pickerRowOf(list: PickerList, memberId: string): PickerRow | null {
-  const rows = list.kind === "event" ? [...list.free, ...list.busy] : list.rows;
+  const rows = list.kind === "event" ? [...list.free, ...list.busy, ...list.owner] : list.rows;
   return rows.find((row) => row.memberId === memberId) ?? null;
 }
 

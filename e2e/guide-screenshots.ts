@@ -576,7 +576,17 @@ async function buildDay(
   if (stage === "approved") {
     await rpc(owner, "early_leave_decide", { request_id: requestId, decision: "approve" });
   }
-  if (stage === "left_unanswered") await rpc(person, "attendance_end_day", {});
+  if (stage === "left_unanswered") {
+    try {
+      await rpc(person, "attendance_end_day", {});
+    } catch (error) {
+      // A night run before the fixed 10:22 am start (GUIDE_ANYTIME): the day cannot end before
+      // it started, so it stays asked. Only the "left, not answered" pictures need it ended, and
+      // a night run keeps their daytime pictures (it never names them in GUIDE_ONLY).
+      if (ANYTIME && String(error).includes("attendance_days_ended_after_start")) return;
+      throw error;
+    }
+  }
 }
 
 /** The Crew member's shoot at 3:00 pm today, there only while a picture needs it. */

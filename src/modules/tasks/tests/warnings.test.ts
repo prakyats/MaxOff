@@ -4,6 +4,7 @@ import {
   assignmentWarnings,
   availabilityDays,
   type AvailabilityDay,
+  type EventBlock,
   eventWindow,
   warningsPayload,
   warningsToRecord,
@@ -22,8 +23,19 @@ function row(overrides: Partial<AvailabilityDay>): AvailabilityDay {
   };
 }
 
-/** 10:00–12:00 IST on 3 Oct. */
-const SHOOT = { startAt: "2026-10-03T04:30:00.000Z", endAt: "2026-10-03T06:30:00.000Z" };
+/** 10:00–12:00 IST on 3 Oct, a shoot Nikhil Rao booked. */
+const SHOOT = {
+  startAt: "2026-10-03T04:30:00.000Z",
+  endAt: "2026-10-03T06:30:00.000Z",
+  typeName: "Shoot",
+  bookedById: "nikhil",
+  bookedByName: " Nikhil  Rao ",
+};
+const VIEWER = "sana";
+const OWNER = "owner";
+
+/** The keys `task_create` accepts in an overlap's details (migration phase4_review_fixes). */
+const OVERLAP_KEYS = ["date", "start_at", "end_at"];
 
 describe("assignment warnings (WORKFLOWS §3.1, kickoff 4 decisions 11–13)", () => {
   it("warns about workload at the threshold, not below it", () => {
@@ -58,7 +70,44 @@ describe("assignment warnings (WORKFLOWS §3.1, kickoff 4 decisions 11–13)", (
       threshold: 4,
       availability: [row({ eventBlocks: [SHOOT] })],
     });
-    expect(warning).toMatchObject({ kind: "overlap", text: "Busy 10:00 am – 12:00 pm on 3 Oct" });
+    expect(warning).toEqual({
+      kind: "overlap",
+      memberId: "asha",
+      details: { date: DAY, start_at: SHOOT.startAt, end_at: SHOOT.endAt },
+      text: "Clashes: Shoot 10:00 am – 12:00 pm · booked by Nikhil Rao",
+    });
+  });
+
+  it("a clash names the booking as the picker does: its type, time and who booked it (v6.0)", () => {
+    const base = {
+      memberIds: ["asha"],
+      dueDate: null,
+      eventDate: DAY,
+      eventWindow: eventWindow("2026-10-03T05:00:00.000Z", null),
+      threshold: 4,
+      viewerId: VIEWER,
+      ownerId: OWNER,
+    };
+    const text = (block: Partial<EventBlock>) =>
+      assignmentWarnings({
+        ...base,
+        availability: [row({ eventBlocks: [{ ...SHOOT, ...block }] })],
+      })[0]?.text;
+    // The viewer's own booking, the Owner's, and someone else's by their full name.
+    expect(text({ bookedById: VIEWER })).toBe("Clashes: Shoot 10:00 am – 12:00 pm · booked by you");
+    expect(text({ bookedById: OWNER, bookedByName: "Prishit Shetty" })).toBe(
+      "Clashes: Shoot 10:00 am – 12:00 pm · booked by Owner",
+    );
+    expect(text({ typeName: "Meeting" })).toBe(
+      "Clashes: Meeting 10:00 am – 12:00 pm · booked by Nikhil Rao",
+    );
+    // A date-only booking reads all day; an unknown booker is left out, an unknown type is "Event".
+    expect(text({ startAt: null, endAt: null })).toBe(
+      "Clashes: Shoot all day · booked by Nikhil Rao",
+    );
+    expect(text({ typeName: null, bookedById: null, bookedByName: null })).toBe(
+      "Clashes: Event 10:00 am – 12:00 pm",
+    );
   });
 
   it("never warns about a window that only touches", () => {
@@ -85,22 +134,31 @@ describe("assignment warnings (WORKFLOWS §3.1, kickoff 4 decisions 11–13)", (
         eventWindow: null,
         availability: [row({ eventBlocks: [SHOOT] })],
       }),
-    ).toMatchObject([{ kind: "overlap", text: "Busy 10:00 am – 12:00 pm on 3 Oct" }]);
-    // A timed event against a date-only booking, and a date-only one against another.
+    ).toMatchObject([
+      { kind: "overlap", text: "Clashes: Shoot 10:00 am – 12:00 pm · booked by Nikhil Rao" },
+    ]);
+    // A timed event against a date-only booking, and a date-only one against another. What is
+    // recorded is only what `task_create` accepts for an overlap: the date alone.
+    const dated = { ...allDay, typeName: "Meeting", bookedById: VIEWER, bookedByName: "Sana Khan" };
     for (const window of [eventWindow("2026-10-03T10:00:00.000Z", null), null]) {
-      expect(
-        assignmentWarnings({
-          ...base,
-          eventWindow: window,
-          availability: [row({ eventBlocks: [allDay] })],
-        }),
-      ).toMatchObject([
+      const warnings = assignmentWarnings({
+        ...base,
+        eventWindow: window,
+        viewerId: VIEWER,
+        ownerId: OWNER,
+        availability: [row({ eventBlocks: [dated] })],
+      });
+      expect(warnings).toEqual([
         {
           kind: "overlap",
-          details: { date: DAY, all_day: "true" },
-          text: "Busy all day on 3 Oct",
+          memberId: "asha",
+          details: { date: DAY },
+          text: "Clashes: Meeting all day · booked by you",
         },
       ]);
+      for (const warning of warningsPayload(warnings)) {
+        expect(Object.keys(warning.details).every((key) => OVERLAP_KEYS.includes(key))).toBe(true);
+      }
     }
     // Nothing on that day: no clash; another day's booking is not this day's.
     expect(assignmentWarnings({ ...base, eventWindow: null, availability: [row({})] })).toEqual([]);
