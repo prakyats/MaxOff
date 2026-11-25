@@ -72,7 +72,7 @@ import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
 import zlib from "node:zlib";
 
-import { judgeRun, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
+import { judgeRun, lastMonthIST, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -518,6 +518,9 @@ async function main() {
     const { session, email } = await mintSession();
     cookie = await cookieHeaderFor(session);
     ({ role: memberRole, ids } = await pickIds(session));
+    // The ended month the v3.5 routes open: last month in IST.
+    // eslint-disable-next-line no-restricted-syntax -- the instant only; lastMonthIST reads its month in IST (a .mjs script cannot import @/core/time)
+    ids = { ...ids, endedMonth: lastMonthIST(new Date()) };
     const [, payload] = session.access_token.split(".");
     const header = JSON.parse(Buffer.from(session.access_token.split(".")[0], "base64url"));
     const claims = JSON.parse(Buffer.from(payload, "base64url"));

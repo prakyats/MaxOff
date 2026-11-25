@@ -423,6 +423,20 @@ export function closedMonthLine(
   return `${name} is closed. Its report changes only when you correct it.`;
 }
 
+/**
+ * The closed line of the project's own line (v3.5, decision 10 applied to v2.5's sheets, advisor
+ * 26 Nov 2026): the month a retainer's cycle in view or a one-time project counts in, for the
+ * sheets that change that line's figures (Adjust, a planned deliverable's value, a one-time
+ * amount). Never for Mark billed / Mark not billed: a mark changes no figure.
+ */
+export function billingLineClosed(
+  billing: ProjectBilling,
+  closedMonths: readonly string[],
+): string | null {
+  const month = billing.kind === "retainer" ? (billing.cycle?.month ?? null) : billing.month;
+  return closedMonthLine(month, closedMonths);
+}
+
 // --- v2.5 "Revenue every day": Billed, the adjustment, planned values ----------------------------
 
 /** "Not billed", or "Billed on 3 Dec · Invoice 42" (the note when there is one). */

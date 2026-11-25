@@ -41,7 +41,7 @@ export const SLOWER_PCT_FLOOR_MS = 50;
 export const NOT_GATED = new Set(["/api/warm", "static (no Worker)", "404 (Worker, no data)"]);
 
 /** @typedef {"owner" | "admin" | "staff"} Role */
-/** @typedef {"task" | "client" | "project" | "projectClient" | "person"} IdKey */
+/** @typedef {"task" | "client" | "project" | "projectClient" | "person" | "endedMonth"} IdKey */
 /** @typedef {Partial<Record<IdKey, string | null>>} Ids */
 /**
  * @typedef {{
@@ -79,6 +79,25 @@ export const MEMBER_ROUTES = [
   // v2.1: the Owner's Revenue page (finance.view). A release older than v2.1 answers 404 for it, which
   // makes that baseline unusable, so the route is then judged on its own cap alone.
   { name: "/reports/revenue", path: "/reports/revenue", roles: ["owner"] },
+  // v3.5: last IST month on Revenue (an ended month: its header's close link and, once closed, the
+  // saved figures) and its close screen. `:endedMonth` is `lastMonthIST()`, never a fixed month.
+  // A release older than v3.5 answers 404 for the close screen, which makes that baseline
+  // unusable, so the route is then judged on its own cap alone. A closed month needs a staging
+  // write (a close), so it is measured locally instead (v3.5 U5).
+  {
+    name: "/reports/revenue (last month)",
+    path: "/reports/revenue?month=:endedMonth",
+    roles: ["owner"],
+    needs: ["endedMonth"],
+    what: "ended month",
+  },
+  {
+    name: "/reports/close (last month)",
+    path: "/reports/close/:endedMonth",
+    roles: ["owner"],
+    needs: ["endedMonth"],
+    what: "ended month",
+  },
   { name: "/leave", path: "/leave", roles: ["admin", "staff"] },
   { name: "/leave/attendance", path: "/leave/attendance", roles: ["admin", "staff"] },
   { name: "/leave/extra-work", path: "/leave/extra-work", roles: ["admin", "staff"] },
@@ -99,6 +118,23 @@ export const MEMBER_ROUTES = [
   { name: "a person", path: "/people/:person", roles: LEADS, needs: ["person"], what: "person" },
   { name: "/diagnostics/timing", path: "/diagnostics/timing", roles: ALL },
 ];
+
+/** IST is UTC+5:30, with no daylight saving. */
+const IST_OFFSET_MS = (5 * 60 + 30) * 60_000;
+
+/**
+ * The IST month before the one `now` falls in, as `YYYY-MM` (the Revenue page's `?month=` and the
+ * close screen's slug): the last month that has ended in IST. `now` is an instant; the business
+ * month is read in IST, never in the runner's zone (invariant 8).
+ * @param {Date} now
+ * @returns {string}
+ */
+export function lastMonthIST(now) {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  const index = ist.getUTCFullYear() * 12 + ist.getUTCMonth() - 1;
+  const year = Math.floor(index / 12);
+  return `${String(year).padStart(4, "0")}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
 
 /**
  * The member routes for one role: the ones to probe with their real path, and the ones skipped

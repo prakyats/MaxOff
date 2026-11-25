@@ -387,6 +387,11 @@ test.describe("a closed month on the Revenue page (U5)", () => {
     const closedLine = `${shortMonth(month)} is closed. Its report changes only when you correct it.`;
     const priceSheet = page.getByRole("dialog", { name: "Set the price" });
     const priceRow = page.locator('[data-slot="billing-added-row"]', { hasText: "Extra poster" });
+    // v2.5's sheets (advisor, v3.5): Adjust and Set value change the line's figures, Mark billed not.
+    const adjustSheet = page.getByRole("dialog", { name: "Adjust achieved" });
+    const adjustButton = page
+      .locator('[data-slot="billing-adjust"]')
+      .getByRole("button", { name: "Adjust achieved" });
     try {
       // Before the close: the money sheet has no closed line, and Revenue reads live.
       await page.goto(projectPage);
@@ -396,6 +401,11 @@ test.describe("a closed month on the Revenue page (U5)", () => {
       await expect(priceSheet.locator('[data-slot="billing-closed-month"]')).toBeHidden();
       await priceSheet.getByRole("button", { name: "Cancel" }).click();
       await expect(priceSheet).toBeHidden();
+      await adjustButton.click();
+      await expect(adjustSheet).toBeVisible();
+      await expect(adjustSheet.locator('[data-slot="billing-closed-month"]')).toBeHidden();
+      await adjustSheet.getByRole("button", { name: "Cancel" }).click();
+      await expect(adjustSheet).toBeHidden();
       await page.goto(`/reports/revenue?month=${slug(month)}`);
       await hydrated(page);
       await expect(page.locator('[data-slot="revenue"]')).not.toHaveAttribute("data-closed");
@@ -469,6 +479,31 @@ test.describe("a closed month on the Revenue page (U5)", () => {
       await priceSheet.getByRole("button", { name: "Save price" }).click();
       await expect(priceSheet).toBeHidden();
       await expect(priceRow.locator('[data-slot="billing-price"]')).toHaveText("₹5,000");
+      // Adjust and a planned deliverable's Set value say it too; a billing mark changes no figure
+      // and does not (decision 10 applied to v2.5's sheets).
+      await adjustButton.click();
+      await expect(adjustSheet.locator('[data-slot="billing-closed-month"]')).toHaveText(
+        closedLine,
+      );
+      await adjustSheet.getByRole("button", { name: "Cancel" }).click();
+      await expect(adjustSheet).toBeHidden();
+      const planned = page.locator('[data-slot="billing-planned"]');
+      await planned.locator('[data-slot="billing-planned-toggle"]').click();
+      await planned.getByRole("button", { name: "Set value of Reel B" }).click();
+      const valueSheet = page.getByRole("dialog", { name: "Set the value" });
+      await expect(valueSheet.locator('[data-slot="billing-closed-month"]')).toHaveText(closedLine);
+      await expectNoHorizontalScroll(page);
+      await valueSheet.getByRole("button", { name: "Cancel" }).click();
+      await expect(valueSheet).toBeHidden();
+      await page
+        .locator('[data-slot="billing-billed"]')
+        .getByRole("button", { name: "Mark not billed" })
+        .click();
+      const notBilledSheet = page.getByRole("dialog", { name: "Mark not billed" });
+      await expect(notBilledSheet).toBeVisible();
+      await expect(notBilledSheet.locator('[data-slot="billing-closed-month"]')).toBeHidden();
+      await notBilledSheet.getByRole("button", { name: "Cancel" }).click();
+      await expect(notBilledSheet).toBeHidden();
       // Revenue still shows the saved Potential.
       await page.goto(`/reports/revenue?month=${slug(month)}`);
       await hydrated(page);

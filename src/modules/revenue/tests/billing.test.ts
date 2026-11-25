@@ -10,6 +10,7 @@ import {
   amountSheetNote,
   amountText,
   billedText,
+  billingLineClosed,
   canAdjust,
   isBillingCategory,
   longDay,
@@ -545,6 +546,38 @@ describe("v2.5: Billed, the adjustment and the planned values", () => {
     expect(canAdjust(oneTime("completed"))).toBe(true);
     expect(canAdjust(oneTime("in_progress"))).toBe(false);
     expect(canAdjust(oneTime("cancelled"))).toBe(false);
+  });
+
+  it("says a closed month on the line's own sheets: the cycle's month, or a one-time project's", () => {
+    const closed = ["2026-09-01"];
+    const line = "September is closed. Its report changes only when you correct it.";
+    const cycle = (month: string | null) =>
+      retainerRead({
+        cycle: {
+          cycle_id: OTHER,
+          label: "September 2026",
+          month,
+          amount: 40000,
+          potential: 40000,
+          achieved: 10000,
+          remaining: 30000,
+        },
+      });
+    expect(billingLineClosed(cycle("2026-09-01"), closed)).toBe(line);
+    expect(billingLineClosed(cycle("2026-10-01"), closed)).toBeNull();
+    expect(billingLineClosed(cycle(null), closed)).toBeNull();
+    expect(billingLineClosed(retainerRead({ cycle: null }), closed)).toBeNull();
+    const oneTime = (month: string | null) =>
+      toProjectBilling({
+        project_id: ID,
+        recurrence: "one_time",
+        billing: { category: "project", category_is_default: true, fixed_amount: 60000 },
+        line: { state: "completed", cycle_id: OTHER, month, achieved: 0, achieved_calculated: 0 },
+        advances: [],
+      });
+    expect(billingLineClosed(oneTime("2026-09-01"), closed)).toBe(line);
+    expect(billingLineClosed(oneTime("2026-09-01"), [])).toBeNull();
+    expect(billingLineClosed(oneTime(null), closed)).toBeNull();
   });
 
   it("says each planned deliverable's value and how it is valued", () => {

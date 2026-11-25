@@ -14,7 +14,7 @@ import {
   amountSheetNote,
   amountText,
   BILLING_CATEGORY_LABELS,
-  closedMonthLine,
+  billingLineClosed,
   type BillingMark,
   billedText,
   canAdjust,
@@ -92,6 +92,8 @@ export async function BillingSection({
   const current =
     billing.kind === "one_time" ? billing.billing.fixedAmount : billing.billing.cycleAmount;
   const label = amountLabel(billing.recurrence);
+  // The month the project's own line counts in: its amount (one-time), Adjust and planned values.
+  const lineClosed = billingLineClosed(billing, closed);
   return (
     <section
       aria-labelledby="project-billing"
@@ -136,14 +138,14 @@ export async function BillingSection({
               note: amountSheetNote(billing.recurrence, pricedFrom, today),
               // A retainer's amount applies from this cycle on (never a closed month); a one-time
               // project's lands in its own month.
-              closed: billing.kind === "one_time" ? closedMonthLine(billing.month, closed) : null,
+              closed: billing.kind === "one_time" ? lineClosed : null,
             }}
           />
         </div>
         {billing.kind === "retainer" ? (
-          <RetainerRows billing={billing} today={today} closed={closed} />
+          <RetainerRows billing={billing} today={today} closedLine={lineClosed} />
         ) : (
-          <OneTimeRows billing={billing} today={today} closed={closed} />
+          <OneTimeRows billing={billing} today={today} closed={closed} closedLine={lineClosed} />
         )}
       </div>
     </section>
@@ -215,10 +217,13 @@ function AdjustRow({
   scope,
   refId,
   figures,
+  closed,
 }: {
   scope: "cycle" | "project";
   refId: string;
   figures: { achieved: number; achievedCalculated: number; adjustment: Adjustment | null };
+  /** "September is closed. …" when the line's month is closed (decision 10), else null. */
+  closed: string | null;
 }) {
   const lines = adjustmentLines(figures);
   const calculated = formatRupees(figures.achievedCalculated);
@@ -259,7 +264,7 @@ function AdjustRow({
           label="Adjust"
           name="Adjust achieved"
           slot="billing-adjust-set"
-          sheet={{ kind: "adjust", scope, refId, calculated }}
+          sheet={{ kind: "adjust", scope, refId, calculated, closed }}
         />
       )}
     </div>
@@ -276,10 +281,13 @@ function PlannedList({
   planned,
   amount,
   recurrence,
+  closed,
 }: {
   planned: PlannedDeliverable[];
   amount: number | null;
   recurrence: "weekly" | "monthly";
+  /** "September is closed. …" when the cycle's month is closed (decision 10), else null. */
+  closed: string | null;
 }) {
   return (
     <details className={BILLING_DISCLOSURE} data-slot="billing-planned">
@@ -339,6 +347,7 @@ function PlannedList({
                       title: item.title,
                       current: item.method === "explicit" ? item.value : null,
                       note: plannedValueNote(item.title, amount, recurrence),
+                      closed,
                     }}
                   />
                 </div>
@@ -401,11 +410,12 @@ function Figure({ label, value, slot }: { label: string; value: number; slot: st
 function RetainerRows({
   billing,
   today,
-  closed,
+  closedLine,
 }: {
   billing: RetainerBilling;
   today: string;
-  closed: readonly string[];
+  /** "September is closed. …" when the cycle's month is closed (v3.5 U5), else null. */
+  closedLine: string | null;
 }) {
   const { cycle, added, recurrence } = billing;
   const history = (
@@ -413,7 +423,6 @@ function RetainerRows({
   );
   if (!cycle) return history;
   const period = periodWord(recurrence);
-  const closedLine = closedMonthLine(cycle.month, closed);
   return (
     <>
       <div className={BILLING_FIGURES} data-slot="billing-cycle">
@@ -436,9 +445,14 @@ function RetainerRows({
         today={today}
       />
       {canAdjust(billing) ? (
-        <AdjustRow scope="cycle" refId={cycle.cycleId} figures={cycle} />
+        <AdjustRow scope="cycle" refId={cycle.cycleId} figures={cycle} closed={closedLine} />
       ) : null}
-      <PlannedList planned={billing.planned} amount={cycle.amount} recurrence={recurrence} />
+      <PlannedList
+        planned={billing.planned}
+        amount={cycle.amount}
+        recurrence={recurrence}
+        closed={closedLine}
+      />
       {history}
       {/* Q1: a cycle from before the first amount is priced alone, here; the project's amount
           never reaches it. Its own row under the figures, so nothing above moves. Only once the
@@ -508,10 +522,14 @@ function OneTimeRows({
   billing,
   today,
   closed,
+  closedLine,
 }: {
   billing: OneTimeBilling;
   today: string;
+  /** The closed months' first days, for the advances' sheets (the date picked decides). */
   closed: readonly string[];
+  /** "September is closed. …" when the project's month is closed (v3.5 U5), else null. */
+  closedLine: string | null;
 }) {
   const { fixedAmount } = billing.billing;
   const status = [
@@ -533,7 +551,7 @@ function OneTimeRows({
         <BilledRow cycleId={line.cycleId} mark={line.mark} what="this project" today={today} />
       ) : null}
       {line && canAdjust(billing) ? (
-        <AdjustRow scope="project" refId={billing.projectId} figures={line} />
+        <AdjustRow scope="project" refId={billing.projectId} figures={line} closed={closedLine} />
       ) : null}
       <BillingHistory projectId={billing.projectId} oneTime revision={revisionOf(billing)} />
       <div data-slot="billing-advances">

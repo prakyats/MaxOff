@@ -120,6 +120,8 @@ export type BillingSheetRequest =
       refId: string;
       /** "₹10,000": what approved work adds up to. */
       calculated: string;
+      /** "September is closed. …" when the line's month is closed (decision 10), else null. */
+      closed: string | null;
     }
   | {
       kind: "clearAdjust";
@@ -136,6 +138,8 @@ export type BillingSheetRequest =
       current: number | null;
       /** Where the value comes from, in words. */
       note: string;
+      /** "September is closed. …" when the cycle's month is closed (decision 10), else null. */
+      closed: string | null;
     }
   | { kind: "share"; itemId: string; title: string; value: string }
   | {
@@ -843,6 +847,7 @@ function AdjustForm({ request, onClose, onBusy }: FormProps<"adjust">) {
     <SheetForm
       title="Adjust achieved"
       description={`System calculated ${request.calculated} from approved work. Your figure is shown instead, with the calculated one beside it.`}
+      closed={request.closed}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Save adjustment"
@@ -931,6 +936,7 @@ function PlannedValueForm({ request, onClose, onBusy }: FormProps<"plannedValue"
     <SheetForm
       title={request.current === null ? "Set the value" : "Change the value"}
       description={request.note}
+      closed={request.closed}
       alert={commit.alert}
       action={commit.action}
       submitLabel="Save value"

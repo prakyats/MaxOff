@@ -6,6 +6,7 @@ import { navFor, PROFILE_NAV_ITEM } from "@/core/ui/shell/nav";
 import {
   judgeRoute,
   judgeRun,
+  lastMonthIST,
   MEMBER_ROUTES,
   median,
   planMemberRoutes,
@@ -239,9 +240,55 @@ describe("the routes", () => {
     }
   });
 
-  it("include one task, client, project and person", () => {
+  it("include one task, client, project and person, and last month's Revenue and close screen", () => {
     const named = MEMBER_ROUTES.filter((r) => r.needs).map((r) => r.name);
-    expect(named).toEqual(["a task", "a client", "a project", "a person"]);
+    expect(named).toEqual([
+      "/reports/revenue (last month)",
+      "/reports/close (last month)",
+      "a task",
+      "a client",
+      "a project",
+      "a person",
+    ]);
+  });
+
+  it("open last month's Revenue and close screen for the Owner alone (v3.5)", () => {
+    const ids = { endedMonth: "2026-10" };
+    const owner = planMemberRoutes("owner", ids);
+    expect(owner.find((r) => r.name === "/reports/revenue (last month)")).toEqual({
+      name: "/reports/revenue (last month)",
+      path: "/reports/revenue?month=2026-10",
+    });
+    expect(owner.find((r) => r.name === "/reports/close (last month)")).toEqual({
+      name: "/reports/close (last month)",
+      path: "/reports/close/2026-10",
+    });
+    for (const role of ["admin", "staff"] as const) {
+      for (const name of ["/reports/revenue (last month)", "/reports/close (last month)"]) {
+        expect(
+          planMemberRoutes(role, ids).find((r) => r.name === name)?.path,
+          name,
+        ).toBeUndefined();
+      }
+    }
+    expect(
+      planMemberRoutes("owner", {}).find((r) => r.name === "/reports/close (last month)"),
+    ).toEqual({ name: "/reports/close (last month)", skip: "no ended month this member can see" });
+  });
+});
+
+describe("lastMonthIST (the month before today's IST month)", () => {
+  it("reads the month in IST, not UTC: 18:30 UTC on the last day is already the next IST month", () => {
+    expect(lastMonthIST(new Date("2026-11-25T10:00:00Z"))).toBe("2026-10");
+    expect(lastMonthIST(new Date("2026-11-30T18:29:59Z"))).toBe("2026-10");
+    expect(lastMonthIST(new Date("2026-11-30T18:30:00Z"))).toBe("2026-11");
+    expect(lastMonthIST(new Date("2026-10-31T20:00:00Z"))).toBe("2026-10");
+  });
+
+  it("crosses the year back to December", () => {
+    expect(lastMonthIST(new Date("2027-01-01T00:00:00Z"))).toBe("2026-12");
+    expect(lastMonthIST(new Date("2026-12-31T18:30:00Z"))).toBe("2026-12");
+    expect(lastMonthIST(new Date("2026-12-31T18:29:00Z"))).toBe("2026-11");
   });
 
   it("fill ids from what the member sees, and skip what the role can't open or has none of", () => {
