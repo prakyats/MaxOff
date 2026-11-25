@@ -194,7 +194,10 @@ insert into app_internal values
   ('now'),
   -- v1.9 W7: On hold's guard trigger and the deliverables a project's resume settles (migration on_hold,
   -- pgTAP 127)
-  ('on_hold_guard'), ('project_resume_items');
+  ('on_hold_guard'), ('project_resume_items'),
+  -- v6.5 unit 13 review: the day someone on leave is back (migration v65_member_back_on_internal,
+  -- pgTAP 152), read by member_people_glance() only, as app.leave_covering
+  ('member_back_on');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -215,7 +218,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 138::bigint,
+             and p.proname in (select name from app_internal)), 139::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
