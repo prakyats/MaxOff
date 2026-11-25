@@ -232,6 +232,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       approverName={task.approvingAdminId ? name(task.approvingAdminId) : null}
       primaryName={name(task.primaryOwnerId)}
       doneExtra={hasHandin ? <HandinDoneLineLazy taskId={task.id} /> : undefined}
+      handin={hasHandin}
     />
   );
 

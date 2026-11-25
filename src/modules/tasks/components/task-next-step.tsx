@@ -60,6 +60,7 @@ export function TaskNextStep({
   approverName,
   primaryName,
   doneExtra,
+  handin = false,
 }: {
   taskId: string;
   dueAt: string;
@@ -73,6 +74,11 @@ export function TaskNextStep({
   primaryName: string;
   /** v5.0: what the Mark done sheet shows above the note (the hand-in's files), from the page. */
   doneExtra?: ReactNode;
+  /**
+   * v5.0 (the sample §6): the task's type takes a hand-in, so Request changes asks the reviewer to
+   * name the files (WORKFLOWS §5C, Q5: the reason only, no file ticks).
+   */
+  handin?: boolean;
 }) {
   const { dialog, setDialog } = useTaskView();
   const keyboard = isKeyboardOpen(useKeyboard());
@@ -202,9 +208,15 @@ export function TaskNextStep({
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
         title="Request changes"
-        description={`${primaryName} sees this reason and marks it done again once it's fixed.`}
+        description={
+          handin
+            ? `${primaryName} sees this reason and marks it done again once it's fixed. New files go into the next version.`
+            : `${primaryName} sees this reason and marks it done again once it's fixed.`
+        }
         label="What needs to change?"
-        placeholder="Say what to fix."
+        placeholder={
+          handin ? "Name the files that need changes, and say what to fix." : "Say what to fix."
+        }
         submitLabel="Request changes"
         onSubmit={async (reason) =>
           toastResult(await reviewTask({ taskId, decision: "rejected", reason }), {

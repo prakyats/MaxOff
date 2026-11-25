@@ -297,6 +297,16 @@ test.describe("the approving Admin", () => {
     ).toContainText("Check before opening");
     await expect(card(page).locator('[data-slot="handin-add"]')).toHaveCount(0);
     await expectNoHorizontalScroll(page);
+    // Request changes asks for the files by name (the sample §6; Q5: the reason only).
+    await page.getByRole("button", { name: "Request changes" }).first().click();
+    const reason = page.getByRole("dialog", { name: "Request changes" });
+    await expect(reason.getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "Name the files that need changes, and say what to fix.",
+    );
+    await expect(reason).toContainText("New files go into the next version.");
+    await page.keyboard.press("Escape");
+    await expect(reason).toBeHidden();
 
     await page.goto("/approvals");
     await expect(page.getByText(title)).toBeVisible();
