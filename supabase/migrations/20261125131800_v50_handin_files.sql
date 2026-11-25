@@ -9,10 +9,9 @@
 -- ‹task folder›/v‹n›/… in the studio Drive through a Google resumable session the Worker opened
 -- (no MaxOff copy). Mark done ties the version's files to the task_submissions row it writes.
 --
--- REBASE NOTE: v4.5 (released first) re-creates task_submit_done to stop the task's upload link
--- and defines app.upload_manager. When v4.5's migration lands on phase-v45, this migration is
--- re-timestamped after it, keeps v4.5's stop-link lines in task_submit_done, and drops its own
--- app.upload_manager if v4.5's is the same.
+-- After v4.5 (migrations upload_links, upload_links_public): this re-creates task_submit_done
+-- once more, keeping v4.5's lines that stop the task's upload link on Done, and reads v4.5's
+-- app.upload_manager.
 --
 -- No audit trigger on either table: session addresses must never reach activity_log. The
 -- functions write their own history rows (entity 'tasks', entity_id = the task, so the task's
@@ -102,49 +101,8 @@ insert into public.notification_kinds (kind, actionable, always_email, descripti
    'The studio''s Google Drive is too full for a file someone is handing in (to the Owner, once a day; v5.0)');
 
 -- 3. Helpers -----------------------------------------------------------------------------------------
--- The task's Admins (v4.5 Q1, owner 19 Nov: three people) and the Owner: who opens hand-in files in
--- Drive (v5.0 Q6, proposed). Scope is live: each condition holds only while its key or role does.
-create or replace function app.upload_manager(p_task_id uuid)
-returns boolean
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-#variable_conflict use_column
-declare
-  v_me public.members;
-  v_task public.tasks;
-begin
-  select m.* into v_me from app.current_member() m;
-  if v_me.id is null then
-    return false;
-  end if;
-  select t.* into v_task from public.tasks t where t.id = p_task_id and t.org_id = v_me.org_id;
-  if v_task.id is null then
-    return false;
-  end if;
-  if v_me.role = 'owner' then
-    return true;
-  end if;
-  if v_task.created_by = v_me.id and app.has_permission('tasks.create') then
-    return true;
-  end if;
-  if v_task.approving_admin_id = v_me.id and app.has_permission('tasks.approve_admin') then
-    return true;
-  end if;
-  return v_me.role = 'admin' and exists (
-    select 1 from public.members f
-    where f.id = v_task.primary_owner_id and f.engagement = 'freelance' and f.status = 'active'
-      and app.coordinator_of(f.id) = v_me.id);
-end;
-$$;
-revoke all on function app.upload_manager(uuid) from public, anon;
-grant execute on function app.upload_manager(uuid) to authenticated, service_role;
-comment on function app.upload_manager(uuid) is
-  'The Owner, or one of the task''s Admins: its creator holding tasks.create, its approving Admin holding '
-  'tasks.approve_admin, or the active Admin who coordinates the active freelancer who is its primary owner '
-  '(v4.5 Q1; v5.0 reads it for the Open-in-Drive links).';
+-- "The task's Admins" (v4.5 Q1) is v4.5's app.upload_manager (migration upload_links): v5.0 reads it
+-- for the Open-in-Drive links (Q6) and does not redefine it.
 
 -- The v4.5 B2 cleaning, repeated by the server (modules/handin/domain/files.ts is the screen's copy).
 create or replace function app.handin_clean_part(p text)
@@ -936,6 +894,8 @@ begin
       format('%s marked it done%s%s', app.member_name(v_subject), case when v_late then ' (late)' else '' end, v_tag),
       '/tasks/' || v_task.id, 'tasks', v_task.id,
       jsonb_build_object('task_id', v_task.id, 'version', v_version, 'files', v_files), v_actor);
+    -- v4.5 (WORKFLOWS §3.1, §5B.1): Done stops the task's upload link in the same transaction.
+    perform app.upload_stop_link(v_task.id, 'task_done', v_actor);
     return 'completed'::public.task_state;
   end if;
 
@@ -968,6 +928,8 @@ begin
     format('%s marked it Done%s%s', app.member_name(v_subject), case when v_late then ' (late)' else '' end, v_tag),
     '/tasks/' || v_task.id, 'tasks', v_task.id,
     jsonb_build_object('task_id', v_task.id, 'version', v_version, 'files', v_files), v_actor);
+  -- v4.5 (WORKFLOWS §3.1, §5B.1): Done stops the task's upload link in the same transaction.
+  perform app.upload_stop_link(v_task.id, 'task_done', v_actor);
   return v_state;
 end;
 $$;
@@ -978,4 +940,4 @@ comment on function public.task_submit_done(uuid, text, text, uuid) is
   'version in. v5.0: refused (INVALID_STATE) while a file of that version is still uploading; the version''s '
   'files in Drive get its submission_id; the history row and the notification carry the file count. The '
   'route is unchanged: to submitted, to admin_approved (no Admin step, or the approver is on the task), or '
-  'completed for the Owner''s own task.';
+  'completed for the Owner''s own task. v4.5: Done also stops the task''s upload link.';

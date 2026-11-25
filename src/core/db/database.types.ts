@@ -4809,6 +4809,508 @@ export type Database = {
           },
         ];
       };
+      upload_alerts: {
+        Row: {
+          answers: string;
+          file_id: string | null;
+          id: string;
+          kind: string;
+          link_id: string;
+          org_id: string;
+          recipient_id: string | null;
+          sent_at: string;
+          uploader_id: string | null;
+        };
+        Insert: {
+          answers: string;
+          file_id?: string | null;
+          id?: string;
+          kind: string;
+          link_id: string;
+          org_id: string;
+          recipient_id?: string | null;
+          sent_at?: string;
+          uploader_id?: string | null;
+        };
+        Update: {
+          answers?: string;
+          file_id?: string | null;
+          id?: string;
+          kind?: string;
+          link_id?: string;
+          org_id?: string;
+          recipient_id?: string | null;
+          sent_at?: string;
+          uploader_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "upload_alerts_file_id_fkey";
+            columns: ["file_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_files";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_alerts_link_id_fkey";
+            columns: ["link_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_links";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_alerts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_alerts_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_alerts_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_alerts_uploader_id_fkey";
+            columns: ["uploader_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_uploaders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      upload_files: {
+        Row: {
+          account_sub: string;
+          after_stop: boolean;
+          bytes_at_google: number;
+          bytes_reported: number;
+          check_kind: string | null;
+          created_at: string;
+          done_at: string | null;
+          drive_checked_at: string | null;
+          drive_file_id: string | null;
+          drive_parent_id: string | null;
+          failed_reason: string | null;
+          id: string;
+          ip: unknown;
+          last_moved_at: string | null;
+          link_id: string;
+          md5_drive: string | null;
+          md5_page: string | null;
+          mime_hint: string | null;
+          missing_seen_at: string | null;
+          name: string;
+          org_id: string;
+          relative_path: string;
+          session_opened_at: string | null;
+          session_uri_encrypted: string | null;
+          size_bytes: number;
+          state: string;
+          task_id: string;
+          updated_at: string;
+          uploader_id: string;
+          user_agent: string | null;
+        };
+        Insert: {
+          account_sub: string;
+          after_stop?: boolean;
+          bytes_at_google?: number;
+          bytes_reported?: number;
+          check_kind?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          drive_checked_at?: string | null;
+          drive_file_id?: string | null;
+          drive_parent_id?: string | null;
+          failed_reason?: string | null;
+          id?: string;
+          ip?: unknown;
+          last_moved_at?: string | null;
+          link_id: string;
+          md5_drive?: string | null;
+          md5_page?: string | null;
+          mime_hint?: string | null;
+          missing_seen_at?: string | null;
+          name: string;
+          org_id: string;
+          relative_path?: string;
+          session_opened_at?: string | null;
+          session_uri_encrypted?: string | null;
+          size_bytes: number;
+          state: string;
+          task_id: string;
+          updated_at?: string;
+          uploader_id: string;
+          user_agent?: string | null;
+        };
+        Update: {
+          account_sub?: string;
+          after_stop?: boolean;
+          bytes_at_google?: number;
+          bytes_reported?: number;
+          check_kind?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          drive_checked_at?: string | null;
+          drive_file_id?: string | null;
+          drive_parent_id?: string | null;
+          failed_reason?: string | null;
+          id?: string;
+          ip?: unknown;
+          last_moved_at?: string | null;
+          link_id?: string;
+          md5_drive?: string | null;
+          md5_page?: string | null;
+          mime_hint?: string | null;
+          missing_seen_at?: string | null;
+          name?: string;
+          org_id?: string;
+          relative_path?: string;
+          session_opened_at?: string | null;
+          session_uri_encrypted?: string | null;
+          size_bytes?: number;
+          state?: string;
+          task_id?: string;
+          updated_at?: string;
+          uploader_id?: string;
+          user_agent?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "upload_files_link_id_fkey";
+            columns: ["link_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_links";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_files_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_files_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_files_uploader_id_fkey";
+            columns: ["uploader_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_uploaders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      upload_folders: {
+        Row: {
+          account_sub: string;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          org_id: string;
+          relative_path: string;
+          uploader_id: string;
+        };
+        Insert: {
+          account_sub: string;
+          created_at?: string;
+          drive_folder_id: string;
+          id?: string;
+          org_id: string;
+          relative_path?: string;
+          uploader_id: string;
+        };
+        Update: {
+          account_sub?: string;
+          created_at?: string;
+          drive_folder_id?: string;
+          id?: string;
+          org_id?: string;
+          relative_path?: string;
+          uploader_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "upload_folders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_folders_uploader_id_fkey";
+            columns: ["uploader_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_uploaders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      upload_links: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          files_received_at: string | null;
+          files_received_by: string | null;
+          id: string;
+          key_version: number;
+          org_id: string;
+          pause_step: number;
+          paused_day: string | null;
+          paused_until: string | null;
+          renewed_from_id: string | null;
+          stop_reason: string | null;
+          stopped_at: string | null;
+          stopped_by: string | null;
+          task_id: string;
+          token_hash: string | null;
+          token_salt: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          files_received_at?: string | null;
+          files_received_by?: string | null;
+          id?: string;
+          key_version?: number;
+          org_id: string;
+          pause_step?: number;
+          paused_day?: string | null;
+          paused_until?: string | null;
+          renewed_from_id?: string | null;
+          stop_reason?: string | null;
+          stopped_at?: string | null;
+          stopped_by?: string | null;
+          task_id: string;
+          token_hash?: string | null;
+          token_salt: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          files_received_at?: string | null;
+          files_received_by?: string | null;
+          id?: string;
+          key_version?: number;
+          org_id?: string;
+          pause_step?: number;
+          paused_day?: string | null;
+          paused_until?: string | null;
+          renewed_from_id?: string | null;
+          stop_reason?: string | null;
+          stopped_at?: string | null;
+          stopped_by?: string | null;
+          task_id?: string;
+          token_hash?: string | null;
+          token_salt?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "upload_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_files_received_by_fkey";
+            columns: ["files_received_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_files_received_by_fkey";
+            columns: ["files_received_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_renewed_from_id_fkey";
+            columns: ["renewed_from_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_links";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_stopped_by_fkey";
+            columns: ["stopped_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_stopped_by_fkey";
+            columns: ["stopped_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_links_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      upload_rate_hits: {
+        Row: {
+          blocked_until: string | null;
+          bucket: string;
+          hits: number;
+          key_hash: string;
+          window_start: string;
+        };
+        Insert: {
+          blocked_until?: string | null;
+          bucket: string;
+          hits?: number;
+          key_hash: string;
+          window_start: string;
+        };
+        Update: {
+          blocked_until?: string | null;
+          bucket?: string;
+          hits?: number;
+          key_hash?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
+      upload_uploaders: {
+        Row: {
+          created_at: string;
+          device_key_hash: string | null;
+          device_label: string | null;
+          first_file_at: string | null;
+          folder_name: string;
+          id: string;
+          ip: unknown;
+          last_activity_at: string;
+          link_id: string;
+          matched_member_id: string | null;
+          name: string;
+          name_key: string;
+          network_erased_at: string | null;
+          on_task: boolean;
+          org_id: string;
+          said_done_at: string | null;
+          task_id: string;
+          user_agent: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          device_key_hash?: string | null;
+          device_label?: string | null;
+          first_file_at?: string | null;
+          folder_name: string;
+          id?: string;
+          ip?: unknown;
+          last_activity_at?: string;
+          link_id: string;
+          matched_member_id?: string | null;
+          name: string;
+          name_key: string;
+          network_erased_at?: string | null;
+          on_task?: boolean;
+          org_id: string;
+          said_done_at?: string | null;
+          task_id: string;
+          user_agent?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          device_key_hash?: string | null;
+          device_label?: string | null;
+          first_file_at?: string | null;
+          folder_name?: string;
+          id?: string;
+          ip?: unknown;
+          last_activity_at?: string;
+          link_id?: string;
+          matched_member_id?: string | null;
+          name?: string;
+          name_key?: string;
+          network_erased_at?: string | null;
+          on_task?: boolean;
+          org_id?: string;
+          said_done_at?: string | null;
+          task_id?: string;
+          user_agent?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "upload_uploaders_link_id_fkey";
+            columns: ["link_id"];
+            isOneToOne: false;
+            referencedRelation: "upload_links";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_uploaders_matched_member_id_fkey";
+            columns: ["matched_member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_uploaders_matched_member_id_fkey";
+            columns: ["matched_member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_uploaders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "upload_uploaders_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       client_labels: {
@@ -6453,6 +6955,166 @@ export type Database = {
         Returns: undefined;
       };
       unused_usage: { Args: { kind: string; target_id: string }; Returns: Json };
+      upload_card: { Args: { p_task_id: string }; Returns: Json };
+      upload_daily_limit_hit: {
+        Args: { p_at: string; p_link_id: string };
+        Returns: string;
+      };
+      upload_drive_check_claim: {
+        Args: { p_file_ids: string[]; p_now: string };
+        Returns: {
+          drive_file_id: string;
+          file_id: string;
+        }[];
+      };
+      upload_drive_check_daily: {
+        Args: { p_limit?: number; p_now: string };
+        Returns: {
+          drive_file_id: string;
+          file_id: string;
+          state: string;
+        }[];
+      };
+      upload_drive_seen: {
+        Args: { p_at: string; p_file_id: string; p_outcome: string };
+        Returns: string;
+      };
+      upload_file_done: {
+        Args: {
+          p_drive_file_id: string;
+          p_file_id: string;
+          p_md5_drive: string;
+          p_md5_page: string;
+          p_parent_id: string;
+          p_size: number;
+        };
+        Returns: string;
+      };
+      upload_file_failed: {
+        Args: {
+          p_device_key_hash: string;
+          p_file_id: string;
+          p_reason: string;
+          p_token_hash: string;
+        };
+        Returns: string;
+      };
+      upload_file_start: {
+        Args: {
+          p_device_key_hash: string;
+          p_ip: unknown;
+          p_mime_hint: string;
+          p_name: string;
+          p_relative_path: string;
+          p_size_bytes: number;
+          p_token_hash: string;
+          p_user_agent: string;
+        };
+        Returns: Json;
+      };
+      upload_files_received: {
+        Args: { p_late_reason: string; p_link_id: string; p_mark_done: boolean };
+        Returns: string;
+      };
+      upload_folder_put: {
+        Args: {
+          p_account_sub: string;
+          p_drive_folder_id: string;
+          p_relative_path: string;
+          p_uploader_id: string;
+        };
+        Returns: {
+          account_sub: string;
+          created_at: string;
+          drive_folder_id: string;
+          id: string;
+          org_id: string;
+          relative_path: string;
+          uploader_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "upload_folders";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      upload_link_create: { Args: { p_task_id: string }; Returns: string };
+      upload_link_renew: { Args: { p_task_id: string }; Returns: string };
+      upload_link_seal: {
+        Args: { p_link_id: string; p_token_hash: string };
+        Returns: boolean;
+      };
+      upload_link_secret: {
+        Args: { p_copy: boolean; p_link_id: string };
+        Returns: {
+          key_version: number;
+          link_id: string;
+          token_salt: string;
+        }[];
+      };
+      upload_link_stop: { Args: { p_link_id: string }; Returns: undefined };
+      upload_progress: {
+        Args: {
+          p_bytes: number;
+          p_device_key_hash: string;
+          p_file_id: string;
+          p_token_hash: string;
+        };
+        Returns: boolean;
+      };
+      upload_rate_hit: {
+        Args: { p_at: string; p_bucket: string; p_key_hash: string };
+        Returns: string;
+      };
+      upload_record_offset: {
+        Args: { p_at: string; p_bytes: number; p_file_id: string };
+        Returns: boolean;
+      };
+      upload_register: {
+        Args: {
+          p_device_key_hash: string;
+          p_ip: unknown;
+          p_name: string;
+          p_token_hash: string;
+          p_user_agent: string;
+        };
+        Returns: Json;
+      };
+      upload_resolve: {
+        Args: { p_device_key_hash: string; p_token_hash: string };
+        Returns: Json;
+      };
+      upload_said_done: {
+        Args: { p_device_key_hash: string; p_token_hash: string };
+        Returns: undefined;
+      };
+      upload_session_set: {
+        Args: {
+          p_account_sub: string;
+          p_drive_parent_id: string;
+          p_file_id: string;
+          p_session_uri_encrypted: string;
+        };
+        Returns: string;
+      };
+      upload_signals: { Args: { p_now: string }; Returns: Json };
+      upload_uploader_erase_network: {
+        Args: { p_uploader_id: string };
+        Returns: boolean;
+      };
+      upload_uploader_files: { Args: { p_uploader_id: string }; Returns: Json };
+      upload_watch_due: {
+        Args: { p_now: string };
+        Returns: {
+          account_sub: string;
+          bytes_at_google: number;
+          file_id: string;
+          org_id: string;
+          session_uri_encrypted: string;
+          size_bytes: number;
+        }[];
+      };
       working_day_rule: {
         Args: { from_date: string; to_date: string };
         Returns: Json;

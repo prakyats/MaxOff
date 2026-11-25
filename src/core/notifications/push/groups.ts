@@ -86,6 +86,16 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   // v4.0: the company Google Drive needs the Owner (reconnect, or space running out).
   drive_needs_reconnect: "other",
   drive_space_low: "other",
+  // v4.5: the upload link (WORKFLOWS §9). "Mark it done" is the reader's own work; the rest tells
+  // the task's Admins (or the Owner) what the uploaders and Google did: information.
+  upload_files_received: "tasks",
+  upload_not_on_task: "other",
+  upload_names_capped: "other",
+  upload_stuck: "other",
+  upload_said_done: "other",
+  upload_looks_finished: "other",
+  upload_space_held: "other",
+  upload_daily_limit: "other",
   // 6.5: the Owner's end-of-day report is ready (its own group: a report, not a nudge).
   eod_report_ready: "reports",
   // 6.5: the weekly digest is email only and never pushed; named so the map stays complete.

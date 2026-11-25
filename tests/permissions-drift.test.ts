@@ -21,6 +21,7 @@ const MIGRATIONS = [
   "supabase/migrations/20260922130118_team_owner_role.sql",
   "supabase/migrations/20260928025738_expense_claims.sql",
   "supabase/migrations/20261008143202_client_work_schema.sql",
+  "supabase/migrations/20261125122607_upload_links.sql",
 ];
 
 type Grants = Record<MemberRole, string[]>;
