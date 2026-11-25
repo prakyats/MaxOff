@@ -58,7 +58,7 @@ export default async function PeopleReportPage({
 }) {
   const [, params] = await Promise.all([requirePermission("reports.all"), searchParams]);
   const today = todayIST();
-  const period = parsePeriod(params, today, OWNER_CUSTOM_MAX_DAYS);
+  const period = parsePeriod(params, today, OWNER_CUSTOM_MAX_DAYS, "month");
   const facts = listPeopleFacts(period.from, period.to);
   const delays = listDelays(period.from, period.to);
   const directory = readDirectory();

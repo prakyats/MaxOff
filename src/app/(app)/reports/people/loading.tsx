@@ -9,7 +9,7 @@ import { PeopleSkeleton } from "./people-skeleton";
 /**
  * The people report, traced (ARCHITECTURE §14.1): the same header, the period switch (nothing
  * chosen yet) and its pager row, the "Tasks by person" heading (its own words) over four person cards of the
- * card's own shape (a week opens by default, so no attendance block), then the delays' heading and
+ * card's own shape with the attendance block (the report opens on this month), then the delays' heading and
  * its three pattern cards.
  */
 export default function Loading() {
@@ -25,7 +25,7 @@ export default function Loading() {
       <div className="flex min-w-0 flex-col gap-6" data-slot="loading-people-report">
         <div className="flex min-w-0 flex-col gap-2">
           <ReportHeading id="loading-people-title">Tasks by person</ReportHeading>
-          <PeopleSkeleton period={null} />
+          <PeopleSkeleton period={{ kind: "month" }} />
         </div>
         <div className="flex min-w-0 flex-col gap-2">
           <ReportHeading id="loading-delays-title">Late and overdue tasks</ReportHeading>

@@ -671,4 +671,22 @@ export const GUIDE_SHOTS: Readonly<
     height: 800,
     alt: "Today's End of day report with the Attendance section highlighted: the count line and each person's row with Late and Left early.",
   },
+  "owner/report-people": {
+    src: "/guide/owner/report-people.webp",
+    width: 1216,
+    height: 800,
+    alt: "The People report in the Month view with the first person's card highlighted: their task facts, then their attendance lines and working-hours counts.",
+  },
+  "owner/report-stages": {
+    src: "/guide/owner/report-stages.webp",
+    width: 1222,
+    height: 800,
+    alt: "Stage durations with Every project highlighted: each stage name with its median and longest time and how many were done.",
+  },
+  "owner/report-client-work": {
+    src: "/guide/owner/report-client-work.webp",
+    width: 1216,
+    height: 748,
+    alt: "Client work with the All clients totals highlighted: planned and done, on time, done in the period, overdue, on hold and projects completed.",
+  },
 };

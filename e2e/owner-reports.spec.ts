@@ -33,16 +33,19 @@ test.describe("the Owner's reports", () => {
     await expect(pageHeader(page).getByRole("heading", { name: "People" })).toBeVisible();
   });
 
-  test("People: the week, then the month with each employee's attendance; cards by name", async ({
+  test("People: opens on the month with each employee's attendance; the week has none; cards by name", async ({
     page,
   }) => {
-    await page.goto("/reports/people");
+    await page.goto("/reports/people?period=week");
     const report = page.locator('[data-slot="people-report"]');
     await expect(report.getByRole("heading", { name: "Tasks by person" })).toBeVisible();
     await expect(report.getByRole("heading", { name: "Late and overdue tasks" })).toBeVisible();
     await expect(report.locator('[data-slot="person-attendance"]')).toHaveCount(0);
 
-    await page.goto("/reports/people?period=month");
+    await page.goto("/reports/people");
+    await expect(page.locator('[data-slot="report-period"] [aria-current="page"]')).toHaveText(
+      "Month",
+    );
     const employees = page.locator('[data-slot="people-block"][data-engagement="permanent"]');
     await expect(employees).toBeVisible();
     const cards = employees.locator('[data-slot="person-card"]');

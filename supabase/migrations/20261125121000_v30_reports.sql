@@ -53,8 +53,8 @@ comment on function app.report_window(date, date) is
   'v3.0: the guard of the Owner''s report functions: reports.all or FORBIDDEN, a period of IST '
   'dates of at most 366 days or VALIDATION; returns the period as [start, end) instants.';
 
-revoke all on function app.report_window(date, date) from public, anon, service_role;
-grant execute on function app.report_window(date, date) to authenticated;
+revoke all on function app.report_window(date, date) from public, anon;
+grant execute on function app.report_window(date, date) to authenticated, service_role;
 
 -- Indexes (EXPLAIN on scripts/measure-seed.sql + measure-seed-work.sql: a year of tasks and client
 -- work): each report reaches its rows by the period through an index, so the row policies run only

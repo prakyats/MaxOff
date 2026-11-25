@@ -45,6 +45,18 @@ describe("the Owner's report periods (v3.0, decision 12)", () => {
     expect(parsePeriod(range, TODAY).to).toBe("2026-01-31");
   });
 
+  it("the Owner's reports open on this month; the Admin's on this week", () => {
+    expect(parsePeriod({}, TODAY, OWNER_CUSTOM_MAX_DAYS, "month")).toEqual({
+      kind: "month",
+      from: "2026-11-01",
+      to: "2026-11-30",
+    });
+    expect(parsePeriod({ period: "week" }, TODAY, OWNER_CUSTOM_MAX_DAYS, "month").kind).toBe(
+      "week",
+    );
+    expect(parsePeriod({}, TODAY)).toEqual(weekOf(TODAY));
+  });
+
   it("each report keeps its own address", () => {
     expect(periodHref(weekOf(TODAY), "/reports/people")).toBe(
       "/reports/people?period=week&at=2026-11-23",
@@ -216,7 +228,7 @@ describe("stage durations (R7)", () => {
   });
 
   it("days in words", () => {
-    expect(daysWords(0.01)).toBe("Under an hour");
+    expect(daysWords(0.01)).toBe("under an hour");
     expect(daysWords(0.25)).toBe("6 hours");
     expect(daysWords(1)).toBe("1 day");
     expect(daysWords(2.46)).toBe("2.5 days");

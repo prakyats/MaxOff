@@ -40,7 +40,7 @@ export default async function StagesReportPage({
 }) {
   const [, params] = await Promise.all([requirePermission("reports.all"), searchParams]);
   const today = todayIST();
-  const period = parsePeriod(params, today, OWNER_CUSTOM_MAX_DAYS);
+  const period = parsePeriod(params, today, OWNER_CUSTOM_MAX_DAYS, "month");
   const facts = listStageDurations(period.from, period.to);
   startEarly(facts);
   return (

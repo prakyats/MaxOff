@@ -251,9 +251,9 @@ export function stageReport(facts: readonly StageFact[]): {
   return { overall, projects: list };
 }
 
-/** "2.5 days", "1 day", "Under an hour" (≈ 0). */
+/** "2.5 days", "1 day", "under an hour" (≈ 0; it follows "Median" or "longest"). */
 export function daysWords(days: number): string {
-  if (days < 1 / 24) return "Under an hour";
+  if (days < 1 / 24) return "under an hour";
   if (days < 1) {
     const hours = Math.round(days * 24);
     return hours === 1 ? "1 hour" : `${hours} hours`;

@@ -65,12 +65,15 @@ function days(period: Pick<Period, "from" | "to">): number {
 /**
  * The period the address asks for (`?period=week|month&at=<date>`, or `?from=&to=` for a custom
  * range), else this week. A custom range is clamped to `maxDays` (the Admin's `CUSTOM_MAX_DAYS`
- * unless given) and never runs past today; an unreadable one falls back to this week.
+ * unless given) and never runs past today; an unreadable one falls back to this week. With no
+ * period at all it opens on `fallback`'s (v3.0: the Owner's reports open on this month).
  */
 export function parsePeriod(
   params: Readonly<Record<string, string | string[] | undefined>>,
   today: ISODate,
   maxDays: number = CUSTOM_MAX_DAYS,
+  /** The kind an address without one opens on: the Admin's report a week, the Owner's a month. */
+  fallback: "week" | "month" = "week",
 ): Period {
   const one = (key: string) => {
     const value = params[key];
@@ -85,7 +88,8 @@ export function parsePeriod(
   }
   const at = one("at");
   const anchor = isISODate(at) && at <= today ? at : today;
-  return one("period") === "month" ? monthOf(anchor) : weekOf(anchor);
+  const kind = one("period") ?? fallback;
+  return kind === "month" ? monthOf(anchor) : weekOf(anchor);
 }
 
 /** The period just before, the same kind and length ("last period beside it"). */

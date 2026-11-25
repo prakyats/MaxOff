@@ -20,11 +20,11 @@
   - The floor is RLS: `app.task_visible()` costs about 80 µs per task row for the Owner.
   - For a month: `report_people` 0.4–0.5 s, delays 0.13 s, stages 0.04 s, client work 0.02 s.
   - For 366 days: people about 5.5 s, delays about 1.7 s.
-  - Both People sections stream behind their skeletons. The advisor was asked: (a) accept, (b) security definer for those two, or (c) cap at 92 days.
+  - Both People sections stream behind their skeletons. **Advisor, 25 Nov: (a) accepted.** It stays security invoker, with no 92-day cap for the Owner and Month as the default period (`parsePeriod(…, "month")`). The speed gate judges the default period.
 
   **Waiting:**
   - The money seam on Client work (the card's `revenue` slot; fill it from `modules/revenue` for `finance.view` once v2.1 is on `main`).
-  - The advisor's answer on what "Admin report updated" covers (recommendation applied) and on the speed choice.
+  - Advisor, 25 Nov: the Admin recommendation is accepted (stage-name grouping, the shared control, 92 days, no new numbers).
   - Full CI, the speed probe (/reports and the three routes for the Owner, /reports for an Admin), the READY post.
 
   **Not in v3.0:** the 6-period trends table (decision 14), noted in ROADMAP.
@@ -858,7 +858,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
 - **v3.0 reports, later (25 Nov 2026):**
-  - (1) **The Owner's RLS floor on tasks:** `app.task_visible()` costs about 80 µs a row even for the Owner, so any task read over a year costs seconds. A fast path for `app.is_owner()` before the row lookup would help every Owner task screen. It touches RLS: plan it with the advisor first.
+  - (1) **The Owner's RLS floor on tasks, for v7.5's database tuning (advisor, 25 Nov):** `app.task_visible()` costs about 80 µs a row even for the Owner. Every task list pays it, not just the reports, and any task read over a year costs seconds. A fast path for `app.is_owner()` before the row lookup is the candidate. It touches RLS, so plan it with the advisor first.
   - (2) `report_task_delays` returns at most 500 tasks, so the delay patterns count only those (a year at the measure seed's volume could reach the cap).
   - (3) The 6-period trends table (kickoff 9 decision 14) is not built.
 
