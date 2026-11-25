@@ -489,6 +489,9 @@ test.describe("the Owner's Billing section, v2.5", () => {
       await expect(added.locator('[data-slot="billing-price"]')).toHaveText("Not priced");
       // The address's anchor is the section's own heading.
       await expect(section(page).locator("h2#project-billing")).toHaveText("Billing");
+      // The section streams in after the browser's own jump to the anchor, so it is brought into
+      // view when it appears: on a phone the Owner lands on Billing, not at the top of the page.
+      await expect(section(page).locator("h2#project-billing")).toBeInViewport();
     } finally {
       await removeClientFixture(name);
     }

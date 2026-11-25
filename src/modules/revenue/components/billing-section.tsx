@@ -45,6 +45,7 @@ import {
   BILLING_SUMMARY,
 } from "./billing-layout";
 import { BillingHistory } from "./billing-history";
+import { BillingArrival } from "./billing-arrival";
 import { BillingRetry } from "./billing-retry";
 import { BillingSheetButton } from "./billing-sheet-button";
 
@@ -93,6 +94,7 @@ export async function BillingSection({
       <h2 id="project-billing" className="text-sm font-medium">
         Billing
       </h2>
+      <BillingArrival />
       <div className={BILLING_CARD}>
         <div className={BILLING_ROW} data-slot="billing-category">
           <div className={BILLING_ROW_TEXT}>
@@ -343,6 +345,7 @@ function BillingError() {
       <h2 id="project-billing" className="text-sm font-medium">
         Billing
       </h2>
+      <BillingArrival />
       <div className={BILLING_CARD}>
         <div className={BILLING_ROW} role="alert" data-slot="billing-error">
           <div className={BILLING_ROW_TEXT}>
