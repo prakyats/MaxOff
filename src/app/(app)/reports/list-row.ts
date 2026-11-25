@@ -29,7 +29,7 @@ export const OWNER_REPORTS = [
     label: "People",
     href: "/reports/people",
     description:
-      "Each person's tasks by week, month or a range: completed, on time, revision loops, and the tasks that ran late.",
+      "Each person's tasks for the period you choose: completed, on time, revision loops, and the tasks that ran late.",
   },
   {
     key: "stages",
