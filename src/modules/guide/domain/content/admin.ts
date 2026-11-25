@@ -77,6 +77,22 @@ export const ADMIN_GUIDE: Guide = {
           link: { href: "/me", label: "Open Me" },
           keywords: ["profile", "bell", "alerts", "me", "appearance", "dark", "theme"],
         },
+        {
+          id: "admin-weak-signal",
+          title: "When the signal is weak",
+          summary: "What MaxOff says when a tap cannot reach it, and why Retry is safe.",
+          blocks: [
+            {
+              kind: "text",
+              text: "A tap that takes a while says “Still working… slow connection” under the button. One that cannot reach MaxOff says “Couldn’t reach MaxOff. Check your connection and try again.” with Retry, and keeps everything you typed.",
+            },
+            {
+              kind: "note",
+              text: "Retry never makes a second copy. If you were adding something (a suggestion, an expense claim, a client, a contact, a project, a deliverable or a chat message) and it was saved before the signal dropped, Retry finds it instead of adding it again. Offline, a band at the bottom says so, and buttons that save wait for the connection.",
+            },
+          ],
+          keywords: ["offline", "no network", "signal", "retry", "slow", "duplicate", "connection"],
+        },
       ],
     },
     {
@@ -205,7 +221,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Only the Owner decides attendance, early leave and “Stay until”. You never decide anyone else’s day and get no one else’s late or early-leave alerts, and your own is never overwritten: a correction sits beside the original. On leave, a half day asks “Morning off” or “Afternoon off”.",
+              text: "Only the Owner decides attendance, early leave and “Stay until”. You never decide anyone else’s day and get no one else’s late or early-leave alerts, and your own is never overwritten: a correction sits beside the original. On leave, a half day asks “Morning off” or “Afternoon off”. With no network, Start day and End day say “No network, tap again.” Nothing is saved or kept to send later: a tap counts only when it reaches MaxOff, so tap again once you have signal.",
             },
           ],
           link: { href: "/leave/attendance", label: "See your attendance" },

@@ -64,6 +64,22 @@ export const CREW_GUIDE: Guide = {
           link: { href: "/notifications", label: "Open Alerts" },
           keywords: ["bell", "notifications", "unread", "messages"],
         },
+        {
+          id: "weak-signal",
+          title: "When the signal is weak",
+          summary: "What MaxOff says when a tap cannot reach it, and why Retry is safe.",
+          blocks: [
+            {
+              kind: "text",
+              text: "A tap that takes a while says “Still working… slow connection” under the button. One that cannot reach MaxOff says “Couldn’t reach MaxOff. Check your connection and try again.” with Retry, and keeps everything you typed.",
+            },
+            {
+              kind: "note",
+              text: "Retry never makes a second copy. If you were adding something (a task suggestion, an expense claim or a chat message) and it was saved before the signal dropped, Retry finds it instead of adding it again. Offline, a band at the bottom says so, and buttons that save wait for the connection.",
+            },
+          ],
+          keywords: ["offline", "no network", "signal", "retry", "slow", "duplicate", "connection"],
+        },
       ],
     },
     {
@@ -123,7 +139,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work. Work starts at 10:00 am; the line says so before you start. If you start more than 15 minutes after that, MaxOff asks for a short reason first (see Starting late).",
+              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work. Work starts at 10:00 am; the line says so before you start. If you start more than 15 minutes after that, MaxOff asks for a short reason first (see Starting late). With no network, Start day and End day say “No network, tap again.” Nothing is saved or kept to send later: a tap counts only when it reaches MaxOff, so tap again once you have signal.",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },

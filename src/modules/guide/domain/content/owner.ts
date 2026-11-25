@@ -90,6 +90,22 @@ export const OWNER_GUIDE: Guide = {
           link: { href: "/me", label: "Open Me" },
           keywords: ["profile", "account", "settings", "appearance", "dark", "theme"],
         },
+        {
+          id: "owner-weak-signal",
+          title: "When the signal is weak",
+          summary: "What MaxOff says when a tap cannot reach it, and why Retry is safe.",
+          blocks: [
+            {
+              kind: "text",
+              text: "A tap that takes a while says “Still working… slow connection” under the button. One that cannot reach MaxOff says “Couldn’t reach MaxOff. Check your connection and try again.” with Retry, and keeps everything you typed.",
+            },
+            {
+              kind: "note",
+              text: "Retry never makes a second copy. If you were adding something (a client, a contact, a project, a deliverable or a chat message) and it was saved before the signal dropped, Retry finds it instead of adding it again. Offline, a band at the bottom says so, and buttons that save wait for the connection.",
+            },
+          ],
+          keywords: ["offline", "no network", "signal", "retry", "slow", "duplicate", "connection"],
+        },
       ],
     },
     {
