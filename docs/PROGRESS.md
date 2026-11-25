@@ -263,13 +263,13 @@
     - the plan (`docs/handoff/v50-hand-in-plan.md`) and the docs: DATA-MODEL §8b, WORKFLOWS §5C, PERMISSIONS, and the ADR-0010 amendment;
     - migration `20261125122018_v50_handin_files`, with pgTAP 150 (117 assertions) and 40 / 49 counting `handin_space_held`;
     - `modules/handin`: domain, data, background calls and `/api/handin/*` routes, and the Leave out action;
-    - the Files card on the task page, streamed in its own Suspense with a traced skeleton, plus the add area (picker, laptop folders, drop, progress, keep-open band, Already added), Mark done's line, and the Approvals "v1 · 2 files";
+    - the Files card on the task page: a server component (`app/(app)/tasks/[id]/handin-view.tsx`), streamed in its own Suspense with a traced skeleton. Only Leave out, the Drive check and the lazy add area ship to the browser, so `/tasks/[id]`'s first load is 830.0 KB against its 835 KB budget (it was 881 KB with a client card; never raised); plus the add area (picker, laptop folders, drop, progress, keep-open band, Already added), Mark done's line, and the Approvals "v1 · 2 files";
     - three guide topics (Crew: "Add your photos and videos"; Admin and Owner: "Open the files handed in");
     - the Playwright spec `e2e/handin.spec.ts`, in the serial organisation-wide chain.
   - **Left:**
     1. Swap to v4.5's engine and session code (above).
     2. The global upload pill while moving around MaxOff (sample §1C). It needs the engine to live above the page (a shared-layout change), so it waits for the real engine and its speed-gate cost.
-    3. The "Removed in Drive" check wiring: the claim on opening a version, and the daily pass in `drive_space_check`.
+    3. "Removed in Drive": the check on a reviewer's card is built (`/api/handin/check`). The daily pass in `drive_space_check` is still to add, after v4.5's version of that job lands, so the two are not built twice.
     4. `pnpm guide:screenshots` for the new topics.
     5. The full CI run, the review, and the speed probe on `/tasks/[id]` and `/approvals` for each role.
   - **Gate:** v4.5's E0 step 2 (the cross-origin resume) covers v5.0 too.
