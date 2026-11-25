@@ -1,0 +1,29 @@
+{
+  "$comment": "Known critical advisories the audit gate lets through, each until its expiry (v7.5 plan §2.1, advisor 26 Nov 2026). Adding or renewing an entry is the advisor's or the owner's decision. Today's four are fixed by v2.0.1 (next >= 16.4.1, @sentry/nextjs >= 10.75.2): remove them when it merges.",
+  "advisories": [
+    {
+      "id": "GHSA-2464-fhr4-w9xw",
+      "module": "next",
+      "expires": "2026-12-10",
+      "reason": "RCE in the Image Optimization API; fixed by v2.0.1 (next >= 16.4.1, images.unoptimized)"
+    },
+    {
+      "id": "GHSA-673q-mjm6-r5xr",
+      "module": "next",
+      "expires": "2026-12-10",
+      "reason": "RCE in use cache (MaxOff uses none); fixed by v2.0.1 (next >= 16.4.1)"
+    },
+    {
+      "id": "GHSA-vcvr-r3jv-pc5j",
+      "module": "next",
+      "expires": "2026-12-10",
+      "reason": "RCE in next/og (MaxOff uses none); fixed by v2.0.1"
+    },
+    {
+      "id": "GHSA-mchm-gjx6-7h55",
+      "module": "@sentry/nextjs",
+      "expires": "2026-12-10",
+      "reason": "Tunnel-route bypass (no tunnel route configured); fixed by v2.0.1 (>= 10.75.2)"
+    }
+  ]
+}

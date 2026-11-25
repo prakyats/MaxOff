@@ -91,6 +91,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The dependency-audit gate (v7.5 plan §2.1): a critical advisory in the production
+      # dependencies fails the check unless scripts/audit-allowlist.json names it, with an expiry.
+      # Today's four (next 16.3.5, @sentry/nextjs) are allowlisted until v2.0.1 fixes them.
+      - run: pnpm audit:gate
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check

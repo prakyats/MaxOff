@@ -46,7 +46,8 @@
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run db:test && pnpm run build && pnpm run budget",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "guide:screenshots": "playwright test --config playwright.guide.config.ts"
+    "guide:screenshots": "playwright test --config playwright.guide.config.ts",
+    "audit:gate": "node scripts/audit-gate.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.75.0",

@@ -1,0 +1,69 @@
+# Weekly dependency audit (v7.5 plan §2.1): `pnpm audit --prod` against the production
+# dependencies, every Monday morning IST, so an advisory published after a merge is seen without
+# waiting for the next pull request (the CI check job runs the same gate on every change).
+#
+# On any high or critical advisory, or a failing gate (a critical not in
+# scripts/audit-allowlist.json, or an allowlist entry past its expiry), it opens the
+# "Dependency audit" issue, or comments on the open one with this week's table. It reads only
+# the package registry and this repository, and holds no secret beyond the workflow's own token.
+name: Dependency audit
+
+on:
+  schedule:
+    # Mondays 04:17 UTC = 09:47 IST.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: production dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Audit and report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          # `pnpm audit` reads the lockfile only; nothing is installed beyond pnpm itself.
+          gate_output="$(node scripts/audit-gate.mjs 2>&1)"
+          gate=$?
+          echo "$gate_output"
+          summary="$(node scripts/audit-gate.mjs --summary)"
+          echo "$summary"
+          if [ "$gate" -eq 0 ] && grep -q ': 0 high or critical' <<<"$summary"; then
+            echo "No high or critical advisory, and the gate is green."
+            exit 0
+          fi
+
+          if [ "$gate" -eq 0 ]; then verdict="The gate is green (every critical is allowlisted and in date)."; else verdict="**The gate is red:** CI's check job fails until this is fixed."; fi
+          body="$summary
+
+          $verdict
+          \`\`\`
+          $gate_output
+          \`\`\`
+          Run: $RUN_URL. What to do: upgrade the package (\`pnpm up\`), or, for a critical that cannot be fixed yet, add it to \`scripts/audit-allowlist.json\` with an expiry and a reason (the advisor's or the owner's decision). Close this issue once the audit is clean."
+
+          title="Dependency audit"
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+          exit "$gate"
