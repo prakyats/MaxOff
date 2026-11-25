@@ -1,7 +1,9 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
+import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { PROJECT_STATE_LABELS } from "@/modules/client-work";
 
 /**
  * A client's Overview (3.4) under the layout's header and tabs (which stay painted), traced:
@@ -58,7 +60,14 @@ export default async function Loading() {
                   </span>
                 </span>
                 <span className="ml-auto flex shrink-0 items-center gap-2">
-                  <Skeleton className="h-5 w-16 rounded-full" />
+                  {/* The state chip itself with its words hidden, never a bar of a guessed width:
+                      the chip's width decides how wide the lines beside it are, so where the
+                      progress line wraps. "Open" is the state a project starts in. */}
+                  <StatusBadge
+                    status="open"
+                    label={PROJECT_STATE_LABELS.open}
+                    className="bg-muted text-transparent select-none motion-safe:animate-pulse"
+                  />
                   <Skeleton className="size-4 rounded-sm" />
                 </span>
               </li>
