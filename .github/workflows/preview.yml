@@ -53,6 +53,7 @@ on:
           - perf-probe
           - staging-drive-secrets
           - staging-drive-secrets-check
+          - drive-cors-check
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -513,6 +514,53 @@ jobs:
               console.log(`| ${process.argv[2]} | ${String(label).slice(0, 40)} | ${has("GOOGLE_OAUTH_CLIENT_ID")} | ${has("GOOGLE_OAUTH_CLIENT_SECRET")} | ${has("DRIVE_TOKEN_KEY")} |`);
             ' "$RUNNER_TEMP/v.json" "$id" | tee -a "$GITHUB_STEP_SUMMARY"
           done
+
+  # v4.5 security plan, CORS step 2 (E0): with the TEST Gmail the Owner connected on staging, a
+  # browser on this branch's preview origin sends a 3-chunk file straight to Google through a
+  # session opened for that origin, and must read the 308 `Range` answers and the finished file's
+  # id. Makes one small test file in that Drive's MaxOff folder; deletes nothing; prints no secret.
+  drive-cors-check:
+    name: drive CORS check (staging, test Gmail)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'drive-cors-check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Staging only
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ "$SUPABASE_PROJECT_REF" != "jcejebyjaqwcumyzrhge" ]; then
+            echo "::error::This check only ever runs on staging (jcejebyjaqwcumyzrhge)." >&2
+            exit 1
+          fi
+      - name: Send a test file from the preview's origin
+        env:
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          DRIVE_TOKEN_KEY: ${{ secrets.DRIVE_TOKEN_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          alias="$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'a-zA-Z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | tr 'A-Z' 'a-z')"
+          export ORIGIN="https://${alias}-${host}"
+          echo "Page origin: $ORIGIN"
+          node scripts/drive-cors-check.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
   reminders-backfill-dry-run:
     name: reminders backfill (dry run, staging)
