@@ -15,7 +15,7 @@
 -- Neutral names and documentation addresses only (example.com, 198.51.100.0/24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(369);
+select plan(372);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -447,6 +447,12 @@ select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_t
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-x'), U&'\00AD\2028\2029\180E\034F\FE0F', null, null) $$),
   'VALIDATION', 'a name of only soft hyphens, separators, U+180E, U+034F and variation selectors: VALIDATION');
 select is(app.upload_clean(U&'S\00ADa\2028m\2029\180E\034F\FE0F'), 'Sam', 'those characters are stripped from a name');
+-- The folder path, cleaned the same way as core/drive's cleanRelativePath (resumable-folders.test.ts).
+select is(app.upload_clean_path(E' Day   1 /CAM\\A/ shots  '), 'Day 1/CAMA/shots',
+  'a folder path is cleaned the same way the Worker cleans it');
+select is(pg_temp.code($$ select app.upload_clean_path('a/b/c/d/e/f/g/h/i/j/k/l/m') $$), 'VALIDATION',
+  'a 13th folder level: VALIDATION (12 at most, as the Worker)');
+select is(app.upload_clean_path('a/b/c/d/e/f/g/h/i/j/k/l'), 'a/b/c/d/e/f/g/h/i/j/k/l', '12 levels pass');
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), '\x01'::bytea, 'Sam', null, null) $$),
   'VALIDATION', 'a malformed device key: VALIDATION');
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-unknown'), pg_temp.h('dev-x'), 'Sam', null, null) $$),

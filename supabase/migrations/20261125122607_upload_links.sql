@@ -476,12 +476,14 @@ language sql
 immutable
 set search_path = ''
 as $$
-  select btrim(regexp_replace(normalize(coalesce(p_text, ''), NFC),
-    '[\u0001-\u001f\u007f-\u009f\u00ad\u034f\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufe00-\ufe0f\ufeff]', '', 'g'));
+  select btrim(regexp_replace(regexp_replace(normalize(coalesce(p_text, ''), NFC),
+    '[\u0001-\u001f\u007f-\u009f\u00ad\u034f\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufe00-\ufe0f\ufeff]', '', 'g'),
+    '\s+', ' ', 'g'));
 $$;
 comment on function app.upload_clean(text) is
   'Internal (v4.5, plan B2): NFC; control, zero-width and bidi characters, U+00AD, U+2028-2029, U+180E, '
-  'U+034F and the variation selectors U+FE00-FE0F removed; trimmed.';
+  'U+034F and the variation selectors U+FE00-FE0F removed; runs of spaces made one; trimmed (the same as '
+  'the Worker''s cleanUploaderName and folderName, so names and folder paths match).';
 revoke all on function app.upload_clean(text) from public, anon, authenticated;
 grant execute on function app.upload_clean(text) to service_role;
 

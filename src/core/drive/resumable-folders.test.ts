@@ -11,9 +11,11 @@ import {
 describe("the folder path a browser reports", () => {
   it("is cleaned part by part, never climbs, at most 8 levels", () => {
     expect(cleanRelativePath("Day 1/CAM A")).toBe("Day 1/CAM A");
-    expect(cleanRelativePath("../../etc//./x\\y")).toBe("etc/x/y");
+    expect(cleanRelativePath("../../etc//./x\\y")).toBe("etc/xy");
     expect(cleanRelativePath("  ")).toBe("");
-    expect(cleanRelativePath("a/b/c/d/e/f/g/h/i/j").split("/")).toHaveLength(8);
+    expect(cleanRelativePath("a/b/c/d/e/f/g/h/i/j/k/l/m/n").split("/")).toHaveLength(12);
+    // The same answer as the database's app.upload_clean_path for an accepted path (pgTAP 146).
+    expect(cleanRelativePath(" Day   1 /CAM\\A/ shots  ")).toBe("Day 1/CAMA/shots");
   });
 });
 

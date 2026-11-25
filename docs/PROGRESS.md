@@ -905,7 +905,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
 
 - **v4.5 server side, decisions to confirm in the screens or upload unit (builder 25 Nov):**
-  1. The folder depth: `cleanRelativePath` caps at 8 levels while `app.upload_clean_path` allows 12, and the two clean names differently. Align them before the upload unit, or a deep or odd path can miss the folder cache and duplicate a folder.
+  1. ~~The folder depth~~ **Done (25 Nov, advisor):** `cleanRelativePath` now matches `app.upload_clean_path`: 12 levels, split on "/" only, a backslash removed. `app.upload_clean` collapses runs of spaces like the Worker. One path is proved identical in pgTAP 146 and `resumable-folders.test.ts`.
   2. Google's daily-limit 403 is spotted by its message (`isDailyUploadLimit`): confirm the real error codes in CORS step 2.
   3. The bad-link block check reads `upload_rate_hits` directly. A small "check only" function would be cleaner.
   4. After a week, `done` falls back to the browser's Drive id (Google forgot the session), checked against the same folder and size.

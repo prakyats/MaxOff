@@ -292,16 +292,25 @@ export type SubfolderStore = {
   put(relativePath: string, driveFolderId: string): Promise<string>;
 };
 
+/** The deepest folder path accepted, and the longest folder name: the same limits as the
+ * database's `app.upload_clean_path` (DATA-MODEL §8a, plan C11), so the folder cache and Drive
+ * always agree on a path. */
+export const RELATIVE_PATH_MAX_DEPTH = 12;
+export const RELATIVE_PATH_PART_MAX = 120;
+
 /**
- * The folder path a browser reported ("Day 1/CAM A"), cleaned: each part a safe folder name
- * (`folderName`), empty, "." and ".." parts dropped, at most 8 levels. Never trusted as given.
+ * The folder path a browser reported ("Day 1/CAM A"), cleaned the way the database cleans it:
+ * split on "/" only (a "\\" inside a name is removed, as `app.upload_clean_path` does), each part
+ * made a safe folder name (`folderName`), empty, "." and ".." parts dropped, at most 12 levels.
+ * The database refuses ".", "..", a part over 120 characters and a 13th level before a session
+ * is opened, so for an accepted path the two give the same answer. Never trusted as given.
  */
 export function cleanRelativePath(relativePath: string): string {
   return relativePath
-    .split(/[/\\]/)
-    .map((part) => part.trim())
+    .split("/")
+    .map((part) => part.replaceAll("\\", "").trim())
     .filter((part) => part !== "" && part !== "." && part !== "..")
-    .slice(0, 8)
+    .slice(0, RELATIVE_PATH_MAX_DEPTH)
     .map(folderName)
     .join("/");
 }
