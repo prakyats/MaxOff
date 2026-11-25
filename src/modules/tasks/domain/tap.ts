@@ -11,7 +11,7 @@ export interface TaskTap {
 }
 
 /**
- * Whether a link's `href` opens a task's own page (#143, `TaskTapSkeleton`): the same origin, the
+ * Whether a link's `href` opens a task's own page (#143, `TaskTapSkeleton` in the tap-skeleton engine): the same origin, the
  * path `/tasks/<id>` and no query but the view (`?tab=`). Anything else (a sheet's address, a
  * filter, another site, `/tasks/all`) is not this page and gets no task skeleton. Pure, so it is
  * unit-tested.
@@ -31,14 +31,6 @@ export function taskTapTarget(href: string, origin: string): TaskTap | null {
     view: parseTaskView(url.searchParams.get("tab")),
   };
 }
-
-/**
- * `html[data-nav-pending]`: a navigation is under way (`NAV_PENDING_ATTRIBUTE`,
- * `core/ui/navigation/progress.ts`; a unit test keeps the two equal). Named here because
- * importing `progress.ts` into the part loaded after the page moved it into every screen's first
- * load (1.1 KB; the calendar's budget had 159 bytes left).
- */
-export const NAV_PENDING = "data-nav-pending";
 
 /**
  * The name the task page's back control gives the screen a tap came from (`TASK_BACK`): what the

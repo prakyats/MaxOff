@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { NAV_PENDING_ATTRIBUTE } from "@/core/ui/navigation/progress";
-
-import { NAV_PENDING, taskBackLabel, taskTapTarget } from "../domain/tap";
+import { taskBackLabel, taskTapTarget } from "../domain/tap";
 
 const ORIGIN = "https://app.example";
 const ID = "c3d26307-1f2a-4b5c-8d9e-0a1b2c3d4e5f";
@@ -38,12 +36,6 @@ describe("taskTapTarget (#143)", () => {
     expect(taskTapTarget(`/tasks/${ID}/edit`, ORIGIN)).toBeNull();
     expect(taskTapTarget(`https://elsewhere.example/tasks/${ID}`, ORIGIN)).toBeNull();
     expect(taskTapTarget("/tasks/not-an-id", ORIGIN)).toBeNull();
-  });
-});
-
-describe("the navigation-pending attribute (#143)", () => {
-  it("is the one the progress bar sets", () => {
-    expect(NAV_PENDING).toBe(NAV_PENDING_ATTRIBUTE);
   });
 });
 
