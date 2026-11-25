@@ -325,14 +325,14 @@ Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after 
   - **The Owner's bookings** show the same way. Crew see nobody else's.
   - **Bug, staging v2.0:** availability ignores the viewer's own bookings ("Everyone is available" with two people booked). Every booking counts.
   - `member_availability()` (or a new `availability.view` function) adds the type name and the creator: PERMISSIONS, pgTAP for each role.
-- [ ] **10. Team today card on Today** (Admin and Owner): counts (free now, booked today, on leave), one line per person (type · time · who booked; Free all day; On leave) and "+ Book someone free". It replaces the This week box. `availability.view` data only, never attendance times.
-- [ ] **11. Tasks: "Upcoming shoots and visits".** One row per event task: date and time, title, place, people, status. Uncluttered; the time and place stand out. The deadline list stays below.
+- [x] **10. Team today card on Today** (Built in v6.5 on `phase-v65`, 25 Nov 2026: WORKFLOWS "Team today"; "+ Book someone free" opens Calendar → Day, Q5's alternative.) (Admin and Owner): counts (free now, booked today, on leave), one line per person (type · time · who booked; Free all day; On leave) and "+ Book someone free". It replaces the This week box. `availability.view` data only, never attendance times.
+- [x] **11. Tasks: "Upcoming shoots and visits".** (Built in v6.5 on `phase-v65`, 25 Nov 2026: today plus six days, listed once; the Crew's My Day says the time and place.) One row per event task: date and time, title, place, people, status. Uncluttered; the time and place stand out. The deadline list stays below.
 - [x] **12. New task, type first.** (Built in v6.0 on `phase-v60`, 25 Nov 2026: WORKFLOWS §3.1 "The form as built (v6.0)". The form's shape follows the type's `kind = event`; "· on the calendar" in the hint follows `shows_on_calendar`. Not released yet.)
   - The first field is a **Type dropdown** in Settings → Task types order, each with a hint of what it asks for.
   - An event type (`shows_on_calendar`) shows When / From / To / Where / Client up front; **Done by defaults to the end of the event**, changeable.
   - Any other type shows one deadline.
   - The people picker is unit 9's.
-- [ ] **13. People for Admins:** photos, role and status stay; **Today** and **Next booked** are added. The Owner's and Crew's People pages don't change.
+- [x] **13. People for Admins:** (Built in v6.5 on `phase-v65`, 25 Nov 2026: `member_next_booking`, 30 days; "On leave" without the return date.) photos, role and status stay; **Today** and **Next booked** are added. The Owner's and Crew's People pages don't change.
 
 - [x] **CI resilience: done early** (owner decision, 11 Nov 2026: "make that change now"; #89 6802466628): `ci.yml` installs Chromium without apt and proves a headless launch, with apt (`playwright install-deps chromium`) only as a fallback if that launch fails (commit bafd6f45). Not done: the optional browser cache.
 

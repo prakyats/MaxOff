@@ -35,6 +35,8 @@ interface LoadingStateProps {
   label?: string | undefined;
   /** `cards` led by a person's 40 px photo (People, V5b-D). */
   avatars?: boolean | undefined;
+  /** `cards` with more quiet lines under the title (an Admin's People: Today, Next booked). */
+  subtitleLines?: number | undefined;
 }
 
 const DEFAULT_COUNT: Record<LoadingShape, number> = {
@@ -59,6 +61,7 @@ export function LoadingState({
   className,
   label = "Loading",
   avatars = false,
+  subtitleLines = 1,
 }: LoadingStateProps) {
   const items = count ?? DEFAULT_COUNT[shape];
 
@@ -72,7 +75,9 @@ export function LoadingState({
       className={cn(shape === "tiles" ? "grid grid-cols-2 gap-3 lg:grid-cols-4" : null, className)}
     >
       {shape === "list" ? <ListSkeleton items={items} actions={actions} /> : null}
-      {shape === "cards" ? <CardsSkeleton items={items} avatars={avatars} /> : null}
+      {shape === "cards" ? (
+        <CardsSkeleton items={items} avatars={avatars} subtitleLines={subtitleLines} />
+      ) : null}
       {shape === "tiles" ? <TilesSkeleton items={items} /> : null}
       {shape === "detail" ? <DetailSkeleton items={items} /> : null}
       {shape === "table" ? <TableSkeleton items={items} columns={columns} /> : null}
@@ -106,7 +111,15 @@ function ListSkeleton({ items, actions }: { items: number; actions: number }) {
  * The mobile card list. Height and padding come from `row-metrics`, the same constants
  * `DataTable` uses for a real card, so the two cannot drift apart.
  */
-function CardsSkeleton({ items, avatars }: { items: number; avatars: boolean }) {
+function CardsSkeleton({
+  items,
+  avatars,
+  subtitleLines,
+}: {
+  items: number;
+  avatars: boolean;
+  subtitleLines: number;
+}) {
   return (
     <ul className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
       {Array.from({ length: items }, (_, i) => (
@@ -118,7 +131,9 @@ function CardsSkeleton({ items, avatars }: { items: number; avatars: boolean }) 
           {avatars ? <Skeleton className="size-10 shrink-0 rounded-full" /> : null}
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
             <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-3 w-1/3" />
+            {Array.from({ length: subtitleLines }, (_, line) => (
+              <Skeleton key={line} className={cn("h-3", line === 0 ? "w-1/3" : "w-2/3")} />
+            ))}
           </span>
           <Skeleton className="size-4 shrink-0 rounded-sm" />
         </li>
@@ -207,6 +222,7 @@ export function PageLoading({
   actions,
   back,
   avatars,
+  subtitleLines,
   children,
 }: {
   title: string;
@@ -223,6 +239,8 @@ export function PageLoading({
   back?: { href: string; label: string } | undefined;
   /** `cards` led by a person's photo (People, V5b-D). */
   avatars?: boolean | undefined;
+  /** `cards` with more quiet lines under the title (`LoadingState`). */
+  subtitleLines?: number | undefined;
   /** Replaces the default skeleton when a screen needs a shape of its own (e.g. the calendar). */
   children?: React.ReactNode;
 }) {
@@ -240,6 +258,7 @@ export function PageLoading({
           count={count}
           actions={actions}
           avatars={avatars}
+          subtitleLines={subtitleLines}
           label={`Loading ${title}`}
         />
       )}

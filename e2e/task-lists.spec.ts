@@ -6,6 +6,7 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
 
 import {
   expectBackStack,
+  expectNoHorizontalScroll,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -417,6 +418,60 @@ test.describe("the task lists, the flows", () => {
     // "+ Book someone free" opens Calendar → Day for today (Q5's alternative, a drill-down).
     await card.locator('[data-slot="team-today-book"]').click();
     await expect(page).toHaveURL(new RegExp(`/calendar\\?view=day&date=${today}$`));
+    await removeTasksTitled(prefix);
+  });
+
+  test("People for an Admin: Today and Next booked; the Owner's People unchanged", async ({
+    page,
+  }, info) => {
+    // v6.5 unit 13 (owner 14 Nov 2026; the sample "4"): an Admin's People gains Today (what each
+    // person is on) and Next booked (the first booking after today, within 30 days).
+    const prefix = prefixOf(info);
+    await removeTasksTitled(prefix);
+    const who = people(info);
+    const today = todayIST();
+    const later = addISTDays(today, 3);
+    await adminCreates(who.admin.email, {
+      title: `${prefix}people shoot`,
+      assignees: [who.freelancer.id],
+      due: istInstant(addISTDays(today, 5), "18:00"),
+      type: await taskTypeId("Shoot / Site Visit"),
+      more: {
+        event_date: today,
+        event_start_at: istInstant(today, "14:00"),
+        event_end_at: istInstant(today, "16:00"),
+      },
+    });
+    await adminCreates(who.admin.email, {
+      title: `${prefix}people meeting`,
+      assignees: [who.freelancer.id],
+      due: istInstant(addISTDays(today, 5), "18:00"),
+      type: await taskTypeId("Meeting"),
+      more: { event_date: later, event_start_at: istInstant(later, "10:00") },
+    });
+    const row = page
+      .locator('tr:visible, [data-slot="data-card"]:visible, li:visible')
+      .filter({ hasText: who.freelancer.name })
+      .first();
+
+    await signIn(page, who.admin.email, PASSWORD);
+    await page.goto("/people");
+    await expect(page.locator('[data-slot="next-booked"]:visible').first()).toBeVisible();
+    // A phone lists ten cards at a time: "Show more" until the person is there.
+    const showMore = page.locator('[data-slot="data-cards-more"]:visible');
+    while ((await row.count()) === 0 && (await showMore.isVisible())) await showMore.click();
+    await expect(row).toContainText("Shoot / Site Visit 2:00 pm – 4:00 pm · you");
+    await expect(row.locator('[data-slot="next-booked"]')).toContainText(
+      /^(Next: )?\w{3} \d{1,2} · Meeting 10:00 am · you$/,
+    );
+    await expectNoHorizontalScroll(page);
+
+    // The Owner's People page has neither column.
+    await page.context().clearCookies();
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/people");
+    await expect(page.locator('[data-slot="next-booked"]')).toHaveCount(0);
+    await expect(page.getByRole("columnheader", { name: "Next booked" })).toHaveCount(0);
     await removeTasksTitled(prefix);
   });
 

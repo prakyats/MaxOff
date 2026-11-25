@@ -66,8 +66,32 @@ function nameLine(member: TeamRow): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-/** An Admin's "Today" for a person (PP-admin-10), worked out by the page. */
-export type TeamToday = { label: string; tone: StatusTone };
+/**
+ * An Admin's "Today" for a person (PP-admin-10; v6.5 unit 13: what they are on, "Shoot 2:00 pm –
+ * 4:00 pm · you", "Free all day", "On leave", "Half day"), worked out by the page. `color`: a
+ * booking's type colour for its dot; otherwise the tone's.
+ */
+export type TeamToday = { label: string; tone: StatusTone; color?: string | null };
+
+/** The Today word with its dot: the booking's type colour, else the tone's. */
+function TodayDot({ status }: { status: TeamToday }) {
+  if (!status.color)
+    return <StatusDot status={status.label} tone={status.tone} label={status.label} />;
+  return (
+    <span
+      data-slot="status-dot"
+      data-status={status.label}
+      className="text-foreground inline-flex min-w-0 items-center gap-1.5 text-xs"
+    >
+      <span
+        aria-hidden
+        className="size-2 shrink-0 rounded-full"
+        style={{ backgroundColor: status.color }}
+      />
+      <span className="min-w-0 truncate">{status.label}</span>
+    </span>
+  );
+}
 
 /**
  * The team list (PERMISSIONS §2: Admins see no email). Every person opens their page
@@ -81,9 +105,12 @@ export function TeamTable({
   viewer,
   coordinators,
   today = null,
+  nextBooked = null,
 }: {
   /** PP-admin-10: an Admin's Today per active person (null: no column, the Owner's list). */
   today?: Readonly<Record<string, TeamToday>> | null;
+  /** v6.5 unit 13: an Admin's "Next booked" per active person (null: no column). */
+  nextBooked?: Readonly<Record<string, string>> | null;
   members: TeamMember[];
   viewer: { id: string; canManage: boolean };
   /** A freelancer's current coordinator's name, by the freelancer's id (ADR-0013, 4C). */
@@ -166,11 +193,23 @@ export function TeamTable({
         accessorFn: (member) => today[member.id]?.label ?? "",
         cell: ({ row }) => {
           const status = today[row.original.id];
-          return status ? (
-            <StatusDot status={status.label} tone={status.tone} label={status.label} />
-          ) : null;
+          return status ? <TodayDot status={status} /> : null;
         },
-        size: 120,
+        size: 220,
+      });
+    }
+    if (nextBooked) {
+      base.push({
+        id: "next-booked",
+        header: "Next booked",
+        accessorFn: (member) => nextBooked[member.id] ?? "",
+        cell: ({ row }) =>
+          row.original.status === "active" ? (
+            <span className="text-muted-foreground text-xs" data-slot="next-booked">
+              {nextBooked[row.original.id] ?? "Nothing booked"}
+            </span>
+          ) : null,
+        size: 220,
       });
     }
     if (viewer.canManage) {
@@ -274,7 +313,7 @@ export function TeamTable({
     return base;
     // The handlers only close over stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewer.id, viewer.canManage, today]);
+  }, [viewer.id, viewer.canManage, today, nextBooked]);
 
   /**
    * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand, and
@@ -286,22 +325,34 @@ export function TeamTable({
     leading: (member) => <PersonAvatar person={faceOf(member)} size={40} />,
     href: (member) => (opensPersonPage(viewer, member) ? `/people/${member.id}` : null),
     moreLabel: (member) => `More for ${member.fullName}`,
-    subtitle: (member) =>
-      withJobTitle(
+    subtitle: (member) => {
+      const who = withJobTitle(
         member.engagement === "freelance"
           ? freelancerLine(member.coordinatorName)
           : roleLabel(member),
         member.jobTitle,
-      ),
-    // An Admin reads an active person's Today here (PP-admin-10); otherwise their status.
-    trailing: (member) => {
+      );
+      // v6.5 unit 13: an Admin's card gains Today and Next booked, a line each.
       const status = member.status === "active" ? today?.[member.id] : undefined;
-      return status ? (
-        <StatusDot status={status.label} tone={status.tone} label={status.label} />
-      ) : (
-        <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />
+      const next = member.status === "active" && nextBooked ? nextBooked[member.id] : undefined;
+      if (!status && !(nextBooked && member.status === "active")) return who;
+      return (
+        <>
+          <span className="block truncate">{who}</span>
+          {status ? (
+            <span className="block truncate" data-slot="card-today">
+              <TodayDot status={status} />
+            </span>
+          ) : null}
+          {nextBooked && member.status === "active" ? (
+            <span className="block truncate" data-slot="next-booked">
+              Next: {next ?? "Nothing booked"}
+            </span>
+          ) : null}
+        </>
       );
     },
+    trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
     detail: (member) => {
       const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;
       return (

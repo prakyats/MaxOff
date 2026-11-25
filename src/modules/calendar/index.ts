@@ -10,6 +10,7 @@
  * loading screen's skeleton is a server component and comes from here.
  */
 export { listAvailability } from "./data/availability";
+export { listNextBookings, type NextBookingRow } from "./data/next-booking";
 export {
   addMonths,
   buildCalendar,

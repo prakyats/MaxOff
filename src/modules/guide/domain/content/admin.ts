@@ -833,11 +833,20 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "People lists the active people on the team with their role and job title, and a Today column: Available, On leave, Half day or Busy (inside one of their timed event tasks right now). “Show all” at the foot adds the people who are invited or deactivated; “Show active only” goes back. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
+              text: "People lists the active people on the team with their photo, role, job title and status, and two more columns. Today says what each person is on today: a booking with its type, time and who booked it (“Shoot / Site Visit 2:00 pm – 4:00 pm · you”, the dot in the type’s colour), “Free all day”, “On leave” or “Half day”. Next booked is their first booking after today within 30 days (“Thu 19 · Meeting 10:00 am · Sana”), or “Nothing booked”. On a phone each card has the two as lines under the role. “Show all” at the foot adds the people who are invited or deactivated; “Show active only” goes back. Open a person to see their profile. Only the Owner adds people, changes roles or sees attendance and leave there.",
             },
           ],
           link: { href: "/people", label: "Open People" },
-          keywords: ["team", "directory", "profile", "job title"],
+          keywords: [
+            "team",
+            "directory",
+            "profile",
+            "job title",
+            "today",
+            "next booked",
+            "booked",
+            "free",
+          ],
         },
         {
           id: "admin-report",

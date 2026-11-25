@@ -4,7 +4,8 @@ import { listItems } from "@/core/lists/server";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { systemClock, todayIST } from "@/core/time";
+import { bookedByWord } from "@/core/lib/booking-words";
+import { formatIST, istDayStart, systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { ViewLink } from "@/core/ui/composites/view-link";
 import {
@@ -15,10 +16,28 @@ import {
   sortMembers,
 } from "@/modules/team";
 import { AddPersonDialog } from "@/modules/team/components/add-person-dialog";
-import { TeamTable } from "@/modules/team/components/team-table";
-import { listAvailability } from "@/modules/tasks";
+import { type TeamToday, TeamTable } from "@/modules/team/components/team-table";
+import {
+  buildCrew,
+  DEFAULT_EVENT_COLOR,
+  listAvailability,
+  listNextBookings,
+  nextBookedLine,
+  type TeamLine,
+  teamToday,
+} from "@/modules/calendar";
+import { listTaskTypes, taskTypeColor } from "@/modules/tasks";
 
-import { todayStatus, type TodayStatus } from "./today-status";
+/** How far "Next booked" looks (v6.5 Q4): 30 days, then "Nothing booked". */
+const NEXT_BOOKED_DAYS = 30;
+
+/** Each line's dot tone when it is not a booking (whose dot is its type's colour). */
+const TODAY_TONE: Record<TeamLine["kind"], TeamToday["tone"]> = {
+  booked: "info",
+  free: "success",
+  leave: "neutral",
+  half: "attention",
+};
 
 export const metadata: Metadata = { title: "People" };
 
@@ -42,32 +61,76 @@ export default async function PeoplePage({
   startEarly(full, directory, titles, coordinatorIds);
   const [viewer, params] = await Promise.all([requirePermission("team.view"), searchParams]);
   const canManage = can(viewer.role, "team.manage");
-  // PP-admin-10: an Admin's "Today" (available, on leave, a half day, busy) from
-  // member_availability() (availability.view: never a pending request or a title), read with the
-  // list in this page's own loader, everyone the Admin may see at once. The Owner has the board.
+  // PP-admin-10, v6.5 unit 13: an Admin's "Today" (what each person is on: "Shoot 2:00 pm – 4:00 pm
+  // · you", "Free all day", "On leave", "Half day") from member_availability(), and "Next booked"
+  // from member_next_booking() (availability.view: never a title, client or location), read with
+  // the list in one wave. The Owner's People page is unchanged (the plan: the board is theirs).
   const wantsToday = !canManage && can(viewer.role, "availability.view");
-  const [allMembers, jobTitleOptions, currentCoordinators, days] = await Promise.all([
-    canManage ? full : directory,
-    titles,
-    coordinatorIds,
-    wantsToday ? listAvailability([todayIST()]) : Promise.resolve([]),
-  ]);
+  const day = todayIST();
+  const [allMembers, jobTitleOptions, currentCoordinators, days, upcoming, types] =
+    await Promise.all([
+      canManage ? full : directory,
+      titles,
+      coordinatorIds,
+      wantsToday ? listAvailability(day, day, null) : Promise.resolve([]),
+      wantsToday ? listNextBookings(day, NEXT_BOOKED_DAYS) : Promise.resolve([]),
+      wantsToday ? listTaskTypes() : Promise.resolve([]),
+    ]);
   // PP-admin-11: an Admin's list opens on the active people, "Show all" one quiet tap away (a view
   // control: the address is replaced, never history). The Owner's shows everyone, as before.
   const showAll = canManage || params.all === "1";
   const members = showAll ? allMembers : allMembers.filter((member) => member.status === "active");
   const hidden = allMembers.length - members.length;
-  const today: Record<string, TodayStatus> = {};
+  const today: Record<string, TeamToday> = {};
+  const nextBooked: Record<string, string> = {};
   if (wantsToday) {
-    const now = systemClock();
-    for (const member of members) {
-      if (member.status !== "active") continue;
-      const status = todayStatus(
-        days.find((day) => day.memberId === member.id),
-        now,
-        member.role === "owner",
+    const owner = allMembers.find(
+      (member) => member.role === "owner" && member.status === "active",
+    );
+    const crew = buildCrew({
+      scope: "admin",
+      viewerId: viewer.id,
+      owner: owner ? { id: owner.id, name: owner.fullName } : null,
+      people: allMembers
+        .filter((member) => member.status === "active" && member.role !== "owner")
+        .map((member) => ({ id: member.id, name: member.fullName })),
+      types: types.map((type) => ({
+        id: type.id,
+        name: type.name,
+        color: taskTypeColor(type.color),
+      })),
+      nameOf: (memberId) => allMembers.find((member) => member.id === memberId)?.fullName ?? null,
+      fallbackColor: DEFAULT_EVENT_COLOR,
+      events: [],
+      leave: [],
+      availability: days,
+    });
+    for (const line of crew ? teamToday(crew, day, systemClock()).lines : []) {
+      today[line.memberId] = {
+        label:
+          [line.text, line.by].filter(Boolean).join(" · ") +
+          (line.more > 0 ? ` +${line.more}` : ""),
+        tone: TODAY_TONE[line.kind],
+        color: line.kind === "booked" ? line.color : null,
+      };
+    }
+    const dayName = (date: string) => formatIST(istDayStart(date), "EEE d");
+    for (const row of upcoming) {
+      nextBooked[row.memberId] = nextBookedLine(
+        {
+          memberId: row.memberId,
+          onDate: row.onDate,
+          startAt: row.startAt,
+          endAt: row.endAt,
+          typeName: row.typeName,
+          by: bookedByWord(
+            { id: row.bookedById, name: row.bookedByName },
+            viewer.id,
+            owner?.id ?? null,
+          ),
+        },
+        dayName,
       );
-      if (status) today[member.id] = status;
     }
   }
   // A freelancer is named with their coordinator (ADR-0013); `team.view` reads every current row.
@@ -104,7 +167,8 @@ export default async function PeoplePage({
         members={sortMembers(members)}
         viewer={{ id: viewer.id, canManage }}
         coordinators={coordinators}
-        today={canManage ? null : today}
+        today={wantsToday ? today : null}
+        nextBooked={wantsToday ? nextBooked : null}
       />
       {canManage || (hidden === 0 && !showAll) ? null : (
         <p className="mt-2 flex justify-center">
