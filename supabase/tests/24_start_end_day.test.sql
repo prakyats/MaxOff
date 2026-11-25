@@ -7,6 +7,7 @@
 -- attendance_today_detail and the cron row. The 2.x functions are untouched (expand-only), which
 -- 07, 08, 09, 12 and 13 keep proving.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(111);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration

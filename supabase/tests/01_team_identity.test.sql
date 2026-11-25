@@ -2,6 +2,7 @@
 -- Every table for every role (allowed and denied), the helpers, the audit trigger, the column
 -- guards and the PERMISSIONS §1 seed. Everything rolls back.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(143);
 
