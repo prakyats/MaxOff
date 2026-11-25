@@ -1,0 +1,650 @@
+<title>v5.0 Hand In Work</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: the page chrome (questions, numbered sections) around static mocks drawn in MaxOff's own tokens (src/app/globals.css), switchable dark/light */
+:root{
+  --page:#f4f4f2; --page-ink:#18181b; --page-muted:#5f5f66; --page-line:#dedede; --page-card:#ffffff;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0e0e10;--page-ink:#ededee;--page-muted:#a1a1a8;--page-line:#26262a;--page-card:#151517;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0e0e10;--page-ink:#ededee;--page-muted:#a1a1a8;--page-line:#26262a;--page-card:#151517;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--page-ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+header.top{display:flex;flex-direction:column;gap:10px}
+h1{font-size:28px;letter-spacing:-.025em;margin:0;text-wrap:balance}
+h2{font-size:20px;letter-spacing:-.02em;margin:0;text-wrap:balance}
+h3{font-size:15px;margin:0}
+.lede{color:var(--page-muted);margin:0;max-width:76ch}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar span{color:var(--page-muted);font-size:13px}
+.seg{display:inline-flex;background:var(--page-card);border:1px solid var(--page-line);border-radius:8px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--page-muted);padding:6px 12px;border-radius:6px;cursor:pointer;min-height:32px}
+.seg button[aria-pressed="true"]{background:var(--page-ink);color:var(--page)}
+.seg button:focus-visible{outline:2px solid var(--page-ink);outline-offset:2px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+nav.toc a{color:var(--page-ink)}
+section.change{display:flex;flex-direction:column;gap:16px;scroll-margin-top:16px}
+.chead{display:flex;flex-direction:column;gap:6px}
+.num{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--page-muted)}
+ul.what{margin:0;padding-left:18px;max-width:84ch;display:flex;flex-direction:column;gap:3px}
+.cap{font-size:12.5px;color:var(--page-muted);max-width:375px}
+.st{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.st.new{background:#b45309;color:#fff}.st.rec{background:#2952cc;color:#fff}
+.box{display:flex;flex-direction:column;gap:10px;background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:16px 18px}
+.box p{margin:0;max-width:84ch}
+.box.q{border-left:4px solid #2952cc}
+ol.qs{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px;max-width:96ch}
+ol.qs li b{font-weight:600}
+ol.qs .rec{display:block}
+ol.qs .alt{display:block;color:var(--page-muted)}
+.decided{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px 18px;margin:0;padding:0;list-style:none;font-size:13px}
+.decided li{padding-left:16px;position:relative}
+.decided li::before{content:"✓";position:absolute;left:0;color:#15803d;font-weight:700}
+.row-of-phones{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.state{display:flex;flex-direction:column;gap:8px;width:375px;max-width:100%}
+.state > .lbl{font-size:12.5px;font-weight:600}
+
+/* ---------- the MaxOff mocks: tokens mirrored from src/app/globals.css ---------- */
+.mx{--background:#0b0b0c;--foreground:#ededee;--card:#131315;--popover:#1a1a1d;--primary:#ededee;--primary-foreground:#0b0b0c;
+  --muted:#1f1f23;--muted-foreground:#9d9da5;--faint:#6b6b73;--border:#25252a;--control-border:#6b6b73;
+  --success:#5fd497;--success-soft:#10291c;--info:#8fb0ff;--info-soft:#18203a;--attention:#f5b55a;--attention-soft:#33240e;
+  --danger:#ff8a8f;--danger-soft:#3a1517;--neutral:#9d9da5;--neutral-soft:#232327;--destructive:#f2686d;
+  --destructive-solid:#c42126;--approve:#15803d;--logo:#c42126;--surface-0:#0b0b0c;--surface-1:#131315;--surface-2:#1a1a1d;--surface-3:#222226;
+  --elevation-1:0 1px 0 0 rgb(255 255 255 / .03),0 6px 18px 0 rgb(0 0 0 / .35);--elevation-3:0 12px 32px 0 rgb(0 0 0 / .5);--scrim:rgb(0 0 0 / .3);
+  --radius-control:6px;--radius-card:10px;--radius-sheet:14px;
+  background:var(--background);color:var(--foreground);font-family:var(--sans);font-size:14px;line-height:1.43;color-scheme:dark}
+.mxlight .mx{--background:#f6f5f2;--foreground:#18181b;--card:#ffffff;--popover:#ffffff;--primary:#18181b;--primary-foreground:#ffffff;
+  --muted:#eeede8;--muted-foreground:#62626a;--faint:#8b8b93;--border:#e3e2dd;--control-border:#85858c;
+  --success:#157e3c;--success-soft:#e6f4ea;--info:#2952cc;--info-soft:#e9effd;--attention:#8f5400;--attention-soft:#fdf3e2;
+  --danger:#b42318;--danger-soft:#fdecec;--neutral:#62626a;--neutral-soft:#efefef;--destructive:#c42126;
+  --surface-0:#f6f5f2;--surface-1:#ffffff;--surface-2:#ffffff;--surface-3:#ffffff;
+  --elevation-1:0 1px 2px 0 rgb(20 20 20 / .06),0 4px 14px 0 rgb(20 20 20 / .06);--elevation-3:0 12px 32px 0 rgb(24 24 27 / .14),0 2px 6px 0 rgb(24 24 27 / .06);--scrim:rgb(0 0 0 / .1);
+  color-scheme:light}
+.mx *{min-width:0}
+.mx .muted{color:var(--muted-foreground)}
+.mx .xs{font-size:12px}
+.mx .sm{font-size:13px}
+.mx .tab{font-variant-numeric:tabular-nums}
+.mx .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--elevation-1)}
+.mx .btn{font:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 16px;border-radius:var(--radius-control);border:1px solid var(--control-border);background:transparent;color:var(--foreground);display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:default}
+.mx .btn.primary{background:var(--primary);color:var(--primary-foreground);border-color:transparent}
+.mx .btn.approve{background:var(--approve);color:#fff;border-color:transparent}
+.mx .btn.danger{background:var(--destructive-solid);color:#fff;border-color:transparent}
+.mx .btn.destructive{border-color:var(--destructive);color:var(--destructive)}
+.mx .btn.ghost{border-color:transparent;color:var(--muted-foreground)}
+.mx .btn.wide{width:100%}
+.mx .btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+.mx .btn[disabled]{background:var(--muted);color:var(--muted-foreground);border-color:transparent}
+.mx .icon{width:44px;height:44px;display:inline-grid;place-items:center;border-radius:var(--radius-control);color:var(--muted-foreground);flex:none}
+.mx .chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap;flex:none}
+.mx .chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.mx .c-red{background:var(--danger-soft);color:var(--danger)}
+.mx .c-amber{background:var(--attention-soft);color:var(--attention)}
+.mx .c-blue{background:var(--info-soft);color:var(--info)}
+.mx .c-green{background:var(--success-soft);color:var(--success)}
+.mx .c-grey{background:var(--neutral-soft);color:var(--neutral)}
+.mx .meter{height:6px;border-radius:999px;background:var(--neutral-soft);overflow:hidden;display:flex}
+.mx .meter i{display:block;height:100%;background:var(--success)}
+.mx .meter i + i{background:color-mix(in srgb,var(--success) 35%,transparent)}
+.mx .meter.big{height:8px}
+.mx .band{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--radius-card);font-size:13px}
+.mx .band.amber{background:var(--attention-soft)}
+.mx .band.amber b{color:var(--attention)}
+.mx .band.grey{background:var(--neutral-soft)}
+.mx .band.blue{background:var(--info-soft)}
+.mx .band.blue b{color:var(--info)}
+.mx .band.red{background:var(--danger-soft)}
+.mx .band.red b{color:var(--danger)}
+.mx label.l{font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+.mx .input{height:44px;border:1px solid var(--control-border);border-radius:var(--radius-control);background:var(--surface-1);display:flex;align-items:center;padding:0 12px;font-size:16px;color:var(--foreground)}
+.mx .input .ph{color:var(--faint)}
+.mx .hint{font-size:12px;color:var(--muted-foreground);margin-top:6px}
+.mx .frow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--border);min-height:60px}
+.mx .frow:first-child{border-top:0}
+.mx .fi{width:36px;height:36px;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:10px;font-weight:600;color:var(--muted-foreground);flex:none;letter-spacing:.02em}
+.mx .ft{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.mx .ft b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .ft span{font-size:12px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .ft .path{font-size:12px;color:var(--faint)}
+.mx .sum{display:flex;flex-direction:column;gap:8px;padding:14px}
+.mx .sum .big{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.mx .center{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:28px 8px}
+.mx .tick{width:56px;height:56px;border-radius:50%;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-size:26px;font-weight:700}
+.mx .stop{width:56px;height:56px;border-radius:50%;background:var(--neutral-soft);color:var(--neutral);display:grid;place-items:center;font-size:24px;font-weight:700}
+.mx .drop{border:1.5px dashed var(--control-border);border-radius:var(--radius-card);padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.mx .drop .up{width:44px;height:44px;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:20px}
+.mx .sec{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)}
+.mx .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.mx a.lk{color:var(--foreground);text-decoration:underline;text-underline-offset:3px}
+
+/* the uploader's page: a phone */
+.mx.ph{width:375px;max-width:100%;border:1px solid var(--border);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;min-height:720px;position:relative}
+.mx.ph .top{height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--surface-0)}
+.mx .mark{width:26px;height:26px;border-radius:7px;background:var(--logo);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.mx .top .org{font-weight:600;flex:1}
+.mx.ph .body{padding:16px;display:flex;flex-direction:column;gap:14px;flex:1}
+.mx.ph .dock{padding:12px 16px 22px;border-top:1px solid var(--border);background:var(--surface-1);display:flex;flex-direction:column;gap:8px}
+.mx .title{display:flex;flex-direction:column;gap:2px}
+.mx .title b{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.mx .offline{background:var(--surface-3);border-top:1px solid var(--border);padding:10px 16px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+
+/* a dialog over the phone */
+.mx .scrim{position:absolute;inset:0;background:var(--scrim);display:flex;flex-direction:column;justify-content:flex-end}
+.mx .sheet{background:var(--surface-3);border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;padding:10px 16px 24px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--elevation-3)}
+.mx .handle{width:36px;height:4px;border-radius:4px;background:var(--border);margin:0 auto}
+.mx .sheet .sh{display:flex;align-items:center;gap:8px}
+.mx .sheet .sh b{font-size:16px;flex:1}
+.mx .native{position:absolute;inset:0;background:rgb(0 0 0 / .45);display:grid;place-items:center;padding:20px}
+.mx .native .nd{background:#fff;color:#18181b;border-radius:14px;padding:18px;width:100%;max-width:300px;display:flex;flex-direction:column;gap:10px;font-size:14px;box-shadow:0 12px 32px rgb(0 0 0 / .3)}
+.mx .native .nd .row{display:flex;justify-content:flex-end;gap:16px;color:#2952cc;font-weight:600}
+
+/* the laptop */
+.mx.lap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.mx.lap .lbar{height:40px;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--border);background:var(--surface-1);font-size:12px;color:var(--muted-foreground)}
+.mx.lap .lbar .dots{display:flex;gap:6px;margin-right:8px}
+.mx.lap .lbar .dots i{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.mx.lap .lbar .url{flex:1;max-width:420px;height:26px;border-radius:6px;background:var(--muted);display:flex;align-items:center;padding:0 10px}
+.mx .lapbody{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:24px;align-items:start}
+.mx .uphead{display:flex;align-items:center;gap:10px;padding:0 24px;height:56px;border-bottom:1px solid var(--border)}
+@media (max-width:900px){.mx .lapbody{grid-template-columns:minmax(0,1fr)}}
+
+/* the app (Admin) */
+.mx .app{display:grid;grid-template-columns:180px minmax(0,1fr)}
+.mx .side{background:var(--surface-0);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.mx .side .brand{display:flex;gap:8px;align-items:center;font-weight:700;padding:2px 6px 12px}
+.mx .side .nav{padding:8px;border-radius:6px;color:var(--muted-foreground)}
+.mx .side .nav.on{background:var(--surface-3);color:var(--foreground);font-weight:600}
+.mx .main{display:flex;flex-direction:column;min-width:0;background:var(--background)}
+.mx .abar{height:44px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 16px;color:var(--muted-foreground);font-size:13px}
+.mx .content{padding:18px 22px 24px;display:flex;flex-direction:column;gap:16px}
+.mx .ttlrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mx .ttlrow .t{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.mx .meta{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:13px;color:var(--muted-foreground)}
+.mx .tabs{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;width:max-content}
+.mx .tabs span{padding:6px 12px;border-radius:6px;color:var(--muted-foreground);font-size:13px}
+.mx .tabs .on{background:var(--surface-3);color:var(--foreground);font-weight:600}
+.mx .uhead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mx .uhead .h{font-weight:600;flex:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mx .urow{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 120px 110px auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--border);font-size:13px}
+.mx .urow:first-of-type{border-top:0}
+.mx .urow .who{display:flex;flex-direction:column;gap:3px}
+.mx .urow .who b{font-weight:600}
+.mx .urow .who .chips{display:flex;gap:6px;flex-wrap:wrap}
+.mx .urow .prog{display:flex;flex-direction:column;gap:5px}
+.mx .uth{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 120px 110px auto;gap:12px;padding:8px 14px;font-size:12px;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+.mx .ufoot{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--border);flex-wrap:wrap}
+.mx .linkrow{display:flex;align-items:center;gap:10px;padding:12px 14px;flex-wrap:wrap}
+.mx .linkrow .lnk{flex:1;font-size:13px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:140px}
+.mx .twocol{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:900px){.mx .app{grid-template-columns:minmax(0,1fr)}.mx .side{display:none}.mx .twocol{grid-template-columns:minmax(0,1fr)}.mx .urow,.mx .uth{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.mx .uth{display:none}}
+/* the Admin on a phone */
+.mx.ph .pbar{height:44px;display:flex;align-items:center;gap:6px;padding:0 6px;border-bottom:1px solid var(--border);font-weight:600}
+.mx.ph .pbar .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .ucard{padding:12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.mx .ucard:first-child{border-top:0}
+.mx .ucard .r1{display:flex;align-items:center;gap:8px}
+.mx .ucard .r1 b{flex:1;font-weight:600}
+.mx .pnav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--border);padding:8px 0 18px;font-size:11px;color:var(--muted-foreground);text-align:center}
+.mx .pnav .on{color:var(--foreground);font-weight:600}
+.mx .push{display:flex;gap:10px;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);box-shadow:var(--elevation-1);font-size:13px}
+.mx .push .ic{width:30px;height:30px;border-radius:8px;background:var(--logo);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.mx .push .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+
+/* v5.0 additions: the hand-in card and versions */
+.mx .vhead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mx .vhead .h{font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1}
+.mx .vsum{padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border)}
+.mx .vnote{font-size:13px;padding:10px 12px;border-radius:8px;background:var(--muted)}
+.mx .older{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--border);font-size:13px;min-height:52px}
+.mx .older b{font-weight:600}
+.mx .older .grow{flex:1;display:flex;flex-direction:column;gap:2px}
+.mx .frow .acts{display:flex;gap:4px;align-items:center}
+.mx .frow .st2{font-size:12px;color:var(--muted-foreground);white-space:nowrap}
+.mx .pill{position:absolute;left:50%;transform:translateX(-50%);bottom:84px;background:var(--surface-3);border:1px solid var(--border);border-radius:999px;padding:8px 14px;box-shadow:var(--elevation-3);font-size:13px;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.mx .spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--info-soft);border-top-color:var(--info);flex:none}
+.mx .reason{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:var(--radius-card);background:var(--attention-soft);font-size:13px}
+.mx .reason b{color:var(--attention)}
+.mx .apprrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--border);font-size:13px}
+.mx .apprrow:first-child{border-top:0}
+</style>
+
+<div class="wrap" id="root">
+<header class="top">
+  <h1>v5.0 Hand in work: screens to approve</h1>
+  <p class="lede">The Crew hand in photos and videos on a task inside MaxOff. Each file goes from their phone or laptop straight into the task's folder in the studio's Google Drive, into a subfolder for each hand-in version (v1, v2…). This is the same way the v4.5 upload link works, and MaxOff keeps no copy. Reviewers see the file list in MaxOff and open the files in Drive. The approval route doesn't change: Mark done goes to the approving Admin, then the Owner. Nothing here is built yet. The example names (Sam, Alex, Jordan, "Brand reel", "Example Café") are made up.</p>
+  <div class="toolbar"><span>Show the mocks in</span><div class="seg" role="group" aria-label="Theme of the mocks"><button type="button" id="m-dark" aria-pressed="true">Dark</button><button type="button" id="m-light" aria-pressed="false">Light</button></div></div>
+  <nav class="toc" aria-label="Sections"><a href="#q">Questions</a><a href="#s1">1 Crew on a phone</a><a href="#s2">2 Mark done</a><a href="#s3">3 Problems</a><a href="#s4">4 Crew on a laptop</a><a href="#s5">5 Reviewer on a laptop</a><a href="#s6">6 Reviewer on a phone</a><a href="#s7">7 Request changes, then v3</a><a href="#s8">8 Approvals and notifications</a></nav>
+</header>
+
+<div class="box q" id="q">
+  <h2>Questions for the owner</h2>
+  <p class="lede">The 25 Nov decisions left these six open. The screens below are drawn with the recommendation for each one.</p>
+  <ol class="qs">
+    <li><b>Who can add files to a hand-in?</b>
+      <span class="rec"><b>Recommended:</b> everyone on the task, so a second shooter adds their own clips. Only the primary owner taps Mark done, and that hands the version in (invariant 6 is unchanged). A freelancer's coordinator adds files for them.</span>
+      <span class="alt">Instead: only the primary owner adds files.</span></li>
+    <li><b>Does Mark done need files?</b>
+      <span class="rec"><b>Recommended:</b> no, files are optional. A task with nothing to hand in, like a meeting or a call, is marked done with a note, as today.</span>
+      <span class="alt">Instead: a setting on each task type, "needs a hand-in", which blocks Mark done until there's a file.</span></li>
+    <li><b>A wrong file added before handing in.</b>
+      <span class="rec"><b>Recommended:</b> <b>Leave out</b>. Before Mark done, the person who added the file (or the primary owner) taps Leave out. The file stays in the Drive folder, because MaxOff never deletes anything. It shows as "Left out" under the version, folded away, and isn't counted. Anyone with the studio Drive can delete it there.</span>
+      <span class="alt">Instead: no Leave out, and the reviewer sees every file that was added.</span></li>
+    <li><b>Which files.</b>
+      <span class="rec"><b>Recommended:</b> any file of any size (a PDF, a project file, a RAW photo), as with the upload link. Risky types get the grey <b>Check before opening</b> chip.</span>
+      <span class="alt">Instead: photos and videos only.</span></li>
+    <li><b>Asking for changes to particular files.</b>
+      <span class="rec"><b>Recommended:</b> a reason only, as today. The reviewer names the files in it, and the box suggests doing so.</span>
+      <span class="alt">Instead: tick the files that need changes (more screens; it could come later).</span></li>
+    <li><b>Who opens hand-in files in Drive.</b>
+      <span class="rec"><b>Recommended:</b> the Owner and the task's Admins: its creator, its approving Admin, and the Admin who coordinates a freelancer primary, the same three as the upload link. They already use the studio Drive account. Everyone else on the task sees names and sizes only. Crew never get a Drive link.</span>
+      <span class="alt">Instead: any Admin who can see the task.</span></li>
+  </ol>
+</div>
+
+<div class="box">
+  <h3>Already decided (owner, 25 Nov), drawn as given</h3>
+  <ul class="decided">
+    <li>Hand in photos and videos on the task, inside MaxOff</li>
+    <li>Files go straight into the task's folder in the studio Drive</li>
+    <li>The same browser-to-Drive mechanism as the upload link: chunked, resumable, a few files at a time</li>
+    <li>One subfolder per version (v1, v2…); originals never touched</li>
+    <li>Reviewers see the list in MaxOff and open the files in Drive</li>
+    <li>No copy in MaxOff's storage; no previews made</li>
+    <li>Approval route unchanged: Done → approving Admin → Owner</li>
+    <li>Only the primary owner marks Done</li>
+    <li>MaxOff never deletes a file; "Removed in Drive" when it's gone</li>
+  </ul>
+</div>
+
+<!-- 1 -->
+<section class="change" id="s1">
+  <div class="chead"><span class="num">1 · Crew on the task · phone, 375 px</span><h2>Adding files on a phone <span class="st new">new</span></h2>
+  <ul class="what">
+    <li>A new <b>Hand-in</b> card on the task's Work view, above Stages. It names the version the next Mark done will hand in: <b>v1</b> at first, v2 after a send-back.</li>
+    <li><b>Add photos and videos</b> is an outline button. It opens the phone's own picker (gallery or files). The page's one solid button stays <b>Mark done</b>, which is neutral and sticky at the bottom, shown only to the primary owner.</li>
+    <li>Each file goes into Drive as soon as it's chosen. The statuses are <b>Waiting</b> (grey), <b>Uploading</b> (blue), <b>In Drive</b> (green), <b>Failed</b> (red, with Retry) and <b>Already added</b> (grey).</li>
+    <li>Uploads keep going while you move around MaxOff in the same tab. A small pill shows the progress, and tapping it brings you back. Closing the tab asks first.</li>
+  </ul></div>
+  <div class="row-of-phones">
+
+    <div class="state"><span class="lbl">A · Nothing added yet (the primary owner)</span>
+      <div class="mx ph">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="meta"><span class="chip c-blue"><i></i>In progress</span><span>Due Fri 27 Nov, 6:00 pm</span></div>
+          <div class="tabs"><span class="on">Work</span><span>Chat</span><span>History</span></div>
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-grey">v1 · not handed in yet</span></span></div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+              <span class="sm muted">Add the photos and videos for this task. They go straight into the studio's Drive and stay full quality.</span>
+              <button class="btn" style="width:max-content">Add photos and videos</button>
+            </div>
+          </div>
+          <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:6px"><span class="sec">Stages</span><span class="sm muted">Shoot ✓ · Edit · Deliver</span></div>
+        </div>
+        <div class="dock"><button class="btn primary wide">Mark done</button></div>
+      </div>
+      <span class="cap">Someone on the task who isn't the primary owner sees the same card with no Mark done. Instead there's a line: "Jordan marks it done and hands it in".</span>
+    </div>
+
+    <div class="state"><span class="lbl">B · Uploading</span>
+      <div class="mx ph">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-grey">v1 · not handed in yet</span></span></div>
+            <div class="sum">
+              <span class="big tab">8 of 12 in Drive</span>
+              <div class="meter big"><i style="width:57%"></i><i style="width:12%"></i></div>
+              <span class="xs muted tab">3.1 of 5.4 GB · about 6 min left</span>
+            </div>
+            <div class="band amber" style="margin:0 14px 10px"><span class="xs"><b>Keep MaxOff open</b> until every file says In Drive. You can move around MaxOff; closing it stops the upload.</span></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0041.MP4</b><span class="tab">1.8 GB · Uploading 62%</span><div class="meter"><i style="width:62%"></i></div></span><span class="icon">⋯</span></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0042.MP4</b><span class="tab">940 MB · Uploading 18%</span><div class="meter"><i style="width:18%"></i></div></span><span class="icon">⋯</span></div>
+            <div class="frow"><span class="fi">HEIC</span><span class="ft"><b>IMG_2210.HEIC</b><span class="tab">3.2 MB</span></span><span class="chip c-grey">Waiting</span></div>
+            <div class="frow"><span class="fi">JPG</span><span class="ft"><b>IMG_2207.JPG</b><span class="tab">4.1 MB · Sam</span></span><span class="chip c-green"><i></i>In Drive</span></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0040.MP4</b><span class="tab">1.2 GB · Alex</span></span><span class="chip c-green"><i></i>In Drive</span></div>
+            <div class="frow" style="justify-content:center"><span class="sm muted">+ 7 more</span></div>
+            <div style="padding:12px 14px;border-top:1px solid var(--border)"><button class="btn sm">Add more</button></div>
+          </div>
+        </div>
+        <div class="dock"><button class="btn primary wide">Mark done</button></div>
+      </div>
+      <span class="cap">Q1: Alex is a second shooter on the task, and his clips sit in the same v1. Each row names who added it, except your own. The meter is green for In Drive and pale green for on its way, never red. Nothing from the files themselves (no thumbnails) is loaded.</span>
+    </div>
+
+    <div class="state"><span class="lbl">C · Moving around MaxOff while it uploads</span>
+      <div class="mx ph">
+        <div class="pbar"><span class="icon" style="visibility:hidden">‹</span><span class="t">Tasks</span><span class="icon">⌕</span></div>
+        <div class="body" style="gap:10px">
+          <div class="card" style="padding:12px 14px"><b>Product shoot</b><div class="xs muted">Due Mon 30 Nov</div></div>
+          <div class="card" style="padding:12px 14px"><b>Café menu photos</b><div class="xs muted">Due Tue 1 Dec</div></div>
+          <div class="card" style="padding:12px 14px"><b>Brand reel</b><div class="xs muted">Due Fri 27 Nov</div></div>
+        </div>
+        <div class="pill"><span class="spin"></span><span class="tab">Brand reel · 9 of 12 in Drive</span><span>›</span></div>
+        <div class="pnav"><span>Today</span><span class="on">Tasks</span><span>Calendar</span><span>Leave</span><span>More</span></div>
+      </div>
+      <span class="cap">The pill opens the task on its Hand-in card. It's a link, not a layer, so Back works as usual (§14.2). When every file is in, it says "12 files in Drive" for a few seconds and goes away.</span>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="change" id="s2">
+  <div class="chead"><span class="num">2 · The primary owner</span><h2>Mark done hands the version in <span class="st new">changed</span></h2>
+  <ul class="what">
+    <li>The existing Mark done sheet gains one line at the top: what is being handed in.</li>
+    <li>While a file is still uploading, Mark done waits: "2 files are still uploading. Wait for them, or leave them out." Failed files never block it (they aren't in Drive).</li>
+    <li>No files is fine (Q2): the sheet then reads as it does today.</li>
+    <li>After Mark done the task is locked, as today, and nothing more can be added until it comes back.</li>
+  </ul></div>
+  <div class="row-of-phones">
+    <div class="state"><span class="lbl">A · Files still on their way</span>
+      <div class="mx ph" style="min-height:560px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body"></div>
+        <div class="scrim">
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="sh"><b>Mark done</b><span class="icon" aria-label="Close">✕</span></div>
+            <div class="band blue"><span class="sm"><b>2 files are still uploading.</b> Wait for them, or leave them out.</span></div>
+            <div class="kv"><span>Hand-in v1</span><span class="tab muted">10 of 12 in Drive</span></div>
+            <div><label class="l">Note (optional)</label><div class="input" style="height:72px;align-items:flex-start;padding-top:10px"><span class="ph">Anything the reviewer should know</span></div></div>
+            <button class="btn wide" disabled>Mark done</button>
+            <button class="btn wide">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="state"><span class="lbl">B · Ready</span>
+      <div class="mx ph" style="min-height:560px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body"></div>
+        <div class="scrim">
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="sh"><b>Mark done</b><span class="icon" aria-label="Close">✕</span></div>
+            <span class="sm muted">It goes for review. The task is locked until then; comments stay open.</span>
+            <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center"><span class="fi">v1</span><span class="ft"><b>Hand-in v1 · 12 files</b><span class="tab">5.4 GB · all in Drive</span></span></div>
+            <div><label class="l">Note (optional)</label><div class="input" style="height:72px;align-items:flex-start;padding-top:10px"><span>Final cut is C0041. The rest are b-roll.</span></div></div>
+            <button class="btn primary wide">Mark done</button>
+          </div>
+        </div>
+      </div>
+      <span class="cap">If the task is past its deadline, the "Why is it late?" field is still required, as today.</span>
+    </div>
+    <div class="state"><span class="lbl">C · After Mark done (Crew's view)</span>
+      <div class="mx ph" style="min-height:560px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="meta"><span class="chip c-blue"><i></i>Submitted</span></div>
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-green"><i></i>v1 handed in</span></span></div>
+            <div class="vsum"><span class="sm tab">Thu 26 Nov, 4:12 pm · 12 files · 5.4 GB</span><span class="vnote">Final cut is C0041. The rest are b-roll.</span></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0041.MP4</b><span class="tab">1.8 GB</span></span><span class="chip c-green"><i></i>In Drive</span></div>
+            <div class="frow" style="justify-content:center"><span class="sm muted">+ 11 more</span></div>
+          </div>
+          <span class="xs muted">The Crew see names and sizes only, never a Drive link (Q6).</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="change" id="s3">
+  <div class="chead"><span class="num">3 · Crew · phone</span><h2>When something goes wrong <span class="st new">new</span></h2>
+  <ul class="what">
+    <li><b>The network drops:</b> uploads stop and resume on their own from where they stopped. There's nothing to tap.</li>
+    <li><b>A file fails</b> (it broke on the way, or Google refused it): it's marked red with <b>Retry</b>. It never reaches the reviewer.</li>
+    <li><b>Leave out</b> (Q3): from a file's ⋯ menu, before Mark done. The file stays in Drive, marked Left out.</li>
+    <li><b>Coming back after closing MaxOff:</b> choose the files again, and the ones already in Drive are skipped (matched by name and size).</li>
+  </ul></div>
+  <div class="row-of-phones">
+    <div class="state"><span class="lbl">A · No network</span>
+      <div class="mx ph" style="min-height:520px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-grey">v1 · not handed in yet</span></span></div>
+            <div class="sum"><span class="big tab">8 of 12 in Drive</span><div class="meter big"><i style="width:57%"></i></div><span class="xs muted tab">3.1 of 5.4 GB · paused</span></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0041.MP4</b><span class="tab">1.8 GB · paused at 62%</span></span><span class="chip c-grey">Paused</span></div>
+            <div class="frow"><span class="fi">JPG</span><span class="ft"><b>IMG_2199.JPG</b><span class="tab">3.9 MB</span></span><button class="btn sm destructive">Retry</button></div>
+          </div>
+        </div>
+        <div class="offline"><b>No network</b><span class="muted">Uploads carry on by themselves when you're back online.</span></div>
+      </div>
+      <span class="cap">The failed row says why in its ⋯ ("This file changed on the way. Retry sends it again."). Retry is a red outline because something needs you; the solid button stays Mark done.</span>
+    </div>
+    <div class="state"><span class="lbl">B · Leave out (⋯ on a file)</span>
+      <div class="mx ph" style="min-height:520px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body"></div>
+        <div class="scrim">
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="sh"><b>Leave out C0039.MP4?</b><span class="icon" aria-label="Close">✕</span></div>
+            <span class="sm muted">It won't be part of v1 and isn't counted. It stays in the studio's Drive folder, because MaxOff never deletes files. Someone with the studio Drive can delete it there.</span>
+            <button class="btn wide">Leave it out</button>
+            <button class="btn wide">Keep it</button>
+          </div>
+        </div>
+      </div>
+      <span class="cap">Leave out isn't destructive (nothing is deleted), so it's a neutral button, not red. Only the person who added the file, or the primary owner, can leave it out.</span>
+    </div>
+    <div class="state"><span class="lbl">C · Drive not connected, or the studio's storage is full</span>
+      <div class="mx ph" style="min-height:520px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in</span></div>
+            <div style="padding:14px"><div class="band grey"><span class="sm">Handing in files is off until the Owner reconnects Google Drive. You can still mark the task done with a note.</span></div></div>
+          </div>
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-grey">v1 · not handed in yet</span></span></div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px"><div class="band amber"><span class="sm"><b>The studio's Drive is nearly full.</b> C0050.MP4 (48 GB) can't be added. The Owner has been told.</span></div></div>
+          </div>
+        </div>
+        <div class="dock"><button class="btn primary wide">Mark done</button></div>
+      </div>
+      <span class="cap">Two separate states, shown together here. The Crew never see the studio's storage numbers. Google's daily upload limit pauses uploads, and they carry on by themselves ("Google's daily limit reached; it carries on by itself").</span>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="change" id="s4">
+  <div class="chead"><span class="num">4 · Crew on the task · laptop, 1280 px</span><h2>Adding files on a laptop <span class="st new">new</span></h2>
+  <ul class="what">
+    <li>The same card, wider, with a drop area. Drag in files or <b>whole folders</b>: the folders are kept inside v1 in Drive.</li>
+    <li><b>Choose files</b> and <b>Choose a folder</b> are outline buttons. Mark done stays the page's solid button (top right, as today).</li>
+  </ul></div>
+  <div class="mx lap">
+    <div class="app">
+      <aside class="side"><div class="brand"><span class="mark">M</span>MaxOff</div><span class="nav">Today</span><span class="nav on">Tasks</span><span class="nav">Calendar</span><span class="nav">Leave</span></aside>
+      <div class="main">
+        <div class="abar"><span>🔔</span><span>Sam</span></div>
+        <div class="content">
+          <span class="sm muted">‹ Tasks</span>
+          <div class="ttlrow"><span class="t">Brand reel</span><span class="chip c-blue"><i></i>In progress</span><span style="flex:1"></span><button class="btn primary">Mark done</button><span class="icon">⋯</span></div>
+          <div class="meta"><span>Due Fri 27 Nov, 6:00 pm</span><span>Primary: Sam (you)</span><span>With Alex</span></div>
+          <div class="tabs"><span class="on">Work</span><span>Chat</span><span>History</span></div>
+          <div class="twocol">
+            <div class="card">
+              <div class="vhead"><span class="h">Hand-in <span class="chip c-grey">v1 · not handed in yet</span><span class="sm muted tab" style="font-weight:400">31 of 40 in Drive · 38.2 of 46.0 GB · about 9 min left</span></span></div>
+              <div style="padding:14px;border-bottom:1px solid var(--border)">
+                <div class="drop"><span class="up">↑</span><span class="sm">Drop files or folders here</span><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn sm">Choose files</button><button class="btn sm">Choose a folder</button></div><span class="xs muted">Any file, any size. Folders are kept as they are.</span></div>
+              </div>
+              <div class="frow"><span class="fi">MP4</span><span class="ft"><b>A001_C014.MP4</b><span class="path">Day 1 / Camera A</span><div class="meter"><i style="width:44%"></i></div></span><span class="st2 tab">2.1 of 4.8 GB</span><span class="chip c-blue"><i></i>Uploading</span><span class="icon">⋯</span></div>
+              <div class="frow"><span class="fi">MP4</span><span class="ft"><b>B002_C003.MP4</b><span class="path">Day 1 / Camera B</span><div class="meter"><i style="width:81%"></i></div></span><span class="st2 tab">3.0 of 3.7 GB</span><span class="chip c-blue"><i></i>Uploading</span><span class="icon">⋯</span></div>
+              <div class="frow"><span class="fi">WAV</span><span class="ft"><b>ZOOM0007.WAV</b><span class="path">Day 1 / Audio · Alex</span></span><span class="st2 tab">612 MB</span><span class="chip c-green"><i></i>In Drive</span><span class="icon">⋯</span></div>
+              <div class="frow"><span class="fi">MP4</span><span class="ft"><b>A001_C013.MP4</b><span class="path">Day 1 / Camera A</span></span><span class="st2 tab">5.2 GB</span><span class="chip c-grey">Already added</span><span class="icon">⋯</span></div>
+              <div class="frow" style="justify-content:center"><span class="sm muted">Show all 40</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px">
+                <span class="sec">Where it goes</span>
+                <span class="sm muted">The studio's Drive, in this task's folder, under <b>v1</b>. Originals stay as they are. Keep this tab open until every file says In Drive.</span>
+              </div>
+              <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:6px"><span class="sec">Stages</span><span class="sm muted">Shoot ✓ · Edit · Deliver</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap" style="max-width:none">"Already added" means the same file (name, size and folder) is already in v1, whoever added it, so it's skipped. A file someone left out can be added again.</p>
+</section>
+
+<!-- 5 -->
+<section class="change" id="s5">
+  <div class="chead"><span class="num">5 · The approving Admin and the Owner · laptop</span><h2>Reviewing a hand-in <span class="st new">new</span></h2>
+  <ul class="what">
+    <li>When the task is <b>Submitted</b> (the Admin's step) or <b>Admin approved</b> (the Owner's), the Hand-in card shows the version waiting for you: who handed it in, when, the note, and the files.</li>
+    <li><b>Open the v2 folder in Drive ↗</b> and an <b>Open in Drive ↗</b> link on each file (Q6: the Owner and the task's Admins only). They open in the studio's Drive account, which the Admins already use.</li>
+    <li>Earlier versions are folded below with the reason each was sent back. Left-out files are folded under their version.</li>
+    <li>The buttons don't change: <b>Approve</b> (green) and <b>Request changes</b> (outline).</li>
+    <li>A handed-in file someone deleted in Drive shows <b>Removed in Drive</b> (a grey chip). This is checked after the card is on screen, never slowing the page down.</li>
+  </ul></div>
+  <div class="mx lap">
+    <div class="app">
+      <aside class="side"><div class="brand"><span class="mark">M</span>MaxOff</div><span class="nav">Today</span><span class="nav on">Tasks</span><span class="nav">Calendar</span><span class="nav">Clients</span><span class="nav">Approvals</span><span class="nav">People</span></aside>
+      <div class="main">
+        <div class="abar"><span>🔔</span><span>Admin</span></div>
+        <div class="content">
+          <span class="sm muted">‹ Approvals</span>
+          <div class="ttlrow"><span class="t">Brand reel</span><span class="chip c-blue"><i></i>Submitted</span><span style="flex:1"></span><button class="btn">Request changes</button><button class="btn approve">Approve</button><span class="icon">⋯</span></div>
+          <div class="meta"><span>Example Café</span><span>Due Fri 27 Nov, 6:00 pm</span><span>Primary: Sam</span><span>With Alex</span></div>
+          <div class="tabs"><span class="on">Work</span><span>Chat</span><span>History</span></div>
+          <div class="twocol">
+            <div class="card">
+              <div class="vhead"><span class="h">Hand-in <span class="chip c-green"><i></i>v2 handed in</span><span class="sm muted tab" style="font-weight:400">Sam · Fri 27 Nov, 11:40 am · 14 files · 6.1 GB</span></span><a class="lk sm">Open the v2 folder in Drive ↗</a></div>
+              <div class="vsum"><span class="vnote">Re-cut the intro with the new logo. C0061 is the final.</span></div>
+              <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0061.MP4</b><span class="tab">2.4 GB · Sam</span></span><a class="lk sm">Open in Drive ↗</a></div>
+              <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0062.MP4</b><span class="tab">1.1 GB · Alex</span></span><a class="lk sm">Open in Drive ↗</a></div>
+              <div class="frow"><span class="fi">JPG</span><span class="ft"><b>thumb-cover.jpg</b><span class="tab">2.2 MB · Sam</span></span><a class="lk sm">Open in Drive ↗</a></div>
+              <div class="frow"><span class="fi">HTML</span><span class="ft"><b>preview.html</b><span class="tab">18 KB · Alex</span></span><span class="chip c-grey">Check before opening</span><a class="lk sm">Open in Drive ↗</a></div>
+              <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0058.MP4</b><span class="tab">900 MB · Sam</span></span><span class="chip c-grey">Removed in Drive</span></div>
+              <div class="frow" style="justify-content:center"><span class="sm muted">Show all 14 · 1 left out</span></div>
+              <div class="older"><span class="fi">v1</span><span class="grow"><b>v1 · Thu 26 Nov · 12 files · 5.4 GB</b><span class="xs muted">Sent back by you: "Use the new logo in the intro; C0041's colour is off."</span></span><span class="icon">›</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px">
+                <span class="sec">Next</span>
+                <span class="sm muted">Check the files in Drive. Approve sends the task to the Owner; Request changes sends it back to Sam, and new files go into v3.</span>
+              </div>
+              <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:6px"><span class="sec">Stages</span><span class="sm muted">Shoot ✓ · Edit ✓ · Deliver</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap" style="max-width:none">An Admin who sees the task but isn't one of its Admins (a client's Admin through the label, say) sees the same list without the Drive links. File names are plain text, and nothing from the files themselves is loaded into MaxOff.</p>
+</section>
+
+<!-- 6 -->
+<section class="change" id="s6">
+  <div class="chead"><span class="num">6 · The approving Admin and the Owner · phone</span><h2>Reviewing on a phone <span class="st new">new</span></h2>
+  <ul class="what"><li>The same card, one column. Open in Drive hands over to the Google Drive app if it's installed, otherwise to the browser. The Approve and Request changes bar stays at the bottom, as today.</li></ul></div>
+  <div class="row-of-phones">
+    <div class="state"><span class="lbl">Submitted (the Admin step)</span>
+      <div class="mx ph">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="meta"><span class="chip c-blue"><i></i>Submitted</span><span>Primary: Sam</span></div>
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-green"><i></i>v2</span></span></div>
+            <div class="vsum"><span class="sm tab">Sam · Fri 27 Nov, 11:40 am · 14 files · 6.1 GB</span><span class="vnote">Re-cut the intro with the new logo. C0061 is the final.</span><a class="lk sm">Open the v2 folder in Drive ↗</a></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0061.MP4</b><span class="tab">2.4 GB · Sam</span></span><span class="icon" aria-label="Open in Drive">↗</span></div>
+            <div class="frow"><span class="fi">MP4</span><span class="ft"><b>C0062.MP4</b><span class="tab">1.1 GB · Alex</span></span><span class="icon" aria-label="Open in Drive">↗</span></div>
+            <div class="frow" style="justify-content:center"><span class="sm muted">Show all 14</span></div>
+            <div class="older"><span class="grow"><b>v1 · 12 files</b><span class="xs muted">Sent back Thu 26 Nov</span></span><span class="icon">›</span></div>
+          </div>
+        </div>
+        <div class="dock" style="flex-direction:row"><button class="btn" style="flex:1">Request changes</button><button class="btn approve" style="flex:1">Approve</button></div>
+      </div>
+      <span class="cap">The ↗ on each row is a 44 px target labelled "Open C0061.MP4 in Drive". "Show all 14" expands in place and doesn't add a history step. Tapping v1 opens it as a sheet, and Back closes it.</span>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="change" id="s7">
+  <div class="chead"><span class="num">7 · Reviewer, then Crew</span><h2>Request changes, then v3 <span class="st new">changed</span></h2>
+  <ul class="what">
+    <li>The existing Request changes sheet, with a hint: "Name the files that need changes" (Q5).</li>
+    <li>For the primary owner, the reason sits above the new version. New files go into <b>v3</b>, and v1 and v2 stay exactly as they were.</li>
+  </ul></div>
+  <div class="row-of-phones">
+    <div class="state"><span class="lbl">A · The reviewer asks for changes</span>
+      <div class="mx ph" style="min-height:520px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body"></div>
+        <div class="scrim">
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="sh"><b>Request changes</b><span class="icon" aria-label="Close">✕</span></div>
+            <div><label class="l">What needs to change?</label><div class="input" style="height:88px;align-items:flex-start;padding-top:10px"><span>C0061: the logo is cut off at the end. Everything else is good.</span></div><div class="hint">Name the files that need changes. Sam will see this above v3.</div></div>
+            <button class="btn primary wide">Send back to Sam</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="state"><span class="lbl">B · The primary owner after the send-back</span>
+      <div class="mx ph" style="min-height:520px">
+        <div class="pbar"><span class="icon">‹</span><span class="t">Brand reel</span><span class="icon">⋯</span></div>
+        <div class="body" style="gap:12px">
+          <div class="meta"><span class="chip c-amber"><i></i>Changes requested</span></div>
+          <div class="card">
+            <div class="vhead"><span class="h">Hand-in <span class="chip c-grey">v3 · not handed in yet</span></span></div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+              <div class="reason"><b>Changes requested by Priya</b><span>C0061: the logo is cut off at the end. Everything else is good.</span></div>
+              <button class="btn" style="width:max-content">Add photos and videos</button>
+            </div>
+            <div class="older"><span class="grow"><b>v2 · 14 files</b><span class="xs muted">Handed in Fri 27 Nov</span></span><span class="icon">›</span></div>
+            <div class="older"><span class="grow"><b>v1 · 12 files</b><span class="xs muted">Handed in Thu 26 Nov</span></span><span class="icon">›</span></div>
+          </div>
+        </div>
+        <div class="dock"><button class="btn primary wide">Mark done</button></div>
+      </div>
+      <span class="cap">The task's chips are the existing ones (Submitted blue, Admin approved and Changes requested amber). The send-back button stays neutral (ADR-0015).</span>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="change" id="s8">
+  <div class="chead"><span class="num">8 · Approvals and notifications</span><h2>Where the hand-in shows up elsewhere <span class="st new">changed</span></h2>
+  <ul class="what">
+    <li>Approvals: each task row gains "v2 · 14 files". The list loads no file names.</li>
+    <li>The existing notifications gain the file count. Nobody is told about each file. The Owner gets one new alert when the studio's Drive is too full for a hand-in.</li>
+  </ul></div>
+  <div class="notes">
+    <div class="mx card" style="border-radius:10px">
+      <div class="apprrow"><span><b>Brand reel</b><br><span class="xs muted tab">Sam · v2 · 14 files · 6.1 GB · 11:40 am</span></span><button class="btn sm">Open</button><button class="btn sm approve">Approve</button></div>
+      <div class="apprrow"><span><b>Café menu photos</b><br><span class="xs muted tab">Alex · v1 · 48 files · 1.2 GB · 10:05 am</span></span><button class="btn sm">Open</button><button class="btn sm approve">Approve</button></div>
+      <div class="apprrow"><span><b>Client call notes</b><br><span class="xs muted tab">Jordan · note only · 9:30 am</span></span><button class="btn sm">Open</button><button class="btn sm approve">Approve</button></div>
+    </div>
+    <div class="mx" style="padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:10px">
+      <div class="push"><span class="ic">M</span><div><b>Sam marked Brand reel done</b><br><span class="muted">v2 · 14 files · it's with you</span></div></div>
+      <div class="push"><span class="ic">M</span><div><b>Brand reel is waiting for you</b><br><span class="muted">Approved by Priya · v2 · 14 files</span></div></div>
+      <div class="push"><span class="ic">M</span><div><b>Studio Drive too full for a hand-in</b><br><span class="muted">To the Owner: a 48 GB file for Brand reel couldn't be added</span></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="box"><b>Not built yet</b><p>The plan is in <span class="mono">docs/handoff/v50-hand-in-plan.md</span>, with the data model, the permissions and the ADR-0010 amendment. v5.0 is released after v4.5, uses the same upload engine and passes the same security gate (a browser can resume a Google upload it was handed).</p></div>
+</div>
+
+<script>
+(function(){var root=document.getElementById('root'),d=document.getElementById('m-dark'),l=document.getElementById('m-light');
+function set(light){root.classList.toggle('mxlight',light);d.setAttribute('aria-pressed',String(!light));l.setAttribute('aria-pressed',String(light));try{localStorage.setItem('mx-theme',light?'light':'dark')}catch(e){}}
+d.addEventListener('click',function(){set(false)});l.addEventListener('click',function(){set(true)});try{if(localStorage.getItem('mx-theme')==='light')set(true)}catch(e){}})();
+</script>
