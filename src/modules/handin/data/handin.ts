@@ -4,8 +4,13 @@ import { headers } from "next/headers";
 
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
-import { driveFileFacts, openUploadSession, unsealSession } from "@/core/drive/upload-session";
-import { finishedFileProblem, type SubfolderStore } from "@/core/drive/resumable";
+import { UploadPolicyError } from "@/core/drive/resumable";
+import {
+  openUploadSession,
+  storedSessionStatus,
+  type SubfolderStore,
+  unsealSession,
+} from "@/core/drive/upload-session";
 import { AppError } from "@/core/errors";
 import { resolveAppOrigin } from "@/core/lib/app-url";
 import { systemClock, todayIST } from "@/core/time";
@@ -144,11 +149,18 @@ export async function readHandin(taskId: string): Promise<HandinRead> {
   };
 }
 
+/**
+ * What starting one file gives the browser: a session (new, or the caller's own earlier one,
+ * `resumed`), a refusal the row shows, or "already added" (the same file is in Drive for this
+ * version). The shape follows the shared engine's contract (`core/upload/types.ts`).
+ */
 export type StartAnswer =
-  | { outcome: "already_added"; fileId: string; version: number }
-  | { outcome: "wait"; seconds: number; version: number }
-  | { outcome: "space_full"; version: number }
-  | { outcome: "upload"; fileId: string; version: number; sessionUri: string; fresh: boolean };
+  | { kind: "open"; fileId: string; sessionUrl: string; resumed: boolean; version: number }
+  | { kind: "already_added"; fileId: string; version: number }
+  | {
+      kind: "refused";
+      refused: "limit" | "no_space" | "empty" | "bad_name" | "too_big" | "type_not_allowed";
+    };
 
 type RawStart = {
   outcome: "already_added" | "resume" | "wait" | "space_full" | "start";
@@ -244,54 +256,57 @@ export async function startFile(input: {
   });
   if (error) throw error;
   const raw = data as unknown as RawStart;
-  if (raw.outcome === "wait")
-    return { outcome: "wait", seconds: raw.seconds ?? 5, version: raw.version };
-  if (raw.outcome === "space_full") return { outcome: "space_full", version: raw.version };
+  if (raw.outcome === "wait") return { kind: "refused", refused: "limit" };
+  if (raw.outcome === "space_full") return { kind: "refused", refused: "no_space" };
   const fileId = raw.file_id;
   if (!fileId) throw new AppError("INTERNAL");
   if (raw.outcome === "already_added")
-    return { outcome: "already_added", fileId, version: raw.version };
+    return { kind: "already_added", fileId, version: raw.version };
 
   const service = createServiceSupabase();
-  if (raw.outcome === "resume" && raw.has_session) {
-    const { data: rows, error: readError } = await service.rpc("handin_session_get", {
-      p_file_id: fileId,
-    });
-    if (readError) throw readError;
-    const sealed = rows?.[0]?.session_uri_encrypted;
-    if (sealed) {
-      return {
-        outcome: "upload",
-        fileId,
-        version: raw.version,
-        sessionUri: await unsealSession(sealed),
-        fresh: false,
-      };
-    }
-  }
-
-  const { data: fileRows, error: fileError } = await service.rpc("handin_session_get", {
+  const { data: rows, error: readError } = await service.rpc("handin_session_get", {
     p_file_id: fileId,
   });
-  if (fileError) throw fileError;
-  const file = fileRows?.[0];
+  if (readError) throw readError;
+  const file = rows?.[0];
   if (!file) throw new AppError("NOT_FOUND");
+  if (raw.outcome === "resume" && file.session_uri_encrypted) {
+    return {
+      kind: "open",
+      fileId,
+      version: raw.version,
+      sessionUrl: await unsealSession(file.session_uri_encrypted),
+      resumed: true,
+    };
+  }
+
   const task = await taskForFolder(input.taskId);
   const origin = await appOrigin();
-  const opened = await openUploadSession({
-    service,
-    orgId: task.orgId,
-    accountId: file.account_sub,
-    task: task.folder,
-    top: versionFolderName(file.version),
-    relativePath: file.relative_path,
-    subfolders: versionFolders(input.taskId, file.version, file.account_sub),
-    file: { name: file.name, sizeBytes: Number(file.size_bytes), mimeType: input.mimeType },
-    description: `Handed in on MaxOff: ${origin}/tasks/${input.taskId} (v${file.version})`,
-    origin,
-    fetchImpl: fetch,
-    now: systemClock(),
-  });
+  let opened;
+  try {
+    opened = await openUploadSession({
+      service,
+      orgId: task.orgId,
+      accountId: file.account_sub,
+      task: task.folder,
+      top: versionFolderName(file.version),
+      relativePath: file.relative_path,
+      subfolders: versionFolders(input.taskId, file.version, file.account_sub),
+      file: { name: file.name, size: Number(file.size_bytes), mimeType: input.mimeType ?? "" },
+      // Q4 (autopilot 25 Nov): any type, any size.
+      policy: {},
+      description: `Handed in on MaxOff: ${origin}/tasks/${input.taskId} (v${file.version})`,
+      origin,
+      fetchImpl: fetch,
+      now: systemClock(),
+    });
+  } catch (error) {
+    if (error instanceof UploadPolicyError) {
+      await markFailed(fileId, "unreadable");
+      return { kind: "refused", refused: error.reason };
+    }
+    throw error;
+  }
   const { error: setError } = await service.rpc("handin_session_set", {
     p_file_id: fileId,
     p_account_sub: opened.accountId,
@@ -300,11 +315,11 @@ export async function startFile(input: {
   });
   if (setError) throw setError;
   return {
-    outcome: "upload",
+    kind: "open",
     fileId,
     version: raw.version,
-    sessionUri: opened.sessionUri,
-    fresh: true,
+    sessionUrl: opened.sessionUrl,
+    resumed: false,
   };
 }
 
@@ -328,14 +343,14 @@ export async function markFailed(
 
 /**
  * The browser says Google finished a file. Only the file's adder may say so (their own
- * `handin_progress` refuses anyone else: FORBIDDEN / NOT_FOUND); then the Worker asks Google
- * itself and records what Google says, never what the browser claims (v4.5 F1).
+ * `handin_progress` refuses anyone else: FORBIDDEN / NOT_FOUND). The Worker then asks the stored
+ * session itself and records Google's answer (its file id, size and MD5), never the browser's
+ * claim (v4.5 F1); the parent is the one the session was opened with.
  */
 export async function finishFile(input: {
   fileId: string;
-  driveFileId: string;
-  md5: string | null;
-}): Promise<"done" | "failed"> {
+  md5Page: string | null;
+}): Promise<"done" | "failed" | "uploading"> {
   const supabase = await createServerSupabase();
   const { error: ownError } = await supabase.rpc("handin_progress", {
     p_file_id: input.fileId,
@@ -351,37 +366,24 @@ export async function finishFile(input: {
   const file = rows?.[0];
   if (!file) throw new AppError("NOT_FOUND");
   if (file.state === "done") return "done";
-  const { data: task, error: taskError } = await service
-    .from("tasks")
-    .select("org_id")
-    .eq("id", file.task_id)
-    .single();
-  if (taskError) throw taskError;
-  const facts = await driveFileFacts({
-    service,
-    orgId: task.org_id,
-    driveFileId: input.driveFileId,
+  if (!file.session_uri_encrypted || !file.drive_parent_id) return "failed";
+  const status = await storedSessionStatus({
+    sealedSession: file.session_uri_encrypted,
+    size: Number(file.size_bytes),
     fetchImpl: fetch,
-    now: systemClock(),
   });
-  const problem = finishedFileProblem(facts, {
-    sizeBytes: Number(file.size_bytes),
-    parentId: file.drive_parent_id ?? "",
-  });
-  if (problem === "missing" || !facts) {
-    // Google holds no such file in reach: the browser's claim is wrong; the file is retried.
-    await markFailed(input.fileId, "unreadable");
+  if (status.state === "incomplete") return "uploading";
+  if (status.state === "gone") {
+    await markFailed(input.fileId, "gave_up");
     return "failed";
   }
   const { data: outcome, error: doneError } = await service.rpc("handin_file_done", {
     p_file_id: input.fileId,
-    p_drive_file_id: facts.id,
-    p_size: facts.sizeBytes,
-    p_md5_drive: facts.md5 ?? "",
-    p_parent_id: facts.parents.includes(file.drive_parent_id ?? "")
-      ? (file.drive_parent_id ?? "")
-      : (facts.parents[0] ?? ""),
-    ...(input.md5 ? { p_md5_page: input.md5 } : {}),
+    p_drive_file_id: status.file.id,
+    p_size: status.file.size,
+    p_md5_drive: status.file.md5Checksum ?? "",
+    p_parent_id: file.drive_parent_id,
+    ...(input.md5Page ? { p_md5_page: input.md5Page } : {}),
   });
   if (doneError) throw doneError;
   return outcome === "done" ? "done" : "failed";
