@@ -1,0 +1,127 @@
+MaxOff patch of next@16.4.6 (v1.9, owner option (b) of 3 Nov 2026, issue #89 in prakyats/MaxOff;
+re-made for 16.4.6 in v2.0.1: without it e2e/view-scroll.spec.ts is red on 16.4.6, 4 of 9).
+pnpm applies everything from the first "diff --git" line down; this header is for people.
+
+WHAT IT CHANGES (the same three edits in dist/client and dist/esm/client). Next 16.4 moved the
+router into app-router-state.js and render-tree.js, so 16.3.5's edits were rewritten for 16.4.6
+(v2.0.1, the security upgrade), not carried over:
+  app-router-state.js             navigateToKnownRoute keeps the navigation's scrollBehavior on the
+                                  `navigation` object it starts (`maxoffScrollBehavior`).
+  render-tree.js                  dispatchRetryDueToTreeMismatch, which receives that object,
+                                  carries it onto the soft retry's ACTION_SERVER_PATCH action
+                                  (`scrollBehavior`).
+  reducers/server-patch-reducer   the retry navigates with NoScroll when the mismatched navigation
+                                  asked for NoScroll (router.refresh(), scroll={false}); anything
+                                  else (undefined: a normal navigation, a history restore) is
+                                  ScrollBehavior.Default exactly as before.
+Nothing else: no fetch, no history write, no hard-navigation rule is changed (two mismatches in a
+row still fall back to an MPA navigation, as upstream).
+
+REMOVE IT when upstream fixes the issue below. On every Next upgrade: pnpm refuses to install while
+this names a version that is not installed, so drop the entry in pnpm-workspace.yaml, upgrade,
+and run `pnpm exec playwright test e2e/view-scroll.spec.ts` (desktop, mobile, mobile-lg) with a
+fresh build: green without the patch = fixed upstream, delete this file; red = re-make the patch
+with `pnpm patch next@<version>` (check server-patch-reducer.js still hard-codes Default).
+
+READY-TO-FILE UPSTREAM ISSUE (github.com/vercel/next.js/issues/new, "Bug report"):
+  Title: router.refresh() scrolls to the top when its response mismatches the tree
+         (server-patch retry ignores the refresh's NoScroll)
+  Next.js: 16.3.5 and 16.4.6 (App Router, segment cache)
+  Repro (minimal):
+    1. app/page.tsx: a long page (height 3000px) with a client component that
+       a) switches a view with `history.replaceState(null, "", "?tab=b")` (a view control that
+          must not fetch), and b) has a button that calls `router.refresh()`.
+    2. Load `/`, click the view switch (the URL is now `/?tab=b`), scroll to the bottom.
+    3. Click "refresh".
+    Expected: the page stays where it is (a refresh asks for ScrollBehavior.NoScroll).
+    Actual: the page jumps to the top (document.documentElement.scrollTop = 0).
+  Cause: after the hand-written replaceState the router "restores" with the tree it has, whose
+    page segment is still keyed `__PAGE__`. The refresh's answer is keyed `__PAGE__?{"tab":"b"}`,
+    so finishNavigationTask sees a tree mismatch and dispatchRetryDueToTreeMismatch sends
+    ACTION_SERVER_PATCH. serverPatchReducer hard-codes `ScrollBehavior.Default`; in the retry the
+    page segment differs by search params (segmentMatchKind 2), accumulateScrollRef assigns a
+    ScrollRef, and the layout router scrolls. The refresh's NoScroll is lost on the retry.
+  Suggested fix (this patch): carry the original navigation's scrollBehavior through
+    spawnDynamicRequests/finishNavigationTask onto the retry action and use it in
+    serverPatchReducer (NoScroll stays NoScroll, Default stays Default).
+  Related, not changed here: two overlapping refreshes in that state both mismatch and the
+    second becomes a hard (MPA) navigation via `previousNavigationDidMismatch`.
+
+diff --git a/dist/client/components/app-router-state.js b/dist/client/components/app-router-state.js
+index c6e87f7cfa35f25988c8165c53846a172e10fd59..d12eadd6f37e85f51967c2a173e57d47b01c46b2 100644
+--- a/dist/client/components/app-router-state.js
++++ b/dist/client/components/app-router-state.js
+@@ -193,6 +193,7 @@ routeCacheEntry, signal) {
+     const navigation = (0, _rendertree.startPPRNavigation)(now, currentUrl, currentRenderedSearch, currentRoot, navigationSeed.root, freshnessPolicy, navigationSeed.dynamicStaleAt, isSamePageNavigation, accumulation, map, restrictToShell);
+     if (navigation !== null) {
+         if (freshnessPolicy !== _rendertree.FreshnessPolicy.Gesture) {
++            navigation.maxoffScrollBehavior = scrollBehavior; // MaxOff patch (see patches/next@16.4.6.patch's header)
+             (0, _rendertree.spawnDynamicRequests)(navigation, url, nextUrl, freshnessPolicy, accumulation, routeCacheEntry, navigateType, navigationLock, map, signal);
+         }
+         return completeSoftNavigation(state, url, nextUrl, navigation, navigationSeed.renderedSearch, canonicalUrl, navigateType, scrollBehavior, accumulation.scrollRef, debugInfo);
+diff --git a/dist/client/components/render-tree.js b/dist/client/components/render-tree.js
+index 07356e5797bd9b43ead91802e5931289aae50f13..d9a7b0f7b451a24d8774a2f0e49646e3da4d1977 100644
+--- a/dist/client/components/render-tree.js
++++ b/dist/client/components/render-tree.js
+@@ -1078,7 +1078,8 @@ retryFreshnessPolicy) {
+         seed,
+         mpa: isHardRetry,
+         navigateType: retryNavigateType,
+-        freshnessPolicy: retryFreshnessPolicy
++        freshnessPolicy: retryFreshnessPolicy,
++        scrollBehavior: navigation.maxoffScrollBehavior // MaxOff patch (see patches/next@16.4.6.patch's header)
+     };
+     (0, _useactionqueue.dispatchAppRouterAction)(retryAction);
+ }
+diff --git a/dist/client/components/router-reducer/reducers/server-patch-reducer.js b/dist/client/components/router-reducer/reducers/server-patch-reducer.js
+index 7621d0303b76f0fb09621ae91b2f4255a5153664..bbf89c8dd7a569a47343ec929875284b63c29c65 100644
+--- a/dist/client/components/router-reducer/reducers/server-patch-reducer.js
++++ b/dist/client/components/router-reducer/reducers/server-patch-reducer.js
+@@ -47,7 +47,7 @@ function serverPatchReducer(state, action) {
+     // (`HistoryTraversal`), since the data we received is correct.
+     const retryCanonicalUrl = (0, _createhreffromurl.createHrefFromUrl)(retryUrl);
+     const retryNextUrl = action.nextUrl;
+-    const scrollBehavior = _routerreducertypes.ScrollBehavior.Default;
++    const scrollBehavior = action.scrollBehavior === _routerreducertypes.ScrollBehavior.NoScroll ? _routerreducertypes.ScrollBehavior.NoScroll : _routerreducertypes.ScrollBehavior.Default; // MaxOff patch (see patches/next@16.4.6.patch's header)
+     const navigationLock = (0, _rendertree.getCurrentNavigationLock)();
+     const now = Date.now();
+     return (0, _approuterstate.navigateToKnownRoute)(now, state, retryUrl, retryCanonicalUrl, retrySeed, currentUrl, currentRenderedSearch, state.root, action.freshnessPolicy, retryNextUrl, scrollBehavior, navigateType, navigationLock, // A server-patch retry navigation is bound to the shared map.
+diff --git a/dist/esm/client/components/app-router-state.js b/dist/esm/client/components/app-router-state.js
+index a0b9c558ef981f929daf13d673fdc89a1aae56fb..efb651ec34cd8c6cba729c2e08f743e5d6209498 100644
+--- a/dist/esm/client/components/app-router-state.js
++++ b/dist/esm/client/components/app-router-state.js
+@@ -166,6 +166,7 @@ routeCacheEntry, signal) {
+     const navigation = startPPRNavigation(now, currentUrl, currentRenderedSearch, currentRoot, navigationSeed.root, freshnessPolicy, navigationSeed.dynamicStaleAt, isSamePageNavigation, accumulation, map, restrictToShell);
+     if (navigation !== null) {
+         if (freshnessPolicy !== FreshnessPolicy.Gesture) {
++            navigation.maxoffScrollBehavior = scrollBehavior; // MaxOff patch (see patches/next@16.4.6.patch's header)
+             spawnDynamicRequests(navigation, url, nextUrl, freshnessPolicy, accumulation, routeCacheEntry, navigateType, navigationLock, map, signal);
+         }
+         return completeSoftNavigation(state, url, nextUrl, navigation, navigationSeed.renderedSearch, canonicalUrl, navigateType, scrollBehavior, accumulation.scrollRef, debugInfo);
+diff --git a/dist/esm/client/components/render-tree.js b/dist/esm/client/components/render-tree.js
+index 8a08f4f16bd28e612836bbd551e34bd0cbb83ca1..5406ee0c5f047e60d3a49e75fb01b5ba27421444 100644
+--- a/dist/esm/client/components/render-tree.js
++++ b/dist/esm/client/components/render-tree.js
+@@ -1072,7 +1072,8 @@ retryFreshnessPolicy) {
+         seed,
+         mpa: isHardRetry,
+         navigateType: retryNavigateType,
+-        freshnessPolicy: retryFreshnessPolicy
++        freshnessPolicy: retryFreshnessPolicy,
++        scrollBehavior: navigation.maxoffScrollBehavior // MaxOff patch (see patches/next@16.4.6.patch's header)
+     };
+     dispatchAppRouterAction(retryAction);
+ }
+diff --git a/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js b/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js
+index 8f8bef1ab90d442e0f3e8bbd116e4049fedfa6ff..69bf2208e8fea0acdc23d1f6ceb0455db76e2026 100644
+--- a/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js
++++ b/dist/esm/client/components/router-reducer/reducers/server-patch-reducer.js
+@@ -37,7 +37,7 @@ export function serverPatchReducer(state, action) {
+     // (`HistoryTraversal`), since the data we received is correct.
+     const retryCanonicalUrl = createHrefFromUrl(retryUrl);
+     const retryNextUrl = action.nextUrl;
+-    const scrollBehavior = ScrollBehavior.Default;
++    const scrollBehavior = action.scrollBehavior === ScrollBehavior.NoScroll ? ScrollBehavior.NoScroll : ScrollBehavior.Default; // MaxOff patch (see patches/next@16.4.6.patch's header)
+     const navigationLock = getCurrentNavigationLock();
+     const now = Date.now();
+     return navigateToKnownRoute(now, state, retryUrl, retryCanonicalUrl, retrySeed, currentUrl, currentRenderedSearch, state.root, action.freshnessPolicy, retryNextUrl, scrollBehavior, navigateType, navigationLock, // A server-patch retry navigation is bound to the shared map.

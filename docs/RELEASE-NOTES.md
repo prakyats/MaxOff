@@ -37,6 +37,25 @@ their comp leave, half day or full day; if it's a half-day comp leave, the other
   its comp credit; the edited day became ordinary leave. Edit now keeps the half and the ½ comp unless the Owner
   changes them.
 
+### Security (folded in on 25 Nov, the advisor's word; #89)
+`pnpm audit --prod` on `main` showed 4 critical advisories, now 0:
+- **Next.js 16.3.5 → 16.4.6:** an unauthenticated remote code execution and an SSRF in the image
+  optimizer (`/_next/image`), a Server Actions denial of service, and two RCEs in features MaxOff
+  does not use (`use cache`, `next/og`).
+- **@sentry/nextjs → 10.78.0:** the tunnel bypass; MaxOff sets no tunnel route.
+- **zod → 4.6.7:** memory exhaustion.
+- **undici → 7.30.2:** four highs, through `shadcn`'s tooling.
+
+**The image optimizer is closed**, because MaxOff serves no `next/image`:
+- `images.unoptimized` makes Next answer 404.
+- The Worker refuses `/_next/image` with a 404 before OpenNext, which answers that route itself and
+  does not read the setting.
+
+**Next's local patch is re-made for 16.4.6.** It keeps the scroll on a refresh after a view switch,
+and 16.4 moved the code it changes.
+
+**The Crew will notice nothing.**
+
 ### Nothing happens on its own
 No job, no backfill: existing requests and days are untouched. A day already recorded keeps its status.
 

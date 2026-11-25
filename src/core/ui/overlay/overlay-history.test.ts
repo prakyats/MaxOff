@@ -42,10 +42,16 @@ describe(`the Next App Router's history contract (next@${nextVersion})`, () => {
   it("reloads the page for a history entry without __NA", () => {
     // The failure mode the test above protects against: assert it really is the consequence,
     // so the reasoning stays checkable rather than folklore in a comment.
-    const onPopState = appRouter.match(/const onPopState = \(event\)=>\{[\s\S]*?\n {8}\};/)?.[0];
-    expect(onPopState, "Next's popstate handler moved").toBeDefined();
-    expect(onPopState).toContain("!event.state.__NA");
-    expect(onPopState).toContain("window.location.reload()");
+    // Since 16.4 the listener hands `event.state` to a module-level `handlePopState(state)` (which
+    // also replays a traversal missed before hydration); the rule itself is unchanged.
+    const onPopState = appRouter.match(
+      /const onPopState = \(event\)=>handlePopState\(event\.state\);/,
+    )?.[0];
+    expect(onPopState, "Next's popstate listener moved").toBeDefined();
+    const handler = appRouter.match(/function handlePopState\(state\) \{[\s\S]*?\n}/)?.[0];
+    expect(handler, "Next's popstate handler moved").toBeDefined();
+    expect(handler).toContain("!state.__NA");
+    expect(handler).toContain("window.location.reload()");
   });
 
   it("skips the router dispatch when pushState is called without a url", () => {
@@ -59,18 +65,22 @@ describe(`the Next App Router's history contract (next@${nextVersion})`, () => {
 
   it("rewrites history.state without custom keys after a navigation or a server action", () => {
     // Why the marker is guarded (2.6): HistoryUpdater replaces the current entry's state with a
-    // fresh object unless `preserveCustomHistoryState` is set, and the segment-cache navigation
-    // (every replace navigation, a refresh after a server action included) sets it to false.
+    // fresh object unless `preserveCustomHistoryState` is set, and a soft navigation (every
+    // push or replace navigation, a refresh after a server action included) sets it to false;
+    // only a history traversal preserves it. Since 16.4 that lives in `app-router-state.js`
+    // (`completeSoftNavigation`; 16.3 had it in `segment-cache/navigation.js`).
     // If Next ever preserved custom state by default, the guard could go.
     const updater = appRouter.match(/function HistoryUpdater\([\s\S]*?\n}/)?.[0];
     expect(updater, "HistoryUpdater is gone from Next").toBeDefined();
     expect(updater).toContain("pushRef.preserveCustomHistoryState ? window.history.state : {}");
     expect(updater).toContain("window.history.replaceState(historyState, '', canonicalUrl)");
-    const navigation = readFileSync(
-      path.join(nextRoot, "dist/client/components/segment-cache/navigation.js"),
+    const routerState = readFileSync(
+      path.join(nextRoot, "dist/client/components/app-router-state.js"),
       "utf8",
     );
-    expect(navigation).toContain("preserveCustomHistoryState: false");
+    const soft = routerState.match(/function completeSoftNavigation\([\s\S]*?\n}/)?.[0];
+    expect(soft, "completeSoftNavigation is gone from Next").toBeDefined();
+    expect(soft).toContain("preserveCustomHistoryState: false");
   });
 });
 

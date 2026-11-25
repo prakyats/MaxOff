@@ -28,7 +28,7 @@ import {
  * (a notification for the reader, a return to the app) answers with the new key; Next takes that
  * for a tree mismatch and retries through its server-patch path, which scrolled the page to the
  * top although a refresh asks for no scroll (CI: "Expected 230 / 222, Received 0" at 1280/1440).
- * The fix is the patch of Next (`patches/next@16.3.5.patch`): the retry keeps the refresh's
+ * The fix is the patch of Next (`patches/next@16.4.6.patch`): the retry keeps the refresh's
  * no-scroll. These specs hold it, and hold what the owner made a condition of it: a view switch
  * still fetches nothing from the server and still works offline.
  *

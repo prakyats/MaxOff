@@ -61,6 +61,10 @@ const nextConfig: NextConfig = {
   // client is not external: its CommonJS build requires `tslib`, which OpenNext's middleware
   // bundler resolves to a file its trace never copied (the build fails).
   serverExternalPackages: ["zod"],
+  // No image optimizer (v2.0.1, `src/core/http/image-optimizer.ts`): MaxOff serves no next/image,
+  // and next ≤ 16.4.0 had a remote code execution and an SSRF in `/_next/image`. With this, Next
+  // answers that route 404; the Worker refuses it before OpenNext (which does not read this).
+  images: { unoptimized: true },
   experimental: {
     // The client router cache (ARCHITECTURE §19, owner decision 2026-09-28). A tab seen in the
     // last 30 s comes back at once with no request (Next's default for dynamic pages is 0 s: every
