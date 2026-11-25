@@ -104,7 +104,7 @@ function walk(dir: string): string[] {
 const EXPECTED_COUNTS: Record<string, number> = {
   "modules/tasks/components/denied-money-functions.ts": 8,
   "modules/tasks/components/denied-money-app-functions.ts": 3,
-  "modules/tasks/components/denied-money-v25-functions.ts": 2,
+  "modules/tasks/components/denied-money-v25-functions.ts": 3,
 };
 
 const toPosix = (path: string) => path.replaceAll("\\", "/");

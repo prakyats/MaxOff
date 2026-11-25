@@ -338,13 +338,23 @@ export function lineBilling(line: RevenueLine): string {
 }
 
 /**
- * "Mark all N billed" (v2.5): the cycles of the lines shown that are not billed yet, a one-time
- * project through its one cycle (one without a cycle cannot be marked). Each cycle once.
+ * Whether a line has something to bill: an amount above ₹0, or priced work on top of none. A line
+ * whose figure reads "No amount set" or "Not billable" (₹0) has nothing, and "Mark all" leaves it
+ * out (owner, v2.5 review). A held line still counts: its work so far can be billed.
+ */
+export function hasSomethingToBill(line: RevenueLine): boolean {
+  return (line.amount ?? 0) > 0 || line.potential > 0;
+}
+
+/**
+ * "Mark all N billed" (v2.5): the cycles of the lines shown that are not billed yet and have
+ * something to bill, a one-time project through its one cycle (one without a cycle cannot be
+ * marked). Each cycle once.
  */
 export function unbilledCycleIds(lines: readonly RevenueLine[]): string[] {
   const ids = new Set<string>();
   for (const line of lines) {
-    if (line.billed) continue;
+    if (line.billed || !hasSomethingToBill(line)) continue;
     if (line.cycleId) ids.add(line.cycleId);
   }
   return [...ids];

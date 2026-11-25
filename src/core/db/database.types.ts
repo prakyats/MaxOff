@@ -5307,6 +5307,10 @@ export type Database = {
         };
         Returns: number;
       };
+      billing_mark_unbilled: {
+        Args: { billed_on: string; cycle_ids: string[] };
+        Returns: number;
+      };
       billing_set_cycle_amount: {
         Args: { amount: number; cycle_id: string };
         Returns: boolean;

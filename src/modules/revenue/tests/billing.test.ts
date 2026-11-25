@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { addISTDays, todayIST } from "@/core/time";
 
 import {
+  billingRevision,
   addedHeading,
   adjustmentLines,
   advanceSummary,
@@ -614,5 +615,28 @@ describe("v2.5 schemas", () => {
     expect(historySchema.safeParse({ projectId: ID, limit: "20", oneTime: null }).success).toBe(
       false,
     );
+  });
+});
+
+describe("v2.5 review: the Billing history's revision is a short hash, not the read", () => {
+  const retainer = (cycleAmount: number) =>
+    toProjectBilling({
+      project_id: ID,
+      recurrence: "monthly",
+      billing: { category: "retainer", category_is_default: true, cycle_amount: cycleAmount },
+      cycle: null,
+      added: [],
+    });
+
+  it("is the same for the same read and moves when anything in it does", () => {
+    expect(billingRevision(retainer(40000))).toBe(billingRevision(retainer(40000)));
+    expect(billingRevision(retainer(40000))).not.toBe(billingRevision(retainer(40001)));
+  });
+
+  it("is seven letters and digits, never the amounts again", () => {
+    const revision = billingRevision(retainer(40000));
+    expect(revision).toMatch(/^[0-9a-z]{7}$/);
+    expect(revision).not.toContain("40000");
+    expect(revision.length).toBeLessThan(JSON.stringify(retainer(40000)).length);
   });
 });

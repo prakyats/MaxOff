@@ -16,6 +16,7 @@ import {
   BILLING_CATEGORY_LABELS,
   type BillingMark,
   billedText,
+  billingRevision,
   canAdjust,
   cycleAmountLabel,
   cycleAmountNote,
@@ -328,11 +329,6 @@ function PlannedList({
   );
 }
 
-/** What the section shows, as one string: an open Billing history reads again when it moves. */
-function revisionOf(billing: ProjectBilling): string {
-  return JSON.stringify(billing);
-}
-
 /** The section when its read failed: the heading stays, the card says so and offers a retry. */
 function BillingError() {
   return (
@@ -379,7 +375,11 @@ function Figure({ label, value, slot }: { label: string; value: number; slot: st
 function RetainerRows({ billing, today }: { billing: RetainerBilling; today: string }) {
   const { cycle, added, recurrence } = billing;
   const history = (
-    <BillingHistory projectId={billing.projectId} oneTime={false} revision={revisionOf(billing)} />
+    <BillingHistory
+      projectId={billing.projectId}
+      oneTime={false}
+      revision={billingRevision(billing)}
+    />
   );
   if (!cycle) return history;
   const period = periodWord(recurrence);
@@ -494,7 +494,7 @@ function OneTimeRows({ billing, today }: { billing: OneTimeBilling; today: strin
       {line && canAdjust(billing) ? (
         <AdjustRow scope="project" refId={billing.projectId} figures={line} />
       ) : null}
-      <BillingHistory projectId={billing.projectId} oneTime revision={revisionOf(billing)} />
+      <BillingHistory projectId={billing.projectId} oneTime revision={billingRevision(billing)} />
       <div data-slot="billing-advances">
         <div className={BILLING_ROW}>
           <div className={BILLING_ROW_TEXT}>

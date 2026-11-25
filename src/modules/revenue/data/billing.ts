@@ -154,6 +154,31 @@ export async function rpcMarkBilled(input: {
   return marked;
 }
 
+/**
+ * "Mark all N billed" (the Revenue page): Billed on a day for the cycles given that are **not billed
+ * yet**. `billing_mark_unbilled` leaves a line billed since the page was drawn exactly as it is (its
+ * day and its note) and answers how many it changed. In batches of 200 like `rpcMarkBilled`.
+ */
+export async function rpcMarkUnbilled(input: {
+  cycleIds: readonly string[];
+  billedOn: string | null;
+}): Promise<number> {
+  const supabase = await createServerSupabase();
+  let marked = 0;
+  for (let start = 0; start < input.cycleIds.length; start += MARK_BATCH) {
+    const { data, error } = await supabase.rpc("billing_mark_unbilled", {
+      cycle_ids: input.cycleIds.slice(start, start + MARK_BATCH),
+      // Cast, with its reason: `billing_mark_unbilled` takes a null day as today (IST); the
+      // argument is nullable in the function. The generated type is non-null only because
+      // Supabase types every argument without a default that way.
+      billed_on: input.billedOn as string,
+    });
+    if (error) throw error;
+    marked += data;
+  }
+  return marked;
+}
+
 /** The Owner's adjusted Achieved of a retainer cycle or a completed one-time project. */
 export async function rpcAdjust(input: {
   scope: "cycle" | "project";

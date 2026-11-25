@@ -113,17 +113,16 @@ export const markNotBilled = action(async (input: MarkNotBilledInput): Promise<R
   return ok(null);
 });
 
-/** The Revenue page's "Mark all N billed": the month's lines not billed yet, in one go. */
+/**
+ * The Revenue page's "Mark all N billed": the month's lines not billed yet, in one go. Only lines
+ * still not billed change (one billed elsewhere since the page was drawn keeps its day and note);
+ * `marked` is how many did.
+ */
 export const markAllBilled = action(
   async (input: MarkAllBilledInput): Promise<Result<{ marked: number }>> => {
     const data = markAllBilledSchema.parse(input);
     await assertPermission("finance.edit");
-    const marked = await repo.rpcMarkBilled({
-      cycleIds: data.cycleIds,
-      billed: true,
-      billedOn: data.billedOn,
-      note: null,
-    });
+    const marked = await repo.rpcMarkUnbilled({ cycleIds: data.cycleIds, billedOn: data.billedOn });
     revalidateScreens();
     return ok({ marked });
   },

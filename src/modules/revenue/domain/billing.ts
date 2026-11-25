@@ -473,3 +473,19 @@ export function plannedValueNote(
     amount === null ? `this ${period}'s amount` : `this ${period}'s ${formatRupees(amount)}`;
   return `${title}'s own value comes off the top of ${of}. The other planned deliverables share the rest.`;
 }
+
+/**
+ * What the Billing section shows, as a short stable string (v2.5 review): an open Billing history
+ * reads again when it moves. A 32-bit FNV-1a hash of the read, in base 36: the client gets seven
+ * characters, never the amounts a second time in the page's payload. Not a security measure, only
+ * a change detector (a collision would at worst skip one refresh of an open history).
+ */
+export function billingRevision(billing: ProjectBilling): string {
+  const text = JSON.stringify(billing);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36).padStart(7, "0");
+}

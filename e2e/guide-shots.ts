@@ -1160,13 +1160,11 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/today-revenue",
     path: "/today",
-    prepare: (page) =>
-      page.evaluate(() =>
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
-      ),
+    // The main column's last line (above This week on a phone): masked, before the tap.
+    prepare: (page) => slot(page, "today-revenue").scrollIntoViewIfNeeded(),
     highlight: (page) => slot(page, "today-revenue-toggle"),
     crop: (page) => slot(page, "today-revenue"),
-    alt: "The last line of Today: this month's achieved and potential amounts hidden as dots, highlighted, with Open Revenue beside it.",
+    alt: "The last line of Today's main list: this month's achieved and potential amounts hidden as dots with Show, highlighted, and Open Revenue beside it.",
   },
   // v2.1 (9.2): Reports → Revenue, the month in rupees. The Owner's alone.
   {

@@ -592,89 +592,176 @@ test.describe("the Revenue page, v2.5", () => {
 test.describe("the Owner's Today line", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("at the end of Today, its amounts masked until tapped; the tap adds no history and is not kept", async ({
+  /** An amount as the app writes one: the rupee sign, then a digit. The masked "₹ •••" is not. */
+  const AMOUNT = /₹\s?\d/;
+
+  test("the main column's last line, masked; no amount in Today until the tap, which reads once and adds no history", async ({
     page,
-  }) => {
-    await page.goto("/today");
-    await hydrated(page);
-    const line = page.locator('[data-slot="today-revenue"]');
-    await expect(line).toBeVisible();
-    const month = formatIST(istDayStart(today), "MMMM");
-    const masked = line.locator('[data-slot="today-revenue-masked"]');
-    const figures = line.locator('[data-slot="today-revenue-figures"]');
-    await expect(masked).toBeVisible();
-    await expect(figures).toBeHidden();
-    const words = (await masked.innerText()).trim();
-    expect(words).toMatch(new RegExp(`^${month} · ₹ ••• achieved of ₹ •••`));
-    // Masked: no figure at all, only the counts that need a look.
-    expect(words.replace(/ · \d+ (not priced|with no amount)/g, "")).not.toMatch(/\d/);
-
-    // The last thing on Today: below the main column and This week, on every width.
-    const top = (await line.boundingBox())!.y;
-    for (const part of ['[data-slot="owner-today"]', '[data-slot="day-week"]']) {
-      const box = await page.locator(part).first().boundingBox();
-      if (box)
-        expect(box.y + box.height, `${part} ends above the line`).toBeLessThanOrEqual(top + 1);
-    }
-
-    // A tap shows the figures: no history entry.
-    const entries = await page.evaluate(() => history.length);
-    await line.locator('[data-slot="today-revenue-toggle"]').click();
-    await expect(figures).toBeVisible();
-    await expect(masked).toBeHidden();
-    await expect(figures).toHaveText(
-      new RegExp(
-        `^${month} · ₹[\\d,.]+ achieved of ₹[\\d,.]+( · \\d+ not priced)?( · \\d+ with no amount)?`,
-      ),
-    );
-    expect(await page.evaluate(() => history.length)).toBe(entries);
-    // A second tap masks them again.
-    await line.locator('[data-slot="today-revenue-toggle"]').click();
-    await expect(masked).toBeVisible();
-    await line.locator('[data-slot="today-revenue-toggle"]').click();
-    await expect(figures).toBeVisible();
-    // Not kept: a reload starts masked.
-    await page.reload();
-    await hydrated(page);
-    await expect(page.locator('[data-slot="today-revenue-masked"]')).toBeVisible();
-    await expect(page.locator('[data-slot="today-revenue-figures"]')).toBeHidden();
-
-    // "Open Revenue" drills into the Revenue page; back returns to Today.
-    await page.locator('[data-slot="today-revenue-open"]').click();
-    await expect(page).toHaveURL(/\/reports\/revenue$/);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
-  });
-
-  test("the line streams after the page behind a fallback that traces it", async ({ page }) => {
+  }, info) => {
     const session = await ownSession(page, owner.email, owner.password);
-    const held = await holdReads("/rest/v1/rpc/revenue_month_totals", session);
+    const watch = await watchReads(session);
+    const asked: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/revenue/month-totals")
+        asked.push(request.url());
+    });
     try {
-      await page.goto("/today", { waitUntil: "commit" });
-      const fallback = page.locator('[data-slot="today-revenue-skeleton"]');
-      // The page is in (its first section) while the line still waits.
-      await expect(fallback).toBeVisible();
-      await expect(page.locator('[data-slot="today-attendance-card"]').first()).toBeVisible();
-      await expect.poll(() => held.caught(), { message: "the totals read is held" }).toBe(true);
-      const box = await fallback.boundingBox();
-      held.release();
+      // Today's HTML and its RSC payload, as the browser and the router get them: no amount.
+      const html = await page.request.get("/today");
+      expect(html.status()).toBe(200);
+      const rsc = await page.request.get("/today", { headers: { RSC: "1" } });
+      expect(rsc.status()).toBe(200);
+      for (const [what, body] of [
+        ["HTML", await html.text()],
+        ["RSC payload", await rsc.text()],
+      ] as const) {
+        expect(body, `Today's ${what} has the masked line`).toContain("achieved of ₹ •••");
+        expect(body, `Today's ${what} holds no amount`).not.toMatch(AMOUNT);
+      }
+
+      await page.goto("/today");
+      await hydrated(page);
+      await expectSettled(page);
       const line = page.locator('[data-slot="today-revenue"]');
       await expect(line).toBeVisible();
-      await expect(fallback).toHaveCount(0);
-      const settled = await line.boundingBox();
-      expect(box).not.toBeNull();
-      expect(settled).not.toBeNull();
+      const month = formatIST(istDayStart(today), "MMMM");
+      const toggle = line.locator('[data-slot="today-revenue-toggle"]');
+      await expect(toggle).toHaveText(`${month} · ₹ ••• achieved of ₹ ••• · Show`);
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.locator("main")).not.toContainText(AMOUNT);
+      expect(watch.server(), "Today's render reads no money").not.toContain(
+        "/rest/v1/rpc/revenue_month_totals",
+      );
+      expect(asked, "and the page asks for none").toEqual([]);
+
+      // The main column's last line (Q12(a)); on a phone This week follows the main column.
       expect(
-        Math.abs(settled!.y - box!.y),
-        "the line takes the fallback's place",
+        await line.evaluate(
+          (element) =>
+            element.parentElement?.getAttribute("data-slot") === "owner-today" &&
+            element.parentElement.lastElementChild === element,
+        ),
+        "the last line of the main column",
+      ).toBe(true);
+      const top = (await line.boundingBox())!.y;
+      const week = await page.locator('[data-slot="day-week"]').boundingBox();
+      if ((page.viewportSize()?.width ?? 1280) < 768 && week) {
+        expect(week.y, `This week follows the line at ${info.project.name}`).toBeGreaterThan(top);
+      }
+
+      // The tap reads the totals once and shows them: no history entry.
+      const entries = await page.evaluate(() => history.length);
+      await toggle.click();
+      const figures = line.locator('[data-slot="today-revenue-figures"]');
+      await expect(figures).toBeVisible();
+      await expect(figures).toHaveText(
+        new RegExp(
+          `^${month} · ₹[\\d,.]+ achieved of ₹[\\d,.]+( · \\d+ not priced)?( · \\d+ with no amount)?$`,
+        ),
+      );
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await expect(toggle).toContainText("· Hide");
+      expect(await page.evaluate(() => history.length)).toBe(entries);
+      expect(asked, "one request on the tap").toHaveLength(1);
+      expect(
+        watch.server().filter((path) => path === "/rest/v1/rpc/revenue_month_totals"),
+      ).toHaveLength(1);
+      // A second tap masks them again; a third shows them, without another request.
+      await toggle.click();
+      await expect(line.locator('[data-slot="today-revenue-masked"]')).toBeVisible();
+      await expect(page.locator("main")).not.toContainText(AMOUNT);
+      await toggle.click();
+      await expect(figures).toBeVisible();
+      expect(asked, "still the one request").toHaveLength(1);
+      // Not kept: a reload starts masked.
+      await page.reload();
+      await hydrated(page);
+      await expect(page.locator('[data-slot="today-revenue-masked"]')).toBeVisible();
+      await expect(page.locator('[data-slot="today-revenue-figures"]')).toHaveCount(0);
+
+      // "Open Revenue" drills into the Revenue page; back returns to Today.
+      await page.locator('[data-slot="today-revenue-open"]').click();
+      await expect(page).toHaveURL(/\/reports\/revenue$/);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/today$/);
+    } finally {
+      watch.stop();
+    }
+  });
+
+  test("while the figures load the line keeps its box; a read that fails says so, muted, beside Open Revenue", async ({
+    page,
+  }) => {
+    const session = await ownSession(page, owner.email, owner.password);
+    const line = page.locator('[data-slot="today-revenue"]');
+    const toggle = line.locator('[data-slot="today-revenue-toggle"]');
+    const held = await holdReads("/rest/v1/rpc/revenue_month_totals", session);
+    try {
+      await page.goto("/today");
+      await hydrated(page);
+      await expectSettled(page);
+      // Read in page coordinates: the tap may scroll the line into view.
+      const boxOf = () =>
+        line.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return { y: box.top + window.scrollY, height: box.height };
+        });
+      const before = await boxOf();
+      await toggle.click();
+      const loading = line.locator('[data-slot="today-revenue-loading"]');
+      await expect(loading).toBeVisible();
+      await expect.poll(() => held.caught(), { message: "the totals read is held" }).toBe(true);
+      const during = await boxOf();
+      expect(
+        Math.abs(during.y - before.y),
+        "the loading bar is in the line's own box",
       ).toBeLessThanOrEqual(1);
-      expect(Math.abs(settled!.x - box!.x)).toBeLessThanOrEqual(1);
-      expect(Math.abs(settled!.width - box!.width)).toBeLessThanOrEqual(1);
-      // One row high at least, as the fallback (a long masked line may wrap below it: it is last).
-      expect(box!.height).toBeGreaterThanOrEqual(64);
-      expect(settled!.height).toBeGreaterThanOrEqual(box!.height - 1);
+      expect(Math.abs(during.height - before.height)).toBeLessThanOrEqual(1);
+      held.release();
+      await expect(line.locator('[data-slot="today-revenue-figures"]')).toBeVisible();
+      await expect(loading).toHaveCount(0);
     } finally {
       held.release();
+    }
+
+    const failing = await holdReads("/rest/v1/rpc/revenue_month_totals", session, "jwt-expired");
+    try {
+      await page.reload();
+      await hydrated(page);
+      await expectSettled(page);
+      await toggle.click();
+      const failed = line.locator('[data-slot="today-revenue-failed"]');
+      await expect(failed).toHaveText("Revenue couldn't load ·");
+      await expect(failed).toHaveClass(/text-muted-foreground/);
+      await expect(line.locator('[data-slot="today-revenue-open"]')).toBeVisible();
+      // The two boxes side by side (the gap between them is layout, not text).
+      await expect(line).toHaveText(/^Revenue couldn't load ·\s*Open Revenue$/);
+      await expect(page.locator("main")).not.toContainText(AMOUNT);
+    } finally {
+      failing.release();
+    }
+  });
+
+  test("the address refuses everyone but the Owner: Admin and Crew 403, signed out 401", async ({
+    browser,
+  }) => {
+    for (const role of ["admin", "staff"] as const) {
+      const context = await browser.newContext({ storageState: storageStateFor(role) });
+      try {
+        const answer = await context.request.get("/api/revenue/month-totals");
+        expect(answer.status(), `${role}: refused`).toBe(403);
+        expect(answer.headers()["cache-control"]).toBe("no-store");
+        expect(await answer.text()).not.toMatch(/₹|potential|achieved/);
+      } finally {
+        await context.close();
+      }
+    }
+    const signedOut = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const answer = await signedOut.request.get("/api/revenue/month-totals");
+      expect(answer.status(), "signed out: 401").toBe(401);
+    } finally {
+      await signedOut.close();
     }
   });
 });
