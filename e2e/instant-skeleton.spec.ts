@@ -1386,6 +1386,10 @@ test.describe("offline, a tab's tap draws no copy (v7.0)", () => {
     });
     await context.setOffline(true);
     try {
+      // The page knows it is offline before the tap, as a phone that is offline does: the browser
+      // flips `navigator.onLine` a moment after `setOffline`, and a tap inside that moment was
+      // drawn and then taken back on the "offline" event (1 in 6 locally, CI 45696917642).
+      await page.waitForFunction(() => !navigator.onLine);
       await fingerTap(barLink(page, "/approvals"));
       await page.waitForTimeout(800);
       // Read once the page settles (a document Next loads in full replaces the context).
