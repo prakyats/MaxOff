@@ -24,6 +24,7 @@ import {
 } from "./google";
 import { folderStore } from "./server";
 import { decryptToken, encryptToken } from "./token-crypto";
+import { googleOrigins } from "./endpoints";
 
 /**
  * The Owner's Google sign-in for Drive (v4.0, ADR-0010): start → Google's consent screen →
@@ -283,7 +284,7 @@ export async function storedGrant(memberId: string): Promise<string | null> {
 export async function revokeGrant(token: string | null, fetchImpl: Fetch = fetch) {
   if (!token) return;
   try {
-    await fetchImpl("https://oauth2.googleapis.com/revoke", {
+    await fetchImpl(`${googleOrigins().oauth}/revoke`, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ token }).toString(),

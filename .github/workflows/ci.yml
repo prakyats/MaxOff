@@ -120,7 +120,7 @@ jobs:
       # ephemeral range (32768-60999), so an outgoing connection made while the images pull can take
       # one first: "failed to bind host port 0.0.0.0:54322/tcp: address already in use" (pgTAP, CI run
       # 42077454642). Reserved, the kernel never hands them out as a source port; a bind still works.
-      - run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54331
+      - run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54332
       # Only Postgres is needed for pgTAP; skipping the other services keeps the job short.
       - run: pnpm supabase start -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - run: pnpm db:test
@@ -197,7 +197,7 @@ jobs:
       # ephemeral range (32768-60999), so an outgoing connection made while the images pull can take
       # one first: "failed to bind host port 0.0.0.0:54322/tcp: address already in use" (pgTAP, CI run
       # 42077454642). Reserved, the kernel never hands them out as a source port; a bind still works.
-      - run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54331
+      - run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54332
       # Realtime runs too (5A build decision 23): the live bell, proved through the hold proxy by
       # e2e/notifications.spec.ts; global setup waits for a channel to join.
       - run: pnpm supabase start -x storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor

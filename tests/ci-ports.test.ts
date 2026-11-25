@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { FAKE_GOOGLE_PORT } from "../e2e/fake-google-config";
 import { HOLD_PROXY_PORT } from "../e2e/hold-proxy-config";
 
 /**
@@ -44,7 +45,7 @@ function stackPorts(): number[] {
   const config = [...read("supabase", "config.toml").matchAll(/^\w*port = (\d+)$/gm)].map((match) =>
     Number(match[1]),
   );
-  return [...config, HOLD_PROXY_PORT].filter(
+  return [...config, HOLD_PROXY_PORT, FAKE_GOOGLE_PORT].filter(
     (port) => port >= EPHEMERAL.from && port <= EPHEMERAL.to,
   );
 }
@@ -66,7 +67,9 @@ describe("the CI jobs that start the local stack", () => {
 
   it("cover every port of config.toml and the hold proxy inside the ephemeral range", () => {
     const ports = stackPorts();
-    expect(ports).toEqual(expect.arrayContaining([54321, 54322, HOLD_PROXY_PORT]));
+    expect(ports).toEqual(
+      expect.arrayContaining([54321, 54322, HOLD_PROXY_PORT, FAKE_GOOGLE_PORT]),
+    );
     for (const [id, job] of starting) {
       const held = reserved(job);
       expect(

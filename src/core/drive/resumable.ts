@@ -9,10 +9,11 @@
  * What lives here is Google's protocol only. Who may upload where, and what a file must be, is the
  * caller's: a module passes an `UploadPolicy` and the folder id it has already authorised.
  */
+import { googleOrigins } from "./endpoints";
 import { folderName } from "./folders";
 import { DriveApiError, DriveAuthError, type Fetch } from "./google";
 
-const UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
+const uploadUrl = () => `${googleOrigins().api}/upload/drive/v3/files`;
 /** What Google answers about the finished file: enough to verify it and to link to it. */
 /**
  * What Google's final answer to the browser carries: the file's id and checksum, nothing about
@@ -100,7 +101,7 @@ export async function openResumableSession(
   if (refusal) throw new UploadPolicyError(refusal);
   const mime = input.target.mimeType || "application/octet-stream";
   const response = await fetchImpl(
-    `${UPLOAD_URL}?uploadType=resumable&supportsAllDrives=false&fields=${FILE_FIELDS}`,
+    `${uploadUrl()}?uploadType=resumable&supportsAllDrives=false&fields=${FILE_FIELDS}`,
     {
       method: "POST",
       headers: {
@@ -126,7 +127,7 @@ export async function openResumableSession(
     );
   }
   const sessionUrl = response.headers.get("location");
-  if (!sessionUrl?.startsWith(UPLOAD_URL)) {
+  if (!sessionUrl?.startsWith(uploadUrl())) {
     throw new DriveApiError("Google gave no upload address", response.status);
   }
   return { sessionUrl };
@@ -184,7 +185,7 @@ export async function fileSeen(
   fileId: string,
 ): Promise<FileSeen> {
   const response = await fetchImpl(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
+    `${googleOrigins().api}/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
     { headers: { authorization: `Bearer ${accessToken}` } },
   );
   if (response.status === 404) return "not_found";
@@ -245,7 +246,7 @@ export async function fileFacts(
   fileId: string,
 ): Promise<FileFacts | null> {
   const response = await fetchImpl(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,size,md5Checksum,parents,trashed`,
+    `${googleOrigins().api}/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,size,md5Checksum,parents,trashed`,
     { headers: { authorization: `Bearer ${accessToken}` } },
   );
   if (response.status === 404) return null;

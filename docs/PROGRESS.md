@@ -352,6 +352,23 @@
     - `/upload`'s budget is down to 612 KB.
     - The worktree `/home/user/wt/v45move` is obsolete (branch `v45-main-move`, never pushed).
 
+  - **Next (after full CI on c57761b9):**
+    1. **The §7.3 Playwright flows** need a **fake Google**, since the Worker's own calls go to fixed URLs in `core/drive` (`google.ts`, `resumable.ts`, `connect.ts`).
+       - A base-URL override, honoured **only when `NEXT_PUBLIC_APP_ENV` is local or CI** (with a unit test that staging and production refuse it). Name: `GOOGLE_API_ORIGIN_FOR_TESTS`.
+       - A small fake server in `playwright.config.ts`'s webServers, like `e2e/hold-proxy.ts`. It answers the token refresh, `about`, folder create and `files.get`, opens resumable sessions on itself, takes chunked PUTs (counting bytes, answering 308 with Range), and returns final ids and md5s. Switches give 404/trashed, a 403 daily limit, and a mid-file drop.
+       - `uploadPageCsp` adds that origin to `connect-src` only when the override is on.
+       - The e2e seals the placeholder refresh token with the run's `DRIVE_TOKEN_KEY` (`encryptToken`).
+       - The flows: offline mid-file and resume with no byte sent twice; reload welcome-back plus a second context seeing nothing; space held, daily limit, rate limit and Retry; Removed in Drive (404 and trashed); no Drive call on the task page's load; Crew sees no folder link in the network log.
+    2. **The §7.4 pen test on staging** (manual checklist, test Gmail, no third-party traffic).
+    3. **The speed gate:** every route for every role (the shell changed), plus /login and /offline; paired against a preview of main; two runs; in my probe slot after v6.0 and v3.5, on the advisor's GO.
+    4. **The release review:** design critique, Impeccable audit, design-system, ux-copy, accessibility.
+    5. **READY FOR OWNER:**
+       - the walk script (phone and laptop uploads, the card, Removed in Drive, All files received on both paths, the toasts unchanged);
+       - the leftover risks to accept;
+       - the WAF and rate-limit dashboard step;
+       - "staging uses a test override of S7";
+       - the probe table and the guide.
+    - **At 11:20 IST:** v4.0's pictures first (its READY goes out first), then v4.5's Owner upload pictures (`GUIDE_ONLY=owner/upload-get,owner/upload-card,owner/upload-received`) and putting their ids back on `owner-upload-link`.
   - **The calendar cut was tried and reverted:** `date-fns-tz` runs through the calendar's own code. The owner chose the sonner patch instead.
   - **Next:**
     1. The upload unit (CORS unblocked): a real Google round trip on staging; confirm Google's daily-limit error codes (Ideas item 2).

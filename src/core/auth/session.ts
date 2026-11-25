@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/core/db";
 import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
+import { fakeGoogleOrigin } from "@/core/drive/endpoints";
 import { applyResponseHeaders, uploadPageCsp } from "@/core/http/response-headers";
 import { isolateTick, serverTiming } from "@/core/observability/isolate";
 
@@ -150,7 +151,7 @@ function withCookies(target: NextResponse, source: NextResponse): NextResponse {
 function uploadPagePassThrough(request: NextRequest): NextResponse {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const nonce = btoa(String.fromCharCode(...bytes));
-  const csp = uploadPageCsp(nonce, request.nextUrl.protocol === "https:");
+  const csp = uploadPageCsp(nonce, request.nextUrl.protocol === "https:", fakeGoogleOrigin());
   const headers = new Headers(request.headers);
   headers.set("content-security-policy", csp);
   headers.set("x-nonce", nonce);

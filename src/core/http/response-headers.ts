@@ -92,14 +92,19 @@ export const UPLOAD_PAGE_ROUTE_HEADERS: readonly ResponseHeader[] = [
  * connections only to this origin and to Google's upload API, nothing framed, no forms, no plugins.
  * `upgrade-insecure-requests` only over https (a local http run would otherwise lose its assets).
  */
-export function uploadPageCsp(nonce: string, https: boolean): string {
+export function uploadPageCsp(
+  nonce: string,
+  https: boolean,
+  testGoogle: string | null = null,
+): string {
   return [
     "default-src 'none'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self' https://www.googleapis.com",
+    // A local e2e run's fake Google (core/drive/endpoints), never on staging or production.
+    `connect-src 'self' https://www.googleapis.com${testGoogle ? ` ${testGoogle}` : ""}`,
     "worker-src 'self' blob:",
     "manifest-src 'none'",
     "form-action 'none'",

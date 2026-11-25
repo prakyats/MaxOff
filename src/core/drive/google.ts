@@ -5,10 +5,12 @@
  * under that scope, so no other Google scope is asked for. Every call takes its `fetch`, so the
  * tests run against a fake Drive.
  */
+import { googleOrigins } from "./endpoints";
+
 export const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-const TOKEN_URL = "https://oauth2.googleapis.com/token";
-const DRIVE_API = "https://www.googleapis.com/drive/v3";
+const tokenUrl = () => `${googleOrigins().oauth}/token`;
+const driveApi = () => `${googleOrigins().api}/drive/v3`;
 export const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 export type Fetch = typeof fetch;
@@ -74,7 +76,7 @@ async function tokenCall(
   body: Record<string, string>,
   now: Date,
 ): Promise<Grant> {
-  const response = await fetchImpl(TOKEN_URL, {
+  const response = await fetchImpl(tokenUrl(), {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(body).toString(),
@@ -139,7 +141,7 @@ async function driveCall<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const response = await fetchImpl(`${DRIVE_API}${path}`, {
+  const response = await fetchImpl(`${driveApi()}${path}`, {
     ...init,
     headers: { ...(init.headers ?? {}), authorization: `Bearer ${accessToken}` },
   });
