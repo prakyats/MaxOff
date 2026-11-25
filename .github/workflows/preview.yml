@@ -15,11 +15,14 @@
 #
 # Previews run against the **staging** Supabase project with the staging environment's
 # variables. The preview build itself never runs migrations; the `staging-migrations` job at the
-# bottom of this file does, **before** the build, on every push to a `phase-*` branch, through
+# bottom of this file does, **before** the build, on every push to a `phase-*` branch **and on a
+# push or manual preview of any branch that adds a migration** (advisor 2026-11-26: a `claude/*`
+# branch previewed for hours against a staging without its migration), through
 # scripts/staging-migrations.sh: it lists the linked project's migrations and applies only what
 # staging is missing, also while staging holds another open branch's (seconds when nothing is
-# pending, robust against an earlier failed run). Other branches, and a run
-# where that job failed, preview against a database that lacks them, and the PR comment says so.
+# pending, robust against an earlier failed run). The `migration plan` job decides
+# (scripts/lib/migration-plan.mjs, unit-tested); `migrations check` **fails the run, and no
+# preview is built,** when the branch adds migrations and that job did not succeed.
 # The manual dispatch stays as the fallback. Staging only: production migrations go out with a
 # `v*` tag (deploy.yml), never from here.
 #
@@ -92,15 +95,65 @@ permissions:
   contents: read
 
 jobs:
-  preview:
-    name: preview
-    # After the migrations, so the build previews against the schema it was written for. A
-    # skipped migrations job (another branch, or a manual preview) does not block the preview.
-    needs: [staging-migrations]
+  # Which run applies staging's missing migrations (scripts/lib/migration-plan.mjs): reads git
+  # only, holds no secret and joins no concurrency group, so a branch without migrations never
+  # queues behind (or displaces) a staging deploy.
+  migration-plan:
+    name: migration plan
+    if: github.event_name == 'push' || contains(fromJSON('["preview", "staging-migrations"]'), inputs.job)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      added: ${{ steps.plan.outputs.added }}
+      apply: ${{ steps.plan.outputs.apply }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Count this branch's migrations and decide
+        id: plan
+        env:
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          node scripts/migration-plan.mjs
+
+  # A branch that adds migrations previews only once this run's `staging migrations` succeeded:
+  # otherwise this fails, loudly, and the preview is not built (previewMayBuild).
+  migrations-check:
+    name: migrations check
+    needs: [migration-plan, staging-migrations]
     if: >-
       always()
       && (github.event_name == 'push' || inputs.job == 'preview')
-      && contains(fromJSON('["success", "skipped"]'), needs.staging-migrations.result)
+      && needs.migration-plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: The staging database has this branch's migrations
+        env:
+          ADDED: ${{ needs.migration-plan.outputs.added }}
+          MIGRATIONS: ${{ needs.staging-migrations.result }}
+        run: node scripts/migration-plan.mjs --check "$ADDED" "$MIGRATIONS"
+
+  preview:
+    name: preview
+    # After the migrations, so the build previews against the schema it was written for. A
+    # skipped migrations job (a branch without migrations of its own) does not block the preview;
+    # a branch that adds migrations builds only after they were applied (`migrations check`).
+    needs: [staging-migrations, migrations-check]
+    if: >-
+      always()
+      && (github.event_name == 'push' || inputs.job == 'preview')
+      && needs.migrations-check.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
@@ -349,14 +402,14 @@ jobs:
           fi
 
   # Automatic on every push to a `phase-*` branch (process change 2026-09-26, owner decision;
-  # manual-only since task 2.0), and still available by hand for any branch. It moves the staging
-  # schema only when staging is missing a local migration, and staging is shared: the migrations
-  # stay there until the branch merges. Production is never in scope.
+  # manual-only since task 2.0), on a push or manual preview of any branch that adds a migration
+  # (advisor 2026-11-26), and still available by hand for any branch (`migration plan` decides).
+  # It moves the staging schema only when staging is missing a local migration, and staging is
+  # shared: the migrations stay there until the branch merges. Production is never in scope.
   staging-migrations:
     name: staging migrations
-    if: >-
-      (github.event_name == 'push' && startsWith(github.ref_name, 'phase-'))
-      || (github.event_name == 'workflow_dispatch' && inputs.job == 'staging-migrations')
+    needs: [migration-plan]
+    if: needs.migration-plan.outputs.apply == 'true'
     runs-on: ubuntu-latest
     outputs:
       applied: ${{ steps.push.outputs.applied }}
