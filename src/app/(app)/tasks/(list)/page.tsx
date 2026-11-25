@@ -9,6 +9,7 @@ import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
+import type { AvatarPerson } from "@/core/ui/composites/person-avatar";
 import { EmptyRow, EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { DayColumns, ThisWeek } from "@/modules/dashboards";
@@ -32,6 +33,11 @@ import {
   type TaskListRow,
   TaskRow,
   TaskRowList,
+  type UpcomingEvent,
+  upcomingEvents,
+  upcomingIds,
+  upcomingPeople,
+  upcomingWhen,
   waitedLabel,
 } from "@/modules/tasks";
 import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
@@ -70,13 +76,14 @@ const OPEN_ON_FIRST_SCREEN = 15;
  */
 export default async function TasksPage() {
   // Every read starts with the session read (ARCHITECTURE §19); RLS decides what each returns,
-  // and the ones only managers use are cheap for Staff (their own rows, a count). "My tasks'"
-  // This week starts in the same wave (startEarly) and is awaited only for the list that shows
-  // it, so the Owner's and Admins' page never waits on it.
+  // and the ones only managers use are cheap for Staff (their own rows, a count). The week read
+  // (`own_week`: the event tasks from today over MY_DAY_AHEAD_DAYS, 7 = today plus the
+  // UPCOMING_EVENT_DAYS 6) starts in the same wave (startEarly): "My tasks'" This week and, since
+  // v6.5, everyone's Upcoming shoots and visits come from it.
   const today = todayIST();
   const weekRead = readOwnWeek(today);
   startEarly(weekRead);
-  const [viewer, [rows, directory, labels, own, counts, requests, settings, unread]] =
+  const [viewer, [rows, directory, labels, own, counts, requests, settings, unread, week]] =
     await checkThenRead(
       requirePermission("tasks.work"),
       Promise.all([
@@ -92,6 +99,9 @@ export default async function TasksPage() {
         readOwnWeekEscalation(today),
         // Each row's unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
         readOpenTasks().then((open) => listUnreadCounts(open.map((row) => row.id))),
+        // v6.5 unit 11: Upcoming shoots and visits reads the week read's event tasks (today and
+        // the next six days, every one the viewer sees under RLS: the Crew's own); no read more.
+        weekRead,
       ]),
     );
   const names = new Map(directory.map((member) => [member.id, member]));
@@ -113,15 +123,18 @@ export default async function TasksPage() {
   const now = systemClock();
   // The Owner reads a task waiting for them as what it asks of them (owner 2026-10-09).
   const labelViewer = { finalApprover: can(viewer.role, "tasks.approve_final") };
+  // v6.5 unit 11: the shoots and visits ahead, listed once (Q3: the other lists leave them out).
+  const upcoming = upcomingEvents(week[0], rows, today);
+  const onUpcoming = upcomingIds(upcoming);
 
   if (!can(viewer.role, "tasks.create")) {
     // "Suggest a task" (4.6): a client label the suggester sees, Active or Paused (decision 22).
     const choices = labels
       .filter((label) => label.state === "active" || label.state === "paused")
       .map((label) => ({ id: label.id, name: label.name }));
-    const groups = myTaskGroups(rows, listViewer, now, today);
-    const week = ownWeek({
-      read: await weekRead,
+    const groups = withoutUpcoming(myTaskGroups(rows, listViewer, now, today), onUpcoming);
+    const ownDays = ownWeek({
+      read: week,
       viewerId: viewer.id,
       own,
       groups,
@@ -135,12 +148,21 @@ export default async function TasksPage() {
         <MyTasks
           groups={groups}
           held={heldOpen(rows, listViewer).length}
-          week={week}
+          week={ownDays}
           viewer={listViewer}
           context={context}
           now={now}
           clients={choices}
           unread={unread}
+          upcomingCount={upcoming.length}
+          upcoming={
+            <Upcoming
+              upcoming={upcoming}
+              nameOf={context.nameOf}
+              labelOf={(row) => stateLabel(row)}
+              unread={unread}
+            />
+          }
         />
       </>
     );
@@ -148,7 +170,7 @@ export default async function TasksPage() {
 
   const needs = needsYou(rows, listViewer, now, settings);
   const shown = new Set(needs.map((item) => item.row.id));
-  const open = openByDeadline(rows, shown);
+  const open = openByDeadline(rows, new Set([...shown, ...onUpcoming]));
   // B2: the heading counts the rows shown; the approvals link only for tasks not already rows (B3).
   const summary = needsYouSummary({ needs, toDecide: counts.toDecide, links: [requests] });
   const nothingNeeded = summary.count === 0;
@@ -222,8 +244,16 @@ export default async function TasksPage() {
           </Section>
         )}
 
+        <Upcoming
+          upcoming={upcoming}
+          nameOf={context.nameOf}
+          labelOf={(row) => stateLabel(row, labelViewer)}
+          unread={unread}
+          faceOf={faceOf}
+        />
+
         {/* PP-tasks-1: with every open task under Needs you, Open tasks is not drawn at all. */}
-        {open.length === 0 && needs.length === 0 ? (
+        {open.length === 0 && needs.length === 0 && upcoming.length === 0 ? (
           <EmptyState
             title="No open tasks"
             description="Give out work with New task. Each one opens on its own page, where people note it and you approve it."
@@ -279,6 +309,8 @@ function MyTasks({
   now,
   clients,
   unread,
+  upcoming,
+  upcomingCount,
 }: {
   groups: ReturnType<typeof myTaskGroups>;
   /** The viewer's own held tasks (v1.9 W8): left out of the groups, one line opens them. */
@@ -289,6 +321,9 @@ function MyTasks({
   now: Date;
   clients: { id: string; name: string }[];
   unread: Readonly<Record<string, number>>;
+  /** Their shoots and visits ahead (v6.5 unit 11), first under the list's head. */
+  upcoming: ReactNode;
+  upcomingCount: number;
 }) {
   const empty = MY_LIST_GROUPS.every((group) => groups[group].length === 0);
   const reviewing = groups.with_reviewers.length;
@@ -308,12 +343,15 @@ function MyTasks({
         week={<ThisWeek blocks={week.blocks} hidden={week.hidden} slot="tasks-week" />}
         main={
           <>
+            {upcoming}
             {empty ? (
-              <EmptyState
-                title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}
-                description="Tasks given to you appear here. Note each one when you see it."
-                size="compact"
-              />
+              upcomingCount > 0 ? null : (
+                <EmptyState
+                  title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}
+                  description="Tasks given to you appear here. Note each one when you see it."
+                  size="compact"
+                />
+              )
             ) : (
               MY_LIST_GROUPS.map((group) =>
                 groups[group].length > 0 ? (
@@ -378,6 +416,59 @@ function MyTasks({
       />
     </>
   );
+}
+
+/**
+ * "Upcoming shoots and visits" (v6.5 unit 11; the approved sample "3"): one row per open event
+ * task from today to six days ahead, soonest first; the first line says the day, time and place,
+ * the second who is on it. Nothing at all when there is none.
+ */
+function Upcoming({
+  upcoming,
+  nameOf,
+  labelOf,
+  unread,
+  faceOf,
+}: {
+  upcoming: readonly UpcomingEvent[];
+  nameOf: (id: string) => string;
+  labelOf: (row: TaskListRow) => string;
+  unread: Readonly<Record<string, number>>;
+  faceOf?: (id: string) => AvatarPerson | undefined;
+}) {
+  if (upcoming.length === 0) return null;
+  return (
+    <Section title="Upcoming shoots and visits" slot="tasks-upcoming" count={upcoming.length}>
+      <TaskRowList label="Upcoming shoots and visits" slot="tasks-upcoming-rows">
+        {upcoming.map(({ row, event }) => (
+          <TaskRow
+            key={row.id}
+            id={row.id}
+            title={row.title}
+            meta={upcomingWhen(event)}
+            note={upcomingPeople(event, nameOf)}
+            status={row.state}
+            statusLabel={labelOf(row)}
+            onHold={Boolean(row.heldAt)}
+            unread={unread[row.id] ?? 0}
+            person={faceOf?.(row.primaryOwnerId)}
+          />
+        ))}
+      </TaskRowList>
+    </Section>
+  );
+}
+
+/** The Crew's Due today and Upcoming leave out the shoots and visits listed above them (Q3). */
+function withoutUpcoming(
+  groups: ReturnType<typeof myTaskGroups>,
+  onUpcoming: ReadonlySet<string>,
+): ReturnType<typeof myTaskGroups> {
+  return {
+    ...groups,
+    due_today: groups.due_today.filter((item) => !onUpcoming.has(item.row.id)),
+    upcoming: groups.upcoming.filter((item) => !onUpcoming.has(item.row.id)),
+  };
 }
 
 function capitalise(text: string): string {

@@ -259,6 +259,101 @@ test.describe("the task lists, the flows", () => {
     await expect(navBadge(page, info, "tasks")).toHaveText(/1/);
   });
 
+  test("Upcoming shoots and visits: listed once, soonest first, the Crew their own", async ({
+    page,
+  }, info) => {
+    // v6.5 unit 11 (owner 14 Nov 2026; the approved sample "3"): the open event tasks from today
+    // to six days ahead, above the open tasks and left out of them (Q3); the Crew see their own.
+    const prefix = prefixOf(info);
+    await removeTasksTitled(prefix);
+    const who = people(info);
+    const [staffId, coordId] = [
+      await memberIdOf(who.staff.email),
+      await memberIdOf(who.coord.email),
+    ];
+    const today = todayIST();
+    const tomorrow = addISTDays(today, 1);
+    const due = istInstant(addISTDays(today, 3), "18:00");
+    const shoot = await taskTypeId("Shoot / Site Visit");
+    const brand = await adminCreates(who.admin.email, {
+      title: `${prefix}brand shoot`,
+      assignees: [staffId],
+      due,
+      type: shoot,
+      more: {
+        event_date: tomorrow,
+        event_start_at: istInstant(tomorrow, "14:00"),
+        event_end_at: istInstant(tomorrow, "16:00"),
+        location: "Studio",
+      },
+    });
+    await adminCreates(who.admin.email, {
+      title: `${prefix}team meeting`,
+      assignees: [staffId],
+      due,
+      type: await taskTypeId("Meeting"),
+      more: { event_date: today },
+    });
+    await adminCreates(who.admin.email, {
+      title: `${prefix}cafe visit`,
+      assignees: [coordId],
+      due,
+      type: shoot,
+      more: { event_date: tomorrow, location: "Coastal Cafe" },
+    });
+    await adminCreates(who.admin.email, {
+      title: `${prefix}far shoot`,
+      assignees: [staffId],
+      due: istInstant(workingDay(30), "18:00"),
+      type: shoot,
+      more: { event_date: workingDay(30) },
+    });
+    // Noted, so without this section it would sit under the Crew's Upcoming group.
+    await rpcAs(who.staff.email, PASSWORD, "task_acknowledge", { task_id: brand });
+    const titles = (slot: string) =>
+      section(page, slot)
+        .locator('[data-slot="task-row-title"]')
+        .allInnerTexts()
+        .then((texts) => texts.filter((text) => text.startsWith(prefix)));
+
+    await signIn(page, who.admin.email, PASSWORD);
+    await page.goto("/tasks");
+    const upcoming = section(page, "tasks-upcoming");
+    await expect(upcoming).toBeVisible();
+    await expect
+      .poll(() => titles("tasks-upcoming"))
+      .toEqual([`${prefix}team meeting`, `${prefix}cafe visit`, `${prefix}brand shoot`]);
+    await expect(rowOf(page, `${prefix}brand shoot`)).toContainText("2:00 pm – 4:00 pm · Studio");
+    await expect(rowOf(page, `${prefix}brand shoot`)).toContainText(who.staff.name);
+    await expect(rowOf(page, `${prefix}team meeting`)).toContainText("All day");
+    // Listed once (Q3): the open tasks keep only the shoot beyond the six days.
+    const open = section(page, "tasks-open");
+    await expect(open).toContainText(`${prefix}far shoot`);
+    await expect(open).not.toContainText(`${prefix}brand shoot`);
+
+    // The Crew: their own shoots and visits only, and not again under Due today or Upcoming.
+    await page.context().clearCookies();
+    await signIn(page, who.staff.email, PASSWORD);
+    await page.goto("/tasks");
+    await expect
+      .poll(() => titles("tasks-upcoming"))
+      .toEqual([`${prefix}team meeting`, `${prefix}brand shoot`]);
+    for (const group of ["tasks-group-due_today", "tasks-group-upcoming"]) {
+      await expect(
+        page.locator(`[data-slot="${group}"]`).filter({ hasText: `${prefix}brand shoot` }),
+      ).toHaveCount(0);
+    }
+    // My Day (Q6): their own event says its time and place in place of the deadline.
+    await page.goto("/my-day");
+    const meeting = rowOf(page, `${prefix}team meeting`);
+    await expect(meeting).toContainText("All day");
+    await expect(meeting.locator('[data-slot="task-row-meta"]')).not.toContainText("Due");
+    await page.goto("/tasks");
+    // A row is a drill-down to the task.
+    await rowOf(page, `${prefix}brand shoot`).click();
+    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
+  });
+
   test("an Admin: Needs you, the open tasks, the approvals row and every filter of the full list", async ({
     page,
   }, info) => {

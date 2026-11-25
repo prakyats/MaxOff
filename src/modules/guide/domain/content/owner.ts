@@ -364,14 +364,14 @@ export const OWNER_GUIDE: Guide = {
           summary: "What needs you first, then every open task by deadline.",
           blocks: [
             text(
-              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue (a red chip saying how late, such as "2 days late" or "3 h late"), have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). Below it, "Open tasks" are listed by deadline. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Tap anywhere on a row, its chips included, to open the task.',
+              'Tasks opens on "Needs you": tasks waiting for your approval, suggested tasks to decide, and tasks that are overdue (a red chip saying how late, such as "2 days late" or "3 h late"), have changes requested, or have not been noted (your own note to give is the amber "Note it" chip). "Upcoming shoots and visits" comes next: each shoot, visit or meeting from today to six days ahead, soonest first, with its day, time and place, and who is on it. Below it, "Open tasks" are listed by deadline, without the shoots and visits already listed above. A section with nothing in it is not shown. Each row is one line with who and when under it, new comments as a small bubble beside the title, and chips on the right of the title: the reason, then the state, then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Tap anywhere on a row, its chips included, to open the task.',
             ),
             text(
               'Use "All tasks, with filters" for the full list, and "Suggested tasks" for ideas from your team.',
             ),
           ],
           link: { href: "/tasks", label: "Open Tasks" },
-          keywords: ["task list", "open tasks"],
+          keywords: ["task list", "open tasks", "shoot", "site visit", "upcoming"],
         },
         {
           id: "owner-new-task",

@@ -318,11 +318,11 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged late (a red chip saying how late, such as “2 days late”), Changes requested or Not noted (your own note to give is the amber “Note it” chip). Open tasks follows, ordered by deadline. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Tap anywhere on a row, its chips included, to open the task. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
+              text: "Needs you comes first: tasks waiting for your check, suggested tasks to decide, and tasks flagged late (a red chip saying how late, such as “2 days late”), Changes requested or Not noted (your own note to give is the amber “Note it” chip). “Upcoming shoots and visits” follows: each shoot, visit or meeting from today to six days ahead, soonest first, its day, time and place on the first line and who is on it under that. Open tasks comes next, ordered by deadline, without the shoots and visits already listed above. A section with nothing in it is not shown; an empty Needs you is one quiet line. Each row shows the task on one line, who and when under it, a speech bubble with the number of new comments beside the title, and chips on the right of the title (the reason, then the state), then ›. On a small phone a long chip is shortened with “…”; the task’s page shows it in full. Tap anywhere on a row, its chips included, to open the task. Two links take you deeper: “All tasks, with filters” and Suggested tasks.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
-          keywords: ["task list", "open tasks", "deadline"],
+          keywords: ["task list", "open tasks", "deadline", "shoot", "site visit", "upcoming"],
         },
         {
           id: "admin-new-task",

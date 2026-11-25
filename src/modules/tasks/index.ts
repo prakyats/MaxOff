@@ -99,6 +99,15 @@ export {
   type TaskListRow,
 } from "./domain/lists";
 export {
+  UPCOMING_EVENT_DAYS,
+  upcomingEvents,
+  upcomingEventsUntil,
+  upcomingIds,
+  upcomingPeople,
+  upcomingWhen,
+  type UpcomingEvent,
+} from "./domain/upcoming";
+export {
   ALL,
   FILTER_DEFAULT_LABELS,
   filterDefaultLabels,

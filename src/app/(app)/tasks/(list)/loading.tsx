@@ -8,7 +8,9 @@ import { TaskRowsSkeleton, TaskSectionHeadingSkeleton } from "@/modules/tasks";
 /**
  * The Tasks tab as it renders (4.5), traced per role (ARCHITECTURE §14.1). The Owner and Admins:
  * the header with "New task" (the FAB on a phone), "Needs you" with two rows that carry their
- * reason line, the open tasks, then the two links deeper. Staff, "My tasks" with "Suggest a task"
+ * reason line, "Upcoming shoots and visits" (v6.5 unit 11: two rows, each with its people line),
+ * the open tasks, then the two links deeper. Staff start with their own shoots and visits (one
+ * row). Staff, "My tasks" with "Suggest a task"
  * (the FAB on a phone, 4.6): two groups of rows (Not noted first, then a later one: the groups go
  * Not noted · Changes requested · Overdue · Due today · Upcoming, Kickoff 4 decision 25) and the
  * links, with "This week" (`ThisWeekSkeleton`) beside them from an 896 px content width and under
@@ -48,7 +50,11 @@ export default async function Loading() {
           </section>
           <section className="flex min-w-0 flex-col gap-2">
             <TaskSectionHeadingSkeleton />
-            <TaskRowsSkeleton rows={4} label="Open tasks" avatars />
+            <TaskRowsSkeleton rows={2} notes={2} label="Upcoming shoots and visits" avatars />
+          </section>
+          <section className="flex min-w-0 flex-col gap-2">
+            <TaskSectionHeadingSkeleton />
+            <TaskRowsSkeleton rows={3} label="Open tasks" avatars />
           </section>
           <LinksSkeleton />
           <span className="sr-only">Loading tasks</span>
@@ -61,6 +67,10 @@ export default async function Loading() {
           week={<ThisWeekSkeleton />}
           main={
             <>
+              <section className="flex min-w-0 flex-col gap-2">
+                <TaskSectionHeadingSkeleton />
+                <TaskRowsSkeleton rows={1} notes={1} label="Upcoming shoots and visits" />
+              </section>
               <section className="flex min-w-0 flex-col gap-2">
                 <TaskSectionHeadingSkeleton />
                 <TaskRowsSkeleton rows={2} label="Not noted" />

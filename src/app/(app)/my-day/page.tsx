@@ -29,6 +29,7 @@ import {
   myTaskGroups,
   onHoldLine,
   rowMeta,
+  upcomingWhen,
   stateLabel,
   TaskRow,
   TaskRowList,
@@ -92,6 +93,13 @@ export default async function MyDayPage() {
   };
   const listViewer = { id: viewer.id, role: viewer.role, coordinates: own };
   const groups = myTaskGroups(rows, listViewer, now, today);
+  // v6.5 Q6: their own shoots and visits say the time and place in place of "Due 6:00 pm", from
+  // the week read's event tasks (today and the next six days); no read more.
+  const eventOf = new Map(weekRead[0].map((event) => [event.id, event]));
+  const lead = (id: string) => {
+    const event = eventOf.get(id);
+    return event ? upcomingWhen(event) : undefined;
+  };
   const nothing = MY_DAY_GROUPS.every((group) => groups[group].length === 0);
   // v2.0 X1 (the owner's walk, 2026-11-04): a held task leaves the lists above, so My Day says so
   // in one line ("On hold · 1") that opens them, as the Tasks tab does; it never just vanishes.
@@ -145,7 +153,7 @@ export default async function MyDayPage() {
                           key={row.id}
                           id={row.id}
                           title={row.title}
-                          meta={rowMeta(row, context)}
+                          meta={rowMeta(row, context, lead(row.id))}
                           status={row.state}
                           statusLabel={stateLabel(row)}
                           flag={rowFlag(row, now)}

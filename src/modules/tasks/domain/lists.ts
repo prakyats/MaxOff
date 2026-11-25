@@ -308,8 +308,10 @@ export function rowMeta(
     engagementOf: (memberId: string) => Engagement | undefined;
     clientName: (clientId: string) => string | null;
   },
+  /** What leads in place of the deadline: an event's "Mon 16 · 2:00 pm – 4:00 pm · Studio" (v6.5). */
+  lead?: string,
 ): string {
-  const parts = [deadlineLabel(row.dueAt)];
+  const parts = [lead ?? deadlineLabel(row.dueAt)];
   if (row.primaryOwnerId !== context.viewerId) {
     const name = context.nameOf(row.primaryOwnerId);
     parts.push(
