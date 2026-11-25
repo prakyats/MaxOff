@@ -1421,9 +1421,24 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Reopen project…" to bring a completed or cancelled project back.',
             ),
             next("A completed or cancelled project becomes read-only."),
+            text(
+              'A one-time project can be finished with its last deliverable. On the project page, "Mark done" on the last open deliverable asks "Complete the project too?". "Mark done and complete project" does both at once and has no Undo; "Mark done only" marks the deliverable as usual, with its Undo, and leaves the project open. A monthly or weekly project never asks.',
+            ),
+            text(
+              'If the last deliverable is marked done another way (from Today, with "Mark N done", or with "Mark done only"), nothing is lost: a message says "All deliverables done" with a "Complete project" button, and the project reads "Ready to complete" on its page and in the client\'s project list until you complete it.',
+            ),
             note('"Reopen it from ⋯ to change anything."'),
           ],
-          keywords: ["complete", "cancel", "reopen", "read-only", "finish project"],
+          keywords: [
+            "complete",
+            "cancel",
+            "reopen",
+            "read-only",
+            "finish project",
+            "last deliverable",
+            "ready to complete",
+            "mark done and complete",
+          ],
         },
         {
           id: "owner-project-hold",

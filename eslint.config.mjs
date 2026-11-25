@@ -54,6 +54,10 @@ const MONEY_NAMES = [
   "billing_mark",
   "revenue_override_set",
   "revenue_override_clear",
+  // the views' own functions and the over-amount check (schema app; migration money_reads_scoped)
+  "item_values",
+  "revenue_cycles",
+  "cycle_explicit_total",
 ];
 const MONEY_RELATIONS = MONEY_NAMES.join("|");
 

@@ -13,9 +13,12 @@ import {
   type Result,
 } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
+import { can, type MemberRole } from "@/core/permissions";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/projects";
+import { type ReadyProject, readyProjects } from "../domain/projects";
+import type { ProjectState } from "../domain/types";
 import {
   type AddItemInput,
   addItemSchema,
@@ -137,22 +140,58 @@ export const setCloseKind = action(async (input: SetCloseKindInput): Promise<Res
 });
 
 /** One "Mark done", which approves it (D3; the delayed send behind the 6-second Undo). */
-export const markItemDone = action(async (input: ItemIdInput): Promise<Result<null>> => {
+/**
+ * The one-time projects that read "Ready to complete" after these marks (v2.1, "nothing silently
+ * missed"): for whoever may complete them, so the screen can say "All deliverables done". A read
+ * after the change is made: if it fails, the marks stand and nothing is said.
+ */
+async function readyAfter(role: MemberRole, itemIds: readonly string[]): Promise<ReadyProject[]> {
+  if (!can(role, "projects.complete") || itemIds.length === 0) return [];
+  try {
+    return readyProjects(await repo.listOneTimeProjectsOf(itemIds));
+  } catch {
+    return [];
+  }
+}
+
+/** What one Mark done answers: the project it left "Ready to complete", if any. */
+export type MarkDoneOutcome = { ready: ReadyProject | null };
+
+export const markItemDone = action(async (input: ItemIdInput): Promise<Result<MarkDoneOutcome>> => {
   const { itemId } = itemIdSchema.parse(input);
-  await assertPermission("items.tick");
+  const member = await assertPermission("items.tick");
   await repo.markItemDone(itemId);
   revalidate();
-  return ok(null);
+  return ok({ ready: (await readyAfter(member.role, [itemId]))[0] ?? null });
 });
 
+/**
+ * "Mark done and complete project" (kickoff 9 R1, v2.1): a one-time project's last open
+ * deliverable and the project itself, in one transition (`item_mark_done_and_complete`). Both
+ * permissions, as the function checks again; it notifies as Complete does.
+ */
+export const markDoneAndCompleteProject = action(
+  async (input: ItemIdInput): Promise<Result<ProjectState>> => {
+    const { itemId } = itemIdSchema.parse(input);
+    await assertPermission("items.tick");
+    await assertPermission("projects.complete");
+    const state = await repo.markItemDoneAndComplete(itemId);
+    revalidate();
+    dispatchPushSoon();
+    return ok(state);
+  },
+);
+
 /** "Mark N done": one call per id (decision 16), each approved at once (D3). */
-export const markItemsDone = action(async (input: ItemIdsInput): Promise<Result<BulkOutcome>> => {
-  const { itemIds } = itemIdsSchema.parse(input);
-  await assertPermission("items.tick");
-  const outcome = await eachId(itemIds, (id) => repo.markItemDone(id));
-  revalidate();
-  return ok(outcome);
-});
+export const markItemsDone = action(
+  async (input: ItemIdsInput): Promise<Result<BulkOutcome & { ready: ReadyProject[] }>> => {
+    const { itemIds } = itemIdsSchema.parse(input);
+    const member = await assertPermission("items.tick");
+    const outcome = await eachId(itemIds, (id) => repo.markItemDone(id));
+    revalidate();
+    return ok({ ...outcome, ready: await readyAfter(member.role, outcome.done) });
+  },
+);
 
 /**
  * Send back (the Owner) or reopen (the client's Admin) a done item with a reason (amendment D3):

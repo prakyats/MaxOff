@@ -221,7 +221,8 @@ function RetainerRows({ billing }: { billing: RetainerBilling }) {
                 </div>
                 <BillingSheetButton
                   label={item.price === null ? "Set price" : "Change"}
-                  name={`${item.price === null ? "Set the price of" : "Change the price of"} ${item.title}`}
+                  // The name starts with the words on the button (WCAG 2.5.3, speech control).
+                  name={`${item.price === null ? "Set price of" : "Change the price of"} ${item.title}`}
                   slot="billing-price-set"
                   sheet={{
                     kind: "price",
@@ -313,7 +314,7 @@ function AdvanceRow({ advance, today }: { advance: Advance; today: string }) {
       {advance.returnedOn ? null : (
         <BillingSheetButton
           label="Mark returned"
-          name={`Mark the advance of ${formatRupees(advance.amount)} returned`}
+          name={`Mark returned: the advance of ${formatRupees(advance.amount)}`}
           slot="billing-advance-return"
           sheet={{
             kind: "return",

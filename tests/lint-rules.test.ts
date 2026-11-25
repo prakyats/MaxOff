@@ -56,6 +56,7 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/tasks/components/denied-money-function-read.ts": [SYNTAX],
   "modules/tasks/components/denied-money-function-path.ts": [SYNTAX],
   "modules/tasks/components/denied-money-functions.ts": [SYNTAX],
+  "modules/tasks/components/denied-money-app-functions.ts": [SYNTAX],
   // expense claims are named only inside modules/expenses (ADR-0007 amendment)
   "modules/tasks/components/denied-expense.ts": [SYNTAX],
   // domain is platform-free (ADR-0011)
@@ -98,6 +99,12 @@ function walk(dir: string): string[] {
   });
 }
 
+/** Fixtures that name several money functions: the number of errors each must raise (one per name). */
+const EXPECTED_COUNTS: Record<string, number> = {
+  "modules/tasks/components/denied-money-functions.ts": 8,
+  "modules/tasks/components/denied-money-app-functions.ts": 3,
+};
+
 const toPosix = (path: string) => path.replaceAll("\\", "/");
 const isDenied = (file: string) => basename(file).startsWith("denied-");
 
@@ -127,6 +134,14 @@ describe("architecture lint rules", async () => {
   for (const [file, rules] of Object.entries(EXPECTED)) {
     it(`${file} trips ${rules.join(" + ")}`, () => {
       expect([...new Set(byFile.get(file))].sort()).toEqual([...rules].sort());
+    });
+  }
+
+  // A fixture that lists several names must be caught once per name: the Set above would pass with
+  // only one of them in the list.
+  for (const [file, count] of Object.entries(EXPECTED_COUNTS)) {
+    it(`${file} is caught ${count} times, once per name`, () => {
+      expect(byFile.get(file)).toHaveLength(count);
     });
   }
 

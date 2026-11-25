@@ -2,7 +2,7 @@
 -- the month's lines; the client's Admin, Crew and anon are refused. Seed members.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(18);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -79,6 +79,39 @@ select is((pg_temp.mine(public.revenue_month_read(), 'advances') -> 0 ->> 'amoun
   'its advance is in the month it was received');
 select ok((public.revenue_month_read() -> 'months') @> to_jsonb(array[app.month_start(app.today_ist()), app.month_start(app.month_start(app.today_ist()) + 40)]),
   'the months with lines are listed');
+
+-- The scoped path (the month's cycles only) gives exactly what the whole view gives for that month, a
+-- deliverable carried in from last month included (valued in its origin month, done in this one).
+select pg_temp.as_system();
+insert into fx select 'past', (app.cycle_create((select p from public.projects p where p.id = pg_temp.fx('p')),
+  app.month_start(app.month_start(app.today_ist()) - 1), 'schedule', null, true)).id;
+select pg_temp.as_member('owner');
+select public.billing_set_cycle_amount(pg_temp.fx('past'), 6000);
+select pg_temp.as_member('admin');
+select public.cycle_carry_decide(array[(select i.id from public.project_items i where i.cycle_id = pg_temp.fx('past') and i.title = 'B')], 'carry_forward');
+select public.item_mark_done((select i.id from public.project_items i where i.carried_from_item_id is not null and i.cycle_id = pg_temp.fx('cur')));
+select public.item_mark_done((select i.id from public.project_items i where i.cycle_id = pg_temp.fx('cur') and i.title = 'A'));
+select pg_temp.as_member('owner');
+create function pg_temp.same_as_view(m date) returns boolean language sql stable as $$
+  select (
+    select coalesce(jsonb_agg(jsonb_build_array(e ->> 'cycle_id', (e ->> 'amount')::numeric, (e ->> 'potential')::numeric,
+             (e ->> 'achieved')::numeric, (e ->> 'closed_not_achieved')::numeric, (e ->> 'remaining')::numeric,
+             (e ->> 'added_value')::numeric, (e ->> 'not_priced_count')::integer, (e ->> 'plan_count')::integer,
+             (e ->> 'done_count')::integer) order by e ->> 'cycle_id'), '[]'::jsonb)
+    from jsonb_array_elements(public.revenue_month_read(m) -> 'cycles') e
+  ) = (
+    select coalesce(jsonb_agg(jsonb_build_array(c.cycle_id::text, c.amount, c.potential, c.achieved, c.closed_not_achieved,
+             c.remaining, c.added_value, c.not_priced_count, c.plan_count, c.done_count) order by c.cycle_id::text), '[]'::jsonb)
+    from public.revenue_by_cycle_v c where c.month = m
+  );
+$$;
+select ok(pg_temp.same_as_view(app.month_start(app.today_ist())), 'this month: the scoped read equals the whole view');
+select ok(pg_temp.same_as_view(app.month_start(app.month_start(app.today_ist()) - 1)), 'last month: the same, with its carried deliverable');
+select is((select (e ->> 'achieved')::numeric from jsonb_array_elements(
+             public.revenue_month_read(app.month_start(app.today_ist()) - 1) -> 'cycles') e where e ->> 'cycle_id' = pg_temp.fx('past')::text),
+  3000::numeric, 'the carried deliverable, done this month, is Achieved in last month''s cycle (its share of 6,000 over two)');
+select is((pg_temp.mine(public.revenue_month_read(), 'cycles') -> 0 ->> 'achieved')::numeric, 4500::numeric,
+  'and this month counts only its own done deliverable (half of 9,000)');
 
 select pg_temp.as_member('admin');
 select is(pg_temp.code($$select public.revenue_month_read()$$), 'FORBIDDEN', 'the client''s Admin is refused');

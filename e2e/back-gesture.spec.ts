@@ -1069,7 +1069,7 @@ test.describe("installed: the Owner's Billing sheets on a project (v2.1, 9.2)", 
     await expect(category).toBeVisible();
     await expectBackStack(page, [{ closes: category, url: here }]);
 
-    await billing.getByRole("button", { name: "Set the price of Added reel" }).click();
+    await billing.getByRole("button", { name: "Set price of Added reel" }).click();
     const price = page.getByRole("dialog", { name: "Set the price" });
     await expect(price).toBeVisible();
     // Nothing was saved by backing out, and the next back leaves the project.
@@ -1173,7 +1173,7 @@ test.describe("installed: the Owner's Billing sheets on a project (v2.1, 9.2)", 
     await expect(record).toBeVisible();
     await expectBackStack(page, [{ closes: record, url: here }]);
 
-    await billing.getByRole("button", { name: "Mark the advance of ₹20,000 returned" }).click();
+    await billing.getByRole("button", { name: "Mark returned: the advance of ₹20,000" }).click();
     const returned = page.getByRole("dialog", { name: "Mark the advance returned" });
     await expect(returned).toBeVisible();
     await expectBackStack(page, [{ closes: returned, url: here }, { url: /\/today$/ }]);
@@ -1185,6 +1185,63 @@ test.describe("installed: the Owner's Billing sheets on a project (v2.1, 9.2)", 
       { project_id: projectId },
     );
     expect(read.advances).toEqual([expect.objectContaining({ returned_on: null })]);
+    await removeClientFixture(name);
+  });
+});
+
+test.describe("installed: a one-time project's last deliverable (v2.1, kickoff 9 R1)", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("owner") });
+
+  test('back closes "Complete the project too?" and nothing is marked; the next back leaves', async ({
+    page,
+  }, info) => {
+    const name = `Back complete prompt (${info.project.name})`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+      client_id: client.id,
+    });
+    const projectId = await rpcAs<string>(
+      USERS.admin.email,
+      USERS.admin.password,
+      "project_create",
+      {
+        client_id: client.id,
+        name: "Back film",
+        recurrence: "one_time",
+        stages: [],
+        items: ["Final cut"],
+        delivery_date: addISTDays(todayIST(), 10),
+      },
+    );
+    const path = `/clients/${client.id}/projects/${projectId}`;
+    const here = new RegExp(`${path}$`);
+    await runInstalled(page);
+    await page.goto("/today");
+    await page.goto(path);
+    await hydrated(page);
+
+    await page
+      .locator('[data-slot="item-row"]', { hasText: "Final cut" })
+      .getByRole("button", { name: "Mark done", exact: true })
+      .click();
+    const ask = page.getByRole("dialog", { name: "Complete the project too?" });
+    await expect(ask).toBeVisible();
+    await expectBackStack(page, [{ closes: ask, url: here }, { url: /\/today$/ }]);
+    const [item] = await serviceSelect<{ state: string }>(
+      `project_items?project_id=eq.${projectId}&select=state`,
+    );
+    expect(item?.state, "backing out marked nothing").toBe("open");
+    const [project] = await serviceSelect<{ state: string }>(
+      `projects?id=eq.${projectId}&select=state`,
+    );
+    expect(project?.state, "and completed nothing").toBe("open");
     await removeClientFixture(name);
   });
 });

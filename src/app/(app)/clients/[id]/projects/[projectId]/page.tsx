@@ -480,6 +480,18 @@ export default async function ProjectPage({
             openItemId={items.some((item) => item.id === itemParam) ? (itemParam ?? null) : null}
             // The Keep-extras card's solid Yes owns the screen's one solid button while it shows.
             solidAllowed={!extrasOf}
+            // Kickoff 9 R1: the last deliverable's "Mark done and complete project", for whoever
+            // may complete the project (the Owner, the client's Admin). Client work, never money.
+            completion={
+              canComplete
+                ? {
+                    projectId: project.id,
+                    projectName: project.name,
+                    project: { recurrence: project.recurrence, state: project.state, held },
+                    unfinished: unfinished.map((item) => ({ id: item.id, state: item.state })),
+                  }
+                : null
+            }
           />
         ) : null}
 

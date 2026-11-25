@@ -224,7 +224,7 @@ test.describe("the Owner's Billing section", () => {
         document.documentElement.style.fontSize = "";
       });
     }
-    await row.getByRole("button", { name: "Set the price of Extra poster" }).click();
+    await row.getByRole("button", { name: "Set price of Extra poster" }).click();
     const price = sheet(page, "Set the price");
     await expect(price).toContainText("Extra poster");
     await price.getByLabel("Price (₹)").fill("12.5");
@@ -314,7 +314,7 @@ test.describe("the Owner's Billing section", () => {
     );
 
     // Mark it returned: the row stays, marked; nothing is counted as received any more.
-    await row.getByRole("button", { name: "Mark the advance of ₹30,000 returned" }).click();
+    await row.getByRole("button", { name: "Mark returned: the advance of ₹30,000" }).click();
     const returned = sheet(page, "Mark the advance returned");
     await expect(returned).toContainText("₹30,000 received on");
     await expect(returned.getByLabel("Date returned")).toHaveValue(today);

@@ -84,6 +84,8 @@ const VIEW_SCROLL_SPECS = /view-scroll\.spec\.ts$/;
 const BILLING_SPECS = /billing\.spec\.ts$/;
 // v2.1 (9.2): the Owner's Revenue page, and an Admin kept away from it.
 const REVENUE_SPECS = /revenue\.spec\.ts$/;
+// v2.1 (kickoff 9 R1): a one-time project's last deliverable, "Mark done and complete project".
+const COMPLETE_PROMPT_SPECS = /complete-prompt\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
 const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
@@ -284,6 +286,7 @@ export default defineConfig({
         VIEW_SCROLL_SPECS,
         BILLING_SPECS,
         REVENUE_SPECS,
+        COMPLETE_PROMPT_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

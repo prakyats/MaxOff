@@ -3,7 +3,7 @@
 -- (FORBIDDEN) and anon (no privilege) refused; every path. Seed members.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(24);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -114,6 +114,14 @@ select is(pg_temp.entries('projects', 'completed', pg_temp.fx('film')), 1, 'the 
 select is(pg_temp.notes('owner', 'project_completed', pg_temp.fx('film')), 1, 'the Owner is told the project was completed, as project_complete does');
 select is(pg_temp.code($$select public.item_mark_done_and_complete(pg_temp.item(pg_temp.fx('film'), 'Cut 2'))$$), 'INVALID_STATE',
   'a completed project is read-only: a second call is refused');
+
+-- The last deliverable is already done (not open): refused, and the project is not completed by it.
+insert into fx values ('film3', public.project_create(pg_temp.fx('client'), 'Third 147', 'one_time', null, app.today_ist() + 20,
+  array['Stage 1'], array['Solo']));
+select public.item_mark_done(pg_temp.item(pg_temp.fx('film3'), 'Solo'));
+select is(pg_temp.code($$select public.item_mark_done_and_complete(pg_temp.item(pg_temp.fx('film3'), 'Solo'))$$), 'INVALID_STATE',
+  'a deliverable that is already done is refused (it is not open)');
+select is(pg_temp.pstate(pg_temp.fx('film3')), 'in_progress', 'and the project is left as it was, for Complete on the project');
 
 -- The Owner.
 select pg_temp.as_member('owner');

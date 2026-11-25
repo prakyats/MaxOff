@@ -93,7 +93,7 @@ export async function RevenueReport({
     );
   return (
     <div className={REVENUE_PAGE} data-slot="revenue">
-      <div className={REVENUE_PAGER} data-slot="revenue-month">
+      <div className={REVENUE_PAGER} role="group" aria-label="Month" data-slot="revenue-month">
         <PagerLink
           href={switcher.previous ? href({ month: switcher.previous }) : null}
           label="Previous month"
