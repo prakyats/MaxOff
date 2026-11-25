@@ -35,6 +35,11 @@ const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
  * these specs run alone, one file at a time, after every other project (like owner-bulk).
  */
 const WORKING_HOURS_SPECS = /working-hours\.spec\.ts$/;
+/**
+ * v7.0 unit 2: the core flows at Slow 4G and CPU ×4 (`slow-4g.spec.ts`), Chromium only (the
+ * throttling is the DevTools Protocol's), at 375 px, in a project of its own with its own budget.
+ */
+const SLOW_4G_SPECS = /slow-4g\.spec\.ts$/;
 // The push and email dispatch through the cron route (owner decision 29): the dispatcher is
 // organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
 // one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).
@@ -186,6 +191,7 @@ export default defineConfig({
         OWNER_BULK_SPECS,
         PUSH_CRON_SPECS,
         WORKING_HOURS_SPECS,
+        SLOW_4G_SPECS,
       ],
       use: { ...devices["Desktop Chrome"] },
     },
@@ -200,6 +206,7 @@ export default defineConfig({
         OWNER_BULK_SPECS,
         PUSH_CRON_SPECS,
         WORKING_HOURS_SPECS,
+        SLOW_4G_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
@@ -348,6 +355,19 @@ export default defineConfig({
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
+    },
+    {
+      // v7.0 unit 2 (SLOW_4G_SPECS above): the core flows at Slow 4G and CPU ×4, at 375 px. A
+      // step waits up to 15 s: the database call's 10 s limit (`core/db/timeout.ts`) and the
+      // screen's refresh after it, which is the promise on a slow phone, not a loosened check.
+      name: "slow-4g",
+      dependencies: ["setup"],
+      testMatch: SLOW_4G_SPECS,
+      fullyParallel: false,
+      workers: 1,
+      timeout: 180_000,
+      expect: { timeout: 15_000 },
+      use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
       name: "production",

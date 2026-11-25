@@ -221,7 +221,7 @@ jobs:
       # github reporter keeps failures annotated on the run. One worker per shard, never more.
       - run: >-
           pnpm test:e2e --shard=${{ matrix.shard }}/4 --workers=1 --reporter=github,blob
-          --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production
+          --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production --project=slow-4g
       - name: Approve all (owner-bulk), alone, after the rest of shard 4
         if: matrix.shard == 4
         env:
