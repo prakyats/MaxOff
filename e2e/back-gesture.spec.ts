@@ -23,6 +23,7 @@ import {
   startPrompt,
   USERS,
 } from "./helpers";
+import { explainOnIphone, isIphone, recordNavigation } from "./webkit-diagnostics";
 
 /**
  * Back behaves like an app, not a website (task 1.5, ARCHITECTURE §14.1).
@@ -208,14 +209,22 @@ test.describe("installed: overlays and view controls", () => {
       await expectBackStack(page, [{ closes: sheet, url: /\/people$/ }, { url: /\/today$/ }]);
     });
 
-    test("/people through More: back closes the detail sheet", async ({ page }) => {
+    test("/people through More: back closes the detail sheet", async ({ page }, info) => {
       await runInstalled(page);
+      // CI 45711005375 (mobile-iphone): the sheet's People link never came, 30 s, no record.
+      await recordNavigation(page, info);
       await page.goto("/today");
-      await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
-      await page
+      const moreButton = page.locator('[data-slot="bottom-nav"] [data-nav="more"]');
+      await moreButton.click();
+      const people = page
         .locator('[data-slot="more-sheet"]')
-        .getByRole("link", { name: "People", exact: true })
-        .click();
+        .getByRole("link", { name: "People", exact: true });
+      await explainOnIphone(
+        page,
+        info,
+        () => people.click(isIphone(info) ? { timeout: 10_000 } : {}),
+        moreButton,
+      );
       await expect(page).toHaveURL(/\/people$/);
       await page.getByRole("button", { name: "More for Local Staff" }).click();
       const sheet = page.locator('[data-slot="detail-sheet"]');
@@ -969,16 +978,19 @@ test.describe("installed: More → Appearance is its own sheet", () => {
 
   test("More → Appearance → Dark: the sheet closes, the app is dark, the back stack is unchanged (X5+ H6)", async ({
     page,
-  }) => {
+  }, info) => {
     await runInstalled(page);
     await page.emulateMedia({ colorScheme: "light" });
+    // CI 45711005375 (mobile-iphone): the More sheet did not show after the tap.
+    await recordNavigation(page, info);
     await page.goto("/tasks");
     await page.goto("/today");
     await hydrated(page);
     await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const moreButton = page.locator('[data-slot="bottom-nav"] [data-nav="more"]');
+    await moreButton.click();
     const more = page.locator('[data-slot="more-sheet"]');
-    await expect(more).toBeVisible();
+    await explainOnIphone(page, info, () => expect(more).toBeVisible(), moreButton);
     await more.getByRole("button", { name: /^Appearance/ }).click();
     const appearance = page.locator('[data-slot="appearance-sheet"]');
     await expect(appearance).toBeVisible();

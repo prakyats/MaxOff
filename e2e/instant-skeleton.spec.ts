@@ -6,6 +6,7 @@ import { type BrowserContext, type Locator, type Page, type TestInfo } from "@pl
 import { systemClock, todayIST } from "../src/core/time";
 import { mobileNavFor, PROFILE_NAV_ITEM } from "../src/core/ui/shell/nav";
 
+import { recordOnFailure } from "./failure-record";
 import { expect, test } from "./fixtures";
 import {
   calendarReady,
@@ -1378,8 +1379,25 @@ test.describe("offline, a tab's tap draws no copy (v7.0)", () => {
     // Kept in the tab's session store, which outlives the document Next may load in full.
     await page.evaluate(() => {
       sessionStorage.setItem("tap-copy", "none");
+      // For the on-failure record (CI 45711005375: drawn at 375 and 430 though the page read
+      // offline before the tap): when the copy came, and what the page believed then.
+      const at = () => Math.round(performance.now());
+      const note = (line: string) =>
+        sessionStorage.setItem(
+          "tap-copy-log",
+          `${sessionStorage.getItem("tap-copy-log") ?? ""}${line}\n`,
+        );
+      window.addEventListener("offline", () => note(`+${at()} offline event`));
+      window.addEventListener("online", () => note(`+${at()} online event`));
+      document.addEventListener(
+        "pointerdown",
+        () => note(`+${at()} pointerdown onLine=${String(navigator.onLine)}`),
+        { capture: true },
+      );
       new MutationObserver(() => {
         if (document.querySelector('[data-slot="tap-skeleton"]')) {
+          if (sessionStorage.getItem("tap-copy") !== "drawn")
+            note(`+${at()} copy drawn onLine=${String(navigator.onLine)} at ${location.pathname}`);
           sessionStorage.setItem("tap-copy", "drawn");
         }
       }).observe(document.documentElement, { childList: true, subtree: true });
@@ -1393,9 +1411,15 @@ test.describe("offline, a tab's tap draws no copy (v7.0)", () => {
       await fingerTap(barLink(page, "/approvals"));
       await page.waitForTimeout(800);
       // Read once the page settles (a document Next loads in full replaces the context).
-      await expect
-        .poll(() => page.evaluate(() => sessionStorage.getItem("tap-copy")).catch(() => null))
-        .toBe("none");
+      await recordOnFailure(
+        () =>
+          expect
+            .poll(() => page.evaluate(() => sessionStorage.getItem("tap-copy")).catch(() => null))
+            .toBe("none"),
+        async () =>
+          (await page.evaluate(() => sessionStorage.getItem("tap-copy-log")).catch(() => null)) ??
+          "(no log: the page could not be read)",
+      );
     } finally {
       await context.setOffline(false);
     }
