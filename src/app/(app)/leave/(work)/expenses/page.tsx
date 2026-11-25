@@ -10,6 +10,9 @@ import { getClaimSetup, listOwnClaims } from "@/modules/expenses";
 import { AddExpenseButton } from "@/modules/expenses/components/add-expense-button";
 import { OwnClaimsList } from "@/modules/expenses/components/own-claims-list";
 
+/** The Owner has no day of his own: an old link takes him to his own screen (v7.5 G5). */
+const OWNER_INSTEAD = { owner: "/approvals" } as const;
+
 export const metadata: Metadata = { title: "Extra work & expenses" };
 
 /**
@@ -21,7 +24,7 @@ export const metadata: Metadata = { title: "Extra work & expenses" };
 export default async function ExpensesPage() {
   // Keyed by the session's id, so it starts with the session read (ARCHITECTURE §19).
   const [, claims] = await checkThenRead(
-    requirePermission("attendance.self"),
+    requirePermission("attendance.self", OWNER_INSTEAD),
     withSessionUserId(listOwnClaims),
   );
   const waiting = claims.filter((claim) => claim.state === "submitted").length;

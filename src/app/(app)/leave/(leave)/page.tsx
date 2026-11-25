@@ -17,6 +17,9 @@ import { LeaveRequestList } from "@/modules/leave/components/leave-request-list"
 
 import { LeavePager } from "../leave-nav";
 
+/** The Owner has no day of his own: an old link takes him to his own screen (v7.5 G5). */
+const OWNER_INSTEAD = { owner: "/approvals" } as const;
+
 export const metadata: Metadata = { title: "Attendance & leave" };
 
 /**
@@ -38,7 +41,7 @@ export default async function LeaveRequestsPage({
   // The list is keyed by the session's id, so it starts with the session read (§19).
   const today = todayIST();
   const [, [listing, balance, approved]] = await checkThenRead(
-    requirePermission("attendance.self"),
+    requirePermission("attendance.self", OWNER_INSTEAD),
     Promise.all([
       withSessionUserId((id) => listRequests(id, page)),
       // The layout's one comp-leave read (v2.0 X3, `own_comp_leave()`).

@@ -19,9 +19,18 @@ import type { PermissionKey } from "./keys";
  */
 export async function requirePermission(
   permission: PermissionKey | readonly PermissionKey[],
+  /**
+   * Where a role without the key goes instead of /forbidden, when the screen has a counterpart
+   * for it (v7.5 G5, advisor 2026-11-26: the Owner has no day of his own, so an old My Day or
+   * Leave link takes him to his own screen, not a dead end). `redirect()` in a page replaces the
+   * entry, so back never bounces. Anyone else without the key still gets /forbidden.
+   */
+  instead?: Partial<Record<CurrentMember["role"], string>>,
 ): Promise<CurrentMember> {
   const member = await requireMember();
   if (!can(member.role, permission)) {
+    const elsewhere = instead?.[member.role];
+    if (elsewhere) redirect(elsewhere);
     // The keys travel with the bounce, so No access can name what was blocked (V5b-D).
     const keys: readonly PermissionKey[] =
       typeof permission === "string" ? [permission] : permission;

@@ -269,10 +269,28 @@ test("the attendance history says how the day was recorded, in the member's word
   await expect(timeline).not.toContainText("corrected");
 });
 
-test("the Owner has no leave of their own here", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: storageStateFor("owner") });
-  const page = await context.newPage();
-  await page.goto("/leave");
-  await expect(page).toHaveURL(/\/forbidden/);
-  await context.close();
-});
+// v7.5 G5 (advisor 2026-11-26): the Owner has no day or leave of his own, so an old My Day or
+// Leave link takes him to his own screen, replacing the entry (back never bounces), not to No
+// access. The permission is unchanged: he still holds no `attendance.self`.
+const OWNER_INSTEAD = [
+  { from: "/my-day", to: /\/today$/ },
+  { from: "/leave", to: /\/approvals$/ },
+  { from: "/leave/attendance", to: /\/today\/people$/ },
+  { from: "/leave/expenses", to: /\/approvals$/ },
+  { from: "/leave/extra-work", to: /\/approvals$/ },
+] as const;
+for (const { from, to } of OWNER_INSTEAD) {
+  test(`the Owner has no leave of their own: ${from} takes him to his own screen`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ storageState: storageStateFor("owner") });
+    const page = await context.newPage();
+    await page.goto("/reports");
+    await page.goto(from);
+    await expect(page).toHaveURL(to);
+    await expect(page.locator('[data-slot="page-header"]').first()).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/reports$/);
+    await context.close();
+  });
+}

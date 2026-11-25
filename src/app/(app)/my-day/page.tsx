@@ -41,6 +41,9 @@ import { readClientLabels, readDirectory, readOpenTasks } from "../tasks/reads";
 
 import { rowFlag } from "./words";
 
+/** The Owner has no day of his own: an old link takes him to his own screen (v7.5 G5). */
+const OWNER_INSTEAD = { owner: "/today" } as const;
+
 export const metadata: Metadata = { title: "My Day" };
 
 /**
@@ -65,11 +68,11 @@ export default async function MyDayPage() {
   startEarly(getOwnToday(), getOwnHours());
   const today = todayIST();
   const openRows = readOpenTasks();
-  const claimSetup = requirePermission("attendance.self")
+  const claimSetup = requirePermission("attendance.self", OWNER_INSTEAD)
     .then(() => getClaimSetup())
     .catch(() => null);
   const [viewer, [rows, directory, labels, own, unread, weekRead]] = await checkThenRead(
-    requirePermission("attendance.self"),
+    requirePermission("attendance.self", OWNER_INSTEAD),
     Promise.all([
       openRows,
       readDirectory(),

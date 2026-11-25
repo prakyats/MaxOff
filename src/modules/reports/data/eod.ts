@@ -45,6 +45,9 @@ export async function listEodReports(
     .select("id, report_date, generated_at", { count: "exact" })
     .order("report_date", { ascending: false })
     .range(from, from + size - 1);
+  // A page past the last row: PostgREST answers "range not satisfiable" (PGRST103) rather than
+  // an empty list. No rows, so the page sends the reader to the first page (v7.5 plan §5.1, G7).
+  if (error?.code === "PGRST103") return { rows: [], total: 0 };
   if (error) throw error;
   return {
     rows: data.map((row) => ({

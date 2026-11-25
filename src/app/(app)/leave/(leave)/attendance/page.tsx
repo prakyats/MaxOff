@@ -10,6 +10,9 @@ import { getOwnMember } from "@/modules/team";
 
 import { LeavePager } from "../../leave-nav";
 
+/** The Owner has no day of his own: an old link takes him to his own screen (v7.5 G5). */
+const OWNER_INSTEAD = { owner: "/today/people" } as const;
+
 export const metadata: Metadata = { title: "Attendance & leave" };
 
 /**
@@ -27,7 +30,7 @@ export default async function LeaveAttendancePage({
   // Keyed by the session's id, so they start with the session read (ARCHITECTURE §19).
   const noteDaysRead = getNoteDays(today);
   const [viewer, [{ month: requested }, own]] = await checkThenRead(
-    requirePermission("attendance.self"),
+    requirePermission("attendance.self", OWNER_INSTEAD),
     Promise.all([searchParams, withSessionUserId(getOwnMember), noteDaysRead]),
   );
   // Attendance starts the IST day after joining (WORKFLOWS §1, 2.2).

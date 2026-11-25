@@ -199,7 +199,11 @@ test.describe("Reports → End of day, as the Owner", () => {
 
   test("a page past the last goes to the first, never an empty list (v7.5 G7)", async ({
     page,
+    reloadGuard,
   }) => {
+    // The redirect comes from inside the page, after the shell streamed, so Next finishes it as a
+    // document load (as the bounce to /forbidden does).
+    reloadGuard.allow(/\/reports\/end-of-day$/);
     await page.goto("/reports/end-of-day?page=9999");
     await expect(page).toHaveURL(/\/reports\/end-of-day$/);
     await expect(page.locator('[data-slot="eod-list-row"]').first()).toBeVisible();

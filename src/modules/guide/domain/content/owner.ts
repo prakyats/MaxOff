@@ -195,7 +195,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "Original records are never overwritten: a correction is kept beside the original.",
             ),
-            note("You do not mark your own attendance. The Owner has no Start day or End day."),
+            note(
+              "You do not mark your own attendance. The Owner has no Start day or End day. A link to My Day or to the team's Leave screens opens your own Today or Approvals instead.",
+            ),
           ],
           link: { href: "/approvals", label: "Open Approvals" },
           keywords: ["attendance", "present", "correct", "approve day"],

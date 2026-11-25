@@ -10,6 +10,9 @@ import { ExtraWorkNotesList, getNoteDays, listOwnNotes } from "@/modules/attenda
 import { AddNoteButton } from "@/modules/attendance/components/add-note-button";
 import { CompLeaveCard, getCompBalance, listCredits } from "@/modules/leave";
 
+/** The Owner has no day of his own: an old link takes him to his own screen (v7.5 G5). */
+const OWNER_INSTEAD = { owner: "/approvals" } as const;
+
 export const metadata: Metadata = { title: "Extra work & expenses" };
 
 /**
@@ -22,7 +25,7 @@ export default async function ExtraWorkPage() {
   const today = todayIST();
   // Keyed by the session's id, so they start with the session read (ARCHITECTURE §19).
   const [, [balance, credits, notes, noteDays]] = await checkThenRead(
-    requirePermission("attendance.self"),
+    requirePermission("attendance.self", OWNER_INSTEAD),
     Promise.all([
       withSessionUserId(getCompBalance),
       withSessionUserId(listCredits),
