@@ -41,17 +41,25 @@ function routesWithPages(dir: string, prefix = ""): string[] {
 const routes = routesWithPages(appDir).filter((route) => !NO_DATA.has(route));
 
 /**
- * A route's loading screen as written: its `loading.tsx`, plus the module skeleton it draws when
- * it hands the drawing to one (`@/modules/<module>/components/<file>`, e.g. a task's page since
- * #143, whose skeleton a tap also draws), so every check below reads the real markup.
+ * A file as written, plus the skeletons it hands its drawing to: a module's
+ * (`@/modules/<module>/components/<file>`, e.g. a task's page since #143) and the app's own beside
+ * it (`./today-skeleton`, v7.0: one component for the loading screen and its tap drawing), one
+ * level deep, so every check below reads the real markup.
  */
-function loadingSource(route: string): string {
-  const own = readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
-  const drawn = [...own.matchAll(/from "@\/modules\/([\w-]+)\/components\/([\w-]+)"/g)].map(
-    ([, module, file]) =>
-      readFileSync(path.join(root, "src/modules", module!, "components", `${file}.tsx`), "utf8"),
+function withSkeletons(file: string): string {
+  const own = readFileSync(file, "utf8");
+  const modules = [...own.matchAll(/from "@\/modules\/([\w-]+)\/components\/([\w-]+)"/g)].map(
+    ([, module, name]) => path.join(root, "src/modules", module!, "components", `${name}.tsx`),
   );
-  return [own, ...drawn].join("\n");
+  const local = [...own.matchAll(/from "(\.{1,2}\/[^"]+)"/g)]
+    .map(([, relative]) => path.join(path.dirname(file), `${relative}.tsx`))
+    .filter((candidate) => existsSync(candidate));
+  return [own, ...[...modules, ...local].map((drawn) => readFileSync(drawn, "utf8"))].join("\n");
+}
+
+/** A route's loading screen as written (`withSkeletons`). */
+function loadingSource(route: string): string {
+  return withSkeletons(path.join(appDir, route, "loading.tsx"));
 }
 
 describe("loading.tsx coverage", () => {
@@ -73,7 +81,7 @@ describe("loading.tsx coverage", () => {
       .split("/")
       .map((_, i, parts) => path.join(appDir, ...parts.slice(0, i + 1), "layout.tsx"))
       .filter((file) => existsSync(file))
-      .map((file) => readFileSync(file, "utf8"));
+      .map((file) => withSkeletons(file));
     expect(
       /PageLoading|PageHeader/.test(source) || layouts.some((l) => l.includes("<PageHeader")),
     ).toBe(true);

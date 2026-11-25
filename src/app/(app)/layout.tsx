@@ -14,14 +14,19 @@ import { readPushEnv } from "@/core/notifications/env";
 import type { ServerUnread } from "@/core/notifications/read-receipts";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
+import { todayIST } from "@/core/time";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
 import { AppShell } from "@/core/ui/shell/app-shell";
+import { homeFor, mobileNavFor } from "@/core/ui/shell/nav";
 import { RefreshOnReturn } from "@/core/ui/shell/refresh-on-return";
 import type { NavBadges } from "@/core/ui/shell/nav";
 import { countsOrNone } from "@/core/ui/shell/nav-counts";
 import { getOwnToday, promptDue } from "@/modules/attendance";
+import { monthGrid } from "@/modules/calendar";
 import { StartDayPromptLazy } from "@/modules/attendance/components/start-day-prompt-lazy";
+
+import { AppAfterPageLazy } from "./after-page-lazy";
 
 /**
  * The viewer's nav counts, server-rendered numbers (no JavaScript of their own), all from the one
@@ -139,7 +144,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
     // warning (2.9) reaches it from any screen.
     <LogoutProvider hasWorkingDay={can(viewer.role, "attendance.self")}>
-      <AppShell viewer={viewer} badges={badges} unread={unread}>
+      <AppShell
+        viewer={viewer}
+        badges={badges}
+        unread={unread}
+        afterPage={
+          <AppAfterPageLazy
+            role={viewer.role}
+            tabs={[
+              homeFor(viewer.role),
+              ...mobileNavFor(viewer.role).primary.map((item) => item.href),
+            ]}
+            weeks={monthGrid(todayIST()).weeks.length}
+          />
+        }
+      >
         <SentryUser id={viewer.id} />
         <RefreshOnReturn />
         {prompt}

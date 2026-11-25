@@ -11,7 +11,7 @@ export interface TaskTap {
 }
 
 /**
- * Whether a link's `href` opens a task's own page (#143, `TaskTapSkeleton` in the tap-skeleton engine): the same origin, the
+ * Whether a link's `href` opens a task's own page (#143, the task spec of the tap-skeleton engine, `components/tap-kit.tsx`): the same origin, the
  * path `/tasks/<id>` and no query but the view (`?tab=`). Anything else (a sheet's address, a
  * filter, another site, `/tasks/all`) is not this page and gets no task skeleton. Pure, so it is
  * unit-tested.
@@ -36,7 +36,7 @@ export function taskTapTarget(href: string, origin: string): TaskTap | null {
  * The name the task page's back control gives the screen a tap came from (`TASK_BACK`): what the
  * route's own skeleton shows there once the task's address is in the history, since `BackLink`
  * names the screen it will land on. A drawing made away from the task page cannot know it
- * (`TaskTapSkeleton` sets it on its copy). `/reports/end-of-day/*` matches every day's report.
+ * (the engine sets it on its copy). `/reports/end-of-day/*` matches every day's report.
  */
 export function taskBackLabel(from: string): string {
   const origin = TASK_BACK.from.find(({ path }) =>

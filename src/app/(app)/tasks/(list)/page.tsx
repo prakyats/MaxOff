@@ -39,7 +39,6 @@ import {
 import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
-import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import {
   ownWeek,
@@ -129,7 +128,6 @@ export default async function TasksPage() {
     });
     return (
       <>
-        <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
         <TasksFreshOnReturn renderId={crypto.randomUUID()} />
         <MyTasks
           groups={groups}
@@ -156,7 +154,6 @@ export default async function TasksPage() {
 
   return (
     <>
-      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
       <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader
         title="Tasks"

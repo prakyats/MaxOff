@@ -1,7 +1,6 @@
 import { type ReactNode, Suspense } from "react";
 
 import type { ServerUnread } from "@/core/notifications/read-receipts";
-import { PwaAfterPageLazy } from "@/core/ui/pwa/pwa-after-page-lazy";
 
 import { BellCountProvider } from "./bell-count";
 import { BottomNav, type NavItemBadge } from "./bottom-nav";
@@ -55,6 +54,7 @@ export function AppShell({
   logoutSheetItem,
   badges = NO_BADGES,
   unread = NO_UNREAD,
+  afterPage = null,
   children,
 }: {
   viewer: ShellViewer;
@@ -63,6 +63,13 @@ export function AppShell({
   badges?: Promise<NavBadges>;
   /** The bell's count with the server's clock (`readUnread()`); null when it could not be read. */
   unread?: Promise<ServerUnread | null>;
+  /**
+   * What the shell loads **after the page** (ARCHITECTURE §19): the app's one `AfterPage` loader
+   * (the service-worker helpers and the tap drawings, v7.0), passed in by the `(app)` layout
+   * because the drawings are the screens' own and core holds no screen. One loader for both, so
+   * the swap from the shell's own loader added no client reference to any first load.
+   */
+  afterPage?: ReactNode;
   children: ReactNode;
 }) {
   const items = navFor(viewer.role);
@@ -149,7 +156,7 @@ export function AppShell({
           sheetBadges={byKey(more, (key) => count([key], "sheet"))}
         />
         <PullToRefreshLazy tabRoots={tabRoots} />
-        <PwaAfterPageLazy role={viewer.role} />
+        {afterPage}
       </div>
     </BellCountProvider>
   );

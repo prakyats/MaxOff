@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * **The one row anatomy** (DESIGN.md §Decisions, FINAL 5; V5b). Every list row in the app:
@@ -277,80 +276,4 @@ export function ChatCount({
   );
 }
 
-/**
- * One `ListRow`'s skeleton (§14.1: a skeleton traces its screen): the row's grid, the title bar
- * with a chip and › on its line, the meta bar under both, and an optional third line.
- */
-export function ListRowSkeleton({
-  chips = true,
-  chevron = true,
-  note = false,
-  lead = false,
-}: {
-  chips?: boolean;
-  chevron?: boolean;
-  note?: boolean;
-  /** The row's `lead`: a 20 px photo before the title. */
-  lead?: boolean;
-}) {
-  return (
-    <li className="@container/row relative flex min-h-16 min-w-0 flex-col px-4 py-3">
-      <div className={cn(ROW_GRID, "flex-1")}>
-        <span className="col-start-1 row-start-1 flex h-5 min-w-0 items-center gap-1.5">
-          {lead ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
-          <Skeleton className="h-4 w-44 max-w-full" />
-        </span>
-        {chips || chevron ? (
-          <span
-            className={cn(
-              "col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-2",
-              NARROW_TRAILING,
-            )}
-          >
-            {chips ? (
-              <span className={cn("flex min-w-0 items-center", NARROW_CHIPS)}>
-                <Skeleton className="h-5 w-20 max-w-full rounded-full" />
-              </span>
-            ) : null}
-            {chevron ? (
-              <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end">
-                <Skeleton className="size-4" />
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-        <span className="col-span-full row-start-2 flex h-4 min-w-0 items-center">
-          <Skeleton className="h-3 w-56 max-w-full" />
-        </span>
-        {note ? (
-          <span className="col-span-full row-start-3 flex h-4 min-w-0 items-center @max-[18rem]/row:row-start-4">
-            <Skeleton className="h-3 w-40 max-w-full" />
-          </span>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
-/** A `ListRows` group's skeleton: `rows` of `ListRowSkeleton` in the group's card. */
-export function ListRowsSkeleton({
-  rows,
-  chips = true,
-  chevron = true,
-}: {
-  rows: number;
-  chips?: boolean;
-  chevron?: boolean;
-}) {
-  return (
-    <ul
-      aria-hidden
-      data-slot="loading-list-rows"
-      className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
-    >
-      {Array.from({ length: rows }, (_, index) => (
-        <ListRowSkeleton key={index} chips={chips} chevron={chevron} />
-      ))}
-    </ul>
-  );
-}
+export { ListRowSkeleton, ListRowsSkeleton } from "./list-row-skeleton";

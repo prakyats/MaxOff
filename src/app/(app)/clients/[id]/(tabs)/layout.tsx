@@ -4,17 +4,15 @@ import { type ReactNode, Suspense } from "react";
 import { checkThenRead } from "@/core/lib/start-early";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { CLIENT_STATE_LABELS, CLIENT_STATE_NOTES } from "@/modules/clients";
 import { ClientMenu } from "@/modules/clients/components/client-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
+import { CLIENT_BACK } from "../back";
+import { ClientHeaderSkeleton } from "../client-header-skeleton";
 import { ClientHistoryButton } from "../client-history";
 import { ClientTabs } from "../client-nav";
 import { loadClient, loadPeople } from "../client";
-
-/** Clients is the parent; Today opens a client too, and back returns there (§14.2 k, 6b.12). */
-const BACK = { href: "/clients", label: "Clients", from: [{ path: "/today", label: "Today" }] };
 
 /**
  * A client's page (3.4): one header over its views (Overview, Projects, Brand) with History in it, with the state,
@@ -37,27 +35,7 @@ export default async function ClientLayout({
       <Suspense fallback={null}>
         <ClientReadReceipt id={id} />
       </Suspense>
-      <Suspense
-        fallback={
-          <PageHeader
-            // The title's own line height (24 px, 32 from md), as the project's loading screen.
-            title={
-              <span className="flex h-6 items-center md:h-8">
-                <Skeleton className="h-5 w-40 max-w-full" />
-              </span>
-            }
-            // The state chip's line under the name (X5+ M7: without it the page below moved
-            // 13 px down when the header streamed in). A span: the description is a <p>.
-            description={
-              <Skeleton as="span" className="inline-block h-5 w-16 rounded-full align-middle" />
-            }
-            back={BACK}
-            className="flex-wrap"
-            // History, always there; the ⋯ follows only for whoever edits the client.
-            menu={<Skeleton aria-hidden className="size-11 rounded-lg" />}
-          />
-        }
-      >
+      <Suspense fallback={<ClientHeaderSkeleton />}>
         <ClientHeader id={id} />
       </Suspense>
       <ClientTabs clientId={id} />
@@ -89,7 +67,7 @@ async function ClientHeader({ id }: { id: string }) {
     <PageHeader
       title={client.name}
       description={<StatusBadge status={client.state} label={CLIENT_STATE_LABELS[client.state]} />}
-      back={BACK}
+      back={CLIENT_BACK}
       // History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep); the old
       // Activity tab's path opens the sheet (`?history=1`).
       className="flex-wrap"

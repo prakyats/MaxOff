@@ -1,4 +1,11 @@
+import {
+  TAB_ATTRIBUTE,
+  TAB_HOME_ATTRIBUTE,
+  TAB_TOP_ATTRIBUTE,
+  VIEW_LINK_ATTRIBUTE,
+} from "./attributes";
 import { ownHistoryWrite } from "./history-writes";
+import { originMatches, tabMove } from "./moves";
 
 /**
  * A screen's skeleton on the tap, whatever the router has ready (#143; v7.0 generalised it from the
@@ -22,8 +29,18 @@ import { ownHistoryWrite } from "./history-writes";
  * opens a sheet or an unclaimed screen never matches, and a tap the router answers at once looks as
  * before (its slide).
  *
- * No React here and nothing a screen loads first: the specs register from the code each screen
- * loads after the page (`AfterPage`), so the shell's first-load JS is unchanged.
+ * **A bar tab (v7.0, `history: "tab"`)** writes only the entry the bar's own move will make
+ * (`tabMove`, `tab-history.ts`): installed, home → a tab pushes (the tab's address, as a
+ * drill-down's), a tab → another tab replaces (nothing written: back during the copy goes home, as
+ * it would from the tab), a tab → home is a back (never drawn: its popstate clears the tap first,
+ * and the router answers it from its memory). In a browser tab the bar is plain links: a push. A
+ * view control (`ViewLink`: a person's or a client's own tabs) is never taken: its screen's header
+ * is already up, and it never adds history.
+ *
+ * No React here and nothing a screen loads first: the specs register from the code loaded after
+ * the page (the `(app)` layout's one `AfterPage` loader), so the shell's first-load JS is
+ * unchanged. **Drawings carry no member data** (ARCHITECTURE §14.2 m): no name, no date, no
+ * record; where a screen's loading screen shows one, its drawing shows a bar of the same size.
  */
 
 /**
@@ -68,6 +85,91 @@ export interface TapSpec {
   backLabel: (from: string) => string;
   /** The copy of the drawing for a variant, or undefined before it was drawn. */
   drawing: (variant: string) => Element | undefined;
+  /**
+   * How the tap moves through history: a drill-down's one entry (the default), or a bar tab's
+   * move (`tabHistoryWrite`) when the link is one of the bar's tabs.
+   */
+  history?: "drill" | "tab";
+  /** Draws the variant now if it is not drawn yet (the finger going down on its link). */
+  prepare?: (variant: string) => void;
+}
+
+/**
+ * What a tap writes in the history when the copy goes up, from the bar's own move (`tabMove`):
+ * its address pushed (a drill-down, a link, home → a tab) or nothing (a tab replacing a tab, home
+ * replacing a tab). A tab → home with home beneath is a back: nothing is written either, and the
+ * back's popstate clears the tap before the copy's moment, so it never shows there (the router
+ * answers a back from its memory). Whether home is beneath is the bar's to know (`tab-history`'s
+ * own state, which a reload resets): either way the copy writes nothing.
+ */
+export function tabHistoryWrite(move: ReturnType<typeof tabMove>): "push" | "none" {
+  return move === null || move === "push" ? "push" : "none";
+}
+
+/**
+ * The name the back control of a drawing made away from its screen gives the screen tapped
+ * from: the origin it is when it is one (`BackLink`'s `from`), else the parent's own label.
+ */
+export function backLabelFrom(
+  parent: string,
+  origins: readonly { path: string; label: string }[],
+): (from: string) => string {
+  return (from) => origins.find((origin) => originMatches(origin.path, from))?.label ?? parent;
+}
+
+/**
+ * A link's address when it is exactly one of `pattern`'s paths (same origin, no query or only
+ * `allowed` keys), else null. Pure.
+ */
+export function pathTarget(
+  href: string,
+  origin: string,
+  pattern: RegExp,
+  allowed: readonly string[] = [],
+): { pathname: string; href: string; search: URLSearchParams } | null {
+  let url: URL;
+  try {
+    url = new URL(href, origin);
+  } catch {
+    return null;
+  }
+  if (url.origin !== origin || !pattern.test(url.pathname)) return null;
+  if ([...url.searchParams.keys()].some((key) => !allowed.includes(key))) return null;
+  return {
+    pathname: url.pathname,
+    href: `${url.pathname}${url.search}${url.hash}`,
+    search: url.searchParams,
+  };
+}
+
+/** Running installed (the bar's moves are then the app's own, `tab-history.ts`). */
+function standalone(): boolean {
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    (window.navigator as { standalone?: boolean }).standalone === true
+  );
+}
+
+/** The history write for a tap on `link` to `pathname` from `from` (`tabHistoryWrite`). */
+function historyWrite(
+  spec: TapSpec,
+  link: Element,
+  pathname: string,
+  from: string,
+): "push" | "none" {
+  if (spec.history !== "tab" || !link.hasAttribute(TAB_ATTRIBUTE)) return "push";
+  const bar = link.closest(`[${TAB_HOME_ATTRIBUTE}]`);
+  if (bar === null) return "push";
+  return tabHistoryWrite(
+    tabMove({
+      href: pathname,
+      pathname: from,
+      home: bar.getAttribute(TAB_HOME_ATTRIBUTE) ?? "",
+      topLevel: (bar.getAttribute(TAB_TOP_ATTRIBUTE) ?? "").split(" "),
+      standalone: standalone(),
+      pushedFromHome: false,
+    }),
+  );
 }
 
 const specs = new Map<string, TapSpec>();
@@ -96,8 +198,15 @@ function routeHasScreen(spec: TapSpec): boolean {
  * it, and the route as it was at the tap (another one there means the router has committed).
  */
 let tap:
-  (TapTarget & { spec: TapSpec; from: string; pending: boolean; route: Element | null }) | null =
-  null;
+  | (TapTarget & {
+      spec: TapSpec;
+      from: string;
+      pending: boolean;
+      route: Element | null;
+      /** The copy puts the screen's address in the history (a drill-down, home → a tab). */
+      push: boolean;
+    })
+  | null = null;
 /** The screen's address is in the history (see `show`). */
 let pushed = false;
 let timer: number | undefined;
@@ -165,7 +274,7 @@ function show(): void {
   // dropped). Next's own entry, with its state, minus a sheet's marker; when the router commits
   // the screen at the same address it replaces this entry rather than adding another
   // (`HistoryUpdater`), so the history is as if the router had been at once.
-  if (at === now.from) {
+  if (at === now.from && now.push) {
     const state = { ...((window.history.state ?? {}) as Record<string, unknown>) };
     delete state[OVERLAY_MARKER];
     // Next's state (`__NA`) on it: Next's patched `pushState` passes it straight through, with no
@@ -226,6 +335,33 @@ function leave(control: Element): void {
   window.history.back();
 }
 
+/**
+ * The link a tap is on when a registered screen claims it and it leaves this screen: a plain
+ * same-window link, not a download and not a view control (`ViewLink` replaces within its screen).
+ */
+function claimedLink(
+  target: EventTarget | null,
+): { link: HTMLAnchorElement; claimed: { spec: TapSpec; target: TapTarget } } | null {
+  const link = target instanceof Element ? target.closest("a[href]") : null;
+  if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download")) return null;
+  if (link.target && link.target !== "_self") return null;
+  if (link.hasAttribute(VIEW_LINK_ATTRIBUTE)) return null;
+  const claimed = claim(link.getAttribute("href") ?? "", window.location.origin);
+  if (!claimed || claimed.target.pathname === window.location.pathname) return null;
+  return { link, claimed };
+}
+
+/**
+ * The finger going down on a claimed link whose drawing is not made yet (the idle pre-render has
+ * not reached it): it is drawn now, before the click (v7.0).
+ */
+function onPress(event: Event): void {
+  const found = claimedLink(event.target);
+  if (found === null) return;
+  const { spec, target } = found.claimed;
+  if (spec.drawing(target.variant) === undefined) spec.prepare?.(target.variant);
+}
+
 function onClick(event: MouseEvent): void {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
     return;
@@ -237,18 +373,19 @@ function onClick(event: MouseEvent): void {
     leave(control);
     return;
   }
-  const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-  if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download")) return;
-  if (link.target && link.target !== "_self") return;
-  const claimed = claim(link.getAttribute("href") ?? "", window.location.origin);
-  if (!claimed || claimed.target.pathname === window.location.pathname) return;
+  const found = claimedLink(event.target);
+  if (found === null) return;
+  const { link, claimed } = found;
+  const from = window.location.pathname;
+  const write = historyWrite(claimed.spec, link, claimed.target.pathname, from);
   clear();
   tap = {
     ...claimed.target,
     spec: claimed.spec,
-    from: window.location.pathname,
+    from,
     pending: document.documentElement.hasAttribute(NAV_PENDING),
     route: currentRoute(),
+    push: write === "push",
   };
   watch = new MutationObserver(check);
   watch.observe(document.documentElement, { attributes: true, attributeFilter: [NAV_PENDING] });
@@ -297,6 +434,8 @@ function listen(): void {
   if (listening || typeof document === "undefined") return;
   listening = true;
   document.addEventListener("click", onClick, { capture: true });
+  document.addEventListener("pointerdown", onPress, { capture: true, passive: true });
+  document.addEventListener("touchstart", onPress, { capture: true, passive: true });
   window.addEventListener("popstate", clear);
   window.addEventListener("offline", () => {
     if (drawn !== null) giveUp();
@@ -315,4 +454,30 @@ export function registerTapSpec(spec: TapSpec): void {
 /** For the unit tests: which spec claims `href`. */
 export function claimedBy(href: string, origin: string): string | null {
   return claim(href, origin)?.spec.key ?? null;
+}
+
+/** The spec and target claiming `href` (the drawings' pre-render orders by what is on screen). */
+export function claimTap(href: string, origin: string): { key: string; variant: string } | null {
+  const claimed = claim(href, origin);
+  return claimed ? { key: claimed.spec.key, variant: claimed.target.variant } : null;
+}
+
+/** A drawing's place in the pre-render: a bar tab of the viewer's, or a drill-down. */
+export type DrawingGroup = "tab" | "drill";
+
+/**
+ * The order the drawings are made in, one per idle slice (v7.0): those for the links on screen
+ * first (in the order they are on it), then the viewer's other tabs, then the drill-downs. Ids
+ * not among `all` are dropped, and none is listed twice. Pure.
+ */
+export function drawingOrder(
+  all: readonly { id: string; group: DrawingGroup }[],
+  onScreen: readonly string[],
+): string[] {
+  const known = new Set(all.map((drawing) => drawing.id));
+  const order = new Set(onScreen.filter((id) => known.has(id)));
+  for (const group of ["tab", "drill"] as const) {
+    for (const drawing of all) if (drawing.group === group) order.add(drawing.id);
+  }
+  return [...order];
 }

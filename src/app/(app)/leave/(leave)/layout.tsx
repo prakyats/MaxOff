@@ -3,15 +3,12 @@ import type { ReactNode } from "react";
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
-import { PageHeader } from "@/core/ui/composites/page-header";
 import { type CompBalance, readOwnCompLeave } from "@/modules/leave";
 import { RequestLeaveButton } from "@/modules/leave/components/request-leave-button";
 
-import { LEAVE_TABS, LeaveTabs } from "../leave-tabs";
+import { LeaveHeader } from "../leave-header";
 
 const NO_COMP_BALANCE: CompBalance = { availableDays: 0, useBy: null };
-
-const DESCRIPTION = "Request leave, change or cancel it, and see how each day was recorded.";
 
 /**
  * The member's own attendance and leave (task 2.3, WORKFLOWS §1/§2): two views since 5B
@@ -46,13 +43,7 @@ export default async function LeaveLayout({ children }: { children: ReactNode })
       : Promise.resolve(NO_COMP_BALANCE);
   return (
     <>
-      <PageHeader
-        title="Attendance & leave"
-        description={DESCRIPTION}
-        help={DESCRIPTION}
-        actions={<RequestLeaveButton today={todayIST()} balance={balance} />}
-      />
-      <LeaveTabs tabs={LEAVE_TABS} label="Attendance and leave" />
+      <LeaveHeader action={<RequestLeaveButton today={todayIST()} balance={balance} />} />
       {children}
     </>
   );

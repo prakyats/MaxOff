@@ -8,7 +8,6 @@ import { addISTDays, formatTime, systemClock } from "@/core/time";
 
 import { FollowUpHost } from "@/core/ui/composites/follow-up";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { getOwnToday } from "../data/attendance";
 import { getEarlyLeaveWait, getOwnHours } from "../data/hours";
@@ -286,22 +285,4 @@ async function StayPlanLine() {
   );
 }
 
-/**
- * The strip's tracing for `loading.tsx` (ARCHITECTURE §14.1): one 44px row inside the border, as
- * the strip's own 44px link sits inside its border, with the dot, the text and the button.
- */
-export function TodayAttendanceStripSkeleton() {
-  return (
-    <div
-      data-slot="attendance-strip-skeleton"
-      aria-hidden
-      className="border-border bg-card mb-4 rounded-lg border px-3"
-    >
-      <div className="flex min-h-11 items-center gap-2">
-        <Skeleton className="size-2 shrink-0 rounded-full" />
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="ml-auto h-8 w-20 shrink-0 rounded-md" />
-      </div>
-    </div>
-  );
-}
+export { TodayAttendanceStripSkeleton } from "./today-attendance-strip-skeleton";

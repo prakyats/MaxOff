@@ -1,22 +1,7 @@
-import { LoadingState } from "@/core/ui/composites/loading-state";
-import { LeaveBalanceStripSkeleton } from "@/modules/leave";
+import { SERVER_PARTS } from "../../skeleton-parts";
+import { LeaveRequestsSkeleton } from "./leave-requests-skeleton";
 
-/**
- * The balance strip (PP-crew-1, V5b: two tiles of three lines), then the requests list under the
- * layout's header and tabs (which stay painted): cards on a phone, the table from `md` up. No
- * pager row: it only appears past 20 requests.
- */
+/** The requests view while it loads (`LeaveRequestsSkeleton`, also in the tap drawing, v7.0). */
 export default function Loading() {
-  return (
-    <>
-      <LeaveBalanceStripSkeleton />
-      <LoadingState shape="cards" count={5} label="Loading your leave" className="md:hidden" />
-      <LoadingState
-        shape="table"
-        columns={["w-1/4", "w-1/4", "w-1/6", "w-1/6"]}
-        label="Loading your leave"
-        className="hidden md:block"
-      />
-    </>
-  );
+  return <LeaveRequestsSkeleton parts={SERVER_PARTS} />;
 }

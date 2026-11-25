@@ -27,8 +27,11 @@ export function CalendarSkeleton({
   switcher,
 }: {
   weeks: number;
-  /** The month it opens on (today's): its name sets the pager's width. */
-  month: ISODate;
+  /**
+   * The month it opens on (today's): its name sets the pager's width. Null in a tap drawing
+   * (v7.0: a drawing carries no date), where the pager keeps a long month's width.
+   */
+  month: ISODate | null;
   switcher: boolean;
 }) {
   const grid = (density: "compact" | "laptop") => (
@@ -134,7 +137,11 @@ export function CalendarSkeleton({
                   <Skeleton className="size-4 rounded-sm" />
                 </span>
                 <span className="relative flex h-6 items-center px-1 text-base font-semibold whitespace-nowrap">
-                  <span className="invisible">{monthLabel(month)}</span>
+                  {month === null ? (
+                    <span className="inline-block w-36" />
+                  ) : (
+                    <span className="invisible">{monthLabel(month)}</span>
+                  )}
                   <Skeleton className="absolute inset-x-1 top-1 h-4" />
                 </span>
                 <span className="flex size-8 items-center justify-center">

@@ -34,13 +34,11 @@ import { listTasksAtBothSteps, listUnreadCounts } from "@/modules/tasks";
 import { TaskApprovalGroup } from "@/modules/tasks/components/task-approval-group";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
-import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { taskItem } from "./items";
+import { APPROVALS_DESCRIPTION } from "./approvals-skeleton";
 
 export const metadata: Metadata = { title: "Approvals" };
-
-const DESCRIPTION = "Everything waiting for your decision, oldest first.";
 
 /**
  * One Approvals screen, grouped, no tabs (PRODUCT "Approvals"). Each group shows only to whoever
@@ -160,10 +158,14 @@ export default async function ApprovalsPage() {
     tasks.length === 0;
 
   return (
-    <>
-      <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />
+    // The screen's mark for the tap drawings (v7.0): the route holds Approvals once this is in.
+    <div data-slot="approvals-page" className="contents">
       <TasksFreshOnReturn renderId={crypto.randomUUID()} />
-      <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
+      <PageHeader
+        title="Approvals"
+        description={APPROVALS_DESCRIPTION}
+        help={APPROVALS_DESCRIPTION}
+      />
       {nothing ? (
         <EmptyState
           icon={CheckCheckIcon}
@@ -210,7 +212,7 @@ export default async function ApprovalsPage() {
           </div>
         </ApprovalScreen>
       )}
-    </>
+    </div>
   );
 }
 

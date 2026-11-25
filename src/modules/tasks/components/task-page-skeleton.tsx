@@ -201,7 +201,7 @@ export function TaskDetailsSkeleton({ view: asked }: { view?: TaskView | undefin
  * Every column is `min-w-0`, so a rem-wide bar never widens a phone at 200% text (3c review).
  *
  * Drawn by the route's `loading.tsx` and, on a tap the router could not answer from its
- * prefetches, by `TaskTapSkeleton` (#143): one component, so the two never differ. `view` is the
+ * prefetches, by the tap drawings (#143, `app/(app)/tap-drawings.tsx`): one component, so the two never differ. `view` is the
  * view the tapped address asks for; the route's own loading screen reads it from its address.
  */
 export function TaskPageSkeleton({ manages, view }: { manages: boolean; view?: TaskView }) {

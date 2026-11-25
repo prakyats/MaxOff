@@ -1,6 +1,6 @@
 /**
  * The task page's views, apart from the page's other rules (`page.ts` re-exports them), so a
- * small client part (`TaskTapSkeleton`, #143) reads the view of an address without the rest.
+ * small client part (the tap drawings, #143) reads the view of an address without the rest.
  */
 export type TaskView = "work" | "chat" | "details";
 

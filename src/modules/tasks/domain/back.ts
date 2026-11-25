@@ -3,7 +3,7 @@
  * from these screens as well; back returns to the one it came from (the calendar's view and day
  * with it, the address its entry holds) and names it. From anywhere else (a notification, a link
  * opened directly) it replaces with Tasks. Here rather than beside the page's reads (server
- * only) because the skeleton a tap draws (`TaskTapSkeleton`) shows the same header.
+ * only) because the skeleton a tap draws (the tap-skeleton engine) shows the same header.
  */
 export const TASK_BACK = {
   href: "/tasks",

@@ -3,11 +3,12 @@ import { join } from "node:path";
 
 import { type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 
-import { systemClock } from "../src/core/time";
+import { systemClock, todayIST } from "../src/core/time";
 import { mobileNavFor, PROFILE_NAV_ITEM } from "../src/core/ui/shell/nav";
 
 import { expect, test } from "./fixtures";
 import {
+  calendarReady,
   holdReads,
   hydrated,
   memberIdOf,
@@ -924,6 +925,466 @@ test.describe("a tap on a cold Worker shows its skeleton at once, every role", (
       }
     });
   }
+});
+
+/**
+ * Every screen's skeleton on the tap, first set (v7.0, ROADMAP "The other screens' skeleton on the
+ * tap"): the app draws a copy of the route's own loading screen when the router has not answered
+ * in 120 ms (`core/ui/navigation/tap-skeleton.ts`, the drawings in `app/(app)/drawings/`), for
+ * every bar tab of every role and its home, a client, a project, a person, and a task tapped from
+ * the calendar or the end-of-day report on the first screen after a reopen. Cold Worker, installed,
+ * every role, 375 and 430. The drawings load after the page: a tap waits for `data-tap-drawings`
+ * ("ready": the screens are in the engine; a drawing not made yet is made on the finger going
+ * down), which needs only the app's static files, never the cold server.
+ */
+const TAB_SKELETON: Record<string, string> = {
+  "/today": '[data-slot="loading-today"]',
+  "/my-day": '[data-slot="loading-my-day"]',
+  "/approvals": '[data-slot="loading-approvals"]',
+  "/tasks": '[data-slot="loading-tasks"]',
+  "/calendar": '[data-slot="loading-calendar"]',
+  "/leave": '[data-slot="loading-leave-balance"]',
+  "/me": '[aria-label="Loading Me"]',
+};
+
+/** The drawings are in the engine (`TAP_DRAWINGS_ATTRIBUTE`). */
+async function drawingsReady(page: Page): Promise<void> {
+  await expect(page.locator("html")).toHaveAttribute("data-tap-drawings", /ready|done/, {
+    timeout: 10_000,
+  });
+}
+
+/** The viewer's open screen re-reads itself (a notification, `LiveUpdates`), held by the cold Worker. */
+async function liveRefresh(page: Page, email: string): Promise<void> {
+  await expect(page.locator("html")).toHaveAttribute("data-live", "on", { timeout: COLD_MS * 4 });
+  const path = new URL(page.url()).pathname;
+  const refreshed = page.waitForRequest(
+    (request) => {
+      const headers = request.headers();
+      return (
+        headers.rsc === "1" &&
+        !headers["next-router-prefetch"] &&
+        new URL(request.url()).pathname === path
+      );
+    },
+    { timeout: COLD_MS * 4 },
+  );
+  await notify(email);
+  await refreshed;
+}
+
+/** Signed in as the role's viewer, the worker in charge, the app installed. */
+async function installedAs(page: Page, context: BrowserContext, person: Person | null) {
+  if (person) await signIn(page, person.email, person.password);
+  const prep = await context.newPage();
+  await prep.goto("/offline");
+  await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+  await prep.close();
+  await runInstalled(page);
+}
+
+const barLink = (page: Page, href: string) =>
+  page.locator(`[data-slot="bottom-nav"] a[href="${href}"]`);
+
+test.describe("every screen's skeleton on the tap (v7.0), every role", () => {
+  test.describe.configure({ mode: "serial" });
+  for (const role of ["owner", "admin", "staff"] as const satisfies readonly SessionRole[]) {
+    test.describe(`every screen's skeleton on the tap (${role})`, () => {
+      test.use({
+        storageState: role === "owner" ? storageStateFor(role) : { cookies: [], origins: [] },
+      });
+      test.skip(({ isMobile }) => !isMobile, "the bar is the phone's");
+      test.describe.configure({ mode: "serial" });
+      const { viewer, fixture } = COLD_TAPS[role];
+      const home = USERS[role].home;
+      const tabs = mobileNavFor(role)
+        .primary.map((item) => item.href)
+        .filter((href) => href !== home);
+      const names = (project: string) => ({
+        prefix: `Every Tap ${project} ${role}:`,
+        client: `Every Tap ${project} ${role}: Client`,
+        gone: `Every Tap ${project} ${role}: Gone client`,
+        project: `Every Tap ${project} ${role}: Project`,
+        task: `Every Tap ${project} ${role}: Task due today`,
+      });
+      let clientId = "";
+      let projectId = "";
+
+      test.beforeAll(async ({}, info) => {
+        if (!info.project.use.isMobile) return;
+        const n = names(info.project.name);
+        await removeClientFixture(n.client);
+        await removeClientFixture(n.gone);
+        await removeTasksTitled(n.prefix);
+        if (role === "staff") return;
+        const own = fixture(info.project.name);
+        const admin = role === "owner" ? USERS.admin : own.creator;
+        const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+        for (const name of [n.client, n.gone]) {
+          const client = await serviceInsert<{ id: string }>("clients", {
+            org_id: org?.id,
+            name,
+            admin_id: await memberIdOf(own.clientAdmin),
+          });
+          await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+            client_id: client.id,
+          });
+          if (name === n.client) clientId = client.id;
+        }
+        projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+          client_id: clientId,
+          name: n.project,
+          recurrence: "monthly",
+          stages: [],
+          items: ["Reel"],
+        });
+      });
+      test.afterAll(async ({}, info) => {
+        if (!info.project.use.isMobile) return;
+        const n = names(info.project.name);
+        await removeClientFixture(n.client);
+        await removeClientFixture(n.gone);
+        await removeTasksTitled(n.prefix);
+      });
+
+      for (const trigger of ["as soon as it can be tapped", "after a live refresh"] as const) {
+        test(`each bar tab ${trigger} shows its skeleton at once; home → a tab is one entry, a tab → a tab none, installed`, async ({
+          page,
+          context,
+          baseURL,
+        }) => {
+          test.setTimeout(240_000);
+          const person = viewer(test.info().project.name);
+          await installedAs(page, context, person);
+          await page.goto(home);
+          await hydrated(page);
+          await coldWorker(context, baseURL!);
+          await page.reload();
+          await hydrated(page);
+          await drawingsReady(page);
+          const atHome = await page.evaluate(() => history.length);
+          for (const href of tabs) {
+            if (trigger === "after a live refresh")
+              await liveRefresh(page, (person ?? OWNER).email);
+            expectInstant(
+              `bar tab → ${href}`,
+              await tapUntilSkeleton(barLink(page, href), TAB_SKELETON[href]!),
+            );
+            await expect(page).toHaveURL(new RegExp(`${href}$`), { timeout: COLD_MS * 4 });
+            await expect(page.locator(TAB_SKELETON[href]!)).toHaveCount(0, {
+              timeout: COLD_MS * 4,
+            });
+            await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
+            // [home, tab] (§14.2): the first tab pushed, every later one replaced it.
+            expect(await page.evaluate(() => history.length)).toBe(atHome + 1);
+          }
+          await page.goBack();
+          await expect(page).toHaveURL(new RegExp(`${home}$`));
+        });
+      }
+
+      test("the home tab, from a tab the app was reopened on, shows home's skeleton at once and adds no entry, installed", async ({
+        page,
+        context,
+        baseURL,
+      }) => {
+        test.setTimeout(120_000);
+        await installedAs(page, context, viewer(test.info().project.name));
+        await page.goto(tabs[0]!);
+        await hydrated(page);
+        await coldWorker(context, baseURL!);
+        await page.reload();
+        await hydrated(page);
+        await drawingsReady(page);
+        const atTab = await page.evaluate(() => history.length);
+        expectInstant(
+          `bar tab → ${home}`,
+          await tapUntilSkeleton(barLink(page, home), TAB_SKELETON[home]!),
+        );
+        await expect(page).toHaveURL(new RegExp(`${home}$`), { timeout: COLD_MS * 4 });
+        await expect(page.locator(TAB_SKELETON[home]!)).toHaveCount(0, { timeout: COLD_MS * 4 });
+        // Reopened on the tab, home was not beneath: the bar replaced it.
+        expect(await page.evaluate(() => history.length)).toBe(atTab);
+      });
+
+      test("back while a tab's skeleton shows goes home and stays there, installed", async ({
+        page,
+        context,
+        baseURL,
+      }) => {
+        test.setTimeout(120_000);
+        const person = viewer(test.info().project.name);
+        await installedAs(page, context, person);
+        await page.goto(home);
+        await hydrated(page);
+        await coldWorker(context, baseURL!);
+        await page.reload();
+        await hydrated(page);
+        await drawingsReady(page);
+        await barLink(page, tabs[0]!).click();
+        await expect(page).toHaveURL(new RegExp(`${tabs[0]}$`), { timeout: COLD_MS * 4 });
+        await expect(page.locator(TAB_SKELETON[tabs[0]!]!)).toHaveCount(0, {
+          timeout: COLD_MS * 4,
+        });
+        await liveRefresh(page, (person ?? OWNER).email);
+        expectInstant(
+          `bar tab → ${tabs[1]}, then back`,
+          await tapUntilSkeleton(
+            barLink(page, tabs[1]!),
+            `[data-slot="tap-skeleton"] ${TAB_SKELETON[tabs[1]!]}`,
+          ),
+        );
+        await page.goBack();
+        await expect(page).toHaveURL(new RegExp(`${home}$`));
+        await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
+        // The tab's late answer is dropped: home stays.
+        await page.waitForTimeout(COLD_MS + 500);
+        await expect(page).toHaveURL(new RegExp(`${home}$`));
+      });
+
+      if (role !== "staff") {
+        test("a client and its project (and for the Owner a person), tapped on a reopened list, show their skeleton at once, one entry each, installed", async ({
+          page,
+          context,
+          baseURL,
+        }) => {
+          test.setTimeout(180_000);
+          const n = names(test.info().project.name);
+          await installedAs(page, context, viewer(test.info().project.name));
+          await page.goto("/clients");
+          await hydrated(page);
+          await coldWorker(context, baseURL!);
+          await page.reload();
+          await hydrated(page);
+          await drawingsReady(page);
+          const atList = await page.evaluate(() => history.length);
+          expectInstant(
+            "client row",
+            await tapUntilSkeleton(
+              page.getByRole("link", { name: new RegExp(n.client) }).first(),
+              '[data-slot="loading-client-overview"]',
+            ),
+          );
+          await expect(page).toHaveURL(new RegExp(`/clients/${clientId}$`));
+          await expect(page.locator('[data-slot="client-overview"]')).toBeVisible({
+            timeout: COLD_MS * 4,
+          });
+          expect(await page.evaluate(() => history.length)).toBe(atList + 1);
+
+          // The client's Projects (its own tab: the router's, no copy), then the project's row.
+          await page.locator('[data-slot="client-tabs"] a', { hasText: "Projects" }).click();
+          const projectRow = page.locator(`a[href="/clients/${clientId}/projects/${projectId}"]`);
+          await expect(projectRow.first()).toBeVisible({ timeout: COLD_MS * 4 });
+          expectInstant(
+            "project row",
+            await tapUntilSkeleton(projectRow.first(), '[data-slot="loading-project"]'),
+          );
+          await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+          await expect(page.locator('[data-slot="project-page"]')).toBeVisible({
+            timeout: COLD_MS * 4,
+          });
+          expect(await page.evaluate(() => history.length)).toBe(atList + 2);
+
+          if (role !== "owner") return;
+          // A person, from Everyone today (the Owner's: on a phone the People list opens a sheet,
+          // and the board's rows open a person's Leave).
+          await page.goto("/today/people");
+          await hydrated(page);
+          await drawingsReady(page);
+          const atBoard = await page.evaluate(() => history.length);
+          const crewId = await memberIdOf(skel("staff", test.info().project.name).email);
+          expectInstant(
+            "person row",
+            await tapUntilSkeleton(
+              page.locator(`#main a[href="/people/${crewId}/leave"]:visible`).first(),
+              '[data-slot="loading-comp-leave-card"]',
+            ),
+          );
+          await expect(page).toHaveURL(new RegExp(`/people/${crewId}/leave$`));
+          await expect(page.locator('[data-slot="person-tabs"]')).toBeVisible({
+            timeout: COLD_MS * 4,
+          });
+          expect(await page.evaluate(() => history.length)).toBe(atBoard + 1);
+          await page.goBack();
+          await expect(page).toHaveURL(/\/today\/people$/);
+        });
+      }
+
+      if (role === "owner") {
+        test("a client gone since the list loaded shows its own screen, not the skeleton, installed", async ({
+          page,
+          context,
+          baseURL,
+        }) => {
+          test.setTimeout(120_000);
+          const n = names(test.info().project.name);
+          await installedAs(page, context, null);
+          await page.goto("/clients");
+          await hydrated(page);
+          await coldWorker(context, baseURL!);
+          await page.reload();
+          await hydrated(page);
+          await drawingsReady(page);
+          const row = page.getByRole("link", { name: new RegExp(n.gone) }).first();
+          await expect(row).toBeVisible({ timeout: COLD_MS * 4 });
+          await removeClientFixture(n.gone);
+          expectInstant(
+            "gone client row",
+            await tapUntilSkeleton(
+              row,
+              '[data-slot="tap-skeleton"] [data-slot="loading-client-overview"]',
+            ),
+          );
+          const screen = page.locator('#main > [data-slot="route"] [data-slot="error-state"]');
+          await expect(screen).toBeVisible({ timeout: COLD_MS * 4 });
+          await expect(screen).toContainText("Page not found");
+          await expect(page.locator('[data-slot="tap-skeleton"]')).toHaveCount(0);
+        });
+
+        test("a task tapped on the calendar or the end-of-day report, the first screen after a reopen, shows its skeleton at once, installed", async ({
+          page,
+          context,
+          baseURL,
+        }) => {
+          test.setTimeout(150_000);
+          const n = names(test.info().project.name);
+          // Due today in IST, so the calendar's day and the day's report both list it.
+          const staff = await memberIdOf(USERS.staff.email);
+          await rpcAs<string>(OWNER.email, OWNER.password, "task_create", {
+            title: n.task,
+            description: null,
+            task_type_id: await taskTypeId("Normal"),
+            client_id: null,
+            priority: "medium",
+            due_at: `${todayIST()}T23:30:00+05:30`,
+            assignee_ids: [staff],
+            primary_owner_id: staff,
+            approving_admin_id: null,
+            stages: [],
+          });
+          await installedAs(page, context, null);
+          await page.goto("/calendar");
+          await hydrated(page);
+          await coldWorker(context, baseURL!);
+          await page.reload();
+          await hydrated(page);
+          await calendarReady(page);
+          await drawingsReady(page);
+          expectInstant(
+            "a task on the calendar's day",
+            await tapUntilSkeleton(
+              page.locator('[data-slot="calendar-detail"]:visible a[href^="/tasks/"]').first(),
+              '[data-slot="loading-task"]',
+            ),
+          );
+          await expect(page.locator('[data-slot="task-summary"]')).toBeVisible({
+            timeout: COLD_MS * 4,
+          });
+
+          await page.goto(`/reports/end-of-day/${todayIST()}`);
+          await hydrated(page);
+          await drawingsReady(page);
+          expectInstant(
+            "a task on the end-of-day report",
+            await tapUntilSkeleton(
+              page.locator('[data-slot="eod-task"]').first(),
+              '[data-slot="loading-task"]',
+            ),
+          );
+          await expect(page.locator('[data-slot="task-summary"]')).toBeVisible({
+            timeout: COLD_MS * 4,
+          });
+        });
+
+        test("the drawings are made one per idle slice, none a long task at 4x CPU", async ({
+          page,
+        }, info) => {
+          test.skip(info.project.name !== "mobile", "one width measures it");
+          test.setTimeout(120_000);
+          await page.addInitScript(() => {
+            const w = window as unknown as { __long: { start: number; end: number }[] };
+            w.__long = [];
+            new PerformanceObserver((list) => {
+              for (const entry of list.getEntries()) {
+                w.__long.push({ start: entry.startTime, end: entry.startTime + entry.duration });
+              }
+            }).observe({ type: "longtask", buffered: true });
+          });
+          const cdp = await page.context().newCDPSession(page);
+          await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+          try {
+            await page.goto(USERS.owner.home);
+            await hydrated(page);
+            await expect(page.locator("html")).toHaveAttribute("data-tap-drawings", "done", {
+              timeout: 60_000,
+            });
+            const { slices, long } = await page.evaluate(() => ({
+              slices: performance
+                .getEntriesByType("measure")
+                .filter((entry) => entry.name.startsWith("tap-drawing:"))
+                .map((entry) => ({
+                  name: entry.name,
+                  start: entry.startTime,
+                  end: entry.startTime + entry.duration,
+                  duration: entry.duration,
+                })),
+              long: (window as unknown as { __long: { start: number; end: number }[] }).__long,
+            }));
+            test.info().annotations.push({
+              type: "drawing slices at 4x CPU",
+              description: slices.map((s) => `${s.name} ${Math.round(s.duration)} ms`).join(", "),
+            });
+            expect(slices.length, "every drawing was made in a slice").toBeGreaterThanOrEqual(10);
+            for (const slice of slices) {
+              expect(slice.duration, `${slice.name} within 50 ms`).toBeLessThanOrEqual(50);
+              const overlapping = long.filter(
+                (task) => task.start < slice.end && task.end > slice.start,
+              );
+              expect(overlapping, `${slice.name} is no long task`).toEqual([]);
+            }
+          } finally {
+            await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+            await cdp.detach();
+          }
+        });
+      }
+    });
+  }
+});
+
+// Offline the router waits for the connection (or falls back to loading the screen in full when
+// its fetch fails, Next's own, hence the document load allowed here): the app draws no copy, so
+// the screen tapped from stays with the progress bar, as before v7.0.
+test.describe("offline, a tab's tap draws no copy (v7.0)", () => {
+  test.use({ storageState: storageStateFor("owner"), documentLoads: "allowed" });
+  test.skip(({ isMobile }) => !isMobile, "the bar is the phone's");
+
+  test("the tap draws no copy while offline, installed", async ({ page, context }) => {
+    await installedAs(page, context, null);
+    await page.goto(USERS.owner.home);
+    await hydrated(page);
+    await drawingsReady(page);
+    // Kept in the tab's session store, which outlives the document Next may load in full.
+    await page.evaluate(() => {
+      sessionStorage.setItem("tap-copy", "none");
+      new MutationObserver(() => {
+        if (document.querySelector('[data-slot="tap-skeleton"]')) {
+          sessionStorage.setItem("tap-copy", "drawn");
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    });
+    await context.setOffline(true);
+    try {
+      await fingerTap(barLink(page, "/approvals"));
+      await page.waitForTimeout(800);
+      // Read once the page settles (a document Next loads in full replaces the context).
+      await expect
+        .poll(() => page.evaluate(() => sessionStorage.getItem("tap-copy")).catch(() => null))
+        .toBe("none");
+    } finally {
+      await context.setOffline(false);
+    }
+  });
 });
 
 test.describe("sign-out drops what the worker keeps", () => {

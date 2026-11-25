@@ -38,6 +38,7 @@ import {
 } from "../domain/hours";
 
 import { StayUntilButton } from "./stay-until-button";
+import { COUNT_CELL, COUNT_GRID } from "./today-board-skeleton";
 
 /** The dot follows the bucket, so the board reads at a glance and matches the card. */
 const BUCKET_DOT: Record<BoardBucket, string> = {
@@ -61,19 +62,6 @@ const COUNT_DOT: Record<CountTone | "zero", string> = {
   neutral: "bg-neutral",
   zero: "bg-muted-foreground/40",
 };
-
-/**
- * The strip: the four counts in one row (owner 2026-10-09). A container query, in rem, so it holds
- * four only while four fit their labels on one line: a 375px phone at the default text size has
- * room (21rem of 21.4rem); at large system text (§14.2 i) it is two rows of two, never a label
- * wrapped or cut.
- */
-const COUNT_GRID =
-  "border-border bg-card grid grid-cols-2 gap-1 rounded-lg border p-1 @min-[21rem]:grid-cols-4";
-/** One count: the dot and the number (20 px, one step up: PP-today-3) on a 28px line, the label
- * under it; 44px tall at least. */
-const COUNT_CELL =
-  "focus-visible:ring-ring flex min-h-11 min-w-0 flex-col justify-center rounded-md px-1 py-1 outline-none focus-visible:ring-2";
 
 /**
  * "Today's attendance" on the Owner's /today (task 2.4; 6.2, PRODUCT §2 principle 11; kickoff 6
@@ -406,46 +394,4 @@ export function PersonTodayLine({ person }: { person: TodayPerson | null }) {
   );
 }
 
-export function PersonTodayLineSkeleton() {
-  return (
-    <div
-      aria-hidden
-      data-slot="loading-person-today"
-      className="mb-4 flex min-h-6 items-center gap-2"
-    >
-      <Skeleton className="h-3.5 w-12" />
-      <Skeleton className="h-3.5 w-40" />
-    </div>
-  );
-}
-/**
- * The Owner's attendance section while Today loads: its heading and the strip of four, the same
- * container query and cells. The red lines under it are not drawn: each shows only above zero and
- * nothing the loading screen traces sits under them.
- */
-export function TodayCardSkeleton() {
-  return (
-    <div
-      aria-hidden
-      data-slot="loading-today-card"
-      className="@container flex min-w-0 flex-col gap-2"
-    >
-      <div className="flex h-5 items-center">
-        <Skeleton className="h-4 w-24" />
-      </div>
-      <div className={COUNT_GRID}>
-        {TODAY_STRIP_COUNTS.map((bucket) => (
-          <div key={bucket} className={COUNT_CELL}>
-            <div className="flex h-7 items-center gap-1.5">
-              <Skeleton className="size-2 rounded-full" />
-              <Skeleton className="h-6 w-6" />
-            </div>
-            <div className="flex h-4 items-center">
-              <Skeleton className="h-3 w-12 max-w-full" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+export { PersonTodayLineSkeleton, TodayCardSkeleton } from "./today-board-skeleton";

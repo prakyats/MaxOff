@@ -1,40 +1,14 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
-import { ApprovalGroupSkeleton } from "@/core/ui/composites/approval-group-skeleton";
-import { PageHeader } from "@/core/ui/composites/page-header";
 
-const DESCRIPTION = "Everything waiting for your decision, oldest first.";
+import { ApprovalsSkeleton } from "./approvals-skeleton";
 
 /**
- * One Approvals screen, grouped, no tabs (2.4), traced row for row by `ApprovalGroupSkeleton`
- * (a heading, rows with two actions): the Owner's Attendance, Leave, Extra work (3b.2), Expenses
- * (3b.3) and Staff tasks (4.5) groups; an Admin's one, the tasks they check (4.5). No client
- * items: since amendment D3 (owner 2026-10-09) an item marked done is approved in the same step,
- * so the page draws no group for them. The `(app)` layout already resolved the member for this
- * request (`cache()`), so asking costs no query.
+ * Approvals while it loads (`ApprovalsSkeleton`, also what a tap draws before the router answers,
+ * v7.0). The `(app)` layout already resolved the member for this request (`cache()`), so asking
+ * costs no query.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
-  const decides = member !== null && can(member.role, "attendance.decide");
-  return (
-    <>
-      <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
-      <div className="flex flex-col gap-6" data-slot="loading-approvals">
-        {decides ? (
-          <>
-            {/* Every group leads each row with the person's photo (V5b-D): the tasks' rows
-                with whoever handed it in (#89). */}
-            <ApprovalGroupSkeleton rows={3} avatars />
-            <ApprovalGroupSkeleton rows={2} avatars />
-            <ApprovalGroupSkeleton rows={1} avatars />
-            <ApprovalGroupSkeleton rows={1} avatars />
-            <ApprovalGroupSkeleton rows={2} avatars />
-          </>
-        ) : (
-          <ApprovalGroupSkeleton rows={3} avatars />
-        )}
-        <span className="sr-only">Loading approvals</span>
-      </div>
-    </>
-  );
+  return <ApprovalsSkeleton decides={member !== null && can(member.role, "attendance.decide")} />;
 }

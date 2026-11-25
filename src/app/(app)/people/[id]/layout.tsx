@@ -3,33 +3,19 @@ import { type ReactNode, Suspense } from "react";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { DetailHeader, PageHeader } from "@/core/ui/composites/page-header";
+import { DetailHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
-import { getTodayPeople, PersonTodayLine, PersonTodayLineSkeleton } from "@/modules/attendance";
+import { getTodayPeople, PersonTodayLine } from "@/modules/attendance";
 import { STATUS_LABELS } from "@/modules/team";
 import { PersonMenu } from "@/modules/team/components/person-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
+import { SERVER_PARTS } from "../../skeleton-parts";
+import { PERSON_BACK } from "./back";
+import { PersonHeaderSkeleton } from "./person-header-skeleton";
 import { PersonHistoryButton } from "./person-history";
 import { PersonTabs } from "./person-nav";
 import { loadPerson, showsHistory } from "./person";
-
-/**
- * People is the parent; a person is opened from these screens too, and back returns to the one it
- * came from and names it (§14.2 k, 6b.12).
- */
-const BACK = {
-  href: "/people",
-  label: "People",
-  from: [
-    { path: "/today/people", label: "Everyone today" },
-    { path: "/today", label: "Today" },
-    { path: "/approvals", label: "Approvals" },
-    { path: "/reports/month", label: "Month" },
-    { path: "/reports/end-of-day/*", label: "End of day" },
-  ],
-};
 
 /**
  * A person's page (kickoff 3, task 3.4): **Profile** for everyone with `team.view`, and for the
@@ -62,27 +48,11 @@ export default async function PersonLayout({
       </Suspense>
       <Suspense
         fallback={
-          <>
-            <PageHeader
-              title={<Skeleton className="h-5 w-40" />}
-              back={BACK}
-              status={<Skeleton className="h-5 w-16 rounded-full" />}
-              menu={
-                can(viewer.role, "team.manage") ? (
-                  <>
-                    <Skeleton aria-hidden className="size-11 rounded-lg" />
-                    <Skeleton aria-hidden className="size-11 rounded-lg" />
-                  </>
-                ) : undefined
-              }
-            />
-            {can(viewer.role, "attendance.view_all") ? (
-              <>
-                <PersonTodayLineSkeleton />
-                <TabsSkeleton />
-              </>
-            ) : null}
-          </>
+          <PersonHeaderSkeleton
+            parts={SERVER_PARTS}
+            manages={can(viewer.role, "team.manage")}
+            owner={can(viewer.role, "attendance.view_all")}
+          />
         }
       >
         <PersonHeader id={id} />
@@ -101,7 +71,7 @@ async function PersonHeader({ id }: { id: string }) {
       <DetailHeader
         title={person.fullName}
         description={person.jobTitle ?? undefined}
-        back={BACK}
+        back={PERSON_BACK}
         status={<StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />}
         menu={
           can(viewer.role, "activity.view_all") || can(viewer.role, "team.manage") ? (
@@ -134,21 +104,4 @@ async function PersonHeader({ id }: { id: string }) {
 async function PersonToday({ id }: { id: string }) {
   const today = await getTodayPeople();
   return <PersonTodayLine person={today.people.find((person) => person.memberId === id) ?? null} />;
-}
-
-/** The tab bar's shape while the person loads: four 44px cells, as `PersonTabs` draws them. */
-function TabsSkeleton() {
-  return (
-    <div
-      aria-hidden
-      data-slot="loading-person-tabs"
-      className="bg-muted mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,4.5rem),1fr))] gap-1 rounded-lg p-1 md:inline-grid md:w-[32rem]"
-    >
-      {[0, 1, 2, 3].map((cell) => (
-        <div key={cell} className="flex min-h-11 items-center justify-center">
-          <Skeleton className="h-3.5 w-14" />
-        </div>
-      ))}
-    </div>
-  );
 }
