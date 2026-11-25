@@ -29,8 +29,8 @@ export default function Loading() {
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-3 w-1/3" />
               <span className="mt-1 flex items-center gap-2">
-                <Skeleton className="h-1.5 w-24 rounded-full sm:w-32" />
-                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-1.5 w-24 min-w-10 shrink rounded-full sm:w-32" />
+                <Skeleton className="h-3 w-20 shrink-0" />
               </span>
               <Skeleton className="h-3 w-2/5" />
             </span>

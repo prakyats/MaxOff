@@ -51,9 +51,12 @@ export function ProjectList({
                     }}
                     label={`${project.meter.percent}% of stages: ${meterLine(project.meter)}`}
                     slot="project-meter-bar"
-                    className="w-24 shrink-0 sm:w-32"
+                    // v7.0: the bar gives way, never the words: beside the state column's
+                    // fixed width (PROJECT_ROW_STATE) the line stays one line at 375 px, as its
+                    // skeleton does.
+                    className="w-24 min-w-10 shrink sm:w-32"
                   />
-                  <span className="text-xs tabular-nums">
+                  <span className="shrink-0 text-xs whitespace-nowrap tabular-nums">
                     <span className="font-medium" data-slot="project-percent">
                       {project.meter.percent}%
                     </span>{" "}

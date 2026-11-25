@@ -47,8 +47,8 @@ export default async function Loading() {
                     <Skeleton className="h-3 w-1/3" />
                   </span>
                   <span className="mt-1 flex h-4 items-center gap-2">
-                    <Skeleton className="h-1.5 w-24 shrink-0 rounded-full sm:w-32" />
-                    <Skeleton className="h-3 w-20 max-w-full" />
+                    <Skeleton className="h-1.5 w-24 min-w-10 shrink rounded-full sm:w-32" />
+                    <Skeleton className="h-3 w-20 shrink-0" />
                   </span>
                   {/* The progress line as text-shaped bars of the usual words, so it wraps
                       where the real line wraps (two lines in a 375 px row, one at 430). */}
