@@ -38,21 +38,21 @@ their comp leave, half day or full day; if it's a half-day comp leave, the other
   changes them.
 
 ### Security (folded in on 25 Nov, the advisor's word; #89)
-`pnpm audit --prod` on `main` showed 4 critical advisories, now 0:
-- **Next.js 16.3.5 → 16.4.6:** an unauthenticated remote code execution and an SSRF in the image
-  optimizer (`/_next/image`), a Server Actions denial of service, and two RCEs in features MaxOff
-  does not use (`use cache`, `next/og`).
-- **@sentry/nextjs → 10.78.0:** the tunnel bypass; MaxOff sets no tunnel route.
+`pnpm audit --prod` on `main` showed 4 critical advisories. This release:
+- **Closes the image optimizer**, because MaxOff serves no `next/image`. That kills Next's image
+  remote code execution and SSRF whatever the Next version:
+  - `images.unoptimized` makes Next answer 404;
+  - the Worker refuses `/_next/image` with a 404 before OpenNext, which answers that route itself
+    and does not read the setting.
+  - Today `main`'s build answers that route `200 image/png` on staging.
+- **@sentry/nextjs → 10.78.0:** the tunnel bypass (critical); MaxOff sets no tunnel route.
 - **zod → 4.6.7:** memory exhaustion.
 - **undici → 7.30.2:** four highs, through `shadcn`'s tooling.
 
-**The image optimizer is closed**, because MaxOff serves no `next/image`:
-- `images.unoptimized` makes Next answer 404.
-- The Worker refuses `/_next/image` with a 404 before OpenNext, which answers that route itself and
-  does not read the setting.
-
-**Next's local patch is re-made for 16.4.6.** It keeps the scroll on a refresh after a view switch,
-and 16.4 moved the code it changes.
+**Next stays 16.3.5 for now.** 16.4.6 broke a tab tap after a cold reopen of the installed app
+(`e2e/instant-skeleton.spec.ts`, at 375 and 430). The upgrade is its own follow-up. Until then, two
+critical advisories on next remain for features MaxOff does not use (`use cache`, `next/og`), plus the
+Server Actions denial of service (high).
 
 **The Crew will notice nothing.**
 
