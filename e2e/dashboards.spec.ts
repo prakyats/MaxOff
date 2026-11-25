@@ -225,11 +225,17 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(page.locator('[data-slot="my-day-empty"]')).toHaveText("Nothing needs you today.");
   });
 
-  test("the Owner has no day: My Day is not theirs", async ({ page }, info) => {
+  test("the Owner has no day: My Day takes him to Today (v7.5 G5)", async ({
+    page,
+    reloadGuard,
+  }, info) => {
     test.skip(info.project.name !== "desktop", "one check is enough");
     await signIn(page, USERS.owner.email, USERS.owner.password);
+    // Not No access any more (advisor 2026-11-26): his own screen, by replace. The redirect comes
+    // from inside the page, after the shell streamed, so Next finishes it as a document load.
+    reloadGuard.allow(/\/today$/);
     await page.goto("/my-day");
-    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
+    await expect(page).toHaveURL(/\/today$/);
   });
 
   test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({
