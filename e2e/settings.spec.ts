@@ -220,7 +220,9 @@ test.describe("Owner", () => {
     // the remount restored 24, and the Save passed. Reload, as after the other saves, so the next
     // edits go into the settled form.
     await page.reload();
-    await openThresholdGroups(page, "Client work");
+    await openThresholdGroups(page, "Client work", "Notifications");
+    // The restore to Monday was saved, not only shown (final review v2.1: asserted after the reload).
+    await expect(page.locator('[data-field="weekly-digest-day"]')).toContainText("Monday");
 
     // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
     const overdue = page.getByLabel("Overdue deliverable → you after (hours)");

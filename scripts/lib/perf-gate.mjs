@@ -23,7 +23,9 @@
 // (rule 1, WARM_TTFB_P50_LIMIT_MS: CLAUDE.md's 600 ms; v2.0's 450 was set back, advisor #89
 // 6787140634 follow-up: from a US runner it measured the ocean to Mumbai, not MaxOff). A TTFB later
 // than staging's is shown (WARN), never failing by itself. A route is slower only when it is slow
-// in **two consecutive runs** (`twoRunVerdicts`); one slow run is re-probed.
+// in **two consecutive runs** (`twoRunVerdicts`); one slow run is re-probed, by the probe itself
+// (`routesToRecheck`, then `settleRechecks`). The rule covers the last byte against staging only:
+// the TTFB cap and a wrong status fail on the run they happen in.
 // Routes in NOT_GATED (the warm-up ping, the static file the CDN serves and the Worker's bare 404:
 // hosting, not MaxOff code; advisor 2026-10-23, owner to confirm) keep their timing out of the
 // verdict: shown as INFO. Their status is still judged, so a 5xx, a redirect to /login or a
@@ -167,7 +169,15 @@ export function slowerThanStaging(candidate, baseline) {
  *   totalP50?: number,
  *   baselineTotalP50?: number,
  *   skip?: string,
+ *   firm?: boolean,
+ *   slowerThanLive?: boolean,
  * }} Judgement
+ */
+/*
+ * `firm`: the route fails on this run alone (a status other than its own, or the TTFB cap): the
+ * two-run rule never turns that into a re-probe. `slowerThanLive`: its last byte is slower than
+ * staging's (the live release) past rule 2: the one failure the two-run rule is for (CLAUDE.md's
+ * speed gate: "a route counts as slower only if it is slower in two consecutive runs").
  */
 
 /**
@@ -211,6 +221,9 @@ export function judgeRoute(route, baseline) {
     );
   }
   const timingOnly = NOT_GATED.has(route.name);
+  // Before NOT_GATED moves the timing reasons: on those routes only the status counts.
+  const firm = reasons.some((r) => !r.startsWith("last byte "));
+  const slowerThanLive = !timingOnly && slower === "fail";
   if (timingOnly) {
     // Only the status counts: the timing reasons move to the shown, unjudged ones.
     const status = reasons.filter((r) => r.startsWith("status "));
@@ -235,23 +248,88 @@ export function judgeRoute(route, baseline) {
     ...(compared !== undefined ? { baselineP50: compared } : {}),
     ...(total !== undefined ? { totalP50: total } : {}),
     ...(comparedTotal !== undefined ? { baselineTotalP50: comparedTotal } : {}),
+    ...(verdict === "FAIL" ? { firm, slowerThanLive } : {}),
   };
 }
 
 /**
- * The two-run rule (owner, confirmed 2026-10-29): a route counts as slower only when it fails in
- * **two consecutive runs**; a route that fails in one of them is re-probed (`RECHECK`), never
- * waived and never failed on one run. Without a previous run, a failure stands as `RECHECK`.
+ * The two-run rule (owner, confirmed 2026-10-29; CLAUDE.md's speed gate): a route counts as
+ * **slower than the live release** only when its last byte is slower than staging's in **two
+ * consecutive runs**; a route slower in one of them is re-probed (`RECHECK`), never waived and
+ * never failed on one run. Without a previous run, such a failure stands as `RECHECK`.
+ * The rule is for "slower than live" alone: a route above the TTFB cap, or one that answered with
+ * another status than its own (`firm`), fails on the run it did so, as `judgeRoute` said.
  * @param {readonly Judgement[]} current
  * @param {readonly Judgement[] | null} previous the run just before, judged the same way
  * @returns {{ name: string, verdict: "PASS" | "FAIL" | "RECHECK" | "SKIP" }[]}
  */
 export function twoRunVerdicts(current, previous) {
-  const before = new Map((previous ?? []).map((j) => [j.name, j.verdict]));
+  const before = new Map((previous ?? []).map((j) => [j.name, j]));
   return current.map((j) => {
     if (j.verdict === "SKIP") return { name: j.name, verdict: "SKIP" };
     if (j.verdict !== "FAIL") return { name: j.name, verdict: "PASS" };
-    return { name: j.name, verdict: before.get(j.name) === "FAIL" ? "FAIL" : "RECHECK" };
+    if (j.firm === true) return { name: j.name, verdict: "FAIL" };
+    const last = before.get(j.name);
+    return {
+      name: j.name,
+      verdict: last?.verdict === "FAIL" && last.slowerThanLive === true ? "FAIL" : "RECHECK",
+    };
+  });
+}
+
+/**
+ * The routes the probe re-probes before it judges (the two-run rule): every route whose only
+ * failure on this run is being slower than the live release. A firm failure is not re-probed: it
+ * fails as it is.
+ * @param {readonly Judgement[]} judgements
+ * @returns {string[]}
+ */
+export function routesToRecheck(judgements) {
+  return twoRunVerdicts(judgements, null)
+    .filter((j) => j.verdict === "RECHECK")
+    .map((j) => j.name);
+}
+
+/**
+ * The verdicts after the re-probe (the two-run rule), for the summary line and the exit code:
+ * a route re-probed and slower again FAILs on both runs' numbers; one re-probed and not slower
+ * this time is a WARN (shown with run 1's numbers, not failing); a route the probe could not
+ * re-probe (`second` null: this run was staging's, the candidate came from a file) stays a
+ * failure that says so, so it is probed again, never waived. Every other route keeps its verdict.
+ * @param {readonly Judgement[]} first
+ * @param {readonly Judgement[] | null} second the re-probe's judgements (its routes only)
+ * @returns {Judgement[]}
+ */
+export function settleRechecks(first, second) {
+  const recheck = new Set(routesToRecheck(first));
+  const again = new Map((second ?? []).map((j) => [j.name, j]));
+  const verdicts = new Map(twoRunVerdicts(second ?? [], first).map((v) => [v.name, v.verdict]));
+  return first.map((j) => {
+    if (!recheck.has(j.name)) return j;
+    const run2 = again.get(j.name);
+    if (second === null || run2 === undefined) {
+      return {
+        ...j,
+        verdict: "FAIL",
+        reasons: [`RECHECK: slower in one run, not re-probed yet (${j.reasons.join("; ")})`],
+      };
+    }
+    if (verdicts.get(j.name) === "FAIL") {
+      return {
+        ...run2,
+        verdict: "FAIL",
+        reasons: run2.slowerThanLive
+          ? [
+              `slower in two consecutive runs: run 1 ${j.reasons.join("; ")}; run 2 ${run2.reasons.join("; ")}`,
+            ]
+          : run2.reasons,
+      };
+    }
+    return {
+      ...run2,
+      verdict: "WARN",
+      reasons: [`run 1 ${j.reasons.join("; ")}; re-probed, not slower`, ...run2.reasons],
+    };
   });
 }
 

@@ -615,12 +615,16 @@ export async function runInstalled(page: Page) {
  * reveals (`$RS`, `$RC` in its inline scripts) are replayed in order, first all but those inside
  * the slot (their fallbacks stay, as when their content comes in a later flush), then those too.
  * A boundary whose fallback traces its rows gives the same height twice.
+ *
+ * `rows` counts the `row` elements in the slot once every reveal is in (final review S2): two
+ * equal heights mean nothing unless the second one measured real rows, so callers assert it.
  */
 export async function streamedHeights(
   page: Page,
   path: string,
   slot: string,
-): Promise<{ firstFlush: number; allIn: number }> {
+  row: string,
+): Promise<{ firstFlush: number; allIn: number; rows: number }> {
   const browser = page.context().browser();
   if (!browser) throw new Error("streamedHeights: no browser");
   const use = test.info().project.use;
@@ -635,69 +639,74 @@ export async function streamedHeights(
   try {
     const flush = await context.newPage();
     await flush.goto(path);
-    return await flush.evaluate((target) => {
-      const slotOf = () => document.querySelector<HTMLElement>(`[data-slot="${target}"]`);
-      const inSlot = (node: Node) =>
-        (node.parentElement ?? null)?.closest(`[data-slot="${target}"]`) !== null;
-      const calls = [...document.scripts].flatMap((script) =>
-        [...(script.textContent ?? "").matchAll(/\$R([SC])\("([^"]+)","([^"]+)"\)/g)].map(
-          (match) => ({ kind: match[1], first: match[2]!, second: match[3]! }),
-        ),
-      );
-      // No reveal found means React's inline scripts changed shape, not that nothing streamed:
-      // both heights would then be the first flush's, and the comparison would pass on nothing.
-      if (calls.length === 0) throw new Error("streamedHeights: no $RS or $RC reveal in the page");
-      const height = () => {
-        const found = slotOf();
-        if (!found || !found.checkVisibility()) throw new Error(`streamedHeights: no ${target}`);
-        return Math.round(found.getBoundingClientRect().height * 2) / 2;
-      };
-      // Replays the reveals not done yet; `skip` keeps a boundary's fallback for now.
-      const done = new Set<number>();
-      const replay = (skip: (template: Node) => boolean) => {
-        calls.forEach((call, index) => {
-          if (done.has(index)) return;
-          if (call.kind === "S") {
-            const segment = document.getElementById(call.first);
-            const placeholder = document.getElementById(call.second);
-            if (!segment || !placeholder?.parentNode) return;
-            while (segment.firstChild)
-              placeholder.parentNode.insertBefore(segment.firstChild, placeholder);
-            placeholder.remove();
-            segment.remove();
-            done.add(index);
-            return;
-          }
-          const template = document.getElementById(call.first);
-          const content = document.getElementById(call.second);
-          const start = template?.previousSibling;
-          if (!template || !content || !start || !template.parentNode) return;
-          if (skip(template)) return;
-          const parent = template.parentNode;
-          let depth = 0;
-          let node = start.nextSibling;
-          while (node) {
-            const next: ChildNode | null = node.nextSibling;
-            if (node.nodeType === Node.COMMENT_NODE) {
-              const data = (node as Comment).data;
-              if (data === "/$" && depth === 0) break;
-              if (data.startsWith("$")) depth += 1;
-              if (data === "/$") depth -= 1;
+    return await flush.evaluate(
+      ({ target, rowSelector }) => {
+        const slotOf = () => document.querySelector<HTMLElement>(`[data-slot="${target}"]`);
+        const inSlot = (node: Node) =>
+          (node.parentElement ?? null)?.closest(`[data-slot="${target}"]`) !== null;
+        const calls = [...document.scripts].flatMap((script) =>
+          [...(script.textContent ?? "").matchAll(/\$R([SC])\("([^"]+)","([^"]+)"\)/g)].map(
+            (match) => ({ kind: match[1], first: match[2]!, second: match[3]! }),
+          ),
+        );
+        // No reveal found means React's inline scripts changed shape, not that nothing streamed:
+        // both heights would then be the first flush's, and the comparison would pass on nothing.
+        if (calls.length === 0)
+          throw new Error("streamedHeights: no $RS or $RC reveal in the page");
+        const height = () => {
+          const found = slotOf();
+          if (!found || !found.checkVisibility()) throw new Error(`streamedHeights: no ${target}`);
+          return Math.round(found.getBoundingClientRect().height * 2) / 2;
+        };
+        // Replays the reveals not done yet; `skip` keeps a boundary's fallback for now.
+        const done = new Set<number>();
+        const replay = (skip: (template: Node) => boolean) => {
+          calls.forEach((call, index) => {
+            if (done.has(index)) return;
+            if (call.kind === "S") {
+              const segment = document.getElementById(call.first);
+              const placeholder = document.getElementById(call.second);
+              if (!segment || !placeholder?.parentNode) return;
+              while (segment.firstChild)
+                placeholder.parentNode.insertBefore(segment.firstChild, placeholder);
+              placeholder.remove();
+              segment.remove();
+              done.add(index);
+              return;
             }
-            node.remove();
-            node = next;
-          }
-          while (content.firstChild) parent.insertBefore(content.firstChild, node);
-          (start as Comment).data = "$";
-          content.remove();
-          done.add(index);
-        });
-      };
-      replay(inSlot);
-      const firstFlush = height();
-      replay(() => false);
-      return { firstFlush, allIn: height() };
-    }, slot);
+            const template = document.getElementById(call.first);
+            const content = document.getElementById(call.second);
+            const start = template?.previousSibling;
+            if (!template || !content || !start || !template.parentNode) return;
+            if (skip(template)) return;
+            const parent = template.parentNode;
+            let depth = 0;
+            let node = start.nextSibling;
+            while (node) {
+              const next: ChildNode | null = node.nextSibling;
+              if (node.nodeType === Node.COMMENT_NODE) {
+                const data = (node as Comment).data;
+                if (data === "/$" && depth === 0) break;
+                if (data.startsWith("$")) depth += 1;
+                if (data === "/$") depth -= 1;
+              }
+              node.remove();
+              node = next;
+            }
+            while (content.firstChild) parent.insertBefore(content.firstChild, node);
+            (start as Comment).data = "$";
+            content.remove();
+            done.add(index);
+          });
+        };
+        replay(inSlot);
+        const firstFlush = height();
+        replay(() => false);
+        const allIn = height();
+        return { firstFlush, allIn, rows: slotOf()?.querySelectorAll(rowSelector).length ?? 0 };
+      },
+      { target: slot, rowSelector: row },
+    );
   } finally {
     await context.close();
   }

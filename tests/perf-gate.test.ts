@@ -10,6 +10,8 @@ import {
   median,
   planMemberRoutes,
   NOT_GATED,
+  routesToRecheck,
+  settleRechecks,
   SLOWER_PCT_FLOOR_MS,
   SLOWER_THAN_STAGING_MS,
   SLOWER_THAN_STAGING_PCT,
@@ -178,31 +180,155 @@ describe("judgeRun and summaryLine", () => {
 });
 
 describe("twoRunVerdicts (slower only in two consecutive runs; one slow run is re-probed)", () => {
-  const judged = (verdict: "PASS" | "WARN" | "FAIL" | "SKIP") => ({
-    name: "/approvals",
-    verdict,
-    reasons: [] as string[],
+  const live = { name: "/approvals", statusOk: true, warmP50: 300, warmTotalP50: 500 };
+  /** Judged against the live release (staging), as the probe judges: `SLOWER` is its last byte. */
+  const judged = (verdict: "PASS" | "WARN" | "SLOWER" | "SKIP") =>
+    verdict === "SKIP"
+      ? judgeRoute({ name: "/approvals", skip: "x" })
+      : judgeRoute(
+          verdict === "SLOWER"
+            ? { ...live, warmTotalP50: 700 }
+            : verdict === "WARN"
+              ? { ...live, warmP50: 380, warmTotalP50: 530 }
+              : live,
+          live,
+        );
+
+  it("the fixtures are what they say", () => {
+    expect(judged("SLOWER")).toMatchObject({ verdict: "FAIL", firm: false, slowerThanLive: true });
+    expect(judged("WARN").verdict).toBe("WARN");
+    expect(judged("PASS").verdict).toBe("PASS");
   });
 
-  it("fails a route only when it failed in the run before too", () => {
-    expect(twoRunVerdicts([judged("FAIL")], [judged("FAIL")])).toEqual([
+  it("fails a route only when it was slower in the run before too", () => {
+    expect(twoRunVerdicts([judged("SLOWER")], [judged("SLOWER")])).toEqual([
       { name: "/approvals", verdict: "FAIL" },
     ]);
   });
 
-  it("re-probes a route that failed once: never failed, never waived", () => {
-    expect(twoRunVerdicts([judged("FAIL")], [judged("PASS")])).toEqual([
+  it("re-probes a route that was slower once: never failed, never waived", () => {
+    expect(twoRunVerdicts([judged("SLOWER")], [judged("PASS")])).toEqual([
       { name: "/approvals", verdict: "RECHECK" },
     ]);
-    expect(twoRunVerdicts([judged("FAIL")], null)).toEqual([
+    expect(twoRunVerdicts([judged("SLOWER")], null)).toEqual([
       { name: "/approvals", verdict: "RECHECK" },
     ]);
   });
 
   it("passes a route that passes or only warns now, whatever the run before said", () => {
-    expect(twoRunVerdicts([judged("PASS")], [judged("FAIL")])[0]?.verdict).toBe("PASS");
-    expect(twoRunVerdicts([judged("WARN")], [judged("FAIL")])[0]?.verdict).toBe("PASS");
+    expect(twoRunVerdicts([judged("PASS")], [judged("SLOWER")])[0]?.verdict).toBe("PASS");
+    expect(twoRunVerdicts([judged("WARN")], [judged("SLOWER")])[0]?.verdict).toBe("PASS");
     expect(twoRunVerdicts([judged("SKIP")], null)[0]?.verdict).toBe("SKIP");
+  });
+
+  // CLAUDE.md's two-run rule is for "slower than the live release" only (final review S5).
+  it("never turns the TTFB cap into a re-probe: above 600 ms fails on one run", () => {
+    const capped = judgeRoute({ ...live, warmP50: 650 }, live);
+    expect(capped).toMatchObject({ verdict: "FAIL", firm: true, slowerThanLive: false });
+    expect(twoRunVerdicts([capped], null)).toEqual([{ name: "/approvals", verdict: "FAIL" }]);
+    expect(twoRunVerdicts([capped], [judged("PASS")])[0]?.verdict).toBe("FAIL");
+  });
+
+  it("never turns a wrong status into a re-probe: a 500 fails on one run", () => {
+    const broken = judgeRoute({ ...live, statusOk: false, statuses: "200/500" }, live);
+    expect(broken).toMatchObject({ verdict: "FAIL", firm: true });
+    expect(twoRunVerdicts([broken], null)).toEqual([{ name: "/approvals", verdict: "FAIL" }]);
+  });
+
+  it("a route over the cap and slower too fails on one run (the cap is firm)", () => {
+    const both = judgeRoute({ ...live, warmP50: 650, warmTotalP50: 900 }, live);
+    expect(both).toMatchObject({ firm: true, slowerThanLive: true });
+    expect(twoRunVerdicts([both], null)[0]?.verdict).toBe("FAIL");
+  });
+
+  it("slower after a run that failed only on its status is a re-probe, not two slow runs", () => {
+    const broken = judgeRoute({ ...live, statusOk: false, statuses: "500" }, live);
+    expect(twoRunVerdicts([judged("SLOWER")], [broken])[0]?.verdict).toBe("RECHECK");
+  });
+
+  it("a hosting row's timing is never re-probed; its status still fails on one run", () => {
+    const hosting = judgeRoute(
+      { ...live, name: "/api/warm", warmP50: 900, warmTotalP50: 900 },
+      { ...live, name: "/api/warm" },
+    );
+    expect(hosting.verdict).toBe("INFO");
+    expect(routesToRecheck([hosting])).toEqual([]);
+    const down = judgeRoute(
+      { ...live, name: "/api/warm", statusOk: false, statuses: "502", warmTotalP50: 900 },
+      { ...live, name: "/api/warm" },
+    );
+    expect(down).toMatchObject({ verdict: "FAIL", firm: true, slowerThanLive: false });
+    expect(twoRunVerdicts([down], null)[0]?.verdict).toBe("FAIL");
+  });
+});
+
+describe("routesToRecheck and settleRechecks (the probe re-probes a slower route itself)", () => {
+  const live = { statusOk: true, warmP50: 300, warmTotalP50: 500 };
+  const run1 = judgeRun(
+    [
+      { name: "/today", ...live, warmTotalP50: 700 }, // slower than live: re-probed
+      { name: "/tasks", ...live, warmP50: 650 }, // over the cap: fails on this run
+      { name: "/me", ...live },
+      { name: "/reports", skip: "the Crew can't open it" },
+    ],
+    [
+      { name: "/today", ...live },
+      { name: "/tasks", ...live },
+      { name: "/me", ...live },
+    ],
+  );
+  const again = (row: Record<string, unknown>) =>
+    judgeRun([{ name: "/today", ...live, ...row }], [{ name: "/today", ...live }]);
+
+  it("re-probes only the routes whose one failure is being slower than live", () => {
+    expect(routesToRecheck(run1)).toEqual(["/today"]);
+  });
+
+  it("slower again: fails, with both runs' numbers", () => {
+    const settled = settleRechecks(run1, again({ warmTotalP50: 690 }));
+    expect(settled.map((j) => [j.name, j.verdict])).toEqual([
+      ["/today", "FAIL"],
+      ["/tasks", "FAIL"],
+      ["/me", "PASS"],
+      ["/reports", "SKIP"],
+    ]);
+    expect(settled[0]?.reasons).toEqual([
+      "slower in two consecutive runs: run 1 last byte +200 ms (+40 %) vs staging; run 2 last byte +190 ms (+38 %) vs staging",
+    ]);
+    expect(summaryLine(settled, { compared: true })).toMatch(
+      /^\*\*Speed gate: FAIL\*\*: 2 of 3 probed routes fail/,
+    );
+  });
+
+  it("not slower on the re-probe: shown with run 1's numbers, not failing", () => {
+    const settled = settleRechecks(run1, again({ warmTotalP50: 520 }));
+    expect(settled[0]).toMatchObject({ name: "/today", verdict: "WARN" });
+    expect(settled[0]?.reasons[0]).toBe(
+      "run 1 last byte +200 ms (+40 %) vs staging; re-probed, not slower",
+    );
+    // The cap's failure is not re-probed and stands.
+    expect(settled[1]?.verdict).toBe("FAIL");
+    expect(summaryLine(settled, { compared: true })).toMatch(
+      /^\*\*Speed gate: FAIL\*\*: 1 of 3 probed routes fail/,
+    );
+  });
+
+  it("a re-probe that answers with a wrong status fails on that", () => {
+    expect(settleRechecks(run1, again({ statusOk: false, statuses: "500" }))[0]).toMatchObject({
+      verdict: "FAIL",
+      reasons: ["status 500"],
+    });
+  });
+
+  it("not re-probed (the candidate came from a file): still failing, never waived", () => {
+    const settled = settleRechecks(run1, null);
+    expect(settled[0]?.verdict).toBe("FAIL");
+    expect(settled[0]?.reasons[0]).toMatch(/^RECHECK: slower in one run, not re-probed yet/);
+  });
+
+  it("nothing to re-probe: every verdict as judged", () => {
+    const clean = judgeRun([{ name: "/me", ...live }], [{ name: "/me", ...live }]);
+    expect(settleRechecks(clean, null)).toEqual(clean);
   });
 });
 

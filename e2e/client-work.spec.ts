@@ -580,7 +580,13 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
   await hydrated(page);
   // The rows have the same height in the server's first flush as once in (X5): the fallback
   // traces them.
-  const { firstFlush, allIn } = await streamedHeights(page, "/today", "today-client-work");
+  const { firstFlush, allIn, rows } = await streamedHeights(
+    page,
+    "/today",
+    "today-client-work",
+    '[data-slot="today-client-item"]',
+  );
+  expect(rows, "the second height measured the real rows").toBeGreaterThan(0);
   expect(firstFlush, "Client work in the first flush, then with all its rows in").toBe(allIn);
   const stagedRow = page.locator('[data-slot="today-client-item"]', {
     hasText: nameOf(info, "staged"),

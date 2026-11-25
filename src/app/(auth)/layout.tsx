@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 
 import { ForgetShellViewer } from "@/core/ui/pwa/forget-shell-viewer";
+import { QuietThemeWatch } from "@/core/ui/theme/quiet-theme-watch";
 
 /**
  * The signed-out screens (sign in, forgot password) and set password: one centred card, no
  * shell, laid out for a phone first. The proxy sends a signed-in member away from the
  * sign-in pages; set password needs the session a recovery link opened. Arriving here drops the
- * instant skeleton's cache (`ForgetShellViewer`).
+ * instant skeleton's cache (`ForgetShellViewer`). A theme change here (the device turning dark)
+ * runs without transitions, as in the shell (`QuietThemeWatch`).
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -15,6 +17,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     // (ARCHITECTURE §14.1).
     <main className="bg-background text-foreground flex min-h-dvh flex-col items-center justify-center px-[max(1rem,env(safe-area-inset-left))] py-10 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,var(--app-safe-bottom))]">
       <ForgetShellViewer />
+      <QuietThemeWatch />
       <div className="mb-6 flex items-center gap-2">
         <span
           aria-hidden

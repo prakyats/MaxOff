@@ -481,7 +481,9 @@ test.describe("an Admin", () => {
     expect(htmlBody, "the page never holds the Owner's note").not.toContain(secret);
     const flight = await page.request.get(`/clients/${id}`, { headers: { RSC: "1" } });
     expect(flight.status()).toBe(200);
-    expect(await flight.text(), "nor its RSC payload").not.toContain(secret);
+    const flightBody = await flight.text();
+    expect(flightBody, "the RSC payload is the client's page").toContain(name);
+    expect(flightBody, "nor its RSC payload").not.toContain(secret);
 
     // The control: the same page as the Owner does hold the note, so the checks above look for
     // something the page would carry if RLS let it through.

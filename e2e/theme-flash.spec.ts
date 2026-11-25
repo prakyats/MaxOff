@@ -136,6 +136,56 @@ test.describe("the theme changes without transitions", () => {
   });
 });
 
+/**
+ * Final review S8: the signed-out screens follow the device too (System is the default with no
+ * stored choice), so a phone turning dark at sunset while sign-in is open flips `/login`'s
+ * theme. Its inputs carry `transition-colors` with `dark:` colours, so without the hold they
+ * faded into the new theme while the page around them snapped: a visible flash. The hold
+ * (`quietThemeChanges`) therefore runs on the signed-out screens as well (their layout), and a
+ * flip there starts no CSS transition (`transitionrun`, counted from before the page's scripts).
+ */
+test.describe("signed out: /login under System", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("the device turning dark is held in its own frame; no transition runs", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await traceTheme(page);
+    await page.addInitScript(() => {
+      const w = window as unknown as { __transitions: string[] };
+      w.__transitions = [];
+      document.addEventListener(
+        "transitionrun",
+        (event) => {
+          const target = event.target as Element;
+          w.__transitions.push(`${target.tagName.toLowerCase()} ${event.propertyName}`);
+        },
+        true,
+      );
+    });
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    // The watch is on once the page's scripts run (its layout's after-mount helper).
+    await expect(page.locator("html")).toHaveAttribute("data-theme-quiet", "");
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    expect(
+      (await themeLog(page)).filter((entry) => entry.startsWith("hold")),
+      "no hold on a load",
+    ).toEqual([]);
+    await page.evaluate(() => {
+      const w = window as unknown as { __log: string[]; __transitions: string[] };
+      w.__log = [];
+      w.__transitions = [];
+    });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    await expectHeldInItsFrame(page, "dark");
+    expect(
+      await page.evaluate(() => (window as unknown as { __transitions: string[] }).__transitions),
+      "no element faded into the new theme",
+    ).toEqual([]);
+  });
+});
+
 /** X5+ M2: a stored dark choice, the device flipping under System, and the phone's own path. */
 test.describe("the theme on a load, a System flip and the phone's Appearance", () => {
   test.use({ storageState: storageStateFor("owner") });

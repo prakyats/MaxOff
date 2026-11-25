@@ -29,8 +29,11 @@
 // staging compare, when it is slower than staging by more than 100 ms, or by more than 10 % and at
 // least 50 ms (more than 10 % under 50 ms is a WARN, shown but not failing; /api/warm is shown
 // and never judged; see scripts/lib/perf-gate.mjs). The
-// table's Gate column says PASS / FAIL / SKIP with the reason, a summary line follows, each
-// failing route is a `::error::` annotation, and the process exits 1. The compare:
+// table's Gate column says PASS / FAIL / SKIP with the reason. A route slower than staging (its
+// last byte, the only rule the two-run rule covers) is then re-probed in the same run, and fails
+// only when it is slower again (CLAUDE.md: "a route counts as slower only if it is slower in two
+// consecutive runs"); a table shows both runs. A summary line follows, each failing route is a
+// `::error::` annotation, and the process exits 1. The compare:
 //   --pair <base>        (the workflow's way) staging is probed in the same run, request by
 //                        request beside this base (which of the two goes first alternates per
 //                        sample, 2026-11-03), and the gate judges this base against it
@@ -72,7 +75,14 @@ import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
 import zlib from "node:zlib";
 
-import { judgeRun, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
+import {
+  judgeRun,
+  median,
+  planMemberRoutes,
+  routesToRecheck,
+  settleRechecks,
+  summaryLine,
+} from "./lib/perf-gate.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -104,6 +114,10 @@ const signIn = args["no-signin"] !== "true";
 const pairBase = args.pair ? args.pair.replace(/\/$/, "") : null;
 const pairLabel = args["pair-label"] ?? "staging (main)";
 const bases = pairBase ? [base, pairBase] : [base];
+// Which base goes first alternates per sample (advisor 2026-11-03): with `--pair`, a fixed order
+// always put the branch's request right after the route before it and staging's right after the
+// branch's, so neither side met the same neighbour. Observation only: nothing judged changes.
+const turn = (i) => (i % 2 === 0 ? bases : [...bases].reverse());
 /** `--trace-route /today`: that route's warm samples also time each streamed segment (observation). */
 const traceRoute = args["trace-route"] ?? null;
 /**
@@ -559,13 +573,135 @@ async function main() {
     ...(acceptEncoding ? { "accept-encoding": acceptEncoding } : {}),
     ...(route.auth && cookie ? { cookie } : {}),
   });
-  const Agent = transport.Agent;
+  const results = await probeRoutes(routes, headersFor);
 
+  // The layout's chain as the Worker itself timed it.
+  const chains = new Map(bases.map((at) => [at, null]));
+  // The Approvals screen's reads as the Worker timed them (`/diagnostics/approvals-timing`, v1.9
+  // speed gate, advisor 2026-11-03): observation only, never judged. A base without the route
+  // (staging before it shipped) answers 404 and simply has no table.
+  const approvals = new Map(bases.map((at) => [at, null]));
+  if (cookie) {
+    const reads = new Map(bases.map((at) => [at, []]));
+    const waves = new Map(bases.map((at) => [at, []]));
+    for (let i = 0; i < samples; i++) {
+      for (const at of turn(i)) {
+        reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
+        waves.get(at).push(await json(at + APPROVALS_TIMING_PATH, headersFor({ auth: true })));
+      }
+    }
+    for (const at of bases) {
+      chains.set(
+        at,
+        reads.get(at).filter((r) => r && typeof r.total === "number"),
+      );
+      approvals.set(
+        at,
+        waves.get(at).filter((r) => r && typeof r.page === "number"),
+      );
+    }
+  }
+
+  const ofBase = (at) => results.filter((r) => r.base === at);
+  const own = report(
+    {
+      plan,
+      who,
+      base,
+      label,
+      results: ofBase(base),
+      chain: chains.get(base),
+      approvals: approvals.get(base),
+    },
+    { compare, out: args.out },
+  );
+  // With `--pair`, staging's run prints its own rows for reference and judges this one.
+  const gate = pairBase
+    ? report(
+        {
+          plan,
+          who,
+          base: pairBase,
+          label: pairLabel,
+          results: ofBase(pairBase),
+          chain: chains.get(pairBase),
+          approvals: approvals.get(pairBase),
+        },
+        { compare: { candidate: { label, summary: own.summary } }, out: args["pair-out"] },
+      )
+    : own;
+
+  if (traceRoute) printTrace(results, traceRoute);
+
+  // The two-run rule (owner 2026-10-29; CLAUDE.md's speed gate): a route whose only failure is
+  // being slower than the live release (the last byte against staging) is re-probed now, the
+  // same way (with `--pair`, beside staging again), and counts as slower only when it is slower
+  // in both runs. The TTFB cap and a wrong status fail on the run they happen in. With
+  // `--candidate` the candidate's numbers came from a file and cannot be re-probed here: such a
+  // route stays failing and says it needs a re-probe (never waived).
+  const recheck = routesToRecheck(gate.judgements);
+  let second = null;
+  if (recheck.length > 0 && !compare.candidate) {
+    const again = routes.filter((route) => recheck.includes(route.name));
+    const rerun = await probeRoutes(again, headersFor);
+    const candidate = summarize(
+      again,
+      rerun.filter((r) => r.base === base),
+    );
+    const baseline = pairBase
+      ? summarize(
+          again,
+          rerun.filter((r) => r.base === pairBase),
+        )
+      : (compare.baseline?.summary ?? null);
+    second = judgeRun(candidate, baseline);
+    if (args.out) {
+      const run = JSON.parse(readFileSync(args.out, "utf8"));
+      run.recheck = { routes: recheck, summary: candidate, results: rerun };
+      writeFileSync(args.out, JSON.stringify(run, null, 2));
+    }
+  }
+  const judgements = settleRechecks(gate.judgements, second);
+  if (recheck.length > 0) {
+    const firstByName = new Map(gate.judgements.map((j) => [j.name, j]));
+    const lines = [
+      "",
+      "**Re-probed under the two-run rule** (slower than staging's last byte in run 1; slower only if slower in both runs):",
+      "",
+      "| Route | Run 1 last byte (staging) | Run 2 last byte (staging) | Gate |",
+      "|---|---|---|---|",
+    ];
+    const cell = (j) =>
+      j?.totalP50 !== undefined
+        ? `${ms(j.totalP50)} (${j.baselineTotalP50 !== undefined ? ms(j.baselineTotalP50) : "·"})`
+        : "·";
+    const secondByName = new Map((second ?? []).map((j) => [j.name, j]));
+    for (const j of judgements.filter((row) => recheck.includes(row.name))) {
+      lines.push(
+        `| ${j.name} | ${cell(firstByName.get(j.name))} | ${
+          second ? cell(secondByName.get(j.name)) : "not re-probed"
+        } | ${j.verdict}: ${j.reasons.join("; ")} |`,
+      );
+    }
+    emit(lines);
+  }
+  emit(["", summaryLine(judgements, { compared: gate.compared }), ""]);
+
+  const failing = judgements.filter((j) => j.verdict === "FAIL");
+  for (const j of failing) {
+    process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
+  }
+  if (failing.length > 0) process.exitCode = 1;
+}
+
+/**
+ * Every route's samples on every base: `--samples` on a fresh connection each, then `--samples` on
+ * one kept-alive connection per base. Run once for the table, and again for the routes the
+ * two-run rule re-probes.
+ */
+async function probeRoutes(routes, headersFor) {
+  const Agent = transport.Agent;
   const results = [];
-  // Which base goes first alternates per sample (advisor 2026-11-03): with `--pair`, a fixed order
-  // always put the branch's request right after the route before it and staging's right after the
-  // branch's, so neither side met the same neighbour. Observation only: nothing judged changes.
-  const turn = (i) => (i % 2 === 0 ? bases : [...bases].reverse());
   // Fresh connections, routes interleaved so no route gets every warm isolate or every cold one;
   // with `--pair`, each request goes to every base in turn.
   for (let i = 0; i < samples; i++) {
@@ -611,70 +747,7 @@ async function main() {
     }
   }
   for (const agent of keep.values()) agent.destroy();
-
-  // The layout's chain as the Worker itself timed it.
-  const chains = new Map(bases.map((at) => [at, null]));
-  // The Approvals screen's reads as the Worker timed them (`/diagnostics/approvals-timing`, v1.9
-  // speed gate, advisor 2026-11-03): observation only, never judged. A base without the route
-  // (staging before it shipped) answers 404 and simply has no table.
-  const approvals = new Map(bases.map((at) => [at, null]));
-  if (cookie) {
-    const reads = new Map(bases.map((at) => [at, []]));
-    const waves = new Map(bases.map((at) => [at, []]));
-    for (let i = 0; i < samples; i++) {
-      for (const at of turn(i)) {
-        reads.get(at).push(await json(at + "/diagnostics/timing", headersFor({ auth: true })));
-        waves.get(at).push(await json(at + APPROVALS_TIMING_PATH, headersFor({ auth: true })));
-      }
-    }
-    for (const at of bases) {
-      chains.set(
-        at,
-        reads.get(at).filter((r) => r && typeof r.total === "number"),
-      );
-      approvals.set(
-        at,
-        waves.get(at).filter((r) => r && typeof r.page === "number"),
-      );
-    }
-  }
-
-  const ofBase = (at) => results.filter((r) => r.base === at);
-  const own = report(
-    {
-      plan,
-      who,
-      base,
-      label,
-      results: ofBase(base),
-      chain: chains.get(base),
-      approvals: approvals.get(base),
-    },
-    { compare, out: args.out, gateLine: !pairBase },
-  );
-  // With `--pair`, staging's run prints its own rows for reference and judges this one.
-  const { judgements } = pairBase
-    ? report(
-        {
-          plan,
-          who,
-          base: pairBase,
-          label: pairLabel,
-          results: ofBase(pairBase),
-          chain: chains.get(pairBase),
-          approvals: approvals.get(pairBase),
-        },
-        { compare: { candidate: { label, summary: own.summary } }, out: args["pair-out"] },
-      )
-    : own;
-
-  if (traceRoute) printTrace(results, traceRoute);
-
-  const failing = judgements.filter((j) => j.verdict === "FAIL");
-  for (const j of failing) {
-    process.stderr.write(`::error title=Speed gate::${j.name}: ${j.reasons.join("; ")}\n`);
-  }
-  if (failing.length > 0) process.exitCode = 1;
+  return results;
 }
 
 /**
@@ -721,15 +794,11 @@ function printTrace(results, routeName) {
 }
 
 /**
- * One base's table (and, with a compare, the gate's): printed, added to the job summary and
- * written to `out`. Returns the run's route summary and the gate's judgements.
+ * Per route: did every sample answer with the route's own status, the warm TTFB p50 and the warm
+ * last byte p50.
  */
-function report(
-  { plan, who, base, label, results, chain, approvals = null },
-  { compare, out, gateLine = true },
-) {
-  // Per route: did every sample answer with the route's own status, and the warm TTFB p50.
-  const summary = plan.map((route) => {
+function summarize(plan, results) {
+  return plan.map((route) => {
     if (route.skip !== undefined) return { name: route.name, skip: route.skip };
     const rows = results.filter((r) => r.route === route.name);
     const reused = rows.filter((r) => r.kind === "reused");
@@ -743,6 +812,21 @@ function report(
       warmTotalP50: median(reused.map((r) => r.total)),
     };
   });
+}
+
+/** Printed, and added to the job summary when the probe runs in Actions. */
+function emit(lines) {
+  const text = lines.join("\n");
+  process.stdout.write(text + "\n");
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text + "\n");
+}
+
+/**
+ * One base's table (and, with a compare, the gate's): printed, added to the job summary and
+ * written to `out`. Returns the run's route summary and the gate's judgements.
+ */
+function report({ plan, who, base, label, results, chain, approvals = null }, { compare, out }) {
+  const summary = summarize(plan, results);
 
   // The gate judges the candidate: this run, or the branch's run when this one is staging.
   const gated = compare.candidate ? compare.candidate.summary : summary;
@@ -826,10 +910,6 @@ function report(
       );
     }
   }
-  if (gateLine) {
-    lines.push("");
-    lines.push(summaryLine(judgements, { compared: baseline !== null }));
-  }
   if (chain && chain.length > 0) {
     lines.push("");
     lines.push(
@@ -886,7 +966,7 @@ function report(
     );
   }
 
-  return { summary, judgements };
+  return { summary, judgements, compared: baseline !== null };
 }
 
 main().catch((error) => {
