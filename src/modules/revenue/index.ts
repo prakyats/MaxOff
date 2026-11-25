@@ -29,8 +29,16 @@ export { parseCategory, parseMonth } from "./domain/revenue";
 // `readClosedMonths` is the project page's, for the money sheets' "September is closed." line (U5).
 export { MonthCloseScreen } from "./components/month-close-screen";
 export { MonthCloseSkeleton } from "./components/month-close-skeleton";
-export { readClosedMonths, readMonthClose, readMonthSnapshots } from "./data/month-close";
-export { parseCloseMonth, revenueMonthHref } from "./domain/month-close-view";
+export {
+  readClosedMonths,
+  readMonthClose,
+  readMonthReminder,
+  readMonthSnapshots,
+} from "./data/month-close";
+export { closeHref, parseCloseMonth, revenueMonthHref } from "./domain/month-close-view";
+// The reminder (v3.5 U6): the Reports line's words; `readMonthReminder` above is its read.
+export { monthReminderAction, monthReminderLine } from "./domain/month-reminder";
+export type { MonthReminder } from "./domain/month-reminder";
 export { CORRECTION_NOTE_MAX_LENGTH, CORRECTION_NOTE_MIN_LENGTH } from "./domain/month-close";
 export type {
   ChangedSinceClose,

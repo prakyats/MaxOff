@@ -22,6 +22,7 @@ import {
   USERS,
 } from "./helpers";
 import { addISTDays, formatIST, istDayStart, todayIST } from "../src/core/time";
+import { monthReminderAction } from "../src/modules/revenue/domain/month-reminder";
 
 /**
  * The Owner's close screen (v3.5 "Month close", U4; PRODUCT §4.13, WORKFLOWS §7): Revenue → an
@@ -542,6 +543,85 @@ test.describe("installed: the close screen (§14.2)", () => {
   });
 });
 
+/**
+ * The reminder on Reports (v3.5 U6; decision 19, Q9; WORKFLOWS §7.3): from the 6th of the month
+ * after M, the oldest month from the first priced month on that is not closed. Each project prices
+ * a month further back than any other spec (desktop 12, 375 px 13, 430 px 14), so the first priced
+ * month, and with it the line's month, is its own (whatever day of the month this runs: a month a
+ * year back is always due; the 5th / 6th boundary is pgTAP 167's, at explicit instants). On a used
+ * database with three workers another project's month can be older still, so the line's month is
+ * asserted "at most this one", and its words against the month it names.
+ */
+const REMINDER_MONTH: Record<string, number> = { desktop: 12, mobile: 13, "mobile-lg": 14 };
+const reminderLine = (page: Page) => page.locator('[data-slot="report-month-close"]');
+const reminderWords = (month: string) =>
+  new RegExp(
+    `^${monthReminderAction({ month, more: 0 }, today).slice("Close ".length)}( and \\d+ more months?)? (isn't|aren't) closed yet$`,
+  );
+
+test.describe("the month close reminder on Reports (U6)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("the oldest month not closed, opening its close screen; closed, it leaves the line", async ({
+    page,
+    isMobile,
+  }, info) => {
+    const month = ownMonth(info, REMINDER_MONTH);
+    const client = nameOf(info, "reminder");
+    await removeMonthSnapshots(month);
+    await closeFixture(client, month);
+    try {
+      if (isMobile) await runInstalled(page);
+      await page.goto("/today");
+      await hydrated(page);
+      await page.goto("/reports");
+      await hydrated(page);
+      await expectSettled(page);
+      const line = reminderLine(page);
+      await expect(line).toBeVisible();
+      const named = `${(await line.getAttribute("data-month")) ?? ""}-01`;
+      expect(named <= month, `the line names ${named}, at most ${month}`).toBe(true);
+      await expect(line.locator('[data-slot="report-month-close-text"]')).toHaveText(
+        reminderWords(named),
+      );
+      await expect(line).toContainText(monthReminderAction({ month: named, more: 0 }, today));
+      await expect(line).toHaveAttribute("href", `/reports/close/${slug(named)}`);
+      await expect(line).not.toContainText("₹");
+      await expectNoHorizontalScroll(page);
+      const box = await line.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      // It opens that month's close screen; back returns to Reports, then Today (§14.2).
+      await line.click();
+      await expect(page).toHaveURL(new RegExp(`/reports/close/${slug(named)}$`));
+      await hydrated(page);
+      await expect(page.getByRole("heading", { name: "Month close", level: 1 })).toBeVisible();
+      await expect(page.locator('[data-slot="month-close-month"]')).toHaveText(longMonth(named));
+      await expectBackStack(page, [{ url: /\/reports$/ }, { url: /\/today$/ }]);
+
+      // Closed, the month leaves the line: the next one comes up, or the line is gone.
+      await rpcAs(owner.email, owner.password, "month_close", { month });
+      await page.goto("/reports");
+      await hydrated(page);
+      await expectSettled(page);
+      const after = reminderLine(page);
+      if ((await after.count()) > 0) {
+        await expect(after).not.toHaveAttribute("data-month", slug(month));
+      }
+      const next = await rpcAs<{ month: string; more: number } | null>(
+        owner.email,
+        owner.password,
+        "month_close_reminder",
+        {},
+      );
+      expect(next?.month ?? null).not.toBe(month);
+    } finally {
+      await removeMonthSnapshots(month);
+      await removeClientFixture(client);
+    }
+  });
+});
+
 for (const role of ["admin", "staff"] as const) {
   test.describe(`${role === "admin" ? "An Admin" : "A Crew member"} and the close screen`, () => {
     test.use({ storageState: storageStateFor(role) });
@@ -580,6 +660,42 @@ for (const role of ["admin", "staff"] as const) {
         for (const secret of ["Closed ", "still waiting", "Still waiting", "₹", '"month-close"']) {
           expect(body.includes(secret), `the ${role}'s answer holds no "${secret}"`).toBe(false);
         }
+      }
+    });
+
+    test("no month close reminder on Reports, in its HTML or payload; the read refused (U6)", async ({
+      page,
+    }, info) => {
+      const user = USERS[role];
+      // A priced month that is not closed (nine months back, where no other spec writes), so the
+      // Owner would see the line: the Admin and Crew member must not.
+      const month = monthsBack(9);
+      const client = nameOf(info, `reminder ${role}`);
+      await closeFixture(client, month);
+      try {
+        const refused = await rpcRefusedAs(user.email, user.password, "month_close_reminder", {});
+        expect(refused.message).toBe("FORBIDDEN");
+        expect(refused.details).toBe("Only the Owner sees which months are closed.");
+        await page.goto("/reports");
+        if (role === "staff") {
+          await expect(page).toHaveURL(/\/forbidden/);
+        } else {
+          await hydrated(page);
+          await expectSettled(page);
+        }
+        await expect(reminderLine(page)).toHaveCount(0);
+        for (const headers of [undefined, { RSC: "1" }]) {
+          const answer = await page.request.get("/reports", {
+            ...(headers ? { headers } : {}),
+            maxRedirects: 0,
+          });
+          const body = await answer.text();
+          for (const secret of ["closed yet", "report-month-close", "/reports/close/"]) {
+            expect(body.includes(secret), `the ${role}'s Reports holds no "${secret}"`).toBe(false);
+          }
+        }
+      } finally {
+        await removeClientFixture(client);
       }
     });
   });

@@ -62,6 +62,7 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/reports/data/denied-money-month-snapshots.ts": [SYNTAX],
   "modules/tasks/components/denied-money-month-close.ts": [SYNTAX],
   "modules/tasks/components/denied-money-month-correct.ts": [SYNTAX],
+  "modules/tasks/components/denied-money-month-reminder.ts": [SYNTAX],
   // expense claims are named only inside modules/expenses (ADR-0007 amendment)
   "modules/tasks/components/denied-expense.ts": [SYNTAX],
   // domain is platform-free (ADR-0011)
@@ -110,6 +111,7 @@ const EXPECTED_COUNTS: Record<string, number> = {
   "modules/tasks/components/denied-money-app-functions.ts": 3,
   "modules/tasks/components/denied-money-month-close.ts": 2,
   "modules/tasks/components/denied-money-month-correct.ts": 5,
+  "modules/tasks/components/denied-money-month-reminder.ts": 2,
 };
 
 const toPosix = (path: string) => path.replaceAll("\\", "/");

@@ -6,6 +6,7 @@ import { createServerSupabase } from "@/core/db/server";
 
 import type { SnapshotRevenue } from "../domain/closed-month";
 import { type MonthCloseRead, toMonthCloseRead } from "../domain/month-close";
+import { type MonthReminder, monthReminderSchema } from "../domain/month-reminder";
 
 /**
  * The month close (v3.5; WORKFLOWS §7.4, DATA-MODEL §9): the Owner's close, correction and the
@@ -74,6 +75,19 @@ export const readClosedMonths = cache(async (): Promise<string[]> => {
     .order("month");
   if (error) throw error;
   return data.map((row) => row.month);
+});
+
+/**
+ * The Reports line's read (v3.5 U6, WORKFLOWS §7.3): the oldest month from the first priced month
+ * on that is still not closed, from the 6th of the month after it (IST), and how many more; null
+ * when none is due. Months only, never `data` or an amount. Owner only (`finance.view`, refused in
+ * the database for everyone else); the Reports page starts it after its own check. `cache()`d.
+ */
+export const readMonthReminder = cache(async (): Promise<MonthReminder | null> => {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("month_close_reminder");
+  if (error) throw error;
+  return monthReminderSchema.parse(data);
 });
 
 /** Closes an ended month: its snapshot's version 1. Returns the version (1). */

@@ -69,6 +69,9 @@ const MONEY_NAMES = [
   "month_snapshot_figures",
   "month_revenue_changes",
   "month_waiting",
+  // the reminder's read and its internal helpers (v3.5 U6; migration v35_month_reminder)
+  "month_close_reminder",
+  "month_close_reminder_line",
 ];
 const MONEY_RELATIONS = MONEY_NAMES.join("|");
 

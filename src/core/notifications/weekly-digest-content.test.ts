@@ -95,6 +95,7 @@ function payload(extra: Partial<WeeklyDigestPayload> = {}): WeeklyDigestPayload 
       holidays: [{ date: "2026-10-16", name: "Founders' day" }],
     },
     client_work: [],
+    month_close: null,
     ...extra,
   };
 }
@@ -218,6 +219,49 @@ describe("the sections (decision 23: the week from the saved reports, now, the w
     const older: Partial<WeeklyDigestPayload> = payload();
     delete older.client_work;
     expect(parseWeeklyDigestPayload(older)?.client_work).toEqual([]);
+  });
+
+  it("says the oldest month not closed yet, last in Now, the month only (v3.5 U6)", () => {
+    const now = (extra: Partial<WeeklyDigestPayload>) =>
+      weeklyDigestSections(payload(extra)).find((section) => section.heading === "Now")?.lines;
+    expect(now({ month_close: { month: "2026-09-01", more: 0 } })?.at(-1)).toEqual({
+      text: "September isn't closed yet",
+      link: "/reports/close/2026-09",
+    });
+    expect(now({ month_close: { month: "2026-08-01", more: 1 } })?.at(-1)?.text).toBe(
+      "August and 1 more month aren't closed yet",
+    );
+    expect(now({ month_close: { month: "2026-08-01", more: 2 } })?.at(-1)?.text).toBe(
+      "August and 2 more months aren't closed yet",
+    );
+    // Another year is named (the digest day is 12 Oct 2026).
+    expect(now({ month_close: { month: "2025-12-01", more: 0 } })?.at(-1)?.text).toBe(
+      "December 2025 isn't closed yet",
+    );
+    // Alone it still makes a Now section (the job sends no digest for it alone: digest_weekly_zero).
+    expect(
+      weeklyDigestSections({ ...zero(), month_close: { month: "2026-09-01", more: 0 } }),
+    ).toEqual([
+      {
+        heading: "Now",
+        lines: [{ text: "September isn't closed yet", link: "/reports/close/2026-09" }],
+      },
+    ]);
+    const email = renderWeeklyDigestEmail(
+      payload({ month_close: { month: "2026-09-01", more: 0 } }),
+      ORIGIN,
+    );
+    expect(email.text).toContain(
+      `September isn't closed yet: ${ORIGIN}/open?to=${encodeURIComponent("/reports/close/2026-09")}`,
+    );
+    expect(email.text).not.toMatch(/₹/);
+    // A digest saved before v3.5 has no reminder; an amount never parses.
+    const older: Partial<WeeklyDigestPayload> = payload();
+    delete older.month_close;
+    expect(parseWeeklyDigestPayload(older)?.month_close).toBeNull();
+    expect(
+      parseWeeklyDigestPayload({ ...payload(), month_close: { month: "2026-09-15", more: 0 } }),
+    ).toBeNull();
   });
 
   it("has no section when everything is zero", () => {

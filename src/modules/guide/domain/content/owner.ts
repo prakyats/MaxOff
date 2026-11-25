@@ -1706,6 +1706,12 @@ export const OWNER_GUIDE: Guide = {
             note(
               "A month can be closed once it has ended, from the first month that has an amount. The current month says it hasn't ended yet. A closed month is never reopened: a mistake is fixed with a correction.",
             ),
+            text(
+              'From the 6th of the next month, Reports reminds you of a month you have not closed: "September isn\'t closed yet", with "Close September" under it. With more than one, it names the oldest: "September and 1 more month aren\'t closed yet". Tap it to open that month\'s close screen; once it is closed, the next one shows, and the line goes away when none is left.',
+            ),
+            note(
+              "Your weekly summary email says the same line under Now, when the week has anything else to tell you. Neither ever shows an amount.",
+            ),
             note(
               `Only you see month close. Admins and ${CREW} are never told that a month is closed, and closing notifies nobody.`,
             ),
@@ -1722,6 +1728,8 @@ export const OWNER_GUIDE: Guide = {
             "revenue",
             "billed",
             "changed since close",
+            "reminder",
+            "isn't closed yet",
           ],
         },
         {

@@ -112,6 +112,12 @@ const weeklyDigestSchema = z.object({
     )
     .max(200)
     .default([]),
+  // v3.5 U6 (WORKFLOWS §7.3): the oldest month not closed yet, from the 6th of the month after it,
+  // and how many more; the month only, never an amount; null or absent when none (before v3.5).
+  month_close: z
+    .object({ month: z.string().regex(/^\d{4}-\d{2}-01$/), more: count })
+    .nullable()
+    .default(null),
 });
 
 export type WeeklyDigestPayload = z.infer<typeof weeklyDigestSchema>;
@@ -137,6 +143,27 @@ export type DigestLine = { text: string; link: string | null };
 export type DigestSection = { heading: string; lines: DigestLine[] };
 
 const LEAVE_WORDS = { leave: "leave", half_day: "a half day", comp_leave: "comp leave" } as const;
+
+/**
+ * "September isn't closed yet", "September and 1 more month aren't closed yet" (v3.5 U6): the year
+ * only when it is not the digest day's. The same words as `app.month_close_reminder_line` (the
+ * row's text) and the Owner's Reports line. Opens the month's close screen.
+ */
+export function monthCloseLine(
+  reminder: { month: string; more: number },
+  today: string,
+): DigestLine {
+  const start = istDayStart(reminder.month);
+  const name = formatIST(
+    start,
+    reminder.month.slice(0, 4) === today.slice(0, 4) ? "MMMM" : "MMMM yyyy",
+  );
+  const text =
+    reminder.more <= 0
+      ? `${name} isn't closed yet`
+      : `${name} and ${reminder.more} more ${reminder.more === 1 ? "month" : "months"} aren't closed yet`;
+  return { text, link: `/reports/close/${reminder.month.slice(0, 7)}` };
+}
 
 function span(from: string, to: string): string {
   return from === to ? day(from) : `${day(from)} – ${day(to)}`;
@@ -206,6 +233,7 @@ export function weeklyDigestSections(payload: WeeklyDigestPayload): DigestSectio
               })`
             : `${payload.now.unreachable.count}`,
         ),
+        ...(payload.month_close ? [monthCloseLine(payload.month_close, payload.date)] : []),
       ],
     },
     {

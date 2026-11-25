@@ -15,11 +15,13 @@ import { getMonthSummary, monthLabel, monthOf, monthRange } from "@/modules/atte
 import { listOnHold } from "@/modules/client-work";
 import { formatRupees } from "@/core/lib/rupees";
 import { listApprovedInMonth } from "@/modules/expenses";
+import { type MonthReminder, readMonthReminder } from "@/modules/revenue";
 import type { MonthSummary } from "@/modules/attendance";
 
 import { AdminReport } from "./admin-report";
 import { REPORTS_DESCRIPTION } from "./copy";
 import { monthStrip } from "./month-strip";
+import { MonthCloseLine } from "./month-close-line";
 import { MonthStripSkeleton, MonthStripView } from "./month-strip-view";
 import { type HeldProject, OnHoldLine } from "./on-hold-line";
 import {
@@ -64,7 +66,11 @@ export default async function ReportsPage({
   // v1.9 W8: "On hold · n deliverables" this month (every client's, a count: never money).
   const range = monthRange(month);
   const held = listOnHold(range.first as ISODate, range.last as ISODate);
-  startEarly(summaries, approved, held);
+  // v3.5 U6: "September isn't closed yet" (WORKFLOWS §7.3), only with `finance.view` (the Owner):
+  // one light read of months (never money), started here beside the others and streamed, so the
+  // page waits for nothing; an Admin's branch above never sends it.
+  const reminder = can(viewer.role, "finance.view") ? readMonthReminder() : Promise.resolve(null);
+  startEarly(summaries, approved, held, reminder);
   return (
     <>
       <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
@@ -73,6 +79,9 @@ export default async function ReportsPage({
       </Suspense>
       <Suspense fallback={null}>
         <OnHoldSection held={held} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <MonthCloseSection reminder={reminder} />
       </Suspense>
       <ul data-slot="reports-list" className={REPORTS_LIST_CLASS}>
         {OWNER_REPORTS.filter((report) => showsReport(viewer.role, report)).map((report) => (
@@ -129,6 +138,21 @@ async function OnHoldSection({ held }: { held: Promise<HeldProject[]> }) {
   return (
     <div className="mb-4">
       <OnHoldLine held={projects} />
+    </div>
+  );
+}
+
+/**
+ * The month close reminder (v3.5 U6), streamed: nothing when no month is due, or when its read
+ * fails (a reminder never takes the page down; the Revenue page's month header still links to the
+ * close screen).
+ */
+async function MonthCloseSection({ reminder }: { reminder: Promise<MonthReminder | null> }) {
+  const due = await reminder.catch(() => null);
+  if (!due) return null;
+  return (
+    <div className="mb-4">
+      <MonthCloseLine reminder={due} today={todayIST()} />
     </div>
   );
 }

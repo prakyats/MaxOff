@@ -5925,6 +5925,7 @@ export type Database = {
       };
       month_close: { Args: { month: string }; Returns: number };
       month_close_read: { Args: { month: string }; Returns: Json };
+      month_close_reminder: { Args: never; Returns: Json };
       month_correct: { Args: { month: string; note: string }; Returns: number };
       month_summary: {
         Args: { member_id?: string; month: string };

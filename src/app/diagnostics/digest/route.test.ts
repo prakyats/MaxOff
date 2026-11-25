@@ -47,6 +47,7 @@ const PAYLOAD: WeeklyDigestPayload = {
   },
   ahead: { from: "2026-10-12", to: "2026-10-18", leave: [], events: [], holidays: [] },
   client_work: [],
+  month_close: null,
 };
 
 const request = () => new Request("http://localhost:3000/diagnostics/digest");
