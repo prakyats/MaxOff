@@ -85,6 +85,9 @@ export function bookingLine(block: EventBlock, viewerId: string, ownerId: string
   return `${block.typeName?.trim() || "Event"} ${time}${by ? ` · booked by ${by}` : ""}`;
 }
 
+/** The line of a person with nothing at the task's time, the one line the list draws in green. */
+export const FREE_LINE = "Free";
+
 const FULL_LEAVE: readonly LeaveMark[] = ["leave", "comp_leave"];
 
 /** A leave mark that leaves the person pickable as free: a half day, or a request not decided. */
@@ -124,7 +127,7 @@ function eventRow(
   }
 
   // Free then. What else they have that day is said, so a tight day is not a surprise.
-  const head = softLeaveWords(row.leave) ?? "Free";
+  const head = softLeaveWords(row.leave) ?? FREE_LINE;
   const others = blocks.map((block) => {
     const earlier =
       window !== null &&

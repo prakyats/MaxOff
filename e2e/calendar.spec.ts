@@ -297,6 +297,11 @@ async function expectDeadlineOn(page: Page, form: Locator, day: string): Promise
   await expect(form.locator('input[name="dueDate"]')).toHaveCount(0);
   await chooseTaskType(page, form, "Normal");
   await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+  // An event type has the day as its When, and its deadline follows from it.
+  await chooseTaskType(page, form, "Meeting");
+  await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
+  await expect(form.locator('[data-slot="task-done-by"]')).toHaveAttribute("data-follows", "");
+  await chooseTaskType(page, form, "Normal");
 }
 
 /** Leaves a form whose type was chosen: that changed it, so it asks first (§14.2 f). */
@@ -1173,7 +1178,7 @@ test.describe("the calendar, as the Owner", () => {
     // time yet, that day at 6:00 pm.
     await chooseTaskType(page, form, "Shoot / Site Visit");
     await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
-    await expect(form.getByLabel("When")).toHaveValue(day);
+    await expect(form.getByLabel("When", { exact: true })).toHaveValue(day);
     await expect(form.locator('input[name="dueDate"]')).toHaveCount(0);
     await expect(form.locator('[data-slot="task-done-by"]')).toContainText(
       `Done by ${formatIST(`${day}T12:00:00+05:30`, "EEE d MMM")}, 6:00 pm`,
@@ -1517,9 +1522,8 @@ test.describe("the calendar, as the Owner", () => {
     await expect(plus).not.toHaveCSS("box-shadow", "none");
     await page.keyboard.press("Enter");
     await expect(form).toBeVisible();
-    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
-    await form.getByRole("button", { name: "Cancel" }).click();
-    await expect(form).toHaveCount(0);
+    await expectDeadlineOn(page, form, day);
+    await discardForm(page, form);
     await removeTasksTitled(prefixOf(info));
   });
 

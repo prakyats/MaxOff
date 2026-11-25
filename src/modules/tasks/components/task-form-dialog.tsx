@@ -25,7 +25,6 @@ import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
-import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
 import { nameSlide } from "@/core/ui/motion/slide";
@@ -298,11 +297,11 @@ export function TaskFormDialog({
 }
 
 /** A field's tracing: its label's line and its control, at the control's height on each width. */
-function FieldSkeleton({ className }: { className?: string }) {
+function FieldSkeleton({ className, trace }: { className?: string; trace?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <Skeleton className="h-3.5 w-20" />
-      <Skeleton className="h-11 w-full md:h-8" />
+      <Skeleton className="h-11 w-full md:h-8" data-trace={trace} />
     </div>
   );
 }
@@ -315,10 +314,11 @@ function FieldSkeleton({ className }: { className?: string }) {
  * "Who's on it?" column beside them.
  */
 function FormSkeleton({ typed }: { typed: boolean }) {
+  // The form's own foot: a band across the sheet on a phone, a ruled row on a laptop.
   const footer = (
-    <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-      <Skeleton className="h-11 w-full md:h-8 md:w-20" />
-      <Skeleton className="h-11 w-full md:h-8 md:w-28" />
+    <div className="bg-popover -mx-4 -mb-[calc(1rem+var(--app-safe-bottom))] flex flex-col-reverse gap-2 border-t p-4 pb-[calc(1rem+var(--app-safe-bottom))] md:-mb-4 md:flex-row md:justify-end md:px-4 md:py-3">
+      <Skeleton className="h-11 w-full md:h-8 md:w-20" data-trace="cancel" />
+      <Skeleton className="h-11 w-full md:h-8 md:w-28" data-trace="submit" />
     </div>
   );
   if (!typed) {
@@ -326,17 +326,20 @@ function FormSkeleton({ typed }: { typed: boolean }) {
       <div aria-hidden className="flex flex-col gap-4" data-slot="task-form-skeleton">
         <div className="flex flex-col gap-1.5">
           <Skeleton className="h-3.5 w-10" />
-          <Skeleton className="h-11 w-full md:h-8" />
-          <Skeleton className="h-3 w-64 max-w-full" />
+          <Skeleton className="h-11 w-full md:h-8" data-trace="type" />
+          {/* The hint's line box (`text-xs`, 16px), so the Title under it does not move. */}
+          <div className="flex h-4 items-center">
+            <Skeleton className="h-3 w-64 max-w-full" />
+          </div>
         </div>
-        <FieldSkeleton className="opacity-50" />
+        <FieldSkeleton className="opacity-65" trace="title" />
         {footer}
       </div>
     );
   }
   return (
     <div aria-hidden className="flex flex-col gap-4" data-slot="task-form-skeleton">
-      <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_19rem] md:gap-6">
+      <div className="grid min-w-0 gap-4 md:grid-cols-2 md:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
           <FieldSkeleton />
           <FieldSkeleton />
@@ -543,10 +546,7 @@ function TaskForm({
   const faces = useMemo(
     () =>
       new Map<string, PickerFace>(
-        (pickerPeople ?? []).map((person) => [
-          person.id,
-          { avatarFileId: person.avatarFileId ?? null, meta: personMeta(person) },
-        ]),
+        (pickerPeople ?? []).map((person) => [person.id, { meta: personMeta(person) }]),
       ),
     [pickerPeople],
   );
@@ -883,9 +883,7 @@ function TaskForm({
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
       ) : null}
 
-      <div
-        className={cn("grid min-w-0 gap-4", type && "md:grid-cols-[minmax(0,1fr)_19rem] md:gap-6")}
-      >
+      <div className={cn("grid min-w-0 gap-4", type && "md:grid-cols-2 md:gap-6")}>
         <div className="flex min-w-0 flex-col gap-4" data-slot="task-fields">
           <FormField
             label="Type"
@@ -921,7 +919,12 @@ function TaskForm({
                 </SelectTrigger>
                 <SelectContent>
                   {types.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
+                    <SelectItem
+                      key={option.id}
+                      value={option.id}
+                      // The name at the row's start, what the type asks for at its end.
+                      className="*:[span]:last:min-w-0 *:[span]:last:flex-1"
+                    >
                       <span
                         className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3"
                         data-slot="task-type-option"
@@ -944,7 +947,7 @@ function TaskForm({
             )}
           </FormField>
 
-          <FormField label="Title" error={errors.title} className={type ? "" : "opacity-50"}>
+          <FormField label="Title" error={errors.title} className={type ? "" : "opacity-65"}>
             {(control) => (
               <Input
                 {...control}
@@ -1034,11 +1037,10 @@ function TaskForm({
           ) : null}
 
           {type ? (
-            <fieldset className="flex min-w-0 flex-col gap-2" data-slot="task-assignees">
+            <fieldset className="flex min-w-0 flex-col gap-3" data-slot="task-assignees">
               <legend className="mb-1.5 text-sm font-medium">Who&apos;s on it?</legend>
               <ul className="flex min-w-0 flex-wrap items-center gap-2">
                 {draft.assigneeIds.map((id) => {
-                  const person = people.get(id);
                   const name = nameOf(id);
                   const short = check === "ready" ? (pickerRowOf(list, id)?.short ?? "") : "";
                   return (
@@ -1047,12 +1049,8 @@ function TaskForm({
                       data-slot="task-assignee"
                       data-member={id}
                       data-primary={draft.primaryOwnerId === id ? "" : undefined}
-                      className="border-control-border flex max-w-full min-w-0 items-center gap-1.5 rounded-full border py-0.5 pr-0.5 pl-2"
+                      className="border-control-border flex max-w-full min-w-0 items-center gap-1.5 rounded-full border py-0.5 pr-0.5 pl-3"
                     >
-                      <PersonAvatar
-                        person={{ id, name, avatarFileId: person?.avatarFileId ?? null }}
-                        size={20}
-                      />
                       <span className="min-w-0 truncate text-sm font-medium">{name}</span>
                       {draft.primaryOwnerId === id && draft.assigneeIds.length > 1 ? (
                         <span className="text-muted-foreground shrink-0 text-xs">
@@ -1451,7 +1449,8 @@ function TaskForm({
 
       <ActionStatus action={action} />
 
-      <DialogFooter className="sticky bottom-[calc(-1rem-var(--app-safe-bottom))] z-10 md:static md:items-center">
+      {/* Pinned on a laptop too since v6.0: with the people beside it the form is taller. */}
+      <DialogFooter className="md:bg-popover sticky bottom-[calc(-1rem-var(--app-safe-bottom))] z-10 md:-mx-4 md:-mb-4 md:items-center md:border-t md:px-4 md:py-3">
         {type ? (
           <p
             className="text-muted-foreground min-w-0 truncate text-sm max-md:hidden md:mr-auto"
