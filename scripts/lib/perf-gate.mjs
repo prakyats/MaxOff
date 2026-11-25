@@ -76,6 +76,9 @@ export const MEMBER_ROUTES = [
   { name: "/clients", path: "/clients", roles: LEADS },
   { name: "/people", path: "/people", roles: LEADS },
   { name: "/reports", path: "/reports", roles: LEADS },
+  // v2.1: the Owner's Revenue page (finance.view). A release older than v2.1 answers 404 for it, which
+  // makes that baseline unusable, so the route is then judged on its own cap alone.
+  { name: "/reports/revenue", path: "/reports/revenue", roles: ["owner"] },
   { name: "/leave", path: "/leave", roles: ["admin", "staff"] },
   { name: "/leave/attendance", path: "/leave/attendance", roles: ["admin", "staff"] },
   { name: "/leave/extra-work", path: "/leave/extra-work", roles: ["admin", "staff"] },
