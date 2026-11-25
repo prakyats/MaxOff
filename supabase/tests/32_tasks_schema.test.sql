@@ -7,6 +7,7 @@
 -- stages through the API (a manager's edits, a worker's ticks, on behalf, locking), the task
 -- custom fields guard and field_definitions.task_type_id, and member_availability.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(113);
 

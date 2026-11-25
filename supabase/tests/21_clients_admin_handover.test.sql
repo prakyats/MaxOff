@@ -2,6 +2,7 @@
 -- who runs a client cannot be demoted or deactivated, and client_hand_over() moves their clients
 -- first (every path, every role).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(34);
 -- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the

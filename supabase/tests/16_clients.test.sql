@@ -1,6 +1,7 @@
 -- 3.1 Clients: the five relations for every role (allowed and denied), the scope helpers, the
 -- protected columns, the activity policy, and every path of the lifecycle and contact functions.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(160);
 -- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the

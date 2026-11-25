@@ -26,6 +26,7 @@
 -- 08:00 to before 08:30 IST: a first run after an outage at 15:00 IST sends nothing, the next 08:00 sends
 -- what still holds. Simulated runs are at 08:00 IST or inside the window.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(182);
 

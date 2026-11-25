@@ -4,6 +4,7 @@
 -- member, anon), the activity policy, the fixed and protected columns, the custom field checks and
 -- the definitions' type lock, and client_create (kickoff 7 amendment B) on every path.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(125);
 

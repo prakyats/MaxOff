@@ -5,6 +5,7 @@
 -- transaction), for the Owner, the client's Admin, another Admin (NOT_FOUND), Crew (FORBIDDEN) and anon (no
 -- privilege), and every path. Old callers without the new argument keep working. Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(105);
 

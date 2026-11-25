@@ -6,6 +6,7 @@
 -- coordinator, the reachability clock's floor; Staff refused. (3) emails_held_today(): today's
 -- skipped_cap emails by limit, settings.manage only. Each allowed and refused per role.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(29);
 

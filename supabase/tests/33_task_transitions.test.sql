@@ -8,6 +8,7 @@
 -- Admin's; reason on reject; the review rows), task_reopen, task_cancel, task_update_assignment
 -- (fields, assignees, primary, the audit) and task_set_approver in every state.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(198);
 

@@ -4,6 +4,7 @@
 -- rest of their behaviour is 07's, which runs against the re-created bodies unchanged. The lock
 -- order itself is 12's (dblink).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(33);
 

@@ -1,6 +1,7 @@
 -- 1.4 Settings: the holidays table for every role, the company and threshold settings only the
 -- Owner may write, app.is_working_day(), and member_change_email() on every path.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(64);
 -- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the
