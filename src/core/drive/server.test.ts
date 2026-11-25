@@ -150,7 +150,14 @@ describe("the Worker's access to Drive", () => {
     const stored = await row();
     const db = fakeDb({
       account: stored,
-      rpc: (call) => ({ data: call.name === "drive_record_quota" ? 80 : true }),
+      rpc: (call) => ({
+        data:
+          call.name === "drive_record_quota"
+            ? 80
+            : call.name === "upload_drive_check_daily"
+              ? []
+              : true,
+      }),
     });
     const g = google({
       drive: [
@@ -164,7 +171,13 @@ describe("the Worker's access to Drive", () => {
       ],
     });
     const report = await runDriveSpaceCheck({ service: service(db), fetchImpl: g.impl, now: NOW });
-    expect(report).toEqual({ checked: 1, alerts: 1, needsReconnect: 0, failed: [] });
+    expect(report).toEqual({
+      checked: 1,
+      alerts: 1,
+      needsReconnect: 0,
+      failed: [],
+      uploads: { checked: 0, removed: 0, restored: 0 },
+    });
     expect(db.calls).toEqual([
       {
         name: "drive_record_quota",
@@ -175,6 +188,59 @@ describe("the Worker's access to Drive", () => {
           p_used: 85,
         },
       },
+      { name: "upload_drive_check_daily", args: { p_now: NOW.toISOString(), p_limit: 200 } },
     ]);
+  });
+
+  it("the daily Removed-in-Drive pass reads each file's metadata and records only 404 or the bin (v4.5)", async () => {
+    const due = [
+      { file_id: "f1", drive_file_id: "d1", state: "done" },
+      { file_id: "f2", drive_file_id: "d2", state: "done" },
+      { file_id: "f3", drive_file_id: "d3", state: "missing_in_drive" },
+      { file_id: "f4", drive_file_id: "d4", state: "done" },
+    ];
+    const db = fakeDb({
+      account: await row(),
+      tables: { upload_files: due.map((file) => ({ id: file.file_id, org_id: "org-1" })) },
+      rpc: (call) => {
+        if (call.name === "drive_record_quota") return { data: 0 };
+        if (call.name === "upload_drive_check_daily") return { data: due };
+        if (call.name === "upload_drive_seen")
+          return { data: call.args.p_outcome === "present" ? "done" : "missing_in_drive" };
+        return { data: true };
+      },
+    });
+    const g = google({
+      drive: [
+        {
+          status: 200,
+          body: {
+            user: { emailAddress: "a@example.com", permissionId: "acct-1" },
+            storageQuota: { usage: "1" },
+          },
+        },
+        { status: 404, body: {} },
+        { status: 200, body: { id: "d2", trashed: true } },
+        { status: 200, body: { id: "d3", trashed: false } },
+        // A passing error marks nothing.
+        { status: 503, body: {} },
+      ],
+    });
+    const report = await runDriveSpaceCheck({ service: service(db), fetchImpl: g.impl, now: NOW });
+    expect(report.uploads).toEqual({ checked: 3, removed: 2, restored: 1 });
+    expect(report.failed).toEqual([]);
+    expect(g.seen.slice(1)).toEqual([
+      "GET https://www.googleapis.com/drive/v3/files/d1 Bearer access-old",
+      "GET https://www.googleapis.com/drive/v3/files/d2 Bearer access-old",
+      "GET https://www.googleapis.com/drive/v3/files/d3 Bearer access-old",
+      "GET https://www.googleapis.com/drive/v3/files/d4 Bearer access-old",
+    ]);
+    expect(db.calls.filter((c) => c.name === "upload_drive_seen").map((c) => c.args)).toEqual([
+      { p_file_id: "f1", p_outcome: "not_found", p_at: NOW.toISOString() },
+      { p_file_id: "f2", p_outcome: "trashed", p_at: NOW.toISOString() },
+      { p_file_id: "f3", p_outcome: "present", p_at: NOW.toISOString() },
+    ]);
+    // Never a delete, a move or a trash: reads only.
+    expect(g.seen.every((line) => line.startsWith("GET "))).toBe(true);
   });
 });

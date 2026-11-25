@@ -118,7 +118,9 @@ jobs:
           # at runtime, never inlined by the build; the server hands the public key to the browser.
           # Google Drive (v4.0: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, DRIVE_TOKEN_KEY,
           # all three or none, all secrets) is optional the same way: without them Settings → Google
-          # Drive says "Not set up yet" and nothing is sent to Google.
+          # Drive says "Not set up yet" and nothing is sent to Google. The upload link's key (v4.5:
+          # UPLOAD_LINK_KEY, a secret) is optional the same way: without it no upload link is made
+          # and the upload page answers every link as not working.
           umask 077
           jq -n \
             --arg supabase "$SUPABASE_SECRET_KEY" \
@@ -136,6 +138,7 @@ jobs:
             --arg google_id "$GOOGLE_OAUTH_CLIENT_ID" \
             --arg google_secret "$GOOGLE_OAUTH_CLIENT_SECRET" \
             --arg drive_key "$DRIVE_TOKEN_KEY" \
+            --arg upload_key "$UPLOAD_LINK_KEY" \
             '{SUPABASE_SECRET_KEY: $supabase}
              + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
              + (if $s3_key == "" or $s3_secret == "" or $s3_bucket == "" then {}
@@ -149,7 +152,8 @@ jobs:
                       VAPID_SUBJECT: $vapid_subject} end)
              + (if $google_id == "" or $google_secret == "" or $drive_key == "" then {}
                 else {GOOGLE_OAUTH_CLIENT_ID: $google_id, GOOGLE_OAUTH_CLIENT_SECRET: $google_secret,
-                      DRIVE_TOKEN_KEY: $drive_key} end)' \
+                      DRIVE_TOKEN_KEY: $drive_key} end)
+             + (if $upload_key == "" then {} else {UPLOAD_LINK_KEY: $upload_key} end)' \
             >.wrangler-secrets.json
           jq -r 'keys | "Secrets in this deployment: " + join(", ")' .wrangler-secrets.json
         env:
@@ -168,6 +172,7 @@ jobs:
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           DRIVE_TOKEN_KEY: ${{ secrets.DRIVE_TOKEN_KEY }}
+          UPLOAD_LINK_KEY: ${{ secrets.UPLOAD_LINK_KEY }}
 
       - name: Deploy to Cloudflare Workers
         id: deploy
@@ -306,7 +311,9 @@ jobs:
           # at runtime, never inlined by the build; the server hands the public key to the browser.
           # Google Drive (v4.0: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, DRIVE_TOKEN_KEY,
           # all three or none, all secrets) is optional the same way: without them Settings → Google
-          # Drive says "Not set up yet" and nothing is sent to Google.
+          # Drive says "Not set up yet" and nothing is sent to Google. The upload link's key (v4.5:
+          # UPLOAD_LINK_KEY, a secret) is optional the same way: without it no upload link is made
+          # and the upload page answers every link as not working.
           umask 077
           jq -n \
             --arg supabase "$SUPABASE_SECRET_KEY" \
@@ -324,6 +331,7 @@ jobs:
             --arg google_id "$GOOGLE_OAUTH_CLIENT_ID" \
             --arg google_secret "$GOOGLE_OAUTH_CLIENT_SECRET" \
             --arg drive_key "$DRIVE_TOKEN_KEY" \
+            --arg upload_key "$UPLOAD_LINK_KEY" \
             '{SUPABASE_SECRET_KEY: $supabase}
              + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
              + (if $s3_key == "" or $s3_secret == "" or $s3_bucket == "" then {}
@@ -337,7 +345,8 @@ jobs:
                       VAPID_SUBJECT: $vapid_subject} end)
              + (if $google_id == "" or $google_secret == "" or $drive_key == "" then {}
                 else {GOOGLE_OAUTH_CLIENT_ID: $google_id, GOOGLE_OAUTH_CLIENT_SECRET: $google_secret,
-                      DRIVE_TOKEN_KEY: $drive_key} end)' \
+                      DRIVE_TOKEN_KEY: $drive_key} end)
+             + (if $upload_key == "" then {} else {UPLOAD_LINK_KEY: $upload_key} end)' \
             >.wrangler-secrets.json
           jq -r 'keys | "Secrets in this deployment: " + join(", ")' .wrangler-secrets.json
         env:
@@ -356,6 +365,7 @@ jobs:
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           DRIVE_TOKEN_KEY: ${{ secrets.DRIVE_TOKEN_KEY }}
+          UPLOAD_LINK_KEY: ${{ secrets.UPLOAD_LINK_KEY }}
 
       - name: Deploy to Cloudflare Workers
         id: deploy

@@ -7,6 +7,7 @@ import { type CachedFolder, type FolderStore } from "./ensure";
 import { readDriveEnv } from "./env";
 import type { FolderStep } from "./folders";
 import { about, DriveAuthError, type Fetch, refreshAccess } from "./google";
+import { filesSeen } from "./resumable";
 import { decryptToken, encryptToken } from "./token-crypto";
 
 /**
@@ -152,6 +153,8 @@ export type SpaceCheckReport = {
   alerts: number;
   needsReconnect: number;
   failed: { orgId: string; error: string }[];
+  /** v4.5 "Removed in Drive": received upload-link files checked, found gone, found back. */
+  uploads: { checked: number; removed: number; restored: number };
 };
 
 /**
@@ -165,7 +168,13 @@ export async function runDriveSpaceCheck(input: {
   fetchImpl: Fetch;
   now: Date;
 }): Promise<SpaceCheckReport> {
-  const report: SpaceCheckReport = { checked: 0, alerts: 0, needsReconnect: 0, failed: [] };
+  const report: SpaceCheckReport = {
+    checked: 0,
+    alerts: 0,
+    needsReconnect: 0,
+    failed: [],
+    uploads: { checked: 0, removed: 0, restored: 0 },
+  };
   if (readDriveEnv().mode === "off") return report;
 
   const { data, error } = await input.service
@@ -197,7 +206,87 @@ export async function runDriveSpaceCheck(input: {
       report.failed.push({ orgId: row.org_id, error: errorWords(error) });
     }
   }
+
+  try {
+    report.uploads = await checkUploadedFilesInDrive({ ...input, rows: data ?? [] });
+  } catch (error) {
+    report.failed.push({ orgId: "uploads", error: errorWords(error) });
+  }
   return report;
+}
+
+/** Files claimed per call of `upload_drive_check_daily`, and calls per run (5,000 files a day). */
+const DRIVE_CHECK_BATCH = 200;
+const DRIVE_CHECK_BATCHES = 25;
+
+/**
+ * The daily "Removed in Drive" pass (v4.5, Q7; WORKFLOWS §8 `drive_space_check`): the received
+ * files of upload links active in the last 30 days, and the files found removed in the last 30
+ * days (a file restored from the bin comes back), each read from Drive by metadata only
+ * (`files.get`, `id,trashed`), on its organisation's connected account. `upload_drive_check_daily`
+ * stamps what it hands out, so a file that could not be read waits for the next day; only a 404
+ * or the bin marks a file, and nobody is notified (DATA-MODEL §8a). MaxOff never deletes, moves
+ * or trashes a file.
+ */
+async function checkUploadedFilesInDrive(input: {
+  service: ServiceSupabase;
+  fetchImpl: Fetch;
+  now: Date;
+  rows: readonly AccountRow[];
+}): Promise<SpaceCheckReport["uploads"]> {
+  const tally = { checked: 0, removed: 0, restored: 0 };
+  const accounts = new Map(input.rows.map((row) => [row.org_id, row]));
+  for (let batch = 0; batch < DRIVE_CHECK_BATCHES; batch += 1) {
+    const { data: due, error } = await input.service.rpc("upload_drive_check_daily", {
+      p_now: input.now.toISOString(),
+      p_limit: DRIVE_CHECK_BATCH,
+    });
+    if (error) throw new Error(`upload_drive_check_daily: ${error.message}`);
+    if (!due || due.length === 0) break;
+
+    const { data: owners, error: ownersError } = await input.service
+      .from("upload_files")
+      .select("id, org_id")
+      .in(
+        "id",
+        due.map((file) => file.file_id),
+      );
+    if (ownersError) throw new Error(`upload_files: ${ownersError.message}`);
+    const orgOf = new Map((owners ?? []).map((file) => [file.id, file.org_id]));
+
+    const byOrg = new Map<string, typeof due>();
+    for (const file of due) {
+      const orgId = orgOf.get(file.file_id);
+      if (orgId) byOrg.set(orgId, [...(byOrg.get(orgId) ?? []), file]);
+    }
+    for (const [orgId, files] of byOrg) {
+      const row = accounts.get(orgId);
+      if (!row) continue;
+      const seen = await withDrive({ ...input, row }, (connection) =>
+        filesSeen(
+          input.fetchImpl,
+          connection.accessToken,
+          files.map((file) => file.drive_file_id),
+        ),
+      );
+      if (!seen) continue;
+      for (const file of files) {
+        const outcome = seen.get(file.drive_file_id);
+        if (!outcome) continue;
+        tally.checked += 1;
+        const { data: state, error: seenError } = await input.service.rpc("upload_drive_seen", {
+          p_file_id: file.file_id,
+          p_outcome: outcome,
+          p_at: input.now.toISOString(),
+        });
+        if (seenError) throw new Error(`upload_drive_seen: ${seenError.message}`);
+        if (file.state === "done" && state === "missing_in_drive") tally.removed += 1;
+        if (file.state === "missing_in_drive" && state === "done") tally.restored += 1;
+      }
+    }
+    if (due.length < DRIVE_CHECK_BATCH) break;
+  }
+  return tally;
 }
 
 export function driveSpaceCheckJob(clock: Clock): Promise<SpaceCheckReport> {

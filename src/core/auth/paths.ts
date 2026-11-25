@@ -18,6 +18,16 @@ const PUBLIC_PAGES = new Set([LOGIN_PATH, FORGOT_PASSWORD_PATH, "/offline", "/ro
  */
 const PUBLIC_PREFIXES = ["/auth/", "/diagnostics/", "/api/"];
 
+/**
+ * The upload page's public API (v4.5, plan B5, J7): it authenticates by the link's token alone,
+ * so the proxy neither reads nor refreshes a MaxOff session on it and sets no cookie.
+ */
+export const UPLOAD_API_PREFIX = "/api/upload/";
+
+export function isUploadApiPath(pathname: string): boolean {
+  return pathname.startsWith(UPLOAD_API_PREFIX);
+}
+
 export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PAGES.has(pathname)) return true;
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));

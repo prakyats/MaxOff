@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { DriveApiError, DriveAuthError, type Fetch } from "./google";
 import {
   checkPolicy,
+  fileSeen,
+  filesSeen,
   fileStillThere,
   openResumableSession,
   type ResumableTarget,
@@ -253,5 +255,27 @@ describe("whether a file is still in Drive", () => {
       name: "DriveApiError",
       status: 500,
     });
+  });
+});
+
+describe("what Drive says of a file (v4.5, Q7)", () => {
+  it("tells gone from in the bin from present", async () => {
+    const gone = fakeGoogle(() => new Response(null, { status: 404 }));
+    await expect(fileSeen(gone.fetch, "token-1", "d1")).resolves.toBe("not_found");
+    const bin = fakeGoogle(() => Response.json({ id: "d1", trashed: true }));
+    await expect(fileSeen(bin.fetch, "token-1", "d1")).resolves.toBe("trashed");
+    const there = fakeGoogle(() => Response.json({ id: "d1", trashed: false }));
+    await expect(fileSeen(there.fetch, "token-1", "d1")).resolves.toBe("present");
+  });
+
+  it("leaves out a file whose check failed, and throws a refused token for a renewal", async () => {
+    let n = 0;
+    const mixed = fakeGoogle(() =>
+      (n += 1) === 1 ? new Response(null, { status: 503 }) : new Response(null, { status: 404 }),
+    );
+    const seen = await filesSeen(mixed.fetch, "token-1", ["d1", "d2"]);
+    expect([...seen]).toEqual([["d2", "not_found"]]);
+    const auth = fakeGoogle(() => new Response(null, { status: 401 }));
+    await expect(filesSeen(auth.fetch, "token-1", ["d1"])).rejects.toBeInstanceOf(DriveAuthError);
   });
 });

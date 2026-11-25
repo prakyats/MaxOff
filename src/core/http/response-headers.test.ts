@@ -6,6 +6,8 @@ import {
   applyResponseHeaders,
   AUTH_LINK_ROUTE_HEADERS,
   AUTH_LINK_ROUTE_SOURCE,
+  UPLOAD_API_ROUTE_HEADERS,
+  UPLOAD_API_ROUTE_SOURCE,
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
   NOINDEX_HEADER,
@@ -64,6 +66,30 @@ describe("responseHeaders", () => {
     // A stricter value than the build's, never a header the build does not already govern.
     const global = SECURITY_HEADERS.find((h) => h.key === "Referrer-Policy");
     expect(global?.value).not.toBe("no-referrer");
+  });
+
+  it("keeps the upload page's API out of caches, indexes and referrers, isolated (v4.5, plan J)", () => {
+    expect(UPLOAD_API_ROUTE_SOURCE).toBe("/api/upload/:path*");
+    const byKey = Object.fromEntries(UPLOAD_API_ROUTE_HEADERS.map((h) => [h.key, h.value]));
+    expect(byKey).toMatchObject({
+      "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex, nofollow",
+      "Referrer-Policy": "no-referrer",
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Resource-Policy": "same-origin",
+    });
+    expect(byKey["Content-Security-Policy"]).toContain("default-src 'none'");
+    expect(byKey["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+    for (const feature of [
+      "camera=()",
+      "microphone=()",
+      "geolocation=()",
+      "payment=()",
+      "usb=()",
+    ]) {
+      expect(byKey["Permissions-Policy"]).toContain(feature);
+    }
+    expect(byKey).not.toHaveProperty("Access-Control-Allow-Origin");
   });
 
   it("puts the build's list on a response the proxy answers itself (3c.1)", () => {

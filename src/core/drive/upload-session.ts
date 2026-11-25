@@ -10,6 +10,8 @@ import {
   ensureSubfolders,
   type FileFacts,
   fileFacts,
+  type FileSeen,
+  filesSeen,
   openResumableSession,
   type SubfolderStore,
   type UploadPolicy,
@@ -150,4 +152,25 @@ export async function driveFileFacts(input: {
   );
   if (!read) throw new DriveUnavailableError();
   return read.facts;
+}
+
+/**
+ * "Removed in Drive" (v4.5, Q7): what Drive says of each of these files, on the organisation's
+ * connected account. A file whose check failed is left out (it is marked nothing); with no usable
+ * connection nothing is checked at all.
+ */
+export async function driveFilesSeen(input: {
+  service: ServiceSupabase;
+  orgId: string;
+  driveFileIds: readonly string[];
+  fetchImpl: Fetch;
+  now: Date;
+}): Promise<Map<string, FileSeen>> {
+  if (input.driveFileIds.length === 0) return new Map();
+  const row = await connectedAccount(input.service, input.orgId);
+  const seen = await withDrive(
+    { service: input.service, row, fetchImpl: input.fetchImpl, now: input.now },
+    (connection) => filesSeen(input.fetchImpl, connection.accessToken, input.driveFileIds),
+  );
+  return seen ?? new Map();
 }

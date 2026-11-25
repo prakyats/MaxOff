@@ -20,14 +20,19 @@ const REDIRECT_HEADERS = {
   "Cache-Control": "no-store",
 };
 
-/** Cron expression → the job route it runs (WORKFLOWS §8, `worker` rows). */
+/**
+ * Cron expression → the job routes it runs (WORKFLOWS §8, `worker` rows). One trigger may run
+ * several jobs: each is its own request, so one failing never stops the others.
+ */
 const CRON_ROUTES = {
   // 03:00 IST = 21:30 UTC, daily.
-  "30 21 * * *": "/api/cron/storage-cleanup",
-  // Every minute (5.2): queued push and email deliveries, retries, the 07:00 IST quiet-hours summary.
-  "* * * * *": "/api/cron/push-dispatch",
-  // 09:05 IST = 03:35 UTC, daily (v4.0): the connected Google Drive's space, alerts at 80 % / 90 %.
-  "35 3 * * *": "/api/cron/drive-space-check",
+  "30 21 * * *": ["/api/cron/storage-cleanup"],
+  // Every minute (5.2): queued push and email deliveries, retries, the 07:00 IST quiet-hours
+  // summary. v4.5: `upload_watch`, Google's offsets of quiet upload-link sessions and the signals.
+  "* * * * *": ["/api/cron/push-dispatch", "/api/cron/upload-watch"],
+  // 09:05 IST = 03:35 UTC, daily (v4.0): the connected Google Drive's space, alerts at 80 % / 90 %;
+  // v4.5: the daily "Removed in Drive" check of upload-link files.
+  "35 3 * * *": ["/api/cron/drive-space-check"],
 };
 
 const worker = {
@@ -59,8 +64,8 @@ const worker = {
    * @param {ExecutionContext} ctx
    */
   async scheduled(controller, env, ctx) {
-    const route = CRON_ROUTES[controller.cron];
-    if (!route) {
+    const routes = CRON_ROUTES[controller.cron];
+    if (!routes) {
       console.warn(`[cron] no route for "${controller.cron}"`);
       return;
     }
@@ -70,26 +75,28 @@ const worker = {
       console.error("[cron] WORKER_SELF_REFERENCE binding is missing");
       return;
     }
-    // The host is a placeholder: a service binding routes by binding, not by name.
-    // Workers Logs records the request itself; only a refusal or a failure is worth a line.
-    const run = self
-      .fetch(`https://maxoff.internal${route}`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${secret}`, "x-cron": controller.cron },
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          console.warn(
-            `[cron] ${route} → ${response.status} ${(await response.text()).slice(0, 500)}`,
+    for (const route of routes) {
+      // The host is a placeholder: a service binding routes by binding, not by name.
+      // Workers Logs records the request itself; only a refusal or a failure is worth a line.
+      const run = self
+        .fetch(`https://maxoff.internal${route}`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${secret}`, "x-cron": controller.cron },
+        })
+        .then(async (response) => {
+          if (!response.ok) {
+            console.warn(
+              `[cron] ${route} → ${response.status} ${(await response.text()).slice(0, 500)}`,
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(
+            `[cron] ${route} failed: ${error instanceof Error ? error.message : String(error)}`,
           );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          `[cron] ${route} failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      });
-    ctx.waitUntil(run);
+        });
+      ctx.waitUntil(run);
+    }
   },
 };
 

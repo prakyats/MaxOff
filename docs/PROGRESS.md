@@ -875,6 +875,13 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+
+- **v4.5 server side, decisions to confirm in the screens or upload unit (builder 25 Nov):**
+  1. The folder depth: `cleanRelativePath` caps at 8 levels while `app.upload_clean_path` allows 12, and the two clean names differently. Align them before the upload unit, or a deep or odd path can miss the folder cache and duplicate a folder.
+  2. Google's daily-limit 403 is spotted by its message (`isDailyUploadLimit`): confirm the real error codes in CORS step 2.
+  3. The bad-link block check reads `upload_rate_hits` directly. A small "check only" function would be cleaner.
+  4. After a week, `done` falls back to the browser's Drive id (Google forgot the session), checked against the same folder and size.
+  5. No Playwright yet for the public API: add a header and refusal spec with the screens unit.
 - **v4.5 upload link, later (advisor review, 25 Nov):** compare the IST-day caps (20 names, 5,000 files a day, the not-on-task count) against the day-start instant instead of `app.to_ist_date(col)`, so indexes cover them; stop the link when its task is archived (today an archived task's link just answers nothing); a daily cap per link on `upload_stuck` notices; an index for the 90-day IP-erasure scan of `upload_files` (`created_at` where `ip is not null or user_agent is not null`).
 
 - **v4.0 Drive, for D2 (review 18 Nov):** (1) two parallel folder walks can both make a folder and the loser's stays orphaned in Drive (the cache keeps one): claim-then-make or a per-key lock before D2 runs jobs in parallel; (2) `drive_status().last_error` is read but not shown on Settings → Google Drive; (3) the space alert re-arms exactly at 80 %, so usage hovering around it alerts at every crossing (owner Q5 said "re-armed after dropping back below"; a gap such as below 75 % would be an owner question); (4) Back after the Google sign-in returns through Google's own pages (they are in the history; the app cannot remove them): on the Owner's phone walk, check Connect on iOS and Android installed, including that the callback lands in the app with its session.

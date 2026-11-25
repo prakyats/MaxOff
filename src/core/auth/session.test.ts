@@ -88,3 +88,20 @@ describe("the warm-up passes straight through (P2)", () => {
     expect(claims).not.toHaveBeenCalled();
   });
 });
+
+describe("the upload page's API passes straight through (v4.5, plan B5, J7)", () => {
+  beforeEach(() => {
+    claims.mockReset();
+  });
+
+  it("/api/upload/*: no session read or refreshed, no cookie set, never redirected", async () => {
+    const session = `base64-${Buffer.from(JSON.stringify({ access_token: "a.b.c" })).toString("base64url")}`;
+    const response = await updateSession(
+      request("/api/upload/resolve", `sb-127-auth-token=${session}`),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(claims).not.toHaveBeenCalled();
+  });
+});

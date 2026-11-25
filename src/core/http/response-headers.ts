@@ -48,6 +48,26 @@ export const AUTH_LINK_ROUTE_HEADERS: readonly ResponseHeader[] = [
   { key: "Referrer-Policy", value: "no-referrer" },
 ];
 
+/**
+ * `/api/upload/*` (v4.5, security plan J): the upload page's public API answers JSON to the page
+ * only, never cached, never indexed, with no referrer, and isolated from other origins. A rule
+ * after the global one, like the auth link page's, so these replace the build's values. The
+ * route sets the same list on its own answers (`modules/uploads`).
+ */
+export const UPLOAD_API_ROUTE_SOURCE = "/api/upload/:path*";
+export const UPLOAD_API_ROUTE_HEADERS: readonly ResponseHeader[] = [
+  { key: "Cache-Control", value: "no-store" },
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+  { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  },
+];
+
 /** Staging must never be indexed. Production stays indexable-by-choice (decided later). */
 export const NOINDEX_HEADER: ResponseHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
 

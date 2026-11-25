@@ -1,14 +1,23 @@
 /**
- * The upload link (v4.5, ADR-0010 amendment 2026-11-19, DATA-MODEL §8a, WORKFLOWS §5B). So far
- * the platform-free rules only: the link token, the uploader's name, and the Admin's signals.
- * The tables, functions, screens and the Google session follow per the docs.
+ * The upload link (v4.5, ADR-0010 amendment 2026-11-19, DATA-MODEL §8a, WORKFLOWS §5B): the
+ * platform-free rules (the link token, the uploader's name, the Admin's signals, the public API's
+ * shapes), the member actions and reads, the upload page's public API (`/api/upload/*`) and the
+ * every-minute watch (`/api/cron/upload-watch`). The screens follow in their own unit.
+ *
+ * Client components are not exported here: a route imports them one file at a time from
+ * `components/` (ADR-0011 amendment).
  */
 export {
   deriveLinkToken,
+  deviceKeyHash,
+  isDeviceKeyShaped,
   isTokenShaped,
   linkKeyBytes,
   newLinkSalt,
+  rateKeyHash,
+  tokenFromAuthorization,
   tokenHash,
+  uploadLinkUrl,
 } from "./domain/token";
 export {
   cleanUploaderName,
@@ -26,3 +35,57 @@ export {
   type UploadFileState,
   uploaderSignal,
 } from "./domain/signals";
+export {
+  BAD_LINK_MESSAGE,
+  type DoneAnswer,
+  type DoneBody,
+  type FailedAnswer,
+  type FailedBody,
+  type FailedReason,
+  type ProgressAnswer,
+  type ProgressBody,
+  type RegisterAnswer,
+  type RegisterBody,
+  type ResolveAnswer,
+  type ResolveBody,
+  type SaidDoneAnswer,
+  type SaidDoneBody,
+  type StartAnswer,
+  type StartBody,
+  UPLOAD_API_MAX_BODY_BYTES,
+  type UploaderOwnFile,
+  type WaitReason,
+} from "./domain/api";
+export type {
+  DriveState,
+  StopReason,
+  UploadCard,
+  UploadCardLink,
+  UploadCardState,
+  UploadCardUploader,
+  UploaderSheet,
+  UploaderSheetFile,
+} from "./domain/card";
+export { readUploadCard, readUploaderSheet } from "./data/links";
+export { LINK_KEY_OFF_MESSAGE, readLinkKey } from "./data/link-key";
+export {
+  copyUploadLink,
+  eraseUploaderNetwork,
+  getUploadLink,
+  markFilesReceived,
+  renewUploadLink,
+  stopUploadLink,
+  type UploadLinkAnswer,
+} from "./actions/links";
+export {
+  checkUploaderFilesInDrive,
+  readUploadCardFor,
+  readUploaderSheetFor,
+} from "./actions/background";
+export {
+  handleUploadApi,
+  UPLOAD_API_HEADERS,
+  uploadApiPost,
+  type UploadEndpoint,
+} from "./actions/public-api";
+export { runUploadWatch, uploadWatchJob, type WatchReport } from "./actions/watch";

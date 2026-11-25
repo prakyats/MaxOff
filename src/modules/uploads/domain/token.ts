@@ -69,3 +69,50 @@ export async function tokenHash(token: string): Promise<Uint8Array> {
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token) as BufferSource),
   );
 }
+
+/**
+ * The public API's credential (plan A8): the page reads the token from the link's fragment and
+ * sends it as `Authorization: UploadLink <token>`, never in a URL. Anything else is no token.
+ */
+export function tokenFromAuthorization(header: string | null): string | null {
+  if (!header) return null;
+  const match = /^UploadLink ([^\s]+)$/.exec(header.trim());
+  return match?.[1] ?? null;
+}
+
+/**
+ * The browser's device key (plan B3): 32 random bytes the page keeps for this link, sent as 43
+ * base64url characters, the token's shape. Only its sha256 is stored and looked up by.
+ */
+export function isDeviceKeyShaped(text: string): boolean {
+  return isTokenShaped(text);
+}
+
+/** `sha256(device key bytes)`, the form `upload_uploaders.device_key_hash` holds. */
+export async function deviceKeyHash(deviceKey: string): Promise<Uint8Array> {
+  if (!isDeviceKeyShaped(deviceKey)) throw new Error("Not a device key");
+  const bytes = fromBase64(deviceKey).slice(0, 32);
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource));
+}
+
+/**
+ * The key a network is counted under in `upload_rate_hits` (plan C1–C2): an HMAC of the IP with
+ * `UPLOAD_LINK_KEY` under a fixed label (DATA-MODEL §8a: "the same secret with a fixed label"),
+ * so the IP itself is never stored.
+ */
+export async function rateKeyHash(key: Uint8Array, ip: string): Promise<Uint8Array> {
+  const hmacKey = await crypto.subtle.importKey(
+    "raw",
+    key as BufferSource,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const message = new TextEncoder().encode(`maxoff-upload-rate:${ip}`);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", hmacKey, message as BufferSource));
+}
+
+/** The link the Admin copies: the token in the fragment, so no server log ever sees it (A8). */
+export function uploadLinkUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/+$/, "")}/upload#${token}`;
+}

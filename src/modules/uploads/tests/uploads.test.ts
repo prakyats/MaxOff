@@ -1,17 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+// The platform-free rules, from their own files: the index also carries the server side.
+import { cleanUploaderName, matchAssignee, nameKey, uploaderFolderName } from "../domain/names";
+import { uploaderSignal } from "../domain/signals";
 import {
-  cleanUploaderName,
   deriveLinkToken,
   isTokenShaped,
   linkKeyBytes,
-  matchAssignee,
-  nameKey,
   newLinkSalt,
   tokenHash,
-  uploaderFolderName,
-  uploaderSignal,
-} from "..";
+} from "../domain/token";
 
 const KEY = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => i)));
 const OTHER = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => 99 - i)));

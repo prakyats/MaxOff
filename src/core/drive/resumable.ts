@@ -165,22 +165,59 @@ export async function sessionStatus(
   throw new DriveApiError(`Upload status failed (${response.status})`, response.status);
 }
 
+/** What Drive says of a file MaxOff made (v4.5 "Removed in Drive", Q7): there, gone, or in the bin. */
+export type FileSeen = "present" | "not_found" | "trashed";
+
+/**
+ * Drive's own metadata for a file MaxOff made (`files.get`, fields `id,trashed`; `drive.file`
+ * sees it): never the bytes. A 404 is `not_found`; any other refusal throws, so a passing outage
+ * is never read as "removed" (DATA-MODEL §8a).
+ */
+export async function fileSeen(
+  fetchImpl: Fetch,
+  accessToken: string,
+  fileId: string,
+): Promise<FileSeen> {
+  const response = await fetchImpl(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
+    { headers: { authorization: `Bearer ${accessToken}` } },
+  );
+  if (response.status === 404) return "not_found";
+  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
+  if (!response.ok)
+    throw new DriveApiError(`File check failed (${response.status})`, response.status);
+  const answer = (await response.json()) as { trashed?: boolean };
+  return answer.trashed ? "trashed" : "present";
+}
+
 /** Drive's own metadata for a file MaxOff made: whether it is still there and not in the bin. */
 export async function fileStillThere(
   fetchImpl: Fetch,
   accessToken: string,
   fileId: string,
 ): Promise<"there" | "removed"> {
-  const response = await fetchImpl(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
-    { headers: { authorization: `Bearer ${accessToken}` } },
-  );
-  if (response.status === 404) return "removed";
-  if (response.status === 401) throw new DriveAuthError("Google refused the access token");
-  if (!response.ok)
-    throw new DriveApiError(`File check failed (${response.status})`, response.status);
-  const answer = (await response.json()) as { trashed?: boolean };
-  return answer.trashed ? "removed" : "there";
+  return (await fileSeen(fetchImpl, accessToken, fileId)) === "present" ? "there" : "removed";
+}
+
+/**
+ * `fileSeen` for several files on one connection. A file whose check fails for any reason but
+ * the token (a 403, 429, 5xx, a timeout) is left out: it is marked nothing and checked again
+ * later. A refused token throws, so `withDrive` can renew it and run the batch again.
+ */
+export async function filesSeen(
+  fetchImpl: Fetch,
+  accessToken: string,
+  fileIds: readonly string[],
+): Promise<Map<string, FileSeen>> {
+  const seen = new Map<string, FileSeen>();
+  for (const fileId of fileIds) {
+    try {
+      seen.set(fileId, await fileSeen(fetchImpl, accessToken, fileId));
+    } catch (error) {
+      if (error instanceof DriveAuthError) throw error;
+    }
+  }
+  return seen;
 }
 
 /** Google's own record of a file a MaxOff session made (`drive.file` sees it). */

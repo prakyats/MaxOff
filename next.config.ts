@@ -7,6 +7,8 @@ import {
   AUTH_LINK_ROUTE_SOURCE,
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
+  UPLOAD_API_ROUTE_HEADERS,
+  UPLOAD_API_ROUTE_SOURCE,
   responseHeaders,
 } from "./src/core/http/response-headers";
 import { appVersionFrom } from "./src/core/lib/app-version";
@@ -41,6 +43,7 @@ const nextConfig: NextConfig = {
     { source: "/:path*", headers: RESPONSE_HEADERS },
     { source: FILE_ROUTE_SOURCE, headers: [FILE_ROUTE_CSP] },
     { source: AUTH_LINK_ROUTE_SOURCE, headers: [...AUTH_LINK_ROUTE_HEADERS] },
+    { source: UPLOAD_API_ROUTE_SOURCE, headers: [...UPLOAD_API_ROUTE_HEADERS] },
   ],
   // `next dev` otherwise appends its own block to CLAUDE.md on every run.
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.
