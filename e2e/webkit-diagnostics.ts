@@ -56,6 +56,21 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
       try {
         const response = await fetchOriginal(input, init);
         note("rsc-in", `${tag} ${response.status}`);
+        // When the body's first bytes and its end arrive: a commit waits for the payload, not for
+        // the headers (v7.0, the create dialog's 4.5 s between rsc-in and the push).
+        const reader = response.clone().body?.getReader();
+        if (reader) {
+          void (async () => {
+            let bytes = 0;
+            for (;;) {
+              const chunk = await reader.read().catch(() => ({ done: true, value: undefined }));
+              if (chunk.done) break;
+              if (bytes === 0) note("rsc-first-chunk", tag);
+              bytes += chunk.value?.byteLength ?? 0;
+            }
+            note("rsc-done", `${tag} ${bytes} bytes`);
+          })();
+        }
         return response;
       } catch (error) {
         note("rsc-fail", `${tag} ${String(error)}`);
@@ -142,6 +157,7 @@ export async function explainOnIphone<T>(
   info: TestInfo,
   step: () => Promise<T>,
   element?: Locator,
+  extra?: () => string,
 ): Promise<T> {
   if (!isIphone(info)) return step();
   try {
@@ -149,10 +165,57 @@ export async function explainOnIphone<T>(
   } catch (error) {
     const parts = [`\n--- WebKit diagnostics (${info.title}) ---`, await navigationRecord(page)];
     if (element) parts.push("--- element ---", await elementRecord(element));
+    if (extra) parts.push("--- requests ---", extra());
     if (error instanceof Error) {
       error.message = `${error.message}${parts.join("\n")}`;
       throw error;
     }
     throw new Error(`${String(error)}${parts.join("\n")}`);
   }
+}
+
+/**
+ * Every request the page sends whose path starts with `prefix`, from now on: when the page sent
+ * it, whether `page.route` handed it to a handler (`routed`, which the caller marks) and how it
+ * ended. For a request a route did not see (the bell's count on WebKit, CI 45678861249).
+ */
+export function recordRequests(
+  page: Page,
+  info: TestInfo,
+  prefix: string,
+): { routed: (url: string) => void; report: () => string } {
+  const started = Math.round(performance.now());
+  const lines: string[] = [];
+  if (isIphone(info)) {
+    const pathOf = (url: string) => {
+      const parsed = new URL(url);
+      return `${parsed.pathname}${parsed.search}`;
+    };
+    page.on("request", (request) => {
+      const path = pathOf(request.url());
+      if (!path.startsWith(prefix)) return;
+      lines.push(
+        `+${Math.round(performance.now()) - started}ms request ${request.method()} ${path} frame=${request.frame().url() === page.url() ? "page" : request.frame().url()} sw=${String(request.serviceWorker() !== null)}`,
+      );
+    });
+    page.on("requestfinished", (request) => {
+      const path = pathOf(request.url());
+      if (path.startsWith(prefix))
+        lines.push(`+${Math.round(performance.now()) - started}ms finished ${path}`);
+    });
+    page.on("requestfailed", (request) => {
+      const path = pathOf(request.url());
+      if (path.startsWith(prefix))
+        lines.push(
+          `+${Math.round(performance.now()) - started}ms failed ${path} ${request.failure()?.errorText ?? ""}`,
+        );
+    });
+  }
+  return {
+    routed: (url) => {
+      if (!isIphone(info)) return;
+      lines.push(`+${Math.round(performance.now()) - started}ms routed ${new URL(url).pathname}`);
+    },
+    report: () => lines.join("\n") || "(none)",
+  };
 }

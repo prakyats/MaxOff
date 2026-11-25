@@ -26,6 +26,7 @@ import {
   USERS,
   streamedHeights,
 } from "./helpers";
+import { explainOnIphone, isIphone, recordNavigation } from "./webkit-diagnostics";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
 
@@ -243,18 +244,30 @@ test.describe("Crew: My Day (6.1)", () => {
       assignees: [crewId],
       due: istInstant(workingDay(6), "18:00"),
     });
+    await recordNavigation(page, info);
     await signIn(page, crew(info), PASSWORD);
     await expect(page).toHaveURL(/\/my-day$/);
     await hydrated(page);
-    await expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on");
+    await explainOnIphone(page, info, () =>
+      expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on"),
+    );
     const refresh = await holdNextRefresh(page, "/my-day");
     // A change to their own task lands: the screen re-reads, and that re-read is held.
     await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
-    await refresh.held;
-    await page.locator('[data-slot="header-bell"]:visible').click();
+    await explainOnIphone(page, info, () => refresh.held);
+    const bell = page.locator('[data-slot="header-bell"]:visible');
+    // Bounded on the iPhone project only, so the record is taken inside the test's time.
+    await explainOnIphone(
+      page,
+      info,
+      () => bell.click(isIphone(info) ? { timeout: 10_000 } : {}),
+      bell,
+    );
     refresh.release();
-    await expect(page).toHaveURL(/\/notifications$/);
-    await expect(pageHeader(page)).toContainText(/alerts|notifications/i);
+    await explainOnIphone(page, info, async () => {
+      await expect(page).toHaveURL(/\/notifications$/);
+      await expect(pageHeader(page)).toContainText(/alerts|notifications/i);
+    });
     await hydrated(page);
   });
 

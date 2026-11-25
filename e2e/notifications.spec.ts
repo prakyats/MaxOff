@@ -26,6 +26,7 @@ import {
   taskTypeId,
   USERS,
 } from "./helpers";
+import { explainOnIphone, recordRequests } from "./webkit-diagnostics";
 
 /**
  * The bell and Alerts (task 5.1, kickoff 5 decision 4; owner cut (b), the simplest form): the
@@ -423,10 +424,12 @@ test.describe("the bell and Alerts", () => {
         request.method() === "GET" &&
         new URL(request.url()).pathname === "/api/notifications/unread",
     );
+    const apiCalls = recordRequests(page, info, "/api/");
     await page.route("**/*", async (route: Route) => {
       const request = route.request();
       const url = new URL(request.url());
       const headers = request.headers();
+      if (url.pathname.startsWith("/api/")) apiCalls.routed(request.url());
       if (
         tapped &&
         ((request.method() === "POST" && headers["next-action"]) ||
@@ -463,7 +466,13 @@ test.describe("the bell and Alerts", () => {
       pageLetGo();
       await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`));
       await expect(page.locator('[data-slot="task-tabs"]')).toBeVisible();
-      expect(held, "the count was held").toContain(count);
+      await explainOnIphone(
+        page,
+        info,
+        async () => expect(held, "the count was held").toContain(count),
+        undefined,
+        apiCalls.report,
+      );
       expect(ended.has(count), "the count is still unanswered").toBe(false);
       // Opening the task sends its read receipt the same way: out, held, and the page is open.
       await expect.poll(() => receipt.held()).toContain("/api/notifications/read-record");
