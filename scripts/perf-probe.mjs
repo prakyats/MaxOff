@@ -72,7 +72,13 @@ import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
 import zlib from "node:zlib";
 
-import { judgeRun, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
+import {
+  judgeRun,
+  median,
+  planExtraRoutes,
+  planMemberRoutes,
+  summaryLine,
+} from "./lib/perf-gate.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -550,6 +556,8 @@ async function main() {
     { name: "/api/warm", path: "/api/warm", auth: true },
     { name: "/login", path: "/login", auth: false },
     ...(cookie ? planMemberRoutes(memberRole, ids).map((r) => ({ ...r, auth: true })) : []),
+    // `--also` (observation): extra signed-in paths, e.g. a person's Leave tab (planExtraRoutes).
+    ...(cookie ? planExtraRoutes(args.also, ids).map((r) => ({ ...r, auth: true })) : []),
   ];
   const routes = plan.filter((route) => route.path !== undefined);
 

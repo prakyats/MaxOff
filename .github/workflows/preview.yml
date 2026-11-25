@@ -723,7 +723,14 @@ jobs:
             [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login)" = 200 ] && break
             sleep 2
           done
-          node scripts/perf-probe.mjs --base http://127.0.0.1:3000 --role owner --samples 1 --label "today-local" >"$RUNNER_TEMP/probe.out" 2>&1 || true
+          # The Owner, with a person's Leave and Attendance tabs; then an Admin, whose /leave and
+          # /leave/attendance read the same leave requests and days.
+          node scripts/perf-probe.mjs --base http://127.0.0.1:3000 --role owner --samples 1 --label "today-local" \
+            --also "/people/:person/leave,/people/:person/attendance" >"$RUNNER_TEMP/probe.out" 2>&1 || true
+          node scripts/perf-probe.mjs --base http://127.0.0.1:3000 --role admin --samples 1 --label "today-local" \
+            >>"$RUNNER_TEMP/probe.out" 2>&1 || true
+          # Status per route, from the probe's own table (no headers, no cookies).
+          grep -E "^\| *(/|a |static|404)" "$RUNNER_TEMP/probe.out" | cut -c1-200 || true
           kill "$server_pid" 2>/dev/null || true
           echo "server log lines: $(wc -l <"$RUNNER_TEMP/server.log")"
           # Next prints a failed server render as "⨯ <error>" followed by its stack and digest.

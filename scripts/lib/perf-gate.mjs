@@ -121,6 +121,34 @@ export function planMemberRoutes(role, ids) {
 }
 
 /**
+ * `--also "/people/:person/leave,/people/:person/attendance"` (v2.0.1, observation): extra
+ * signed-in paths for one run, outside the gate's route list, with the same `:id` placeholders.
+ * A placeholder this member has no record for is a skipped row; a path must start with "/".
+ * @param {string | null | undefined} list comma-separated paths
+ * @param {Ids} ids
+ * @returns {{ name: string, path?: string, skip?: string }[]}
+ */
+export function planExtraRoutes(list, ids) {
+  if (!list) return [];
+  return list
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => {
+      if (!entry.startsWith("/"))
+        throw new Error(`--also takes paths that start with "/": ${entry}`);
+      const missing = [...entry.matchAll(/:([A-Za-z]+)/g)]
+        .map((match) => match[1])
+        .filter((key) => !ids[/** @type {IdKey} */ (key)]);
+      if (missing.length > 0) return { name: entry, skip: `no ${missing[0]} this member can see` };
+      const path = entry.replace(/:([A-Za-z]+)/g, (_, key) =>
+        String(ids[/** @type {IdKey} */ (key)]),
+      );
+      return { name: entry, path };
+    });
+}
+
+/**
  * The median the probe has always printed: the middle sample, the upper one of an even count.
  * @param {readonly number[]} values
  */
