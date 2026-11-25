@@ -109,7 +109,7 @@ describe("the routes", () => {
   // start order, and every byte of a signed-in screen waits for the member row, so the shell's
   // layout starts it before its other reads.
   it("the signed-in layout starts the member row before its other reads", () => {
-    const layout = files.find((file) => file.path === "(app)/layout.tsx")?.text ?? "";
+    const layout = files.find((file) => file.path === "(main)/(app)/layout.tsx")?.text ?? "";
     const body = layout.slice(layout.indexOf("export default async function AppLayout"));
     const member = body.indexOf("requireMember()");
     const others = ["getSessionBundle()", "startEarly(", "getOwnToday()", "readOwnPushStatus()"]

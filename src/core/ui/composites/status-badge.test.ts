@@ -176,7 +176,7 @@ function readTokens(css: string, selector: string): Record<string, string> {
 }
 
 const css = readFileSync(
-  fileURLToPath(new URL("../../../app/globals.css", import.meta.url)),
+  fileURLToPath(new URL("../../../app/(main)/globals.css", import.meta.url)),
   "utf8",
 );
 

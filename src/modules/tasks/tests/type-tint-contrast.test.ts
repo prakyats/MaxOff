@@ -13,7 +13,7 @@ import { TASK_TYPE_COLORS } from "../domain/task-types";
  * foreground at 80%; both read at AA on every palette colour, in light and dark.
  */
 const css = readFileSync(
-  fileURLToPath(new URL("../../../app/globals.css", import.meta.url)),
+  fileURLToPath(new URL("../../../app/(main)/globals.css", import.meta.url)),
   "utf8",
 );
 

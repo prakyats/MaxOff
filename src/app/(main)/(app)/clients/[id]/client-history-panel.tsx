@@ -13,7 +13,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { describeError } from "@/core/ui/toast";
 
-import type { ClientHistoryData } from "../../../api/clients/history/read";
+import type { ClientHistoryData } from "../../../../api/clients/history/read";
 
 const HISTORY_URL = "/api/clients/history";
 

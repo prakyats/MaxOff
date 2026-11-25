@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
  * shape is exactly the bug this rule exists to stop.
  */
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
-const appDir = path.join(root, "src/app/(app)");
+const appDir = path.join(root, "src/app/(main)/(app)");
 
 /**
  * Routes with no server data to wait for; a loading state would never paint. The old Stage presets

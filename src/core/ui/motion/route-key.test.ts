@@ -42,9 +42,9 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
 
   it("covers every tab bar built from ViewLinks to sibling routes", () => {
     // The tab bars that switch routes today; a new one must join `TAB_ROUTES`.
-    const leaveTabs = readFileSync("src/app/(app)/leave/leave-tabs.tsx", "utf8");
-    const personNav = readFileSync("src/app/(app)/people/[id]/person-nav.tsx", "utf8");
-    const clientNav = readFileSync("src/app/(app)/clients/[id]/client-nav.tsx", "utf8");
+    const leaveTabs = readFileSync("src/app/(main)/(app)/leave/leave-tabs.tsx", "utf8");
+    const personNav = readFileSync("src/app/(main)/(app)/people/[id]/person-nav.tsx", "utf8");
+    const clientNav = readFileSync("src/app/(main)/(app)/clients/[id]/client-nav.tsx", "utf8");
     expect(leaveTabs).toContain('"/leave/attendance"');
     expect(leaveTabs).toContain('"/leave/extra-work"');
     expect(leaveTabs).toContain('"/leave/expenses"');

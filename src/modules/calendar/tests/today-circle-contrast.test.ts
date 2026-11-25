@@ -12,7 +12,7 @@ import { contrastRgb, hexToRgb, readTokens } from "@/core/ui/theme/tint-contrast
  * destructive commit (`destructive-solid`, `#c42126` with white, the same in both themes).
  */
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const css = read("../../../app/globals.css");
+const css = read("../../../app/(main)/globals.css");
 const SCREENS = ["../components/month-grid.tsx", "../components/calendar-screen.tsx"];
 
 describe("today's red circle on the calendar", () => {

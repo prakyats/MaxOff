@@ -28,7 +28,10 @@ describe("sonner's CSS: a stylesheet, not injected from JS", () => {
   });
 
   it("the signed-in layout imports it", () => {
-    const layout = readFileSync(path.join(process.cwd(), "src/app/(app)/layout.tsx"), "utf8");
+    const layout = readFileSync(
+      path.join(process.cwd(), "src/app/(main)/(app)/layout.tsx"),
+      "utf8",
+    );
     expect(layout).toContain('import "sonner/dist/styles.css";');
   });
 });

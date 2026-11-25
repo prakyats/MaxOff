@@ -11,7 +11,7 @@ import { contrastRgb, hexToRgb, over, readTokens } from "./tint-contrast";
  * card). The opaque tone chips (`--x` on `--x-soft`) are `status-badge.test.ts`.
  */
 const css = readFileSync(
-  fileURLToPath(new URL("../../../app/globals.css", import.meta.url)),
+  fileURLToPath(new URL("../../../app/(main)/globals.css", import.meta.url)),
   "utf8",
 );
 const light = readTokens(css, ":root");

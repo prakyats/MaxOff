@@ -33,8 +33,8 @@ function linksOf(guide: Guide): string[] {
   return guide.sections.flatMap((s) => s.topics.flatMap((t) => (t.link ? [t.link.href] : [])));
 }
 
-/** The routes that exist under `src/app/(app)` (route groups folded away). */
-const APP = path.join(process.cwd(), "src/app/(app)");
+/** The routes that exist under `src/app/(main)/(app)` (route groups folded away). */
+const APP = path.join(process.cwd(), "src/app/(main)/(app)");
 function routeExists(href: string): boolean {
   const pathname = new URL(href, "http://x").pathname;
   const parts = pathname.split("/").filter(Boolean);

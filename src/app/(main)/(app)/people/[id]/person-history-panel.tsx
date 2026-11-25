@@ -14,7 +14,7 @@ import { describeError } from "@/core/ui/toast";
 
 import { ClientHistorySkeleton } from "../../clients/[id]/client-history-panel";
 
-import type { PersonHistoryData } from "../../../api/people/history/read";
+import type { PersonHistoryData } from "../../../../api/people/history/read";
 
 const HISTORY_URL = "/api/people/history";
 

@@ -24,8 +24,8 @@ const manifest = JSON.parse(readFileSync(path.join(publicDir, "manifest.webmanif
 };
 const sw = readFileSync(path.join(publicDir, "sw.js"), "utf8");
 const headers = readFileSync(path.join(publicDir, "_headers"), "utf8");
-const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
-const layout = readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
+const css = readFileSync(path.join(root, "src/app/(main)/globals.css"), "utf8");
+const layout = readFileSync(path.join(root, "src/app/(main)/layout.tsx"), "utf8");
 
 /** Width and height from a PNG's IHDR chunk. */
 function pngSize(file: string): { width: number; height: number } {
@@ -116,7 +116,7 @@ describe("theme-color", () => {
 describe("sw.js", () => {
   it("precaches the offline page and the page exists", () => {
     expect(sw).toMatch(/OFFLINE_URL = "\/offline"/);
-    expect(existsSync(path.join(root, "src/app/offline/page.tsx"))).toBe(true);
+    expect(existsSync(path.join(root, "src/app/(main)/offline/page.tsx"))).toBe(true);
   });
 
   it("tries a failed navigation once more before the offline page", () => {
