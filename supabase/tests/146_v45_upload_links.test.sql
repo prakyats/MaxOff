@@ -15,7 +15,7 @@
 -- Neutral names and documentation addresses only (example.com, 198.51.100.0/24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(356);
+select plan(369);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -270,7 +270,7 @@ select is((select count(*) from unnest(array[
     'public.upload_file_done(uuid, text, bigint, text, text, text)', 'public.upload_said_done(bytea, bytea)',
     'public.upload_watch_due(timestamptz)', 'public.upload_record_offset(uuid, bigint, timestamptz)',
     'public.upload_signals(timestamptz)', 'public.upload_daily_limit_hit(uuid, timestamptz)',
-    'public.upload_rate_hit(text, bytea, timestamptz)', 'public.upload_drive_check_claim(uuid[], timestamptz)',
+    'public.upload_rate_hit(text, bytea, timestamptz)', 'public.upload_drive_check_claim(uuid, uuid[], timestamptz)',
     'public.upload_drive_check_daily(timestamptz, integer)', 'public.upload_drive_seen(uuid, text, timestamptz)']) f
   where has_function_privilege('service_role', f, 'execute') and not has_function_privilege('anon', f, 'execute')
     and not has_function_privilege('authenticated', f, 'execute')),
@@ -631,6 +631,8 @@ select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-1'), pg
   'VALIDATION', 'a folder name of 121 characters: VALIDATION');
 select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'a.mp4', '', -1, null, null, null) $$),
   'VALIDATION', 'a negative size: VALIDATION');
+select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'a.mp4', '', 5000000000001, null, null, null) $$),
+  'VALIDATION', 'a declared size over 5 TB: VALIDATION');
 insert into r select 'f1', public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), E'clip\u202e1/.mp4',
   '/Day 1//Cam A/', 1000000000, 'video/mp4', '198.51.100.7', 'Mozilla/5.0 (iPhone)');
 insert into fx select 'f1', (v ->> 'file_id')::uuid from r where key = 'f1';
@@ -726,6 +728,9 @@ select is(public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'cl
   jsonb_build_object('result', 'already_sent'), 'the same file from the same uploader: already sent (plan B4)');
 select is(public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-jo'), 'clip1.mp4', 'Day 1/Cam A', 1000000000, null, null, null) ->> 'result',
   'start', 'another uploader''s identical file is not "already sent" (no probing)');
+select is(pg_temp.code(format('select public.upload_file_done(%L, %L, 1000000000, null, null, null)',
+  (select id from public.upload_files where uploader_id = pg_temp.fx('u_jo') and name = 'clip1.mp4'), 'drive-jo-clip')),
+  'INVALID_STATE', 'a file that never got a session (no parent) cannot be received');
 select ok((public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-sam')) -> 'uploader' -> 'files') @> '[{"name": "clip1.mp4", "state": "done"}]'::jsonb
           and jsonb_array_length(public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-sam')) -> 'uploader' -> 'files') = 1,
   'welcome back: Sam''s device sees its own file only (Q4)');
@@ -819,6 +824,7 @@ select is(public.upload_resolve(pg_temp.h('tok-1'), null) ->> 'can_start', 'paus
 select ok(public.upload_daily_limit_hit(pg_temp.fx('l1'), now()) <= now() + interval '1 hour',
   'a second refusal the same IST day: an hour');
 select is((pg_temp.link('l1')).pause_step, 2::smallint, 'pause step 2');
+select is(pg_temp.entries('upload_links', 'paused', pg_temp.fx('l1')), 2::bigint, 'each pause is a history row');
 select pg_temp.as_system();
 select is(pg_temp.notes('owner', 'upload_daily_limit') + pg_temp.notes('adm_c', 'upload_daily_limit') + pg_temp.notes('adm_a', 'upload_daily_limit'),
   3::bigint, 'the Owner and the task''s Admins are told once per link per IST day');
@@ -847,15 +853,38 @@ select is((select title || ' | ' || body from public.notifications where recipie
 select pg_temp.as_service();
 select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-sam'));
 select pg_temp.as_system();
-select is(pg_temp.notes('adm_a', 'upload_said_done'), 2::bigint, 'told each time it is tapped');
-select is(pg_temp.entries('upload_uploaders', 'said_done', pg_temp.fx('u_sam')), 2::bigint, 'each is a history row');
+select is(pg_temp.notes('adm_a', 'upload_said_done'), 1::bigint, 'a second tap straight away tells nobody');
+select is(pg_temp.entries('upload_uploaders', 'said_done', pg_temp.fx('u_sam')), 1::bigint, 'and writes no history');
+-- No file received since the last "I'm done": refused even after 10 minutes.
+update public.upload_files set done_at = now() - interval '12 minutes' where uploader_id = pg_temp.fx('u_sam');
+update public.upload_uploaders set said_done_at = now() - interval '11 minutes' where id = pg_temp.fx('u_sam');
+select pg_temp.as_service();
+select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-sam'));
+select pg_temp.as_system();
+select ok(pg_temp.notes('adm_a', 'upload_said_done') = 1 and (pg_temp.uploader('u_sam')).said_done_at = now() - interval '11 minutes',
+  'no file received since the last I''m done: nothing written, nobody told');
+-- A new file, but within 10 minutes of the last one: refused.
+update public.upload_uploaders set said_done_at = now() - interval '5 minutes' where id = pg_temp.fx('u_sam');
+select pg_temp.as_service();
+insert into fx select 'f_extra', pg_temp.start('tok-1', 'dev-sam', 'extra.jpg', '', 3000000, 'sealed-extra');
+select public.upload_file_done(pg_temp.fx('f_extra'), 'drive-extra', 3000000, null, 'parent-146', null);
+select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-sam'));
+select pg_temp.as_system();
+select is(pg_temp.notes('adm_a', 'upload_said_done'), 1::bigint, 'a new file but within 10 minutes of the last I''m done: nobody told');
+-- A new file and more than 10 minutes: told again.
+update public.upload_uploaders set said_done_at = now() - interval '11 minutes' where id = pg_temp.fx('u_sam');
+select pg_temp.as_service();
+select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-sam'));
+select pg_temp.as_system();
+select is(pg_temp.notes('adm_a', 'upload_said_done'), 2::bigint, 'a file received since, and 10 minutes on: told again');
+select is(pg_temp.entries('upload_uploaders', 'said_done', pg_temp.fx('u_sam')), 2::bigint, 'each counted one is a history row');
 create temporary table sam_done as select said_done_at from public.upload_uploaders where id = pg_temp.fx('u_sam');
 select pg_temp.as_service();
 select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-jo'));
 select pg_temp.as_system();
-select ok((pg_temp.uploader('u_jo')).said_done_at is not null
+select ok((pg_temp.uploader('u_jo')).said_done_at is null
           and (pg_temp.uploader('u_sam')).said_done_at = (select said_done_at from sam_done),
-  'I''m done from another device on the link marks only that device''s uploader');
+  'I''m done from another device on the link never touches Sam (and Jo, with nothing received yet, is not counted)');
 select pg_temp.as_service();
 select is(pg_temp.code($$ select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-unknown')) $$), 'NOT_FOUND',
   'an unknown device: NOT_FOUND');
@@ -938,6 +967,24 @@ select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_t
 select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-jo'), 'new.mov', '', 1, null, null, null) $$),
   'NOT_FOUND', 'no new file starts');
 select is(pg_temp.code($$ select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-sam')) $$), 'NOT_FOUND', 'I''m done is refused');
+-- The space guard counts only files really on their way, on live links (advisor review): Rin's 5 GB
+-- moving on t10's link counts; the 6 GB and 12 GB still uploading on t1's stopped link do not.
+select pg_temp.as_system();
+update public.drive_account set quota_used_bytes = quota_total_bytes - 20000000000 where org_id = pg_temp.fx('org');
+select pg_temp.as_service();
+select is(public.upload_file_start(pg_temp.h('tok-11'), pg_temp.h('dev-11'), 'nine.mov', '', 9000000000, null, null, null) ->> 'result',
+  'held', 'a file moving on a live link counts against the space (20 - 10 - 5 < 9)');
+select is(public.upload_file_start(pg_temp.h('tok-11'), pg_temp.h('dev-11'), 'four.mov', '', 4000000000, null, null, null) ->> 'result',
+  'start', 'files uploading on a stopped link do not count (20 - 10 - 5 >= 4; with them it would be held)');
+select pg_temp.as_system();
+update public.upload_files set last_moved_at = now() - interval '20 minutes' where id = pg_temp.fx('f_rin');
+select pg_temp.as_service();
+select is(public.upload_file_start(pg_temp.h('tok-11'), pg_temp.h('dev-11'), 'six.mov', '', 6000000000, null, null, null) ->> 'result',
+  'start', 'a stalled file (no bytes for 15 minutes) no longer holds another link''s start (20 - 10 - 4 >= 6; with it, held)');
+select pg_temp.as_system();
+update public.upload_files set last_moved_at = now() where id = pg_temp.fx('f_rin');
+update public.upload_files set state = 'failed', failed_reason = 'gave_up' where uploader_id = pg_temp.fx('u_11');
+update public.drive_account set quota_used_bytes = 1000000000000 where org_id = pg_temp.fx('org');
 select pg_temp.as_system();
 set local session_replication_role = replica; -- keep the backdated updated_at (no set_updated_at)
 update public.upload_files set updated_at = now() - interval '10 seconds' where id = pg_temp.fx('f3');
@@ -1090,11 +1137,13 @@ select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-12'), p
 -- 11. "Removed in Drive" (Q7): the claim, the daily pass, the answer
 -- =====================================================================================================
 select pg_temp.as_service();
-select is((select array_agg(c.file_id order by c.file_id) from public.upload_drive_check_claim(array[pg_temp.fx('f1'), pg_temp.fx('f_rin')], now()) c),
+select is((select array_agg(c.file_id order by c.file_id) from public.upload_drive_check_claim(pg_temp.fx('u_sam'), array[pg_temp.fx('f1'), pg_temp.fx('f_rin')], now()) c),
   array[pg_temp.fx('f1')], 'the sheet''s claim returns its received files only');
-select is((select count(*) from public.upload_drive_check_claim(array[pg_temp.fx('f1')], now() + interval '5 minutes')), 0::bigint,
+select is((select count(*) from public.upload_drive_check_claim(pg_temp.fx('u_sam'), array[pg_temp.fx('f1')], now() + interval '5 minutes')), 0::bigint,
   'a second claim within 10 minutes reads Drive no more');
-select is((select count(*) from public.upload_drive_check_claim(array[pg_temp.fx('f1')], now() + interval '11 minutes')), 1::bigint,
+select is((select count(*) from public.upload_drive_check_claim(pg_temp.fx('u_jo'), array[pg_temp.fx('f1')], now() + interval '11 minutes')), 0::bigint,
+  'the claim is scoped to the uploader whose sheet is open: another uploader''s file is not taken');
+select is((select count(*) from public.upload_drive_check_claim(pg_temp.fx('u_sam'), array[pg_temp.fx('f1')], now() + interval '11 minutes')), 1::bigint,
   'after 10 minutes it may');
 select ok(exists (select 1 from public.upload_drive_check_daily(now() + interval '30 minutes', 500) d where d.file_id = pg_temp.fx('f2')),
   'the daily pass takes the received files of active links');
@@ -1125,7 +1174,7 @@ select ok((pg_temp.file('f1')).missing_seen_at is not null, 'missing_seen_at kep
 select is(pg_temp.entries('upload_files', 'back_in_drive', pg_temp.fx('f1')), 1::bigint, 'history: back_in_drive');
 update public.drive_account set google_sub = 'sub-other' where org_id = pg_temp.fx('org');
 select pg_temp.as_service();
-select is((select count(*) from public.upload_drive_check_claim(array[pg_temp.fx('f1'), pg_temp.fx('f3')], now() + interval '2 hours')), 0::bigint,
+select is((select count(*) from public.upload_drive_check_claim(pg_temp.fx('u_sam'), array[pg_temp.fx('f1'), pg_temp.fx('f3')], now() + interval '2 hours')), 0::bigint,
   'after an account switch the old account''s files are not checked');
 select pg_temp.as_system();
 update public.drive_account set google_sub = 'sub-146' where org_id = pg_temp.fx('org');
@@ -1156,7 +1205,7 @@ select ok((select ip is null and user_agent is null and device_label is null and
 select is((select count(*) from public.upload_files where uploader_id = pg_temp.fx('u_sam') and (ip is not null or user_agent is not null)),
   0::bigint, 'and their files''');
 select ok((select name = 'Sam' from public.upload_uploaders where id = pg_temp.fx('u_sam'))
-          and (select count(*) from public.upload_files where uploader_id = pg_temp.fx('u_sam')) = 2,
+          and (select count(*) from public.upload_files where uploader_id = pg_temp.fx('u_sam')) = 3,
   'the name and the files stay (the studio''s record)');
 select is((select meta from public.activity_log where entity = 'upload_uploaders' and entity_id = pg_temp.fx('u_sam') and action = 'network_erased'),
   jsonb_build_object('task_id', pg_temp.fx('t1'), 'uploader_id', pg_temp.fx('u_sam')), 'history: network_erased, no values');
@@ -1203,6 +1252,10 @@ select is(pg_temp.entries('upload_files', 'failed', pg_temp.fx('f_rin')) + pg_te
   0::bigint, 'no history row, as a browser''s gave_up');
 select is((select count(*) from public.notifications), (select n from notes_before), 'nobody is told');
 select is((app.upload_housekeeping(now()) ->> 'gave_up')::integer, 0, 'idempotent: a second run marks nothing more');
+select is((select count(*) from public.activity_log where entity = 'upload_housekeeping' and action = 'ran'
+           and entity_id = pg_temp.fx('org')), 1::bigint, 'the run that changed something wrote one summary row; the idle one none');
+select ok((select meta ?& array['uploaders', 'device_keys', 'files', 'gave_up', 'sessions'] and (meta ->> 'gave_up')::integer = 2
+           from public.activity_log where entity = 'upload_housekeeping' and action = 'ran'), 'counts only');
 select is((select count(*) from public.upload_rate_hits where key_hash = pg_temp.h('net-old')), 0::bigint, 'counters older than a day are removed');
 select ok((select count(*) from cron.job where jobname = 'upload_housekeeping' and schedule = '50 21 * * *') = 1,
   'scheduled daily at 03:20 IST');

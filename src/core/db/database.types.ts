@@ -6642,7 +6642,7 @@ export type Database = {
         Returns: string;
       };
       upload_drive_check_claim: {
-        Args: { p_file_ids: string[]; p_now: string };
+        Args: { p_file_ids: string[]; p_now: string; p_uploader_id: string };
         Returns: {
           drive_file_id: string;
           file_id: string;

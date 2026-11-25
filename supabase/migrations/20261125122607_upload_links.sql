@@ -586,7 +586,7 @@ create policy activity_log_select_uploads on public.activity_log
   for select to authenticated
   using (org_id = (select m.org_id from app.current_member() m)
          and case when entity in ('upload_links', 'upload_uploaders', 'upload_files')
-                  then app.upload_manager((meta ->> 'task_id')::uuid)
+                  then app.has_permission('uploads.manage') and app.upload_manager((meta ->> 'task_id')::uuid)
                   else false end);
 
 -- 6. The member functions --------------------------------------------------------------------------

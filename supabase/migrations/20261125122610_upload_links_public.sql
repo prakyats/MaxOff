@@ -321,8 +321,8 @@ begin
     perform app.fail('VALIDATION', 'A file name needs 1 to 255 characters.');
   end if;
   v_path := app.upload_clean_path(p_relative_path);
-  if p_size_bytes is null or p_size_bytes < 0 then
-    perform app.fail('VALIDATION', 'A file''s size is 0 bytes or more.');
+  if p_size_bytes is null or p_size_bytes < 0 or p_size_bytes > 5000000000000 then
+    perform app.fail('VALIDATION', 'A file''s size is 0 bytes to 5 TB.');
   end if;
   -- The per-link limits are counted under the link's lock, and the link is alive again under it (S1):
   -- a stop, Done or Cancel that committed while this call waited answers NOT_FOUND.
@@ -381,10 +381,16 @@ begin
     -- The space guard (Q11, plan C8): free space (rounded down to 10 GB) less a 10 GB reserve and the
     -- bytes still to come on open sessions. With no quota reading yet, nothing is held.
     if v_drive.quota_total_bytes is not null and v_drive.quota_used_bytes is not null then
+      -- Only files that are really on their way: moved (or started) in the last 15 minutes, on a live
+      -- link. A stalled file, or one on a stopped link, never holds anyone else's start (one declared
+      -- giant that stalls cannot freeze the organisation's uploads).
       select coalesce(sum(greatest(f.size_bytes - f.bytes_at_google, 0)), 0) into v_to_come
       from public.upload_files f
+      join public.upload_links l on l.id = f.link_id and l.stopped_at is null
+      join public.tasks t on t.id = l.task_id and t.state in ('todo', 'in_progress', 'changes_requested')
+                         and t.archived_at is null
       where f.org_id = v_link.org_id and f.state = 'uploading' and f.id is distinct from v_file.id
-        and (f.session_uri_encrypted is not null or f.updated_at > now() - interval '10 minutes');
+        and coalesce(f.last_moved_at, f.session_opened_at, f.updated_at) > now() - interval '15 minutes';
       -- S7: the free space counts in whole 10 GB steps, so a held answer tells the uploader at most,
       -- coarsely, whether there is room (an accepted leftover risk, plan §8).
       if p_size_bytes > floor((v_drive.quota_total_bytes - v_drive.quota_used_bytes)::numeric / 10000000000) * 10000000000
@@ -471,7 +477,8 @@ comment on function public.upload_file_start(bytea, bytea, text, text, bigint, t
   'cleaned (VALIDATION). Answers {result: already_sent} (this uploader''s own done file, same path, name '
   'and size); {result: wait, seconds, reason: drive_unavailable | daily_limit | busy (6 uploading) | '
   'too_many (600 an hour, 5,000 a day per link)}; {result: held, file_id} when it would not fit in the '
-  'free space (rounded down to 10 GB) less 10 GB and the bytes still to come (the Owner told once per link per IST day, '
+  'free space (rounded down to 10 GB) less 10 GB and the bytes still to come on live links '
+  '(files moved in the last 15 minutes) (the Owner told once per link per IST day, '
   'upload_space_held); or {result: start, file_id, name, size_bytes, mime_hint, session_uri_encrypted '
   '(the existing session on a retry, else null), account_sub, task_id, task_title, client_id, '
   'task_folder_id, uploader_id, folders: [{relative_path, name, drive_folder_id}]}. A held or failed '
@@ -704,7 +711,9 @@ begin
   -- An uploading file may finish after a stop (Q8); a failed one only while it still has its session
   -- and the link is not stopped; a held one never started.
   if not (v_file.state = 'uploading'
-          or (v_file.state = 'failed' and v_file.session_uri_encrypted is not null and v_link.stopped_at is null)) then
+          or (v_file.state = 'failed' and v_file.session_uri_encrypted is not null and v_link.stopped_at is null))
+     or v_file.drive_parent_id is null then
+    -- No parent means no session was ever recorded: there is no folder to check the answer against.
     perform app.fail('INVALID_STATE', 'This file is not on its way to Google.');
   end if;
   if exists (select 1 from public.upload_files f where f.drive_file_id = btrim(p_drive_file_id) and f.id <> v_file.id) then
@@ -770,17 +779,27 @@ declare
   v_bytes bigint;
 begin
   v_link := app.upload_public_link(p_token_hash, true);
-  if v_link.id is not null and p_device_key_hash is not null then
-    select u.* into v_up from public.upload_uploaders u
-    where u.link_id = v_link.id and u.device_key_hash = p_device_key_hash for update;
-  end if;
-  if v_up.id is null then
+  if v_link.id is null or p_device_key_hash is null then
     perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
   end if;
-  -- Alive again under the link's lock (S1).
+  -- The link first, then the uploader (register's order), and alive again under the lock (S1).
   perform 1 from public.upload_links l where l.id = v_link.id for update;
   if (app.upload_public_link(p_token_hash, true)).id is null then
     perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
+  end if;
+  select u.* into v_up from public.upload_uploaders u
+  where u.link_id = v_link.id and u.device_key_hash = p_device_key_hash for update;
+  if v_up.id is null then
+    perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
+  end if;
+  -- Bounded (advisor review): a new "I'm done" counts only when a file was received since the
+  -- uploader's last one, and at most once per uploader per 10 minutes. Otherwise nothing is written
+  -- and nobody is told (the page still shows its thanks).
+  if (v_up.said_done_at is not null and v_up.said_done_at > now() - interval '10 minutes')
+     or not exists (select 1 from public.upload_files f
+                    where f.uploader_id = v_up.id and f.state in ('done', 'missing_in_drive')
+                      and f.done_at > coalesce(v_up.said_done_at, '-infinity'::timestamptz)) then
+    return;
   end if;
   select t.* into v_task from public.tasks t where t.id = v_link.task_id;
   update public.upload_uploaders set said_done_at = now(), last_activity_at = now() where id = v_up.id;
@@ -797,9 +816,10 @@ begin
 end;
 $$;
 comment on function public.upload_said_done(bytea, bytea) is
-  'v4.5, service_role only: the uploader tapped "I''m done" on an alive link (NOT_FOUND otherwise): '
-  'said_done_at = now, history ''said_done'', the task''s Admins told (upload_said_done). Allowed again '
-  'later (Send more files, then I''m done again).';
+  'v4.5, service_role only: the uploader tapped "I''m done" on an alive link (NOT_FOUND otherwise). '
+  'Counts only when a file was received since the uploader''s last "I''m done" and not within 10 '
+  'minutes of it: said_done_at = now, history ''said_done'', the task''s Admins told (upload_said_done). '
+  'Otherwise nothing is written. Locks the link, then the uploader.';
 revoke all on function public.upload_said_done(bytea, bytea) from public, anon, authenticated;
 grant execute on function public.upload_said_done(bytea, bytea) to service_role;
 
@@ -981,6 +1001,9 @@ begin
   update public.upload_links
   set paused_until = v_until, pause_step = least(v_step + 1, 2), paused_day = v_day
   where id = v_link.id;
+  insert into public.activity_log (org_id, actor_id, entity, entity_id, action, diff, meta)
+  values (v_link.org_id, null, 'upload_links', v_link.id, 'paused', '{}'::jsonb,
+    jsonb_build_object('task_id', v_link.task_id, 'paused_until', v_until, 'pause_step', least(v_step + 1, 2)));
   insert into public.upload_alerts (org_id, link_id, kind, answers, sent_at)
   values (v_link.org_id, v_link.id, 'daily_limit', v_day::text, p_at)
   on conflict do nothing returning id into v_alert;
@@ -998,7 +1021,8 @@ comment on function public.upload_daily_limit_hit(uuid, timestamptz) is
   'v4.5 (WORKFLOWS §5B.6, Q10), service_role only: Google refused a new session for its daily limit. '
   'The link pauses new files for 15 minutes, then an hour at a time on each further refusal the same '
   'IST day (pause_step, paused_day), never past the IST midnight; the Owner and the task''s Admins are '
-  'told once per link per IST day (upload_daily_limit). Nothing resumes by a job. Returns paused_until.';
+  'told once per link per IST day (upload_daily_limit). Each pause is a history row ''paused'' '
+  '(paused_until, pause_step). Nothing resumes by a job. Returns paused_until.';
 revoke all on function public.upload_daily_limit_hit(uuid, timestamptz) from public, anon, authenticated;
 grant execute on function public.upload_daily_limit_hit(uuid, timestamptz) to service_role;
 
@@ -1045,7 +1069,7 @@ revoke all on function public.upload_rate_hit(text, bytea, timestamptz) from pub
 grant execute on function public.upload_rate_hit(text, bytea, timestamptz) to service_role;
 
 -- 5. "Removed in Drive" (Q7; DATA-MODEL §8a): a metadata read, never a delete -------------------------
-create function public.upload_drive_check_claim(p_file_ids uuid[], p_now timestamptz)
+create function public.upload_drive_check_claim(p_uploader_id uuid, p_file_ids uuid[], p_now timestamptz)
 returns table (file_id uuid, drive_file_id text)
 language plpgsql
 security definer
@@ -1056,19 +1080,19 @@ begin
   return query
   update public.upload_files f set drive_checked_at = p_now
   from public.drive_account a
-  where f.id = any (p_file_ids) and f.state = 'done'
+  where f.uploader_id = p_uploader_id and f.id = any (p_file_ids) and f.state = 'done'
     and a.org_id = f.org_id and a.state = 'connected' and f.account_sub = a.google_sub
     and (f.drive_checked_at is null or f.drive_checked_at <= p_now - interval '10 minutes')
   returning f.id, f.drive_file_id;
 end;
 $$;
-comment on function public.upload_drive_check_claim(uuid[], timestamptz) is
-  'v4.5 (Q7, plan F6), service_role only: of the files on the sheet an Admin has open (after the server '
-  'action passed upload_uploader_files'' check), the received ones on the connected account not checked '
+comment on function public.upload_drive_check_claim(uuid, uuid[], timestamptz) is
+  'v4.5 (Q7, plan F6), service_role only: of the files on the sheet an Admin has open (that uploader''s, '
+  'after the server action passed upload_uploader_files'' check for p_uploader_id), the received ones on the connected account not checked '
   'in the last 10 minutes; stamps drive_checked_at = p_now in the same statement, so two Admins opening '
   'one sheet read Drive once.';
-revoke all on function public.upload_drive_check_claim(uuid[], timestamptz) from public, anon, authenticated;
-grant execute on function public.upload_drive_check_claim(uuid[], timestamptz) to service_role;
+revoke all on function public.upload_drive_check_claim(uuid, uuid[], timestamptz) from public, anon, authenticated;
+grant execute on function public.upload_drive_check_claim(uuid, uuid[], timestamptz) to service_role;
 
 create function public.upload_drive_check_daily(p_now timestamptz, p_limit integer default 200)
 returns table (file_id uuid, drive_file_id text, state text)
@@ -1164,39 +1188,60 @@ declare
   -- A row made on an IST day 90 or more days before today: made before the start of (today - 89) IST.
   -- Compared as instants, so the indexes on created_at are used.
   v_before timestamptz := ((app.to_ist_date(p_now) - 90) + 1)::timestamp at time zone 'Asia/Kolkata';
-  v_uploaders integer;
-  v_keys integer;
-  v_files integer;
-  v_gave_up integer;
-  v_sessions integer;
+  v_org uuid;
+  n_uploaders integer;
+  n_keys integer;
+  n_files integer;
+  n_gave_up integer;
+  n_sessions integer;
+  v_uploaders integer := 0;
+  v_keys integer := 0;
+  v_files integer := 0;
+  v_gave_up integer := 0;
+  v_sessions integer := 0;
   v_hits integer;
 begin
-  -- Q12, plan I3: network details of rows made 90 or more IST days ago. Names, files and every history
-  -- row stay (no IP is ever in activity_log).
-  update public.upload_uploaders u
-  set ip = null, user_agent = null, device_label = null, network_erased_at = coalesce(u.network_erased_at, p_now)
-  where u.created_at < v_before
-    and (u.ip is not null or u.user_agent is not null or u.device_label is not null or u.network_erased_at is null);
-  get diagnostics v_uploaders = row_count;
-  update public.upload_uploaders u
-  set device_key_hash = null, network_erased_at = coalesce(u.network_erased_at, p_now)
-  where u.device_key_hash is not null and u.last_activity_at < v_before and u.created_at < v_before;
-  get diagnostics v_keys = row_count;
-  update public.upload_files f set ip = null, user_agent = null
-  where f.created_at < v_before and (f.ip is not null or f.user_agent is not null);
-  get diagnostics v_files = row_count;
-  -- S5b (advisor 25 Nov): Google's sessions last about a week. A file still uploading on a session older
-  -- than 8 days, or that never got a session in 8 days, will not finish: failed, gave_up, as when the
-  -- browser gives up (no history row, nobody told). A later start of the same file reuses the row.
-  update public.upload_files f set state = 'failed', failed_reason = 'gave_up'
-  where f.state = 'uploading'
-    and ((f.session_uri_encrypted is not null and f.session_opened_at < p_now - interval '8 days')
-         or (f.session_uri_encrypted is null and f.updated_at < p_now - interval '8 days'));
-  get diagnostics v_gave_up = row_count;
-  -- An address older than 8 days is of no use.
-  update public.upload_files f set session_uri_encrypted = null
-  where f.session_uri_encrypted is not null and f.session_opened_at < p_now - interval '8 days';
-  get diagnostics v_sessions = row_count;
+  -- One organisation at a time, so each gets its own summary row (counts only).
+  for v_org in select distinct l.org_id from public.upload_links l loop
+    -- Q12, plan I3: network details of rows made 90 or more IST days ago. Names, files and every
+    -- history row stay (no IP is ever in activity_log).
+    update public.upload_uploaders u
+    set ip = null, user_agent = null, device_label = null, network_erased_at = coalesce(u.network_erased_at, p_now)
+    where u.org_id = v_org and u.created_at < v_before
+      and (u.ip is not null or u.user_agent is not null or u.device_label is not null or u.network_erased_at is null);
+    get diagnostics n_uploaders = row_count;
+    update public.upload_uploaders u
+    set device_key_hash = null, network_erased_at = coalesce(u.network_erased_at, p_now)
+    where u.org_id = v_org and u.device_key_hash is not null and u.last_activity_at < v_before
+      and u.created_at < v_before;
+    get diagnostics n_keys = row_count;
+    update public.upload_files f set ip = null, user_agent = null
+    where f.org_id = v_org and f.created_at < v_before and (f.ip is not null or f.user_agent is not null);
+    get diagnostics n_files = row_count;
+    -- S5b (advisor 25 Nov): Google's sessions last about a week. A file still uploading on a session
+    -- older than 8 days, or that never got a session in 8 days, will not finish: failed, gave_up, as
+    -- when the browser gives up (no per-file history row, nobody told). A later start reuses the row.
+    update public.upload_files f set state = 'failed', failed_reason = 'gave_up'
+    where f.org_id = v_org and f.state = 'uploading'
+      and ((f.session_uri_encrypted is not null and f.session_opened_at < p_now - interval '8 days')
+           or (f.session_uri_encrypted is null and f.updated_at < p_now - interval '8 days'));
+    get diagnostics n_gave_up = row_count;
+    -- An address older than 8 days is of no use.
+    update public.upload_files f set session_uri_encrypted = null
+    where f.org_id = v_org and f.session_uri_encrypted is not null and f.session_opened_at < p_now - interval '8 days';
+    get diagnostics n_sessions = row_count;
+    if n_uploaders + n_keys + n_files + n_gave_up + n_sessions > 0 then
+      insert into public.activity_log (org_id, actor_id, entity, entity_id, action, diff, meta)
+      values (v_org, null, 'upload_housekeeping', v_org, 'ran', '{}'::jsonb,
+        jsonb_build_object('uploaders', n_uploaders, 'device_keys', n_keys, 'files', n_files,
+                           'gave_up', n_gave_up, 'sessions', n_sessions));
+    end if;
+    v_uploaders := v_uploaders + n_uploaders;
+    v_keys := v_keys + n_keys;
+    v_files := v_files + n_files;
+    v_gave_up := v_gave_up + n_gave_up;
+    v_sessions := v_sessions + n_sessions;
+  end loop;
   -- Bookkeeping, not history (as cron_history_trim).
   delete from public.upload_rate_hits h where h.window_start < p_now - interval '1 day';
   get diagnostics v_hits = row_count;
@@ -1209,8 +1254,9 @@ comment on function app.upload_housekeeping(timestamptz) is
   'user_agent and device_label of uploaders and files made 90 or more IST days before p_now, and the '
   'device_key_hash of uploaders whose last activity is that old too, setting network_erased_at; marks a '
   'file still uploading on a session older than 8 days (or with no session for 8 days) failed, gave_up, '
-  'with no history row or notice (S5b); clears session addresses older than 8 days; removes '
-  'upload_rate_hits rows older than a day. Idempotent. Names, files and history stay. Returns the counts.';
+  'with no per-file history row or notice (S5b); clears session addresses older than 8 days; removes '
+  'upload_rate_hits rows older than a day. Per organisation that changed, one summary history row '
+  '(entity upload_housekeeping, action ran, counts only; the Owner reads it). Idempotent. Returns the counts.';
 revoke all on function app.upload_housekeeping(timestamptz) from public, anon, authenticated;
 grant execute on function app.upload_housekeeping(timestamptz) to service_role;
 
