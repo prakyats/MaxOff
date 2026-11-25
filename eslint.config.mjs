@@ -54,6 +54,9 @@ const MONEY_NAMES = [
   "billing_mark",
   "revenue_override_set",
   "revenue_override_clear",
+  // v2.5: the Billing history and the Today line's totals
+  "project_billing_history",
+  "revenue_month_totals",
   // the views' own functions and the over-amount check (schema app; migration money_reads_scoped)
   "item_values",
   "revenue_cycles",

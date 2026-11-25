@@ -612,7 +612,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 ## 9. Who gets notified
 | Event | Recipients |
 |---|---|
-| **Planned for v2.5 (kickoff 9 Q3, owner 2026-11-14; not built in v2.1):** a deliverable is added to a recurring cycle that has an amount, so it is "Not priced yet" | The Owner only (`finance.view`); in-app and push, never email; the text names the project and the deliverable and **never an amount**; nothing to an Admin or Crew. A new notification kind, added with its transition in v2.5 |
+| **v2.5 (kickoff 9 Q3, owner 2026-11-14; migration `revenue_every_day`, pgTAP 148):** a deliverable is **added** (not in the plan) to a **retainer** cycle whose amount is more than ₹0, so it is "Not priced" | **The Owner only**, kind `deliverable_not_priced` (in-app and push, never email, not actionable): "‹project›: a deliverable isn't priced" / ""‹title›" was added to ‹cycle›. Set its price in Billing.", opening the project's Billing section for that cycle. **Never an amount** in the title, body, payload or link. Not when the Owner added it himself, not for a cycle with no amount or "Not billable" (₹0), not for a cycle's own list (the plan), not for a one-time project (no extras). Raised by the plan-or-added trigger (`app.item_billing_mark_added`). Nothing to an Admin or Crew |
 | Task assigned / assignee added | Each new assignee (**a freelancer's notifications go to their current coordinator**, worded for them: "Asha's task …"; this applies to every row below that names an assignee, ADR-0013) |
 | Acknowledgement missing (repeat) | That assignee |
 | Acknowledgement escalation | Level 1 (`ack_escalate_hours`): approving Admin (or creator). Level 2 (`ack_escalate_owner_hours`): Owner. Never about the Owner as an assignee (6b.2) |

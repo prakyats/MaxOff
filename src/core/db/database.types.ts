@@ -5962,6 +5962,10 @@ export type Database = {
           meta: Json;
         }[];
       };
+      project_billing_history: {
+        Args: { limit_count?: number; project_id: string };
+        Returns: Json;
+      };
       project_billing_read: {
         Args: { cycle_id?: string; project_id: string };
         Returns: Json;
@@ -6173,6 +6177,7 @@ export type Database = {
         }[];
       };
       revenue_month_read: { Args: { month?: string }; Returns: Json };
+      revenue_month_totals: { Args: never; Returns: Json };
       revenue_override_clear: {
         Args: { note: string; ref_id: string; scope: string };
         Returns: boolean;
