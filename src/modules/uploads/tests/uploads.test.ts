@@ -57,6 +57,13 @@ describe("the uploader's name", () => {
     expect(cleanUploaderName(" ​ ")).toEqual({ ok: false, reason: "empty" });
     expect(cleanUploaderName("x".repeat(61))).toEqual({ ok: false, reason: "too_long" });
     expect(cleanUploaderName("😀".repeat(60)).ok).toBe(true);
+    // Also stripped: soft hyphen, line / paragraph separators, U+180E, U+034F, variation selectors.
+    expect(cleanUploaderName("S\u00ADa\u2028m\u2029\u180E\u034F\uFE0F")).toEqual({
+      ok: true,
+      name: "Sam",
+    });
+    // Only combining marks: nothing left to match, so empty (not a database error).
+    expect(cleanUploaderName("\u0301\u0301")).toEqual({ ok: false, reason: "empty" });
   });
 
   it("matches an assignee by full or first name, ignoring case and accents", () => {

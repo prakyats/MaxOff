@@ -15,7 +15,7 @@
 -- Neutral names and documentation addresses only (example.com, 198.51.100.0/24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(323);
+select plan(355);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -32,6 +32,8 @@ insert into fx values
   ('crew_k',   '00000000-0000-4000-8000-000000146008'),
   ('free',     '00000000-0000-4000-8000-000000146009'),
   ('free2',    '00000000-0000-4000-8000-000000146010'),
+  ('adm_s',    '00000000-0000-4000-8000-000000146011'),
+  ('adm_p',    '00000000-0000-4000-8000-000000146012'),
   ('client',   '00000000-0000-4000-8000-000000146020'),
   ('org_b',    '00000000-0000-4000-8000-000000146030'),
   ('b_owner',  '00000000-0000-4000-8000-000000146031'),
@@ -188,13 +190,14 @@ grant execute on all functions in schema pg_temp to authenticated, service_role,
 -- Fixtures: org A's people, a client, the tasks; org B with its Owner, a task and a link. ---------------
 insert into auth.users (id, email)
 select pg_temp.fx(k), k || '-146@example.com'
-from unnest(array['adm_c', 'adm_a', 'adm_k', 'adm_o', 'adm_x', 'crew', 'crew_out', 'crew_k']) k;
+from unnest(array['adm_c', 'adm_a', 'adm_k', 'adm_o', 'adm_x', 'crew', 'crew_out', 'crew_k', 'adm_s', 'adm_p']) k;
 insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at)
 select pg_temp.fx(k), pg_temp.fx('org'), n, k || '-146@example.com', r::public.member_role, 'active', 'permanent',
        now() - interval '60 days'
 from (values ('adm_c', 'Cora Admin', 'admin'), ('adm_a', 'Abe Approver', 'admin'), ('adm_k', 'Kit Coordinator', 'admin'),
              ('adm_o', 'Ola Clientadmin', 'admin'), ('adm_x', 'Xan Outside', 'admin'), ('crew', 'Jo Rao', 'staff'),
-             ('crew_out', 'Pat Away', 'staff'), ('crew_k', 'Kay Crewcoord', 'staff')) v(k, n, r);
+             ('crew_out', 'Pat Away', 'staff'), ('crew_k', 'Kay Crewcoord', 'staff'),
+             ('adm_s', 'Sid Assignee', 'admin'), ('adm_p', 'Pia Primary', 'admin')) v(k, n, r);
 insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at)
 values (pg_temp.fx('free'), pg_temp.fx('org'), 'Fen Free', null, 'staff', 'active', 'freelance', now() - interval '60 days'),
        (pg_temp.fx('free2'), pg_temp.fx('org'), 'Fay Free', null, 'staff', 'active', 'freelance', now() - interval '60 days');
@@ -203,7 +206,7 @@ insert into public.member_coordinators (member_id, coordinator_id) values
 insert into public.clients (id, org_id, name, state, admin_id, activated_at) values
   (pg_temp.fx('client'), pg_temp.fx('org'), 'Upload client 146', 'active', pg_temp.fx('adm_o'), now());
 
-select pg_temp.mk_task('t1', 'Brand reel 146', 'adm_c', 'adm_a', 'crew', array['crew', 'free', 'free2'], 'client');
+select pg_temp.mk_task('t1', 'Brand reel 146', 'adm_c', 'adm_a', 'crew', array['crew', 'free', 'free2', 'adm_s'], 'client');
 select pg_temp.mk_task('t2', 'Freelance cut 146', 'owner', null, 'free', array['free'], null, interval '-1 day');
 select pg_temp.mk_task('t3', 'Crew coordinated 146', 'adm_c', null, 'free2', array['free2']);
 select pg_temp.mk_task('t4', 'Own task 146', 'adm_a', null, 'adm_a', array['adm_a']);
@@ -212,6 +215,10 @@ select pg_temp.mk_task('t6', 'Done by crew 146', 'adm_c', 'adm_a', 'crew', array
 select pg_temp.mk_task('t7', 'Owner work 146', 'owner', null, 'owner', array['owner']);
 select pg_temp.mk_task('t9', 'Caps 146', 'adm_c', null, 'crew', array['crew']);
 select pg_temp.mk_task('t10', 'Signals 146', 'adm_c', 'adm_a', 'crew', array['crew']);
+select pg_temp.mk_task('t11', 'Admin primary 146', 'owner', null, 'adm_p', array['adm_p']);
+select pg_temp.mk_task('t12', 'Archived 146', 'adm_c', null, 'crew', array['crew']);
+select pg_temp.mk_task('t13', 'Approver cancels 146', 'adm_c', 'adm_a', 'crew', array['crew']);
+select pg_temp.mk_task('t14', 'Owner cancels 146', 'adm_c', null, 'crew', array['crew']);
 
 insert into public.organizations (id, name) values (pg_temp.fx('org_b'), 'Other studio 146');
 insert into auth.users (id, email) values (pg_temp.fx('b_owner'), 'b-owner-146@example.com');
@@ -393,6 +400,8 @@ select pg_temp.as_service();
 select is(public.upload_resolve(pg_temp.h('tok-1'), null), null, 'before the seal the token answers nothing');
 select is(public.upload_link_seal(pg_temp.fx('l1'), pg_temp.h('tok-1')), true, 'the server seals the link with sha256(token)');
 select is(public.upload_link_seal(pg_temp.fx('l1'), pg_temp.h('tok-other')), false, 'the seal is write-once');
+select is(public.upload_link_seal(pg_temp.fx('l1'), pg_temp.h('tok-1')), true, 'the same hash again is a harmless no-op');
+select is((pg_temp.link('l1')).token_hash, pg_temp.h('tok-1'), 'and the hash is unchanged');
 select is(pg_temp.code($$ select public.upload_link_seal(pg_temp.fx('l1'), '\x00'::bytea) $$), 'VALIDATION', 'a short hash: VALIDATION');
 select is(public.upload_resolve(pg_temp.h('tok-1'), null) ->> 'can_start', 'drive_unavailable',
   'the Drive needs reconnecting: the page waits (screen R)');
@@ -429,22 +438,27 @@ select is((select actor_id from public.activity_log where entity = 'upload_links
 -- 4. Register (plan B1-B3, C3, C10)
 -- =====================================================================================================
 select pg_temp.as_service();
-select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-x'), E'‮​  ', null, null) $$),
+select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-x'), E'\u202e\u200b  ', null, null) $$),
   'VALIDATION', 'a name of only bidi and zero-width characters: VALIDATION');
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-x'), repeat('a', 61), null, null) $$),
   'VALIDATION', 'a 61-character name: VALIDATION');
+select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-x'), U&'\0301\0301', null, null) $$),
+  'VALIDATION', 'a name of only combining marks (nothing left once folded): VALIDATION, not a constraint error');
+select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-x'), U&'\00AD\2028\2029\180E\034F\FE0F', null, null) $$),
+  'VALIDATION', 'a name of only soft hyphens, separators, U+180E, U+034F and variation selectors: VALIDATION');
+select is(app.upload_clean(U&'S\00ADa\2028m\2029\180E\034F\FE0F'), 'Sam', 'those characters are stripped from a name');
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), '\x01'::bytea, 'Sam', null, null) $$),
   'VALIDATION', 'a malformed device key: VALIDATION');
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-unknown'), pg_temp.h('dev-x'), 'Sam', null, null) $$),
   'NOT_FOUND', 'an unknown link: NOT_FOUND');
-insert into fx select 'u_sam', (public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), E'S‮am​ ',
+insert into fx select 'u_sam', (public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), E'S\u202eam\u200b ',
   '198.51.100.7', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile') ->> 'uploader_id')::uuid;
 select is((pg_temp.uploader('u_sam')).name, 'Sam', 'the name is cleaned (bidi and zero-width removed, trimmed)');
 select is((pg_temp.uploader('u_sam')).folder_name, 'Sam', 'the folder is the name');
 select is((pg_temp.uploader('u_sam')).device_label, 'phone · iOS', 'the device label comes from the user agent');
 select ok(not (pg_temp.uploader('u_sam')).on_task, 'Sam is not on the task');
-select is(public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'sam', null, null) ->> 'uploader_id',
-  pg_temp.fx('u_sam')::text, 'the same device and name again: the same uploader');
+select is(public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'sam', null, null),
+  jsonb_build_object('uploader_id', pg_temp.fx('u_sam')), 'the same device and name again: the same uploader, and only its id (S4)');
 select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'Alex', null, null) $$),
   'CONFLICT', 'the same device under another name: CONFLICT');
 insert into fx select 'u_jo', (public.upload_register(pg_temp.h('tok-1'), pg_temp.h('dev-jo'), 'JÖ', '198.51.100.8', 'Mozilla/5.0 (Android 14; Mobile)')
@@ -515,6 +529,17 @@ select is(pg_temp.matrix(pg_temp.fx('t1'), pg_temp.fx('l1'), pg_temp.fx('u_sam')
 select pg_temp.as_member('crew_k');
 select is(pg_temp.matrix(pg_temp.fx('t1'), pg_temp.fx('l1'), pg_temp.fx('u_sam'), 'FORBIDDEN'), 8::bigint,
   'a Crew coordinator of a freelancer on the task: FORBIDDEN on all eight');
+select pg_temp.as_member('adm_s');
+select is(pg_temp.matrix(pg_temp.fx('t1'), pg_temp.fx('l1'), pg_temp.fx('u_sam'), 'FORBIDDEN'), 8::bigint,
+  'an Admin assignee who is not the primary owner, the creator or the approver: FORBIDDEN on all eight');
+select pg_temp.as_member('owner');
+insert into fx select 'l11', public.upload_link_create(pg_temp.fx('t11'));
+select pg_temp.as_service();
+select public.upload_link_seal(pg_temp.fx('l11'), pg_temp.h('tok-11'));
+insert into fx select 'u_11', (public.upload_register(pg_temp.h('tok-11'), pg_temp.h('dev-11'), 'Ana', null, null) ->> 'uploader_id')::uuid;
+select pg_temp.as_member('adm_p');
+select is(pg_temp.matrix(pg_temp.fx('t11'), pg_temp.fx('l11'), pg_temp.fx('u_11'), 'FORBIDDEN'), 8::bigint,
+  'an Admin primary owner who is neither the creator nor the approver: FORBIDDEN on all eight');
 select pg_temp.as_member('adm_x');
 select is(pg_temp.matrix(pg_temp.fx('t1'), pg_temp.fx('l1'), pg_temp.fx('u_sam'), 'NOT_FOUND'), 8::bigint,
   'an Admin who does not see the task: NOT_FOUND on all eight');
@@ -565,9 +590,10 @@ select pg_temp.as_member('owner');
 select is(public.upload_card(pg_temp.fx('t1')) ->> 'state', 'active', 'the Owner reads the card');
 select pg_temp.as_member('adm_c');
 select is(public.upload_card(pg_temp.fx('t1')) ->> 'state', 'active', 'the creator Admin reads the card');
+select is((public.upload_card(pg_temp.fx('t1')) -> 'link' ->> 'sealed')::boolean, true, 'the card reports the link sealed (S6)');
 select is(jsonb_array_length(public.upload_card(pg_temp.fx('t1')) -> 'uploaders'), 4, 'one row per uploader');
 select is((public.upload_card(pg_temp.fx('t1')) -> 'link' ->> 'age_days')::integer, 0, 'the link''s age in days');
-select ok(public.upload_card(pg_temp.fx('t1'))::text !~ '(198\.51\.100|sealed|enc-refresh|token_hash|token_salt)',
+select ok(public.upload_card(pg_temp.fx('t1'))::text !~ '(198\.51\.100|sealed-|enc-refresh|token_hash|token_salt)',
   'the card carries no IP, session, token or salt');
 select is(jsonb_array_length(public.upload_uploader_files(pg_temp.fx('u_sam')) -> 'files'), 0, 'the creator Admin opens a sheet');
 select ok(not (public.upload_uploader_files(pg_temp.fx('u_sam')) -> 'uploader' ? 'ip'), 'an Admin''s sheet has no IP');
@@ -598,7 +624,7 @@ select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-1'), pg
   'VALIDATION', 'a folder name of 121 characters: VALIDATION');
 select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), 'a.mp4', '', -1, null, null, null) $$),
   'VALIDATION', 'a negative size: VALIDATION');
-insert into r select 'f1', public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), E'clip‮1/.mp4',
+insert into r select 'f1', public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), E'clip\u202e1/.mp4',
   '/Day 1//Cam A/', 1000000000, 'video/mp4', '198.51.100.7', 'Mozilla/5.0 (iPhone)');
 insert into fx select 'f1', (v ->> 'file_id')::uuid from r where key = 'f1';
 select is((select v ->> 'result' from r where key = 'f1'), 'start', 'a file starts');
@@ -639,6 +665,8 @@ set local session_replication_role = origin;
 select pg_temp.as_service();
 select is(pg_temp.code($$ select public.upload_progress(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), pg_temp.fx('f1'), 2000000000) $$),
   'VALIDATION', 'progress past the size: VALIDATION');
+select is(pg_temp.code($$ select public.upload_file_failed(pg_temp.h('tok-1'), pg_temp.h('dev-jo'), pg_temp.fx('f1'), 'gave_up') $$),
+  'NOT_FOUND', 'another uploader''s device on the same link cannot fail the file');
 select is(pg_temp.code($$ select public.upload_file_failed(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), pg_temp.fx('f1'), 'damaged') $$),
   'VALIDATION', 'the browser reports only gave_up or unreadable');
 select is(public.upload_file_failed(pg_temp.h('tok-1'), pg_temp.h('dev-sam'), pg_temp.fx('f1'), 'gave_up'), 'failed', 'the browser gave up');
@@ -697,6 +725,9 @@ select ok((public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-sam')) -> 'u
 select is((select array_agg(k order by k) from jsonb_object_keys(public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-sam')) -> 'uploader' -> 'files' -> 0) k),
   array['name', 'relative_path', 'size_bytes', 'state'], 'each own file: name, path, size, state');
 select is(public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-sam')) -> 'uploader' ->> 'name', 'Sam', 'and the uploader''s name');
+select ok(not (public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-jo')) -> 'uploader' -> 'files') @> '[{"state": "done"}]'::jsonb
+          and public.upload_resolve(pg_temp.h('tok-1'), pg_temp.h('dev-jo')) -> 'uploader' ->> 'name' = 'JÖ',
+  'another device on the same link sees none of Sam''s files (Jo has no received file)');
 -- No page MD5: checked by size only.
 insert into fx select 'f2', pg_temp.start('tok-1', 'dev-sam', 'still.jpg', '', 2000000, 'sealed-f2');
 select is(public.upload_file_done(pg_temp.fx('f2'), 'drive-f2', 2000000, repeat('c', 32), 'parent-146', null), 'done', 'no page hash: done');
@@ -752,11 +783,19 @@ select is((select title || ' | ' || body from public.notifications where recipie
 select is(pg_temp.code($$ select public.upload_file_done(pg_temp.fx('f_held'), 'drive-held', 6000000000, null, 'parent-146', null) $$),
   'INVALID_STATE', 'a held file never started: no done');
 -- Bytes still to come on open sessions count against the space.
-update public.drive_account set quota_used_bytes = quota_total_bytes - 25000000000 where org_id = pg_temp.fx('org');
+update public.drive_account set quota_used_bytes = quota_total_bytes - 30000000000 where org_id = pg_temp.fx('org');
 select pg_temp.as_service();
 insert into fx select 'f_open', pg_temp.start('tok-1', 'dev-fen', 'open.mov', '', 12000000000, 'sealed-open');
+select pg_temp.as_system();
+update public.drive_account set quota_used_bytes = quota_total_bytes - 25000000000 where org_id = pg_temp.fx('org');
+select pg_temp.as_service();
 select is(public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'big.mov', '', 6000000000, null, null, null) ->> 'result',
   'held', '25 GB free less 10 GB and 12 GB still to come: a 6 GB file stays held');
+select pg_temp.as_system();
+update public.drive_account set quota_used_bytes = quota_total_bytes - 29900000000 where org_id = pg_temp.fx('org');
+select pg_temp.as_service();
+select is(public.upload_file_start(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'big.mov', '', 6000000000, null, null, null) ->> 'result',
+  'held', 'S7: 29.9 GB free counts as 20 GB (10 GB steps), so the 6 GB file is still held (29.9 - 10 - 13 would fit)');
 select pg_temp.as_system();
 update public.drive_account set quota_used_bytes = 1000000000000 where org_id = pg_temp.fx('org');
 select pg_temp.as_service();
@@ -803,6 +842,13 @@ select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-sam'));
 select pg_temp.as_system();
 select is(pg_temp.notes('adm_a', 'upload_said_done'), 2::bigint, 'told each time it is tapped');
 select is(pg_temp.entries('upload_uploaders', 'said_done', pg_temp.fx('u_sam')), 2::bigint, 'each is a history row');
+create temporary table sam_done as select said_done_at from public.upload_uploaders where id = pg_temp.fx('u_sam');
+select pg_temp.as_service();
+select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-jo'));
+select pg_temp.as_system();
+select ok((pg_temp.uploader('u_jo')).said_done_at is not null
+          and (pg_temp.uploader('u_sam')).said_done_at = (select said_done_at from sam_done),
+  'I''m done from another device on the link marks only that device''s uploader');
 select pg_temp.as_service();
 select is(pg_temp.code($$ select public.upload_said_done(pg_temp.h('tok-1'), pg_temp.h('dev-unknown')) $$), 'NOT_FOUND',
   'an unknown device: NOT_FOUND');
@@ -934,6 +980,8 @@ select pg_temp.as_member('adm_c');
 select is(pg_temp.code($$ select public.upload_files_received(pg_temp.fx('l1c'), false, null) $$), 'INVALID_STATE', 'a stopped link: INVALID_STATE');
 -- A freelancer primary owner with a Crew coordinator: the coordinator is told.
 insert into fx select 'l3', public.upload_link_create(pg_temp.fx('t3'));
+select is((public.upload_card(pg_temp.fx('t3')) -> 'link' ->> 'sealed')::boolean, false,
+  'a link never sealed shows as not sealed (the card offers Make a new link)');
 select is(public.upload_files_received(pg_temp.fx('l3'), false, null), 'primary_told', 'a Crew-coordinated freelancer: primary_told');
 select pg_temp.as_system();
 select is((select title from public.notifications where recipient_id = pg_temp.fx('crew_k') and kind = 'upload_files_received'),
@@ -993,11 +1041,43 @@ select is((select count(*) from public.upload_links where task_id = pg_temp.fx('
   'the send-back does not revive the link (Q9)');
 select pg_temp.as_service();
 select is(public.upload_resolve(pg_temp.h('tok-6'), null), null, 'the old link stays dead');
+select pg_temp.as_member('adm_c');
+insert into fx select 'l13', public.upload_link_create(pg_temp.fx('t13'));
+insert into fx select 'l14', public.upload_link_create(pg_temp.fx('t14'));
+select pg_temp.as_member('adm_a');
+select is(public.task_cancel(pg_temp.fx('t13'), 'Not needed'), 'cancelled'::public.task_state, 'the approving Admin cancels');
+select pg_temp.as_member('owner');
+select is(public.task_cancel(pg_temp.fx('t14'), 'Not needed'), 'cancelled'::public.task_state, 'the Owner cancels');
+select pg_temp.as_system();
+select ok((pg_temp.link('l13')).stop_reason = 'task_cancelled' and (pg_temp.link('l13')).stopped_by = pg_temp.fx('adm_a')
+          and (pg_temp.link('l14')).stop_reason = 'task_cancelled' and (pg_temp.link('l14')).stopped_by = pg_temp.fx('owner'),
+  'either Cancel stops the link, stopped_by the one who cancelled');
+select pg_temp.as_service();
+select is(public.upload_link_seal(pg_temp.fx('l14'), pg_temp.h('tok-14')), false, 'a stopped link cannot be sealed');
 select pg_temp.as_member('owner');
 insert into fx select 'l7', public.upload_link_create(pg_temp.fx('t7'));
 select is(public.task_submit_done(pg_temp.fx('t7')), 'completed'::public.task_state, 'the Owner''s own task completes on Done');
 select pg_temp.as_system();
 select is((pg_temp.link('l7')).stop_reason, 'task_done', 'the Owner primary''s straight completion stops the link too');
+select pg_temp.as_member('owner');
+select is(public.task_reopen(pg_temp.fx('t7'), 'One more pass'), 'in_progress'::public.task_state, 'the Owner reopens it');
+select pg_temp.as_system();
+select is((select count(*) from public.upload_links where task_id = pg_temp.fx('t7') and stopped_at is null), 0::bigint,
+  'a reopen does not revive the link (Q9)');
+-- An archived task with a link still marked active: the link answers nothing.
+select pg_temp.as_member('adm_c');
+insert into fx select 'l12', public.upload_link_create(pg_temp.fx('t12'));
+select pg_temp.as_service();
+select public.upload_link_seal(pg_temp.fx('l12'), pg_temp.h('tok-12'));
+select public.upload_register(pg_temp.h('tok-12'), pg_temp.h('dev-12'), 'Bo', null, null);
+select pg_temp.as_system();
+update public.tasks set archived_at = now() where id = pg_temp.fx('t12');
+select pg_temp.as_service();
+select is(public.upload_resolve(pg_temp.h('tok-12'), pg_temp.h('dev-12')), null, 'an archived task''s link resolves to nothing');
+select is(pg_temp.code($$ select public.upload_register(pg_temp.h('tok-12'), pg_temp.h('dev-12b'), 'Cy', null, null) $$), 'NOT_FOUND',
+  'register: NOT_FOUND');
+select is(pg_temp.code($$ select public.upload_file_start(pg_temp.h('tok-12'), pg_temp.h('dev-12'), 'a.mov', '', 1, null, null, null) $$),
+  'NOT_FOUND', 'file start: NOT_FOUND');
 
 -- =====================================================================================================
 -- 11. "Removed in Drive" (Q7): the claim, the daily pass, the answer
@@ -1049,6 +1129,13 @@ select pg_temp.as_service();
 select public.upload_link_seal(pg_temp.fx('l10b'), pg_temp.h('tok-10b'));
 insert into fx select 'u_kai2', (public.upload_register(pg_temp.h('tok-10b'), pg_temp.h('dev-kai'), 'Kai', null, null) ->> 'uploader_id')::uuid;
 select is((pg_temp.uploader('u_kai2')).folder_name, 'Kai (2)', 'the same name on a new link of the task gets its own folder');
+insert into fx select 'f_kai2', pg_temp.start('tok-10b', 'dev-kai', 'gone.mov', '', 1000, 'sealed-kai2');
+select public.upload_file_done(pg_temp.fx('f_kai2'), 'drive-kai2', 1000, null, 'parent-146', null);
+select public.upload_drive_seen(pg_temp.fx('f_kai2'), 'not_found', now());
+select is(public.upload_resolve(pg_temp.h('tok-10b'), pg_temp.h('dev-kai')) -> 'uploader' -> 'files' -> 0 ->> 'state', 'done',
+  'the uploader sees a file removed in Drive as sent (missing_in_drive is for the studio only)');
+select is(public.upload_file_start(pg_temp.h('tok-10b'), pg_temp.h('dev-kai'), 'gone.mov', '', 1000, null, null, null) ->> 'result', 'start',
+  'and may send it again (it is not "already sent")');
 
 -- =====================================================================================================
 -- 12. Erasure: by the Owner (plan I4) and after 90 days (I3); nothing secret in history (G2)
@@ -1071,7 +1158,28 @@ update public.upload_uploaders set created_at = now() - interval '91 days', last
   where id = pg_temp.fx('u_jo');
 update public.upload_files set created_at = now() - interval '91 days' where uploader_id = pg_temp.fx('u_jo');
 update public.upload_files set session_opened_at = now() - interval '9 days' where id = pg_temp.fx('f_rin');
+-- S5: a start the Worker never finished, quiet for 11 minutes, no longer counts as uploading on the card.
+insert into public.upload_files (org_id, uploader_id, link_id, task_id, name, size_bytes, state, account_sub)
+values (pg_temp.fx('org'), pg_temp.fx('u_kai2'), pg_temp.fx('l10b'), pg_temp.fx('t10'), 'stale.mov', 5, 'uploading', 'sub-146');
+insert into fx select 'f_stale', id from public.upload_files where name = 'stale.mov';
+insert into public.upload_files (org_id, uploader_id, link_id, task_id, name, size_bytes, state, account_sub)
+values (pg_temp.fx('org'), pg_temp.fx('u_kai2'), pg_temp.fx('l10b'), pg_temp.fx('t10'), 'ancient.mov', 5, 'uploading', 'sub-146');
+insert into fx select 'f_ancient', id from public.upload_files where name = 'ancient.mov';
+-- The restarted gone.mov (a new row) never got a session: out of the way.
+update public.upload_files set state = 'failed', failed_reason = 'gave_up'
+  where uploader_id = pg_temp.fx('u_kai2') and name = 'gone.mov' and state = 'uploading';
+set local session_replication_role = replica; -- keep the backdated updated_at (no set_updated_at)
+update public.upload_files set updated_at = now() - interval '11 minutes' where id = pg_temp.fx('f_stale');
+update public.upload_files set updated_at = now() - interval '9 days' where id = pg_temp.fx('f_ancient');
+set local session_replication_role = origin;
+select pg_temp.as_member('adm_c');
+select is((public.upload_card(pg_temp.fx('t10')) ->> 'uploading')::integer, 0,
+  'S5: a start with no session quiet for 10 minutes does not keep the card uploading');
+select is((select (u ->> 'files_uploading')::integer from jsonb_array_elements(public.upload_card(pg_temp.fx('t10')) -> 'uploaders') u
+           where u ->> 'id' = pg_temp.fx('u_kai2')::text), 0, 'nor the uploader''s row');
+select pg_temp.as_system();
 insert into public.upload_rate_hits (bucket, key_hash, window_start, hits) values ('open', pg_temp.h('net-old'), now() - interval '2 days', 3);
+create temporary table notes_before as select count(*) as n from public.notifications;
 select ok((app.upload_housekeeping(now()) ->> 'uploaders')::integer >= 1, 'the daily housekeeping runs');
 select ok((select ip is null and user_agent is null and device_label is null and device_key_hash is null and network_erased_at is not null
            from public.upload_uploaders where id = pg_temp.fx('u_jo')), 'an uploader of 90 days ago: network details erased');
@@ -1079,6 +1187,15 @@ select is((select count(*) from public.upload_files where uploader_id = pg_temp.
 select ok((select device_key_hash is not null and network_erased_at is null from public.upload_uploaders where id = pg_temp.fx('u_fen')),
   'a recent uploader keeps their device key');
 select is((pg_temp.file('f_rin')).session_uri_encrypted, null, 'a session address older than 8 days is cleared');
+select ok((pg_temp.file('f_rin')).state = 'failed' and (pg_temp.file('f_rin')).failed_reason = 'gave_up',
+  'S5b: a file still uploading on a session older than 8 days is failed, gave_up');
+select ok((pg_temp.file('f_ancient')).state = 'failed' and (pg_temp.file('f_ancient')).failed_reason = 'gave_up',
+  'and one that never got a session in 8 days');
+select is((pg_temp.file('f_stale')).state, 'uploading', 'a recent start is left alone');
+select is(pg_temp.entries('upload_files', 'failed', pg_temp.fx('f_rin')) + pg_temp.entries('upload_files', 'failed', pg_temp.fx('f_ancient')),
+  0::bigint, 'no history row, as a browser''s gave_up');
+select is((select count(*) from public.notifications), (select n from notes_before), 'nobody is told');
+select is((app.upload_housekeeping(now()) ->> 'gave_up')::integer, 0, 'idempotent: a second run marks nothing more');
 select is((select count(*) from public.upload_rate_hits where key_hash = pg_temp.h('net-old')), 0::bigint, 'counters older than a day are removed');
 select ok((select count(*) from cron.job where jobname = 'upload_housekeeping' and schedule = '50 21 * * *') = 1,
   'scheduled daily at 03:20 IST');

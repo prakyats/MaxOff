@@ -91,7 +91,7 @@ create table public.upload_uploaders (
   link_id uuid not null references public.upload_links (id),
   task_id uuid not null references public.tasks (id),
   name text not null check (length(name) between 1 and 60),
-  name_key text not null check (length(name_key) between 1 and 60),
+  name_key text not null check (length(name_key) between 1 and 240), -- NFD can lengthen some scripts
   on_task boolean not null default false,
   matched_member_id uuid null references public.members (id),
   folder_name text not null check (length(folder_name) between 1 and 80),
@@ -467,8 +467,9 @@ comment on function app.upload_can_make_link(public.tasks) is
 revoke all on function app.upload_can_make_link(public.tasks) from public, anon, authenticated;
 grant execute on function app.upload_can_make_link(public.tasks) to service_role;
 
--- Names typed by strangers (plan B2, D4): Unicode NFC, control, zero-width and bidi characters
--- removed, trimmed. The caller checks the length.
+-- Names typed by strangers (plan B2, D4): Unicode NFC; control, zero-width and bidi characters, the soft
+-- hyphen, the line and paragraph separators, U+180E, U+034F and the variation selectors removed;
+-- trimmed. The caller checks the length. src/modules/uploads/domain/names.ts (HIDDEN) strips the same set.
 create function app.upload_clean(p_text text)
 returns text
 language sql
@@ -476,21 +477,23 @@ immutable
 set search_path = ''
 as $$
   select btrim(regexp_replace(normalize(coalesce(p_text, ''), NFC),
-    '[\u0001-\u001f\u007f-\u009f​-‏‪-‮⁠-⁤⁦-⁩﻿؜]', '', 'g'));
+    '[\u0001-\u001f\u007f-\u009f\u00ad\u034f\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufe00-\ufe0f\ufeff]', '', 'g'));
 $$;
 comment on function app.upload_clean(text) is
-  'Internal (v4.5, plan B2): NFC, control / zero-width / bidi characters removed, trimmed.';
+  'Internal (v4.5, plan B2): NFC; control, zero-width and bidi characters, U+00AD, U+2028-2029, U+180E, '
+  'U+034F and the variation selectors U+FE00-FE0F removed; trimmed.';
 revoke all on function app.upload_clean(text) from public, anon, authenticated;
 grant execute on function app.upload_clean(text) to service_role;
 
--- The folded form of a name, for matching only: cleaned, lower case, accents and repeated spaces removed.
+-- The folded form of a name, for matching only: cleaned, lower case, accents (the combining mark blocks)
+-- and repeated spaces removed.
 create function app.upload_fold(p_text text)
 returns text
 language sql
 immutable
 set search_path = ''
 as $$
-  select regexp_replace(lower(regexp_replace(normalize(app.upload_clean(p_text), NFD), '[̀-ͯ]', '', 'g')),
+  select regexp_replace(lower(regexp_replace(normalize(app.upload_clean(p_text), NFD), '[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]', '', 'g')),
     '\s+', ' ', 'g');
 $$;
 comment on function app.upload_fold(text) is
@@ -582,8 +585,9 @@ grant execute on function app.upload_device_label(text) to service_role;
 create policy activity_log_select_uploads on public.activity_log
   for select to authenticated
   using (org_id = (select m.org_id from app.current_member() m)
-         and entity in ('upload_links', 'upload_uploaders', 'upload_files')
-         and app.upload_manager((meta ->> 'task_id')::uuid));
+         and case when entity in ('upload_links', 'upload_uploaders', 'upload_files')
+                  then app.upload_manager((meta ->> 'task_id')::uuid)
+                  else false end);
 
 -- 6. The member functions --------------------------------------------------------------------------
 -- The Uploads card (WORKFLOWS §5B.3): the link shown (the active one, else the newest), the Drive
@@ -619,7 +623,11 @@ begin
   with per as (
     select u.id, u.link_id, u.name, u.on_task, u.said_done_at, u.last_activity_at, u.created_at,
            count(f.id) filter (where f.state = 'done') as files_done,
-           count(f.id) filter (where f.state = 'uploading') as files_uploading,
+           -- Uploading = a session, or a start in the last 10 minutes (the rule of plan C4), so a start
+           -- the Worker never finished does not keep the card "uploading" for ever.
+           count(f.id) filter (where f.state = 'uploading'
+                                 and (f.session_uri_encrypted is not null
+                                      or f.updated_at > now() - interval '10 minutes')) as files_uploading,
            count(f.id) filter (where f.state = 'held') as files_held,
            count(f.id) filter (where f.state = 'failed') as files_failed,
            count(f.id) filter (where f.state = 'missing_in_drive') as files_removed,
@@ -669,6 +677,9 @@ begin
                          and f.account_sub = v_drive.google_sub),
     'link', case when v_link.id is null then null else jsonb_build_object(
       'id', v_link.id,
+      -- The hash is stored (upload_link_seal): an active link that is not sealed works for nobody, so
+      -- the card offers Make a new link.
+      'sealed', v_link.token_hash is not null,
       'created_at', v_link.created_at,
       'created_by_name', app.member_name(v_link.created_by),
       'age_days', app.today_ist() - app.to_ist_date(v_link.created_at),
@@ -690,8 +701,9 @@ $$;
 comment on function public.upload_card(uuid) is
   'v4.5 (WORKFLOWS §5B.3), uploads.manage and the task''s Admin (app.upload_manager): the Uploads card. '
   'state none / active / looks_finished / stopped; the shown link (the active one, else the newest: '
-  'age_days, who made, stopped or closed it and why, a pause still running); drive_state; the task '
-  'folder''s Drive id; files, bytes, people and uploading on the shown link; one row per uploader of '
+  'sealed, age_days, who made, stopped or closed it and why, a pause still running); drive_state; the task '
+  'folder''s Drive id; files, bytes, people and uploading (a session, or a start in the '
+  'last 10 minutes) on the shown link; one row per uploader of '
   'the task (current_link marks the shown link''s) with counts per state, bytes, last activity, '
   'said_done_at, stuck_since (15 min with no new bytes) and looks_finished (all received, 10 min '
   'quiet). Never a token, hash, salt, IP, user agent or session address. NOT_FOUND when the caller '
@@ -905,6 +917,8 @@ declare
   v_link public.upload_links;
   v_task public.tasks;
   v_caller uuid := auth.uid();
+  v_org uuid;
+  v_task_id uuid;
   v_primary public.members;
   v_on_behalf uuid;
   v_path text;
@@ -913,6 +927,16 @@ declare
   v_people bigint;
   v_names text;
 begin
+  -- The task first, then the link: the order of task_submit_done, task_cancel and upload_link_renew
+  -- (task_lock, then the link row), so two of them never wait on each other.
+  select m.org_id into v_org from app.current_member() m;
+  if v_org is null then
+    perform app.fail('UNAUTHENTICATED', 'Your account is not active.');
+  end if;
+  select l.task_id into v_task_id from public.upload_links l where l.id = p_link_id and l.org_id = v_org;
+  if v_task_id is not null then
+    perform app.task_lock(v_task_id, v_org);
+  end if;
   v_link := app.upload_link_guard(p_link_id);
   if v_link.stopped_at is not null then
     perform app.fail('INVALID_STATE', 'This link is already stopped.');
@@ -1185,7 +1209,8 @@ comment on function public.task_submit_done(uuid, text, text, uuid) is
   'task''s active upload link (stop_reason task_done, stopped_by the actor).';
 
 -- task_cancel: copied from migration 20260930050132_notifications_core (its latest definition); the
--- only change is app.upload_stop_link(..., 'task_cancelled', caller). Its grants and comment stay.
+-- only change is app.upload_stop_link(..., 'task_cancelled', caller). Its grants stay; its comment gains
+-- the link stop (below).
 create or replace function public.task_cancel(task_id uuid, reason text)
 returns public.task_state
 language plpgsql
@@ -1232,3 +1257,10 @@ begin
   return 'cancelled';
 end;
 $$;
+
+comment on function public.task_cancel(uuid, text) is
+  'The task''s creator, its approving Admin or the Owner (app.task_manager). Any state but '
+  'completed or cancelled -> cancelled with the reason (REASON_REQUIRED); the task stays in '
+  'history and reports, reminders stop (5.1). Audit action: cancelled. 5.1: notifies the assignees '
+  'and the creator (task_cancelled) through app.notify(). v4.5: stops the task''s active upload link '
+  'in the same transaction (stop_reason task_cancelled, stopped_by the caller).';

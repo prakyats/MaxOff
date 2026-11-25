@@ -278,6 +278,7 @@ Token make / hash / derive (A1–A3); name, path and file-name cleaning, includi
 - §7.4 run on staging with results in the READY post; must-fix items fixed.
 - PERMISSIONS, WORKFLOWS §9, DATA-MODEL and the new ADR merged before the code.
 - The Owner has accepted, in writing on #89, the leftover risks: session URIs can't be revoked (A9, E5); a copied device key shows its own list (B3); large files aren't virus-scanned by anyone (D); a typed name isn't checked (B1).
+- Accepted leftover risk (advisor, 25 Nov; S7): the space guard still lets an uploader learn, coarsely (10 GB steps), whether the Drive has room; for the Owner's review at the walk.
 
 ## Pass 1 log
 

@@ -6,15 +6,21 @@
 
 export const NAME_MAX = 60;
 
-/** Control characters, zero-width characters and bidi controls: removed, never shown. */
-const HIDDEN = /[\p{Cc}​-‏‪-‮⁠-⁤⁦-⁩﻿]/gu;
+/**
+ * Control characters, zero-width characters, bidi controls, the soft hyphen, the line and
+ * paragraph separators, the Mongolian vowel separator, the combining grapheme joiner and the
+ * variation selectors: removed, never shown. The database's `app.upload_clean` strips the same set.
+ */
+const HIDDEN =
+  /[\p{Cc}\u00AD\u034F\u061C\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u2069\uFE00-\uFE0F\uFEFF]/gu;
 
 export type NameCheck = { ok: true; name: string } | { ok: false; reason: "empty" | "too_long" };
 
 /** NFC, hidden characters removed, spaces collapsed, trimmed, then 1–60 characters. */
 export function cleanUploaderName(typed: string): NameCheck {
   const name = typed.normalize("NFC").replace(HIDDEN, "").replace(/\s+/g, " ").trim();
-  if (name.length === 0) return { ok: false, reason: "empty" };
+  // A name of only combining marks has nothing left to match or show: empty, as the database says.
+  if (name.length === 0 || nameKey(name).length === 0) return { ok: false, reason: "empty" };
   if ([...name].length > NAME_MAX) return { ok: false, reason: "too_long" };
   return { ok: true, name };
 }

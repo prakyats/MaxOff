@@ -64,13 +64,19 @@ begin
   end if;
   update public.upload_links l set token_hash = p_token_hash
   where l.id = p_link_id and l.token_hash is null and l.stopped_at is null;
-  return found;
+  if found then
+    return true;
+  end if;
+  -- A repeat with the same hash (a retried request) is a harmless no-op.
+  return exists (select 1 from public.upload_links l
+                 where l.id = p_link_id and l.token_hash = p_token_hash and l.stopped_at is null);
 end;
 $$;
 comment on function public.upload_link_seal(uuid, bytea) is
   'v4.5 (plan A2-A3), service_role only: stores sha256(token) on a link just made by upload_link_create '
-  'or upload_link_renew (the server derived the token with UPLOAD_LINK_KEY). Write-once: false and '
-  'nothing written when the link already has a hash, is stopped or does not exist.';
+  'or upload_link_renew (the server derived the token with UPLOAD_LINK_KEY). Write-once: the same hash '
+  'again is a no-op (true); false and nothing written when the link has another hash, is stopped or '
+  'does not exist.';
 revoke all on function public.upload_link_seal(uuid, bytea) from public, anon, authenticated;
 grant execute on function public.upload_link_seal(uuid, bytea) to service_role;
 
@@ -115,7 +121,9 @@ begin
     'uploader', case when v_up.id is null then null else jsonb_build_object(
       'name', v_up.name,
       'files', (select coalesce(jsonb_agg(jsonb_build_object(
-                  'name', f.name, 'relative_path', f.relative_path, 'size_bytes', f.size_bytes, 'state', f.state)
+                  'name', f.name, 'relative_path', f.relative_path, 'size_bytes', f.size_bytes,
+                  -- "Removed in Drive" is for the studio only: the uploader sees their file as sent.
+                  'state', case when f.state = 'missing_in_drive' then 'done' else f.state end)
                   order by f.created_at, f.id), '[]'::jsonb)
                 from public.upload_files f where f.uploader_id = v_up.id)) end);
 end;
@@ -124,7 +132,7 @@ comment on function public.upload_resolve(bytea, bytea) is
   'v4.5 (plan A6-A7, Q4-Q5), service_role only: for an alive link exactly {studio_name, task_title, '
   'can_start (yes / drive_unavailable / paused), wait_seconds, uploader} and, when the device key is '
   'an uploader''s, uploader = {name, files: [{name, relative_path, size_bytes, state}]} (that device''s '
-  'own files only). Anything else (unknown, stopped, Done, cancelled, archived, malformed): null.';
+  'own files only; a file removed in Drive shows as done). Anything else (unknown, stopped, Done, cancelled, archived, malformed): null.';
 revoke all on function public.upload_resolve(bytea, bytea) from public, anon, authenticated;
 grant execute on function public.upload_resolve(bytea, bytea) to service_role;
 
@@ -159,8 +167,17 @@ begin
     perform app.fail('VALIDATION', 'Type your name (1 to 60 characters).');
   end if;
   v_key := app.upload_fold(v_name);
-  -- One link at a time: the cap and the folder names are counted under this lock.
+  if coalesce(v_key, '') = '' then
+    -- Only combining marks (or the like): nothing left to match or name a folder by.
+    perform app.fail('VALIDATION', 'Type your name (1 to 60 characters).');
+  end if;
+  -- One link at a time: the cap and the folder names are counted under this lock. Alive again under
+  -- the lock (S1): a stop, Done or Cancel that committed while this call waited answers NOT_FOUND.
   perform 1 from public.upload_links l where l.id = v_link.id for update;
+  v_link := app.upload_public_link(p_token_hash, true);
+  if v_link.id is null then
+    perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
+  end if;
   select t.* into v_task from public.tasks t where t.id = v_link.task_id;
 
   -- The same device again: its own row (the browser makes a new device key for "Use another name").
@@ -171,7 +188,7 @@ begin
       perform app.fail('CONFLICT', 'This device already sends under another name.');
     end if;
     update public.upload_uploaders set last_activity_at = now() where id = v_up.id;
-    return jsonb_build_object('uploader_id', v_up.id, 'on_task', v_up.on_task);
+    return jsonb_build_object('uploader_id', v_up.id);
   end if;
 
   -- Plan C3: 20 new names per link in an IST day; the 21st is refused and the task's Admins are told
@@ -247,18 +264,20 @@ begin
       end if;
     end if;
   end if;
-  return jsonb_build_object('uploader_id', v_up.id, 'on_task', v_up.on_task);
+  -- Only the id: whether the name matched someone on the task is the studio's, never the uploader's.
+  return jsonb_build_object('uploader_id', v_up.id);
 end;
 $$;
 comment on function public.upload_register(bytea, bytea, text, inet, text) is
   'v4.5 (plan B1-B3, C3, C10), service_role only: the uploader gives a name on an alive link (NOT_FOUND '
   'otherwise). The name is cleaned (1-60, VALIDATION) and matched to the task''s active assignees (full '
-  'or first name, case and accents ignored: on_task, matched_member_id); the folder is the name or '
+  'or first name, case and accents ignored: on_task, matched_member_id; a name with nothing left once '
+  'folded is VALIDATION); the folder is the name or '
   '"Name (2)". The same device again returns its row (CONFLICT under another name). The 21st new name on '
   'the link in an IST day answers {refused: rate_limited} and tells the task''s Admins once '
   '(upload_names_capped). A name not on the task tells them once per name, at most 5 a day per link, '
   'then one summary (upload_not_on_task). History ''started'' (name, on_task; no IP). Returns '
-  '{uploader_id, on_task}.';
+  '{uploader_id}. The link is checked alive again under its lock.';
 revoke all on function public.upload_register(bytea, bytea, text, inet, text) from public, anon, authenticated;
 grant execute on function public.upload_register(bytea, bytea, text, inet, text) to service_role;
 
@@ -303,8 +322,13 @@ begin
   if p_size_bytes is null or p_size_bytes < 0 then
     perform app.fail('VALIDATION', 'A file''s size is 0 bytes or more.');
   end if;
-  -- The per-link limits are counted under the link's lock.
-  select l.* into v_link from public.upload_links l where l.id = v_link.id for update;
+  -- The per-link limits are counted under the link's lock, and the link is alive again under it (S1):
+  -- a stop, Done or Cancel that committed while this call waited answers NOT_FOUND.
+  perform 1 from public.upload_links l where l.id = v_link.id for update;
+  v_link := app.upload_public_link(p_token_hash, true);
+  if v_link.id is null then
+    perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
+  end if;
   select t.* into v_task from public.tasks t where t.id = v_link.task_id;
 
   -- "Already sent" (plan B4): this uploader's own received file with the same folder, name and size.
@@ -352,14 +376,17 @@ begin
           where f.link_id = v_link.id and app.to_ist_date(f.created_at) = app.today_ist()) >= 5000) then
       return jsonb_build_object('result', 'wait', 'seconds', 60, 'reason', 'too_many');
     end if;
-    -- The space guard (Q11, plan C8): free space less a 10 GB reserve and the bytes still to come on
-    -- open sessions. With no quota reading yet, nothing is held.
+    -- The space guard (Q11, plan C8): free space (rounded down to 10 GB) less a 10 GB reserve and the
+    -- bytes still to come on open sessions. With no quota reading yet, nothing is held.
     if v_drive.quota_total_bytes is not null and v_drive.quota_used_bytes is not null then
       select coalesce(sum(greatest(f.size_bytes - f.bytes_at_google, 0)), 0) into v_to_come
       from public.upload_files f
       where f.org_id = v_link.org_id and f.state = 'uploading' and f.id is distinct from v_file.id
         and (f.session_uri_encrypted is not null or f.updated_at > now() - interval '10 minutes');
-      if p_size_bytes > v_drive.quota_total_bytes - v_drive.quota_used_bytes - 10000000000 - v_to_come then
+      -- S7: the free space counts in whole 10 GB steps, so a held answer tells the uploader at most,
+      -- coarsely, whether there is room (an accepted leftover risk, plan §8).
+      if p_size_bytes > floor((v_drive.quota_total_bytes - v_drive.quota_used_bytes)::numeric / 10000000000) * 10000000000
+                        - 10000000000 - v_to_come then
         if v_file.id is null then
           insert into public.upload_files (org_id, uploader_id, link_id, task_id, name, relative_path, size_bytes,
             mime_hint, state, account_sub, ip, user_agent)
@@ -415,6 +442,9 @@ begin
                             and d.relative_path = v_prefix));
   end loop;
 
+  -- Worker only: never sent to the browser. task_id, client_id, task_title, the folder ids,
+  -- folder names, account_sub and uploader_id are for the Worker to open the session; the browser
+  -- gets only the session address (plan E1-E2).
   return jsonb_build_object(
     'result', 'start',
     'file_id', v_file.id,
@@ -439,7 +469,7 @@ comment on function public.upload_file_start(bytea, bytea, text, text, bigint, t
   'cleaned (VALIDATION). Answers {result: already_sent} (this uploader''s own done file, same path, name '
   'and size); {result: wait, seconds, reason: drive_unavailable | daily_limit | busy (6 uploading) | '
   'too_many (600 an hour, 5,000 a day per link)}; {result: held, file_id} when it would not fit in the '
-  'free space less 10 GB and the bytes still to come (the Owner told once per link per IST day, '
+  'free space (rounded down to 10 GB) less 10 GB and the bytes still to come (the Owner told once per link per IST day, '
   'upload_space_held); or {result: start, file_id, name, size_bytes, mime_hint, session_uri_encrypted '
   '(the existing session on a retry, else null), account_sub, task_id, task_title, client_id, '
   'task_folder_id, uploader_id, folders: [{relative_path, name, drive_folder_id}]}. A held or failed '
@@ -745,6 +775,11 @@ begin
   if v_up.id is null then
     perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
   end if;
+  -- Alive again under the link's lock (S1).
+  perform 1 from public.upload_links l where l.id = v_link.id for update;
+  if (app.upload_public_link(p_token_hash, true)).id is null then
+    perform app.fail('NOT_FOUND', 'This upload link doesn''t work any more.');
+  end if;
   select t.* into v_task from public.tasks t where t.id = v_link.task_id;
   update public.upload_uploaders set said_done_at = now(), last_activity_at = now() where id = v_up.id;
   select count(*), coalesce(sum(f.size_bytes), 0) into v_files, v_bytes
@@ -881,6 +916,8 @@ begin
     join public.upload_links l on l.id = u.link_id and l.stopped_at is null
     join public.tasks t on t.id = u.task_id
     join public.upload_files f on f.uploader_id = u.id
+    -- Bounded: only uploaders active in the last day (an older quiet period was signalled already).
+    where u.last_activity_at > p_now - interval '1 day'
     group by u.id, t.id
     having bool_and(f.state in ('done', 'missing_in_drive'))
        and greatest(max(greatest(coalesce(f.last_moved_at, f.created_at), coalesce(f.done_at, f.created_at))),
@@ -1122,10 +1159,13 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_cut date := app.to_ist_date(p_now) - 90;
+  -- A row made on an IST day 90 or more days before today: made before the start of (today - 89) IST.
+  -- Compared as instants, so the indexes on created_at are used.
+  v_before timestamptz := ((app.to_ist_date(p_now) - 90) + 1)::timestamp at time zone 'Asia/Kolkata';
   v_uploaders integer;
   v_keys integer;
   v_files integer;
+  v_gave_up integer;
   v_sessions integer;
   v_hits integer;
 begin
@@ -1133,18 +1173,25 @@ begin
   -- row stay (no IP is ever in activity_log).
   update public.upload_uploaders u
   set ip = null, user_agent = null, device_label = null, network_erased_at = coalesce(u.network_erased_at, p_now)
-  where app.to_ist_date(u.created_at) <= v_cut
+  where u.created_at < v_before
     and (u.ip is not null or u.user_agent is not null or u.device_label is not null or u.network_erased_at is null);
   get diagnostics v_uploaders = row_count;
   update public.upload_uploaders u
   set device_key_hash = null, network_erased_at = coalesce(u.network_erased_at, p_now)
-  where u.device_key_hash is not null and app.to_ist_date(u.last_activity_at) <= v_cut
-    and app.to_ist_date(u.created_at) <= v_cut;
+  where u.device_key_hash is not null and u.last_activity_at < v_before and u.created_at < v_before;
   get diagnostics v_keys = row_count;
   update public.upload_files f set ip = null, user_agent = null
-  where app.to_ist_date(f.created_at) <= v_cut and (f.ip is not null or f.user_agent is not null);
+  where f.created_at < v_before and (f.ip is not null or f.user_agent is not null);
   get diagnostics v_files = row_count;
-  -- Google's sessions last about a week: an address older than 8 days is of no use.
+  -- S5b (advisor 25 Nov): Google's sessions last about a week. A file still uploading on a session older
+  -- than 8 days, or that never got a session in 8 days, will not finish: failed, gave_up, as when the
+  -- browser gives up (no history row, nobody told). A later start of the same file reuses the row.
+  update public.upload_files f set state = 'failed', failed_reason = 'gave_up'
+  where f.state = 'uploading'
+    and ((f.session_uri_encrypted is not null and f.session_opened_at < p_now - interval '8 days')
+         or (f.session_uri_encrypted is null and f.updated_at < p_now - interval '8 days'));
+  get diagnostics v_gave_up = row_count;
+  -- An address older than 8 days is of no use.
   update public.upload_files f set session_uri_encrypted = null
   where f.session_uri_encrypted is not null and f.session_opened_at < p_now - interval '8 days';
   get diagnostics v_sessions = row_count;
@@ -1152,15 +1199,16 @@ begin
   delete from public.upload_rate_hits h where h.window_start < p_now - interval '1 day';
   get diagnostics v_hits = row_count;
   return jsonb_build_object('uploaders', v_uploaders, 'device_keys', v_keys, 'files', v_files,
-    'sessions', v_sessions, 'rate_hits', v_hits);
+    'gave_up', v_gave_up, 'sessions', v_sessions, 'rate_hits', v_hits);
 end;
 $$;
 comment on function app.upload_housekeeping(timestamptz) is
   'v4.5 (WORKFLOWS §8 upload_housekeeping, Q12, plan I3), pg_cron daily at 03:20 IST: nulls ip, '
   'user_agent and device_label of uploaders and files made 90 or more IST days before p_now, and the '
-  'device_key_hash of uploaders whose last activity is that old too, setting network_erased_at; clears '
-  'session addresses older than 8 days; removes upload_rate_hits rows older than a day. Names, files '
-  'and history stay. Returns the counts.';
+  'device_key_hash of uploaders whose last activity is that old too, setting network_erased_at; marks a '
+  'file still uploading on a session older than 8 days (or with no session for 8 days) failed, gave_up, '
+  'with no history row or notice (S5b); clears session addresses older than 8 days; removes '
+  'upload_rate_hits rows older than a day. Idempotent. Names, files and history stay. Returns the counts.';
 revoke all on function app.upload_housekeeping(timestamptz) from public, anon, authenticated;
 grant execute on function app.upload_housekeeping(timestamptz) to service_role;
 
