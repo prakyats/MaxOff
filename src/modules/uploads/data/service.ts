@@ -254,7 +254,7 @@ export function uploadService(client: ServiceSupabase = serviceClient()) {
     },
 
     /** One hit for a network (plan C1–C2); the time it is blocked until, or null. */
-    async rateHit(bucket: "bad_link" | "open", key: Hash, at: Date): Promise<Date | null> {
+    async rateHit(bucket: "bad_link" | "open" | "call", key: Hash, at: Date): Promise<Date | null> {
       const { data, error } = await client.rpc("upload_rate_hit", {
         p_bucket: bucket,
         p_key_hash: toBytea(key),
@@ -269,6 +269,26 @@ export function uploadService(client: ServiceSupabase = serviceClient()) {
      * answers, and a good link must not count as a bad one (plan C1: blocked networks are
      * refused every link for 15 minutes).
      */
+    /** C8: the organisation whose quota reading is older than 5 minutes for this link, or null. */
+    async quotaStale(token: Hash): Promise<string | null> {
+      const { data, error } = await client.rpc("upload_quota_stale", {
+        p_token_hash: toBytea(token),
+        p_max_age: "5 minutes",
+      });
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+
+    /** True when `done` may ask Google about this file now (at most once per 5 s). */
+    async doneCheckClaim(fileId: string, at: Date): Promise<boolean> {
+      const { data, error } = await client.rpc("upload_done_check_claim", {
+        p_file_id: fileId,
+        p_now: at.toISOString(),
+      });
+      if (error) throw error;
+      return data === true;
+    },
+
     async rateBlocked(bucket: "bad_link" | "open", key: Hash, at: Date): Promise<boolean> {
       const { data, error } = await client
         .from("upload_rate_hits")

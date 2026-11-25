@@ -158,6 +158,39 @@ export type SpaceCheckReport = {
 };
 
 /**
+ * One organisation's quota, read again now (v4.5 C8, WORKFLOWS §5B.6: the upload space guard's
+ * reading is refreshed when older than 5 minutes). The same read and record as the daily check;
+ * no usable connection, or an account with no limit, changes nothing.
+ */
+export async function refreshDriveQuota(input: {
+  service: ServiceSupabase;
+  orgId: string;
+  fetchImpl: Fetch;
+  now: Date;
+}): Promise<void> {
+  if (readDriveEnv().mode === "off") return;
+  const { data: row, error } = await input.service
+    .from("drive_account")
+    .select(ACCOUNT_COLUMNS)
+    .eq("org_id", input.orgId)
+    .eq("state", "connected")
+    .maybeSingle();
+  if (error) throw new Error(`drive_account: ${error.message}`);
+  if (!row) return;
+  const space = await withDrive({ ...input, row }, (connection) =>
+    about(input.fetchImpl, connection.accessToken),
+  );
+  if (!space || space.totalBytes === null) return;
+  const { error: dbError } = await input.service.rpc("drive_record_quota", {
+    p_org: row.org_id,
+    p_read_refresh_enc: row.refresh_token_encrypted ?? "",
+    p_total: space.totalBytes,
+    p_used: space.usedBytes,
+  });
+  if (dbError) throw new Error(`drive_record_quota: ${dbError.message}`);
+}
+
+/**
  * `drive_space_check` (WORKFLOWS §8, daily): reads each connected account's used and total
  * space and stores it; the database tells the Owner once at 80 % and once at 90 %. An account
  * with no limit is read but not stored (nothing to alert on). Nothing to do without the Google

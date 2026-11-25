@@ -3,6 +3,7 @@ import "server-only";
 import type { ServiceSupabase } from "@/core/db/service";
 import { DriveApiError, type Fetch } from "@/core/drive/google";
 import { UploadPolicyError } from "@/core/drive/resumable";
+import { refreshDriveQuota } from "@/core/drive/server";
 import {
   DriveUnavailableError,
   openUploadSession,
@@ -125,11 +126,19 @@ export type PublicDeps = {
   service: ServiceSupabase;
   fetchImpl: Fetch;
   clock: Clock;
+  /** C8: one organisation's Drive quota read again (`core/drive`). */
+  refreshQuota: typeof refreshDriveQuota;
 };
 
 function defaultDeps(): PublicDeps {
   const service = serviceClient();
-  return { svc: uploadService(service), service, fetchImpl: fetch, clock: systemClock };
+  return {
+    svc: uploadService(service),
+    service,
+    fetchImpl: fetch,
+    clock: systemClock,
+    refreshQuota: refreshDriveQuota,
+  };
 }
 
 async function device(deviceKey: string): Promise<Uint8Array> {
@@ -187,6 +196,20 @@ async function start(body: unknown, call: PublicCall, deps: PublicDeps): Promise
   const data = startBodySchema.parse(body);
   // Google opens no session for an empty file (`checkPolicy`); asked before a row is made.
   if (data.sizeBytes === 0) return { kind: "refused", refused: "empty" };
+  // C8 (WORKFLOWS §5B.6; review pass 2): the space guard's quota is read again from Google when
+  // the reading is older than 5 minutes. A failed read leaves the last one (the guard still
+  // counts what Google took since).
+  const staleOrg = await deps.svc.quotaStale(call.token);
+  if (staleOrg) {
+    await deps
+      .refreshQuota({
+        service: deps.service,
+        orgId: staleOrg,
+        fetchImpl: deps.fetchImpl,
+        now: deps.clock(),
+      })
+      .catch(() => undefined);
+  }
   const row = await deps.svc.fileStart({
     token: call.token,
     device: await device(data.deviceKey),
@@ -334,6 +357,11 @@ async function done(body: unknown, call: PublicCall, deps: PublicDeps): Promise<
   if (!hasSession(file)) {
     throw new AppError("INVALID_STATE", "This file is not on its way to Google.");
   }
+  // At most one Google check per file per 5 seconds (review pass 2): a loop of `done` cannot burn
+  // the studio's Drive API quota. The page's report is retried with backoff, so it asks again.
+  if (!(await deps.svc.doneCheckClaim(data.fileId, deps.clock()))) {
+    throw new AppError("RATE_LIMITED", "Checking this file already. Trying again in a moment.");
+  }
   const verdict = await verifyFinished({
     svc: deps.svc,
     service: deps.service,
@@ -453,6 +481,17 @@ export async function handleUploadApi(
 
     // Plan C1: a network that tried too many bad links is refused every link for 15 minutes.
     if (await deps.svc.rateBlocked("bad_link", network, now)) return badLink();
+    // Every public call per network (review pass 2): 1,200 a minute, far above a real bulk upload
+    // (a few hundred calls), so a loop of calls is stopped before it costs the database or Google.
+    const callsBlocked = await deps.svc.rateHit("call", network, now);
+    if (callsBlocked) {
+      return answer(
+        fail(
+          "RATE_LIMITED",
+          `Too many tries. Carrying on in ${secondsUntil(callsBlocked, now)} s.`,
+        ),
+      );
+    }
     if (endpoint === "resolve") {
       // Plan C2: link opens per network.
       const blockedUntil = await deps.svc.rateHit("open", network, now);

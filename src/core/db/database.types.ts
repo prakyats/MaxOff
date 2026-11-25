@@ -4687,6 +4687,7 @@ export type Database = {
           drive_file_id: string | null;
           drive_parent_id: string | null;
           failed_reason: string | null;
+          google_checked_at: string | null;
           id: string;
           ip: unknown;
           last_moved_at: string | null;
@@ -4719,6 +4720,7 @@ export type Database = {
           drive_file_id?: string | null;
           drive_parent_id?: string | null;
           failed_reason?: string | null;
+          google_checked_at?: string | null;
           id?: string;
           ip?: unknown;
           last_moved_at?: string | null;
@@ -4751,6 +4753,7 @@ export type Database = {
           drive_file_id?: string | null;
           drive_parent_id?: string | null;
           failed_reason?: string | null;
+          google_checked_at?: string | null;
           id?: string;
           ip?: unknown;
           last_moved_at?: string | null;
@@ -6641,6 +6644,10 @@ export type Database = {
         Args: { p_at: string; p_link_id: string };
         Returns: string;
       };
+      upload_done_check_claim: {
+        Args: { p_file_id: string; p_now: string };
+        Returns: boolean;
+      };
       upload_drive_check_claim: {
         Args: { p_file_ids: string[]; p_now: string; p_uploader_id: string };
         Returns: {
@@ -6758,6 +6765,10 @@ export type Database = {
           p_token_hash: string;
         };
         Returns: boolean;
+      };
+      upload_quota_stale: {
+        Args: { p_max_age: string; p_token_hash: string };
+        Returns: string;
       };
       upload_rate_hit: {
         Args: { p_at: string; p_bucket: string; p_key_hash: string };

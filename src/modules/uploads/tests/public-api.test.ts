@@ -58,7 +58,13 @@ function call(
 }
 
 function deps(svc = fakeService(), fetchImpl: typeof fetch = fetch): PublicDeps {
-  return { svc, service: {} as PublicDeps["service"], fetchImpl, clock: () => NOW };
+  return {
+    svc,
+    service: {} as PublicDeps["service"],
+    fetchImpl,
+    clock: () => NOW,
+    refreshQuota: vi.fn(async () => undefined),
+  };
 }
 
 async function json(response: Response): Promise<unknown> {
@@ -167,12 +173,32 @@ describe("the upload API: one answer for every bad link (plan A6, A8, C1)", () =
   });
 
   it("too many link opens from one network answer RATE_LIMITED (screen Q)", async () => {
-    const svc = fakeService({ rateHit: vi.fn(async () => new Date("2026-11-25T10:00:30Z")) });
+    const svc = fakeService({
+      rateHit: vi.fn(async (bucket: string) =>
+        bucket === "open" ? new Date("2026-11-25T10:00:30Z") : null,
+      ),
+    });
     const response = await handleUploadApi("resolve", call("resolve", {}), deps(svc));
     expect(response.status).toBe(429);
     expect(await json(response)).toMatchObject({ ok: false, error: { code: "RATE_LIMITED" } });
     expect(svc.rateHit).toHaveBeenCalledWith("open", expect.any(Uint8Array), NOW);
     expect(svc.resolve).not.toHaveBeenCalled();
+  });
+
+  it("every call counts per network; past 1,200 a minute any endpoint waits (review pass 2)", async () => {
+    const svc = fakeService({
+      rateHit: vi.fn(async (bucket: string) =>
+        bucket === "call" ? new Date("2026-11-25T10:01:00Z") : null,
+      ),
+    });
+    const response = await handleUploadApi(
+      "progress",
+      call("progress", { deviceKey: DEVICE_KEY, fileId: FILE_ID, sent: 1 }),
+      deps(svc),
+    );
+    expect(response.status).toBe(429);
+    expect(svc.rateHit).toHaveBeenCalledWith("call", expect.any(Uint8Array), NOW);
+    expect(svc.progress).not.toHaveBeenCalled();
   });
 
   it("without UPLOAD_LINK_KEY every link is the bad-link answer", async () => {
@@ -325,6 +351,54 @@ describe("the upload API: resolve and register (Q4, Q5, B3)", () => {
 });
 
 describe("the upload API: start opens Google's session (plan E1-E3)", () => {
+  it("reads the studio's quota again first when the reading is over 5 minutes old (C8)", async () => {
+    const svc = fakeService({
+      quotaStale: vi.fn(async () => "org-1"),
+      fileStart: vi.fn(async () => ({ result: "held", file_id: FILE_ID })),
+    });
+    const ready = deps(svc);
+    const response = await handleUploadApi(
+      "start",
+      call("start", { deviceKey: DEVICE_KEY, name: "a.mp4", sizeBytes: 9 }),
+      ready,
+    );
+    expect(await json(response)).toMatchObject({ ok: true, data: { kind: "held" } });
+    expect(ready.refreshQuota).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-1", now: NOW }),
+    );
+    // The refresh comes before the guard.
+    expect(vi.mocked(ready.refreshQuota).mock.invocationCallOrder[0]).toBeLessThan(
+      svc.fileStart.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("a fresh reading is not read again; a failed read still lets the guard decide", async () => {
+    const svc = fakeService({
+      fileStart: vi.fn(async () => ({ result: "held", file_id: FILE_ID })),
+    });
+    const fresh = deps(svc);
+    await handleUploadApi(
+      "start",
+      call("start", { deviceKey: DEVICE_KEY, name: "a.mp4", sizeBytes: 9 }),
+      fresh,
+    );
+    expect(fresh.refreshQuota).not.toHaveBeenCalled();
+    const stale = fakeService({
+      quotaStale: vi.fn(async () => "org-1"),
+      fileStart: vi.fn(async () => ({ result: "held", file_id: FILE_ID })),
+    });
+    const failing = {
+      ...deps(stale),
+      refreshQuota: vi.fn(async () => Promise.reject(new Error("google down"))),
+    };
+    const response = await handleUploadApi(
+      "start",
+      call("start", { deviceKey: DEVICE_KEY, name: "a.mp4", sizeBytes: 9 }),
+      failing,
+    );
+    expect(await json(response)).toMatchObject({ ok: true, data: { kind: "held" } });
+  });
+
   it("opens the session in the uploader's folder and hands back only its address", async () => {
     const svc = fakeService({
       fileStart: vi.fn(async () => START_ROW),
@@ -518,6 +592,16 @@ describe("the upload API: done is Google's answer, not the browser's (plan F1-F2
     });
     return { svc, google, run: () => handleUploadApi("done", request, deps(svc, google.impl)) };
   }
+
+  it("asks Google at most once per file per 5 s: a second done waits (review pass 2)", async () => {
+    const { svc, google, run } = doneCase({ session: { status: 200, body: { id: "drive-1" } } });
+    svc.doneCheckClaim.mockResolvedValue(false);
+    const response = await run();
+    expect(response.status).toBe(429);
+    expect(await json(response)).toMatchObject({ ok: false, error: { code: "RATE_LIMITED" } });
+    expect(svc.doneCheckClaim).toHaveBeenCalledWith(FILE_ID, NOW);
+    expect(google.seen).toHaveLength(0);
+  });
 
   it("asks the session itself, then files.get, and records the file done", async () => {
     const { svc, google, run } = doneCase({

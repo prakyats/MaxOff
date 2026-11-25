@@ -15,7 +15,7 @@
 -- Neutral names and documentation addresses only (example.com, 198.51.100.0/24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(378);
+select plan(390);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -266,6 +266,7 @@ select is((select count(*) from unnest(array[
     'public.upload_register(bytea, bytea, text, inet, text)',
     'public.upload_file_start(bytea, bytea, text, text, bigint, text, inet, text)',
     'public.upload_file_start_v2(bytea, bytea, text, text, bigint, text, inet, text, bigint, bigint)',
+    'public.upload_quota_stale(bytea, interval)', 'public.upload_done_check_claim(uuid, timestamptz)',
     'public.upload_folder_put(uuid, text, text, text)', 'public.upload_session_set(uuid, text, text, text)',
     'public.upload_progress(bytea, bytea, uuid, bigint)', 'public.upload_file_failed(bytea, bytea, uuid, text)',
     'public.upload_file_done(uuid, text, bigint, text, text, text)', 'public.upload_said_done(bytea, bytea)',
@@ -275,7 +276,7 @@ select is((select count(*) from unnest(array[
     'public.upload_drive_check_daily(timestamptz, integer)', 'public.upload_drive_seen(uuid, text, timestamptz)']) f
   where has_function_privilege('service_role', f, 'execute') and not has_function_privilege('anon', f, 'execute')
     and not has_function_privilege('authenticated', f, 'execute')),
-  19::bigint, 'the nineteen public API and job functions: service_role only, never anon or authenticated');
+  21::bigint, 'the twenty-one public API and job functions: service_role only, never anon or authenticated');
 -- The space guard's test override (S7, 20261125191730): the old start is a thin wrapper of _v2 with the
 -- decided 10 GB / 10 GB, so the rule lives once, and _v2 is security definer with an empty search_path.
 select ok((select pg_get_functiondef(p.oid) like '%public.upload_file_start_v2(%, 10000000000, 10000000000)%'
@@ -818,6 +819,52 @@ select is(public.upload_file_failed(pg_temp.h('tok-1'), pg_temp.h('dev-fen'),
                (select id from public.upload_uploaders where link_id = pg_temp.fx('l1') and device_key_hash = pg_temp.h('dev-fen'))),
             'gave_up'),
   'failed', 'the override''s file set aside (gave_up), so the rest runs as before');
+-- C8 (review pass 2, 20261125203748): what Google took since the quota was read counts against the
+-- space, and the Worker is told when the reading is over 5 minutes old.
+select pg_temp.as_system();
+update public.drive_account set quota_used_bytes = quota_total_bytes - 20000000000,
+  quota_checked_at = now() - interval '10 minutes' where org_id = pg_temp.fx('org');
+insert into public.upload_files (org_id, uploader_id, link_id, task_id, name, size_bytes, state, account_sub,
+  drive_file_id, done_at, check_kind)
+select l.org_id, u.id, l.id, l.task_id, 'since.mov', 15000000000, 'done', 'sub-146', 'drive-since',
+  now() - interval '5 minutes', 'md5'
+from public.upload_links l join public.upload_uploaders u on u.link_id = l.id and u.device_key_hash = pg_temp.h('dev-fen')
+where l.id = pg_temp.fx('l1');
+select pg_temp.as_service();
+select is(public.upload_quota_stale(pg_temp.h('tok-1'), '5 minutes'), pg_temp.fx('org'),
+  'a reading 10 minutes old: the Worker is told to read it again');
+select is(public.upload_quota_stale(pg_temp.h('no-such-token'), '5 minutes'), null::uuid, 'an unknown link: nothing');
+select is(public.upload_file_start_v2(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'after.mov', '', 6000000000,
+            null, null, null, 1000000000, 0) ->> 'result',
+  'held', 'C8: 20 GB at the reading, 15 GB received since: a 6 GB file is held');
+select pg_temp.as_system();
+update public.drive_account set quota_used_bytes = quota_total_bytes - 40000000000, quota_checked_at = now()
+  where org_id = pg_temp.fx('org');
+select pg_temp.as_service();
+select is(public.upload_quota_stale(pg_temp.h('tok-1'), '5 minutes'), null::uuid, 'a fresh reading: not read again');
+select is(public.upload_file_start_v2(pg_temp.h('tok-1'), pg_temp.h('dev-fen'), 'after.mov', '', 6000000000,
+            null, null, null, 1000000000, 0) ->> 'result',
+  'start', 'read again after it (the reading includes it): the 6 GB file starts');
+-- done asks Google at most once per file per 5 seconds.
+select ok(public.upload_done_check_claim(
+            (select id from public.upload_files where name = 'after.mov'), now()), 'the first check is claimed');
+select ok(not public.upload_done_check_claim(
+            (select id from public.upload_files where name = 'after.mov'), now() + interval '2 seconds'),
+  'another within 5 s is not');
+select ok(public.upload_done_check_claim(
+            (select id from public.upload_files where name = 'after.mov'), now() + interval '6 seconds'),
+  'after 5 s it is again');
+select is(public.upload_file_failed(pg_temp.h('tok-1'), pg_temp.h('dev-fen'),
+            (select id from public.upload_files where name = 'after.mov'), 'gave_up'),
+  'failed', 'the C8 file set aside, so the rest runs as before');
+-- Every public call per network: 1,200 a minute, then a wait to the next minute.
+select pg_temp.as_system();
+insert into public.upload_rate_hits (bucket, key_hash, window_start, hits)
+values ('call', pg_temp.h('net-busy'), date_trunc('minute', now()), 1200);
+select pg_temp.as_service();
+select ok(public.upload_rate_hit('call', pg_temp.h('net-busy'), now()) = date_trunc('minute', now()) + interval '1 minute',
+  'the 1,201st call in a minute waits for the next minute');
+select is(public.upload_rate_hit('call', pg_temp.h('net-calm'), now()), null::timestamptz, 'a quiet network is not held');
 select pg_temp.as_system();
 select is(pg_temp.notes('owner', 'upload_space_held'), 1::bigint, 'the Owner is told once per link per IST day');
 select is(pg_temp.kind_total('upload_space_held'), 1::bigint, 'and nobody else');
@@ -1280,7 +1327,10 @@ select ok((pg_temp.file('f_ancient')).state = 'failed' and (pg_temp.file('f_anci
   'and one that never got a session in 8 days');
 select is((pg_temp.file('f_stale')).state, 'uploading', 'a recent start is left alone');
 select is(pg_temp.entries('upload_files', 'failed', pg_temp.fx('f_rin')) + pg_temp.entries('upload_files', 'failed', pg_temp.fx('f_ancient')),
-  0::bigint, 'no history row, as a browser''s gave_up');
+  2::bigint, 'G1 (review pass 2, 20261125203748): each file failed for good gets its own history row');
+select is((select meta ->> 'reason' || '/' || (meta ->> 'by') from public.activity_log
+           where entity = 'upload_files' and entity_id = pg_temp.fx('f_rin') and action = 'failed'),
+  'gave_up/housekeeping', 'reason gave_up, by housekeeping; no name, IP or actor');
 select is((select count(*) from public.notifications), (select n from notes_before), 'nobody is told');
 select is((app.upload_housekeeping(now()) ->> 'gave_up')::integer, 0, 'idempotent: a second run marks nothing more');
 select is((select count(*) from public.activity_log where entity = 'upload_housekeeping' and action = 'ran'

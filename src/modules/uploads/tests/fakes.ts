@@ -24,6 +24,8 @@ export function fakeService(
     fileDone: vi.fn(async () => "done"),
     saidDone: vi.fn(async () => undefined),
     rateHit: vi.fn(async () => null),
+    quotaStale: vi.fn(async () => null),
+    doneCheckClaim: vi.fn(async () => true),
     rateBlocked: vi.fn(async () => false),
     fileRow: vi.fn(async () => null),
     ownFile: vi.fn(async () => null),
