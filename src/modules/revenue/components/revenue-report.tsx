@@ -27,6 +27,7 @@ import {
   revenueView,
   type Totals,
 } from "../domain/revenue";
+import { type CloseLink, closeLink } from "../domain/month-close-view";
 
 import { BillingRetry } from "./billing-retry";
 import {
@@ -61,9 +62,15 @@ const ROW_FOCUS =
 export async function RevenueReport({
   read,
   category,
+  versions = null,
 }: {
   read: Promise<RevenueMonth>;
   category: CategoryFilter;
+  /**
+   * An ended month's snapshot versions (v3.5 U4), for the month header's "Close month" or
+   * "Closed 3 Oct · v1"; null for this month (it cannot be closed yet).
+   */
+  versions?: Promise<readonly { version: number; closedAt: string }[]> | null;
 }) {
   let month: RevenueMonth;
   try {
@@ -86,6 +93,7 @@ export async function RevenueReport({
   }
   const view = revenueView(month, category);
   const switcher = monthSwitcher(month);
+  const close = await closeLinkOf(month.month, versions);
   const href = (next: { month?: string; category?: CategoryFilter }) =>
     revenueHref(
       { month: next.month ?? month.month, category: next.category ?? category },
@@ -100,13 +108,16 @@ export async function RevenueReport({
         >
           <ChevronLeftIcon aria-hidden />
         </PagerLink>
-        <p
-          className="min-w-0 text-center text-sm font-medium tabular-nums"
-          aria-live="polite"
-          data-slot="revenue-month-label"
-        >
-          {switcher.label}
-        </p>
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2">
+          <p
+            className="min-w-0 text-center text-sm font-medium tabular-nums"
+            aria-live="polite"
+            data-slot="revenue-month-label"
+          >
+            {switcher.label}
+          </p>
+          {close ? <CloseMonthLink link={close} /> : null}
+        </div>
         <PagerLink href={switcher.next ? href({ month: switcher.next }) : null} label="Next month">
           <ChevronRightIcon aria-hidden />
         </PagerLink>
@@ -176,6 +187,37 @@ export async function RevenueReport({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The month header's way to the close screen (v3.5 Q11; WORKFLOWS §7.1): "Close month" for an
+ * ended month not closed yet, "Closed 3 Oct · v1" for a closed one. A read that fails leaves the
+ * link out (the page itself still shows), reported once through the scrubber.
+ */
+async function closeLinkOf(
+  month: string,
+  versions: Promise<readonly { version: number; closedAt: string }[]> | null,
+): Promise<CloseLink | null> {
+  if (!versions) return null;
+  try {
+    return closeLink(month, await versions);
+  } catch (error) {
+    captureException(error);
+    return null;
+  }
+}
+
+function CloseMonthLink({ link }: { link: CloseLink }) {
+  return (
+    <DrillLink
+      href={link.href}
+      data-slot="revenue-close-link"
+      data-closed={link.closed ? "" : undefined}
+      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-1 text-xs font-medium underline underline-offset-4 outline-none focus-visible:ring-2 md:min-h-8"
+    >
+      {link.label}
+    </DrillLink>
   );
 }
 

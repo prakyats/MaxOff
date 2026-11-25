@@ -10,7 +10,7 @@
 -- Every name here is neutral.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(66);
 
 delete from public.month_snapshots;
 
@@ -118,6 +118,17 @@ exception
   when others then return sqlstate;
 end;
 $$;
+-- Which constraint a statement trips (null when it passes or fails another way).
+create function pg_temp.constraint_hit(sql text) returns text language plpgsql as $$
+declare v text;
+begin
+  execute sql;
+  return null;
+exception when unique_violation or foreign_key_violation or check_violation then
+  get stacked diagnostics v = constraint_name;
+  return v;
+end;
+$$;
 -- How many rows a statement returns for the caller (-1 = no privilege at all).
 create function pg_temp.n(sql text) returns integer language plpgsql as $$
 declare v integer;
@@ -213,8 +224,14 @@ select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, vers
   values (pg_temp.fx('org'), date '2026-09-01', 1, '{}', pg_temp.fx('owner'))$$), '23505',
   'a second version 1 of a closed month is refused');
 select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, version, data, closed_by, corrects_id, correction_note)
-  values (pg_temp.fx('org'), date '2026-09-01', 2, '{}', pg_temp.fx('owner'), pg_temp.fx('v1'), 'The same version twice.')$$), '23505',
-  'and a second version 2');
+  values (pg_temp.fx('org'), date '2026-09-01', 2, '{}', pg_temp.fx('owner'), pg_temp.fx('v2'), 'The same version twice.')$$), '23505',
+  'and a second version 2 (it corrects v2, which nothing corrects yet, so only the version''s unique key refuses it)');
+-- Pinned by name (the U3 review's should-fix 1): since U3 a row that corrects an already corrected version trips
+-- month_snapshots_corrects_once_key too, so the refusal above must come from the version's own unique key.
+select is(pg_temp.constraint_hit($$insert into public.month_snapshots (org_id, month, version, data, closed_by, corrects_id, correction_note)
+            values (pg_temp.fx('org'), date '2026-09-01', 2, '{}', pg_temp.fx('owner'), pg_temp.fx('v2'), 'The same version twice.')$$),
+          'month_snapshots_org_month_version_key',
+          'the second version 2 is refused by unique (org_id, month, version) itself');
 select is(pg_temp.code($$insert into public.month_snapshots (org_id, month, version, data)
   values (pg_temp.fx('org'), date '2026-10-01', 1, '{}')$$), '23502',
   'closed_by is required');

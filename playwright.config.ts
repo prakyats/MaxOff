@@ -86,6 +86,8 @@ const BILLING_SPECS = /billing\.spec\.ts$/;
 const REVENUE_SPECS = /revenue\.spec\.ts$/;
 // v2.1 (kickoff 9 R1): a one-time project's last deliverable, "Mark done and complete project".
 const COMPLETE_PROMPT_SPECS = /complete-prompt\.spec\.ts$/;
+// v3.5 U4: the Owner's close screen (close, correct, Changed since close), Admin and Crew kept away.
+const MONTH_CLOSE_SPECS = /month-close\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
 const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
@@ -233,6 +235,7 @@ export default defineConfig({
       // And a view switch then a live refresh keeps the scroll (v1.9, the Next patch): both widths.
       // And the Owner's Billing section (v2.1, 9.2): its rows, sheets and skeleton at both widths.
       // And the Owner's Revenue page (v2.1, 9.2): its figures, controls and the Admin kept away.
+      // And the Owner's close screen (v3.5 U4): close, correct, its sheets and back at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -287,6 +290,7 @@ export default defineConfig({
         BILLING_SPECS,
         REVENUE_SPECS,
         COMPLETE_PROMPT_SPECS,
+        MONTH_CLOSE_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

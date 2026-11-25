@@ -514,6 +514,9 @@ async function makeDemo(): Promise<DemoIds> {
     title: "Teaser cut",
     position: "a0",
   });
+  // v3.5 U4: last month is priced, so it can be closed (the close screen's picture); the Owner's
+  // own amount for that month alone, as "Set this month's amount" sets one.
+  await rpc(owner, "billing_set_cycle_amount", { cycle_id: lastMonth.id, amount: 15000 });
   await rpc(admin, "project_hold", { project_id: heldProjectId, reason: PROJECT_HOLD_REASON });
 
   // The Crew member's waiting requests.

@@ -352,6 +352,15 @@ export async function serviceDelete(path: string): Promise<void> {
   expect(response.ok, `delete ${path}: ${await response.text()}`).toBe(true);
 }
 
+/**
+ * Opens a month a spec closed again (v3.5 U4): its snapshot versions go, in one statement (a
+ * correction points at the version it corrects). Fixtures only: production never deletes a
+ * snapshot (there is no reopen, WORKFLOWS §7.1). `month` is the month's first day.
+ */
+export async function removeMonthSnapshots(month: string): Promise<void> {
+  await serviceDelete(`month_snapshots?month=eq.${month}`);
+}
+
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
 export async function serviceSelect<T>(path: string): Promise<T[]> {
   return (await (await serviceRest(path)).json()) as T[];
@@ -427,6 +436,9 @@ export async function removeFixturePerson(email: string): Promise<void> {
     await resetExpenseClaims(id);
     await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`activity_log?actor_id=eq.${id}`, { method: "DELETE" });
+    // v3.5 U4: a closed month points at whoever closed it (`closed_by`); one statement, so a
+    // correction's link to the version it corrects never blocks the delete.
+    await serviceRest(`month_snapshots?closed_by=eq.${id}`, { method: "DELETE" });
     // 4C: a freelancer invited as an employee keeps their coordinator history (ADR-0013).
     await serviceRest(`member_coordinators?or=(member_id.eq.${id},coordinator_id.eq.${id})`, {
       method: "DELETE",

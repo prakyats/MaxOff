@@ -1666,6 +1666,85 @@ export const OWNER_GUIDE: Guide = {
           ],
         },
         {
+          id: "owner-month-close",
+          title: "Close a month",
+          summary: "Save an ended month's revenue report as it is. Only you see it.",
+          blocks: [
+            steps(
+              "Open More, then Reports, then Revenue.",
+              'Go to an ended month with the arrows, then tap "Close month" beside its name.',
+              {
+                text: "The close screen lists what is still waiting for that month, each with a count: attendance, leave, early leaving never answered, extra work, expense claims, open work, carry decisions, no amount set and ready to complete. Tap a row to go where it is settled.",
+                shot: "owner/month-close",
+              },
+            ),
+            text(
+              'Nothing on the list stops the close. The button says how many things are still waiting, for example "Close September with 4 things still waiting" (highlighted).',
+            ),
+            steps('Tap the button, read the sheet, and tap "Close September".'),
+            next(
+              "The month's revenue report is saved as version 1 and the screen says \"Closed 3 Oct · v1\". On the Revenue page the month's name says the same.",
+            ),
+            note(
+              'Until the 5th of the next month the screen also says "Expense claims for September can still be added until 5 Oct."',
+            ),
+            note(
+              "Work goes on after a close: amounts, advances and deliverables stay editable, and an Admin can still reopen a deliverable. The saved report does not move; what moved shows under Changed since close.",
+            ),
+            note(
+              "A month can be closed once it has ended, from the first month that has an amount. The current month says it hasn't ended yet. A closed month is never reopened: a mistake is fixed with a correction.",
+            ),
+            note(
+              `Only you see month close. Admins and ${CREW} are never told that a month is closed, and closing notifies nobody.`,
+            ),
+          ],
+          keywords: [
+            "close",
+            "close month",
+            "month close",
+            "snapshot",
+            "waiting",
+            "closed",
+            "version",
+            "report",
+            "revenue",
+          ],
+        },
+        {
+          id: "owner-month-correct",
+          title: "Correct a closed month",
+          summary:
+            "Save a closed month again from today's data, with a note. Earlier versions stay.",
+          blocks: [
+            text(
+              'A closed month\'s screen lists "Changed since close": each revenue line and month total that moved since it was saved, before → after, and who changed a deliverable when MaxOff knows, for example "Reopened by Ravi". Other changes say "Amount changed".',
+            ),
+            steps(
+              "Open the month's close screen: on the Revenue page, tap \"Closed 3 Oct · v1\" beside the month's name.",
+              'Tap "Correct September". The sheet shows what moved.',
+              'Write why you are correcting it, 10 to 500 characters, and tap "Save version 2".',
+            ),
+            next(
+              'Today\'s data is saved as version 2 with your note, shown as "Corrected: …". Version 1 stays exactly as it was.',
+            ),
+            note(
+              'If nothing differs at all, the sheet says "Nothing changed." and nothing is saved. Expense totals and the month summary are compared too, not only revenue.',
+            ),
+            note(
+              "A saved figure is never edited by hand: a correction always rebuilds the whole month.",
+            ),
+          ],
+          keywords: [
+            "correct",
+            "correction",
+            "changed since close",
+            "version",
+            "note",
+            "closed month",
+            "nothing changed",
+          ],
+        },
+        {
           id: "owner-record-advance",
           title: "Record an advance",
           summary: "Money a client pays before a one-time project is delivered.",

@@ -1107,6 +1107,17 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: main,
     alt: "The Revenue page for this month: Potential, Achieved and Remaining highlighted at the top, then Needs a look and each client's projects.",
   },
+  // v3.5 U4: Revenue → an ended month's close screen (the demo prices last month's cycle).
+  {
+    id: "owner/month-close",
+    path: () => {
+      const lastMonthEnd = addISTDays(`${todayIST().slice(0, 8)}01`, -1);
+      return `/reports/close/${lastMonthEnd.slice(0, 7)}`;
+    },
+    highlight: (page) => slot(page, "month-close-button"),
+    crop: main,
+    alt: "Last month's close screen: what is still waiting, each with a count, and the Close button highlighted with how many things are still waiting.",
+  },
   {
     id: "owner/send-back",
     path: project,

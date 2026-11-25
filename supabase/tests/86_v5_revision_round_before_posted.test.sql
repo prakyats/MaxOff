@@ -60,6 +60,8 @@ delete from public.notification_deliveries;
 delete from public.notifications;
 delete from public.push_subscriptions;
 delete from public.member_reachability;
+-- v3.5 U4: a Playwright run can leave a closed month behind (closed_by -> members).
+delete from public.month_snapshots;
 delete from public.members;
 delete from auth.identities;
 

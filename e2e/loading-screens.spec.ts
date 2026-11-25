@@ -393,6 +393,25 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // Revenue → a month's close screen (v3.5 U4): the month's line and its first section, held by
+  // the page's one read (started only after its permission check). Last month, whatever its state:
+  // every state starts with the same two boxes.
+  {
+    role: "owner",
+    path: `/reports/close/${addISTDays(`${todayIST().slice(0, 8)}01`, -1).slice(0, 7)}`,
+    marker: 'data-slot="loading-month-close"',
+    hold: "/rest/v1/rpc/month_close_read",
+    trace: {
+      "month line": {
+        held: '[data-slot="loading-month-close-month"]',
+        settled: '[data-slot="month-close-month"]',
+      },
+      "first section": {
+        held: '[data-slot="loading-month-close-section"]',
+        settled: '[data-slot="month-close-section"]',
+      },
+    },
+  },
   {
     role: "owner",
     path: `/reports/end-of-day/${todayIST()}`,

@@ -647,6 +647,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 800,
     alt: "The Revenue page for this month: Potential, Achieved and Remaining highlighted at the top, then Needs a look and each client's projects.",
   },
+  "owner/month-close": {
+    src: "/guide/owner/month-close.webp",
+    width: 1190,
+    height: 400,
+    alt: "Last month's close screen: what is still waiting, each with a count, and the Close button highlighted with how many things are still waiting.",
+  },
   "owner/send-back": {
     src: "/guide/owner/send-back.webp",
     width: 408,

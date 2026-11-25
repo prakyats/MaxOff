@@ -55,6 +55,8 @@ delete from public.clients;
 -- File rows (3.3) reference members and are referenced by the organization's logo.
 update public.organizations set logo_file_id = null;
 delete from public.files;
+-- v3.5 U4: a Playwright run can leave a closed month behind (closed_by -> members).
+delete from public.month_snapshots;
 delete from public.members;
 -- Settings (1.4) lets the team add, rename and archive job titles, so a Playwright run leaves
 -- more than the seed behind. These tests are about the seeded pair: put the list back the way

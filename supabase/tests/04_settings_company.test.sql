@@ -55,6 +55,8 @@ delete from public.clients;
 -- File rows (3.3) reference members and are referenced by the organization's logo.
 update public.organizations set logo_file_id = null;
 delete from public.files;
+-- v3.5 U4: a Playwright run can leave a closed month behind (closed_by -> members).
+delete from public.month_snapshots;
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;

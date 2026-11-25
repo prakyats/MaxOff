@@ -137,6 +137,13 @@ describe("loading.tsx coverage", () => {
     // in the page's own boxes; no word of the month (the screen is drawn before the role check).
     expect(sourceOf("reports/revenue")).toContain("RevenueSkeleton");
     expect(shapeOf("reports/revenue"), "its own skeleton, not a generic shape").toBeUndefined();
+    // Revenue → a month's close screen (v3.5 U4): the month's line and a section of two-line rows
+    // with the action's bar, in the screen's own boxes; no word of the month's state.
+    expect(sourceOf("reports/close/[month]")).toContain("MonthCloseSkeleton");
+    expect(
+      shapeOf("reports/close/[month]"),
+      "its own skeleton, not a generic shape",
+    ).toBeUndefined();
     // Approvals is a grouped list (2.4: the groups are traced by ApprovalGroupSkeleton); since 4.5
     // an Admin's is too (the tasks they check), so no branch shows the stand-in.
     expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
