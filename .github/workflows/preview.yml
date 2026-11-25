@@ -51,6 +51,8 @@ on:
           - notifications-removal-dry-run
           - push-band-count
           - perf-probe
+          - staging-drive-secrets
+          - staging-drive-secrets-check
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -418,6 +420,100 @@ jobs:
   # 2026-10-03) the acknowledgement messages it would start: app.reminders_backfill_ack_preview()
   # (read only; the +2 h repeats, the +4 h lead's and the +8 h Owner's escalations). From v1.4.0 the
   # release migration reminders_backfill_release has armed every open task, so this counts 0 there.
+  # v4.0 (advisor, 25 Nov 2026): the Google Drive settings reach the staging Worker's *versions*, so
+  # branch previews can offer Connect before v4.0 is deployed to staging. `wrangler versions secret
+  # put` makes a new version with the secret added and DEPLOYS NOTHING (unlike `wrangler secret
+  # put`, which publishes a deployment and is refused with 10215 while previews are newer than
+  # the deployed version): the live staging deployment and main's code are untouched, and the next
+  # `wrangler versions upload` (a preview) carries the secrets forward. Values come from the
+  # staging environment's secrets through stdin and are never echoed. By hand only; deploy.yml
+  # takes over once v4.0 is merged. `-check` lists which of the names the newest versions hold.
+  staging-drive-secrets:
+    name: staging drive secrets (versions, no deploy)
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      && (inputs.job == 'staging-drive-secrets' || inputs.job == 'staging-drive-secrets-check')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Only the staging Worker
+        env:
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          if [ "${host%%.*}" != "maxoff-staging" ]; then
+            echo "::error::This job only ever touches the maxoff-staging Worker; the staging URL names '${host%%.*}'." >&2
+            exit 1
+          fi
+          # wrangler.jsonc's staging environment must name the same Worker.
+          if ! grep -q '"name": "maxoff-staging"' wrangler.jsonc; then
+            echo "::error::wrangler.jsonc names no maxoff-staging Worker." >&2
+            exit 1
+          fi
+      - name: Add the Drive settings to a new staging version (no deploy)
+        if: inputs.job == 'staging-drive-secrets'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          DRIVE_TOKEN_KEY: ${{ secrets.DRIVE_TOKEN_KEY }}
+        run: |
+          set -euo pipefail
+          for name in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET DRIVE_TOKEN_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is not set in the staging environment." >&2
+              exit 1
+            fi
+          done
+          for name in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET DRIVE_TOKEN_KEY; do
+            printf '%s' "${!name}" | pnpm exec wrangler versions secret put "$name" --env staging \
+              --message "Drive settings for previews (no deploy)" >/dev/null
+            echo "Added $name to a new staging version (not deployed)."
+          done
+      - name: Which Drive settings the newest staging versions hold (names only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          pnpm exec wrangler versions list --env staging --json > "$RUNNER_TEMP/versions.json"
+          ids="$(node -e '
+            const v = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const list = (Array.isArray(v) ? v : v.versions ?? []).slice(-5).reverse();
+            console.log(list.map((x) => x.id).join(" "));
+          ' "$RUNNER_TEMP/versions.json")"
+          {
+            echo "### Drive settings on the newest staging versions (names only)"; echo
+            echo "| Version | Tag / message | GOOGLE_OAUTH_CLIENT_ID | GOOGLE_OAUTH_CLIENT_SECRET | DRIVE_TOKEN_KEY |"
+            echo "|---|---|:-:|:-:|:-:|"
+          } >>"$GITHUB_STEP_SUMMARY"
+          for id in $ids; do
+            pnpm exec wrangler versions view "$id" --env staging --json > "$RUNNER_TEMP/v.json"
+            node -e '
+              const v = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+              const text = JSON.stringify(v);
+              const has = (n) => (text.includes(`"${n}"`) ? "yes" : "no");
+              const label = v.annotations?.["workers/tag"] ?? v.annotations?.["workers/message"] ?? "";
+              console.log(`| ${process.argv[2]} | ${String(label).slice(0, 40)} | ${has("GOOGLE_OAUTH_CLIENT_ID")} | ${has("GOOGLE_OAUTH_CLIENT_SECRET")} | ${has("DRIVE_TOKEN_KEY")} |`);
+            ' "$RUNNER_TEMP/v.json" "$id" >>"$GITHUB_STEP_SUMMARY"
+          done
+
   reminders-backfill-dry-run:
     name: reminders backfill (dry run, staging)
     if: github.event_name == 'workflow_dispatch' && inputs.job == 'reminders-backfill-dry-run'
