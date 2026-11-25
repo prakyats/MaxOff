@@ -4,6 +4,7 @@
 -- (3) app_open_report: an active permanent member (a freelancer has no login; the refusal is in the
 -- function). (4) No public security-definer function is executable by anon or PUBLIC.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(10);
 

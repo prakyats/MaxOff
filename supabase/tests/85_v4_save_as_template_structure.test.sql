@@ -5,6 +5,7 @@
 -- only), the history row, every refusal kept, and per role (the client's Admin, the Owner, another
 -- Admin NOT_FOUND, Crew FORBIDDEN, anon no privilege). Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(16);
 
