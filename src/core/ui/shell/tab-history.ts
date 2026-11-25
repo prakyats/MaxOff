@@ -1,11 +1,11 @@
 "use client";
 
-import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 
 import { lessDataNow, useLessData } from "@/core/ui/navigation/less-data";
 import { tabMove } from "@/core/ui/navigation/moves";
+import { PrefetchKind } from "@/core/ui/navigation/next-internals";
 
 import { holdScroll, saveTabScroll, takeTabScroll } from "./tab-scroll";
 

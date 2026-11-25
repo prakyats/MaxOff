@@ -1185,7 +1185,18 @@ test.describe("every screen's skeleton on the tap (v7.0), every role", () => {
           });
           expect(await page.evaluate(() => history.length)).toBe(atList + 2);
 
-          if (role !== "owner") return;
+          if (role !== "owner") {
+            // Not applicable for an Admin on a phone (the advisor, 25 Nov 2026): their People list
+            // opens a person's sheet, not their page, and Everyone today is the Owner's, so a
+            // phone gives an Admin no row that opens a person's page. Their person drawing is
+            // checked by the unit test (`tap-drawings.test.tsx`); recorded here, not skipped.
+            test.info().annotations.push({
+              type: "not applicable",
+              description:
+                "an Admin's person tap: on a phone the People list opens a sheet (no person page row)",
+            });
+            return;
+          }
           // A person, from Everyone today (the Owner's: on a phone the People list opens a sheet,
           // and the board's rows open a person's Leave).
           await page.goto("/today/people");

@@ -2,9 +2,9 @@
 
 import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-// The router's own pathname context (what `usePathname` reads): a drawing is drawn at its
-// screen's address, so its tabs (`ViewLink`s that mark the current one) mark the tapped one.
-import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+
+// The router's pathname context, through the one adapter for Next's internals.
+import { PathnameContext } from "./next-internals";
 
 import {
   claimTap,
