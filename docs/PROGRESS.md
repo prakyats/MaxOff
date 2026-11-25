@@ -251,6 +251,34 @@
 6. **V5a item 6b, the "only when unused" Delete kinds: DECIDED by the owner directly (22 Oct, "any reference counts as used": history, archived or deleted rows, paid or closed claims, a job title someone once held, old custom-field values, a task type named only by an archived or deleted template, a draft's contact, note, file, task label or request) and BUILT in V5e (item 6c) for task types, job titles, expense categories, custom fields, draft clients and contacts as a real row delete (DATA-MODEL §2 "The Owner-only Delete of what was never used"). The original question, for the record:** The rule lists task types, job titles, expense categories, custom fields, draft clients and contacts, "only when unused", but "unused" is not settled for any of them: (a) **does history count?** A job title once held by someone and since changed, an expense category on a past (paid) claim, a custom field whose values sit only in old activity diffs, a draft client's own creation history: if a deleted row's name is later needed to read that history, a real delete loses it (the "(deleted)" label approach would need a soft state on each of these tables too); (b) **do archived or deleted rows count?** A task type referenced only by an archived or deleted task template (whose foreign key stays); a contact on a draft client; (c) **draft clients:** is a draft with contacts, notes, files, a task label or a request "used"? Recommended: treat any reference at all, history included, as "used" (so Delete is offered only to a row nothing has ever pointed at), with a soft deleted state like templates so names in history keep reading; awaiting the owner.
 
 ## In-progress handoff
+- **PAUSED (owner, 25 Nov 2026 ~14:20 UTC, "pause everything, by saving everything"). v4.0 on `phase-v40`; v4.5 on `phase-v45`.**
+  - **v4.0 (`phase-v40` 9281cfc, pushed):**
+    - Code is ready: CI green on 11a3a67; speed accepted by the owner on 19 Nov.
+    - Since then, two dispatch-only Preview jobs:
+      - `staging-drive-secrets`: `wrangler versions secret put`, no deploy. Run 45630606249 put the three Drive settings on the staging versions. Check 45631827540: both phase-v40 preview versions hold them.
+      - `drive-cors-check` (`scripts/drive-cors-check.mjs`): v4.5's CORS step 2. **Not run yet.**
+    - The push of 9281cfc at ~14:15 UTC landed during the advisor's 15-minute hold (the hold message arrived after it). Preview run 45633121751 was still running at the pause; phase-v40 adds no migrations.
+    - **Next, on resume:**
+      1. The owner connects a **test Gmail** on `https://phase-v40-maxoff-staging.pixoraclips.workers.dev/settings/drive`, per the script on #89 (7165007512). The redirect URI is already added.
+      2. Dispatch `drive-cors-check` on phase-v40 and post the result.
+      3. The guide screenshots (11:15–17:30 IST; scheduled task trig_017SGRrCZ4SwybJ1mTRKYaz3, disabled by the pause, needs re-enabling), then `pnpm check`, CI and READY FOR OWNER with the walk script.
+  - **v4.5 (`phase-v45`, this commit):**
+    - Docs: the ADR-0010 amendment is accepted (owner, 25 Nov); DATA-MODEL §8a, WORKFLOWS §5B and PERMISSIONS are current.
+    - `modules/uploads`: domain, data, actions, the public `/api/upload/*` API and the member routes `/api/uploads/*`.
+    - Shared `core/upload` engine and `core/drive` upload sessions.
+    - Migrations `20261125122607_upload_links` and `20261125122610_upload_links_public`, with pgTAP 146 (369 checks), reviewed twice and fixed.
+    - The `upload_watch` cron; `UPLOAD_LINK_KEY` in `deploy.yml`.
+    - `pnpm check` green at df18a96c (2,793 unit tests, pgTAP PASS).
+  - **The staging state** decides the migrations:
+    - v5.0's orphan `20261125122018` on staging made 4cbd176's staging-migrations fail (run 45621941580), so nothing of mine is on staging.
+    - v5.0's staging cleanup was in progress at the pause.
+    - Pushing this branch runs staging-migrations. **From the first push that applies them, the two migrations are frozen; later fixes go in new migrations** (advisor, 25 Nov).
+  - **Next for v4.5, on resume:**
+    1. Confirm staging is clean, then check the preview applied 122607 and 122610.
+    2. A full CI run.
+    3. The screens unit: the Uploads card and sheets, the public `/upload` page using `core/upload` and the API shapes in df18a96c's commit message and PROGRESS "Ideas", the guide, and Playwright.
+    4. The upload unit after CORS step 2.
+    - Open: PROGRESS "Ideas / tech debt", the v4.5 server-side items (folder depth 8 vs 12, and more).
 - **PAUSED (owner, 19 Nov 2026): v4.5 "upload link" on `phase-v45` (from `phase-v40`), docs only, nothing built.**
   - **Approved by the owner, 19 Nov:**
     - the screens: `docs/design/v45-upload-link-sample.html`, every question decided, republished by the advisor from 996e756;
