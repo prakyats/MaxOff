@@ -7,7 +7,7 @@
 -- half; holiday release; who may do each. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(100);
+select plan(127);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -16,7 +16,10 @@ insert into fx values
   ('sa',    '00000000-0000-4000-8000-000000015001'),
   ('sb',    '00000000-0000-4000-8000-000000015002'),
   ('sc',    '00000000-0000-4000-8000-000000015003'),
-  ('sd',    '00000000-0000-4000-8000-000000015004');
+  ('sd',    '00000000-0000-4000-8000-000000015004'),
+  ('se',    '00000000-0000-4000-8000-000000015005'),
+  ('sf',    '00000000-0000-4000-8000-000000015006'),
+  ('sg',    '00000000-0000-4000-8000-000000015007');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select, insert on fx to authenticated, anon;
 
@@ -72,15 +75,15 @@ $$;
 
 -- Fixtures: four Crew members who joined a month ago; every day a working day for the next six
 -- weeks; comp credits (three days for sa, one each for sb, sc and sd; none for the Admin).
-insert into auth.users (id, email) select id, key || '-150@example.com' from fx where key in ('sa', 'sb', 'sc', 'sd');
+insert into auth.users (id, email) select id, key || '-150@example.com' from fx where key in ('sa', 'sb', 'sc', 'sd', 'se', 'sf', 'sg');
 insert into public.members (id, org_id, full_name, email, role, status, joined_at)
 select pg_temp.fx(k), pg_temp.fx('org'), 'Split ' || k, k || '-150@example.com', 'staff', 'active', now() - interval '30 days'
-from unnest(array['sa', 'sb', 'sc', 'sd']) k;
+from unnest(array['sa', 'sb', 'sc', 'sd', 'se', 'sf', 'sg']) k;
 update public.org_settings set weekly_off_days = '{}' where org_id = pg_temp.fx('org');
 delete from public.holidays where date between app.today_ist() and app.today_ist() + 45;
 insert into public.comp_leave_credits (member_id, days, granted_by, granted_on, expires_on, note)
 select pg_temp.fx(k), 1, pg_temp.fx('owner'), app.today_ist() - 1, app.today_ist() + 45, 'Worked a Sunday 150'
-from (values ('sa'), ('sa'), ('sa'), ('sb'), ('sc'), ('sd')) v(k);
+from (values ('sa'), ('sa'), ('sa'), ('sb'), ('sc'), ('sd'), ('se'), ('sf'), ('sg')) v(k);
 select pg_temp.as_member('owner');
 insert into fx select 'free', public.member_add_freelancer('Free 150', null, null, pg_temp.fx('admin'));
 select pg_temp.as_system();
@@ -326,6 +329,14 @@ select is((select string_agg(r.half || ':' || coalesce(r.credit_days::text, '-')
   'afternoon:0.5:approved,morning:-:approved', 'two approved halves born together, the comp in the afternoon');
 select is(pg_temp.credit('sd'), 'reserved 0.0 used 0.5', 'the ½ credit is used at once');
 select is(pg_temp.summary('sd'), 'worked 0.0 leave 0 half 1 comp 0.5 additional 0.5', 'the month counts it by its halves');
+insert into fx select 'sd_pm_edit', e.new_id
+from public.leave_owner_edit((pg_temp.req('sd', 0, 'morning')).id, 'half_day', app.today_ist(), app.today_ist(),
+                             'Morning comp too 150', null, true) e;
+select is((select row(d.final_status, d.leave_request_id = pg_temp.fx('sd_pm_edit'),
+                      d.second_leave_request_id = (pg_temp.req('sd', 0, 'afternoon')).id)::text
+           from public.attendance_days d where d.id = pg_temp.fx('dayd')),
+  '(comp_leave,t,t)', 'the Owner''s split day follows an edit of one half: now two comp halves');
+select is(pg_temp.summary('sd'), 'worked 0.0 leave 0 half 0 comp 1.0 additional 0.0', 'and the month says one comp day');
 select pg_temp.as_system();
 select is((select string_agg(n.title, ' | ') from public.notifications n where n.recipient_id = pg_temp.fx('sd') and n.kind = 'attendance_decided'),
   format('%s: corrected to Full day: ½ comp + ½ leave', app.notify_date(app.today_ist())), 'the member reads it');
@@ -380,6 +391,95 @@ select is((select row(c.type, c.half)::text from app.leave_covering(pg_temp.fx('
   '(half_day,afternoon)', 'one half covering a date is still that half day');
 select ok((app.leave_conflict(pg_temp.fx('sa'), app.today_ist() + 20, app.today_ist() + 20, 'leave', null, null, false)).id is null,
   'no request on a free date: no conflict');
+
+-- 13. A half settled onto a day that already exists; the member's own cancellation of one half ------
+select pg_temp.as_member('se');
+insert into fx select 'se_am', public.leave_submit('half_day', app.today_ist(), app.today_ist(), 'Am 150', 'morning');
+select pg_temp.as_member('owner');
+select is((select d.state::text from public.leave_decide(pg_temp.fx('se_am'), 'approve') d), 'approved', 'a morning half approved');
+select pg_temp.as_system();
+select is((app.attendance_open_day(pg_temp.fx('se'), app.today_ist())).final_status::text, 'half_day',
+  'the day opens as the morning half day');
+select pg_temp.as_member('se');
+insert into fx select 'se_pm', public.leave_submit_comp(app.today_ist(), true, 'Pm 150', 'afternoon');
+select pg_temp.as_member('owner');
+select is((select d.state::text from public.leave_decide(pg_temp.fx('se_pm'), 'approve') d), 'approved',
+  'then a comp afternoon');
+select pg_temp.as_system();
+select is((select row(d.final_status, d.leave_request_id = pg_temp.fx('se_am'), d.second_leave_request_id = pg_temp.fx('se_pm'))::text
+           from public.attendance_days d where d.id = (pg_temp.today_day('se')).id),
+  '(leave,t,t)', 'the existing day becomes a day off linking both halves');
+select pg_temp.as_member('se');
+select is((select t.leave_type::text from public.attendance_own_today() t), 'leave',
+  'today''s strip reads it as leave, not a half day');
+insert into fx select 'se_cnl', public.leave_request_change(pg_temp.fx('se_am'), cancel => true, reason => 'Coming in 150');
+select pg_temp.as_member('owner');
+select is((select d.state::text from public.leave_decide(pg_temp.fx('se_cnl'), 'approve') d), 'cancelled',
+  'the Owner approves the member''s cancellation of the morning');
+select pg_temp.as_system();
+select is((select row(d.final_status, d.leave_request_id = pg_temp.fx('se_pm'), d.second_leave_request_id)::text
+           from public.attendance_days d where d.id = (pg_temp.today_day('se')).id),
+  '(half_day,t,)', 'the day is the comp afternoon that stands');
+select pg_temp.as_member('se');
+select is((select t.leave_type::text from public.attendance_own_today() t), 'half_day', 'and the strip says a half day');
+
+-- 14. The Owner edits one half of a split day that exists ----------------------------------------
+select pg_temp.as_member('sf');
+insert into fx select 'pairf', public.leave_submit_split(app.today_ist(), 'afternoon', 'Split f 150');
+select pg_temp.as_member('owner');
+select is((select d.state::text from public.leave_decide((pg_temp.req('sf', 0, 'morning')).id, 'approve') d), 'approved',
+  'a split day approved');
+select pg_temp.as_system();
+insert into fx select 'dayf', (app.attendance_open_day(pg_temp.fx('sf'), app.today_ist())).id;
+select pg_temp.as_member('owner');
+insert into fx select 'sf_edit', e.new_id
+from public.leave_owner_edit((pg_temp.req('sf', 0, 'morning')).id, 'half_day', app.today_ist(), app.today_ist(),
+                             'Morning as comp 150', null, true) e;
+select pg_temp.as_system();
+select is((select row(d.final_status, d.leave_request_id = pg_temp.fx('sf_edit'), d.second_leave_request_id is not null)::text
+           from public.attendance_days d where d.id = pg_temp.fx('dayf')),
+  '(comp_leave,t,t)', 'the Owner makes the morning comp too: the day is a comp day, both halves linked');
+select is(pg_temp.credit('sf'), 'reserved 0.0 used 1.0', 'two comp halves use one day');
+
+-- 15. Correcting a split day: to a half day, to leave (review findings 1 and 2) --------------------
+select pg_temp.as_member('owner');
+select is(public.attendance_decide(pg_temp.fx('dayf'), 'correct', 'half_day', 'Worked the afternoon 150', 'morning')::text,
+  'corrected', 'the Owner corrects the split day to a morning half day');
+select is((select string_agg(r.half || ':' || r.state, ',' order by r.half, r.state) from public.leave_requests r
+           where r.member_id = pg_temp.fx('sf') and r.start_date = app.today_ist() and r.state = 'approved'),
+  'morning:approved', 'one approved half is left: the new morning');
+select is((select row(d.final_status, d.second_leave_request_id)::text from public.attendance_days d where d.id = pg_temp.fx('dayf')),
+  '(half_day,)', 'the day links that half only');
+select is(pg_temp.credit('sf'), 'reserved 0.0 used 0.0', 'and both comp halves gave their credit back');
+select pg_temp.as_system();
+select is((select row(c.type, c.half)::text from app.leave_covering(pg_temp.fx('sf'), app.today_ist()) c),
+  '(half_day,morning)', 'leave_covering: the morning half day');
+select pg_temp.as_member('owner');
+select is(public.attendance_decide(pg_temp.fx('dayf'), 'correct', 'leave', 'Split again 150', null, 'morning')::text,
+  'corrected', 'back to a split day');
+select is(public.attendance_decide(pg_temp.fx('dayf'), 'correct', 'leave', 'All leave 150')::text,
+  'corrected', 'then to a full day of leave');
+select is((select string_agg(r.type || ':' || coalesce(r.half, '-'), ',') from public.leave_requests r
+           where r.member_id = pg_temp.fx('sf') and r.start_date = app.today_ist() and r.state = 'approved'),
+  'leave:-', 'one approved full day: the halves are replaced, not kept beside it');
+select is(pg_temp.credit('sf'), 'reserved 0.0 used 0.0', 'and the ½ credit is back');
+
+-- 16. A holiday on a split day that exists gives the comp half back; the day keeps the other half ---
+select pg_temp.as_member('sg');
+insert into fx select 'pairg', public.leave_submit_split(app.today_ist(), 'morning', 'Split g 150');
+select pg_temp.as_member('owner');
+select is((select d.state::text from public.leave_decide((pg_temp.req('sg', 0, 'morning')).id, 'approve') d), 'approved',
+  'a split day today, comp in the morning');
+select pg_temp.as_system();
+select is((app.attendance_open_day(pg_temp.fx('sg'), app.today_ist())).final_status::text, 'leave', 'its day is open');
+insert into public.holidays (org_id, date, name) values (pg_temp.fx('org'), app.today_ist(), 'Today holiday 150');
+select is((select string_agg(r.half || ':' || r.state, ',' order by r.half) from public.leave_requests r
+           where r.pair_id = pg_temp.fx('pairg')),
+  'afternoon:approved,morning:cancelled', 'the holiday cancels the comp morning, the afternoon stays');
+select is((select row(d.final_status, d.leave_request_id = (pg_temp.req('sg', 0, 'afternoon')).id, d.second_leave_request_id)::text
+           from public.attendance_days d where d.id = (pg_temp.today_day('sg')).id),
+  '(half_day,t,)', 'the day is the afternoon that stands');
+select is(pg_temp.credit('sg'), 'reserved 0.0 used 0.0', 'and the ½ credit is back');
 
 select * from finish();
 rollback;

@@ -1166,6 +1166,12 @@ public.attendance_end_day(overtime_note default null, overtime_minutes default n
   waiting gate request is rejected, never approved as a split. Leave over several days stays.
 - **The Approvals badge** (`session_bundle().pending_requests`) counts a waiting pair as one request,
   as Approvals lists it.
+- **The review's fixes (before the first push):** a correction of a split day never "matches" its
+  halves (a split day corrected to Half day, Leave or Comp leave supersedes both halves first and
+  gives their credit back); a day the Owner set from halves (a correction to a half or split day)
+  follows its halves when one is edited or the other approved later (`app.attendance_settle_halves`),
+  while any other Owner-decided day stays as decided; `attendance_own_today().leave_type` is the
+  day's own `leave` / `comp_leave` when it links two halves, so today's strip reads a day off.
 - **month_summary** counts a decided `leave` day linking one comp half and one ordinary half as ½ comp
   and ½ additional leave, and as one of the half days; days_worked is unchanged.
 

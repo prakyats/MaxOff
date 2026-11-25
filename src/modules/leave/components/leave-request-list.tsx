@@ -543,7 +543,13 @@ export function LeaveRequestList({
           title="Withdraw this request?"
           description={
             // v2.0.1: a waiting split day goes back whole (`leave_withdraw` withdraws its partner).
-            dialog.request.pairId
+            dialog.request.pairId &&
+            requests.some(
+              (other) =>
+                other.pairId === dialog.request.pairId &&
+                other.id !== dialog.request.id &&
+                other.state === "submitted",
+            )
               ? `${PAIR_TITLE} on ${leaveDates(dialog.request.startDate, dialog.request.endDate)}. Both halves are withdrawn, and the Owner will no longer see them.`
               : `${leaveTitle(dialog.request)} on ${leaveDates(dialog.request.startDate, dialog.request.endDate)}. The Owner will no longer see it.`
           }

@@ -172,6 +172,74 @@ test("the member asks to cancel only the leave half; the comp half stays", async
   await expect(row(page, info, "Full day · ½ comp + ½ leave")).toContainText("One half approved");
 });
 
+test("the Owner corrects a day to ½ comp + ½ leave, then makes the afternoon comp too", async ({
+  page,
+}, info) => {
+  const id = await memberIdOf(person(info));
+  await resetAttendanceAndLeave(id);
+  await rpcAs(USERS.owner.email, USERS.owner.password, "comp_leave_grant", {
+    member_id: id,
+    days: 1,
+  });
+  // Today's day, waiting for the Owner: the member chose Leave at the start of the day.
+  await rpcAs(person(info), PASSWORD, "attendance_choose_leave_today", { choice: "leave" });
+
+  await signIn(page, USERS.owner.email, USERS.owner.password);
+  await page.goto(`/people/${id}/attendance`);
+  const day = isPhone(info)
+    ? page.locator('[data-slot="data-card"]').first()
+    : page.locator("tbody tr").first();
+  await day.click();
+  const sheet = page.locator(
+    isPhone(info) ? '[data-slot="detail-sheet"]' : '[data-slot="history-sheet"]',
+  );
+  await sheet.getByRole("button", { name: "Correct…" }).click();
+  let dialog = page.locator('[data-slot="dialog-content"]');
+  await dialog.getByRole("combobox", { name: "The day was" }).click();
+  await page.getByRole("option", { name: "Full day: ½ comp + ½ leave" }).click();
+  await dialog.getByLabel("Comp in the morning").check();
+  await expect(dialog).toContainText("The afternoon is ordinary leave.");
+  await dialog.getByLabel("Reason").fill("Half a day owed, half leave");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(async () => (await halves(id)).map((h) => `${h.half}:${h.state}:${h.credit_days ?? "-"}`))
+    .toEqual(["afternoon:approved:-", "morning:approved:0.5"]);
+  const [split] = await serviceSelect<{
+    final_status: string;
+    second_leave_request_id: string | null;
+  }>(`attendance_days?member_id=eq.${id}&select=final_status,second_leave_request_id`);
+  expect(split?.final_status).toBe("leave");
+  expect(split?.second_leave_request_id).not.toBeNull();
+
+  // The person's Leave tab: one card; the Owner edits the afternoon half to use ½ comp too.
+  await page.goto(`/people/${id}/leave`);
+  const pair = row(page, info, "Full day · ½ comp + ½ leave");
+  if (isPhone(info)) {
+    await pair.click();
+    await page
+      .locator('[data-slot="detail-sheet"]')
+      .getByRole("button", { name: "Edit the afternoon" })
+      .click();
+  } else {
+    await pair.getByRole("button", { name: "Edit the afternoon" }).click();
+  }
+  dialog = page.getByRole("dialog", { name: "Edit this leave" });
+  await expect(dialog.getByLabel("Afternoon off")).toBeChecked();
+  await dialog.getByLabel("Use ½ comp leave for this half").check();
+  await dialog.getByLabel("Reason").fill("Both halves from comp");
+  await dialog.getByRole("button", { name: "Save leave" }).click();
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(async () => {
+      const [today] = await serviceSelect<{ final_status: string }>(
+        `attendance_days?member_id=eq.${id}&select=final_status`,
+      );
+      return today?.final_status;
+    })
+    .toBe("comp_leave");
+});
+
 test.describe("installed: the back order of the split-day form", () => {
   test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
 

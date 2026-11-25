@@ -230,8 +230,8 @@ end;
 $fn$;
 
 -- 5. The day of a split date ----------------------------------------------------------------------
--- Re-derives one day the system holds from leave (approved or system-corrected, never decided by
--- the Owner) from the approved halves of its date: both halves → `leave` / `comp_leave` with both
+-- Re-derives one day the system holds from leave (approved or system-corrected), or one the Owner
+-- set from halves, from the approved halves of its date: both halves → `leave` / `comp_leave` with both
 -- links; one half left after the other went → `half_day` with that half. Any other day is left
 -- alone. Called after a half day is applied or released, and by the day opener.
 create function app.attendance_settle_halves(p_member_id uuid, p_date date)
@@ -254,8 +254,15 @@ begin
   for update;
   if v_day.id is null
      or v_day.state not in ('approved', 'corrected')
-     or not v_day.proposed_by_system or v_day.decided_by is not null
      or v_day.final_status not in ('half_day', 'leave', 'comp_leave') then
+    return;
+  end if;
+  if not (v_day.proposed_by_system and v_day.decided_by is null)
+     and not exists (select 1 from public.leave_requests r
+                     where r.id = v_day.leave_request_id and r.type = 'half_day' and r.half is not null) then
+    -- A day the Owner decided stays as decided (WORKFLOWS §1, 2.2), unless the Owner built it from
+    -- halves (a correction to a half or split day): then it follows its halves, which are the
+    -- Owner's own decision too (an edit of one half, the other half approved later).
     return;
   end if;
 
@@ -1344,10 +1351,14 @@ begin
     v_matches := v_req.id is not null and v_req.state = 'approved' and v_req.type::text = v_to::text
                  and v_day.work_date between v_req.start_date and v_req.end_date
                  and not v_split
+                 -- A split day never "matches": its halves are replaced by what the Owner chose.
+                 and v_day.second_leave_request_id is null
                  and (v_to <> 'half_day'
                       or ((half is null or v_req.half is not distinct from half)
                           and (comp_half is null) = (v_req.credit_days is null)));
-    if v_split or (v_to = 'half_day' and not v_matches) then
+    if v_split
+       or (v_to in ('half_day', 'leave', 'comp_leave') and not v_matches
+           and (v_to = 'half_day' or v_day.second_leave_request_id is not null)) then
       -- v2.0.1: the Owner's halves replace the day's own: an approved request linked to this day
       -- and covering only this date is superseded and its comp credit goes back, so correcting a
       -- day twice never books the date or the credit twice. Leave over several days stays.
@@ -1713,4 +1724,63 @@ as $$
          end
   from (values (1)) as one (x)
   left join lateral public.task_counts() tc on true;
+$$;
+
+-- 18. Today's strip reads a split day as a day off ------------------------------------------------
+-- The body of 20260928131234_contract_phase3b with one change: leave_type is the day's own status
+-- (leave / comp_leave) when the day links two halves, not the morning half's `half_day`.
+create or replace function public.attendance_own_today()
+returns table (
+  work_date date, attendance_started boolean, is_working_day boolean, day_id uuid,
+  state public.attendance_state, submitted_choice public.attendance_choice,
+  final_status public.day_status, proposed_by_system boolean, decided_by_system boolean,
+  decision_reason text, worked_on_leave boolean, leave_type public.leave_type, is_day_off boolean,
+  started_at timestamptz, ended_at timestamptz, end_not_recorded boolean,
+  overtime_flag boolean, overtime_reason text,
+  yesterday_open_day_id uuid, yesterday_started_at timestamptz, covering_leave_type public.leave_type)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_caller uuid;
+  v_org uuid;
+  v_today date := app.today_ist();
+  v_joined timestamptz;
+  v_late_allowed boolean;
+begin
+  select r.caller_id, r.org_id into v_caller, v_org from app.attendance_require_self() r;
+  select m.joined_at into v_joined from public.members m where m.id = v_caller;
+  v_late_allowed := app.end_day_late_allowed(now(), app.end_day_cutoff(v_org));
+
+  return query
+  select v_today,
+         app.to_ist_date(v_joined) < v_today,
+         -- null from is_working_day() means "unknown", which is not a day off.
+         app.is_working_day(v_today) is not false,
+         d.id, d.state, d.submitted_choice, d.final_status,
+         coalesce(d.proposed_by_system, false),
+         d.id is not null and d.decided_by is null,
+         d.decision_reason, coalesce(d.worked_on_leave, false),
+         -- v2.0.1: a day off made of two halves reads as the whole day it is.
+         case when d.second_leave_request_id is not null and d.final_status in ('leave', 'comp_leave')
+              then d.final_status::text::public.leave_type else l.type end,
+         coalesce(d.is_day_off, app.is_working_day(v_today) is false),
+         d.started_at, d.ended_at, coalesce(d.end_not_recorded, false),
+         coalesce(d.overtime_flag, false), d.overtime_reason,
+         y.id, y.started_at,
+         -- Approved leave covering today when nobody has opened the day yet: no prompt, and the
+         -- strip says "On leave today" before any row exists (a Start day would derive the row).
+         case when d.id is null then (app.leave_covering(v_caller, v_today)).type end
+  from (select 1) as one
+  left join public.attendance_days d on d.member_id = v_caller and d.work_date = v_today
+  left join public.leave_requests l on l.id = d.leave_request_id
+  -- 3b review: only before the cutoff, and attendance_end_day() refuses it once today started.
+  left join public.attendance_days y
+    on v_late_allowed
+       and y.member_id = v_caller and y.work_date = v_today - 1
+       and y.started_at is not null and y.ended_at is null;
+end;
 $$;

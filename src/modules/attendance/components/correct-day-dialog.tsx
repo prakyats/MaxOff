@@ -51,8 +51,10 @@ export type CorrectTarget = {
   dayId: string;
   memberName: string;
   workDate: string;
-  /** What the day is now (or was chosen), to start the select from. */
-  current: DayStatus | null;
+  /** What the day is now (or was chosen), to start the select from; a split day starts as one. */
+  current: CorrectChoice | null;
+  /** v2.0.1: the day is off as two halves (a split day): a leave correction replaces them. */
+  split?: boolean;
   /** v2.0.1: a half day's half off and whether it is a ½ comp day, to start those from. */
   currentHalf?: Half | null;
   currentComp?: boolean;
@@ -185,7 +187,15 @@ function CorrectForm({
   // Any correction keeps the approved leave behind the day, Present and Absent included
   // (WORKFLOWS §1, owner decision 2026-09-26): the Owner cancels that one from the person's
   // Leave tab if it should go.
-  const keepsLeave = target.leaveType !== null && status !== "" && status !== target.leaveType;
+  // v2.0.1: a half day or a split day's own halves are replaced by a half-day or split correction
+  // (and a split day's by any leave correction): nothing is left standing to cancel.
+  const replacesLeave =
+    (target.leaveType === "half_day" || target.split === true) &&
+    (status === "half_day" ||
+      status === SPLIT_DAY ||
+      (target.split === true && (status === "leave" || status === "comp_leave")));
+  const keepsLeave =
+    target.leaveType !== null && status !== "" && status !== target.leaveType && !replacesLeave;
   // Comp leave uses one of the person's credits (kickoff 3b decision 16; the database is the
   // rule): the option is greyed out when there is none, and the hint names the balance.
   const comp = compLeaveOption(target.compDays, target.leaveType, name);
