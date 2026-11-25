@@ -194,7 +194,14 @@ insert into app_internal values
   ('now'),
   -- v1.9 W7: On hold's guard trigger and the deliverables a project's resume settles (migration on_hold,
   -- pgTAP 127)
-  ('on_hold_guard'), ('project_resume_items');
+  ('on_hold_guard'), ('project_resume_items'),
+  -- v4.5: the upload link's internal helpers (who is told, the member guards, the link stop the task
+  -- functions share, the text cleaning, the token's link, the uploader's own file) and its daily
+  -- housekeeping job (migrations upload_links and upload_links_public, pgTAP 146); app.upload_manager
+  -- keeps the API grant (the activity_log policy reads it)
+  ('upload_recipients'), ('upload_guard'), ('upload_link_guard'), ('upload_stop_link'),
+  ('upload_can_make_link'), ('upload_clean'), ('upload_fold'), ('upload_clean_path'), ('upload_size_text'),
+  ('upload_device_label'), ('upload_public_link'), ('upload_own_file'), ('upload_housekeeping');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -215,7 +222,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 138::bigint,
+             and p.proname in (select name from app_internal)), 151::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

@@ -150,9 +150,9 @@ select results_eq(
 rollback to savepoint fresh_org;
 
 -- Seed (PERMISSIONS §1) -------------------------------------------------------------------
-select is((select count(*) from public.role_permissions), 55::bigint, '55 grants are seeded (expenses.decide since 3b.3; clients.create and amendment C''s three Admin keys since 7A)');
-select is((select count(*) from public.role_permissions where role = 'owner'), 31::bigint, 'the Owner holds 31 keys');
-select is((select count(*) from public.role_permissions where role = 'admin'), 20::bigint, 'Admins hold 20 keys');
+select is((select count(*) from public.role_permissions), 58::bigint, '58 grants are seeded (expenses.decide since 3b.3; clients.create and amendment C''s three Admin keys since 7A; v4.5''s uploads.manage for the Owner and Admins and uploads.network for the Owner)');
+select is((select count(*) from public.role_permissions where role = 'owner'), 33::bigint, 'the Owner holds 33 keys');
+select is((select count(*) from public.role_permissions where role = 'admin'), 21::bigint, 'Admins hold 21 keys');
 select results_eq(
   $$ select permission from public.role_permissions where role = 'staff' order by 1 $$,
   $$ values ('attendance.self'), ('drive.view_status'), ('task_requests.create'), ('tasks.work') $$,
@@ -417,7 +417,7 @@ select throws_ok(
 
 -- role_permissions ------------------------------------------------------------------------
 select pg_temp.as_member('staff');
-select is((select count(*) from public.role_permissions), 55::bigint, 'any active member reads the grants');
+select is((select count(*) from public.role_permissions), 58::bigint, 'any active member reads the grants');
 select pg_temp.as_member('deactivated');
 select is((select count(*) from public.role_permissions), 0::bigint, 'a deactivated member reads no grants');
 select pg_temp.as_member('owner');

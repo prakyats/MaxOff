@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GROUPED_KINDS, NOTIFY_GROUPS, notifyGroupFor } from "./groups";
 
-/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind, v1.9 W3's approval reminder, v1.9 W0's five working-hours kinds, v1.9 W7's four On hold kinds; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
+/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind, v1.9 W3's approval reminder, v1.9 W0's five working-hours kinds, v1.9 W7's four On hold kinds, v4.0's two Drive kinds, v4.5's eight upload-link kinds; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
 const KINDS = [
   "absent_proposed",
   "approval_reminder",
@@ -73,6 +73,14 @@ const KINDS = [
   "task_resumed",
   "task_submitted",
   "task_unassigned",
+  "upload_daily_limit",
+  "upload_files_received",
+  "upload_looks_finished",
+  "upload_names_capped",
+  "upload_not_on_task",
+  "upload_said_done",
+  "upload_space_held",
+  "upload_stuck",
 ];
 
 describe("notifyGroupFor (the push's large picture, owner 2026-10-02)", () => {
@@ -106,6 +114,9 @@ describe("notifyGroupFor (the push's large picture, owner 2026-10-02)", () => {
     expect(notifyGroupFor("task_resumed")).toBe("tasks");
     expect(notifyGroupFor("project_held")).toBe("other");
     expect(notifyGroupFor("project_resumed")).toBe("other");
+    // v4.5: "Files received: mark it done" is the reader's work; the other upload notices inform.
+    expect(notifyGroupFor("upload_files_received")).toBe("tasks");
+    expect(notifyGroupFor("upload_stuck")).toBe("other");
   });
 
   it("the quiet-hours summary and an unknown or inherited name are other", () => {
