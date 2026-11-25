@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
-import { onLayerEscape, onLayerOpenFocus } from "@/core/ui/keyboard/layer";
+import { onLayerEscape, onLayerOpenFocus, useLayerReturnFocus } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
@@ -69,6 +69,7 @@ function SheetContent({
   ref,
   onEscapeKeyDown,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
@@ -82,6 +83,7 @@ function SheetContent({
 }) {
   // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
   const opening = React.useContext(ModalOpening);
+  const returnFocus = useLayerReturnFocus(opening);
   const contentRef = useKeyboardLift(followKeyboard && side === "bottom", false, ref);
   return (
     <SheetPortal key={opening}>
@@ -99,6 +101,8 @@ function SheetContent({
         // does (ARCHITECTURE §14.3 rules 4 and 5).
         onEscapeKeyDown={(event) => onLayerEscape(event, onEscapeKeyDown)}
         onOpenAutoFocus={(event) => onLayerOpenFocus(event, onOpenAutoFocus)}
+        // Closing hands focus back to what opened it (K1, `useLayerReturnFocus`).
+        onCloseAutoFocus={(event) => returnFocus.restore(event, onCloseAutoFocus)}
       >
         {children}
         {showCloseButton && (

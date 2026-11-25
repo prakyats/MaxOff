@@ -1,5 +1,6 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
@@ -44,6 +45,9 @@ export default async function EndOfDayListPage({
   // Today and yesterday lead only the first page; a later page is the history alone.
   const shown = page === 1 ? entries : entries.filter((entry) => entry.state === "saved");
   const pages = Math.max(1, Math.ceil(saved.total / EOD_PAGE_SIZE));
+  // A page past the last (an old link, a typed address) goes to the first, as a person's leave
+  // history does: never an empty list with no way back (v7.5 plan §5.1, G7).
+  if (page > pages) redirect(pageHref(1));
   const previous = page > 1 ? pageHref(page - 1) : null;
   const next = page < pages ? pageHref(page + 1) : null;
 

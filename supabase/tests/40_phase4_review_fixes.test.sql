@@ -13,6 +13,10 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(88);
+-- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the
+-- definer functions do, through a definer wrapper, with the same caller claims.
+create function pg_temp.definer_is_approving_admin(p_task_id uuid) returns boolean language sql stable security definer
+  set search_path = '' as $$ select app.is_approving_admin(p_task_id) $$;
 
 -- Fixtures as 39. Rolled back at the end.
 delete from public.task_reads;
@@ -187,7 +191,7 @@ select is(pg_temp.reads('a1', 'o1'), 0::bigint, 'made Staff, they read none of t
 select is(pg_temp.reads('a1own'), 1::bigint, 'but still the one they are assigned to');
 select ok(not app.task_manager(pg_temp.fx('a1')) and not app.task_manager(pg_temp.fx('a1own')),
   'and manage none of them');
-select ok(not app.is_approving_admin(pg_temp.fx('o1')), 'nor count as the approving Admin of O1');
+select ok(not pg_temp.definer_is_approving_admin(pg_temp.fx('o1')), 'nor count as the approving Admin of O1');
 select throws_ok(format($$ insert into public.task_stages (task_id, name, position) values (%L, 'Extra', 'b0') $$, pg_temp.fx('a1')),
   'P0001', 'NOT_FOUND', 'they cannot add a stage to the task they created (it is not theirs to see)');
 select is(pg_temp.rows(format($$ update public.task_stages set name = 'Renamed' where task_id = %L and name = 'Cut' $$, pg_temp.fx('a1'))),

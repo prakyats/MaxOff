@@ -11,6 +11,10 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(43);
+-- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the
+-- definer functions do, through a definer wrapper, with the same caller claims.
+create function pg_temp.definer_directory_visible(p_member_id uuid) returns boolean language sql stable security definer
+  set search_path = '' as $$ select app.directory_visible(p_member_id) $$;
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -189,8 +193,8 @@ select is((select d.phone from public.member_directory d where d.id = pg_temp.fx
   'and the approver''s');
 select isnt((select d.phone from public.member_directory d where d.id = pg_temp.fx('staff2')), null,
   'their own phone is there');
-select ok(app.directory_visible(pg_temp.fx('admin1')), 'the single-row form agrees: a past approver is visible');
-select ok(not app.directory_visible(pg_temp.fx('staff3')), 'and a stranger is not');
+select ok(pg_temp.definer_directory_visible(pg_temp.fx('admin1')), 'the single-row form agrees: a past approver is visible');
+select ok(not pg_temp.definer_directory_visible(pg_temp.fx('staff3')), 'and a stranger is not');
 select results_eq($$ select f.member_id, f.coordinator_id from public.freelancer_coordinators f $$,
   format($$ values (%L::uuid, %L::uuid) $$, pg_temp.fx('asha'), pg_temp.fx('coord2')),
   'freelancer_coordinators: the co-assignee reads who coordinates the freelancer on their task now');

@@ -3,6 +3,10 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(160);
+-- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the
+-- definer functions do, through a definer wrapper, with the same caller claims.
+create function pg_temp.definer_admin_client_ids() returns setof uuid language sql stable security definer
+  set search_path = '' as $$ select app.admin_client_ids() $$;
 
 -- The local seed holds an organization and sign-ins. Keep the organization; replace the people
 -- with fixtures. Rolled back at the end. Order follows the foreign keys.
@@ -240,13 +244,13 @@ select pg_temp.as_member('owner');
 select is((select count(*) from public.clients), 2::bigint, 'the Owner reads every client');
 select is((select count(*) from public.client_private), 2::bigint, 'the Owner reads every private row');
 select is((select count(*) from public.client_labels), 2::bigint, 'the Owner reads every label');
-select is((select count(*) from app.admin_client_ids()), 0::bigint, 'admin_client_ids() is empty for the Owner (clients.manage instead)');
+select is((select count(*) from pg_temp.definer_admin_client_ids()), 0::bigint, 'admin_client_ids() is empty for the Owner (clients.manage instead)');
 select pg_temp.as_member('admin');
 select results_eq(
   $$ select id from public.clients $$, $$ select pg_temp.fx('client_a') $$,
   'an Admin reads their assigned client only');
 select results_eq(
-  $$ select * from app.admin_client_ids() $$, $$ select pg_temp.fx('client_a') $$,
+  $$ select * from pg_temp.definer_admin_client_ids() $$, $$ select pg_temp.fx('client_a') $$,
   'admin_client_ids() names the assigned client');
 select is((select count(*) from public.client_private), 0::bigint, 'an Admin never reads client_private');
 select is((select count(*) from public.client_brand), 1::bigint, 'an Admin reads the brand of their client');

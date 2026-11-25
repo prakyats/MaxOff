@@ -12,8 +12,12 @@ import { PASSWORD_MIN_LENGTH } from "../password-rules";
 
 import { FormAlert } from "./form-alert";
 
-/** New password + confirmation for the session a recovery or invite link opened. */
-export function SetPasswordForm() {
+/**
+ * New password + confirmation for the session a recovery or invite link opened. `placeholder`
+ * draws the same form, disabled and hidden from screen readers, for the page's loading screen
+ * while the session is read (v7.5 G4): the same boxes, so nothing moves when it is ready.
+ */
+export function SetPasswordForm({ placeholder = false }: { placeholder?: boolean }) {
   const [state, formAction, pending] = useActionState(
     async (_previous: Result<never> | null, formData: FormData) =>
       setPassword({
@@ -26,7 +30,14 @@ export function SetPasswordForm() {
   const fieldErrors = error?.fieldErrors ?? {};
 
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-4">
+    <form
+      action={placeholder ? undefined : formAction}
+      noValidate
+      className="flex flex-col gap-4"
+      aria-hidden={placeholder || undefined}
+      inert={placeholder || undefined}
+      data-placeholder={placeholder || undefined}
+    >
       {error && !error.fieldErrors ? <FormAlert>{error.message}</FormAlert> : null}
       <FormField
         label="New password"
@@ -39,13 +50,20 @@ export function SetPasswordForm() {
             name="password"
             autoComplete="new-password"
             required
-            autoFocus
+            autoFocus={!placeholder}
+            disabled={placeholder}
           />
         )}
       </FormField>
       <FormField label="Repeat it" error={fieldErrors.confirm}>
         {(control) => (
-          <PasswordInput {...control} name="confirm" autoComplete="new-password" required />
+          <PasswordInput
+            {...control}
+            name="confirm"
+            autoComplete="new-password"
+            required
+            disabled={placeholder}
+          />
         )}
       </FormField>
       <Button
@@ -54,6 +72,7 @@ export function SetPasswordForm() {
         className="w-full"
         pending={pending}
         pendingLabel="Saving…"
+        disabled={placeholder}
       >
         Save password and sign in
       </Button>

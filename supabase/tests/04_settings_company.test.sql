@@ -3,6 +3,10 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(64);
+-- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the
+-- definer functions do, through a definer wrapper, with the same caller claims.
+create function pg_temp.definer_is_working_day(d date) returns boolean language sql stable security definer
+  set search_path = '' as $$ select app.is_working_day(d) $$;
 
 -- The local seed holds an organization (with its org_settings and job titles) and five sign-ins.
 -- Keep the organization; replace the people with fixtures. Rolled back at the end.
@@ -114,11 +118,11 @@ select ok(
   and not has_function_privilege('anon', 'public.member_change_email(uuid, text)', 'execute'),
   'anon may call neither of the new functions');
 select ok(
-  has_function_privilege('authenticated', 'app.is_working_day(date)', 'execute')
+  not has_function_privilege('authenticated', 'app.is_working_day(date)', 'execute')
   and has_function_privilege('service_role', 'app.is_working_day(date)', 'execute')
   and has_function_privilege('authenticated', 'public.member_change_email(uuid, text)', 'execute')
   and has_function_privilege('service_role', 'public.member_change_email(uuid, text)', 'execute'),
-  'authenticated and service_role may call them (the functions decide)');
+  'member_change_email: authenticated and service_role; is_working_day: service_role only since v7.5 (its definer callers run as the owner)');
 
 -- holidays RLS ---------------------------------------------------------------------------------
 select pg_temp.as_member('owner');
@@ -219,24 +223,24 @@ select pg_temp.as_system();
 
 -- app.is_working_day() -------------------------------------------------------------------------
 -- Sunday and Saturday are off (set above), and 2 October is a holiday.
-select is(app.is_working_day(null), null, 'null in, null out');
-select is(app.is_working_day('2026-09-21'), true, 'a Monday is a working day');
-select is(app.is_working_day('2026-09-20'), false, 'a Sunday is a weekly off day');
-select is(app.is_working_day('2026-09-26'), false, 'a Saturday is off once it is in weekly_off_days');
-select is(app.is_working_day('2026-10-02'), false, 'a holiday is not a working day');
+select is(pg_temp.definer_is_working_day(null), null, 'null in, null out');
+select is(pg_temp.definer_is_working_day('2026-09-21'), true, 'a Monday is a working day');
+select is(pg_temp.definer_is_working_day('2026-09-20'), false, 'a Sunday is a weekly off day');
+select is(pg_temp.definer_is_working_day('2026-09-26'), false, 'a Saturday is off once it is in weekly_off_days');
+select is(pg_temp.definer_is_working_day('2026-10-02'), false, 'a holiday is not a working day');
 select pg_temp.as_member('staff');
-select is(app.is_working_day('2026-10-02'), false,
+select is(pg_temp.definer_is_working_day('2026-10-02'), false,
   'a Staff member gets the same answer (they read holidays under RLS anyway)');
 select pg_temp.as_member('deactivated');
-select is(app.is_working_day('2026-10-02'), false,
+select is(pg_temp.definer_is_working_day('2026-10-02'), false,
   'security definer: the answer does not depend on the caller''s RLS view');
 select pg_temp.as_system();
 set local role service_role;
-select is(app.is_working_day('2026-10-02'), false,
+select is(pg_temp.definer_is_working_day('2026-10-02'), false,
   'a job on the service role gets the same answer (no member row, single organization)');
 select pg_temp.as_system();
 update public.org_settings set weekly_off_days = array[0]::smallint[] where org_id = pg_temp.fx('org');
-select is(app.is_working_day('2026-09-26'), true, 'putting Saturday back makes it a working day again');
+select is(pg_temp.definer_is_working_day('2026-09-26'), true, 'putting Saturday back makes it a working day again');
 -- V5a 6b (owner 2026-10-22): a holiday on or before today stays; only one still ahead is removed.
 select pg_temp.as_member('owner');
 delete from public.holidays where date = '2026-10-02';
@@ -250,7 +254,7 @@ select lives_ok($$ delete from public.holidays where date = '2099-06-01' $$,
 select pg_temp.as_system();
 select is((select count(*) from public.holidays where date = '2099-06-01'), 0::bigint,
   'the row is gone');
-select is(app.is_working_day('2099-06-01'), true, 'deleting the holiday makes the date (a Monday) ordinary again');
+select is(pg_temp.definer_is_working_day('2099-06-01'), true, 'deleting the holiday makes the date (a Monday) ordinary again');
 select is(
   (select action from public.activity_log where entity = 'holidays' order by id desc limit 1),
   'delete', 'the removed holiday is kept in the activity log');

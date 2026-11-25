@@ -197,6 +197,14 @@ test.describe("Reports → End of day, as the Owner", () => {
     }
   });
 
+  test("a page past the last goes to the first, never an empty list (v7.5 G7)", async ({
+    page,
+  }) => {
+    await page.goto("/reports/end-of-day?page=9999");
+    await expect(page).toHaveURL(/\/reports\/end-of-day$/);
+    await expect(page.locator('[data-slot="eod-list-row"]').first()).toBeVisible();
+  });
+
   test("installed: Reports → End of day → a day's report, one back each", async ({
     page,
   }, info) => {

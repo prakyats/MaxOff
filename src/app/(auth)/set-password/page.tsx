@@ -6,6 +6,8 @@ import { SetPasswordForm } from "@/core/auth/components/set-password-form";
 import { EXPIRED_LINK_PATH } from "@/core/auth/links";
 import { getSessionState } from "@/core/auth/server";
 
+import { SetPasswordIntro } from "./intro";
+
 export const metadata: Metadata = { title: "Set your password" };
 
 /**
@@ -18,10 +20,7 @@ export default async function SetPasswordPage() {
 
   return (
     <>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Set your password</h1>
-      <p className="text-muted-foreground mb-5 text-sm">
-        Choose the password you&apos;ll sign in with from now on.
-      </p>
+      <SetPasswordIntro />
       <SetPasswordForm />
     </>
   );

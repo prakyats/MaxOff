@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
-import { onLayerEscape, onLayerOpenFocus } from "@/core/ui/keyboard/layer";
+import { onLayerEscape, onLayerOpenFocus, useLayerReturnFocus } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
@@ -67,12 +67,14 @@ function DialogContent({
   ref,
   onEscapeKeyDown,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
   // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
   const opening = React.useContext(ModalOpening);
+  const returnFocus = useLayerReturnFocus(opening);
   // Below `md` it is a bottom sheet: it ends where the on-screen keyboard begins (§14.1).
   const contentRef = useKeyboardLift(true, true, ref);
   return (
@@ -92,6 +94,8 @@ function DialogContent({
         // does (ARCHITECTURE §14.3 rules 4 and 5).
         onEscapeKeyDown={(event) => onLayerEscape(event, onEscapeKeyDown)}
         onOpenAutoFocus={(event) => onLayerOpenFocus(event, onOpenAutoFocus)}
+        // Closing hands focus back to what opened it (K1, `useLayerReturnFocus`).
+        onCloseAutoFocus={(event) => returnFocus.restore(event, onCloseAutoFocus)}
       >
         <div data-slot="dialog-handle" aria-hidden className={MODAL_HANDLE} />
         {children}

@@ -4,6 +4,10 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(34);
+-- v7.5 (migration v75_definer_grants): the helper is service_role only; the test calls it the way the
+-- definer functions do, through a definer wrapper, with the same caller claims.
+create function pg_temp.definer_admin_client_ids() returns setof uuid language sql stable security definer
+  set search_path = '' as $$ select app.admin_client_ids() $$;
 
 -- The local seed holds an organization and sign-ins. Keep the organization; replace the people
 -- with fixtures. Rolled back at the end. Order follows the foreign keys.
@@ -208,7 +212,7 @@ select is((select count(*) from public.client_contacts), 0::bigint, 'nor their c
 select is((select count(*) from public.client_brand), 0::bigint, 'nor their brand');
 select is((select count(*) from public.client_admin_assignments), 0::bigint, 'nor their assignments');
 select is((select count(*) from public.activity_log where entity like 'client%'), 0::bigint, 'nor their activity');
-select is((select count(*) from app.admin_client_ids()), 0::bigint, 'app.admin_client_ids() is empty');
+select is((select count(*) from pg_temp.definer_admin_client_ids()), 0::bigint, 'app.admin_client_ids() is empty');
 select pg_temp.as_system();
 update public.members set role = 'admin' where id = pg_temp.fx('asha');
 select pg_temp.as_member('asha');

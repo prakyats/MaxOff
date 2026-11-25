@@ -20,22 +20,16 @@ create temporary table definer_fn on commit drop as
 
 -- The app helpers the API role may run: RLS policies, views, invoker functions and triggers call
 -- them as the caller (app is not exposed through the API, so they are reachable only from SQL).
+-- Migration v75_definer_grants took 13 helpers nothing called as the caller, and the 16 definer
+-- trigger functions, off this list.
 create temporary table api_app (name text primary key) on commit drop;
 insert into api_app values
-  ('admin_client_ids'), ('attendance_require_decider'), ('attendance_require_self'), ('audit_row_change'),
-  ('client_check_admin'), ('client_visible'), ('client_work_custom_fields_guard'),
-  ('clients_after_insert'), ('coordinator_of'), ('create_org_settings'), ('current_member'),
-  ('current_org_id'), ('deliverables_check'), ('directory_visible'), ('directory_visible_ids'),
-  ('expenses_require_decider'), ('field_definition_has_values'), ('field_definition_writable'),
-  ('field_definitions_guard'), ('file_reference_count'), ('file_visible'), ('files_archive_replaced'),
-  ('has_permission'), ('is_approving_admin'), ('is_owner'), ('is_task_assignee'), ('is_working_day'),
-  ('labelled_client_ids'), ('lock_client_for_edit'), ('member_coordinators_task_route'),
-  ('members_client_admin_guard'), ('members_job_title_guard'), ('members_task_route'), ('project_visible'),
-  ('push_endpoint_valid'), ('requests_to_decide_count'), ('require_client_manager'),
-  ('require_team_manager'), ('seed_org_lists'), ('seed_org_stage_presets'), ('seed_org_task_types'),
-  ('stage_group_label'), ('stage_groups_check'), ('task_comments_notify'), ('task_custom_fields_guard'),
-  ('task_manager'), ('task_on_behalf_ok'), ('task_request_visible'), ('task_visible'),
-  ('tasks_template_check');
+  ('attendance_require_self'), ('client_check_admin'), ('client_visible'), ('coordinator_of'),
+  ('current_member'), ('current_org_id'), ('deliverables_check'), ('directory_visible_ids'),
+  ('field_definition_writable'), ('file_reference_count'), ('file_visible'), ('has_permission'),
+  ('is_owner'), ('is_task_assignee'), ('labelled_client_ids'), ('requests_to_decide_count'),
+  ('stage_groups_check'), ('task_manager'), ('task_on_behalf_ok'), ('task_request_visible'),
+  ('task_visible');
 
 -- The public functions the app calls through the API (each checks its caller itself).
 create temporary table api_public (name text primary key) on commit drop;
