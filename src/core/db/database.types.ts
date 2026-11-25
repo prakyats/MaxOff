@@ -5607,6 +5607,14 @@ export type Database = {
       };
       file_fail: { Args: { file_id: string }; Returns: string };
       file_mark_deleted: { Args: { file_id: string }; Returns: string };
+      handin_counts: {
+        Args: { p_submission_ids: string[] };
+        Returns: {
+          bytes: number;
+          files: number;
+          submission_id: string;
+        }[];
+      };
       handin_drive_check_claim: {
         Args: { p_file_ids: string[] };
         Returns: {

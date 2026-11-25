@@ -24,6 +24,7 @@ import { PendingLeaveGroup } from "@/modules/leave/components/pending-leave-grou
 import { listPendingClaims } from "@/modules/expenses";
 import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims-group";
 import { listTasksAtBothSteps, listUnreadCounts } from "@/modules/tasks";
+import { countHandinFiles } from "@/modules/handin";
 import { TaskApprovalGroup } from "@/modules/tasks/components/task-approval-group";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
@@ -79,16 +80,22 @@ export default async function ApprovalsPage() {
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  const [[days, requests, notes, pendingClaims, directory, earlyLeave], [toDecide, unread]] =
+  const [[days, requests, notes, pendingClaims, directory, earlyLeave], [toDecide, unread, files]] =
     await Promise.all([
       lists,
-      // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
+      // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4), and
+      // beside them (v5.0) each hand-in's files in Drive, for "v2 · 14 files".
       steps
         .then((both) => (can(viewer.role, "tasks.approve_final") ? both.final : both.check))
-        .then(
-          async (items) =>
-            [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
-        ),
+        .then(async (items) => {
+          const [unreadCounts, fileCounts] = await Promise.all([
+            listUnreadCounts(items.map((item) => item.row.id)),
+            countHandinFiles(
+              items.flatMap((item) => (item.submission ? [item.submission.id] : [])),
+            ),
+          ]);
+          return [items, unreadCounts, fileCounts] as const;
+        }),
     ]);
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
@@ -100,7 +107,7 @@ export default async function ApprovalsPage() {
     ]),
   );
   const tasks = toDecide.map((item) => ({
-    ...taskItem(item, names, viewer.role === "owner", faces),
+    ...taskItem(item, names, viewer.role === "owner", faces, files),
     unread: unread[item.row.id] ?? 0,
   }));
   const claims = decidesExpenses ? pendingClaims : [];

@@ -9,7 +9,7 @@
 -- Neutral names and example.com addresses only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(114);
+select plan(117);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -393,6 +393,16 @@ select pg_temp.as_system();
 select is((select count(*) from public.handin_files h join public.task_submissions s on s.id = h.submission_id
            where h.task_id = pg_temp.fx('task') and s.version = 2), 1::bigint, 'with its one file');
 select is(jsonb_array_length(pg_temp.versions('admin', 'task') -> 'versions'), 2, 'the reviewer sees both versions');
+select pg_temp.as_member('admin');
+select is((select files from public.handin_counts(array(select id from public.task_submissions where task_id = pg_temp.fx('task') and version = 1)))::int,
+  4, 'handin_counts: v1 holds four files in Drive (what Approvals shows)');
+select pg_temp.as_member('staff3');
+select is((select count(*) from public.handin_counts(array(select id from public.task_submissions where task_id = pg_temp.fx('task')))),
+  0::bigint, 'handin_counts leaves out a task the caller cannot see');
+select pg_temp.as_anon();
+select is(pg_temp.raised('select * from public.handin_counts(array[]::uuid[])'),
+  'permission denied for function handin_counts', 'anon: no EXECUTE');
+select pg_temp.as_system();
 select is((pg_temp.versions('admin', 'task') -> 'versions' -> 0 ->> 'version')::int, 2, 'newest first');
 
 -- A Mark done with no files is unchanged (Q2); the Owner's own task completes with its files.

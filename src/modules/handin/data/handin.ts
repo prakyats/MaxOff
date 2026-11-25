@@ -414,3 +414,20 @@ export async function leaveOut(fileId: string, onBehalfOf: string | null): Promi
   });
   if (error) throw error;
 }
+
+/** Approvals' "v2 · 14 files": per handed-in version id, its files in Drive (tasks the caller sees). */
+export async function countHandinFiles(
+  submissionIds: readonly string[],
+): Promise<Record<string, number>> {
+  if (submissionIds.length === 0) return {};
+  const supabase = await createServerSupabase();
+  const counts: Record<string, number> = {};
+  for (let i = 0; i < submissionIds.length; i += 500) {
+    const { data, error } = await supabase.rpc("handin_counts", {
+      p_submission_ids: submissionIds.slice(i, i + 500),
+    });
+    if (error) throw error;
+    for (const row of data ?? []) counts[row.submission_id] = row.files;
+  }
+  return counts;
+}

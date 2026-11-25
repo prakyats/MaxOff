@@ -328,6 +328,36 @@ comment on function public.handin_versions(uuid) is
   '(the Owner and the task''s Admins, Q6); never a session address. Also: the open version, whether the '
   'caller may add files now, and the Drive state.';
 
+-- The count the Approvals rows show ("v2 · 14 files"): per handed-in version, its files in Drive.
+create or replace function public.handin_counts(p_submission_ids uuid[])
+returns table (submission_id uuid, files integer, bytes bigint)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from app.current_member()) then
+    perform app.fail('UNAUTHENTICATED', 'Your account is not active.');
+  end if;
+  if p_submission_ids is null or cardinality(p_submission_ids) > 500 then
+    perform app.fail('VALIDATION', 'Ask for at most 500 hand-ins at a time.');
+  end if;
+  return query
+  select h.submission_id, count(*)::integer, coalesce(sum(h.size_bytes), 0)::bigint
+  from public.handin_files h
+  where h.submission_id = any (p_submission_ids)
+    and h.state in ('done', 'missing_in_drive')
+    and app.task_visible(h.task_id)
+  group by h.submission_id;
+end;
+$$;
+revoke all on function public.handin_counts(uuid[]) from public, anon;
+grant execute on function public.handin_counts(uuid[]) to authenticated, service_role;
+comment on function public.handin_counts(uuid[]) is
+  'v5.0: per handed-in version (task_submissions id, at most 500), the files it holds in Drive and their '
+  'bytes, for the tasks the caller sees (others are left out). What the Approvals rows show.';
+
 -- 5. Member transitions ---------------------------------------------------------------------------------
 create or replace function public.handin_file_start(
   p_task_id uuid, p_name text, p_relative_path text, p_size_bytes bigint,

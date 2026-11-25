@@ -1,5 +1,6 @@
 import { formatDateTime } from "@/core/time";
 import type { AvatarPerson } from "@/core/ui/composites/person-avatar";
+import { handInTag } from "@/modules/handin";
 import { deadlineLabel, pairName, stateLabel, type TaskToDecide } from "@/modules/tasks";
 import type { TaskApprovalItem } from "@/modules/tasks/components/task-approval-group";
 
@@ -13,6 +14,8 @@ export function taskItem(
   names: Readonly<Record<string, string>>,
   owner: boolean,
   faces?: Readonly<Record<string, AvatarPerson>>,
+  /** v5.0: the handed-in version's files in Drive ("v2 · 14 files"), when read. */
+  files?: Readonly<Record<string, number>>,
 ): Omit<TaskApprovalItem, "unread"> {
   const { row, submission, lateReason } = item;
   const by = submission ? pairName(names, submission.submittedBy, submission.onBehalfOf) : null;
@@ -20,7 +23,9 @@ export function taskItem(
   const handedIn = [
     by ? `Done by ${by}` : "Done",
     at ? formatDateTime(at) : null,
-    submission && submission.version > 1 ? `version ${submission.version}` : null,
+    submission && submission.version > 1 && !files?.[submission.id]
+      ? `version ${submission.version}`
+      : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -29,7 +34,13 @@ export function taskItem(
     id: row.id,
     title: row.title,
     ...(avatar ? { avatar } : {}),
-    subtitle: lateReason ? `${handedIn} · late` : handedIn,
+    subtitle: [
+      handedIn,
+      submission ? handInTag(submission.version, files?.[submission.id] ?? 0) : "",
+      lateReason ? "late" : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
     status: row.state,
     statusLabel: owner ? stateLabel(row, { finalApprover: true }) : "Waiting for your check",
     primaryName: names[row.primaryOwnerId] ?? "The people on it",
