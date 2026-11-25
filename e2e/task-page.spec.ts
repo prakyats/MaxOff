@@ -10,6 +10,7 @@ import {
   closeKeyboard,
   expectBackStack,
   expectNoHorizontalScroll,
+  expectSettled,
   hydrated,
   insertAs,
   memberIdOf,
@@ -937,6 +938,10 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     await runInstalled(page);
     await as(page, "staff", info);
     await page.goto("/my-day");
+    // My Day has revealed what it streamed before the bar is tapped: a boundary still waiting for
+    // its reveal when the router moves on is never swapped in, and its rows stay in the body,
+    // hidden (`<div hidden id="S:…">`), so the Tasks row below would match twice.
+    await expectSettled(page);
     await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
     await expect(page).toHaveURL(/\/tasks$/);
     await hydrated(page);
