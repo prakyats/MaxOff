@@ -138,6 +138,12 @@ const SCREENS = [
   // 6.5: the end-of-day reports, the list and today's live report.
   { path: "/reports/end-of-day", role: "owner" },
   { path: `/reports/end-of-day/${todayIST()}`, role: "owner" },
+  // v3.0: the Owner's People (week and month, the month with attendance), Stage durations and
+  // Client work.
+  { path: "/reports/people", role: "owner" },
+  { path: "/reports/people?period=month", role: "owner" },
+  { path: "/reports/stages", role: "owner" },
+  { path: "/reports/client-work", role: "owner" },
   // 6.4: the calendar, every role.
   { path: "/calendar", role: "owner" },
   { path: "/calendar", role: "admin" },
@@ -235,6 +241,10 @@ const LARGE_TEXT_SCREENS = {
     // 7B: client work.
     "/clients/items",
     "/clients/items/decide",
+    // v3.0: the Owner's reports.
+    "/reports/people?period=month",
+    "/reports/stages",
+    "/reports/client-work",
   ],
   admin: [
     "/today",

@@ -369,6 +369,10 @@ Exit: the Owner sees Potential / Achieved / Remaining by client, category and mo
 - [ ] **9.1** [H] Money tables + revenue views + overrides + billing status. pgTAP proving Admin and Staff can't read money through any path. **Since kickoff 7 amendment C (2026-10-08):** the billing category (projects and project-template defaults) lives here, in Owner-only tables, with `project_set_billing_category`; an Admin never reads it
 - [ ] **9.2** [C] Revenue UI (via `modules/revenue` components): project billing setup, per-item values, overrides with notes, billing status, revenue panels on the client page and dashboard
 - [ ] **9.3** [H] Metrics views (raw employee, stage-duration, revision-loop, delay and workload facts) + reports pages (week, month, custom range). Scoped operational reports for Admins
+  - **v3.0 build (branch `phase-v30-reports`, 25 Nov 2026):**
+    - Built (not yet released): the Owner's People (with delays; the Month view adds attendance and working-hours counts), Stage durations (by name, ignoring case) and Client work. Each has week / month / custom ≤ 366 days, `report_*` functions (security invoker, pgTAP 144) and the Admin's stage-name grouping.
+    - Waits for v2.1: the revenue line on Client work, through `modules/revenue`.
+    - Not in v3.0: the 6-period trends table (decision 14).
 - [ ] **9.4** [H] Month close: snapshot builder, immutable versions, corrections
 
 ## Phase 10: Polish, hardening and full launch

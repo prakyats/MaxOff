@@ -826,7 +826,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Each person's month in IST, live.",
           blocks: [
             text(
-              'Reports opens with this month so far: Days worked (team, with leave and absence), Days waiting for you, Overtime notes and Expenses to pay, each tappable. One with nothing in it folds into one quiet line ("So far: no overtime notes and no expenses to pay."). Under it are two rows. Month shows each person\'s IST month, live.',
+              'Reports opens with this month so far: Days worked (team, with leave and absence), Days waiting for you, Overtime notes and Expenses to pay, each tappable. One with nothing in it folds into one quiet line ("So far: no overtime notes and no expenses to pay."). Under it is the list of reports: Month, End of day, People, Stage durations and Client work. Month shows each person\'s IST month, live.',
             ),
             steps(
               "Open Reports.",
@@ -863,6 +863,64 @@ export const OWNER_GUIDE: Guide = {
           ],
           link: { href: "/reports/end-of-day", label: "Open End of day" },
           keywords: ["end of day", "daily report"],
+        },
+        {
+          id: "owner-report-people",
+          title: "Read the People report",
+          summary: "Each person's tasks for a week, a month or a range of dates.",
+          blocks: [
+            text(
+              "People shows each person's tasks for the period you choose. The list is in name order, with freelancers in their own block. Nothing is ranked or scored.",
+            ),
+            steps(
+              "Open Reports.",
+              "Tap People.",
+              "Choose Week, Month or Custom. The arrows step back and forward a week or a month.",
+              {
+                text: "Read a person's card (highlighted): Completed, On time (of the tasks they own), Revision loops, To first hand-in, Acknowledgement lag, Open now and Overdue now. In the Month view the card also shows Days worked, Additional leave, Comp leave, Late days, Left early (not answered), Early leaves approved and Half days.",
+                shot: "owner/report-people",
+              },
+              'Scroll to "Late and overdue tasks": the tasks due in the period that were handed in late or are still open, counted by person, by type and by client label, each with its late reason. Tap a task to open it.',
+            ),
+            note(
+              "Completed counts tasks you approved, for every person on them. People with no tasks in the period are named in one line under the cards.",
+            ),
+          ],
+          link: { href: "/reports/people", label: "Open People" },
+          keywords: ["people report", "completed", "on time", "revision", "late tasks", "delays"],
+        },
+        {
+          id: "owner-report-stages",
+          title: "Read Stage durations",
+          summary: "How long each deliverable stage takes.",
+          blocks: [
+            text(
+              'Stage durations shows how long each stage of a deliverable took, from the stage before it (or the cycle\'s start). Stages with the same name count together, whatever their capitals: "Edit" and "edit" are one.',
+            ),
+            steps("Open Reports.", "Tap Stage durations.", "Choose Week, Month or Custom.", {
+              text: 'Read "Every project" (highlighted): each stage name with its median and longest time and how many were done, slowest first. "By project" below shows the same for each project.',
+              shot: "owner/report-stages",
+            }),
+          ],
+          link: { href: "/reports/stages", label: "Open Stage durations" },
+          keywords: ["stage durations", "slowest stage", "how long"],
+        },
+        {
+          id: "owner-report-client-work",
+          title: "Read the Client work report",
+          summary: "Each client's deliverables for the period.",
+          blocks: [
+            text(
+              "Client work shows each client's deliverables for the period, with the totals for all clients first.",
+            ),
+            steps("Open Reports.", "Tap Client work.", "Choose Week, Month or Custom.", {
+              text: "Read a card (highlighted): Planned in the period (done of planned), On time, Done in the period, Overdue now, On hold now and Projects completed. Tap a client's name to open the client.",
+              shot: "owner/report-client-work",
+            }),
+            note("This report counts deliverables only. It shows no amounts."),
+          ],
+          link: { href: "/reports/client-work", label: "Open Client work" },
+          keywords: ["client work report", "deliverables done", "overdue deliverables"],
         },
       ],
     },

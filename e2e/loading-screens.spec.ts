@@ -324,6 +324,57 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // v3.0: the Owner's reports. Each traces its period control and its first card, held by the
+  // report function only that page calls.
+  {
+    role: "owner",
+    path: "/reports/people",
+    marker: 'data-slot="loading-people-report"',
+    hold: "/rest/v1/rpc/report_people",
+    trace: {
+      "period control": {
+        held: '[data-slot="report-period"]',
+        settled: '[data-slot="report-period"]',
+      },
+      // The employees' block label: every seeded employee has one (a card, or the quiet line).
+      "employees label": {
+        held: '[data-slot="loading-people-report"] h3',
+        settled: '[data-slot="people-block"] h3',
+      },
+    },
+  },
+  {
+    role: "owner",
+    path: "/reports/stages",
+    marker: 'data-slot="loading-stages-report"',
+    hold: "/rest/v1/rpc/report_stage_durations",
+    trace: {
+      "period control": {
+        held: '[data-slot="report-period"]',
+        settled: '[data-slot="report-period"]',
+      },
+      "first heading": {
+        held: '[data-slot="loading-stages-report"] h2',
+        settled: '[data-slot="stages-report"] h2',
+      },
+    },
+  },
+  {
+    role: "owner",
+    path: "/reports/client-work",
+    marker: 'data-slot="loading-client-work-report"',
+    hold: "/rest/v1/rpc/report_client_work",
+    trace: {
+      "period control": {
+        held: '[data-slot="report-period"]',
+        settled: '[data-slot="report-period"]',
+      },
+      "totals card": {
+        held: '[data-slot="loading-client-work-report"] [data-slot="client-work-card-skeleton"]',
+        settled: '[data-slot="client-work-card"]',
+      },
+    },
+  },
   // The calendar (6.4b, decision 25): it opens on the month (the phone's compact month, the
   // laptop's Month), so the skeleton traces the header row (the phone's arrows, month, Today and
   // Filters; the laptop's view control and pager), the month's last row of day boxes (so every row

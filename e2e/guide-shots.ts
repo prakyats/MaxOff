@@ -1115,4 +1115,29 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     badge: 3,
     alt: "Today's End of day report with the Attendance section highlighted: the count line and each person's row with Late and Left early.",
   },
+  // v3.0: the Owner's reports.
+  {
+    id: "owner/report-people",
+    path: "/reports/people?period=month",
+    highlight: (page) => page.locator('[data-slot="person-card"]').first(),
+    crop: main,
+    badge: 3,
+    alt: "The People report in the Month view with the first person's card highlighted: their task facts, then their attendance lines and working-hours counts.",
+  },
+  {
+    id: "owner/report-stages",
+    path: "/reports/stages?period=month",
+    highlight: (page) => slot(page, "stages-report").locator("section").first(),
+    crop: main,
+    badge: 2,
+    alt: "Stage durations with Every project highlighted: each stage name with its median and longest time and how many were done.",
+  },
+  {
+    id: "owner/report-client-work",
+    path: "/reports/client-work?period=month",
+    highlight: (page) => page.locator('[data-slot="client-work-card"]').first(),
+    crop: main,
+    badge: 2,
+    alt: "Client work with the All clients totals highlighted: planned and done, on time, done in the period, overdue, on hold and projects completed.",
+  },
 ];

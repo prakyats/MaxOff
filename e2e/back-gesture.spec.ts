@@ -258,6 +258,40 @@ test.describe("installed: overlays and view controls", () => {
       await expectBackStack(page, [{ url: /\/settings$/ }]);
     });
 
+    // v3.0: the Owner's reports are one drill-down under Reports; their period switch, pager and
+    // custom range are view controls (§14.2 d): they replace the entry, so one back returns to
+    // Reports and the next leaves it.
+    for (const report of [
+      { name: "People", path: "/reports/people" },
+      { name: "Stage durations", path: "/reports/stages" },
+      { name: "Client work", path: "/reports/client-work" },
+    ]) {
+      test(`${report.path}: the period controls add no history; back returns to Reports`, async ({
+        page,
+      }) => {
+        await runInstalled(page);
+        await page.goto("/today");
+        await page.goto("/reports");
+        await page
+          .locator('[data-slot="reports-list"]')
+          .getByRole("link", { name: new RegExp(`^${report.name}`) })
+          .click();
+        await expect(page).toHaveURL(new RegExp(`${report.path}$`));
+        const period = page.locator('[data-slot="report-period"]:visible');
+        await hydrated(page);
+        await period.getByRole("link", { name: "Month", exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`${report.path}\\?period=month`));
+        await page.getByRole("link", { name: "Previous month" }).click();
+        await expect(page).toHaveURL(new RegExp(`${report.path}\\?period=month&at=`));
+        await period.getByRole("link", { name: "Custom", exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`${report.path}\\?from=`));
+        await page.getByRole("button", { name: "Show" }).click();
+        await expectNoHorizontalScroll(page);
+
+        await expectBackStack(page, [{ url: /\/reports$/ }, { url: /\/today$/ }]);
+      });
+    }
+
     test("/settings/notifications: back returns to Settings", async ({ page }) => {
       // 5.4: a Settings screen with no overlay or view control of its own.
       await runInstalled(page);

@@ -2082,6 +2082,24 @@ month_snapshots      id, org_id, month date (1st), version int, data jsonb, clos
 feature_flags        key pk, enabled, description
 ```
 
+### 9x. v3.0 report functions (task 9.3, migration `v30_reports`)
+The Owner's reports read four functions; no table is added. Each is `security invoker` (every row policy still decides), `stable`, `search_path = ''`, granted to `authenticated` only, and refuses anyone without `reports.all` with FORBIDDEN through `app.report_window(p_from, p_to)`. That guard also refuses a period that ends before it starts, or is longer than 366 days (VALIDATION; kickoff 9 decision 12), and returns the period as `[start, end)` IST instants. No function reads a money table (invariant 2) or `activity_log`. pgTAP `144` covers each role and every figure.
+
+| Function | Returns, per row |
+|---|---|
+| `report_people(p_from, p_to)` | `member_id`, `completed` (Owner-approved tasks completed in the period, counted for every active assignee), `on_time` of `owned_completed` (the primary owner's first hand-in ≤ `due_at`), `revision_loops` (send-backs on those tasks), `hand_in_hours` (median, assignment → first hand-in), `ack_lag_hours` (median, notes tapped in the period), `open_now`, `overdue_now` (never a held task). The rows are every active non-Owner member plus anyone with a fact. |
+| `report_task_delays(p_from, p_to)` | The tasks due in the period that were handed in after `due_at`, or not handed in and past it (never held, cancelled or archived): `task_id`, `title`, `primary_owner_id`, `type_name`, `client_name` (the label), `due_at`, `handed_in_at`, `open`, `late_reason`. At most 500, by deadline. |
+| `report_stage_durations(p_from, p_to)` | Deliverable stages (`project_item_stage_list`, not archived) ticked in the period, **grouped by `lower(btrim(name))`** (R7). Rows with `project_id` null are overall; the others are per project, with `project_name` and `client_name`. Each row gives `ticks`, `median_days` and `longest_days`, counted from the latest earlier tick on the deliverable in stage order, else its cycle's `period_start` (IST), else its `created_at`. |
+| `report_client_work(p_from, p_to)` | Per client: `planned` (deliverables planned in the period, not cancelled or carried), `done` and `done_on_time` of those (approved ≤ planned date), `done_in_period`, `overdue_now` (open, past the planned date, project working and not held), `on_hold`, `projects_completed`. Counts only. |
+
+**Indexes** (EXPLAIN on `scripts/measure-seed.sql` + `scripts/measure-seed-work.sql`) let the period reach its rows by index, so the row policy runs only on them:
+- `tasks_org_completed_at_idx (org_id, completed_at) where state = 'completed'`;
+- `tasks_org_open_idx (org_id, due_at)` over open, unarchived tasks;
+- `task_assignees_acknowledged_at_idx`;
+- `project_item_stage_list_org_done_at_idx`.
+
+The assignees of each task are read by a correlated subquery. A plain join scans every assignee row through `app.task_visible()`.
+
 ## 10. Key indexes
 - Every FK column.
 - `tasks(state, due_at)`, `tasks(approving_admin_id, state)`, `tasks(client_id)`, `task_assignees(member_id) where removed_at is null`.

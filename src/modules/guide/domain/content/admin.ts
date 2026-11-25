@@ -802,7 +802,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Reports (under More on a phone).",
                 "Choose Week, Month or Custom.",
                 "Read the four cards.",
-                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others.",
+                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others. Where deliverables wait counts stages with the same name together, whatever their capitals.",
                 "Scroll to Who is loaded this week to see who has the most due.",
               ],
             },
@@ -812,7 +812,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Month and End of day reports are the Owner’s. You will not see them.",
+              text: "Month, End of day, People, Stage durations and Client work are the Owner’s reports. You will not see them.",
             },
           ],
           link: { href: "/reports", label: "Open Reports" },

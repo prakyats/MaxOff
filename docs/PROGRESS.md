@@ -6,6 +6,28 @@
 > Keep it short: current state, what's next, and anything the next session must know.
 
 ## Current state
+- **HANDOFF, v3.0 "Reports" (Wed 25 Nov 2026, builder; branch `phase-v30-reports` from `main` 6e89d17; plan on #89 7161990886).** It is built in parallel and released after v2.1 and v2.5, so keep it merged with `origin/main`.
+
+  **Built:**
+  - Migration `v30_reports`: `report_people`, `report_task_delays`, `report_stage_durations` and `report_client_work`, all security invoker and `reports.all` only, with the 366-day guard `app.report_window` and four indexes (DATA-MODEL §9x). pgTAP 144 has 48 tests; its fixtures sit in March 2025, clear of the measure seeds.
+  - Screens `/reports/people`, `/reports/stages` and `/reports/client-work`, with loading skeletons that trace each one, three new rows on the Owner's Reports list, and a period control per report (`periodHref(period, base)`; `OWNER_CUSTOM_MAX_DAYS` 366, the Admin's 92 kept).
+  - People: in name order, freelancers apart. The Month view adds the attendance lines and the four working-hours counts (Q5, from `getMonthSummary(…, {hours:true})`). The delay patterns are by person (by name), by type and by client, and the list shows the first 30.
+  - The Admin's "where deliverables wait longest" now matches names ignoring case (R7).
+  - The guide gains three Owner topics (shots `owner/report-people|stages|client-work`) and the Admin's note.
+  - e2e: `owner-reports.spec`, back-gesture ×3, mobile, large text, first-wave and loading-screens entries.
+
+  **Speed (EXPLAIN, `scripts/measure-seed-work.sql`, new and local-only):**
+  - The floor is RLS: `app.task_visible()` costs about 80 µs per task row for the Owner.
+  - For a month: `report_people` 0.4–0.5 s, delays 0.13 s, stages 0.04 s, client work 0.02 s.
+  - For 366 days: people about 5.5 s, delays about 1.7 s.
+  - Both People sections stream behind their skeletons. The advisor was asked: (a) accept, (b) security definer for those two, or (c) cap at 92 days.
+
+  **Waiting:**
+  - The money seam on Client work (the card's `revenue` slot; fill it from `modules/revenue` for `finance.view` once v2.1 is on `main`).
+  - The advisor's answer on what "Admin report updated" covers (recommendation applied) and on the speed choice.
+  - Full CI, the speed probe (/reports and the three routes for the Owner, /reports for an Admin), the READY post.
+
+  **Not in v3.0:** the 6-period trends table (decision 14), noted in ROADMAP.
 - **ADVISOR MOVED TO THE CLOUD (17 Nov 2026).** Read `docs/handoff/ADVISOR-HANDOFF.md` first: role, state, the release plan, the briefs to send on "proceed v2.1", and the laptop memory notes in `docs/handoff/advisor-memory/`.
 - **v2.0 is LIVE (Sat 14 Nov 2026, about 12:40 IST; tag `v2.0` on `main` 6e9f19cc, #143, deploy run 43569568961; advisor).** **v2.1 is planned and waiting for the owner's "proceed":** `docs/handoff/v2.1-plan.md` (scope, order, everything that changes, the builder brief), ROADMAP v2.1 units 1–13. Units 9–13 are the Admin productivity work the owner approved with samples on 14 Nov. **Owner input: none pending.** The decision sheet and the integrator's two questions were answered on 14 Nov (#89; ROADMAP units 2–8 updated). Units 5, 7 and 8 are out of v2.1. **Waiting only for "proceed".**
 
@@ -835,6 +857,10 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
 - The docs were rewritten for **v2**. `docs/research/` holds the source material (v2 spec, clarifications, Kyran research) and is background only. **`docs/PRODUCT.md` wins where they differ.**
 
 ## Ideas / tech debt (don't build these without adding them to the roadmap)
+- **v3.0 reports, later (25 Nov 2026):**
+  - (1) **The Owner's RLS floor on tasks:** `app.task_visible()` costs about 80 µs a row even for the Owner, so any task read over a year costs seconds. A fast path for `app.is_owner()` before the row lookup would help every Owner task screen. It touches RLS: plan it with the advisor first.
+  - (2) `report_task_delays` returns at most 500 tasks, so the delay patterns count only those (a year at the measure seed's volume could reach the cap).
+  - (3) The 6-period trends table (kickoff 9 decision 14) is not built.
 
 - **A task's loading screen gets no "Still loading" or Retry (found in the #143 review, 13 Nov 2026; pre-existing).** The progress bar waits on `main [data-slot="loading-state"]` once the address has moved (`nav-progress.tsx`, `navigationDone`); the task page's `loading.tsx` (now `TaskPageSkeleton`) carries `loading-task`, not `loading-state`, in v1.9 too, so the bar finishes as soon as the task's skeleton is up, whether the router or `TaskTapSkeleton` drew it, and a stalled answer leaves the skeleton without the 8 s line or Retry (the tap copy gives up after 25 s). Fix: let the bar count a task's skeleton as a loading screen, then drop the copy's give-up for Retry; check the other drill-down skeletons for the same slot.
 - **v2.1, known bug: Settings → Thresholds puts back an edit typed just after a save (advisor, #89 6797797585, 11 Nov; in v1.9 too, not a v2 regression; ROADMAP v2.1, with unit 5 "Edit clashes").** `src/app/(app)/settings/thresholds/page.tsx:30` keys the form on the saved values (`key={JSON.stringify(settings)}`, so a save on another device re-seeds it), so a save's refresh remounts the form a moment after "Thresholds saved" and puts back an edit typed in between. Seen as CI 43026387689's `settings.spec` red; v2.0 fixed the spec only (it reloads after that save). Ways out: show the toast once the new form has mounted, or keep the form mounted for its own save. The fix comes with a red-first spec of exactly that sequence.

@@ -46,6 +46,12 @@ const ROUTES: { path: string; roles: readonly Role[] }[] = [
   { path: "/clients", roles: LEADS },
   { path: "/people", roles: LEADS },
   { path: "/reports", roles: LEADS },
+  // v3.0: the Owner's reports (one report function each; People also the directory and, in the
+  // Month view, the month summary).
+  { path: "/reports/people", roles: ["owner"] },
+  { path: "/reports/people?period=month", roles: ["owner"] },
+  { path: "/reports/stages", roles: ["owner"] },
+  { path: "/reports/client-work", roles: ["owner"] },
   { path: "/leave", roles: ["admin", "staff"] },
   { path: "/leave/attendance", roles: ["admin", "staff"] },
   { path: "/leave/extra-work", roles: ["admin", "staff"] },
