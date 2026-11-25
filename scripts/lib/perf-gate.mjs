@@ -50,6 +50,7 @@ export const NOT_GATED = new Set(["/api/warm", "static (no Worker)", "404 (Worke
  *   roles: readonly Role[],
  *   needs?: readonly IdKey[],
  *   what?: string,
+ *   landmark?: readonly string[],
  * }} MemberRoute
  */
 
@@ -68,32 +69,79 @@ const ROLE_NAMES = { owner: "the Owner", admin: "an Admin", staff: "the Crew" };
  * @type {readonly MemberRoute[]}
  */
 export const MEMBER_ROUTES = [
-  { name: "/today", path: "/today", roles: LEADS },
-  { name: "/my-day", path: "/my-day", roles: ["staff"] },
-  { name: "/approvals", path: "/approvals", roles: LEADS },
-  { name: "/tasks", path: "/tasks", roles: ALL },
-  { name: "/calendar", path: "/calendar", roles: ALL },
-  { name: "/clients", path: "/clients", roles: LEADS },
-  { name: "/people", path: "/people", roles: LEADS },
-  { name: "/reports", path: "/reports", roles: LEADS },
-  { name: "/leave", path: "/leave", roles: ["admin", "staff"] },
-  { name: "/leave/attendance", path: "/leave/attendance", roles: ["admin", "staff"] },
-  { name: "/leave/extra-work", path: "/leave/extra-work", roles: ["admin", "staff"] },
-  { name: "/leave/expenses", path: "/leave/expenses", roles: ["admin", "staff"] },
-  { name: "/settings", path: "/settings", roles: LEADS },
-  { name: "/settings/templates", path: "/settings/templates", roles: LEADS },
-  { name: "/me", path: "/me", roles: ALL },
-  { name: "/notifications", path: "/notifications", roles: ALL },
-  { name: "a task", path: "/tasks/:task", roles: ALL, needs: ["task"], what: "task" },
-  { name: "a client", path: "/clients/:client", roles: LEADS, needs: ["client"], what: "client" },
+  { name: "/today", path: "/today", roles: LEADS, landmark: ["day-columns"] },
+  { name: "/my-day", path: "/my-day", roles: ["staff"], landmark: ["my-day"] },
+  {
+    name: "/approvals",
+    path: "/approvals",
+    roles: LEADS,
+    landmark: ["approval-group", "empty-state"],
+  },
+  { name: "/tasks", path: "/tasks", roles: ALL, landmark: ["tasks-see-all"] },
+  { name: "/calendar", path: "/calendar", roles: ALL, landmark: ["calendar-area"] },
+  { name: "/clients", path: "/clients", roles: LEADS, landmark: ["client-items-link"] },
+  { name: "/people", path: "/people", roles: LEADS, landmark: ["data-table"] },
+  { name: "/reports", path: "/reports", roles: LEADS, landmark: ["reports-list", "work-report"] },
+  { name: "/leave", path: "/leave", roles: ["admin", "staff"], landmark: ["leave-balance"] },
+  {
+    name: "/leave/attendance",
+    path: "/leave/attendance",
+    roles: ["admin", "staff"],
+    landmark: ["leave-pager"],
+  },
+  {
+    name: "/leave/extra-work",
+    path: "/leave/extra-work",
+    roles: ["admin", "staff"],
+    landmark: ["comp-leave-card"],
+  },
+  {
+    name: "/leave/expenses",
+    path: "/leave/expenses",
+    roles: ["admin", "staff"],
+    landmark: ["add-expense"],
+  },
+  { name: "/settings", path: "/settings", roles: LEADS, landmark: ["settings-list"] },
+  {
+    name: "/settings/templates",
+    path: "/settings/templates",
+    roles: LEADS,
+    landmark: ["template-search"],
+  },
+  { name: "/me", path: "/me", roles: ALL, landmark: ["me-devices"] },
+  { name: "/notifications", path: "/notifications", roles: ALL, landmark: ["alerts-filter"] },
+  {
+    name: "a task",
+    path: "/tasks/:task",
+    roles: ALL,
+    needs: ["task"],
+    what: "task",
+    landmark: ["task-facts"],
+  },
+  {
+    name: "a client",
+    path: "/clients/:client",
+    roles: LEADS,
+    needs: ["client"],
+    what: "client",
+    landmark: ["client-overview"],
+  },
   {
     name: "a project",
     path: "/clients/:projectClient/projects/:project",
     roles: LEADS,
     needs: ["project", "projectClient"],
     what: "project",
+    landmark: ["project-page"],
   },
-  { name: "a person", path: "/people/:person", roles: LEADS, needs: ["person"], what: "person" },
+  {
+    name: "a person",
+    path: "/people/:person",
+    roles: LEADS,
+    needs: ["person"],
+    what: "person",
+    landmark: ["person-profile"],
+  },
   { name: "/diagnostics/timing", path: "/diagnostics/timing", roles: ALL },
 ];
 
@@ -116,8 +164,41 @@ export function planMemberRoutes(role, ids) {
     const path = route.path.replace(/:([A-Za-z]+)/g, (_, key) =>
       String(ids[/** @type {IdKey} */ (key)]),
     );
-    return { name: route.name, path };
+    return { name: route.name, path, ...(route.landmark ? { landmark: route.landmark } : {}) };
   });
+}
+
+/**
+ * Whether a page's HTML is the page at all (advisor 2026-11-26: v2.0.1's Owner /today answered
+ * with its error screen on staging, and the probe read it as **faster**; timing alone is not a
+ * pass). A problem when the body holds the error screen (`data-slot="error-state"`, the shell's
+ * `error.tsx`), when React streamed a boundary as failed (`data-dgst`, `$RX(`; Next's own
+ * redirect and client-only digests aside), or when none of the route's `landmark` slots is there: a part of the
+ * settled page its loading screen never draws (`MEMBER_ROUTES`). Null when the page is there.
+ * @param {string} html the whole decompressed body
+ * @param {readonly string[]} [landmark]
+ * @returns {string | null}
+ */
+/**
+ * Digests React writes on healthy pages: Next's own redirect, and the marker of a part that only
+ * renders in the browser (`next/dynamic` with `ssr: false`, e.g. the push band). A 404 inside a
+ * page (`NEXT_HTTP_ERROR_FALLBACK`) and any error's hash still fail.
+ */
+const BENIGN_DIGEST = /^(NEXT_REDIRECT|BAILOUT_TO_CLIENT_SIDE_RENDERING$)/;
+
+export function pageProblem(html, landmark = []) {
+  if (html.includes('data-slot="error-state"')) return "the error screen";
+  const digests = [
+    ...html.matchAll(/data-dgst="([^"]*)"/g),
+    ...html.matchAll(/\$RX\("[^"]*","([^"]*)"/g),
+  ].map((match) => match[1] ?? "");
+  if (/\$RX\("[^"]*"\)/.test(html) || digests.some((digest) => !BENIGN_DIGEST.test(digest))) {
+    return "a part of the page failed (React error boundary)";
+  }
+  if (landmark.length > 0 && !landmark.some((slot) => html.includes(`data-slot="${slot}"`))) {
+    return `no ${landmark.map((slot) => `[data-slot="${slot}"]`).join(" or ")}`;
+  }
+  return null;
 }
 
 /**
@@ -153,6 +234,8 @@ export function slowerThanStaging(candidate, baseline) {
  *   skip?: string,
  *   statusOk?: boolean,
  *   statuses?: string,
+ *   contentOk?: boolean,
+ *   content?: string,
  *   warmP50?: number,
  *   warmTotalP50?: number,
  * }} RouteSummary
@@ -186,11 +269,16 @@ export function judgeRoute(route, baseline) {
   /** @type {string[]} */
   const warnings = [];
   if (route.statusOk === false) reasons.push(`status ${route.statuses ?? "?"}`);
+  // Not the page (the error screen, a failed part, no landmark): never a pass, whatever the time.
+  if (route.contentOk === false) reasons.push(`page: ${route.content ?? "not the page"}`);
   if (warm > WARM_TTFB_P50_LIMIT_MS) {
     reasons.push(`warm p50 ${Math.round(warm)} > ${WARM_TTFB_P50_LIMIT_MS} ms`);
   }
   const usable =
-    baseline !== undefined && baseline.skip === undefined && baseline.statusOk !== false;
+    baseline !== undefined &&
+    baseline.skip === undefined &&
+    baseline.statusOk !== false &&
+    baseline.contentOk !== false;
   const compared = usable ? baseline.warmP50 : undefined;
   const total = route.warmTotalP50;
   const comparedTotal = usable ? baseline.warmTotalP50 : undefined;
@@ -213,8 +301,9 @@ export function judgeRoute(route, baseline) {
   const timingOnly = NOT_GATED.has(route.name);
   if (timingOnly) {
     // Only the status counts: the timing reasons move to the shown, unjudged ones.
-    const status = reasons.filter((r) => r.startsWith("status "));
-    warnings.unshift(...reasons.filter((r) => !r.startsWith("status ")));
+    const kept = (/** @type {string} */ r) => r.startsWith("status ") || r.startsWith("page: ");
+    const status = reasons.filter(kept);
+    warnings.unshift(...reasons.filter((r) => !kept(r)));
     reasons.length = 0;
     reasons.push(...status);
   }
