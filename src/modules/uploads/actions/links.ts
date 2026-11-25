@@ -34,7 +34,21 @@ import { uploadService } from "../data/service";
 
 export type UploadLinkAnswer = { linkId: string; url: string };
 
+/** `UPLOAD_PAGE_ORIGIN` as an https origin, or null (unset or not a valid https URL). */
+function uploadPageOrigin(value: string | undefined): string | null {
+  try {
+    const url = value ? new URL(value) : null;
+    return url && url.protocol === "https:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 async function appOrigin(): Promise<string> {
+  // Plan J9 (pending the owner): the upload page on an origin of its own, e.g.
+  // https://upload.maxoff.in. Unset, links are on the app's own origin.
+  const own = uploadPageOrigin(process.env.UPLOAD_PAGE_ORIGIN);
+  if (own) return own;
   const head = await headers();
   return resolveAppOrigin(
     process.env.NEXT_PUBLIC_APP_URL,

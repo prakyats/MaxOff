@@ -315,6 +315,47 @@
       - **Staging sets a 1 GB step and no reserve in `wrangler.jsonc`**; production never names them.
       - pgTAP 146 (378): the wrapper holds a 9 KB file on 15 GB free, `_v2` with the override starts it, both are service_role only, and the wrapper holds no logic.
       - **"Staging uses a test override of S7" goes into the v4.5 READY**, and the owner's walk notes that a free Gmail can never take an upload in production terms.
+  - **Security review pass 2 (25 Nov evening): findings and the advisor's decisions.** Do these in this order after the calendar cut and the `(main)` move with J1.
+    1. **C8, blocking:**
+       - in `start`, the Worker re-reads Google's `about` quota and records it when `quota_checked_at` is more than 5 minutes old, before `_v2`;
+       - **also** count bytes started since the check against the free space (the to-come logic), so parallel starts can't overshoot.
+    2. **One new migration:**
+       - a per-file stamp limiting `done`'s Google check to one per 5 s;
+       - every public call counted in the per-network `open` bucket;
+       - G1: housekeeping writes a `failed` history row (`gave_up`).
+       - With pgTAP.
+    3. C1/C2 key IPv6 on its /64.
+    4. C7: a streamed 64 KB cap on the body (no `Content-Length`).
+    5. A7: drop `parents` from the session's `fields`.
+    6. **The token moves into the JSON body** (never a header or a URL). A test asserts no request carries it in a header or URL; extend the round trip's URL check.
+    7. upload-roundtrip:
+       - the mask lines go to stderr;
+       - the link is stopped in a `finally`;
+       - the staging project ref is required, not just "not production".
+    8. `spaceGuard()` ignores the override when `NEXT_PUBLIC_APP_ENV` is `production`.
+    9. J9: a setting for the upload origin used when minting links.
+    10. The Crew primary's "files received" notice keeps the uploader's typed name, treated as untrusted (trimmed, at most 60 characters, text only, never in a URL). Put it in the walk script.
+    - **§8:**
+      - J8's e2e;
+      - the §7.3 flows (offline and resume, a second context seeing nothing, held, daily-limit, rate-limited, Retry);
+      - the §7.4 pen test on staging (no third-party traffic).
+    - **READY must list:**
+      - the leftover risks (A9/E5, B3, D, B1, S7) for the owner to accept at his walk;
+      - the Cloudflare WAF and rate-limit rules on `/api/upload/*` as an owner dashboard step (also v7.5 Q4);
+      - "staging uses a test override of S7".
+  - **The `(main)` move and J1 are prepared in `/home/user/wt/v45move` (branch `v45-main-move`), uncommitted.**
+    - The move:
+      - 168 renames into `src/app/(main)/` (`globals.css` too);
+      - path-only fixes in 9 tests, `components.json`, and the two history panels' relative `../api` imports.
+    - J1:
+      - `(upload)/layout.tsx` is its own root layout, with a nonced theme script;
+      - `uploadPageCsp` sits in `core/http/response-headers.ts`, and `session.ts` adds a per-request nonce;
+      - `e2e/upload-page.spec.ts` has J1 flipped, plus a CSP-violation check; 20 passed.
+    - It must be re-applied on top of the calendar cut (the move adds a 114-byte chunk split to every route, which tipped `/calendar` 1 byte over budget).
+  - **The calendar cut** (advisor: v4.5 carries its own headroom):
+    - `core/time/date-words.ts` (`dateWords`, unit-tested equal to `formatIST(istDayStart(…))`);
+    - `calendar-screen.tsx` and `calendar-client.tsx` swap 8 lines, so `date-fns-tz` leaves `/calendar`'s first load.
+    - Tell v6.0 (session_015vyzMVbsSmbeQ9jX6CkLqj) the exact lines and the sha, and add it to #89's merge-risk register.
   - **Next:**
     1. The upload unit (CORS unblocked): a real Google round trip on staging; confirm Google's daily-limit error codes (Ideas item 2).
     2. **Guide screenshots:**

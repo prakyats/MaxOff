@@ -19,20 +19,21 @@ import {
   isTokenShaped,
   linkKeyBytes,
   rateKeyHash,
-  tokenFromAuthorization,
+  tokenFromBody,
+  withoutToken,
   tokenHash,
   uploadLinkUrl,
 } from "../domain/token";
 import { DEVICE_KEY, KEY_BASE64, TOKEN } from "./fakes";
 
 describe("the token on the wire (plan A1, A8)", () => {
-  it("is read from `Authorization: UploadLink <token>` only", () => {
-    expect(tokenFromAuthorization(`UploadLink ${TOKEN}`)).toBe(TOKEN);
-    expect(tokenFromAuthorization(`  UploadLink ${TOKEN}  `)).toBe(TOKEN);
-    expect(tokenFromAuthorization(`Bearer ${TOKEN}`)).toBeNull();
-    expect(tokenFromAuthorization(`UploadLink`)).toBeNull();
-    expect(tokenFromAuthorization(`UploadLink ${TOKEN} extra`)).toBeNull();
-    expect(tokenFromAuthorization(null)).toBeNull();
+  it("is read from the JSON body's `token` only, never a header (review pass 2)", () => {
+    expect(tokenFromBody({ token: TOKEN, deviceKey: "x" })).toBe(TOKEN);
+    expect(tokenFromBody({ deviceKey: "x" })).toBeNull();
+    expect(tokenFromBody({ token: 5 })).toBeNull();
+    expect(tokenFromBody([TOKEN])).toBeNull();
+    expect(tokenFromBody(null)).toBeNull();
+    expect(withoutToken({ token: TOKEN, deviceKey: "x" })).toEqual({ deviceKey: "x" });
   });
 
   it("is shaped: 43 url-safe characters, nothing else", () => {
@@ -197,5 +198,17 @@ describe("the card and the sheet in the app's words", () => {
     });
     expect(owner.uploader.ip).toBe("203.0.113.7");
     expect(owner.files[0]).toHaveProperty("ip", null);
+  });
+});
+
+describe("the network a rate limit counts (plan C1-C2, review pass 2)", () => {
+  it("IPv4 as it is; IPv6 by its /64, however it is written", async () => {
+    const { rateNetwork } = await import("../domain/api");
+    expect(rateNetwork("203.0.113.7")).toBe("203.0.113.7");
+    expect(rateNetwork(null)).toBe("unknown");
+    expect(rateNetwork("2001:db8:85a3:0:1:2:3:4")).toBe("2001:db8:85a3:0::/64");
+    expect(rateNetwork("2001:0DB8:85a3:0000:ffff::1")).toBe("2001:db8:85a3:0::/64");
+    expect(rateNetwork("2001:db8::1")).toBe("2001:db8:0:0::/64");
+    expect(rateNetwork("::1")).toBe("0:0:0:0::/64");
   });
 });

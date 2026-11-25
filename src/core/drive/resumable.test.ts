@@ -89,7 +89,9 @@ describe("opening a resumable session", () => {
     expect(google.calls).toHaveLength(1);
     const [call] = google.calls;
     expect(call?.url).toMatch(new RegExp(`^${UPLOAD_URL}\\?uploadType=resumable`));
-    expect(call?.url).toContain("fields=id,name,size,md5Checksum,mimeType,parents");
+    // The browser's final answer names no folder (plan A7): id, size and checksum only.
+    expect(call?.url).toContain("fields=id,size,md5Checksum");
+    expect(call?.url).not.toContain("parents");
     expect(call?.init?.method).toBe("POST");
     const headers = new Headers(call?.init?.headers);
     expect(headers.get("authorization")).toBe("Bearer token-1");

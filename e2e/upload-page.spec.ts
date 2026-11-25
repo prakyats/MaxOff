@@ -110,11 +110,17 @@ async function linkFor(browser: Browser, info: TestInfo, what: string): Promise<
   return `${url.pathname}${url.hash}`;
 }
 
-/** Every request the page made, to check no URL carries the token (plan A8). */
+/**
+ * Every request the page made, its URL and its headers, to check the token is in neither (plan
+ * A8; review pass 2: it travels in the JSON body only).
+ */
 function watchUrls(page: Page): string[] {
-  const urls: string[] = [];
-  page.on("request", (request) => urls.push(request.url()));
-  return urls;
+  const seen: string[] = [];
+  page.on("request", (request) => {
+    seen.push(request.url());
+    seen.push(...Object.values(request.headers()));
+  });
+  return seen;
 }
 
 test.beforeEach(async () => {
@@ -165,7 +171,7 @@ test.describe("anyone with the link", () => {
     await expect(row).toHaveAttribute("data-state", "Waiting");
     await expect(row).toContainText("starts by itself");
 
-    for (const url of urls) expect(url).not.toContain(token);
+    for (const url of urls) expect(url, "no URL or header carries the token").not.toContain(token);
     // The uploader is recorded with the name and nothing else of theirs is shown to the page.
     const [uploader] = await serviceSelect<{ name: string; on_task: boolean }>(
       `upload_uploaders?name=eq.Sam&select=name,on_task&order=created_at.desc&limit=1`,
@@ -277,8 +283,7 @@ test.describe("the page and its API (plan B5, J)", () => {
     expect(noToken.headers()["access-control-allow-origin"]).toBeUndefined();
 
     const unknown = await post("/api/upload/resolve", {
-      headers: { authorization: `UploadLink ${"B".repeat(43)}` },
-      data: { deviceKey: null },
+      data: { deviceKey: null, token: "B".repeat(43) },
     });
     // An unknown link gets the very same answer as no link at all (plan A6).
     expect(unknown.status()).toBe(404);
@@ -287,9 +292,8 @@ test.describe("the page and its API (plan B5, J)", () => {
     const foreign = await post("/api/upload/resolve", {
       headers: {
         origin: "https://elsewhere.example",
-        authorization: `UploadLink ${"B".repeat(43)}`,
       },
-      data: { deviceKey: null },
+      data: { deviceKey: null, token: "B".repeat(43) },
     });
     expect(foreign.status()).toBe(403);
 
@@ -307,8 +311,7 @@ test.describe("the page and its API (plan B5, J)", () => {
     expect(notJson.status()).toBe(415);
 
     const big = await post("/api/upload/register", {
-      headers: { authorization: `UploadLink ${"B".repeat(43)}` },
-      data: { deviceKey: "C".repeat(43), name: "x".repeat(70_000) },
+      data: { deviceKey: "C".repeat(43), name: "x".repeat(70_000), token: "B".repeat(43) },
     });
     expect(big.status()).toBe(413);
 

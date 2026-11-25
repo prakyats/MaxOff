@@ -25,6 +25,8 @@ export function spaceGuard(env: Readonly<Record<string, string | undefined>>): {
   stepBytes: number;
   reserveBytes: number;
 } {
+  // Never in production, whatever the environment says (review pass 2): the decided rule.
+  if (env.NEXT_PUBLIC_APP_ENV === "production") return { ...SPACE_GUARD };
   const step = whole(env[SPACE_STEP_ENV]);
   const reserve = whole(env[SPACE_RESERVE_ENV]);
   return {

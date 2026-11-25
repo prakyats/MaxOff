@@ -18,6 +18,7 @@ import { type Clock, systemClock, todayIST } from "@/core/time";
 import {
   BAD_LINK_MESSAGE,
   cleanIp,
+  rateNetwork,
   type DoneAnswer,
   doneBodySchema,
   type FailedAnswer,
@@ -40,7 +41,8 @@ import {
   deviceKeyHash,
   isTokenShaped,
   rateKeyHash,
-  tokenFromAuthorization,
+  tokenFromBody,
+  withoutToken,
   tokenHash,
 } from "../domain/token";
 import { readLinkKey } from "../data/link-key";
@@ -50,7 +52,7 @@ import { hasSession, verifyFinished } from "./verify";
 /**
  * The upload page's public API (v4.5, WORKFLOWS §5B.2; security plan A, B, C, F, J), behind the
  * route handlers `src/app/api/upload/<endpoint>/route.ts`. `/api/*` is public in the proxy, so
- * each call authenticates itself by the link's token, sent in `Authorization: UploadLink
+ * each call authenticates itself by the link's token, sent as `token` in the JSON body (never
  * <token>` and never in a URL (plan A8); no MaxOff session or cookie is read (plan B5, J7).
  *
  * The order of every call: same origin, JSON of at most 64 KB (C7), the network's bad-link block
@@ -388,8 +390,10 @@ async function readJson(request: Request): Promise<{ body: unknown } | { refused
   if (declared > UPLOAD_API_MAX_BODY_BYTES) {
     return { refused: answer(fail("VALIDATION", "This request is too large."), 413) };
   }
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > UPLOAD_API_MAX_BODY_BYTES) {
+  // Read up to the cap and no further, whatever Content-Length said (or if it said nothing):
+  // a body is never buffered whole before the 64 KB check (plan C7; review pass 2).
+  const text = await readCapped(request, UPLOAD_API_MAX_BODY_BYTES);
+  if (text === null) {
     return { refused: answer(fail("VALIDATION", "This request is too large."), 413) };
   }
   try {
@@ -397,6 +401,31 @@ async function readJson(request: Request): Promise<{ body: unknown } | { refused
   } catch {
     return { refused: answer(fail("VALIDATION", "Send JSON.")) };
   }
+}
+
+/** The body as text, or null past `max` bytes (the stream is cancelled there). */
+async function readCapped(request: Request, max: number): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    all.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return new TextDecoder().decode(all);
 }
 
 /**
@@ -420,7 +449,7 @@ export async function handleUploadApi(
     if (linkKey.mode === "off") return badLink();
     const now = deps.clock();
     const ip = cleanIp(request.headers.get("cf-connecting-ip"));
-    const network = await rateKeyHash(linkKey.key, ip ?? "unknown");
+    const network = await rateKeyHash(linkKey.key, rateNetwork(ip));
 
     // Plan C1: a network that tried too many bad links is refused every link for 15 minutes.
     if (await deps.svc.rateBlocked("bad_link", network, now)) return badLink();
@@ -436,7 +465,7 @@ export async function handleUploadApi(
         );
       }
     }
-    const token = tokenFromAuthorization(request.headers.get("authorization"));
+    const token = tokenFromBody(read.body);
     if (!token || !isTokenShaped(token)) {
       await deps.svc.rateHit("bad_link", network, now);
       return badLink();
@@ -449,7 +478,7 @@ export async function handleUploadApi(
       origin,
     };
     try {
-      const data: unknown = await HANDLERS[endpoint](read.body, call, deps);
+      const data: unknown = await HANDLERS[endpoint](withoutToken(read.body), call, deps);
       return answer(ok(data));
     } catch (error) {
       const appError = toAppError(error);

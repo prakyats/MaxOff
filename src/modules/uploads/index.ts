@@ -15,7 +15,8 @@ export {
   linkKeyBytes,
   newLinkSalt,
   rateKeyHash,
-  tokenFromAuthorization,
+  tokenFromBody,
+  withoutToken,
   tokenHash,
   uploadLinkUrl,
 } from "./domain/token";

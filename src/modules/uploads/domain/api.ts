@@ -3,8 +3,8 @@
  * `/api/upload/*` call takes and answers. Platform-free: the route wrapper and the handlers parse
  * with these, and the page (the screens unit) builds its calls from the same types.
  *
- * Every call is a `POST` with a JSON body of at most 64 KB (plan C7) and the link's token in
- * `Authorization: UploadLink <token>` (plan A8). The browser sends its 32-byte device key as 43
+ * Every call is a `POST` with a JSON body of at most 64 KB (plan C7) carrying the link's token as
+ * `token` (plan A8; never a header or a URL). The browser sends its 32-byte device key as 43
  * base64url characters; the server keeps only its sha256 (plan B3). The answer is a `Result`
  * (`{ ok: true, data }` or `{ ok: false, error: { code, message } }`); a bad, unknown, stopped
  * or unsealed link is always the one `NOT_FOUND` answer (plan A6).
@@ -160,6 +160,26 @@ export function isDailyUploadLimit(status: number, message: string): boolean {
 /** Whole seconds from `now` to `until` (at least 1), for a wait answer. */
 export function secondsUntil(until: Date, now: Date): number {
   return Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 1000));
+}
+
+/**
+ * The network a rate limit counts (plan C1-C2; security review pass 2): an IPv4 address itself,
+ * an IPv6 address by its /64 (one household or phone gets a whole /64, so a single address is
+ * no limit at all). The IP kept on the uploader's rows stays the full address (G2).
+ */
+export function rateNetwork(ip: string | null): string {
+  if (!ip) return "unknown";
+  if (!ip.includes(":")) return ip;
+  const [head = "", tail = ""] = ip.toLowerCase().split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const full = ip.includes("::")
+    ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right]
+    : left;
+  return `${full
+    .slice(0, 4)
+    .map((part) => part.replace(/^0+(?=.)/, ""))
+    .join(":")}::/64`;
 }
 
 /**

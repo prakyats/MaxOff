@@ -38,6 +38,8 @@ const env = (name) => {
 
 /** Production's Supabase project (README → "Deploying"): never signed in to from here. */
 const PRODUCTION_PROJECT_REF = "peshoflxypujbzecgwqq";
+/** Staging's project, the one this job may use (the workflow checks the same). */
+const STAGING_PROJECT_REF = "jcejebyjaqwcumyzrhge";
 
 /** The test Gmail was connected on staging after this (the owner, 25 Nov 2026, ~15:40 UTC). */
 const TEST_CONNECT_AFTER = "2026-11-25T15:00:00Z";
@@ -47,7 +49,8 @@ const record = (step, ok, detail) => {
   results.push({ step, ok, detail });
   process.stdout.write(`${ok ? "PASS" : "FAIL"} | ${step} | ${detail}\n`);
 };
-const mask = (value) => process.stdout.write(`::add-mask::${value}\n`);
+// To stderr: the step's stdout is copied into the job summary (review pass 2).
+const mask = (value) => process.stderr.write(`::add-mask::${value}\n`);
 
 function guard(base, supabaseUrl) {
   const { protocol, hostname } = new URL(base);
@@ -60,8 +63,13 @@ function guard(base, supabaseUrl) {
       `Only a staging preview (https, *maxoff-staging*.workers.dev), not ${hostname}.`,
     );
   }
-  if (new URL(supabaseUrl).hostname.startsWith(`${PRODUCTION_PROJECT_REF}.`)) {
+  const project = new URL(supabaseUrl).hostname;
+  if (project.startsWith(`${PRODUCTION_PROJECT_REF}.`)) {
     throw new Error("Never on production's Supabase project.");
+  }
+  // Staging's own project, not merely "not production" (review pass 2).
+  if (!project.startsWith(`${STAGING_PROJECT_REF}.`)) {
+    throw new Error("Only staging's Supabase project.");
   }
 }
 
@@ -241,7 +249,11 @@ async function main() {
     const uploader = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await uploader.newPage();
     const seen = [];
-    page.on("request", (request) => seen.push(request.url()));
+    // Every URL and every header: the token travels in the JSON body only (review pass 2).
+    page.on("request", (request) => {
+      seen.push(request.url());
+      seen.push(...Object.values(request.headers()));
+    });
     // The preview's own origin, so Google's session is opened for it (the link names staging's).
     await page.goto(`${base}/upload#${token}`);
     await page.getByLabel("Your name").fill("Round trip");
@@ -281,7 +293,7 @@ async function main() {
     }
     record("upload", true, `${files.length} files received on the page`);
     record(
-      "token in no URL",
+      "token in no URL or header",
       seen.every((at) => !at.includes(token)),
       `${seen.length} requests checked`,
     );
@@ -335,6 +347,19 @@ async function main() {
     record("all files received", true, "the link stopped");
   } finally {
     await browser.close();
+    // A run that failed before All files received must not leave a live staging link: stop it as
+    // the Owner (review pass 2). Nothing is deleted; the test task stays.
+    const { data: open } = await service
+      .from("upload_links")
+      .select("id")
+      .eq("task_id", taskId)
+      .is("stopped_at", null);
+    for (const link of open ?? []) {
+      await asMember(url, publishableKey, session, "rpc/upload_link_stop", {
+        method: "POST",
+        body: JSON.stringify({ p_link_id: link.id }),
+      }).catch(() => undefined);
+    }
   }
 }
 

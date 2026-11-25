@@ -48,11 +48,12 @@ function call(
   const origin = options.origin === undefined ? ORIGIN : options.origin;
   if (origin !== null) headers.set("origin", origin);
   const token = options.token === undefined ? TOKEN : options.token;
-  if (token !== null) headers.set("authorization", `UploadLink ${token}`);
+  const withToken =
+    token !== null && typeof body === "object" && body !== null ? { ...body, token } : body;
   return new Request(`${ORIGIN}/api/upload/${endpoint}`, {
     method: "POST",
     headers,
-    body: typeof body === "string" ? body : JSON.stringify(body),
+    body: typeof withToken === "string" ? withToken : JSON.stringify(withToken),
   });
 }
 

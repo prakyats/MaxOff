@@ -71,13 +71,23 @@ export async function tokenHash(token: string): Promise<Uint8Array> {
 }
 
 /**
- * The public API's credential (plan A8): the page reads the token from the link's fragment and
- * sends it as `Authorization: UploadLink <token>`, never in a URL. Anything else is no token.
+ * The public API's credential (plan A8; security review pass 2, advisor 25 Nov 2026): the page
+ * reads the token from the link's fragment and sends it **in the JSON body** as `token`, never in
+ * a URL and never in a header (a request's headers may be logged by the platform; its body is
+ * not). Anything else is no token.
  */
-export function tokenFromAuthorization(header: string | null): string | null {
-  if (!header) return null;
-  const match = /^UploadLink ([^\s]+)$/.exec(header.trim());
-  return match?.[1] ?? null;
+export function tokenFromBody(body: unknown): string | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return null;
+  const token = (body as { token?: unknown }).token;
+  return typeof token === "string" ? token : null;
+}
+
+/** The body without its `token`, for the handlers (which never see the credential). */
+export function withoutToken(body: unknown): unknown {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return body;
+  const rest: Record<string, unknown> = { ...(body as Record<string, unknown>) };
+  delete rest.token;
+  return rest;
 }
 
 /**

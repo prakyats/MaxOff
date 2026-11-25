@@ -7,7 +7,8 @@
  *   `Referer` or a screenshot of the address (A8).
  * - The device key is 32 random bytes kept in `localStorage` for this link only (under a name made
  *   from the token's hash, never the token), so a returning device sees its own files (Q4, B3).
- * - Every call is a `POST` of JSON to the page's own origin, the token in `Authorization`, with no
+ * - Every call is a `POST` of JSON to the page's own origin, the token in the body (never a header
+ *   or a URL: headers may be logged by the platform, the body is not), with no
  *   cookie and no referrer, so the page works the same from a sibling origin (J9) and never carries
  *   a member's MaxOff session.
  */
@@ -110,8 +111,8 @@ export async function callUpload<T>(
   try {
     const response = await fetch(`/api/upload/${endpoint}`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `UploadLink ${token}` },
-      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, token }),
       credentials: "omit",
       cache: "no-store",
       referrerPolicy: "no-referrer",

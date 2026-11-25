@@ -14,7 +14,12 @@ import { DriveApiError, DriveAuthError, type Fetch } from "./google";
 
 const UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
 /** What Google answers about the finished file: enough to verify it and to link to it. */
-const FILE_FIELDS = "id,name,size,md5Checksum,mimeType,parents";
+/**
+ * What Google's final answer to the browser carries: the file's id and checksum, nothing about
+ * where it sits (plan A7, review pass 2: no folder id reaches the uploader). The server reads the
+ * parents itself (`fileFacts`).
+ */
+const FILE_FIELDS = "id,size,md5Checksum";
 
 /** The caller's rules for one session. Checked here, before Google is asked. */
 export type UploadPolicy = {

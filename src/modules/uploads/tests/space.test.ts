@@ -23,6 +23,15 @@ describe("the upload space guard (S7)", () => {
       );
     }
   });
+  it("production ignores any override (review pass 2)", () => {
+    expect(
+      spaceGuard({
+        NEXT_PUBLIC_APP_ENV: "production",
+        UPLOAD_SPACE_STEP_BYTES: "1000000000",
+        UPLOAD_SPACE_RESERVE_BYTES: "0",
+      }),
+    ).toEqual({ stepBytes: 10e9, reserveBytes: 10e9 });
+  });
   it("says so once when the override is active, and nothing under the decided rule", () => {
     expect(spaceOverrideNote({})).toBeNull();
     expect(
