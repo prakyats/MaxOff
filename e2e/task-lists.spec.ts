@@ -13,6 +13,7 @@ import {
   removeTasksTitled,
   rpcAs,
   runInstalled,
+  serviceDelete,
   serviceInsert,
   serviceSelect,
   serviceUpdate,
@@ -449,10 +450,25 @@ test.describe("the task lists, the flows", () => {
       type: await taskTypeId("Meeting"),
       more: { event_date: later, event_start_at: istInstant(later, "10:00") },
     });
-    const row = page
-      .locator('tr:visible, [data-slot="data-card"]:visible, li:visible')
-      .filter({ hasText: who.freelancer.name })
-      .first();
+    // The coordinator on a day's approved leave today: "On leave · back ‹day›" (the sample "4").
+    const coordId = await memberIdOf(who.coord.email);
+    await serviceDelete(`leave_requests?member_id=eq.${coordId}&start_date=eq.${today}`);
+    await serviceInsert("leave_requests", {
+      member_id: coordId,
+      type: "leave",
+      start_date: today,
+      end_date: today,
+      state: "approved",
+      source: "owner",
+      decided_by: await memberIdOf(USERS.owner.email),
+      decided_at: systemClock().toISOString(),
+    });
+    const rowOfName = (name: string) =>
+      page
+        .locator('tr:visible, [data-slot="data-card"]:visible, li:visible')
+        .filter({ hasText: name })
+        .first();
+    const row = rowOfName(who.freelancer.name);
 
     await signIn(page, who.admin.email, PASSWORD);
     await page.goto("/people");
@@ -461,6 +477,9 @@ test.describe("the task lists, the flows", () => {
     const showMore = page.locator('[data-slot="data-cards-more"]:visible');
     while ((await row.count()) === 0 && (await showMore.isVisible())) await showMore.click();
     await expect(row).toContainText("Shoot / Site Visit 2:00 pm – 4:00 pm · you");
+    const coordRow = rowOfName(who.coord.name);
+    while ((await coordRow.count()) === 0 && (await showMore.isVisible())) await showMore.click();
+    await expect(coordRow).toContainText(/On leave · back \w{3} \d{1,2}/);
     await expect(row.locator('[data-slot="next-booked"]')).toContainText(
       /^(Next: )?\w{3} \d{1,2} · Meeting 10:00 am · you$/,
     );
@@ -473,6 +492,7 @@ test.describe("the task lists, the flows", () => {
     await expect(page.locator('[data-slot="next-booked"]')).toHaveCount(0);
     await expect(page.getByRole("columnheader", { name: "Next booked" })).toHaveCount(0);
     await removeTasksTitled(prefix);
+    await serviceDelete(`leave_requests?member_id=eq.${coordId}&start_date=eq.${today}`);
   });
 
   test("an Admin: Needs you, the open tasks, the approvals row and every filter of the full list", async ({

@@ -10,7 +10,7 @@
  * loading screen's skeleton is a server component and comes from here.
  */
 export { listAvailability } from "./data/availability";
-export { listNextBookings, type NextBookingRow } from "./data/next-booking";
+export { listPeopleGlance, type PeopleGlanceRow } from "./data/people-glance";
 export {
   addMonths,
   buildCalendar,
@@ -76,4 +76,10 @@ export {
 } from "./domain/crew";
 export { CalendarSkeleton } from "./components/calendar-skeleton";
 export type { NextBooking, TeamLine, TeamToday } from "./domain/team-today";
-export { busyAt, nextBookedLine, TEAM_FIRST_LINES, teamToday } from "./domain/team-today";
+export {
+  busyAt,
+  nextBookedLine,
+  onLeaveLine,
+  TEAM_FIRST_LINES,
+  teamToday,
+} from "./domain/team-today";

@@ -30,7 +30,7 @@
     - The old Available / Busy chip and its `today-status.ts` are replaced (the plan: "This replaces today's Available / Busy chip for Admins").
     - On a phone each card gets a Today line and a "Next:" line, and the card's dot goes back to the member status. The skeleton is `PageLoading` with `subtitleLines` 3 for Admins.
     - The Owner's People page is unchanged.
-    - **Not built:** "On leave · back Tue 17". The return date needs leave end dates, which a one-day availability read doesn't have, so it says "On leave". Flagged to the advisor.
+    - **"On leave · back Tue 17" (advisor, 25 Nov: built with no extra round trip):** new migration `v65_people_glance`, `member_people_glance(after_date, days)` = `member_next_booking()`'s rows plus `back_on` (`app.member_back_on`: the first working day with no full-day leave, past weekly offs and holidays). /people calls it in place of `member_next_booking()`, still one call. pgTAP 152 for each role; Playwright: the coordinator on a day's leave reads "On leave · back ‹day›".
     - Guide: the Admin's People topic. Playwright (`task-lists.spec.ts` "People for an Admin…"): Today and Next booked for the Admin; the Owner's page has neither. 1280 and 375, no sideways scroll.
   - **Next:** ROADMAP ticks and the review. At READY (after v6.0): the speed gate (`/today` and `/tasks` for the Owner and Admin, `/tasks` for Crew, `/people` for the Admin, paired with `main`, plus the India check) and `guide:screenshots` for the touched topics.
 - **HANDOFF, v6.0 Unit 12 done: New task, type first, with the Free / Busy people picker (Wed 25 Nov 2026, v6.0 builder; `phase-v60`, on top of the WIP 5741357; not pushed).** The PAUSED entry below is history: what it lists as half-done or not started is done here.

@@ -332,7 +332,7 @@ Owner decision, 11 Nov 2026 (the advisor on #89, 6786992841): the release after 
   - An event type (`shows_on_calendar`) shows When / From / To / Where / Client up front; **Done by defaults to the end of the event**, changeable.
   - Any other type shows one deadline.
   - The people picker is unit 9's.
-- [x] **13. People for Admins:** (Built in v6.5 on `phase-v65`, 25 Nov 2026: `member_next_booking`, 30 days; "On leave" without the return date.) photos, role and status stay; **Today** and **Next booked** are added. The Owner's and Crew's People pages don't change.
+- [x] **13. People for Admins:** (Built in v6.5 on `phase-v65`, 25 Nov 2026: `member_people_glance`, 30 days; "On leave · back ‹day›".) photos, role and status stay; **Today** and **Next booked** are added. The Owner's and Crew's People pages don't change.
 
 - [x] **CI resilience: done early** (owner decision, 11 Nov 2026: "make that change now"; #89 6802466628): `ci.yml` installs Chromium without apt and proves a headless launch, with apt (`playwright install-deps chromium`) only as a fallback if that launch fails (commit bafd6f45). Not done: the optional browser cache.
 

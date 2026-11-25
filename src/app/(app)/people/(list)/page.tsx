@@ -21,8 +21,9 @@ import {
   buildCrew,
   DEFAULT_EVENT_COLOR,
   listAvailability,
-  listNextBookings,
+  listPeopleGlance,
   nextBookedLine,
+  onLeaveLine,
   type TeamLine,
   teamToday,
 } from "@/modules/calendar";
@@ -73,7 +74,7 @@ export default async function PeoplePage({
       titles,
       coordinatorIds,
       wantsToday ? listAvailability(day, day, null) : Promise.resolve([]),
-      wantsToday ? listNextBookings(day, NEXT_BOOKED_DAYS) : Promise.resolve([]),
+      wantsToday ? listPeopleGlance(day, NEXT_BOOKED_DAYS) : Promise.resolve([]),
       wantsToday ? listTaskTypes() : Promise.resolve([]),
     ]);
   // PP-admin-11: an Admin's list opens on the active people, "Show all" one quiet tap away (a view
@@ -105,17 +106,22 @@ export default async function PeoplePage({
       leave: [],
       availability: days,
     });
+    const dayName = (date: string) => formatIST(istDayStart(date), "EEE d");
+    // The same one call (member_people_glance) says when someone on leave is back (sample "4").
+    const backOn = new Map(upcoming.map((row) => [row.memberId, row.backOn]));
     for (const line of crew ? teamToday(crew, day, systemClock()).lines : []) {
       today[line.memberId] = {
         label:
-          [line.text, line.by].filter(Boolean).join(" · ") +
-          (line.more > 0 ? ` +${line.more}` : ""),
+          line.kind === "leave"
+            ? onLeaveLine(backOn.get(line.memberId) ?? null, dayName)
+            : [line.text, line.by].filter(Boolean).join(" · ") +
+              (line.more > 0 ? ` +${line.more}` : ""),
         tone: TODAY_TONE[line.kind],
         color: line.kind === "booked" ? line.color : null,
       };
     }
-    const dayName = (date: string) => formatIST(istDayStart(date), "EEE d");
     for (const row of upcoming) {
+      if (!row.onDate) continue;
       nextBooked[row.memberId] = nextBookedLine(
         {
           memberId: row.memberId,

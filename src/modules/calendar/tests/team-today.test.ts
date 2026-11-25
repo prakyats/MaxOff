@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { istInstant } from "@/core/time";
 
 import type { CrewBooking, CrewSource } from "../domain/crew";
-import { busyAt, nextBookedLine, teamToday } from "../domain/team-today";
+import { busyAt, nextBookedLine, onLeaveLine, teamToday } from "../domain/team-today";
 
 const DAY = "2026-11-16";
 const at = (time: string) => new Date(istInstant(DAY, time));
@@ -156,5 +156,13 @@ describe("nextBookedLine", () => {
       ),
     ).toBe("Thu 19 · Event all day");
     expect(nextBookedLine(undefined, dayName)).toBe("Nothing booked");
+  });
+});
+
+describe("onLeaveLine", () => {
+  it("says when they are back, when known", () => {
+    const dayName = (date: string) => (date === "2026-11-17" ? "Tue 17" : date);
+    expect(onLeaveLine("2026-11-17", dayName)).toBe("On leave · back Tue 17");
+    expect(onLeaveLine(null, dayName)).toBe("On leave");
   });
 });

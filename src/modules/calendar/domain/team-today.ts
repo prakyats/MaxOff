@@ -146,3 +146,11 @@ export function nextBookedLine(
     : "all day";
   return [dayName(next.onDate), `${type} ${when}`, next.by].filter(Boolean).join(" · ");
 }
+
+/**
+ * People's Today for someone on leave (the approved sample "4"): "On leave · back Tue 17", with the
+ * first working day they are back (`member_people_glance()`), or "On leave" when none is known.
+ */
+export function onLeaveLine(backOn: ISODate | null, dayName: (date: ISODate) => string): string {
+  return backOn ? `On leave · back ${dayName(backOn)}` : "On leave";
+}
