@@ -17,6 +17,7 @@ import {
   serviceUpdate,
   signIn,
   taskTypeId,
+  USERS,
 } from "./helpers";
 
 /**
@@ -354,6 +355,71 @@ test.describe("the task lists, the flows", () => {
     await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
   });
 
+  test("Team today on Today: the counts, a booked line, Show all in place, and Book someone free", async ({
+    page,
+  }, info) => {
+    // v6.5 unit 10 (owner 14 Nov 2026; the approved sample "2"): for the Owner and Admins, from
+    // member_availability() only. The whole team is on it, so the test checks the person it books.
+    const prefix = prefixOf(info);
+    await removeTasksTitled(prefix);
+    const who = people(info);
+    const today = todayIST();
+    await adminCreates(who.admin.email, {
+      title: `${prefix}team shoot`,
+      assignees: [who.freelancer.id],
+      due: istInstant(addISTDays(today, 2), "18:00"),
+      type: await taskTypeId("Shoot / Site Visit"),
+      more: {
+        event_date: today,
+        event_start_at: istInstant(today, "14:00"),
+        event_end_at: istInstant(today, "16:00"),
+      },
+    });
+    // Noted for the freelancer, so it adds to nobody's badge.
+    const [task] = await serviceSelect<{ id: string }>(
+      `tasks?title=eq.${encodeURIComponent(`${prefix}team shoot`)}&select=id`,
+    );
+    await rpcAs(who.coord.email, PASSWORD, "task_acknowledge", {
+      task_id: task?.id,
+      on_behalf_of: who.freelancer.id,
+    });
+    const card = page.locator('[data-slot^="team-today"]:visible').first();
+    const line = card
+      .locator('[data-slot="team-today-line"]')
+      .filter({ hasText: `${who.freelancer.name} (freelancer)` });
+
+    await signIn(page, who.admin.email, PASSWORD);
+    await page.goto("/today");
+    await expect(card.getByRole("heading", { name: "Team today" })).toBeVisible();
+    for (const label of ["Free now", "Booked today", "On leave"]) {
+      await expect(card.locator('[data-slot="team-today-counts"]')).toContainText(label);
+    }
+    // Booked first: on a phone the line may sit under "Show all N"; open it in place.
+    const more = card.locator('[data-slot="team-today-more"] summary');
+    const before = await page.evaluate(() => history.length);
+    if (await more.isVisible()) {
+      await expect(more.locator("span:visible")).toHaveText(/^Show all \d+$/);
+      await more.click();
+      await expect(more.locator("span:visible")).toHaveText("Show fewer");
+      expect(await page.evaluate(() => history.length)).toBe(before);
+      await expect(page).toHaveURL(/\/today$/);
+    }
+    await expect(line).toContainText("Shoot / Site Visit 2:00 pm – 4:00 pm · you");
+
+    // The Owner reads who booked it.
+    await page.context().clearCookies();
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/today");
+    if (await more.isVisible()) await more.click();
+    await expect(line).toContainText(
+      `Shoot / Site Visit 2:00 pm – 4:00 pm · booked by ${who.admin.name}`,
+    );
+    // "+ Book someone free" opens Calendar → Day for today (Q5's alternative, a drill-down).
+    await card.locator('[data-slot="team-today-book"]').click();
+    await expect(page).toHaveURL(new RegExp(`/calendar\\?view=day&date=${today}$`));
+    await removeTasksTitled(prefix);
+  });
+
   test("an Admin: Needs you, the open tasks, the approvals row and every filter of the full list", async ({
     page,
   }, info) => {
@@ -603,6 +669,29 @@ test.describe("the task lists, installed: back and large text", () => {
     await expect(page).toHaveURL(/\/tasks\/all\?state=all&overdue=overdue$/);
     // The filters' select sheets and the view changes add nothing: one back leaves the list.
     await expectBackStack(page, [{ url: /\/tasks$/ }, { url: /\/today$/ }]);
+  });
+
+  test("Team today: Show all opens in place; Calendar and Book someone free are drill-downs", async ({
+    page,
+  }, info) => {
+    // v6.5 unit 10 (ARCHITECTURE §14.2): the disclosure is a view control and adds no history.
+    const who = people(info);
+    await runInstalled(page);
+    await signIn(page, who.admin.email, PASSWORD);
+    await expect(page).toHaveURL(/\/today$/);
+    const card = page.locator('[data-slot="team-today-narrow"]');
+    await expect(card).toBeVisible();
+    const more = card.locator('[data-slot="team-today-more"] summary');
+    const before = await page.evaluate(() => history.length);
+    if (await more.isVisible()) {
+      await more.click();
+      await expect(more.locator("span:visible")).toHaveText("Show fewer");
+      expect(await page.evaluate(() => history.length)).toBe(before);
+    }
+    await card.locator('[data-slot="team-today-book"]').click();
+    await expect(page).toHaveURL(/\/calendar\?view=day&date=/);
+    // One back returns to Today: Calendar → Day is the one step Show all and the card added.
+    await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
   test("Staff: the reviewers' count row and All my tasks are drill-downs; back goes to My Day", async ({

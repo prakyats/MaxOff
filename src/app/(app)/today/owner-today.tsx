@@ -70,6 +70,7 @@ import {
   PreviewNotes,
   PreviewTasks,
 } from "./approvals-preview";
+import { TeamTodayColumn } from "./team-today";
 import {
   readApprovals,
   readEventTasks,
@@ -295,7 +296,12 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
       <PhoneDateLine line={dateLine(today)} />
       <DayColumns
         slot="owner-today"
-        week={<ThisWeek blocks={week.blocks} hidden={week.hidden} />}
+        week={
+          <>
+            <TeamTodayColumn viewerId={viewer.id} today={today} />
+            <ThisWeek blocks={week.blocks} hidden={week.hidden} />
+          </>
+        }
         main={
           <>
             {/* FINAL 1, PP-today-2: with nothing waiting, one quiet line and no heading. */}
@@ -395,6 +401,9 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                 </div>
               </DashSection>
             )}
+
+            {/* v6.5 unit 10: Team today after Needs you on a phone; beside the list on a laptop. */}
+            <TeamTodayColumn viewerId={viewer.id} today={today} narrow />
 
             <TodayAttendanceCard summary={summary} hours={hoursTodayCounts(hoursToday)} />
 

@@ -84,6 +84,7 @@ import {
   eventsHorizon,
 } from "./reads";
 import { TodayClientWorkLazy } from "./client-work-lazy";
+import { TeamTodayColumn } from "./team-today";
 import { ClientWorkRowsSkeleton } from "./client-work-skeleton";
 
 /** How many client items the Client work section lists before "See all N" (decision 19). */
@@ -272,7 +273,12 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
       <TodayAttendanceStrip endDayFollowUp={<EndDayClaims today={today} setup={claimSetup} />} />
       <DayColumns
         slot="admin-today"
-        week={<ThisWeek blocks={week.blocks} hidden={week.hidden} />}
+        week={
+          <>
+            <TeamTodayColumn viewerId={viewer.id} today={today} />
+            <ThisWeek blocks={week.blocks} hidden={week.hidden} />
+          </>
+        }
         main={
           <>
             {/* FINAL 1: with nothing waiting, one quiet line and no heading. */}
@@ -361,6 +367,9 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                 </div>
               </DashSection>
             )}
+
+            {/* v6.5 unit 10: Team today after Needs you on a phone; beside the list on a laptop. */}
+            <TeamTodayColumn viewerId={viewer.id} today={today} narrow />
 
             {/* PP-admin-4: an empty Client work collapses into one muted line under My clients. */}
             {work !== null && due.length > 0 ? (

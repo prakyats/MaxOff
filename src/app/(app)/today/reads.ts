@@ -16,6 +16,7 @@ import {
   splitHeldItems,
   weekEnd,
 } from "@/modules/client-work";
+import { listAvailability } from "@/modules/calendar";
 import { listClients } from "@/modules/clients";
 import {
   countHeldEmails,
@@ -128,3 +129,10 @@ export async function readItemDetails(itemIds: string[]) {
  * clients" progress, kickoff 7; the Admin report's Cycle progress): never every cycle ever made.
  */
 export const readClientProgress = cache((today: ISODate) => listCurrentCycles(today));
+
+/**
+ * The Team today card's one read (v6.5 unit 10): `member_availability()` for today, everyone the
+ * viewer sees (`availability.view`: the Owner and Admins). Cached, so the card drawn in both
+ * columns (the phone's after Needs you, the laptop's beside it) reads once.
+ */
+export const readTeamAvailability = cache((today: ISODate) => listAvailability(today, today, null));

@@ -15,6 +15,8 @@ import {
 } from "@/modules/dashboards";
 import { TaskRowsSkeleton } from "@/modules/tasks";
 
+import { TeamTodaySkeleton } from "./team-today";
+
 /**
  * Today as it renders (6.2, 6.3), traced per role (ARCHITECTURE §14.1). **The Owner's** (the Today
  * refresh, owner 2026-10-09): "Needs you", its heading and two compact approval rows (the same
@@ -29,12 +31,16 @@ import { TaskRowsSkeleton } from "@/modules/tasks";
  * section). **V5b major change 1:** the header's date line (and the phone's), and the two
  * columns (`DayColumns`): from an 896 px content width "This week" is the right column, traced
  * (`ThisWeekSkeleton`); below that it sits under the rest, out of the first screen. The `(app)`
- * layout already read the member for this request (`cache()`), so asking costs no query.
+ * layout already read the member for this request (`cache()`), so asking costs no query. **v6.5
+ * unit 10:** the Team today card (its heading, three tiles, five lines and the link) for the Owner and
+ * Admins: after Needs you below 56rem, above This week from 56rem, as the page draws it.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
   const owner = member !== null && can(member.role, "attendance.view_all");
   const strip = member !== null && can(member.role, "attendance.self");
+  // v6.5 unit 10: the Team today card, for whoever reads everyone's availability.
+  const team = member !== null && can(member.role, "availability.view");
   const today = todayIST();
   return (
     <>
@@ -44,7 +50,16 @@ export default async function Loading() {
       <DayColumns
         slot="loading-today"
         loading="Loading Today"
-        week={<ThisWeekSkeleton />}
+        week={
+          <>
+            {team ? (
+              <div className="hidden @min-[56rem]:block">
+                <TeamTodaySkeleton slot="team-today" />
+              </div>
+            ) : null}
+            <ThisWeekSkeleton />
+          </>
+        }
         main={
           <>
             <section className="flex min-w-0 flex-col gap-2">
@@ -55,6 +70,11 @@ export default async function Loading() {
                 <TaskRowsSkeleton rows={2} notes={2} label="Needs you" avatars />
               )}
             </section>
+            {team ? (
+              <div className="@min-[56rem]:hidden">
+                <TeamTodaySkeleton slot="team-today-narrow" />
+              </div>
+            ) : null}
             {owner ? (
               <TodayCardSkeleton />
             ) : (

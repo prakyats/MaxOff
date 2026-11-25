@@ -131,6 +131,39 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["home", "dashboard", "needs you", "overdue", "risks"],
         },
         {
+          id: "owner-team-today",
+          title: "See who's free today",
+          summary: "The Team today card: who is free now, booked or away.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Team today shows three counts: Free now (not on leave and not inside a booking at this moment), Booked today (at least one booking today) and On leave (a half day counts too). Under them is one line per person, booked first by start time, then free, then away: what they are booked for and when, and who booked it (“Shoot / Site Visit 2:00 pm – 4:00 pm · you”), “Free all day”, “On leave” or “Half day”. Bookings are the shoots, visits and meetings on the calendar; attendance times never count.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open Today. On a laptop Team today sits on the right above This week; on a phone it comes after Needs you.",
+                "Tap “Show all N” to see everyone in place; “Show fewer” folds it again.",
+                `Tap “+ Book someone free” or “Calendar” to open today on the Calendar, where the ${CREW} card lists who is free and “+ New task” books them.`,
+              ],
+            },
+            {
+              kind: "note",
+              text: "The Owner shows on the list only when booked, and is never counted as free or on leave.",
+            },
+          ],
+          link: { href: "/today", label: "Open Today" },
+          keywords: [
+            "team today",
+            "who is free",
+            "available",
+            "booked",
+            "free now",
+            "on leave",
+            "availability",
+          ],
+        },
+        {
           id: "owner-today-needs-you",
           title: "Decide from the Needs you list",
           summary: "Approve in one tap, or tap the row to review first.",
