@@ -214,6 +214,9 @@ test.describe("installed: overlays and view controls", () => {
       // CI 45711005375 (mobile-iphone): the sheet's People link never came, 30 s, no record.
       await recordNavigation(page, info);
       await page.goto("/today");
+      // The More sheet is React's: a tap before hydration is lost (CI 45746952024, WebKit: no
+      // sheet, no history entry, nothing after the launch intro), as `hydrated` says.
+      await hydrated(page);
       const moreButton = page.locator('[data-slot="bottom-nav"] [data-nav="more"]');
       await moreButton.click();
       const people = page
