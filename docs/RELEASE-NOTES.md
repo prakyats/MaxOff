@@ -4,6 +4,33 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v2.1: money in
+
+**Not released yet.** Release candidate: `phase-v21-money` (the head named in #89's READY FOR OWNER post).
+
+The first part of Revenue (phase 9): the Owner can enter what each project is worth and see the month's money. **Only the Owner sees any amount.** Admins and the Crew see no money anywhere.
+
+### What the Owner will notice
+- **A Billing section at the end of every project page.** Category (Retainer, Project or Additional Work; it starts from the kind of project), and the amount: per month or week for a retainer, one lump sum for a one-time project.
+- **Amounts start from this month.** The first amount you enter covers this month and later ones. Earlier months read "No amount set" until you set each one ("Set this month's amount").
+- **Added deliverables are priced on top.** A deliverable added after the month's list was made is "Not priced" until you give it a price; that price is added to the month's amount.
+- **Advances on one-time projects.** Record an advance (amount, date, note) and mark one returned. Advances are shown apart and are never counted as earned.
+- **Reports → Revenue.** One month at a time: Potential, Achieved and Remaining, advances received, a "Needs a look" list (no amount set, not priced, ready to complete, was due), then each client with its projects.
+- **A one-time project earns its amount when it is completed** (by you or the client's Admin). A cancelled one counts ₹0.
+- **"Complete the project too?"** Marking the last open deliverable of a one-time project done offers "Mark done and complete project" or "Mark done only". If the last one is marked done elsewhere, the project reads "Ready to complete" and a message offers "Complete project".
+
+### What Admins will notice
+- **"Complete the project too?"** on the last open deliverable of a one-time project, and the "ready to complete" message. Nothing else changes, and no amount is ever shown.
+
+### What the Crew will notice
+- Nothing.
+
+### Not in this release (coming in v2.5)
+The Owner's adjusted figure, Billed / Not billed, a planned deliverable's own value, "On hold ₹X", the notification for an unpriced added deliverable, the revenue line on Today, billing history.
+
+### Also fixed
+- The client page's loading screen keeps "Key people" in place at phone width (the project row's chip is now the real chip).
+
 ## v2.0.1: flexible comp leave
 
 **Ships in one combined release with v2.1 to v4.5 (owner, 26 Nov 2026, #89 7182409206);** no `v2.0.1` tag of its

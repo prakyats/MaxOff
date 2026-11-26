@@ -195,6 +195,8 @@ insert into app_internal values
   -- v1.9 W7: On hold's guard trigger and the deliverables a project's resume settles (migration on_hold,
   -- pgTAP 127)
   ('on_hold_guard'), ('project_resume_items'),
+  -- 9.1: the money triggers and the Owner functions' own checks (migration money_tables, pgTAP 144)
+  ('item_billing_mark_added'), ('cycle_billing_copy_amount'), ('money_check'), ('cycle_explicit_total'),
   -- v2.0.1: per-half leave conflicts, their message and label, the two halves of a date and the
   -- day settled from them (migration split_leave_days, pgTAP 150)
   ('leave_conflict'), ('leave_conflict_message'), ('leave_label'), ('leave_halves'),
@@ -219,7 +221,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 143::bigint,
+             and p.proname in (select name from app_internal)), 147::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

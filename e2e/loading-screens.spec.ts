@@ -371,6 +371,28 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // Reports → Revenue (9.2, v2.1): the month row, the category filter and the month's three
+  // figures, held by the page's one read (started only after its permission check).
+  {
+    role: "owner",
+    path: "/reports/revenue",
+    marker: 'data-slot="loading-revenue"',
+    hold: "/rest/v1/rpc/revenue_month_read",
+    trace: {
+      "month row": {
+        held: '[data-slot="loading-revenue-month"]',
+        settled: '[data-slot="revenue-month"]',
+      },
+      filter: {
+        held: '[data-slot="loading-revenue-filter"]',
+        settled: '[data-slot="revenue-filter"]',
+      },
+      "the month's figures": {
+        held: '[data-slot="loading-revenue-summary"]',
+        settled: '[data-slot="revenue-summary"]',
+      },
+    },
+  },
   {
     role: "owner",
     path: `/reports/end-of-day/${todayIST()}`,
