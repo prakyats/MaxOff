@@ -22,7 +22,8 @@ const BACK = { href: "/clients", label: "Clients", from: [{ path: "/today", labe
  * for a Draft, Paused or Inactive client, a banner that names the state and who can change it
  * (kickoff 3 decision 17: those clients stay fully editable). **The header and tabs live here**
  * (2.7b), so a tab switch swaps only the view; the tabs need nothing but the id, so they paint
- * at once, and the header streams in behind a skeleton of itself.
+ * at once. The header is drawn at once too, with its back control and History; only its name,
+ * state and ⋯ stream in behind skeletons of themselves.
  */
 export default async function ClientLayout({
   children,
@@ -37,29 +38,48 @@ export default async function ClientLayout({
       <Suspense fallback={null}>
         <RecordReadReceipt entity="clients" id={id} />
       </Suspense>
-      <Suspense
-        fallback={
-          <PageHeader
-            // The title's own line height (24 px, 32 from md), as the project's loading screen.
-            title={
+      {/* The header itself, its back control, History and the bell are drawn at once and never
+          swapped: only the name, the state chip and ⋯ stream in, each behind a skeleton of itself.
+          A tap on back while the client loads (before hydration too) lands on the element that
+          stays, so it is never lost to the swap (fix-stable-back, 26 Nov 2026). */}
+      <PageHeader
+        // The title's own line height (24 px, 32 from md), as the project's loading screen.
+        title={
+          <Suspense
+            fallback={
               <span className="flex h-6 items-center md:h-8">
                 <Skeleton className="h-5 w-40 max-w-full" />
               </span>
             }
-            // The state chip's line under the name (X5+ M7: without it the page below moved
-            // 13 px down when the header streamed in). A span: the description is a <p>.
-            description={
+          >
+            <ClientName id={id} />
+          </Suspense>
+        }
+        // The state chip's line under the name (X5+ M7: without it the page below moved 13 px
+        // down when the header streamed in). A span: the description is a <p>.
+        description={
+          <Suspense
+            fallback={
               <span className="bg-muted inline-block h-5 w-16 rounded-full align-middle motion-safe:animate-pulse" />
             }
-            back={BACK}
-            className="flex-wrap"
-            // History, always there; the ⋯ follows only for whoever edits the client.
-            menu={<Skeleton aria-hidden className="size-11 rounded-lg" />}
-          />
+          >
+            <ClientState id={id} />
+          </Suspense>
         }
-      >
-        <ClientHeader id={id} />
-      </Suspense>
+        back={BACK}
+        // History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep); the old
+        // Activity tab's path opens the sheet (`?history=1`).
+        className="flex-wrap"
+        menu={
+          <>
+            {/* Reads the history only when it opens, never with this layout (P2 item 6). */}
+            <ClientHistoryButton clientId={id} />
+            <Suspense fallback={null}>
+              <ClientMenuFor id={id} />
+            </Suspense>
+          </>
+        }
+      />
       <ClientTabs clientId={id} />
       {/* Under the tabs, so it never moves them when it streams in. */}
       <Suspense fallback={null}>
@@ -70,38 +90,30 @@ export default async function ClientLayout({
   );
 }
 
-async function ClientHeader({ id }: { id: string }) {
+/** The header's parts that need the client: one `loadClient` read (`cache()`d) for all of them. */
+async function ClientName({ id }: { id: string }) {
+  const { client } = await loadClient(id);
+  return client.name;
+}
+
+async function ClientState({ id }: { id: string }) {
+  const { client } = await loadClient(id);
+  return <StatusBadge status={client.state} label={CLIENT_STATE_LABELS[client.state]} />;
+}
+
+/** ⋯, only for whoever edits the client; the Admins it offers are read after the access check. */
+async function ClientMenuFor({ id }: { id: string }) {
   const [{ viewer, client, canManage, canEdit }, { admins }] = await checkThenRead(
     loadClient(id),
     loadPeople(),
   );
+  if (!canEdit) return null;
   return (
-    <PageHeader
-      title={client.name}
-      description={<StatusBadge status={client.state} label={CLIENT_STATE_LABELS[client.state]} />}
-      back={BACK}
-      // History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep); the old
-      // Activity tab's path opens the sheet (`?history=1`).
-      className="flex-wrap"
-      menu={
-        <>
-          {/* Reads the history only when it opens, never with this layout (P2 item 6). */}
-          <ClientHistoryButton clientId={client.id} />
-          {canEdit ? (
-            <ClientMenu
-              client={{
-                id: client.id,
-                name: client.name,
-                state: client.state,
-                adminId: client.adminId,
-              }}
-              canManage={canManage}
-              canDelete={viewer.role === "owner"}
-              admins={admins}
-            />
-          ) : null}
-        </>
-      }
+    <ClientMenu
+      client={{ id: client.id, name: client.name, state: client.state, adminId: client.adminId }}
+      canManage={canManage}
+      canDelete={viewer.role === "owner"}
+      admins={admins}
     />
   );
 }
