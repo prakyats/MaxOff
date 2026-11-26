@@ -222,6 +222,21 @@ test.describe("the pressed state while the screen arrives", () => {
   });
 });
 
+/**
+ * The tap drawings are in (`html[data-tap-drawings]` ready or done, v7.0). With the page's clock
+ * installed they come only as it moves: they are made at idle moments, which the clock fakes.
+ */
+async function tapDrawingsReady(page: Page): Promise<void> {
+  for (let step = 0; step < 40; step += 1) {
+    const state = await page.evaluate(() =>
+      document.documentElement.getAttribute("data-tap-drawings"),
+    );
+    if (state === "ready" || state === "done") return;
+    await page.clock.runFor(250);
+  }
+  throw new Error("the tap drawings never came (html[data-tap-drawings])");
+}
+
 test.describe("navigation shows it is on its way", () => {
   test.use({ storageState: storageStateFor("owner") });
 
@@ -346,6 +361,8 @@ test.describe("navigation shows it is on its way", () => {
     const slow = await holdScreen(page, "/tasks");
     await page.goto("/today");
     await hydrated(page);
+    // With the tab's drawing ready (v7.0): the drawn skeleton must leave the 8 s line in place.
+    await tapDrawingsReady(page);
     const before = await page.evaluate(() => history.length);
 
     await bottomTab(page, "/tasks").click();
@@ -386,6 +403,10 @@ test.describe("navigation shows it is on its way", () => {
     await holdScreen(page, "/tasks");
     await page.goto("/today");
     await hydrated(page);
+    // With the tab's drawing ready, as a phone that has been open a moment has it (v7.0): the
+    // drawn skeleton then holds the screen, and must still leave the move to Retry at 25 s
+    // (CI 45721772197: its 25 s cap gave up and went back, and Retry never came).
+    await tapDrawingsReady(page);
     await page.evaluate(() => {
       (window as unknown as { __sameDocument: boolean }).__sameDocument = true;
     });

@@ -250,6 +250,20 @@ function ours(): boolean {
   return pushed && tap !== null && !committed();
 }
 
+/**
+ * The cap's turn: while the move is still under way the copy stays, and the move is the status
+ * line's (§14.2 i: "Still loading" at 8 s, Retry at 25 s, the same moment as this cap): giving up
+ * then went back and dropped the move Retry was offered for (CI 45721772197). Once the router has
+ * stood down with nothing for the screen, the copy goes.
+ */
+function capReached(): void {
+  if (document.documentElement.hasAttribute(NAV_PENDING)) {
+    cap = window.setTimeout(capReached, TAP_SKELETON_MAX_MS);
+    return;
+  }
+  giveUp();
+}
+
 /** Nothing came at all: the copy goes, and our entry with it while the router has not used it. */
 function giveUp(): void {
   const stillOurs = ours() && window.location.pathname === tap?.pathname;
@@ -310,7 +324,7 @@ function show(): void {
   main.append(node);
   main.setAttribute("data-tap-skeleton", "");
   window.scrollTo(0, 0);
-  cap = window.setTimeout(giveUp, TAP_SKELETON_MAX_MS);
+  cap = window.setTimeout(capReached, TAP_SKELETON_MAX_MS);
 }
 
 /** What a tap can act on outside the copy (the shell's bars stay live while it is up). */
@@ -367,7 +381,10 @@ function onClick(event: MouseEvent): void {
     return;
   }
   const control = event.target instanceof Element ? event.target.closest(CONTROL) : null;
-  if (control !== null && drawn !== null && ours() && !drawn.node.contains(control)) {
+  // The status line's Retry is the pending move's own (§14.2 i), not a tap elsewhere: leaving
+  // the copy first went back and took the line, and the Retry with it (CI 45721772197).
+  const ownStatus = control?.closest('[data-slot="nav-progress-status"]') != null;
+  if (control !== null && !ownStatus && drawn !== null && ours() && !drawn.node.contains(control)) {
     event.preventDefault();
     event.stopImmediatePropagation();
     leave(control);

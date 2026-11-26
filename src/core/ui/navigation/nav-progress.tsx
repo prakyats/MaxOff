@@ -208,7 +208,13 @@ export function NavProgress() {
         if (moved && !movedAt) movedAt = t;
         const done = navigationDone({
           moved,
-          skeleton: document.querySelector('main [data-slot="loading-state"]') !== null,
+          // A loading screen, the router's or the one the app draws on a tap (v7.0,
+          // `tap-skeleton.ts`, which moves the address as it draws): either way the screen has not
+          // come, so the 8 s line and the 25 s Retry still stand (CI 45721772197).
+          skeleton:
+            document.querySelector(
+              'main [data-slot="loading-state"], main [data-slot="tap-skeleton"]',
+            ) !== null,
           track,
           unloading,
           sinceAnswered: settledAt ? t - settledAt : 0,
