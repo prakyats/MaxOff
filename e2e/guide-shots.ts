@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 
-import { addISTDays, todayIST } from "../src/core/time";
+import { addISTDays, istWeekday, todayIST } from "../src/core/time";
 import { memberIdOf, openMoreOptions, serviceInsert, serviceSelect, USERS } from "./helpers";
 
 /**
@@ -80,7 +80,20 @@ export type GuideShot = {
    * only when it differs from the day already built. Absent: the role's day (`ROLE_DAYS`).
    */
   readonly days?: GuideDays;
+  /**
+   * v6.0: the picture shows someone **Busy**. The script books the Crew member for a "Meeting"
+   * (3:00 pm to 4:00 pm, made by the Admin) today and on `bookingDay()` just for this picture and
+   * takes it away after, so no other picture gains a task.
+   */
+  readonly booking?: boolean;
 };
+
+/** The next weekday after today: where the demo's first tasks are due and its booking is made. */
+export function bookingDay(): string {
+  let day = addISTDays(todayIST(), 1);
+  while (istWeekday(day) === 0 || istWeekday(day) === 6) day = addISTDays(day, 1);
+  return day;
+}
 
 /**
  * Today's attendance for the Crew member and the Admin, as a picture needs it. The times are
@@ -132,6 +145,28 @@ const button = (page: Page, name: string | RegExp) =>
 
 async function tap(page: Page, name: string | RegExp): Promise<void> {
   await button(page, name).click();
+}
+
+/** New task is type first (v6.0): opens the form and chooses `type`, which brings the rest. */
+async function newTaskOfType(page: Page, type: string): Promise<void> {
+  await tap(page, "New task");
+  await layer(page).locator('[data-field="task-type"]').click();
+  await page.getByRole("option", { name: new RegExp(`^${type}(\\s|$)`) }).click();
+  await layer(page).getByLabel("Title").waitFor();
+}
+
+/**
+ * A shoot on `bookingDay()` from 2:30 pm to 4:30 pm, so "Who's on it?" beside the form lists the
+ * Crew member under Busy then (the demo's 3:00 pm meeting clashes) and the others under Free then.
+ */
+async function newShootWithPeople(page: Page): Promise<void> {
+  await newTaskOfType(page, "Shoot / Site Visit");
+  const form = layer(page).locator('[data-slot="task-fields"]');
+  await form.getByLabel("Title").fill("Brand reel shoot");
+  await form.getByLabel("When", { exact: true }).fill(bookingDay());
+  await form.getByLabel("From", { exact: true }).fill("14:30");
+  await form.getByLabel("To", { exact: true }).fill("16:30");
+  await slot(page, "picker-busy").locator('[data-slot="picker-chip"]').first().waitFor();
 }
 
 async function openMenu(page: Page, trigger: string, item: string): Promise<void> {
@@ -685,10 +720,11 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "admin/new-task",
     path: "/tasks",
-    prepare: (page) => tap(page, "New task"),
-    highlight: (page) => slot(page, "task-assignees"),
+    booking: true,
+    prepare: newShootWithPeople,
+    highlight: (page) => slot(page, "people-column"),
     crop: layer,
-    alt: "The New task form with the Assign to field highlighted.",
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, one under Busy then with a Clashes chip, and the Owner in their own group with no Free.",
   },
   {
     id: "admin/task-review",
@@ -707,11 +743,22 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "admin/calendar-day",
     path: "/calendar?view=month",
-    // The first day with tasks due: the sheet opens on them, then who is away and the buttons.
+    // The first day with tasks due: the sheet opens on them, then who is Busy (the demo's
+    // booking that day), on leave and free, and the buttons.
+    booking: true,
     prepare: (page) => tap(page, /, \d+ due$/),
     highlight: (page) => layer(page).getByRole("button", { name: /New task on/ }),
     crop: layer,
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
+  },
+  {
+    id: "admin/calendar-people",
+    path: "/calendar?view=day",
+    // v6.0: the Day beside its Crew card (who is Busy, On leave and Free).
+    booking: true,
+    highlight: (page) => slot(page, "calendar-people-card"),
+    crop: main,
+    alt: "The calendar's Day view with the panel of who is busy, on leave and free highlighted.",
   },
   {
     id: "admin/clients",
@@ -976,12 +1023,21 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "owner/new-task",
     path: "/tasks",
     prepare: async (page) => {
-      await tap(page, "New task");
+      await newTaskOfType(page, "Normal");
       await openMoreOptions(page);
     },
     highlight: (page) => layer(page).getByLabel("Checked first by"),
     crop: layer,
-    alt: "The New task form with the Checked first by field highlighted.",
+    alt: "The New task form with a type chosen and More options open, the Checked first by field highlighted.",
+  },
+  {
+    id: "owner/new-task-people",
+    path: "/tasks",
+    booking: true,
+    prepare: newShootWithPeople,
+    highlight: (page) => slot(page, "people-column"),
+    crop: layer,
+    alt: "The New task form for a shoot, with the Who's on it? list beside it highlighted: people under Free then, one under Busy then with a Clashes chip, and the Owner in their own group with no Free.",
   },
   {
     id: "owner/task-approve",

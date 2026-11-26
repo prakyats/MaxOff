@@ -20,6 +20,8 @@ import {
   signIn,
   USERS,
   openMoreOptions,
+  addTaskPeople,
+  chooseTaskType,
   templatesTab,
 } from "./helpers";
 
@@ -99,10 +101,6 @@ function templateRow(page: Page, name: string): Locator {
 async function pick(page: Page, trigger: Locator, option: string | RegExp): Promise<void> {
   await trigger.click();
   await page.getByRole("option", { name: option }).first().click();
-}
-
-function escape(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** A template row's Edit or Archive: on the row from `md` up, in its ⋯ sheet on a phone. */
@@ -198,6 +196,9 @@ test.describe("task requests and templates, the flows", () => {
     await requestRow(page, title).getByRole("button", { name: "Make it a task" }).click();
     const form = page.locator('[data-slot="task-form-dialog"]');
     await expect(form.getByRole("heading", { name: "Make it a task" })).toBeVisible();
+    // The suggestion's title is already there; the type is still asked first (v6.0).
+    await expect(form.getByLabel("Title")).toHaveValue(title);
+    await chooseTaskType(page, form, "Normal");
     await expect(form.getByLabel("Title")).toHaveValue(title);
     await openMoreOptions(form);
     await expect(form.getByLabel("Description")).toHaveValue(
@@ -206,7 +207,7 @@ test.describe("task requests and templates, the flows", () => {
     // No client on the suggestion: nobody checks it first.
     await openMoreOptions(form);
     await expect(form.getByLabel("Checked first by")).toContainText("Nobody");
-    await pick(page, form.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
+    await addTaskPeople(page, form, [staff.name]);
     await form.getByLabel("Deadline").fill(workingDay(24));
     await form.getByRole("button", { name: "Create task" }).click();
     await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
@@ -255,12 +256,12 @@ test.describe("task requests and templates, the flows", () => {
       await requestRow(page, title).getByRole("button", { name: "Make it a task" }).click();
       const form = page.locator('[data-slot="task-form-dialog"]');
       await expect(form.getByLabel("Title")).toHaveValue(title);
-      await openMoreOptions(form);
-      await expect(form.getByLabel("Client label")).toContainText(clientOf(info));
+      await chooseTaskType(page, form, "Normal");
+      await expect(form.getByLabel("Client (label)")).toContainText(clientOf(info));
       // Kickoff 4 decision 3: the label pre-selects its Admin, as picking it does.
       await openMoreOptions(form);
       await expect(form.getByLabel("Checked first by")).toContainText(admin.name);
-      await pick(page, form.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
+      await addTaskPeople(page, form, [staff.name]);
       await form.getByLabel("Deadline").fill(workingDay(26));
       await form.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
@@ -361,6 +362,8 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/tasks");
     await page.locator('[data-slot="new-task"]:visible').click();
     const form = page.locator('[data-slot="task-form-dialog"]');
+    // Type first (v6.0); a template then sets its own type over the one chosen.
+    await chooseTaskType(page, form, "Normal");
     await openMoreOptions(form);
     await pick(page, form.getByLabel("Start from"), name);
     await openMoreOptions(form);
@@ -372,16 +375,21 @@ test.describe("task requests and templates, the flows", () => {
     await expect(form.getByLabel("Description")).toHaveValue("Agenda first, then the notes.");
     // Never the people, the deadline or the client (PRODUCT §4.6).
     await expect(form.locator('[data-slot="task-assignee"]')).toHaveCount(0);
-    await expect(form.getByLabel("Deadline")).toHaveValue("");
-    await openMoreOptions(form);
-    await expect(form.getByLabel("Client label")).toContainText("No client");
+    // Meeting is an event: it asks When (empty), and its deadline waits for it.
+    await expect(form.getByLabel("When", { exact: true })).toHaveValue("");
+    await expect(form.getByLabel("Deadline")).toHaveCount(0);
+    await expect(form.locator('[data-slot="task-done-by"]')).toContainText(
+      "the end of the meeting, once When is set",
+    );
+    await expect(form.getByLabel("Client (label)")).toContainText("No client");
     const day = workingDay(25);
     await form.getByLabel("Title").fill(`${prefix}call with Sharma`);
-    await pick(page, form.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
-    await form.getByLabel("Deadline").fill(day);
-    await openMoreOptions(form);
-    await form.getByLabel("Event date").fill(day);
-    await form.getByLabel("Starts").fill("11:00");
+    await addTaskPeople(page, form, [staff.name]);
+    await form.getByLabel("When", { exact: true }).fill(day);
+    await form.getByLabel("From", { exact: true }).fill("11:00");
+    await expect(form.locator('[data-slot="task-done-by"]')).toContainText(
+      "12:00 pm · an hour after the meeting starts",
+    );
     await form.getByRole("button", { name: "Create task" }).click();
     await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
     const [template] = await serviceSelect<{ id: string }>(
@@ -421,6 +429,7 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/tasks");
     await page.locator('[data-slot="new-task"]:visible').click();
     await expect(form.getByLabel("Title")).toBeVisible();
+    await chooseTaskType(page, form, "Normal");
     await openMoreOptions(form);
     const startFrom = form.getByLabel("Start from");
     if ((await startFrom.count()) > 0) {
@@ -467,6 +476,7 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/tasks");
     await page.locator('[data-slot="new-task"]:visible').click();
     const form = page.locator('[data-slot="task-form-dialog"]');
+    await chooseTaskType(page, form, "Normal");
     await openMoreOptions(form);
     await pick(page, form.getByLabel("Start from"), name);
     await openMoreOptions(form);
@@ -664,6 +674,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     await expect(page).toHaveURL(tasks);
     await page.locator('[data-slot="new-task"]:visible').click();
     const form = page.locator('[data-slot="task-form-dialog"]');
+    await chooseTaskType(page, form, "Normal");
     await openMoreOptions(form);
     await form.getByLabel("Start from").click();
     const sheet = page.locator('[data-slot="select-sheet"]');

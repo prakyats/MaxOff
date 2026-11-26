@@ -31,7 +31,8 @@ const CREATE = { kind: "create" } as const;
  * "+ New task on Fri 30 Oct" in a calendar day (6.4b; Kickoff 6 decision 25 D; `tasks.create`):
  * the same form, the deadline (or an event's date) on that day. A pill-shaped trigger, neutral
  * solid as every trigger that opens a form; `row`, the pinned row at the foot of the laptop's Day
- * and a phone's day sheet (v1.9 W5). `icon`: the laptop month's small "+" in a day's box
+ * and a phone's day sheet (v1.9 W5), or, for the Owner and Admins since v6.0, the phone day's
+ * pinned bar (`"bar"`, solid, the screen's one) and the laptop Day's Crew card (`"card"`, outlined). `icon`: the laptop month's small "+" in a day's box
  * (PP-calendar-13), the same form, its label spoken only.
  */
 export function NewTaskOnDayButton({
@@ -46,25 +47,27 @@ export function NewTaskOnDayButton({
   date: ISODate;
   label: string;
   icon?: boolean | undefined;
-  row?: boolean | undefined;
+  /** The pinned row (`true`); the phone day's solid bar or the Day's outlined card button (v6.0). */
+  row?: boolean | "bar" | "card" | undefined;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
-        variant={icon ? "secondary" : row ? "ghost" : "strong"}
+        variant={icon || row === "card" ? "secondary" : row === true ? "ghost" : "strong"}
         size={icon ? "icon-xs" : undefined}
         onClick={() => setOpen(true)}
         data-slot={icon ? "calendar-add-task" : "new-task-on-day"}
         data-date={date}
-        data-row={row ? "" : undefined}
+        data-row={row === true ? "" : undefined}
+        data-look={row === "bar" || row === "card" ? row : undefined}
         aria-label={icon ? label : undefined}
         // Never wider than its row: at a very large text size the label ellipsises (the owner's
         // phone walk found "New task on 13 Nov" past a 375 px screen's edge at 200 %).
         className={cn(
           "max-w-full",
-          row ? DAY_ROW_BUTTON : "rounded-full",
+          row === true ? DAY_ROW_BUTTON : row ? "h-auto min-h-11 w-full" : "rounded-full",
           icon && "bg-card",
           className,
         )}

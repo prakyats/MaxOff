@@ -423,9 +423,11 @@ select results_eq(
   'staff1: one open task due tomorrow (t1; t3 was reassigned), approved leave, a pending request, not started today');
 select results_eq(
   format($$ select a.day, a.open_tasks_due, a.event_blocks, a.present from public.member_availability(app.today_ist(), app.today_ist() + 1, array[%L::uuid]) a order by a.day $$, pg_temp.fx('staff2')),
-  format($$ values (app.today_ist(), 0, '[]'::jsonb, true), (app.today_ist() + 1, 4, jsonb_build_array(jsonb_build_object('start_at', %L::timestamptz, 'end_at', %L::timestamptz)), null) $$,
-    app.ist_day_start(app.today_ist() + 1) + interval '10 hours', app.ist_day_start(app.today_ist() + 1) + interval '11 hours'),
-  'staff2: started today, four tasks due tomorrow, one event block (no end = one hour); no titles or ids');
+  format($$ values (app.today_ist(), 0, '[]'::jsonb, true), (app.today_ist() + 1, 4, jsonb_build_array(jsonb_build_object('start_at', %L::timestamptz, 'end_at', %L::timestamptz, 'all_day', false,
+      'type_id', %L::uuid, 'type_name', 'Meeting', 'booked_by', %L::uuid, 'booked_by_name', 'owner')), null) $$,
+    app.ist_day_start(app.today_ist() + 1) + interval '10 hours', app.ist_day_start(app.today_ist() + 1) + interval '11 hours',
+    pg_temp.type_id('Meeting'), pg_temp.fx('owner')),
+  'staff2: started today, four tasks due tomorrow, one event block (no end = one hour) with its type and who booked it (v6.0); no titles or ids');
 select results_eq(
   format($$ select a.engagement::text, a.open_tasks_due, a.leave from public.member_availability(app.today_ist() + 1, app.today_ist() + 1, array[%L::uuid]) a $$, pg_temp.fx('asha')),
   $$ values ('freelance', 1, null::text) $$, 'the freelancer counts for workload and never has leave');

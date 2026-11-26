@@ -4,6 +4,140 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v6.0: Admin calendar
+
+**Not released yet.** Release candidate: `phase-v60` at the head named in #89's READY FOR OWNER post. Ships in a
+later release, after the combined v2.0.1 → v4.5 release (owner decision, #89, 26 Nov 2026). The Owner tags it after his phone walk
+(`docs/handoff/v6.0-owner-walk-script.md`).
+
+The calendar now says, for every day, who is busy, who is away and who is free, and New task asks what kind of
+task it is first, then shows who is free at that time.
+
+### What the Owner will notice
+- **Every day says Busy, On leave and Free.** Open a day (a day of the month on a phone, a day box on a laptop):
+  under the day's own events and tasks come three lists. **Busy** names each booking: the person, the kind of
+  task with its colour, its time ("2:00 pm – 4:00 pm", or "All day" when it has a date but no time) and who
+  booked it ("booked by you", "booked by Asha"). **On leave** names who is away ("· Half day", "· Comp leave").
+  **Free** names everyone else. This replaces the one "Who's free" line.
+- **"Everyone is available" only when it is true.** It shows only when nobody is booked and nobody is away. With
+  someone away and nobody booked, the day says "Nobody busy". An empty list says "Nobody".
+- **Leave is said once.** Approved leave is in On leave and no longer also a chip in the day. A holiday, the
+  weekly off and a leave request ("· requested") keep their chips. The month's leave bars are unchanged.
+- **The laptop's Day is a page, not an hour grid.** The week's seven days sit along the top as buttons. On the
+  left, the day's **Events** (time, kind, title, place, then the client and the people), **Due · n** and
+  **Client work · n**. On the right, the **Crew** card ("Crew · Sat 14": Busy, On leave, Free) with
+  "+ New task on Sat 14 Nov".
+- **The laptop's Week is a table.** One row a day: the events and what is due, who is booked, who is on leave and
+  who is free. Click a row to open that Day.
+- **The day on a phone is rows.** Under the week strip or the small month: "Tasks · n", "Client work · n", a
+  "Crew busy · n" card, "On leave" and "Free", and **"+ New task on ‹day›" pinned above the bottom bar**. A day of
+  the full month opens a sheet with the same rows.
+- **New task asks the type first.** Until a type is chosen the form shows only a greyed Title, and Create task
+  waits. Then it asks only what that kind of task needs:
+  - a **shoot, visit or meeting** (any type that goes on the calendar as an event) asks When, From and To, and
+    Where when the type has a place. Its deadline is the end of the event: "Done by Tue 15 Dec, 4:00 pm · the
+    end of the event" ("the end of the meeting" for a meeting). Tap **Change** to set it yourself;
+  - **any other type** asks one deadline, as before.
+  - Start from (a template), Purpose and Checked first by now sit under **More options**, after the type.
+- **"Who's on it?" shows who is free at that time.** On a phone, **Add a person** opens it as a sheet; on a
+  laptop it sits beside the form. It follows the date and time as you change them.
+  - For an event, two groups. **Free then**: nothing clashes (a booking earlier or later that day is still said;
+    a half day reads "Half day that day", a request "Leave requested"). **Busy then**: a booking at that time,
+    said by its kind, time and who booked it, with an amber **Clashes** chip; a full day away reads "On leave
+    that day" with an amber **On leave** chip.
+  - For a deadline only, one list with each person's day: their bookings, "2 tasks already due" or
+    "Nothing that day".
+  - It never stops you. Anyone can still be picked; the warning is recorded as today.
+- **The people chosen are chips** with what the list said of them ("Free", "Clashes", "On leave"…). From two
+  people, a **Primary owner** list says who marks it done (it replaces the round buttons).
+- **Edit task uses the same form**, and "+ New task on ‹day›" from the calendar opens it on that day.
+- **A shoot with a date and no time is busy all day.** It now clashes with anything else that person has that
+  day, in the calendar's Busy ("All day"), in Who's on it? and in the clash warning ("Busy all day on 3 Oct").
+  Before, it clashed with nothing.
+
+### What Admins will notice
+- Everything in the Owner's list above, over the people they can see. **Other people's bookings say only the kind
+  of task, its time and who booked it, never its title, client or place.** The Owner's shoots read "booked by
+  Owner". The Owner is never listed as Free or On leave. An Admin reads "On leave" and "· Half day", never the
+  kind of leave.
+- **The bookings an Admin made count.** Before, an Admin who had booked two people for a day could read
+  "Everyone is available" on it.
+- Their Day says **"Your events"** on the left; the phone's day says "Your tasks · n".
+- **People:** someone with a shoot today that has no time shows Busy for the whole day.
+
+### What the Crew will notice
+- **Nothing changes.** Their calendar (with its hour grid), My Day and Suggest a task are as before, and they
+  still see nobody else's bookings. Crew never put anyone on a task, so the new clash rule reaches them only
+  through the Owner and Admins: someone booked for a whole-day shoot now shows as busy to whoever books them for
+  something else that day.
+
+### Not in this release
+- **Team today** on Today, **Upcoming shoots and visits** on Tasks and People's **Next booked**: v6.5.
+- The phone's calendar keeps its three sizes (week, small month, full month); there are no Day · Week · Month
+  tabs on a phone.
+- A half day has no morning or afternoon, so Who's on it? never says which half.
+- The Free list names everyone, with no "and 12 more".
+- The Owner's guide has no picture of the laptop's Day or Week; it describes them in words.
+- The faint dates of the next and previous month in the phone's month are unchanged (on the list for later).
+
+### Speed
+**The gate: closed by a same-machine comparison** (25 Nov). The paired CI probes beside a preview of `main`
+passed `/calendar` and `/tasks` for the Owner and an Admin (the screens this release changes), and failed a
+different set of other screens on each run, including screens with no v6.0 code. Both trees were then built and
+served side by side on one machine against one database, every database read logged:
+
+- **Every screen asks the database exactly the same things** for every role, except the calendar, where one read
+  also asks who created each event (one read either way).
+- **No screen finished later.** Last byte, `main` → v6.0, median ms, at local latency and with every read held
+  150 ms and six at a time (as the Worker does):
+
+| Screen (role) | Local | Reads held 150 ms |
+|---|---|---|
+| Calendar (Owner) | 64 → 52 | 650 → 645 |
+| Calendar (Admin) | 76 → 75 | 825 → 817 |
+| Tasks (Owner) | 46 → 45 | 498 → 500 |
+| Tasks (Admin) | 48 → 50 | 499 → 500 |
+| Leave (Admin) | 30 → 27 | 188 → 188 |
+| Approvals (Owner) | 23 → 27 | 179 → 176 |
+| Today (Owner) | 56 → 56 | 657 → 658 |
+| Today (Admin) | 63 → 58 | 662 → 665 |
+| Calendar (Crew) | 65 → 63 | · |
+| My Day (Crew) | 53 → 57 | · |
+
+  Leave (Admin) and Approvals (Owner) were the two screens slow in two CI runs; the same reads in the same order
+  and these numbers say that was preview-to-preview noise. The full table is in `PROGRESS.md` (25 Nov).
+- **First-load JS:** the calendar 709.1 KB (budget 712.0, was 711.8), Tasks 658.1 KB; no budget raised.
+
+### Under the hood
+1. One database change, an addition: the availability function keeps its name, columns and permissions, and
+   says for each booking its kind of task and who booked it; a date-only event counts as busy all day. It never
+   returns a title, client, place or task.
+2. No new read: the calendar builds Busy, On leave and Free from what it already reads, and Who's on it? asks
+   once for everyone per day, the same answer the clash warnings use.
+3. A flaky back-gesture test was fixed at its cause (it pressed back before the page was ready). No app change.
+
+### Deploying
+- **Any time of day.** The one migration re-creates `member_availability()` with the same signature, columns and
+  grants; no table, policy, index or data write.
+- **No new secret, variable, cron or Worker setting.**
+
+### Migrations (expand-only)
+1. `20261118164807_v60_availability_bookings`
+
+### Rolling back
+The new database stays; only the Worker goes back, and **nothing needs switching off first.** The release
+before reads each booking's start and end only and drops a booking with no start, so it shows what it showed
+before (a date-only event is not busy for it).
+
+### The Owner's phone walk
+`docs/handoff/v6.0-owner-walk-script.md`: the day's Busy / On leave / Free, Day and Week, Who's on it?, New task
+type first, Edit, the "Everyone is available" fix, the guide, back on each sheet, and the owner's choices to
+confirm.
+
+### The team message (WhatsApp, after the deploy)
+> MaxOff is updated (v6.0). Admins: the calendar now shows who is busy, on leave and free each day, and New task
+> asks the type first and shows who is free at that time. Crew: nothing changes for you. Everything is in
+> Me → How MaxOff works.
 ## v2.1: money in
 
 **Not released yet.** Release candidate: `phase-v21-money` (the head named in #89's READY FOR OWNER post).

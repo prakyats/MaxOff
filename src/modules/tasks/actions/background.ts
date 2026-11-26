@@ -16,14 +16,18 @@ import type { AvailabilityDay } from "../domain/warnings";
  */
 
 /**
- * The warning check (4.3), `GET /api/tasks/availability`: availability of the people picked on the
- * deadline's and the event's days, read while the create or edit dialog is open.
+ * The warning check (4.3), `GET /api/tasks/availability`: availability on the deadline's and the
+ * event's days, read while the create or edit dialog is open. Since v6.0 the dialog asks for
+ * **everyone** the caller may see (`everyone`), once per day: "Who's on it?" lists them as Free
+ * then / Busy then and the warnings about the people picked come from the same answer.
  */
 export async function readAvailability(input: unknown): Promise<AvailabilityDay[]> {
   const data = availabilitySchema.parse(input);
   // The permission `member_availability()` itself checks (PERMISSIONS §1; 4B review S4).
   await assertPermission("availability.view");
-  return repo.availability(data.days, data.memberIds);
+  return "everyone" in data
+    ? repo.availability(data.days)
+    : repo.availability(data.days, data.memberIds);
 }
 
 /**

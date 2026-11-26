@@ -7,6 +7,7 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
 import { GUIDE_SHOTS } from "../src/modules/guide/domain/shots.generated";
 import {
   type AdminDay,
+  bookingDay,
   type CrewDay,
   type DemoIds,
   GUIDE_SHOT_LIST,
@@ -293,7 +294,7 @@ async function makeDemo(): Promise<DemoIds> {
   const adminId = await memberIdOf(admin.email);
   const staffId = await memberIdOf(staff.email);
 
-  for (const title of TASK_TITLES) await removeTasksTitled(title);
+  for (const title of [...TASK_TITLES, BOOKING]) await removeTasksTitled(title);
   await removeRequestsTitled(REQUEST);
   await removeClientFixture(CLIENT);
   await serviceRest(`stage_presets?name=eq.${encodeURIComponent(PRESET)}`, { method: "DELETE" });
@@ -549,6 +550,7 @@ async function makeDemo(): Promise<DemoIds> {
 
 /** The Crew member's shoot today, whose start the late sheet suggests as the reason. */
 const SHOOT = "Product shoot";
+const BOOKING = "Client meeting";
 const LATE_REASON = "Traffic on the way";
 /** How long ago each ask was made, in minutes (the wait for an answer is 30). */
 const ASKED_AGO = { asked: 12, no_answer: 35, approved: 20, left_unanswered: 40 } as const;
@@ -612,7 +614,17 @@ async function buildDay(
   if (stage === "approved") {
     await rpc(owner, "early_leave_decide", { request_id: requestId, decision: "approve" });
   }
-  if (stage === "left_unanswered") await rpc(person, "attendance_end_day", {});
+  if (stage === "left_unanswered") {
+    try {
+      await rpc(person, "attendance_end_day", {});
+    } catch (error) {
+      // A night run before the fixed 10:22 am start (GUIDE_ANYTIME): the day cannot end before
+      // it started, so it stays asked. Only the "left, not answered" pictures need it ended, and
+      // a night run keeps their daytime pictures (it never names them in GUIDE_ONLY).
+      if (ANYTIME && String(error).includes("attendance_days_ended_after_start")) return;
+      throw error;
+    }
+  }
 }
 
 /** The Crew member's shoot at 3:00 pm today, there only while a picture needs it. */
@@ -643,6 +655,45 @@ async function setShoot(on: boolean, staffId: string): Promise<void> {
     event_end_at: istInstant(today, "17:00"),
     location: "Studio B",
   });
+}
+
+/**
+ * v6.0: the Crew member's "Client meeting" (3:00 pm to 4:00 pm, booked by the Admin) today and on
+ * `bookingDay()`, there only while a picture needs someone Busy (`booking`), so no other picture
+ * gains a task or an alert.
+ */
+let booked = false;
+async function setBooking(on: boolean, staffId: string): Promise<void> {
+  if (on === booked) return;
+  const meetings = await serviceSelect<{ id: string }>(
+    `tasks?title=eq.${encodeURIComponent(BOOKING)}&select=id`,
+  );
+  for (const meeting of meetings) {
+    await serviceRest(`notifications?entity_id=eq.${meeting.id}`, { method: "DELETE" });
+  }
+  await removeTasksTitled(BOOKING);
+  booked = on;
+  if (!on) return;
+  const type = await taskTypeId("Meeting");
+  for (const day of new Set([todayIST(), bookingDay()])) {
+    await rpc(admin, "task_create", {
+      title: BOOKING,
+      description: null,
+      task_type_id: type,
+      client_id: null,
+      priority: "medium",
+      // After the event on the later day, so a run late in the day can still make today's.
+      due_at: istInstant(bookingDay(), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+      event_date: day,
+      event_start_at: istInstant(day, "15:00"),
+      event_end_at: istInstant(day, "16:00"),
+      location: "Studio B",
+    });
+  }
 }
 
 /**
@@ -936,6 +987,7 @@ async function toWebP(
 async function capture(page: Page, converter: Page, shot: GuideShot): Promise<void> {
   const [role] = shot.id.split("/") as [GuideRole];
   await buildDays(shot.days ?? ROLE_DAYS[role]);
+  await setBooking(Boolean(shot.booking), demo.staffId);
   await captureNow(page, converter, shot);
 }
 
@@ -1021,6 +1073,8 @@ for (const role of ["staff", "admin", "owner"] as const satisfies readonly Guide
       }
     } finally {
       await context.close();
+      // The next role's pictures, and the next run's, start without the booking.
+      await setBooking(false, demo.staffId);
     }
   });
 }

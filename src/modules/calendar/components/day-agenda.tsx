@@ -7,9 +7,12 @@ import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { formatTime, type ISODate } from "@/core/time";
 
 import { type CalendarDay, type CalendarScope, EMPTY_DAY, isEmptyDay } from "../domain/calendar";
+import { besideCrew, type CrewDay, nothingBesideCrew } from "../domain/crew";
 import { agendaEvents, agendaTime } from "../domain/laptop";
 import { DoneTick, DUE_TONE, DueIcon, TypeDot, typeTint } from "./calendar-chip";
-import { AllDayChips, ClientItemsList, eventLink } from "./day-detail";
+import { ClientItemsList } from "./client-items-list";
+import { CrewSections } from "./crew-sections";
+import { AllDayChips, eventLink } from "./day-detail";
 
 /**
  * The laptop's day popup body (a Month day, a Week heading or a "Due · N"; the owner's
@@ -17,23 +20,28 @@ import { AllDayChips, ClientItemsList, eventLink } from "./day-detail";
  * weekly off and leave on one line; the events in time order, one chip each in the month's look
  * (PP-calendar-8, V5b: `calendar-chip`, title first, "Brand reel · 11:49 am – 3:49 pm · Asha, Ravi ·
  * Acme", the client last so it is the first thing cut), each opening its task; "Due · N" and its
- * tasks as amber chips (red overdue); the day's deliverables as the same chips (done: dimmed, ✓); the availability line for the Owner
- * and Admins ("On leave", "Busy all day" or "Everyone is available"). The dialog pins the day's
+ * tasks as amber chips (red overdue); the day's deliverables as the same chips (done: dimmed, ✓); then, for the Owner and Admins since
+ * v6.0, the Crew (`CrewSections`: "Busy · n" as a table of name · type · time · booked by, "On
+ * leave" and "Free"; "Everyone is available" only when nobody is busy or on leave), with approved
+ * leave said there once and only a leave request kept as a chip. The dialog pins the day's
  * buttons in its footer and scrolls this body only when the day is very full.
  */
 export function DayAgenda({
   day,
   today,
   scope,
-  free,
+  crew,
 }: {
   day: CalendarDay;
   today: ISODate;
   scope: CalendarScope;
-  free: string | null;
+  /** The Crew on the day (the Owner and Admins); null for Crew. */
+  crew: CrewDay | null;
 }) {
   const events = agendaEvents(day);
-  const hasAllDay = day.holiday !== null || day.weeklyOff || day.leave.length > 0;
+  // With the Crew under it, approved leave is its "On leave"; a request keeps its chip.
+  const shown = crew ? besideCrew(day) : day;
+  const hasAllDay = day.holiday !== null || day.weeklyOff || shown.leave.length > 0;
   const tone = day.date < today ? "overdue" : "due";
   // The Owner's and Admins' popup is in two parts (SCOPE §6): "Tasks · n", then "Client work · n"
   // grouped by client, then who is away; Crew's is unchanged. Every line in full, wrapped: the
@@ -47,7 +55,7 @@ export function DayAgenda({
       data-date={day.date}
       className="flex min-w-0 flex-col gap-3"
     >
-      {isEmptyDay(day) ? (
+      {(crew ? nothingBesideCrew(day) : isEmptyDay(day)) ? (
         <p data-slot="calendar-empty-day" className="text-muted-foreground text-sm">
           {EMPTY_DAY}
         </p>
@@ -55,7 +63,7 @@ export function DayAgenda({
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
           {/* Each person's photo beside their leave, as the day sheet's (V5b-D, #89). */}
-          <AllDayChips day={day} today={today} dueAsChip={false} events={false} avatars />
+          <AllDayChips day={shown} today={today} dueAsChip={false} events={false} avatars />
         </div>
       ) : null}
       {split && tasks > 0 ? (
@@ -144,10 +152,8 @@ export function DayAgenda({
           late={day.date < today}
         />
       ) : null}
-      {free && scope !== "staff" ? (
-        <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
-          {free}
-        </p>
+      {crew ? (
+        <CrewSections crew={crew} look="table" headingId={`agenda-${day.date}-people`} />
       ) : null}
     </section>
   );

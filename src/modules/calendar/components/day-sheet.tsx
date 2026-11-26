@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { cn } from "@/core/lib/utils";
 import type { ISODate } from "@/core/time";
 import {
   Dialog,
@@ -13,6 +14,8 @@ import {
 import { useIsDesktop } from "@/core/ui/viewport/use-desktop";
 
 import { type CalendarDay, type CalendarScope, dayHeading } from "../domain/calendar";
+import { type CrewSource, crewOn } from "../domain/crew";
+import { CrewDayBody } from "./crew-day";
 import { DayAgenda } from "./day-agenda";
 import { DayDetail } from "./day-detail";
 
@@ -23,7 +26,8 @@ import { DayDetail } from "./day-detail";
  * backed out first (`OverlayLink`), so back from the task lands on the calendar. Loaded after the
  * page, on its first opening (§19).
  *
- * **The phone's sheet** is the day's detail with its timeline, its body the sheet's one scroll and
+ * **The phone's sheet** is the day's detail (Crew's with its timeline; the Owner's and Admins',
+ * since v6.0, `CrewDayBody`: rows and the Crew's Busy / On leave / Free), its body the sheet's one scroll and
  * the day's action pinned in a row under it (`pinned`, v1.9 W5: "+ New task on Fri 30 Oct", Crew's
  * "Suggest a task on Fri 30 Oct"), never a scroll away; no action, no row. **The laptop's dialog** (the
  * owner's 2026-10-08 changes) has no timeline: a compact agenda (`DayAgenda`) whose body is the
@@ -34,7 +38,7 @@ export function DaySheet({
   day,
   today,
   scope,
-  free,
+  crew,
   action,
   pinned,
   footer,
@@ -43,7 +47,8 @@ export function DaySheet({
   day: CalendarDay;
   today: ISODate;
   scope: CalendarScope;
-  free: string | null;
+  /** The Crew of the days read (the Owner and Admins); null for Crew. */
+  crew: CrewSource | null;
   action: ReactNode;
   /** The phone's pinned row for the day's action (v1.9 W5), or none. */
   pinned: ReactNode;
@@ -53,6 +58,7 @@ export function DaySheet({
 }) {
   // The sheet loads on its first opening, after hydration: the layout is known by then.
   const desktop = useIsDesktop() === true;
+  const onDay = crew ? crewOn(crew, day.date) : null;
   return (
     <Dialog
       open
@@ -62,7 +68,11 @@ export function DaySheet({
     >
       {desktop ? (
         <DialogContent
-          className="flex max-w-lg flex-col gap-0 overflow-hidden p-0 md:max-w-lg md:p-0"
+          // The Owner's and Admins' is wider: the Busy table has four columns (v6.0).
+          className={cn(
+            "flex flex-col gap-0 overflow-hidden p-0 md:p-0",
+            onDay ? "max-w-2xl md:max-w-2xl" : "max-w-lg md:max-w-lg",
+          )}
           data-calendar="day-sheet"
           data-layout="laptop"
           data-date={day.date}
@@ -74,7 +84,7 @@ export function DaySheet({
             </DialogDescription>
           </DialogHeader>
           <div data-slot="calendar-day-body" className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-            <DayAgenda day={day} today={today} scope={scope} free={free} />
+            <DayAgenda day={day} today={today} scope={scope} crew={onDay} />
           </div>
           {action || footer ? (
             <div
@@ -106,16 +116,26 @@ export function DaySheet({
             data-slot="calendar-day-body"
             className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
           >
-            <DayDetail
-              day={day}
-              today={today}
-              scope={scope}
-              free={free}
-              action={null}
-              timeline
-              heading={false}
-              headingId={`sheet-${day.date}`}
-            />
+            {onDay ? (
+              <CrewDayBody
+                day={day}
+                today={today}
+                scope={scope}
+                crew={onDay}
+                layout="phone"
+                heading={false}
+                headingId={`sheet-${day.date}`}
+              />
+            ) : (
+              <DayDetail
+                day={day}
+                today={today}
+                action={null}
+                timeline
+                heading={false}
+                headingId={`sheet-${day.date}`}
+              />
+            )}
           </div>
           {/* The row spans the sheet; its words line up with the day's rows above. */}
           {pinned ? <div className="-mx-4 flex shrink-0">{pinned}</div> : null}

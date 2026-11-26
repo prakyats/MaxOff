@@ -740,6 +740,10 @@ export async function controlHits(row: Locator, opener: string): Promise<string[
  */
 export async function calendarReady(page: Page): Promise<void> {
   await expect(page.locator('[data-slot="calendar-phone"][data-leave-fitted]')).toHaveCount(1);
+  // v6.0: the Owner's and Admins' day, Day and Week are a chunk of their own (`people-views`), in
+  // the server's HTML before their JavaScript; each part marks itself `data-live` once React owns
+  // it, and until then a click on a pill or a Week row would meet no handler.
+  await expect(page.locator("[data-people-part]:not([data-live])")).toHaveCount(0);
 }
 
 export async function hydrated(page: Page): Promise<void> {
@@ -1411,6 +1415,78 @@ export async function openMoreOptions(scope: Page | Locator): Promise<void> {
   if ((await more.count()) === 0) return;
   if ((await more.getAttribute("open")) === null) await more.locator("summary").click();
   await expect(more).toHaveAttribute("open", "");
+}
+
+function escapeForRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * New task is **type first** (v6.0 "Admin calendar", the owner-approved sample): Type is the
+ * form's first field and nothing else is asked until one is chosen. Picks `name` from its list
+ * (a row is the type's name and what it asks for, so the name is matched from the row's start)
+ * and waits for the form the type brings: the Title is enabled and the trigger shows the type.
+ */
+export async function chooseTaskType(page: Page, form: Locator, name: string): Promise<void> {
+  const trigger = form.locator('[data-field="task-type"]');
+  await trigger.click();
+  await page
+    .getByRole("option", { name: new RegExp(`^${escapeForRegExp(name)}(\\s|$)`) })
+    .first()
+    .click();
+  await expect(trigger).toHaveText(name);
+  await expect(form.getByLabel("Title")).toBeEnabled();
+}
+
+/**
+ * "Who's on it?" (v6.0): the people picker, as the screen has it. On a phone "Add a person" opens
+ * the sheet over the form; from `md` up the list is the dialog's right-hand column and the tap
+ * puts the caret in its search. Returns the picker either way.
+ */
+export async function openPeoplePicker(page: Page, form: Locator): Promise<Locator> {
+  const sheet = page.locator('[data-slot="people-sheet"]');
+  if (!(await sheet.isVisible())) {
+    await form.getByRole("button", { name: "Add a person" }).click();
+  }
+  const picker = page.locator('[data-slot="people-picker"]:visible');
+  await expect(picker).toBeVisible();
+  return picker;
+}
+
+/** Closes the phone's "Who's on it?" sheet with its Done; a no-op beside a laptop's form. */
+export async function closePeoplePicker(page: Page): Promise<void> {
+  const sheet = page.locator('[data-slot="people-sheet"]');
+  if (!(await sheet.isVisible())) return;
+  await sheet.getByRole("button", { name: "Done" }).click();
+  await expect(sheet).toBeHidden();
+}
+
+/** A person's row in "Who's on it?", by the start of their name. */
+export function pickerRow(picker: Locator, name: string): Locator {
+  return picker.locator('[data-slot="picker-row"]').filter({
+    has: picker.page().getByRole("checkbox", { name: new RegExp(`^${escapeForRegExp(name)}`) }),
+  });
+}
+
+/**
+ * Puts people on the task through "Who's on it?" (v6.0): finds each by name, ticks them, and
+ * closes the phone's sheet. Each must then be a chip in the form.
+ */
+export async function addTaskPeople(page: Page, form: Locator, names: string[]): Promise<void> {
+  const picker = await openPeoplePicker(page, form);
+  for (const name of names) {
+    await picker.getByLabel("Find a person").fill(name);
+    const box = picker.getByRole("checkbox", { name: new RegExp(`^${escapeForRegExp(name)}`) });
+    await expect(box).toHaveCount(1);
+    await box.check();
+  }
+  await picker.getByLabel("Find a person").fill("");
+  await closePeoplePicker(page);
+  for (const name of names) {
+    await expect(form.locator('[data-slot="task-assignee"]').filter({ hasText: name })).toHaveCount(
+      1,
+    );
+  }
 }
 
 /**

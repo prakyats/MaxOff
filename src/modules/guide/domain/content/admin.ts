@@ -327,26 +327,30 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-new-task",
           title: "Create a task",
-          summary: "Make a task and give it to people.",
+          summary: "Choose the type first, then say what, when and who.",
           blocks: [
             {
               kind: "text",
-              text: "New task asks for the Title, Assign to, and the Deadline and Time (IST) first. Everything else is under More options: Start from (only if task templates exist), Type (the first by default; an event type opens More options by itself), Priority (Medium by default), Reminders, Client label, Description, Stages and any custom fields.",
+              text: "New task asks for the Type first: the rest of the form appears once you choose one, and asks only what that type needs. The type’s list says what each one asks for: “a deadline”, or “date, time, place · on the calendar”. Everything optional is under More options: Start from (only if task templates exist), Priority (Medium by default), Reminders, Purpose for an event, Description, Stages and any custom fields.",
             },
             {
               kind: "steps",
               steps: [
                 "Open Tasks and tap New task.",
-                "Optionally pick a template under Start from.",
-                "Enter the Title, then choose the Type and Priority.",
+                "Choose the Type, then enter the Title.",
+                "An event type, such as a shoot or a meeting, asks When, then From and To if it has a time, and Where if the type has a place. A date with no time counts as the whole day. “Done by” then shows the deadline: the end of the event. Tap Change to set a different deadline; from then on it stays as you set it.",
+                "Any other type asks one Deadline and Time (IST). An empty one reads “Choose a date” or “Choose a time”; times use the 12-hour clock, such as “6:00 pm”.",
                 {
-                  text: 'Add people under "Assign to" (highlighted) and choose the primary owner.',
+                  text: "Under “Who’s on it?” (highlighted), tick each person. On a laptop the list is beside the form. On a phone, tap Add a person to open it, then Done. With two or more people, choose the Primary owner under their names.",
                   shot: "admin/new-task",
                 },
-                "Set the Deadline and Time (IST). An empty one reads “Choose a date” or “Choose a time”; times use the 12-hour clock, such as “6:00 pm”.",
-                `Add a Client label only if it helps. ${CREW} never see client records.`,
+                `Add a Client (label) only if it helps. ${CREW} never see client records.`,
                 "Tap Create task.",
               ],
+            },
+            {
+              kind: "text",
+              text: "“Who’s on it?” shows each person’s day at the task’s time, so you can see who to pick. For an event the list has two parts. “Free then”: people with nothing at that time. A booking earlier or later that day is still mentioned, a half day reads “Half day that day”, and a leave request the Owner has not answered reads “Leave requested”. “Busy then”: people with a booking that overlaps, shown as its type, its time and who booked it, such as “Shoot 2:00 pm – 4:00 pm · booked by Asha Rao”, with a “Clashes” chip. A booking with no time reads “all day”. A person on leave for the whole day reads “On leave that day”, with an “On leave” chip. The Owner is listed too, never as free: under “Busy then” when a booking clashes, otherwise in a small “Owner” part at the end. Change the date or the time and the list changes with it. For a task with only a deadline it is one list: each person with what they have that day and how many tasks are already due.",
             },
             {
               kind: "next",
@@ -354,7 +358,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Stages can be added only while you create the task. After that you can still add, remove and reorder them from the task page.",
+              text: "You can still pick someone who is busy or on leave: the form shows the warning under the names, such as “Clashes: Shoot 2:00 pm – 4:00 pm · booked by Asha Rao”, and saving records that you saw it. The list never shows the title, client or place of someone else’s task. Edit task, in a task’s ⋯ menu, opens the same form. Stages can be added only while you create the task. After that you can still add, remove and reorder them from the task page.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -367,7 +371,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done: the form says “The primary owner marks it done.” under Assign to. Pick the primary owner with the radio button beside a name. The form warns you if someone is busy that day or on leave.",
+              text: "Everyone you assign must note the task: they tap Task Noted. Only the primary owner marks it done: the form says “The primary owner marks it done.” under Who’s on it?. The first person you pick is the primary owner; with two or more people, choose another in the Primary owner list under their names. The list shows who is free and who is busy at the task’s time, and the form warns you if you pick someone who is busy or on leave.",
             },
             {
               kind: "example",
@@ -669,8 +673,8 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Templates, and add a task template.",
-                "Later, tap New task.",
-                "Tap More options and pick it under Start from.",
+                "Later, tap New task and choose a type.",
+                "Tap More options and pick the template under Start from. It sets the type it was saved with.",
                 "Adjust the form and tap Create task.",
               ],
             },
@@ -703,11 +707,15 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
+              text: `Week is a table with one row a day: the events you can see and how many things are due, who is busy (“Asha Rao · Shoot · 2:00 pm – 4:00 pm · booked by you”), who is on leave and who is free (“Everyone”, one or two names, or how many people). Click a day’s row to open it in Day. Day has the week’s seven days across the top (click one to see it), then the day’s events and what is due on the left and a ${CREW} panel on the right: who is Busy, On leave and Free that day.`,
+            },
+            {
+              kind: "text",
               text: "Today’s date is a red circle on a lightly shaded box, never outlined; another day you tap is outlined. Each day shows its events by name, then time; what is due, on a laptop each by name, amber (red with an alert when overdue), and on a phone’s full month as one count, “3 due” in amber, or a red alert with the count when overdue (tap the day to see them); and leave as a soft grey striped bar, “Asha · On leave” (“Asha · Leave” where a day is narrow, on a laptop or a phone’s full month; where even that has no room, their photo and “Leave”, and on a phone, where that has no room either, their photo alone; a name on leave is never cut short, and tapping the day shows it in full). Done things are dimmed with a ✓ on a laptop, and struck through on a phone. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "text",
-              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Sample Client · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full. The timelines show hours as “10 am” and “1 pm”.",
+              text: "Tasks and your clients’ work look different. A task is a filled chip with a dot in its type’s colour. Client work is an outlined chip with a box icon and the client’s name first, “Sample Client · Reel 1”, outlined in red when it is late. Each day lists timed tasks first, then what is due, then client work. A long name ends in “…”; open the day to read it in full.",
             },
             {
               kind: "text",
@@ -719,6 +727,10 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Calendar.",
                 "Tap Filters to narrow by Client, Person, Type or Status.",
                 "Status can be Open and completed, Open, or Completed.",
+                {
+                  text: `On a laptop, choose Day: the ${CREW} panel (highlighted) says who is Busy, On leave and Free that day, or “Everyone is available” when nobody is busy or on leave.`,
+                  shot: "admin/calendar-people",
+                },
                 "Tap a day to open its day sheet. If you tap a day while the calendar is still loading, it opens as soon as it's ready. The same goes for the handle that changes the calendar's size.",
               ],
             },
@@ -728,28 +740,28 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day shows each person on leave as a chip, “Asha · On leave” (“You · On leave” for you), and under it who is busy all day, or “Everyone is available”.",
+              text: "You see full detail on tasks you can open. For everyone’s time a day says who is Busy, with the task’s type, the time (“All day” when the task has only a date) and who booked it (“booked by you”, “booked by Owner” or the person’s name), never the task’s title, client or place. It also says who is On leave (“· Half day” for a half day) and who is Free. Your own bookings and the ones you make for others count too. “Everyone is available” shows only when nobody is busy or on leave.",
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
-          keywords: ["busy", "on leave", "month", "week", "filter"],
+          keywords: ["busy", "on leave", "free", "booked by", "month", "week", "day", "filter"],
         },
         {
           id: "admin-day-sheet",
           title: "A day and a task from it",
-          summary: "See who is away and add a task on that day.",
+          summary: "See who is busy, on leave and free, and add a task on that day.",
           blocks: [
             {
               kind: "text",
-              text: "A day is in two parts: “Tasks · n” (events and what is due), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then who is away: a chip for each person on leave, with their photo (“You” for you), and “Busy all day” when someone is, else “Everyone is available”. On a phone the day sits under the calendar and the page scrolls; its timeline shows the hours around the day’s events. A day of the full month opens in a sheet with its timeline, and “+ New task on ‹day›” stays at the bottom of the sheet while you scroll. On a laptop a day opens in a dialog, with “Open day”; in the Day view “+ New task on ‹day›” sits at the bottom of the day’s timeline. There is none on a past day, or on today after 11:59 pm.",
+              text: `A day starts with “Tasks · n” (events and what is due; “Your tasks · n” on a phone), then “Client work · n” for your clients, grouped by client; tap a row to open it. Then the ${CREW}: “Busy · n” lists each booking (the person, the task’s type, the time and who booked it), and “On leave” and “Free” name everyone else. When nobody is busy or on leave it says “Everyone is available” instead. A leave request of yours that is still waiting shows as a chip, “You · On leave · requested”. On a phone the day sits under the calendar and the page scrolls, with “+ New task on ‹day›” in a bar at the bottom of the screen. A day of the full month opens in a sheet, with “+ New task on ‹day›” at the bottom of the sheet. On a laptop a day opens in a dialog, with “Open day”; in the Day view “+ New task on ‹day›” is at the bottom of the ${CREW} panel. There is none on a past day, or on today after 11:59 pm.`,
             },
             {
               kind: "steps",
               steps: [
                 "Tap a day on the calendar.",
-                "Check who is away.",
+                "Check who is busy, on leave and free.",
                 { text: 'Tap "+ New task on ‹day›" (highlighted).', shot: "admin/calendar-day" },
-                "Fill the form and tap Create task.",
+                "Choose the type, fill the form and tap Create task. For an event type the day is the event’s date (When); for any other type it is the deadline.",
               ],
             },
             {
@@ -766,7 +778,14 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
-          keywords: ["day sheet", "free", "new task on"],
+          keywords: [
+            "day sheet",
+            "busy",
+            "free",
+            "on leave",
+            "everyone is available",
+            "new task on",
+          ],
         },
       ],
     },

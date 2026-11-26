@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  BoxIcon,
-  ChevronRightIcon,
-  ClockIcon,
-  ListChecksIcon,
-  MapPinIcon,
-  PalmtreeIcon,
-  UsersIcon,
-} from "lucide-react";
+import { ChevronRightIcon, ClockIcon, MapPinIcon, PalmtreeIcon, UsersIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -18,8 +10,6 @@ import { formatTime, type ISODate } from "@/core/time";
 
 import {
   type CalendarDay,
-  type CalendarScope,
-  type ClientItemEntry,
   dayHeading,
   dueCount,
   EMPTY_DAY,
@@ -27,23 +17,21 @@ import {
   isEmptyDay,
   timeWords,
 } from "../domain/calendar";
-import { agendaEvents } from "../domain/laptop";
-import { clientWorkRows } from "../domain/show";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
-import { DoneTick, LEAVE_TONE, LeaveIcon, TypeDot, typeTint } from "./calendar-chip";
+import { DoneTick, HeldWord, LEAVE_TONE, LeaveIcon, TypeDot, typeTint } from "./calendar-chip";
 import { LEAVE_FIT_LABEL } from "./leave-fit";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
- * A day's detail (6.4b; Kickoff 6 decision 25 D): the phone's panel under the week strip or the
- * compact month, the day sheet (the full month, and the laptop's day dialog), and the laptop Day's
- * side column. In order: the day's heading; the all-day line (the holiday, the weekly off, leave,
- * all-day events, "Due · N"); the timed events on an hour timeline (the phone and the sheet), each
- * with its time, place and people and opening its task; "Due · N" and its tasks; "Who's free" for
- * the Owner and Admins; then the day's action, the route's ("+ New task on 8 Oct" for whoever may
- * create a task, "Suggest a task" for Crew). An empty day says "Nothing on this day." and nothing
- * else (a day with only a due task is not empty, 08 Oct bug (c)).
+ * **Crew's** day in detail (6.4b; Kickoff 6 decision 25 D; since v6.0 the Owner's and Admins' day
+ * is `CrewDayBody`, with the Crew's Busy / On leave / Free and no hour timeline): the phone's
+ * panel under the week strip or the compact month, the phone's day sheet (the full month), and the
+ * laptop Day's side column. In order: the day's heading; the all-day line (the holiday, the weekly
+ * off, their leave, all-day events); the timed events on an hour timeline (the phone and the
+ * sheet), each with its time, place and people and opening its task; "Due · N" and its tasks; then
+ * the day's action, the route's ("Suggest a task on ‹day›"). An empty day says "Nothing on this
+ * day." and nothing else (a day with only a due task is not empty, 08 Oct bug (c)).
  */
 
 /** An event or a due task as a link to its task, backing out of a sheet first (`OverlayLink`). */
@@ -318,21 +306,15 @@ function EventRows({ events }: { events: readonly EventItem[] }) {
 export function DayDetail({
   day,
   today,
-  scope,
-  free,
   action,
   timeline,
   inPage = false,
-  footer,
   heading = true,
   headingId,
 }: {
   day: CalendarDay;
   today: ISODate;
-  scope: CalendarScope;
-  /** "On leave: … · Busy all day: …" or "Everyone is available" (the Owner and Admins); null for Crew. */
-  free: string | null;
-  /** The day's action (the route's: New task, or Suggest a task); null for none. */
+  /** The day's action (the route's: Suggest a task); null for none. */
   action: ReactNode;
   /**
    * The timed events on an hour timeline (the phone, the sheet); the laptop Day's side column has
@@ -345,69 +327,63 @@ export function DayDetail({
    * day's timed events, with no scroll of its own, and the day's other rows follow it.
    */
   inPage?: boolean;
-  /** "Open day" in the laptop's dialog. */
-  footer?: ReactNode;
   /** The day's heading; a sheet's title says it instead. */
   heading?: boolean;
   headingId: string;
 }) {
   const empty = isEmptyDay(day);
   const timed = placeBlocks(day);
-  // The Owner and Admins see the day in two parts (SCOPE §6, the approved calendar sample):
-  // "Tasks · n" (the events, all-day ones too, and what is due), then "Client work · n"; Crew's
-  // day is unchanged (they never see client work).
-  const split = scope !== "staff";
-  const tasks = day.events.length + day.due.length;
-  // The all-day events are rows under "Tasks · n", except in the phone's in-page day (`inPage`),
-  // whose all-day line keeps them as chips above the timeline.
-  const rowsForAllDay = split && !inPage;
-  const allDayEvents = rowsForAllDay ? day.events.filter((event) => event.startAt === null) : [];
   const hasAllDay =
     day.holiday !== null ||
     day.weeklyOff ||
     day.leave.length > 0 ||
-    (!rowsForAllDay && day.events.some((event) => event.startAt === null));
-  // What follows the events: an Admin's others' busy times (beside the laptop Day's timeline),
-  // "Due · N" and its tasks, "Who's free" and the day's buttons.
-  const rest = (
-    <>
-      {!timeline && day.busy.length > 0 ? (
-        <ul aria-label="Busy" className="text-muted-foreground flex flex-col gap-1 text-xs">
-          {day.busy.map((block) => (
-            <li
-              key={`${block.memberId}-${block.startAt}`}
-              data-slot="calendar-busy"
-              data-member={block.memberId}
-              className="flex min-w-0 items-center gap-2"
-            >
-              <PersonAvatar
-                person={{
-                  id: block.memberId,
-                  name: block.name,
-                  avatarFileId: block.avatarFileId ?? null,
-                }}
-                size={20}
-              />
-              <span className="min-w-0">
-                <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
-                {timeWords(block.startAt, block.endAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
+    day.events.some((event) => event.startAt === null);
+  return (
+    <section
+      aria-labelledby={heading ? headingId : undefined}
+      aria-label={heading ? undefined : dayHeading(day.date, today)}
+      data-slot="calendar-detail"
+      data-date={day.date}
+      className="flex min-w-0 flex-col gap-3"
+    >
+      {heading ? (
+        <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
+          {dayHeading(day.date, today)}
+        </h2>
+      ) : null}
+      {empty ? (
+        <p data-slot="calendar-empty-day" className="text-muted-foreground text-sm">
+          {EMPTY_DAY}
+        </p>
+      ) : null}
+      {hasAllDay ? (
+        <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
+          <AllDayChips day={day} today={today} dueAsChip={false} avatars />
+        </div>
+      ) : null}
+      {timed.length > 0 ? (
+        timeline ? (
+          <Timeline
+            days={[day]}
+            today={today}
+            eventLink={eventLink}
+            span={inPage}
+            className="border-border overflow-hidden rounded-lg border"
+          />
+        ) : (
+          <EventRows events={day.events.filter((event) => event.startAt !== null)} />
+        )
       ) : null}
       {day.due.length > 0 ? (
         <section
-          aria-labelledby={split ? `${headingId}-tasks` : `${headingId}-due`}
+          aria-labelledby={`${headingId}-due`}
           data-slot="calendar-due-list"
           className="flex flex-col gap-2"
         >
-          {split ? null : (
-            <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
-              <ClockIcon className="text-muted-foreground size-4" aria-hidden />
-              Due · {day.due.length}
-            </h3>
-          )}
+          <h3 id={`${headingId}-due`} className="flex items-center gap-1.5 text-sm font-semibold">
+            <ClockIcon className="text-muted-foreground size-4" aria-hidden />
+            Due · {day.due.length}
+          </h3>
           <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
             {day.due.map((item) => (
               <li key={item.id}>
@@ -440,160 +416,7 @@ export function DayDetail({
           </ul>
         </section>
       ) : null}
-      {day.items.length > 0 ? (
-        <ClientItemsList
-          items={day.items}
-          headingId={`${headingId}-items`}
-          late={day.date < today}
-        />
-      ) : null}
-      {free && scope !== "staff" ? (
-        <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
-          {free}
-        </p>
-      ) : null}
-      {action || footer ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {action}
-          {footer}
-        </div>
-      ) : null}
-    </>
-  );
-  return (
-    <section
-      aria-labelledby={heading ? headingId : undefined}
-      aria-label={heading ? undefined : dayHeading(day.date, today)}
-      data-slot="calendar-detail"
-      data-date={day.date}
-      className="flex min-w-0 flex-col gap-3"
-    >
-      {heading ? (
-        <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
-          {dayHeading(day.date, today)}
-        </h2>
-      ) : null}
-      {empty ? (
-        <p data-slot="calendar-empty-day" className="text-muted-foreground text-sm">
-          {EMPTY_DAY}
-        </p>
-      ) : null}
-      {hasAllDay ? (
-        <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} events={!rowsForAllDay} avatars />
-        </div>
-      ) : null}
-      {split && tasks > 0 ? (
-        <h3
-          id={`${headingId}-tasks`}
-          data-slot="calendar-tasks-title"
-          className="flex items-center gap-1.5 text-sm font-semibold"
-        >
-          <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
-          Tasks <span className="text-muted-foreground font-medium">· {tasks}</span>
-        </h3>
-      ) : null}
-      {allDayEvents.length > 0 && timeline ? <EventRows events={allDayEvents} /> : null}
-      {timed.length > 0 ? (
-        timeline ? (
-          <Timeline
-            days={[day]}
-            today={today}
-            eventLink={eventLink}
-            span={inPage}
-            className="border-border overflow-hidden rounded-lg border"
-          />
-        ) : (
-          <EventRows
-            events={
-              rowsForAllDay
-                ? agendaEvents(day)
-                : day.events.filter((event) => event.startAt !== null)
-            }
-          />
-        )
-      ) : !timeline && allDayEvents.length > 0 ? (
-        <EventRows events={allDayEvents} />
-      ) : null}
-      {rest}
+      {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
     </section>
-  );
-}
-
-/**
- * "Client work · n" after the tasks (SCOPE §6, the approved calendar sample; kickoff 7 decision 21):
- * grouped by client, each row the client first, then the deliverable and its project, done ones
- * muted, a late one saying so in red; a tap opens the project on the item's cycle with its sheet
- * open. The Owner's and the client's Admin's only (the page reads none for Crew). The full text,
- * wrapped: the popup is where a chip's cut words are read whole.
- */
-export function ClientItemsList({
-  items,
-  headingId,
-  late,
-}: {
-  items: readonly ClientItemEntry[];
-  headingId: string;
-  /** The day is past: its open work is late. */
-  late: boolean;
-}) {
-  return (
-    <section
-      aria-labelledby={headingId}
-      data-slot="calendar-items-list"
-      className="flex flex-col gap-2"
-    >
-      <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
-        <BoxIcon className="text-muted-foreground size-4" aria-hidden />
-        Client work <span className="text-muted-foreground font-medium">· {items.length}</span>
-      </h3>
-      <ul className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border">
-        {clientWorkRows(items).map((item) => (
-          <li key={item.id} className="min-w-0">
-            <OverlayLink
-              href={item.href}
-              data-slot="calendar-item"
-              data-item={item.id}
-              data-client={item.client}
-              className={cn(
-                "focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset",
-                item.done && "text-muted-foreground",
-              )}
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="font-semibold break-words">
-                  {item.done ? <DoneTick className="mr-1" /> : null}
-                  {item.client}
-                </span>
-                <span className="text-muted-foreground text-xs break-words">
-                  {item.title} · {item.project}
-                  {item.done ? " · done" : ""}
-                  {late && !item.done && !item.held ? (
-                    <span className="text-danger"> · late</span>
-                  ) : null}
-                </span>
-              </span>
-              {item.held ? <HeldWord /> : null}
-              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-            </OverlayLink>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/**
- * "On hold" on a held task's or deliverable's row (v1.9 W8): the amber chip's look in plain
- * markup, so the calendar's first load carries no badge component (its JS budget).
- */
-function HeldWord() {
-  return (
-    <span
-      data-status="on_hold"
-      className="bg-attention-soft text-attention shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-    >
-      On hold
-    </span>
   );
 }

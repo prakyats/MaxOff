@@ -142,10 +142,15 @@ export const updateTaskSchema = z.object({
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
 
 /** The days a warning check reads (the deadline's and the event's), for the people picked. */
-export const availabilitySchema = z.object({
-  memberIds: z.array(z.uuid()).min(1).max(ASSIGNEES_MAX),
-  days: z.array(isoDate).min(1).max(2),
-});
+const availabilityDays = z.array(isoDate).min(1).max(2);
+/**
+ * The people named, or `everyone: true` (v6.0): the form's "Who's on it?" lists everyone the
+ * caller may see for the day, and the warnings are computed from the same answer.
+ */
+export const availabilitySchema = z.union([
+  z.object({ memberIds: z.array(z.uuid()).min(1).max(ASSIGNEES_MAX), days: availabilityDays }),
+  z.object({ everyone: z.literal(true), days: availabilityDays }),
+]);
 export type AvailabilityInput = z.input<typeof availabilitySchema>;
 
 /** A worker's action: for themselves (null) or for a freelancer they coordinate (ADR-0013). */

@@ -26,7 +26,7 @@ import type {
   TaskSubmission,
   TaskType,
 } from "../domain/types";
-import type { AvailabilityDay, LeaveMark } from "../domain/warnings";
+import type { AvailabilityDay, EventBlock, LeaveMark } from "../domain/warnings";
 
 /**
  * The tasks repository (CLAUDE.md rule 3; ARCHITECTURE §4). Reads run under RLS as the signed-in
@@ -696,15 +696,29 @@ function tasksToDecideQuery(supabase: Awaited<ReturnType<typeof createServerSupa
 
 const LEAVE_MARKS: readonly LeaveMark[] = ["leave", "half_day", "comp_leave", "requested"];
 
-function toBlocks(value: Json): { startAt: string; endAt: string }[] {
+/**
+ * A person's event blocks as `member_availability()` writes them (v6.0): a timed one with its
+ * start and end, a date-only one with neither (busy all day), each with its type and who booked
+ * it. A key an older function leaves out reads as null.
+ */
+function toBlocks(value: Json): EventBlock[] {
   if (!Array.isArray(value)) return [];
+  const text = (field: Json | undefined) => (typeof field === "string" ? field : null);
   return value.flatMap((block) => {
     if (block === null || typeof block !== "object" || Array.isArray(block)) return [];
-    const start = block.start_at;
-    const end = block.end_at;
-    return typeof start === "string" && typeof end === "string"
-      ? [{ startAt: start, endAt: end }]
-      : [];
+    const start = text(block.start_at);
+    const end = text(block.end_at);
+    // A timed block needs both ends; a date-only one says so (never guessed from a broken row).
+    if (start === null ? block.all_day !== true : end === null) return [];
+    return [
+      {
+        startAt: start,
+        endAt: end,
+        typeName: text(block.type_name),
+        bookedById: text(block.booked_by),
+        bookedByName: text(block.booked_by_name),
+      },
+    ];
   });
 }
 

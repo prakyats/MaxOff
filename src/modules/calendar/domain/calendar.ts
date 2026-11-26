@@ -168,6 +168,8 @@ export type EventSource = {
   clientId: string | null;
   taskTypeId: string;
   primaryOwnerId: string;
+  /** Who made the task ("booked by", v6.0); absent from an older read. */
+  createdById?: string | null;
   assigneeIds: readonly string[];
 };
 
@@ -212,12 +214,25 @@ export type LeaveSource = {
   pending: boolean;
 };
 
-/** One `member_availability()` row (an Admin's view of others): their leave and busy blocks. */
+/**
+ * One busy block of `member_availability()` (v6.0): the time (no start = a date-only event, busy
+ * all day), the task's type and who booked it. Never a title, a client or a location.
+ */
+export type AvailabilityBlock = {
+  startAt: string | null;
+  endAt: string | null;
+  typeId?: string | null;
+  typeName?: string | null;
+  bookedById?: string | null;
+  bookedByName?: string | null;
+};
+
+/** One `member_availability()` row (an Admin's view of everyone): their leave and busy blocks. */
 export type AvailabilitySource = {
   memberId: string;
   day: ISODate;
   leave: string | null;
-  blocks: readonly { startAt: string | null; endAt: string | null }[];
+  blocks: readonly AvailabilityBlock[];
 };
 
 export type PersonSource = {

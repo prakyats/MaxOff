@@ -24,6 +24,7 @@ import {
   taskTypeId,
   USERS,
   openMoreOptions,
+  chooseTaskType,
   templatesTab,
 } from "./helpers";
 
@@ -173,9 +174,9 @@ test.describe("task types and per-type fields, the flows", () => {
     await page.goto("/tasks");
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = page.locator('[data-slot="task-form-dialog"]');
-    await openMoreOptions(dialog);
+    // Type is the form's first field (v6.0); a row is the type's name and what it asks for.
     await dialog.getByLabel("Type").click();
-    await expect(page.getByRole("option", { name: "Normal", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: /^Normal\s+a deadline$/ })).toBeVisible();
     await expect(page.getByRole("option", { name: `${name} visit` })).toHaveCount(0);
     await page.keyboard.press("Escape");
 
@@ -209,11 +210,11 @@ test.describe("task types and per-type fields, the flows", () => {
       const dialog = page.locator('[data-slot="task-form-dialog"]');
       await expect(dialog.getByLabel("Title")).toBeVisible();
       await expect(dialog.getByLabel(label)).toHaveCount(0);
+      await chooseTaskType(page, dialog, "Meeting");
       await openMoreOptions(dialog);
-      await pick(page, dialog.getByLabel("Type"), "Meeting");
       await expect(dialog.getByLabel(label)).toBeVisible();
+      await chooseTaskType(page, dialog, "Normal");
       await openMoreOptions(dialog);
-      await pick(page, dialog.getByLabel("Type"), "Normal");
       await expect(dialog.getByLabel(label)).toHaveCount(0);
     } finally {
       await removeFieldDefinitions([key]);
@@ -257,8 +258,7 @@ test.describe("task types and per-type fields, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = page.locator('[data-slot="task-form-dialog"]');
-      await openMoreOptions(dialog);
-      await pick(page, dialog.getByLabel("Type"), name);
+      await chooseTaskType(page, dialog, name);
       await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="reminder-summary"]')).toHaveText(
         "Reminders: 5 days before, when due · Using the default",
@@ -638,6 +638,7 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
     await page.getByRole("button", { name: "New task" }).filter({ visible: true }).click();
     const form = page.getByRole("dialog", { name: "New task" });
     await expect(form).toBeVisible();
+    await chooseTaskType(page, form, "Normal");
     for (const stage of ["Stage 1", "Stage 2"]) {
       await openMoreOptions(form);
       await form.getByRole("button", { name: "Add stage" }).click();
