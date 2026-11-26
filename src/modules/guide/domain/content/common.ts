@@ -3,6 +3,31 @@ import type { GuideTopic } from "../types";
 /** Help and troubleshooting topics every role's guide ends with (ROADMAP 6b.14). */
 export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
   {
+    id: "help-privacy",
+    title: "How MaxOff uses your information",
+    summary: "What it keeps about you, who can see it, and for how long.",
+    blocks: [
+      {
+        kind: "text",
+        text: 'Me → "Your information" shows the studio\'s privacy notice: what MaxOff keeps about you, why, who can see it, how long it is kept, and what you can ask for.',
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Me.",
+          'Under "Help", tap "Your information".',
+          'Read it, then tap "Got it" at the end.',
+        ],
+      },
+      {
+        kind: "note",
+        text: 'Until you tap "Got it", a card at the end of your home screen asks you to read it. If the notice changes, the card comes back once.',
+      },
+    ],
+    link: { href: "/me/privacy", label: "Open Your information" },
+    keywords: ["privacy", "data", "information", "retention", "dpdp", "rights"],
+  },
+  {
     id: "help-reload",
     title: "Nothing changed after an edit",
     summary: "Pull down to refresh, or reload the app.",

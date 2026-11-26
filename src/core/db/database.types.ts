@@ -2399,6 +2399,49 @@ export type Database = {
           },
         ];
       };
+      privacy_notice_reads: {
+        Row: {
+          member_id: string;
+          org_id: string;
+          read_at: string;
+          version: string;
+        };
+        Insert: {
+          member_id: string;
+          org_id: string;
+          read_at?: string;
+          version: string;
+        };
+        Update: {
+          member_id?: string;
+          org_id?: string;
+          read_at?: string;
+          version?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "privacy_notice_reads_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "privacy_notice_reads_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "privacy_notice_reads_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       project_cycles: {
         Row: {
           created_at: string;
@@ -5466,6 +5509,7 @@ export type Database = {
       own_week: { Args: { from_date: string; to_date: string }; Returns: Json };
       owner_digest_preview: { Args: never; Returns: Json };
       owner_digest_weekly_preview: { Args: never; Returns: Json };
+      privacy_notice_read: { Args: { p_version: string }; Returns: undefined };
       project_activity: {
         Args: {
           before_at?: string;

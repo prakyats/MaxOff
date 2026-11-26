@@ -1016,6 +1016,18 @@ const GUIDE: Record<string, Point> = {
   },
 };
 
+/** Me → Your information (v7.5 Q1): the notice's words drawn unseen, then the Got it row. */
+const PRIVACY: Record<string, Point> = {
+  "first section": {
+    held: '[data-slot="privacy-notice-loading"] > section:nth-of-type(1)',
+    settled: '[data-slot="privacy-notice"] > section:nth-of-type(1)',
+  },
+  "who to ask": {
+    held: '[data-slot="privacy-notice-loading"] > section:last-of-type',
+    settled: '[data-slot="privacy-notice"] > section:last-of-type',
+  },
+};
+
 const HELD_AT_NAVIGATION: readonly HeldAtNavigation[] = [
   ...(["owner", "admin"] as const).map((role) => ({
     role,
@@ -1030,6 +1042,13 @@ const HELD_AT_NAVIGATION: readonly HeldAtNavigation[] = [
     path: "/me/guide",
     marker: 'data-slot="guide-loading"',
     trace: GUIDE,
+  })),
+  ...(["owner", "admin", "staff"] as const).map((role) => ({
+    role,
+    from: "/me",
+    path: "/me/privacy",
+    marker: 'data-slot="privacy-loading"',
+    trace: PRIVACY,
   })),
 ];
 

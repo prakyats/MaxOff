@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { PRIVACY_NOTICE_VERSION } from "../src/modules/privacy/domain/notice";
 import { describeOffDays, pinWorkingDay } from "./calendar";
 import { istDate, RUN_STATE_FILE, wallClock } from "./run-state";
 
@@ -73,6 +74,28 @@ export default async function globalSetup(): Promise<void> {
     body: JSON.stringify({ working_hours_on: false }),
   });
   if (!off.ok) throw new Error(`e2e: could not switch the working hours off (${off.status})`);
+
+  // 5. v7.5 Q1: everyone the seed made has read the privacy notice, like the team after its first
+  //    day, so the home screens look as every other spec expects; `privacy.spec.ts` takes its
+  //    people's rows away to see the card. (Audited like any write, with no actor.)
+  const service = { apikey: serviceKey, authorization: `Bearer ${serviceKey}` };
+  const members = await fetch(`${url}/rest/v1/members?select=id,org_id`, { headers: service });
+  if (!members.ok) throw new Error(`e2e: could not list the members (${members.status})`);
+  const rows = ((await members.json()) as { id: string; org_id: string }[]).map((member) => ({
+    member_id: member.id,
+    org_id: member.org_id,
+    version: PRIVACY_NOTICE_VERSION,
+  }));
+  const read = await fetch(`${url}/rest/v1/privacy_notice_reads?on_conflict=member_id`, {
+    method: "POST",
+    headers: {
+      ...service,
+      "content-type": "application/json",
+      prefer: "resolution=merge-duplicates",
+    },
+    body: JSON.stringify(rows),
+  });
+  if (!read.ok) throw new Error(`e2e: could not mark the notice read (${read.status})`);
 
   writeFileSync(RUN_STATE_FILE, JSON.stringify({ startedOnIST: istDate(now) }));
 }

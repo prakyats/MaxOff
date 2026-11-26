@@ -1,5 +1,6 @@
 import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
@@ -34,6 +35,7 @@ import {
   TaskRowList,
 } from "@/modules/tasks";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
+import { PrivacyReminder } from "@/modules/privacy";
 import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { ownWeek, readOwnWeek, readOwnWeekFreelancers } from "../tasks/own-week";
@@ -188,6 +190,10 @@ export default async function MyDayPage() {
           </>
         }
       />
+      {/* v7.5 Q1: the privacy notice's one-time card, last, streamed on its own. */}
+      <Suspense fallback={null}>
+        <PrivacyReminder />
+      </Suspense>
     </>
   );
 }

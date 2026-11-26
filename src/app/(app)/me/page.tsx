@@ -54,7 +54,7 @@ export const metadata: Metadata = { title: "Me" };
  * 4. **Notifications**: this device ("Turn on here", 5.2), **Your devices** each with Remove
  *    (5.5, decision 5; red only in its confirmation), **Send a test notification**;
  * 5. **Appearance**: Light / Dark / System;
- * 6. **Help**: How MaxOff works (6b.14), Reload app;
+ * 6. **Help**: How MaxOff works (6b.14), Your information (the privacy notice, v7.5 Q1), Reload app;
  * 7. **Sign out of this device**, last (kickoff 3b decision 1: it lives here only): a red
  *    outline, never solid, since nothing is destroyed, with its confirmation;
  * 8. the **version**, small and muted, at the very bottom.
@@ -363,6 +363,22 @@ function Help() {
           </div>
           <ChevronRightIcon
             className="text-muted-foreground group-hover/guide:text-foreground size-4 shrink-0"
+            aria-hidden
+          />
+        </Link>
+        <Separator />
+        <Link
+          href="/me/privacy"
+          data-slot="me-privacy-link"
+          className="pressable-row focus-visible:ring-ring group/privacy flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 outline-none focus-visible:ring-2"
+        >
+          {/* v7.5 Q1: the staff privacy notice, the same for every role. */}
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Your information</p>
+            <p className="text-muted-foreground text-sm">What MaxOff keeps about you, and why.</p>
+          </div>
+          <ChevronRightIcon
+            className="text-muted-foreground group-hover/privacy:text-foreground size-4 shrink-0"
             aria-hidden
           />
         </Link>

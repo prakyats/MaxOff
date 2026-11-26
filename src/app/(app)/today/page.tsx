@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { requireMember } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { getHoursToday, getOwnHours, getOwnToday, getTodayPeople } from "@/modules/attendance";
+import { PrivacyReminder } from "@/modules/privacy";
 import { TaskTapSkeletonLazy } from "@/modules/tasks/components/task-tap-skeleton-lazy";
 
 import { readDirectory, readOpenTasks } from "../tasks/reads";
@@ -43,11 +45,18 @@ export default async function TodayPage() {
   const viewer = await requireMember();
   // A task tapped before the router holds its loading screen still shows its skeleton (#143).
   const tap = <TaskTapSkeletonLazy manages={can(viewer.role, "tasks.create")} />;
+  // v7.5 Q1: the privacy notice's one-time card, last, streamed on its own (`PrivacyReminder`).
+  const privacy = (
+    <Suspense fallback={null}>
+      <PrivacyReminder />
+    </Suspense>
+  );
   if (can(viewer.role, "attendance.view_all")) {
     return (
       <>
         {tap}
         <OwnerToday viewer={viewer} />
+        {privacy}
       </>
     );
   }
@@ -56,6 +65,7 @@ export default async function TodayPage() {
       <>
         {tap}
         <AdminToday viewer={viewer} />
+        {privacy}
       </>
     );
   }

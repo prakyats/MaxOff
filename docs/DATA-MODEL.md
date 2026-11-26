@@ -405,6 +405,16 @@ session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤
                      -- session_sign_out() (3b.1). ip_hash = salted SHA-256 of the client IP
                      -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
                      -- RLS: own rows; all for attendance.view_all
+privacy_notice_reads member_id pk → members (cascade), org_id → organizations (cascade), version text
+                     ('YYYY-MM-DD'), read_at
+                     -- v7.5 Q1 (owner 2026-11-26, migration v75_privacy_notice; docs/PRIVACY.md): the latest
+                     -- version of the staff privacy notice each member confirmed ("Got it" at Me → Your
+                     -- information). Written only by privacy_notice_read(p_version) (security definer, the
+                     -- caller's own row; the same version again changes nothing; FORBIDDEN for anyone but an
+                     -- active member; VALIDATION for a malformed version). RLS: SELECT own row; no API write.
+                     -- Audited (audit_row_change on insert and update, entity_id = member_id), so every
+                     -- version confirmed stays in the history. The home card shows while the row's version
+                     -- is not the app's PRIVACY_NOTICE_VERSION.
 access_refusals      member_id → members (cascade), org_id → organizations (cascade), day date (IST),
                      refusals int (> 0, default 1), first_at, last_at, noted_at null; pk (member_id, day)
                      -- v7.5 Q6 (owner 2026-11-26, migration v75_access_refusals): how often a member was

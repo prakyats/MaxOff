@@ -14,7 +14,7 @@ import { ME_DESCRIPTION } from "./copy";
  * the identity card (the 64 px photo, the name, role and email lines, Edit profile beside them
  * from `md` and under them on a phone, the Phone record and the photo button); for whoever marks
  * attendance "My work" with its two rows; "Notifications" (this device's row, "Your devices" with
- * one device, the usual case, and the test push); "Appearance"; "Help" (the guide and Reload app);
+ * one device, the usual case, and the test push); "Appearance"; "Help" (the guide, Your information and Reload app);
  * the red outline "Sign out of this device" with its line; the version. "Your freelancers" is not
  * drawn: few coordinate one, and the screen cannot know who does before the page reads it.
  * Same member check as `my-day/loading.tsx`.
@@ -166,6 +166,8 @@ export default async function Loading() {
         <Section slot="loading-me-help" title="w-10">
           <Card aria-hidden className="gap-0 py-0">
             <PageRow slot="loading-me-guide-link" />
+            <Separator />
+            <PageRow slot="loading-me-privacy-link" />
             <Separator />
             <div className="px-4 py-3">
               <ControlRow
