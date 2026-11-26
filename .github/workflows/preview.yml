@@ -34,7 +34,10 @@ name: Preview
 
 on:
   push:
-    branches-ignore: [main]
+    # Renovate's branches (v7.5 Q3) never get a preview: a preview builds with the staging
+    # environment's secrets, and a dependency update is code nobody here wrote. Their pull
+    # requests still run the full CI (ci.yml), which uses the local stack only.
+    branches-ignore: [main, "renovate/**"]
     # A docs-only push cannot change the UI, and the alias keeps serving the last real build,
     # so there is nothing to look at for the seven minutes it would cost.
     paths-ignore:

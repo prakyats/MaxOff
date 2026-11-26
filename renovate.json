@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Dependency updates (v7.5 Q3, owner 2026-11-26): weekly grouped pull requests, security ones at once, merged only on green CI. Nothing merges by itself.",
+    "next and @opennextjs/cloudflare are patched (pnpm-workspace.yaml patchedDependencies): pnpm refuses to install while a patch names a version that is not installed, so they are upgraded by hand with the patch re-made. Their pull requests wait for approval on the Dependency Dashboard.",
+    "Renovate branches never get a preview: preview.yml skips renovate/** so a new package version never runs with the staging environment's secrets."
+  ],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "timezone": "Asia/Kolkata",
+  "schedule": ["before 9am on monday"],
+  "automerge": false,
+  "dependencyDashboard": true,
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "minimumReleaseAge": "3 days",
+  "commitMessagePrefix": "chore(deps):",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 9am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "labels": ["dependencies", "security"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "npm minor and patch updates: one weekly pull request.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm minor and patch"
+    },
+    {
+      "description": "GitHub Actions minor, patch and digest updates: one weekly pull request.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Patched packages: upgraded by hand with the patch re-made (see the top).",
+      "matchPackageNames": ["next", "@opennextjs/cloudflare"],
+      "groupName": null,
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

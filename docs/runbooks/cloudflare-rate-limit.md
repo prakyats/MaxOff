@@ -1,5 +1,8 @@
 # Runbook: the Cloudflare rate-limit rule on sign-in (Owner, in the dashboard)
 
+> **v7.5 (owner, 26 Nov 2026):** the upload starts are rate-limited too, with the WAF on and Bot Fight off:
+> `cloudflare-security.md`. On the Free plan (one rule) that file's combined rule replaces this one.
+
 Gap audit 4 (`docs/reviews/6b20b-gap-audit.md`): `wrangler.jsonc` has no rate limit, and the sign-in and
 password-reset forms run as server actions on the Worker, so Supabase Auth may see Cloudflare's IPs
 instead of the person's. A Cloudflare WAF rule counts the **real visitor IP** at the edge, before the

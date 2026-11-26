@@ -319,7 +319,9 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
   backup opens a "Backup failed" issue (`backup.yml`, and `ops-check.yml` every morning at 09:00 IST); secrets
   and their expiry dates are in `docs/runbooks/secrets.md` (reminded on the 1st); the proposed service targets
   are `docs/runbooks/slo.md`; the dashboard rules the Owner sets by hand are `docs/runbooks/sentry-alerts.md`
-  and `docs/runbooks/cloudflare-rate-limit.md`; `.github/dependabot.yml` opens weekly dependency PRs.
+  `docs/runbooks/cloudflare-rate-limit.md` and `docs/runbooks/cloudflare-security.md` (WAF, rate limits, Bot Fight
+  off); a suspected leaked secret is `docs/runbooks/secret-rotation.md`; Renovate (`renovate.json`) opens weekly
+  dependency PRs, security ones at once, merged only on green CI.
 - **Go-live (3c.3):** `docs/runbooks/go-live.md` is the whole stage-1 go-live in order, each step with what you
   should see: the first tag and deploy, the bootstrap, UptimeRobot, the two-day smoke test with a test member
   (Forgot password, the installed app, Copy invite link, Start day → approve, leave, a claim with a receipt,
