@@ -85,6 +85,12 @@ export default withSentryConfig(nextConfig, {
   silent: !uploadsSourceMaps,
   telemetry: false,
   sourcemaps: { disable: !uploadsSourceMaps, deleteSourcemapsAfterUpload: true },
+  // No route manifest in the browser. The SDK otherwise inlines every App Router route into
+  // instrumentation-client, so each new page grows every route's first load (v3.5's
+  // /reports/close/:month tipped /calendar past its budget). It only names performance
+  // transactions, and tracing is off (`core/observability/options.ts`); it also listed
+  // Owner-only routes to every role.
+  routeManifestInjection: false,
   // Upload problems must never fail a deploy: the app still runs, only stack traces get uglier.
   errorHandler: (error) => {
     console.warn(`Sentry source-map upload skipped: ${error.message}`);
