@@ -205,7 +205,11 @@ insert into app_internal values
   ('create_org_settings'), ('field_definitions_guard'), ('files_archive_replaced'),
   ('member_coordinators_task_route'), ('members_client_admin_guard'), ('members_job_title_guard'),
   ('members_task_route'), ('seed_org_lists'), ('seed_org_stage_presets'), ('seed_org_task_types'),
-  ('task_comments_notify'), ('task_custom_fields_guard'), ('tasks_template_check');
+  ('task_comments_notify'), ('task_custom_fields_guard'), ('tasks_template_check'),
+  -- v2.0.1: per-half leave conflicts, their message and label, the two halves of a date and the
+  -- day settled from them (migration split_leave_days, pgTAP 150)
+  ('leave_conflict'), ('leave_conflict_message'), ('leave_label'), ('leave_halves'),
+  ('attendance_settle_halves');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -226,7 +230,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 167::bigint,
+             and p.proname in (select name from app_internal)), 172::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

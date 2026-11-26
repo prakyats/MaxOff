@@ -77,6 +77,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 690,
     alt: "The Request leave form for a half day, with Which half? and its Morning off and Afternoon off cards highlighted.",
   },
+  "staff/request-split": {
+    src: "/guide/staff/request-split.webp",
+    width: 448,
+    height: 682,
+    alt: "The Request leave form for a full day of ½ comp + ½ leave, with Comp half and its Comp in the morning and Comp in the afternoon cards highlighted.",
+  },
   "staff/leave-list": {
     src: "/guide/staff/leave-list.webp",
     width: 1184,
@@ -488,7 +494,7 @@ export const GUIDE_SHOTS: Readonly<
   "owner/person-leave": {
     src: "/guide/owner/person-leave.webp",
     width: 1184,
-    height: 434,
+    height: 517,
     alt: "A person's Leave tab with the Grant comp leave button highlighted.",
   },
   "owner/clients": {

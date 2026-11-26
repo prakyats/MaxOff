@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { dayFigure, type MonthSummary, pendingText, summaryLines } from "../domain/summary";
+import {
+  dayFigure,
+  type MonthSummary,
+  pendingText,
+  summaryLines,
+  workedHalfDays,
+} from "../domain/summary";
 
 const SUMMARY: MonthSummary = {
   hours: null,
@@ -74,6 +80,49 @@ describe("summaryLines (PRODUCT §4.18, in its order)", () => {
     expect(lines.find((line) => line.key === "credits")?.detail).toBe(
       "2½ granted · 1½ used · ½ expired",
     );
+  });
+});
+
+describe("a split day in the month (v2.0.1, WORKFLOWS §2b)", () => {
+  // One decided day off made of a ½ comp morning and an ordinary afternoon, nothing else: what
+  // `month_summary()` answers for it (½ comp, ½ additional leave, one of the half days, nothing
+  // worked).
+  const split: MonthSummary = {
+    ...SUMMARY,
+    daysWorked: 0,
+    presentDays: 0,
+    leaveDays: 0,
+    halfDays: 1,
+    absentDays: 0,
+    compLeaveDays: 0.5,
+    additionalLeave: 0.5,
+    daysOffWorked: 0,
+    pendingDays: 0,
+  };
+  const lines = summaryLines(split);
+  const line = (key: string) => lines.find((entry) => entry.key === key);
+
+  it("shows ½ comp leave and ½ additional leave, and the day among the half days", () => {
+    expect(line("comp")?.value).toBe("½");
+    expect(line("additional")?.value).toBe("½");
+    expect(line("half")?.value).toBe("1");
+    expect(line("leave")?.value).toBe("0");
+  });
+
+  it("names no half worked under Days worked: nothing of a split day is worked", () => {
+    expect(line("worked")?.value).toBe("0");
+    expect(line("worked")?.detail).toBe("0 present · 0 half days");
+    expect(workedHalfDays(split)).toBe(0);
+  });
+
+  it("counts the half days that were half worked from the server's figures", () => {
+    // 18 present and one half day worked: 18½.
+    expect(workedHalfDays(SUMMARY)).toBe(1);
+    expect(summaryLines(SUMMARY).find((entry) => entry.key === "worked")?.detail).toBe(
+      "18 present · 1 half day",
+    );
+    // A ½ comp day worked its other half: it is in days worked, never in halfDays.
+    expect(workedHalfDays({ daysWorked: 3.5, presentDays: 3 })).toBe(1);
   });
 });
 

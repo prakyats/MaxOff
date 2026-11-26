@@ -49,6 +49,8 @@ const STORAGE_SPECS = /storage\.spec\.ts$/;
 const CLIENTS_SPECS = /clients\.spec\.ts$/;
 const SELECT_SPECS = /select\.spec\.ts$/;
 const EXTRA_WORK_SPECS = /extra-work\.spec\.ts$/;
+/** v2.0.1: flexible comp leave, the split day (one seeded Crew member per project). */
+const SPLIT_LEAVE_SPECS = /split-leave\.spec\.ts$/;
 const EXPENSES_SPECS = /expenses\.spec\.ts$/;
 const MONTH_SUMMARY_SPECS = /month-summary\.spec\.ts$/;
 const TAP_FEEDBACK_SPECS = /tap-feedback\.spec\.ts$/;
@@ -244,6 +246,7 @@ export default defineConfig({
         CLIENTS_SPECS,
         SELECT_SPECS,
         EXTRA_WORK_SPECS,
+        SPLIT_LEAVE_SPECS,
         EXPENSES_SPECS,
         MONTH_SUMMARY_SPECS,
         TAP_FEEDBACK_SPECS,

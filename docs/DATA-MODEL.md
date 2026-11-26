@@ -683,6 +683,11 @@ attendance_days      id, member_id, work_date date (IST), is_day_off bool,
                      overtime_flag bool, overtime_reason,
                      worked_on_leave bool ("1 day worked": Present approved on an approved-leave day),
                      leave_request_id null, created_at, updated_at, unique(member_id, work_date),
+                     second_leave_request_id null → leave_requests (v2.0.1, migration split_leave_days,
+                     expand-only: on a day where both halves are off through two half-day requests,
+                     the afternoon's; leave_request_id is then the morning's. check: needs
+                     leave_request_id and differs from it. Under protect_columns. A fully-off split
+                     day is `leave`, or `comp_leave` when both halves are comp: no new status)
                      started_at null, ended_at null, end_not_recorded bool (3b.1, expand-only:
                      the Start day and End day taps, and the 00:00 job's "end of day not
                      recorded"; check ended_at needs started_at and is not before it; all three
@@ -735,6 +740,12 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
                      -- new submitted row that supersedes the original; on approval the original AND
                      -- this row end cancelled, so "approved leave covering a date" is always
                      -- state = approved and nothing else
+                     pair_id uuid null (v2.0.1, migration split_leave_days, expand-only: the two
+                     halves of one "Full day: ½ comp + ½ leave" share it (leave_submit_split, or the
+                     Owner's split-day correction); check: a paired row is a half_day with its half;
+                     indexed where not null. The Owner decides a waiting pair together; once
+                     approved each half stands on its own. `half` and `pair_id` are under
+                     protect_columns since v2.0.1)
                      credit_days numeric(2,1) null (3b.2, expand-only: the comp leave credit this
                      request uses; check: null, or type = comp_leave with 1.0, or type = half_day
                      with 0.5. Set by leave_submit_comp() (1.0 / 0.5) and, since the 3c review, by
@@ -1097,6 +1108,15 @@ public.comp_leave_dates()       attendance.self, read (3b review): the working d
                                 no holiday) from today to the latest use-by date of the caller's free
                                 credits, each with the free days valid on it: (work_date,
                                 available_days). Empty with no free credit. What the leave form lists
+public.leave_submit_split(work_date, comp_half, reason default null)
+                                v2.0.1 (migration split_leave_days): attendance.self. "Full day: ½ comp +
+                                ½ leave" on ONE working date, today or later: two submitted half_day rows
+                                sharing a pair_id, comp_half (morning | afternoon) with credit_days 0.5
+                                (drawn oldest first and reserved, app.comp_credit_draw) and the other half
+                                as ordinary leave. The whole date must be free (CONFLICT with the half in
+                                the way named). VALIDATION: the comp half, a day off, the past, not enough
+                                comp leave. Audit 'submitted' (meta pair_id) and 'reserved'. Notifies the
+                                Owner once ("requested a full day: ½ comp + ½ leave"). Returns the pair_id
 app.holiday_release_comp()      AFTER INSERT / UPDATE OF date on holidays (3b review): every waiting or
                                 approved comp leave request (credit_days not null) covering the new
                                 date -> cancelled, decided_by = the Owner adding it, a reason naming
@@ -1138,6 +1158,52 @@ public.attendance_end_day(overtime_note default null, overtime_minutes default n
                                 ('overtime', the ended day's date, note, minutes) in the same
                                 transaction. Returns (day_id, work_date, note_id)
 ```
+
+**v2.0.1, halves (migration split_leave_days, pgTAP 150):**
+- **Conflicts are per half.** `app.leave_conflict(member, start, end, type, half, exclude, approved_only)`
+  replaces `app.leave_overlaps` / `app.leave_clash` in `leave_submit`, `leave_submit_comp`,
+  `leave_submit_split`, `leave_request_change`, `leave_decide` and `leave_owner_edit`: two half days
+  of one date never conflict when both name a half and the halves differ; a full day, the same half,
+  or a half day with no half (older rows) still does. `app.leave_conflict_message(clash, type, half)`
+  gives the words when a half is in the way ("You already have the morning off on 25 Nov. Request the
+  afternoon instead." / "…as a half day instead." / "You already have 25 Nov off. Request a change to
+  one of those requests instead."); a full-day clash keeps each function's earlier words.
+  `app.leave_label(r)` names the half in the Owner's clash text ("Half day (comp, morning), 25 Nov 2026").
+- **The day of a split date.** `app.leave_halves(member, d)` → (morning_id, afternoon_id), the approved
+  halves of a date. `app.leave_covering` gives a fully-off split date as the morning's row with type
+  `leave` (or `comp_leave` when both halves are comp) and no half, so the day opener, the absent
+  check, today's strip, working hours and their reminder tick treat it as a day off.
+  `app.attendance_settle_halves(member, d)` re-derives a system-held leave day from its approved
+  halves (both → leave / comp_leave with both links; one → half_day), called by
+  `app.attendance_apply_leave` for a half day; `app.attendance_open_day` links both halves;
+  `app.attendance_release_leave` releases a day linked through either column and, when the other half
+  still stands, makes the day that half day instead of asking again.
+- **Deciding.** `leave_decide` approves or rejects a waiting pair together (one reason, one member
+  notification, "Full day (½ comp + ½ leave) approved"); `leave_withdraw` withdraws a waiting pair
+  together. Once approved, each half is cancelled or changed on its own.
+- **Changing.** `leave_request_change(…, half default null)`: a change of a half day keeps the
+  original's half unless another is chosen; a cancellation carries it (both were dropped before).
+- **The Owner.** `leave_owner_edit(…, half default null, comp default null)`: a half day keeps the
+  original's half and its ½ comp (credit 0.5, drawn and used at once) unless the Owner says otherwise;
+  before v2.0.1 the edit dropped the half and turned a ½ comp day into ordinary leave.
+  `attendance_decide(…, half default null, comp_half default null)`: a correction to Half day names the
+  half off, and with comp_half the same half it is a ½ comp day; Leave with comp_half is a split day
+  (½ comp + ½ leave: two approved half days sharing a pair_id, the day linking both). Comp draws and
+  uses the member's credits valid on that date, as the full comp day does. A half-day or split correction **replaces** the
+  day's own halves: an approved request linked to the day and covering only that date is superseded
+  (its credit released) first, so a day corrected twice never books the date or the credit twice; a
+  waiting gate request is rejected, never approved as a split. Leave over several days stays.
+- **The Approvals badge** (`session_bundle().pending_requests`) counts a waiting pair as one request,
+  as Approvals lists it.
+- **The review's fixes (before the first push):** a correction of a split day never "matches" its
+  halves (a split day corrected to Half day, Leave or Comp leave supersedes both halves first and
+  gives their credit back); a day the Owner set from halves (a correction to a half or split day)
+  follows its halves when one is edited or the other approved later (`app.attendance_settle_halves`),
+  while any other Owner-decided day stays as decided; `attendance_own_today().leave_type` is the
+  day's own `leave` / `comp_leave` when it links two halves, so today's strip reads a day off.
+- **month_summary** counts a decided `leave` day linking one comp half and one ordinary half as ½ comp
+  and ½ additional leave, and as one of the half days; days_worked is unchanged.
+
 **Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_start_day()` (3b.1) takes the member's `leave:` lock before any row lock too, then looks for today's day and opens it under that lock (it derives the day from approved leave), so a phone and a laptop tapping Start day at the same instant produce one day (pgTAP `09`, two real connections); 2.2's `attendance_touch()`, with its own `touch:` lock in front of the `leave:` lock, went with the 3c.1 contract migration. pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order:** `app.absent_check()` and `app.end_not_recorded()` (3b.1; 2.5's `app.logout_not_recorded()` went with 3c.1) take each member's `leave:` lock before that member's rows (members in id order, so two overlapping runs cannot cross), and `app.attendance_open_day()` is called only under it (pgTAP `14`). The comp leave draw and settle (`app.comp_credit_draw`, `app.comp_credit_settle`) lock credit rows after the day and request rows, under the same `leave:` lock. Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
 
 ## 4. Clients

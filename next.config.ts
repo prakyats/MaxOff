@@ -71,6 +71,10 @@ const nextConfig: NextConfig = {
   // client is not external: its CommonJS build requires `tslib`, which OpenNext's middleware
   // bundler resolves to a file its trace never copied (the build fails).
   serverExternalPackages: ["zod"],
+  // No image optimizer (v2.0.1, `src/core/http/image-optimizer.ts`): MaxOff serves no next/image,
+  // and next ≤ 16.4.0 had a remote code execution and an SSRF in `/_next/image`. With this, Next
+  // answers that route 404; the Worker refuses it before OpenNext (which does not read this).
+  images: { unoptimized: true },
   experimental: {
     // The client router cache (ARCHITECTURE §19, owner decision 2026-09-28). A tab seen in the
     // last 30 s comes back at once with no request (Next's default for dynamic pages is 0 s: every
@@ -95,6 +99,12 @@ export default withSentryConfig(nextConfig, {
   silent: !uploadsSourceMaps,
   telemetry: false,
   sourcemaps: { disable: !uploadsSourceMaps, deleteSourcemapsAfterUpload: true },
+  // No route manifest in the browser. The SDK otherwise inlines every App Router route into
+  // instrumentation-client, so each new page grows every route's first load (v3.5's
+  // /reports/close/:month tipped /calendar past its budget). It only names performance
+  // transactions, and tracing is off (`core/observability/options.ts`); it also listed
+  // Owner-only routes to every role.
+  routeManifestInjection: false,
   // Upload problems must never fail a deploy: the app still runs, only stack traces get uglier.
   errorHandler: (error) => {
     console.warn(`Sentry source-map upload skipped: ${error.message}`);

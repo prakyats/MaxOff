@@ -1,14 +1,19 @@
 import { type Locator, type Page, type Request, type Route, type TestInfo } from "@playwright/test";
 
+import { systemClock } from "../src/core/time";
+
 import { expect, test } from "./fixtures";
 
 import {
   actionId,
   animationsSettled,
   hydrated,
+  memberIdOf,
   pageHeader,
+  removeTasksTitled,
   resetAttendanceAndLeave,
   resetExpenseClaims,
+  rpcAs,
   runInstalled,
   serviceDelete,
   serviceInsert,
@@ -17,6 +22,8 @@ import {
   signIn,
   startPrompt,
   storageStateFor,
+  taskTypeId,
+  USERS,
 } from "./helpers";
 
 /**
@@ -109,6 +116,78 @@ const bottomTab = (page: Page, href: string) =>
   page.locator(`[data-slot="bottom-nav"] a[href="${href}"]`);
 const record = (page: Page) => page.locator('[data-slot="editable-record"]');
 const confirmation = (page: Page) => page.getByRole("alertdialog", { name: "Save these changes?" });
+
+/** A task's own page (`taskTapTarget`): what a task row opens. */
+const TASK_PAGE = /\/tasks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isTaskPage = (request: Request) => TASK_PAGE.test(new URL(request.url()).pathname);
+
+/** The task row's task, one per project (they run side by side); due soon, so it is on Tasks. */
+const slowTaskTitle = (project: string) => `Slow Tap ${project}: Task`;
+
+/**
+ * Two slow moves (§14.2 i): a bar tab the router answers itself, and a task row the app draws
+ * itself while the router has nothing (#143, `TaskTapSkeleton`).
+ */
+const SLOW_MOVES: {
+  name: string;
+  from: string;
+  /** Where the address stands while the screen is held: a task row's copy moves it at once. */
+  held: RegExp;
+  at: RegExp;
+  hold: (page: Page) => Promise<{ release: () => Promise<void> }>;
+  /** Before the tap: what the move needs on the screen tapped from. */
+  ready: (page: Page) => Promise<void>;
+  tap: (page: Page) => Locator;
+  /** After the tap: the move took the path this case is about. */
+  drawn: (page: Page) => Promise<void>;
+  arrived: (page: Page) => Locator;
+}[] = [
+  {
+    name: "a bar tab",
+    from: "/today",
+    held: /\/today$/,
+    at: /\/tasks$/,
+    hold: (page) => holdScreen(page, "/tasks"),
+    ready: async () => {},
+    tap: (page) => bottomTab(page, "/tasks"),
+    drawn: async () => {},
+    arrived: (page) => pageHeader(page).getByRole("heading", { name: "Tasks" }),
+  },
+  {
+    name: "a task row",
+    from: "/tasks",
+    held: TASK_PAGE,
+    at: TASK_PAGE,
+    hold: async (page) => {
+      await page.route("**/*", (route) =>
+        route.request().headers()["next-router-prefetch"] && isTaskPage(route.request())
+          ? route.abort()
+          : route.fallback(),
+      );
+      return hold(page, (request) => request.headers()["rsc"] === "1" && isTaskPage(request));
+    },
+    // The task skeleton is drawn once the page is idle (`TaskTapSkeletonLazy`): the page clock is
+    // stepped until it is.
+    ready: async (page) => {
+      await expect
+        .poll(async () => {
+          await page.clock.runFor(500);
+          return html(page).getAttribute("data-tap-drawings");
+        })
+        .toBe("ready");
+    },
+    tap: (page) =>
+      page
+        .locator('[data-slot="task-row"]')
+        .getByRole("link", { name: new RegExp(slowTaskTitle(test.info().project.name)) })
+        .first(),
+    drawn: async (page) => {
+      await page.clock.runFor(500);
+      await expect(page.locator('#main > [data-slot="tap-skeleton"]')).toBeVisible();
+    },
+    arrived: (page) => page.locator('#main > [data-slot="route"] [data-slot="task-page"]'),
+  },
+];
 
 /** Counts every time the bar starts on this page (`data-nav-pending` set on `<html>`). */
 async function recordBar(page: Page) {
@@ -307,72 +386,110 @@ test.describe("navigation shows it is on its way", () => {
     await expect(bar(page)).toHaveCSS("opacity", "1");
   });
 
-  test("after 8 s one quiet line: Still loading, Retry; Retry adds no entry", async ({
-    page,
-    isMobile,
-  }) => {
-    test.skip(!isMobile, "installed tabs: the back stack is the point");
-    await runInstalled(page);
-    await page.clock.install();
-    const slow = await holdScreen(page, "/tasks");
-    await page.goto("/today");
-    await hydrated(page);
-    const before = await page.evaluate(() => history.length);
-
-    await bottomTab(page, "/tasks").click();
-    const status = page.locator('[data-slot="nav-progress-status"]');
-    // The bar alone for the first 8 s.
-    await page.clock.fastForward(7_000);
-    await expect(status).toHaveCount(0);
-    await page.clock.fastForward(1_500);
-    await expect(status).toHaveText("Still loadingRetry");
-    const retry = status.getByRole("button", { name: "Retry" });
-    // Quiet: underlined text, not a boxed or red button; still a 44px target.
-    await expect(retry).toHaveCSS("text-decoration-line", "underline");
-    expect((await retry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
-
-    await retry.click();
-    await slow.release();
-    await page.clock.runFor(1_000);
-    await expect(pageHeader(page).getByRole("heading", { name: "Tasks" })).toBeVisible();
-    await page.clock.runFor(1_000);
-    await expect(html(page)).not.toHaveAttribute("data-nav-pending");
-    await expect(status).toHaveCount(0);
-    // One tab move from home pushes one entry, however many times it was asked for (§14.2 c).
-    expect(await page.evaluate(() => history.length)).toBe(before + 1);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
-  });
-
-  test("after 25 s Retry loads the destination in full", async ({
-    page,
-    isMobile,
-    reloadGuard,
-  }) => {
-    test.skip(!isMobile, "measured on the installed phone");
-    // The full load is the point of this test (§14.2 i).
-    reloadGuard.allow(/.*/);
-    await runInstalled(page);
-    await page.clock.install();
-    await holdScreen(page, "/tasks");
-    await page.goto("/today");
-    await hydrated(page);
-    await page.evaluate(() => {
-      (window as unknown as { __sameDocument: boolean }).__sameDocument = true;
+  test.beforeAll(async ({}, info) => {
+    if (!info.project.use.isMobile) return;
+    const title = slowTaskTitle(info.project.name);
+    await removeTasksTitled(title);
+    const staff = await memberIdOf(USERS.staff.email);
+    await rpcAs(USERS.owner.email, USERS.owner.password, "task_create", {
+      title,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: new Date(systemClock().getTime() + 60 * 60 * 1000).toISOString(),
+      assignee_ids: [staff],
+      primary_owner_id: staff,
+      approving_admin_id: null,
+      stages: [],
     });
-    await bottomTab(page, "/tasks").click();
-    await page.clock.fastForward(26_000);
-    const status = page.locator('[data-slot="nav-progress-status"]');
-    await status.getByRole("button", { name: "Retry" }).click();
-    await expect(page).toHaveURL(/\/tasks$/);
-    await expect(pageHeader(page).getByRole("heading", { name: "Tasks" })).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true,
-      ),
-      "a full load: a new document",
-    ).toBe(false);
   });
+  test.afterAll(async ({}, info) => {
+    if (info.project.use.isMobile) await removeTasksTitled(slowTaskTitle(info.project.name));
+  });
+
+  // Each slow move once as a bar tab and once as a task row. A task row's tap the router cannot
+  // answer from a prefetch is the app's own drawing (`TaskTapSkeleton`): the copy moves the
+  // address at once, and the line and Retry must still come for it, Retry staying on the task.
+  for (const slow of SLOW_MOVES) {
+    test(`after 8 s one quiet line: Still loading, Retry; Retry adds no entry (${slow.name})`, async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "installed tabs: the back stack is the point");
+      await runInstalled(page);
+      await page.clock.install();
+      const held = await slow.hold(page);
+      await page.goto(slow.from);
+      await hydrated(page);
+      await slow.ready(page);
+      const before = await page.evaluate(() => history.length);
+
+      await slow.tap(page).click();
+      await slow.drawn(page);
+      const status = page.locator('[data-slot="nav-progress-status"]');
+      // The bar alone for the first 8 s.
+      await page.clock.fastForward(7_000);
+      await expect(status).toHaveCount(0);
+      await expect(html(page)).toHaveAttribute("data-nav-pending", /\d+/);
+      await page.clock.fastForward(1_500);
+      await expect(status).toHaveText("Still loadingRetry");
+      const retry = status.getByRole("button", { name: "Retry" });
+      // Quiet: underlined text, not a boxed or red button; still a 44px target.
+      await expect(retry).toHaveCSS("text-decoration-line", "underline");
+      expect((await retry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      await retry.click();
+      // Retry repeats the move; it never leaves it (the copy's "tap elsewhere" rule).
+      await expect(page).toHaveURL(slow.held);
+      await held.release();
+      await page.clock.runFor(1_000);
+      await expect(slow.arrived(page)).toBeVisible();
+      await page.clock.runFor(1_000);
+      await expect(html(page)).not.toHaveAttribute("data-nav-pending");
+      await expect(status).toHaveCount(0);
+      // One move pushes one entry, however many times it was asked for (§14.2 c).
+      expect(await page.evaluate(() => history.length)).toBe(before + 1);
+      await page.goBack();
+      await expect(page).toHaveURL(new RegExp(`${slow.from}$`));
+    });
+
+    test(`after 25 s Retry loads the destination in full (${slow.name})`, async ({
+      page,
+      isMobile,
+      reloadGuard,
+    }) => {
+      test.skip(!isMobile, "measured on the installed phone");
+      // The full load is the point of this test (§14.2 i).
+      reloadGuard.allow(/.*/);
+      await runInstalled(page);
+      await page.clock.install();
+      await slow.hold(page);
+      await page.goto(slow.from);
+      await hydrated(page);
+      await slow.ready(page);
+      const before = await page.evaluate(() => history.length);
+      await page.evaluate(() => {
+        (window as unknown as { __sameDocument: boolean }).__sameDocument = true;
+      });
+      await slow.tap(page).click();
+      await slow.drawn(page);
+      await page.clock.fastForward(26_000);
+      // Still on the move at 25 s: the copy has not given it up.
+      await expect(page).toHaveURL(slow.held);
+      const status = page.locator('[data-slot="nav-progress-status"]');
+      await status.getByRole("button", { name: "Retry" }).click();
+      await expect(page).toHaveURL(slow.at);
+      await expect(slow.arrived(page)).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true,
+        ),
+        "a full load: a new document",
+      ).toBe(false);
+      expect(await page.evaluate(() => history.length)).toBe(before + 1);
+    });
+  }
 
   test("closing a sheet never starts the bar, even after a beforeunload that did not unload", async ({
     page,

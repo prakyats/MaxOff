@@ -4,6 +4,63 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v2.0.1: flexible comp leave
+
+**Ships in one combined release with v2.1 to v4.5 (owner, 26 Nov 2026, #89 7182409206);** no `v2.0.1` tag of its
+own. Walk passed on `91b22fb1`, speed gate by the same-machine A/B (method accepted), India check waived for this
+part (owner, 26 Nov, #89 7182356694). PR #151 (branch `claude/lucid-turing-sfdv10`). One expand-only migration,
+`split_leave_days`.
+
+The owner's words (23 and 25 Nov 2026): "make the requirements as flexible as possible so people can make use of
+their comp leave, half day or full day; if it's a half-day comp leave, the other half can be their normal leave."
+
+### What the Crew (and Admins) will notice
+- **Two halves of one day can be different kinds.** Morning and afternoon can each be off on their own: ½ comp
+  leave in the morning and ½ leave in the afternoon, two comp halves, or two ordinary halves. A half that is already
+  taken is named: "You already have the morning off on 25 Nov. Request the afternoon instead."
+- **"Full day: ½ comp + ½ leave" in one go.** With half a day of comp leave, Request leave offers it: pick the date
+  and which half is comp; the other half is ordinary leave. It shows as one card, "Full day · ½ comp + ½ leave".
+- **Each half says which half it is:** "Half day · morning off", "Half day · comp · afternoon off".
+- **Once approved, each half can be cancelled on its own** ("Ask to cancel the afternoon"); a cancelled comp half
+  gives its ½ day back.
+
+### What the Owner will notice
+- **Approvals shows a split day as one row** ("Full day · ½ comp (morning) + ½ leave"): one Approve or Reject
+  decides both halves, and the badge counts it once.
+- **Edit** on a half day asks which half is off and can use ½ comp leave; **Correct** can set a half day (which
+  half), a ½ comp day, or a full day of ½ comp + ½ leave.
+- **The month counts it fairly:** a day of ½ comp + ½ leave is ½ comp leave and ½ additional leave; nothing worked.
+- A holiday added on such a day gives the comp half back and keeps the ordinary half.
+
+### Fixed
+- **A change request lost the half of a half day.** Asking to change (or cancel) a half day kept no record of which
+  half was off, so the Late and leaving-early rules stopped applying correctly. The half is now kept.
+- **The Owner's Edit turned a ½ comp day into ordinary leave.** Editing a half comp day dropped its half and released
+  its comp credit; the edited day became ordinary leave. Edit now keeps the half and the ½ comp unless the Owner
+  changes them.
+
+### Security (folded in on 25 Nov, the advisor's word; #89)
+`pnpm audit --prod` on `main` showed 4 critical advisories. This release:
+- **Closes the image optimizer**, because MaxOff serves no `next/image`. That kills Next's image
+  remote code execution and SSRF whatever the Next version:
+  - `images.unoptimized` makes Next answer 404;
+  - the Worker refuses `/_next/image` with a 404 before OpenNext, which answers that route itself
+    and does not read the setting.
+  - Today `main`'s build answers that route `200 image/png` on staging.
+- **@sentry/nextjs → 10.78.0:** the tunnel bypass (critical); MaxOff sets no tunnel route.
+- **zod → 4.6.7:** memory exhaustion.
+- **undici → 7.30.2:** four highs, through `shadcn`'s tooling.
+
+**Next stays 16.3.5 for now.** 16.4.6 broke a tab tap after a cold reopen of the installed app
+(`e2e/instant-skeleton.spec.ts`, at 375 and 430). The upgrade is its own follow-up. Until then, two
+critical advisories on next remain for features MaxOff does not use (`use cache`, `next/og`), plus the
+Server Actions denial of service (high).
+
+**The Crew will notice nothing.**
+
+### Nothing happens on its own
+No job, no backfill: existing requests and days are untouched. A day already recorded keeps its status.
+
 ## v2.0: fast and settled
 
 **Released Sat 14 Nov 2026, about 12:40 IST** (tag `v2.0` on `main` 6e9f19cc, PR #143; the Owner approved the production deploy, run 43569568961: 14 migrations applied, smoke checks passed). The tag is `v2.0`, not `v2.0.0`.

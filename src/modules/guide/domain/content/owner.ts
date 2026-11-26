@@ -263,6 +263,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "Approve gives a 6-second Undo. The review also links to the person's leave page.",
             ),
+            text(
+              'A full day of ½ comp + ½ leave is one row, such as "Full day · ½ comp (morning) + ½ leave": Approve or Reject decides both halves. A half day says which half is off, such as "Half day · comp · afternoon off".',
+            ),
             note("A reason is required to reject a request."),
           ],
           link: { href: "/approvals", label: "Open Approvals" },
@@ -322,8 +325,8 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/person-leave",
               },
               'To take it back, tap "Revoke".',
-              'On approved leave, tap "Edit" to change it ("Edit this leave").',
-              'Tap "Cancel leave" to cancel it.',
+              'On approved leave, tap "Edit" to change it ("Edit this leave"). A half day asks "Which half is off?" and offers "Use ½ comp leave for this half".',
+              'Tap "Cancel leave" to cancel it. A full day of ½ comp + ½ leave has each half\'s own Edit and Cancel, such as "Cancel the morning"; a cancelled comp half gives its ½ day back.',
             ),
             next("A change adds a history entry beside the original. Nothing is deleted."),
             note("Revoke needs a reason."),
@@ -346,6 +349,9 @@ export const OWNER_GUIDE: Guide = {
               'Enter the right details and save. Times use the 12-hour clock, such as "9:30 am"; an empty time reads "Choose a time".',
             ),
             next("The original stays in the history. A correction sits alongside it."),
+            text(
+              'For leave, Correct can set a Half day (it asks "Which half was off?"), "Use ½ comp leave for this half", or "Full day: ½ comp + ½ leave" with the comp half. A day like that reads "Off · ½ comp + ½ leave".',
+            ),
             text(
               'Rows carry no buttons: tap a day to open it. A day still waiting for you shows the green "Approve as present" (or absent) beside "Correct…": the same approval as on Approvals. A row also says "Late 22 min · “Traffic”" or "Left early, not answered" when that happened. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
             ),

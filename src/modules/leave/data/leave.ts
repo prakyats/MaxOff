@@ -4,9 +4,11 @@ import { createServerSupabase } from "@/core/db/server";
 
 import {
   LEAVE_SOURCES,
+  type LeaveHalf,
   type LeaveSource,
   type LeaveType,
   type OwnLeaveRequest,
+  toHalf,
 } from "../domain/requests";
 
 /**
@@ -18,7 +20,7 @@ import {
 export const LEAVE_PAGE_SIZE = 20;
 
 const REQUEST_COLUMNS =
-  "id, type, start_date, end_date, reason, state, source, supersedes_id, requests_cancellation, decision_reason, created_at, credit_days, original:leave_requests!supersedes_id(type, start_date, end_date)";
+  "id, type, start_date, end_date, reason, state, source, supersedes_id, requests_cancellation, decision_reason, created_at, credit_days, half, pair_id, original:leave_requests!supersedes_id(type, start_date, end_date)";
 
 /**
  * The check constraint allows exactly these three. An unknown one fails loudly: guessing
@@ -90,6 +92,8 @@ export async function listRequests(
         : null,
       hasOpenChange: openChanges.has(row.id),
       creditDays: row.credit_days === null ? null : Number(row.credit_days),
+      half: toHalf(row.half),
+      pairId: row.pair_id,
     };
   });
   return { requests, total: list.count ?? requests.length };
@@ -110,6 +114,25 @@ export async function rpcSubmitComp(input: {
     ...(input.halfDay && input.half ? { half: input.half } : {}),
   });
   if (error) throw error;
+}
+
+/**
+ * v2.0.1 "Full day: ½ comp + ½ leave" (`leave_submit_split`): both halves of one date at once, the
+ * comp half's ½ credit reserved with it. Returns the pair's id.
+ */
+export async function rpcSubmitSplit(input: {
+  date: string;
+  compHalf: LeaveHalf;
+  reason: string | null;
+}): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("leave_submit_split", {
+    work_date: input.date,
+    comp_half: input.compHalf,
+    ...(input.reason ? { reason: input.reason } : {}),
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function rpcSubmit(input: {
@@ -141,7 +164,14 @@ export async function rpcRequestChange(
   requestId: string,
   change:
     | { cancel: true; reason: string | null }
-    | { cancel: false; type: LeaveType; startDate: string; endDate: string; reason: string | null },
+    | {
+        cancel: false;
+        type: LeaveType;
+        startDate: string;
+        endDate: string;
+        reason: string | null;
+        half?: LeaveHalf | null;
+      },
 ): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc(
@@ -154,6 +184,9 @@ export async function rpcRequestChange(
           start_date: change.startDate,
           end_date: change.endDate,
           ...(change.reason ? { reason: change.reason } : {}),
+          // v2.0.1: the chosen half of a half-day change (the function keeps the original's
+          // otherwise).
+          ...(change.type === "half_day" && change.half ? { half: change.half } : {}),
         },
   );
   if (error) throw error;
