@@ -2,6 +2,7 @@ import { type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
+import { recordOnFailure } from "./failure-record";
 import { hydrated, pageHeader, runInstalled, storageStateFor } from "./helpers";
 
 /**
@@ -21,6 +22,43 @@ async function spyViewTransitions(page: Page) {
   await page.addInitScript(() => {
     const recorded: { types: string[]; animations: string[] }[] = [];
     (window as unknown as { __vt: typeof recorded }).__vt = recorded;
+    // CI-only (45740396122, 375 px): a forward slide whose new page never slid in. On failure the
+    // error carries each transition's moments and, at each, whether the route was shown, beside
+    // the slide's name, the tap skeleton's copy and the navigation's pending mark.
+    const zero = performance.now();
+    const log: string[] = [];
+    (window as unknown as { __vtLog: string[] }).__vtLog = log;
+    const note = (what: string) => {
+      const main = document.getElementById("main");
+      const route = document.querySelector('#main > [data-slot="route"]');
+      const root = document.documentElement;
+      log.push(
+        `+${Math.round(performance.now() - zero)}ms ${what} | slide=${root.getAttribute("data-nav-slide") ?? "-"} pending=${String(root.hasAttribute("data-nav-pending"))} tap-skeleton=${String(main?.hasAttribute("data-tap-skeleton") ?? false)} copy=${String(document.querySelector('[data-slot="tap-skeleton"]') !== null)} route=${route ? getComputedStyle(route).display : "none-in-dom"} at ${location.pathname}`,
+      );
+      if (log.length > 200) log.splice(0, log.length - 200);
+    };
+    new MutationObserver((changes) => {
+      for (const change of changes) {
+        if (change.type === "attributes") {
+          note(`attr ${change.attributeName ?? ""}`);
+          continue;
+        }
+        for (const [kind, nodes] of [
+          ["added", change.addedNodes],
+          ["removed", change.removedNodes],
+        ] as const) {
+          for (const node of nodes) {
+            const slot = node instanceof Element ? node.getAttribute("data-slot") : null;
+            if (slot === "route" || slot === "tap-skeleton") note(`${kind} ${slot}`);
+          }
+        }
+      }
+    }).observe(document, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["data-nav-slide", "data-nav-pending", "data-tap-skeleton"],
+    });
     const real = document.startViewTransition?.bind(document);
     if (!real) return;
     document.startViewTransition = ((arg: unknown) => {
@@ -38,9 +76,20 @@ async function spyViewTransitions(page: Page) {
         skipped: undefined as string | undefined,
       };
       recorded.push(entry);
+      note(`view transition ${recorded.length} start (${entry.types.join(",")})`);
       const transition = real(arg as never);
+      const index = recorded.length;
+      void transition.updateCallbackDone.then(
+        () => note(`view transition ${index} update done`),
+        () => note(`view transition ${index} update failed`),
+      );
+      void transition.finished.then(
+        () => note(`view transition ${index} finished`),
+        () => note(`view transition ${index} finished (rejected)`),
+      );
       transition.ready
         .then(() => {
+          note(`view transition ${index} ready`);
           entry.animations = document
             .getAnimations()
             .filter((a) =>
@@ -78,6 +127,17 @@ async function slides(page: Page): Promise<string[]> {
   );
 }
 
+/** `expect.poll(slides).toEqual(expected)`, with the transitions' record on failure. */
+async function expectSlides(page: Page, expected: string[]): Promise<void> {
+  await recordOnFailure(
+    () => expect.poll(() => slides(page)).toEqual(expected),
+    async () =>
+      (await page.evaluate(() => (window as unknown as { __vtLog?: string[] }).__vtLog ?? [])).join(
+        "\n",
+      ),
+  );
+}
+
 const FORWARD = ["nav-forward:nav-slide-from-end", "nav-forward:nav-slide-to-start"];
 const BACK = ["nav-back:nav-slide-from-start", "nav-back:nav-slide-to-end"];
 
@@ -109,12 +169,12 @@ test.describe("installed at phone width: drill-down slides", () => {
 
   test("a drill-down slides in, the on-screen back slides it out", async ({ page }) => {
     await openPersonFromToday(page);
-    await expect.poll(() => slides(page)).toEqual(FORWARD);
+    await expectSlides(page, FORWARD);
 
     await expect(page.getByRole("link", { name: "Back to Everyone today" })).toBeVisible();
     await backControl(page).click();
     await expect(page).toHaveURL(/\/today\/people$/);
-    await expect.poll(() => slides(page)).toEqual([...FORWARD, ...BACK]);
+    await expectSlides(page, [...FORWARD, ...BACK]);
   });
 
   test("opened directly, the on-screen back replaces with the same slide", async ({ page }) => {
@@ -128,7 +188,7 @@ test.describe("installed at phone width: drill-down slides", () => {
     await hydrated(fresh);
     await backControl(fresh).click();
     await expect(fresh).toHaveURL(/\/people$/);
-    await expect.poll(() => slides(fresh)).toEqual(BACK);
+    await expectSlides(fresh, BACK);
   });
 
   test("a drill-down from inside a sheet slides in", async ({ page }) => {
@@ -140,12 +200,12 @@ test.describe("installed at phone width: drill-down slides", () => {
     await sheet.getByRole("link", { name: "Edit" }).click();
     await expect(page).toHaveURL(/\/people\/[^/]+$/);
     await expect(sheet).toBeHidden();
-    await expect.poll(() => slides(page)).toEqual(FORWARD);
+    await expectSlides(page, FORWARD);
   });
 
   test("the system back, a view control and a tab switch do not slide", async ({ page }) => {
     await openPersonFromToday(page);
-    await expect.poll(() => slides(page)).toEqual(FORWARD);
+    await expectSlides(page, FORWARD);
 
     // A view control: the person's other view, a new path through `ViewLink`.
     await page

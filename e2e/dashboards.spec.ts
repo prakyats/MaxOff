@@ -328,18 +328,39 @@ test.describe("Crew: My Day (6.1)", () => {
     await page.evaluate(() => {
       // Who re-reads (CI 45711005375: the second /leave fetch was a refresh sent from /leave's
       // tree, 318 ms after the change was heard): every `router.refresh()` with where it came from.
-      const router = (window as unknown as { next?: { router?: { refresh: () => void } } }).next
-        ?.router;
+      type Router = Record<"refresh" | "push" | "replace", (...args: unknown[]) => void>;
+      const router = (window as unknown as { next?: { router?: Router } }).next?.router;
+      const stack = () => (new Error().stack ?? "").split("\n").slice(2, 8).join(" < ");
+      // CI 45740396122: the second fetch came with no router.refresh() logged, so whether the
+      // wrapper was in place, the router's other calls, and every /leave screen fetch's caller.
+      console.warn(`[record] router wrapped=${String(router !== undefined)}`);
       if (router) {
-        const refresh = router.refresh.bind(router);
-        router.refresh = () => {
-          const root = document.documentElement;
-          console.warn(
-            `[record] router.refresh at ${location.pathname} live=${root.dataset.live ?? ""} dashboard=${root.dataset.liveDashboard ?? ""} pending=${String(root.hasAttribute("data-nav-pending"))} stack=${(new Error().stack ?? "").split("\n").slice(1, 7).join(" < ")}`,
-          );
-          refresh();
-        };
+        for (const method of ["refresh", "push", "replace"] as const) {
+          const original = router[method].bind(router);
+          router[method] = (...args: unknown[]) => {
+            const root = document.documentElement;
+            console.warn(
+              `[record] router.${method}(${args.map((arg) => JSON.stringify(arg)).join(", ")}) at ${location.pathname} live=${root.dataset.live ?? ""} dashboard=${root.dataset.liveDashboard ?? ""} pending=${String(root.hasAttribute("data-nav-pending"))} stack=${stack()}`,
+            );
+            original(...args);
+          };
+        }
       }
+      const fetchOriginal = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const href =
+          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        const headers = new Headers(
+          init?.headers ?? (input instanceof Request ? input.headers : undefined),
+        );
+        if (
+          new URL(href, location.href).pathname === "/leave" &&
+          headers.get("rsc") === "1" &&
+          !headers.get("next-router-prefetch")
+        )
+          console.warn(`[record] page fetch /leave at ${location.pathname} stack=${stack()}`);
+        return fetchOriginal(input, init);
+      };
       for (const kind of ["focus", "blur", "pageshow"])
         window.addEventListener(kind, () => console.warn(`[record] ${kind}`));
       document.addEventListener("visibilitychange", () =>
