@@ -1,6 +1,7 @@
 -- 1.3 Team: list_items for every role, members.job_title_id, and the membership transitions
 -- (invite, invite link refresh, accept, deactivate incl. auth session deletion, reactivate).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(97);
 

@@ -10,6 +10,7 @@
 -- And a task started from a template with no list of its own follows the template's through
 -- tasks.template_id (app.task_reminder_rules); nothing is copied onto the task.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(28);
 
