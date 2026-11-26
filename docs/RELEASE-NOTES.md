@@ -6,8 +6,8 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ## v3.5: month close
 
-**Not released yet.** Release candidate: `phase-v35` (built on `phase-v21-money`, so it ships after v2.1). The
-head named in #89's READY FOR OWNER post; the guide's pictures, full CI and the speed gate are still owed.
+**Not released yet. Ships in the combined release after v4.5** (owner decision, #89: one production release covers v2.0.1 → v4.5; v3.5 merges after v3.0). Release candidate: `phase-v35` (built on `phase-v21-money`). The
+head named in #89's READY FOR OWNER post (full CI green, the speed gate passed, the guide's pictures retaken).
 
 The second part of Revenue (phase 9, 9.4): the Owner can **close a month**, which saves its revenue report as it
 is, and **correct** it later as a new version. **Only the Owner sees any of it.** Admins and the Crew are never

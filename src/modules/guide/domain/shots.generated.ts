@@ -698,7 +698,7 @@ export const GUIDE_SHOTS: Readonly<
   "owner/reports": {
     src: "/guide/owner/reports.webp",
     width: 1220,
-    height: 582,
+    height: 656,
     alt: "Reports with the Month report highlighted.",
   },
   "owner/report-month-counts": {
