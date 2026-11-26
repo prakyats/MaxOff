@@ -1,5 +1,6 @@
 import { type Locator, type Page, type TestInfo } from "@playwright/test";
 
+import { recordOnFailure } from "./failure-record";
 import { expect, test } from "./fixtures";
 
 import { addISTDays, todayIST } from "../src/core/time";
@@ -138,7 +139,22 @@ test('End day\'s "Any expenses to claim today?", and an Admin never sees a claim
     .getByRole("button", { name: "End day" })
     .click();
   const confirm = page.getByRole("alertdialog", { name: "End your day?" });
-  await expect(confirm.getByRole("radio", { name: "No" })).toBeChecked();
+  // CI 45721772197 (375 px): the dialog had no "No" answer within 5 s, never locally. On failure
+  // the error carries what the dialog held then and whether the page had hydrated.
+  await recordOnFailure(
+    () => expect(confirm.getByRole("radio", { name: "No" })).toBeChecked(),
+    async () =>
+      JSON.stringify(
+        await page.evaluate(() => ({
+          dialogs: [...document.querySelectorAll('[role="alertdialog"], [role="dialog"]')].map(
+            (node) => (node.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 300),
+          ),
+          radios: document.querySelectorAll('[role="alertdialog"] [role="radio"]').length,
+          chrome: document.documentElement.getAttribute("data-chrome"),
+          url: location.pathname,
+        })),
+      ),
+  );
   await confirm.getByRole("radio", { name: "Yes" }).check();
   await confirm.getByRole("button", { name: "End day, add expenses" }).click();
   await expect(confirm).toBeHidden();
