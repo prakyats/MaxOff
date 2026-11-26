@@ -200,12 +200,19 @@ export function fileChip(file: UploaderSheetFile): Chip {
 }
 
 /** The line under a file's name: its size and time, or how far it got. */
+const NO_BREAK_SPACE = String.fromCharCode(160);
+
+/** "7:15 am" never splits across two lines on a phone (release review, 26 Nov). */
+function keepTimeTogether(text: string): string {
+  return text.replace(/ (am|pm)\b/g, `${NO_BREAK_SPACE}$1`);
+}
+
 export function fileLine(file: UploaderSheetFile, now: Date): string {
   switch (file.state) {
     case "done":
     case "missing_in_drive":
       return file.doneAt
-        ? `${sizeWords(file.sizeBytes)} · ${whenWords(file.doneAt, now)}`
+        ? `${sizeWords(file.sizeBytes)} · ${keepTimeTogether(whenWords(file.doneAt, now))}`
         : sizeWords(file.sizeBytes);
     case "uploading": {
       const sent = Math.max(file.bytesAtGoogle, file.bytesReported);
@@ -281,7 +288,7 @@ export function receivedCopy(input: {
         confirm: "Received, mark Done",
       }
     : {
-        description: `This stops the upload link. ${input.primaryName} (the task's primary) gets "Files received for ${input.taskTitle}: mark it done".`,
+        description: `This stops the upload link. ${input.primaryName} (the task's primary owner) gets "Files received for ${input.taskTitle}: mark it done".`,
         facts,
         stillUploading,
         confirm: "Files received",

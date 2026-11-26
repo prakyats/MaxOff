@@ -548,7 +548,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On tasks you created, approve, or whose freelancer you coordinate, the Work view has an Uploads card. Make a link there and send it to a freelancer or cameraman: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff.",
+              text: "On tasks you created, approve, or whose freelancer you coordinate, the Work view has an Uploads card. Make a link there and send it to a freelancer or camera operator: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff.",
             },
             {
               kind: "steps",
@@ -570,7 +570,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "All files received stops the link. If you coordinate the task's freelancer, it also marks the task Done for them and it goes for approval as usual; otherwise the task's primary is told \"Files received: mark it done\".",
+              text: "All files received stops the link. If you coordinate the task's freelancer, it also marks the task Done for them and it goes for approval as usual; otherwise the task's primary owner is told \"Files received: mark it done\".",
             },
             {
               kind: "text",

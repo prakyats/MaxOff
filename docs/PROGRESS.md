@@ -380,8 +380,9 @@
        - **Follow-ups (not done):**
          - plan J says `scripts/smoke-deploy.sh` "gains /upload checks". It has none yet, and it is part of the production pipeline, so it is the advisor's call;
          - check J5 on staging's own address after the merge.
+    5. **The release review is done** (`docs/reviews/v4.5/release-review.md`): an architecture review (one must-fix, the recursive NUL walk, plus four should-fixes) and the design passes (two must-fixes, the sheet's wrapping at 375 px and the colour rule on All files received, plus three should-fixes). All are fixed with tests (02c3fa77 and the design commit). It changed the guide text (cameraman, "primary owner"), so the guide pictures are re-taken at 11:20 IST.
   - **Next:**
-    4. **The release review:** design critique, Impeccable audit, design-system, ux-copy, accessibility.
+    4. ~~The release review~~ (done, above): design critique, Impeccable audit, design-system, ux-copy, accessibility.
     5. **READY FOR OWNER:**
        - the walk script (phone and laptop uploads, the card, Removed in Drive, All files received on both paths, the toasts unchanged);
        - the leftover risks to accept;

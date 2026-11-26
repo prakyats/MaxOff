@@ -400,13 +400,14 @@ test.describe("the task's Admin", () => {
     await cardLive(page);
 
     const uploads = card(page);
-    // The Admin has no other next step here, so it is the page's one solid button.
+    // The Admin has no other next step here, so it is the page's one solid button: neutral, as
+    // its sheet's commit only tells the primary owner (Forest is for a commit that marks Done).
     const received = page.locator('[data-slot="uploads-received"]');
-    await expect(received).toHaveAttribute("data-variant", "approve");
+    await expect(received).toHaveAttribute("data-variant", "strong");
     await received.click();
     const sheet = page.getByRole("alertdialog");
     await expect(sheet).toContainText(
-      `(the task's primary) gets "Files received for ${title}: mark it done".`,
+      `(the task's primary owner) gets "Files received for ${title}: mark it done".`,
     );
     await expect(sheet).toContainText("2 files are still uploading from Sam and Alex.");
     await sheet.getByRole("button", { name: "Files received" }).click();
@@ -451,6 +452,50 @@ test.describe("the task's Admin", () => {
       { closes: confirm, url: new RegExp(`/tasks/${taskId}$`) },
       { url: /\/tasks$/ },
     ]);
+  });
+});
+
+test.describe("the Owner, on their own task", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("All files received also marks it Done: its sheet commits in Forest (ADR-0015)", async ({
+    page,
+  }, info) => {
+    const title = titleOf(info, "own");
+    await removeUploadTasks(title);
+    const ownerId = await memberIdOf(owner.email);
+    const taskId = await rpcAs<string>(owner.email, owner.password, "task_create", {
+      title,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(addISTDays(todayIST(), 3), "18:00"),
+      assignee_ids: [ownerId],
+      primary_owner_id: ownerId,
+      approving_admin_id: null,
+      stages: ["Shoot"],
+    });
+    const linkId = await rpcAs<string>(owner.email, owner.password, "upload_link_create", {
+      p_task_id: taskId,
+    });
+    await seedUploaders(taskId, linkId);
+    await openTask(page, taskId);
+    await cardLive(page);
+
+    // The task page's own Mark done is this layer's solid action, so the card's is the outline;
+    // the sheet it opens commits in Forest, as it marks the task Done.
+    const received = page.locator('[data-slot="uploads-received"]');
+    await expect(received).toHaveAttribute("data-variant", "secondary");
+    await received.click();
+    const sheet = page.getByRole("alertdialog");
+    await expect(sheet).toContainText(`completes ${title}`);
+    await expect(sheet.getByRole("button", { name: "Received, mark Done" })).toHaveAttribute(
+      "data-variant",
+      "approve",
+    );
+    await sheet.getByRole("button", { name: "Not yet" }).click();
+    await expect(sheet).toBeHidden();
   });
 });
 

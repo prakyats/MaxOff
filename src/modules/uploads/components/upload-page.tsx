@@ -357,7 +357,7 @@ export function UploadPage({ contact }: { contact: string | null }) {
   if (phase.kind === "loading") return <Shell studio={null} name={null} />;
   if (phase.kind === "bad") {
     return (
-      <Shell studio="MaxOff" name={null}>
+      <Shell studio={false} name={null}>
         <Centre mark="stop" title="This upload link doesn't work any more" slot="upload-bad">
           The job may be finished, or the studio stopped the link. Ask the person who sent it to you
           for a new one.
@@ -367,7 +367,7 @@ export function UploadPage({ contact }: { contact: string | null }) {
   }
   if (phase.kind === "busy") {
     return (
-      <Shell studio="MaxOff" name={null}>
+      <Shell studio={false} name={null}>
         <Centre mark="stop" title="Slow down a moment" slot="upload-busy">
           Too many tries from this network in a short time. Reload this page in about a minute.
         </Centre>
@@ -423,7 +423,7 @@ export function UploadPage({ contact }: { contact: string | null }) {
           Forgot something? You can still send it with this link.
         </p>
         <Dock>
-          <Button variant="secondary" className="w-full" onClick={sendMore}>
+          <Button variant="secondary" className="w-full md:w-auto" onClick={sendMore}>
             Send more files
           </Button>
         </Dock>
@@ -462,7 +462,7 @@ export function UploadPage({ contact }: { contact: string | null }) {
       {moving ? (
         <Band tone="attention" slot="upload-keep-open">
           <b>Keep this page open until it says Done.</b> Closing it or locking your screen pauses
-          the upload; it carries on when you come back.
+          the upload; it continues when you come back.
         </Band>
       ) : null}
       {carryingOn ? (
@@ -664,7 +664,8 @@ function Shell({
   onDrop,
   onChangeName,
 }: {
-  studio: string | null;
+  /** The studio's name; null while loading (a placeholder); false: no studio is known, show none. */
+  studio: string | null | false;
   name: string | null;
   children?: React.ReactNode;
   onDrop?: ((files: File[]) => void) | undefined;
@@ -696,15 +697,22 @@ function Shell({
       }
     >
       <header className="border-border bg-background flex h-13 items-center gap-2.5 border-b px-4 pt-[env(safe-area-inset-top)] md:px-6">
-        <span
-          aria-hidden
-          className="bg-logo text-logo-foreground grid size-7 place-items-center rounded-md text-sm font-semibold"
-        >
-          {(studio ?? "M").slice(0, 1).toUpperCase()}
-        </span>
-        <span className="flex-1 truncate font-semibold" data-slot="upload-studio">
-          {studio ?? <span className="bg-muted inline-block h-4 w-28 animate-pulse rounded" />}
-        </span>
+        {/* An outsider never sees "MaxOff": with no studio known, the header stays empty. */}
+        {studio === false ? (
+          <span className="flex-1" />
+        ) : (
+          <>
+            <span
+              aria-hidden
+              className="bg-logo text-logo-foreground grid size-7 place-items-center rounded-md text-sm font-semibold"
+            >
+              {studio ? studio.slice(0, 1).toUpperCase() : null}
+            </span>
+            <span className="flex-1 truncate font-semibold" data-slot="upload-studio">
+              {studio ?? <span className="bg-muted inline-block h-4 w-28 animate-pulse rounded" />}
+            </span>
+          </>
+        )}
         {name ? (
           <span className="text-muted-foreground flex items-center gap-2 text-sm">
             <span className="hidden md:inline">Sending as</span>
@@ -865,10 +873,14 @@ function FileRow({
         {tagOf(name)}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate font-medium" data-slot="upload-file-name">
+        {/* Wrapped, never cut: a long camera file name keeps its extension (release review). */}
+        <span
+          className="line-clamp-2 font-medium [overflow-wrap:anywhere]"
+          data-slot="upload-file-name"
+        >
           {name}
         </span>
-        {path ? <span className="text-faint truncate text-xs">{path}</span> : null}
+        {path ? <span className="text-faint text-xs [overflow-wrap:anywhere]">{path}</span> : null}
         <span className="text-muted-foreground text-xs tabular-nums">{line}</span>
       </span>
       {retry ? (

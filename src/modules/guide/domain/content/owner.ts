@@ -630,7 +630,7 @@ export const OWNER_GUIDE: Guide = {
             "A private link that lets anyone send files straight into the task's Drive folder.",
           blocks: [
             text(
-              "Every task's Work view has an Uploads card for you (and for the task's Admins). Make a link there and send it to a freelancer or cameraman: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff. The studio's Drive must be connected first (Settings, then Google Drive).",
+              "Every task's Work view has an Uploads card for you (and for the task's Admins). Make a link there and send it to a freelancer or camera operator: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff. The studio's Drive must be connected first (Settings, then Google Drive).",
             ),
             steps(
               "Open the task. In Work, tap Get upload link on the Uploads card.",
@@ -639,7 +639,7 @@ export const OWNER_GUIDE: Guide = {
               "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received and confirm.",
             ),
             next(
-              "All files received stops the link. On your own task it also marks it Done; on a freelancer's task you coordinate, Done for them; otherwise the task's primary is told \"Files received: mark it done\".",
+              "All files received stops the link. On your own task it also marks it Done; on a freelancer's task you coordinate, Done for them; otherwise the task's primary owner is told \"Files received: mark it done\".",
             ),
             text(
               'Chips on a row: Uploading; "Not on this task · new name" (only information); Stuck (red: nothing has moved for 15 min); Said "I\'m done"; Looks finished (amber: every file is in and nothing has moved for 10 min). You are told if Google\'s daily upload limit is reached or a file is waiting for space in the Drive.',

@@ -179,23 +179,25 @@ function FileRow({ file, now }: { file: UploaderSheetFile; now: Date }) {
   const openable = file.state === "done" && file.driveFileId !== null;
   return (
     <li
-      className="border-border flex min-h-15 min-w-0 items-center gap-3 border-t px-4 py-2.5 first:border-t-0"
+      // A grid: on a phone the chips sit under the name, so the name keeps the row's width; from
+      // md they take their own column (release review, 26 Nov).
+      className="border-border grid min-h-15 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t px-4 py-2.5 first:border-t-0 md:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
       data-slot="uploader-file"
       data-state={file.state}
     >
       <span
         aria-hidden
-        className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg text-xs font-semibold"
+        className="bg-muted text-muted-foreground row-span-2 grid size-9 shrink-0 place-items-center self-start rounded-lg text-xs font-semibold md:row-span-1 md:self-center"
       >
         {fileTag(file.name)}
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
+      <span className="col-start-2 row-start-1 flex min-w-0 flex-col gap-1">
         {/* The full name, as text only (plan D2, D3): long names wrap, never cut. */}
-        <span className="font-medium break-all" data-slot="uploader-file-name">
+        <span className="font-medium [overflow-wrap:anywhere]" data-slot="uploader-file-name">
           {file.name}
         </span>
         {file.relativePath ? (
-          <span className="text-faint text-xs break-all">{file.relativePath}</span>
+          <span className="text-faint text-xs [overflow-wrap:anywhere]">{file.relativePath}</span>
         ) : null}
         <span className="text-muted-foreground text-xs">{fileLine(file, now)}</span>
         {notes.map((note) => (
@@ -204,7 +206,7 @@ function FileRow({ file, now }: { file: UploaderSheetFile; now: Date }) {
           </span>
         ))}
       </span>
-      <span className="flex shrink-0 flex-col items-end gap-1">
+      <span className="col-start-2 row-start-2 flex flex-wrap gap-1 md:col-start-3 md:row-start-1 md:flex-col md:items-end">
         <StatusBadge status={`file-${file.state}`} label={chip.label} tone={chip.tone} />
         {risky ? (
           <StatusBadge status="file-check" label="Check before opening" tone="neutral" />
@@ -217,7 +219,7 @@ function FileRow({ file, now }: { file: UploaderSheetFile; now: Date }) {
               variant="ghost"
               size="icon"
               aria-label={`Actions for ${file.name}`}
-              className="size-11 shrink-0 md:size-8"
+              className="col-start-3 row-span-2 row-start-1 size-11 shrink-0 md:col-start-4 md:row-span-1 md:size-8"
             >
               <MoreHorizontalIcon aria-hidden />
             </Button>

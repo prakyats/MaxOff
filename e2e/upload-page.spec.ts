@@ -220,7 +220,9 @@ test.describe("anyone with the link", () => {
       await expect(page.locator('[data-slot="upload-bad"]')).not.toContainText(
         titleOf(info, "stopped"),
       );
-      await expect(page.locator('[data-slot="upload-studio"]')).toHaveText("MaxOff");
+      // An outsider never sees MaxOff's name: no studio is known, so the header shows none.
+      await expect(page.locator('[data-slot="upload-studio"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="upload-page"]')).not.toContainText("MaxOff");
     }
   });
 

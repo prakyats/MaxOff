@@ -89,7 +89,7 @@ export function UploadsCardBody({
       {card.state === "none" ? (
         <div className="flex flex-col items-start gap-3 px-4 pb-4">
           <p className="text-muted-foreground text-sm">
-            Make a private link so a freelancer or cameraman can send files straight into this
+            Make a private link so a freelancer or camera operator can send files straight into this
             task&apos;s Drive folder, with no login.
           </p>
           <Button
@@ -353,7 +353,8 @@ function ReceivedAction({
 }) {
   const button = (
     <Button
-      variant={solid ? "approve" : "secondary"}
+      // Forest only when the sheet's own commit is an approve (Mark done); else neutral (ADR-0015).
+      variant={solid ? (markDoneFor !== null ? "approve" : "strong") : "secondary"}
       opens
       onClick={onOpen}
       data-slot="uploads-received"
@@ -367,7 +368,7 @@ function ReceivedAction({
         Look through the list and the Drive folder.{" "}
         {markDoneFor !== null
           ? "All files received stops the link and marks the task Done."
-          : "All files received stops the link and tells the task's primary."}
+          : "All files received stops the link and tells the task's primary owner."}
       </p>
       {solid ? (
         <StickyActions className="md:justify-start">{button}</StickyActions>

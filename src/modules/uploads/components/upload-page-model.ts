@@ -330,7 +330,7 @@ export const BANNER_WORDS: Record<Exclude<Banner, null>, { title: string; text: 
   },
   daily_limit: {
     title: "Paused by Google's daily upload limit.",
-    text: "The studio's Drive has taken in all Google allows for today. Keep this page open; it carries on by itself when Google allows it, or come back later.",
+    text: "The studio's Drive has reached Google's upload limit for today. Keep this page open: the upload continues by itself when Google allows it. Or come back later.",
   },
   too_many: {
     title: "Slow down a moment.",

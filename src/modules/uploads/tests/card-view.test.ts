@@ -98,6 +98,8 @@ function file(over: Partial<UploaderSheetFile> = {}): UploaderSheetFile {
   };
 }
 
+const NBSP = String.fromCharCode(160);
+
 describe("the card is drawn", () => {
   it("before a link only where Get upload link can work", () => {
     const none = card({ state: "none", link: null });
@@ -243,9 +245,10 @@ describe("a file on the uploader's sheet", () => {
     expect(fileChip(file({ state: "uploading" })).tone).toBe("info");
   });
   it("lines: size and time, how far it got, why it failed", () => {
-    expect(fileLine(file(), NOW)).toBe("1.2 GB · 1:20 pm");
+    // The time never splits across lines: a no-break space before am/pm (release review).
+    expect(fileLine(file(), NOW)).toBe(`1.2 GB · 1:20${NBSP}pm`);
     expect(fileLine(file({ doneAt: "2026-11-17T07:50:00.000Z" }), NOW)).toBe(
-      "1.2 GB · 17 Nov, 1:20 pm",
+      `1.2 GB · 17 Nov, 1:20${NBSP}pm`,
     );
     expect(
       fileLine(
@@ -316,7 +319,7 @@ describe("All files received", () => {
       primaryName: "Jo",
     });
     expect(copy.description).toBe(
-      'This stops the upload link. Jo (the task\'s primary) gets "Files received for Brand reel: mark it done".',
+      'This stops the upload link. Jo (the task\'s primary owner) gets "Files received for Brand reel: mark it done".',
     );
     expect(copy.confirm).toBe("Files received");
   });
