@@ -107,6 +107,9 @@ test.describe("overlays close on back", () => {
     // without cancelling a navigation started from inside an overlay. `onPopState` skips it,
     // so one back press still leaves /today rather than being silently swallowed.
     await page.goto("/calendar");
+    // Back once the app is live: pressed while Next's hydration writes its history, the back was
+    // taken for that write (fix-goback-guard).
+    await hydrated(page);
     await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
