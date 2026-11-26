@@ -307,6 +307,15 @@
         2. The A/B also covers **/today and /people for Owner and Admin** (/today failed +188 and +159), with a **read-log diff** (the delay proxy's path logs).
         3. The task with uploads is a real new cost: report its last-byte delta and the reads it adds. **If the Uploads card's read is in series with the task page's first wave, make it parallel or fetch it after first paint, before READY.** Same pattern as v2.5's /today fix.
         4. Ideas: pin the probe to a seeded, fixed task (below).
+      - **Re-probe finished; "slot free" sent (about 05:15 UTC).**
+        - Admin run 2, 45755557821: PASS.
+        - Crew run 1, 45757760221: /calendar +144, /me +105.
+        - Crew run 2, 45758266413: /tasks +91, /calendar +219, /leave +371, a task +366.
+        - **Slower twice:** Owner "a task", and Crew /calendar.
+        - **A/B scope:**
+          - the task with and without uploads, /today and /people (Owner and Admin);
+          - Crew /calendar and Crew "a task";
+          - a read-log diff for each.
       - A route slower twice → the local same-machine A/B (`scratchpad/ab/delay-proxy.mjs`; worktrees `/home/user/wt/abmain` on main and `/home/user/wt/abv40` re-pointed to the v4.5 head; rebuild both; 150 ms per call, 10 samples).
   - **Decisions this session:**
     - **The fake Google** is honoured only by a local build and only at loopback addresses; the gate reads the build-inlined `NEXT_PUBLIC_APP_ENV`.
