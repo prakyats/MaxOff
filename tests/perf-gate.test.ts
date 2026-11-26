@@ -9,6 +9,7 @@ import {
   MEMBER_ROUTES,
   median,
   pageProblem,
+  planExtraRoutes,
   planMemberRoutes,
   NOT_GATED,
   SLOWER_PCT_FLOOR_MS,
@@ -271,6 +272,16 @@ describe("the routes", () => {
       expect(crew.find((r) => r.name === name)?.skip, name).toBe("the Crew can't open it");
     }
     expect(planMemberRoutes("admin", ids).find((r) => r.name === "/leave")?.path).toBe("/leave");
+  });
+
+  it("add --also paths with the same placeholders, skipping one this member has no record for", () => {
+    const ids = { task: "t1", client: null, project: null, projectClient: null, person: "m1" };
+    expect(planExtraRoutes(undefined, ids)).toEqual([]);
+    expect(planExtraRoutes(" /people/:person/leave, ,/clients/:client ", ids)).toEqual([
+      { name: "/people/:person/leave", path: "/people/m1/leave" },
+      { name: "/clients/:client", skip: "no client this member can see" },
+    ]);
+    expect(() => planExtraRoutes("people/:person", ids)).toThrow(/start with "\/"/);
   });
 });
 
