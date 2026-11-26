@@ -2058,7 +2058,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Two-step sign-in is required for the Owner.",
           blocks: [
             text(
-              "After your password, MaxOff asks for the 6-digit code your authenticator app shows (Google Authenticator, Microsoft Authenticator, 1Password…). It is required for the Owner, so the money and everyone's records stay yours even if your password leaks.",
+              "After your password, MaxOff asks for the 6-digit code your authenticator app shows (Google Authenticator, Microsoft Authenticator, 1Password…). It is required for the Owner: without the code, nobody can open MaxOff's screens as you, even with your password. Keep your password private too: the code guards the app's screens, and a check inside the database comes later.",
             ),
             steps(
               "The first time, tap “Set up the authenticator app”.",

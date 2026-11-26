@@ -84,7 +84,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Two-step sign-in asks for the 6-digit code your authenticator app shows (Google Authenticator, Microsoft Authenticator, 1Password…) after your password, so a leaked password alone can't open your account. It is your choice.",
+              text: "Two-step sign-in asks for the 6-digit code your authenticator app shows (Google Authenticator, Microsoft Authenticator, 1Password…) after your password, so a leaked password alone can't open MaxOff's screens as you. Keep your password private too: the code guards the app's screens. It is your choice.",
             },
             {
               kind: "steps",

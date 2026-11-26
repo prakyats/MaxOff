@@ -34,8 +34,10 @@ Production has `OWNER_MFA_REQUIRED=on` (`wrangler.jsonc`), so the release asks y
 2. The app shows **Set up two-step sign-in**. Tap **Set up the authenticator app**.
 3. In your authenticator app, add an account and scan the QR code (or type the key shown under it).
 4. Enter the 6-digit code the app shows, and tap **Continue**.
-5. From now on, every sign-in asks for the newest code after your password. A device you are already
-   signed in on stays signed in.
+5. From now on, every sign-in asks for the newest code after your password.
+6. **Every device you were already signed in on asks for the code once** after the release: those
+   sessions have not passed the second step yet. Enter the code on each; it then stays signed in as
+   before.
 
 **Keep the key safe as a fallback.** Copy the key under the QR code into your password manager when you set
 it up. A new phone can then be set up from the key, without the old one.
@@ -88,7 +90,11 @@ Everything here is done by the **Owner in a dashboard**. No builder runs SQL aga
 - The app says so, both on set-up and on the code step, instead of letting you retry in a loop.
 - **The fix:** Supabase → `maxoff-production` → **Authentication → Multi-Factor** → TOTP enabled for
   enrolment and verification → Save, then sign in again.
-- **If the dashboard cannot be reached:** roll the Worker back in Cloudflare (Workers & Pages → `maxoff`
+- **If Supabase's dashboard cannot be reached, but Cloudflare's can:** Cloudflare → Workers & Pages →
+  `maxoff` → Settings → Variables and Secrets → `OWNER_MFA_REQUIRED` → set it to `off` → Deploy
+  _(unverified: the menu names)_. The Owner's sign-in then asks for no code, until it is set back to `on`
+  (the next deploy puts `wrangler.jsonc`'s `on` back by itself). Tell the advisor session the same day.
+- **If neither dashboard helps:** roll the Worker back in Cloudflare (Workers & Pages → `maxoff`
   → Deployments → the release before v7.5 → Rollback). That release has no second step; tell the advisor
   session the same day (CLAUDE.md, "a bad release is fixed the same day").
 

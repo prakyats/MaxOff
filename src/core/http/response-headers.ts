@@ -122,6 +122,14 @@ export function sentryCspReportUrl(
  * show whether anything else needs it). Off the deployed environments the local stack (Supabase,
  * MinIO and the hold proxy on the loopback host) is allowed too.
  */
+/**
+ * Where the report-only CSP applies: every path but the auth link page (`/auth/confirm`), whose
+ * address carries the one-time token in its query. A report's `document-uri` is the page's full
+ * address, so a report from there would send the token to Sentry (v7.5 review, advisor 2026-11-26).
+ * A `headers()` rule cannot take a header away, so this is its own rule with a narrower source.
+ */
+export const REPORT_ONLY_CSP_SOURCE = "/((?!auth/confirm(?:$|/)).*)";
+
 export function reportOnlyCspHeaders(sources: CspSources): ResponseHeader[] {
   const supabase = originOf(sources.supabaseUrl);
   const realtime = supabase?.replace(/^http/, "ws") ?? null;

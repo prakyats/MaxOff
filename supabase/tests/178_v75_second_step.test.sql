@@ -4,7 +4,7 @@
 -- the column cannot be written directly, and session_early() carries it. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(19);
 
 create temporary table fx (key text primary key, id uuid);
 insert into fx values
@@ -82,6 +82,11 @@ select pg_temp.as_system();
 select ok(pg_temp.flag('admin') = false and pg_temp.audits('admin') = 2, 'an Admin turns it off again, audited');
 
 -- The Owner, Crew, a deactivated member -----------------------------------------------------------------
+select pg_temp.as_member('owner', 'aal1');
+select is(pg_temp.raised('select public.second_step_set(true)'), 'FORBIDDEN',
+  'the Owner with a password alone (aal1) cannot change it');
+select is(pg_temp.raised('select public.second_step_set(false)'), 'FORBIDDEN',
+  '... nor turn it off');
 select pg_temp.as_member('owner', 'aal2');
 select lives_ok('select public.second_step_set(true)', 'the Owner past the second step turns it on');
 select pg_temp.as_member('staff', 'aal2');
@@ -91,6 +96,14 @@ select is(pg_temp.raised('update public.members set second_step = true where id 
   'permission denied for table members', 'Crew cannot set it directly');
 select pg_temp.as_member('gone', 'aal2');
 select is(pg_temp.raised('select public.second_step_set(true)'), 'UNAUTHENTICATED', 'a deactivated member is refused');
+
+-- Never inserted on ------------------------------------------------------------------------------------
+select pg_temp.as_system();
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-000000017802', 'second-new-17802@example.com');
+select is(pg_temp.raised($q$insert into public.members (id, org_id, full_name, email, role, status, second_step)
+  values ('00000000-0000-4000-8000-000000017802', (select id from fx where key = 'org'), 'Second new 178',
+          'second-new-17802@example.com', 'admin', 'invited', true)$q$),
+  'FORBIDDEN', 'a new member is never inserted with it on');
 
 -- The shell's first read carries it --------------------------------------------------------------------
 select pg_temp.as_member('owner', 'aal2');

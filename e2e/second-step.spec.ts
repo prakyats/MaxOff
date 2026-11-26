@@ -1,5 +1,18 @@
 import { expect, test } from "./fixtures";
-import { expectBackStack, hydrated, runInstalled, signIn, storageStateFor, USERS } from "./helpers";
+import {
+  confirmLinkFrom,
+  expectBackStack,
+  followAuthLink,
+  hydrated,
+  latestEmailTo,
+  memberIdOf,
+  runInstalled,
+  setPasswordFor,
+  signIn,
+  storageStateFor,
+  USERS,
+} from "./helpers";
+import { wallClock } from "./run-state";
 import { answerSecondStep, codeFor } from "./totp";
 
 /**
@@ -137,6 +150,56 @@ test.describe("installed: the set-up screen is one back from Me", () => {
     await page.locator('[data-slot="me-second-step-on"]').click();
     await expect(page).toHaveURL(/\/second-step\?setup=1$/);
     await expectBackStack(page, [{ url: /\/me$/ }]);
+    await expect(page.locator('[data-slot="me-second-step-status"]')).toHaveText("· Off");
+  });
+});
+
+test.describe("a recovery link passes the second step before a new password (v7.5 review)", () => {
+  // The project's own Admin, at 1280 only: it reads that person's newest email, and puts the
+  // seeded password back afterwards.
+  test.skip(({ isMobile }) => Boolean(isMobile), "one run is enough");
+
+  test.afterAll(async () => {
+    const admin = twoStepAdmin("desktop");
+    await setPasswordFor(await memberIdOf(admin.email), admin.password);
+  });
+
+  test("forgot password → link → the code → new password; Me then turns it off", async ({
+    page,
+    baseURL,
+  }) => {
+    const admin = twoStepAdmin("desktop");
+    await signIn(page, admin.email, admin.password);
+    await page.goto("/me");
+    await hydrated(page);
+    await page.locator('[data-slot="me-second-step-on"]').click();
+    await answerSecondStep(page, admin.email);
+    await page.context().clearCookies();
+
+    const requested = wallClock();
+    await page.goto("/forgot-password");
+    await page.getByLabel("Email").fill(admin.email);
+    await page.getByRole("button", { name: "Send me a link" }).click();
+    await expect(page.locator('[data-slot="form-alert"], [role="status"]').first()).toContainText(
+      "a link is on its way",
+    );
+    await followAuthLink(
+      page,
+      confirmLinkFrom(await latestEmailTo(admin.email, requested), baseURL),
+    );
+    // The link's session has not passed the second step: the code first, then the password.
+    await expect(page).toHaveURL(/\/second-step\?next=%2Fset-password$/);
+    await answerSecondStep(page, admin.email);
+    await expect(page).toHaveURL(/\/set-password$/);
+    const fresh = `twostep-new-${crypto.randomUUID().slice(0, 8)}`;
+    await page.getByLabel("New password").fill(fresh);
+    await page.getByLabel("Repeat it").fill(fresh);
+    await page.getByRole("button", { name: "Save password and sign in" }).click();
+    await expect(page).not.toHaveURL(/\/set-password/);
+
+    await page.goto("/me");
+    await hydrated(page);
+    await page.locator('[data-slot="me-second-step-off"]').click();
     await expect(page.locator('[data-slot="me-second-step-status"]')).toHaveText("· Off");
   });
 });

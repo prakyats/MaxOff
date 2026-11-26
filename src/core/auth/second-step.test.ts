@@ -22,6 +22,10 @@ describe("needsSecondStep (v7.5 Q2)", () => {
     ).toBe(true);
   });
 
+  it("Crew never does, even with the flag left on (an Admin moved to Crew)", () => {
+    expect(needsSecondStep({ ...base, role: "staff", secondStep: true })).toBe(false);
+  });
+
   it("an Admin or Crew who did not turn it on never does", () => {
     expect(needsSecondStep({ ...base, role: "admin" })).toBe(false);
     expect(needsSecondStep({ ...base, role: "staff" })).toBe(false);

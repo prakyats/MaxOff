@@ -24,7 +24,7 @@ import {
   type SetPasswordInput,
   setPasswordSchema,
 } from "./schemas";
-import { setHomeHint } from "./server";
+import { getSessionState, setHomeHint } from "./server";
 import { sessionMetaArgs } from "./session-meta";
 
 /**
@@ -174,6 +174,13 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims.sub;
   if (!userId) throw new AppError("UNAUTHENTICATED", "This link has expired. Ask for a new one.");
+  // v7.5 Q2: a session that still owes its second step (a recovery link, or a password alone) never
+  // changes the password; GoTrue refuses it too once an authenticator exists (insufficient_aal).
+  // The page sends such a session through /second-step first.
+  const state = await getSessionState();
+  if (state.kind === "second-step") {
+    throw new AppError("UNAUTHENTICATED", "Enter the code from your authenticator app first.");
+  }
   const status = await memberStatus(supabase);
   if (status !== "active" && status !== "invited") {
     await supabase.auth.signOut({ scope: "local" });

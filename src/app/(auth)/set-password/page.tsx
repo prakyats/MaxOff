@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 // Direct, not via the barrel: see the note in login/page.tsx.
 import { SetPasswordForm } from "@/core/auth/components/set-password-form";
 import { EXPIRED_LINK_PATH } from "@/core/auth/links";
+import { SECOND_STEP_PATH, SET_PASSWORD_PATH } from "@/core/auth/paths";
 import { getSessionState } from "@/core/auth/server";
 
 import { SetPasswordIntro } from "./intro";
@@ -17,6 +18,10 @@ export const metadata: Metadata = { title: "Set your password" };
 export default async function SetPasswordPage() {
   const state = await getSessionState();
   if (state.kind === "none") redirect(EXPIRED_LINK_PATH);
+  // v7.5 Q2: the Owner (or anyone who turned it on) passes the second step before a new password.
+  if (state.kind === "second-step") {
+    redirect(`${SECOND_STEP_PATH}?next=${encodeURIComponent(SET_PASSWORD_PATH)}`);
+  }
 
   return (
     <>

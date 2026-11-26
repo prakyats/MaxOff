@@ -51,6 +51,20 @@ test.describe("production build", () => {
     });
   }
 
+  test("the auth link page never carries the report-only CSP (its address holds a token)", async ({
+    request,
+  }) => {
+    // v7.5 review: a report's document-uri is the full address, token included.
+    const link = await request.get("/auth/confirm?token_hash=never-issued&type=recovery", {
+      maxRedirects: 0,
+    });
+    expect(link.headers()["content-security-policy-report-only"]).toBeUndefined();
+    expect(link.headers()["content-security-policy"]).toBe("frame-ancestors 'none'");
+    // Its neighbours still do.
+    const login = await request.get("/login", { maxRedirects: 0 });
+    expect(login.headers()["content-security-policy-report-only"]).toMatch(/^default-src 'self'/);
+  });
+
   test("/api/health reaches the database and answers ok, uncached (3c.1)", async ({ request }) => {
     const response = await request.get("/api/health", { maxRedirects: 0 });
     expect(response.status()).toBe(200);

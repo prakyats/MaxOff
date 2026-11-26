@@ -9,6 +9,7 @@ import {
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
   NOINDEX_HEADER,
+  REPORT_ONLY_CSP_SOURCE,
   reportOnlyCspHeaders,
   ROBOTS_DISALLOW_ALL,
   SECURITY_HEADERS,
@@ -182,5 +183,19 @@ describe("the report-only CSP (v7.5 Q7)", () => {
     });
     expect(headers.map((header) => header.key)).toEqual(["Content-Security-Policy-Report-Only"]);
     expect(headers[0]?.value).not.toMatch(/report-(uri|to)/);
+  });
+});
+
+describe("where the report-only CSP applies (v7.5 review)", () => {
+  // Next's `headers()` sources are path-to-regexp; the group here is a plain regular expression.
+  const applies = (path: string) =>
+    new RegExp(`^${REPORT_ONLY_CSP_SOURCE.replace(/^\/\(/, "/(")}$`).test(path);
+  it("covers every page but the auth link page, whose address carries a token", () => {
+    for (const path of ["/", "/today", "/login", "/set-password", "/auth/signout", "/me/privacy"]) {
+      expect(applies(path), path).toBe(true);
+    }
+    expect(applies("/auth/confirm")).toBe(false);
+    expect(applies("/auth/confirm/")).toBe(false);
+    expect(AUTH_LINK_ROUTE_SOURCE).toBe("/auth/confirm");
   });
 });

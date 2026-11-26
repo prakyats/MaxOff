@@ -17,7 +17,12 @@ export function needsSecondStep(input: {
   ownerRequired: boolean;
 }): boolean {
   if (input.aal === "aal2") return false;
-  return (input.role === "owner" && input.ownerRequired) || input.secondStep;
+  // The member's own choice counts only for a role that is offered it: an Admin moved to Crew is
+  // never asked again (their flag stays, and is simply not read).
+  return (
+    (input.role === "owner" && input.ownerRequired) ||
+    (input.secondStep && offersSecondStep(input.role))
+  );
 }
 
 /** Who may set it up: the Owner and Admins (Crew is not offered it). */
