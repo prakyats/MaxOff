@@ -1730,7 +1730,7 @@ export const OWNER_GUIDE: Guide = {
               'Each line of a closed month says "Billed 3 Dec" or "Not billed" as it is today, as on any month. If that changed since the close, the line also says how it was then, for example "Billed 3 Dec · Not billed at close".',
             ),
             text(
-              'When you change an amount, a price, the value of a planned deliverable, Achieved (Adjust) or an advance of a closed month, the sheet says "September is closed. Its report changes only when you correct it." Saving still works; the saved report changes only when you correct the month.',
+              'When you change something that belongs to a closed month, the sheet says "September is closed. Its report changes only when you correct it." That is a cycle\'s own amount, a one-time project\'s amount, a price, the value of a planned deliverable, Achieved (Adjust) or an advance dated in that month. Saving still works; the saved report changes only when you correct the month. A retainer\'s "Change the amount" never shows it: the new amount applies from the current cycle on, and the current month cannot be closed.',
             ),
             note(
               "A month can be closed once it has ended, from the first month that has an amount. The current month says it hasn't ended yet. A closed month is never reopened: a mistake is fixed with a correction.",
