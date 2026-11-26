@@ -4,34 +4,47 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
-## v2.5: revenue every day
+## v4.5: one release from v2.0.1 to v4.5 (flexible comp leave, money in, revenue every day, and the releases after them)
 
-**Not released yet.** Release candidate: `phase-v25-revenue-daily` (after v2.1).
+**Not released yet.** The Owner's decision (#89, 26 Nov 2026): **one production release** for everything from
+v2.0.1 to v4.5, with no tag in between. In order on `main`: v2.0.1 (#151, flexible comp leave and the security
+fixes), the task-page fixes (#158, #160), v2.1 "Money in" (#152), v2.5 "Revenue every day" (its PR), then v3.0 to
+v4.5. **Each later release's builder adds its own section below** (what each role notices, migrations appended in
+order, its walk). Release candidate: the `main` commit with v4.5 merged, named in #89's READY FOR OWNER post. The
+Owner tags it.
 
-The second part of Revenue (phase 9): the Owner keeps track of billing and sees the month's money every day. **Only the Owner sees any of it.**
+What follows covers v2.0.1, the fixes, v2.1 and v2.5.
 
-### What the Owner will notice
-- **Billed / Not billed** in each project's Billing section: for the month or week in view, or a one-time project as a whole. "Mark billed" (a day, today unless changed, and a note such as the invoice number) and "Mark not billed".
-- **Adjust what was achieved**: set the month's (or a completed one-time project's) Achieved by hand with a note; Billing then shows "Owner adjusted" with "System calculated" beside it. "Back to calculated" undoes it, with a note.
-- **A planned deliverable's own value**: under "Planned deliverables", give one deliverable its own value off the top of the month's amount (the others share the rest), or put it back to its share.
-- **Billing history** on every project: each change to its money, who made it and when, newest first, with "Show older".
-- **On the Revenue page**: "On hold ₹X" inside Remaining (work waiting on held projects, neither earned nor lost), "Billed" / "Not billed" and "Adjusted" on every line, and "Mark all N billed" for the month. "Mark all" counts only the lines not billed yet that have something to bill: a line with no amount set or at ₹0 is left out, a line on hold is included, and a line you billed on another screen meanwhile keeps its own date and note.
-- **The last line of Today's main list** (above "This week" on a phone): "November · ₹ ••• achieved of ₹ ••• · Show". The figures are fetched only when you tap it (they are never part of Today itself), then it reads "November · ₹45,000 achieved of ₹1,20,000 · 2 not priced · Hide". Tap again to hide them; they are hidden again whenever Today opens. "Open Revenue" opens the month. If the figures can't load, the line says "Revenue couldn't load" beside "Open Revenue".
-- **A notification when someone adds a deliverable to a priced month**: "‹project›: a deliverable isn't priced". It opens that month's Billing, where the deliverable waits for its price. It never shows an amount.
-
-### What Admins will notice
-- Nothing. No amount, no billing word and no new notification.
+Revenue (phase 9) arrives whole: the Owner enters what each project is worth, sees the month's money, keeps track
+of billing and sees the month on Today. **Only the Owner sees any amount.** Admins and the Crew see no money anywhere.
 
 ### What the Crew will notice
-- Nothing.
+- **Comp leave by the half day** (v2.0.1). Morning and afternoon can each be off on their own: ½ comp leave in the
+  morning and ½ leave in the afternoon, two comp halves, or two ordinary halves. A half already taken is named
+  ("You already have the morning off on 25 Nov. Request the afternoon instead.").
+- **"Full day: ½ comp + ½ leave" in one go.** With half a day of comp leave, Request leave offers it; it shows as
+  one card, "Full day · ½ comp + ½ leave". Each half says which half it is ("Half day · comp · afternoon off").
+- **Once approved, each half can be cancelled on its own** ("Ask to cancel the afternoon"); a cancelled comp half
+  gives its ½ day back.
+- **A slow tap on a task** shows "Still loading", then "Retry", again (#160), and the task's Work / Chat / Details
+  bar is no longer hidden under the title bar after a slow tap (#158).
+- Nothing about money.
 
-## v2.1: money in
-
-**Not released yet.** Release candidate: `phase-v21-money` (the head named in #89's READY FOR OWNER post).
-
-The first part of Revenue (phase 9): the Owner can enter what each project is worth and see the month's money. **Only the Owner sees any amount.** Admins and the Crew see no money anywhere.
+### What Admins will notice
+- The same comp leave and task-page changes as the Crew.
+- **"Complete the project too?"** on the last open deliverable of a one-time project, and the "ready to complete" message. Nothing else changes, and no amount is ever shown.
+- No billing word and no money notification.
 
 ### What the Owner will notice
+**Leave (v2.0.1)**
+- **Approvals shows a split day as one row** ("Full day · ½ comp (morning) + ½ leave"): one Approve or Reject
+  decides both halves, and the badge counts it once.
+- **Edit** on a half day asks which half is off and can use ½ comp leave; **Correct** can set a half day (which
+  half), a ½ comp day, or a full day of ½ comp + ½ leave.
+- **The month counts it fairly:** a day of ½ comp + ½ leave is ½ comp leave and ½ additional leave.
+- A holiday added on such a day gives the comp half back and keeps the ordinary half.
+
+**Money in (v2.1)**
 - **A Billing section at the end of every project page.** Category (Retainer, Project or Additional Work; it starts from the kind of project), and the amount: per month or week for a retainer, one lump sum for a one-time project.
 - **Amounts start from this month.** The first amount you enter covers this month and later ones. Earlier months read "No amount set" until you set each one ("Set this month's amount").
 - **Added deliverables are priced on top.** A deliverable added after the month's list was made is "Not priced" until you give it a price; that price is added to the month's amount.
@@ -40,17 +53,73 @@ The first part of Revenue (phase 9): the Owner can enter what each project is wo
 - **A one-time project earns its amount when it is completed** (by you or the client's Admin). A cancelled one counts ₹0.
 - **"Complete the project too?"** Marking the last open deliverable of a one-time project done offers "Mark done and complete project" or "Mark done only". If the last one is marked done elsewhere, the project reads "Ready to complete" and a message offers "Complete project".
 
-### What Admins will notice
-- **"Complete the project too?"** on the last open deliverable of a one-time project, and the "ready to complete" message. Nothing else changes, and no amount is ever shown.
+**Revenue every day (v2.5)**
+- **Billed / Not billed** in each project's Billing section: for the month or week in view, or a one-time project as a whole. "Mark billed" (a day, today unless changed, and a note such as the invoice number) and "Mark not billed".
+- **Adjust what was achieved**: set the month's (or a completed one-time project's) Achieved by hand with a note; Billing then shows "Owner adjusted" with "System calculated" beside it. "Back to calculated" undoes it, with a note.
+- **A planned deliverable's own value**: under "Planned deliverables", give one deliverable its own value off the top of the month's amount (the others share the rest), or put it back to its share.
+- **Billing history** on every project: each change to its money, who made it and when, newest first, with "Show older".
+- **On the Revenue page**: "On hold ₹X" inside Remaining (work waiting on held projects, neither earned nor lost), "Billed" / "Not billed" and "Adjusted" on every line, and "Mark all N billed" for the month. "Mark all" counts only the lines not billed yet that have something to bill: a line with no amount set or at ₹0 is left out, a line on hold is included, and a line you billed on another screen meanwhile keeps its own date and note.
+- **The last line of Today's main list** (above "This week" on a phone): "November · ₹ ••• achieved of ₹ ••• · Show". The figures are fetched only when you tap it (they are never part of Today itself), then it reads "November · ₹45,000 achieved of ₹1,20,000 · 2 not priced · Hide". Tap again to hide them; they are hidden again whenever Today opens. "Open Revenue" opens the month. If the figures can't load, the line says "Revenue couldn't load" beside "Open Revenue".
+- **A notification when someone adds a deliverable to a priced month**: "‹project›: a deliverable isn't priced". It opens that month's Billing, where the deliverable waits for its price. It never shows an amount.
 
-### What the Crew will notice
-- Nothing.
-
-### Not in this release (coming in v2.5)
-The Owner's adjusted figure, Billed / Not billed, a planned deliverable's own value, "On hold ₹X", the notification for an unpriced added deliverable, the revenue line on Today, billing history.
-
-### Also fixed
+### Fixed
+- **A change request lost the half of a half day** (v2.0.1): the half is now kept, so Late and leaving-early apply
+  correctly.
+- **The Owner's Edit turned a ½ comp day into ordinary leave** (v2.0.1): Edit now keeps the half and the ½ comp.
 - The client page's loading screen keeps "Key people" in place at phone width (the project row's chip is now the real chip).
+
+### Security (v2.0.1)
+- **The image optimizer is closed** (MaxOff serves no `next/image`): Next answers 404 and the Worker refuses
+  `/_next/image` before OpenNext. That removes Next's image remote code execution and SSRF.
+- **@sentry/nextjs → 10.78.0** (tunnel bypass), **zod → 4.6.7** (memory exhaustion), **undici → 7.30.2** (four
+  highs, through `shadcn`'s tooling).
+- **Next stays 16.3.5** (16.4.6 broke a tab tap after a cold reopen of the installed app; #159). Two critical
+  advisories on next remain for features MaxOff does not use (`use cache`, `next/og`), plus the Server Actions
+  denial of service (high).
+
+### Speed
+To be filled from the release candidate's probes (CI, paired with `main-preview`, Owner, Admin and Crew; the India
+check, because Today changed). Already measured on this machine, same-machine A/B with every database call 150 ms
+slower: Owner `/today` last byte −5 ms against v2.1 (Today's figures load only on tap; no money read when Today
+opens); `/calendar` and `/tasks` within ±10 ms of `main` for the Owner and an Admin, with identical reads.
+
+### Deploying
+- **Any time of day.** Every migration adds: tables (Owner-only, RLS on, no write grants), functions, views,
+  triggers on new and existing tables, and one notification kind. None re-creates an existing function, changes a
+  rule or a setting, or rewrites a row. The old Worker keeps working on the new database during the deploy window
+  (it never calls the new functions; the new triggers on `project_cycles` and `project_items` only add billing rows
+  and the "isn't priced" notification).
+- **Nothing happens on its own:** no job and no backfill. Existing leave requests and days are untouched; existing
+  projects start with "No amount set".
+- **No new secret, variable, cron or Worker setting** beyond v2.0.1's `/_next/image` refusal.
+
+### Migrations (expand-only, in timestamp order)
+1. `20261118170000_money_tables` (v2.1)
+2. `20261118180000_money_billing_read` (v2.1)
+3. `20261119003000_money_q1_clamp` (v2.1)
+4. `20261119020000_money_revenue_month_read` (v2.1)
+5. `20261125120000_item_mark_done_and_complete` (v2.1)
+6. `20261125121658_split_leave_days` (v2.0.1; leave only, independent of the money migrations around it)
+7. `20261125130000_money_reads_scoped` (v2.1)
+8. `20261125160000_revenue_every_day` (v2.5; the one data write is the `deliverable_not_priced` notification kind)
+9. `20261125170000_revenue_every_day_review` (v2.5)
+10. `20261125220000_billing_mark_unbilled_one_call` (v2.5)
+
+No v2.5 migration needs v2.1's to have run in production first; they apply in order in one deploy.
+
+### Rolling back to v2.0
+The database stays; only the Worker goes back, and nothing needs switching off first. v2.0's code never reads the
+money tables or calls the new functions. A deliverable added while v2.0 serves still gets its billing row (the
+trigger), so nothing is lost when the release returns.
+
+### The Owner's phone walk
+v2.0.1's walk (#89), then `docs/handoff/v2.1-owner-walk-script.md` (passed) and
+`docs/handoff/v2.5-owner-walk-script.md`, on the release candidate.
+
+### The team message (WhatsApp, after the deploy)
+> MaxOff is updated. Comp leave now works by the half day: take ½ comp in the morning and ½ leave in the afternoon,
+> or a full day of ½ comp + ½ leave in one request, and cancel either half on its own. On the last deliverable of a
+> one-time project, Admins are asked whether to complete the project too. Everything is in Me → How MaxOff works.
 
 ## v2.0: fast and settled
 
