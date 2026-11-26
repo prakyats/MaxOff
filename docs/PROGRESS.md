@@ -272,7 +272,13 @@
     - main moved to 0214c60. The current CI runs count for READY; take main again before each merge (advisor).
     - **v4.0** (`/home/user/wt/v40`, `phase-v40` cc06f05c):
       - main merged; the Owner pictures re-taken, with `owner/drive` on the Connect step; check green.
-      - **DONE: full CI 45765346675 green; v4.0's READY was sent to the advisor (26 Nov ~12:35 IST).** Left for v4.0: add its RELEASE-NOTES entry (the text is in that READY message) to `/home/user/wt/v40/docs/RELEASE-NOTES.md` before the merge, then check, BUILDER, push. ~~Originally: when it's green, post v4.0's READY FOR OWNER on #89, per the 11:20 trigger's list: probe runs 44428827541 and 44430637647, plus the A/B table and "accepted by the owner, 19 Nov"; the walk script; the Google Cloud steps (#89 6985168606 and 6985390913); the release notes. Tell the advisor.
+      - **DONE: full CI 45765346675 green; v4.0's READY was sent to the advisor (26 Nov ~12:35 IST).** **The owner walked v4.0 (26 Nov, his Chrome on the preview, desktop width, test Gmail): Connect, Disconnect and Back-from-Google pass.** The advisor's three checks for v4.0, in `/home/user/wt/v40`:
+        1. After returning from Google, the walker's tab showed the old state until a reload. Confirm the return lands on Settings with "Google Drive is connected" without a reload, both in the same tab and when another MaxOff tab is open. If another open tab stays stale, consider a refresh on focus or visibility.
+        2. "Disconnecting…" took about 5–8 s. If the Google revoke call runs in series, revoke after marking disconnected, or show the result first.
+        3. Reconnect appears only in the "Needs reconnecting" state (while connected: Use another account and Disconnect). Confirm that, and that a test covers it.
+        - Wording: "Not connected" and "Connected" each show twice. The advisor recommends dropping the repeated word from the body text; wait for the owner's answer via the advisor.
+        - Answer each to the advisor with what was found and fixed.
+      Also left for v4.0: add its RELEASE-NOTES entry (the text is in that READY message) to `/home/user/wt/v40/docs/RELEASE-NOTES.md` before the merge, then check, BUILDER, push. ~~Originally: when it's green, post v4.0's READY FOR OWNER on #89, per the 11:20 trigger's list: probe runs 44428827541 and 44430637647, plus the A/B table and "accepted by the owner, 19 Nov"; the walk script; the Google Cloud steps (#89 6985168606 and 6985390913); the release notes. Tell the advisor.
       - Flag in v4.0's READY: the Drive card says "Not connected" twice (the heading, and the first words of its text).
     - **v4.5** (bad4fc39):
       - The Owner's upload pictures are made and wired; the Admin's two re-taken.
