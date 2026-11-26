@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
+import { commitLayer, noteCommitted } from "@/core/ui/overlay/overlay-history";
+
 import { ACTION_SLOW_MS, isNetworkError } from "./network-error";
 
 export type ActionState = {
@@ -49,7 +51,11 @@ export type ActionOptions = {
  *   saved: check before trying again". The request is never aborted on a timer: a server action
  *   cannot be recalled, so the person decides. `resetKey` forgets a failure when the target
  *   changes, and drops one that answers after it changed. Retry re-sends the arguments of the
- *   first attempt, so a form reads its current inputs inside `fn` and runs with none.
+ *   first attempt, so a form reads its current inputs inside `fn` and runs with none;
+ * - **a commit closes like back**: a layer (a confirmation, a form) that `fn` closes once the
+ *   action has answered backs its history entry out, so the next back leaves the screen
+ *   (`overlay-history` `noteCommitted`, §14.2 a). `fn` never navigates by itself: from inside a
+ *   layer that is `closeOverlaysThen` (which backs out first), and a redirect throws.
  *
  * `fn` does what the handler did before: calls the action and handles its `Result` (a refusal
  * is a `Result`, not a throw). Anything else it throws still goes to the error boundary.
@@ -101,9 +107,13 @@ export function useAction<Args extends unknown[]>(
     setFailed(false);
     window.setTimeout(() => setSlowRunId(id), ACTION_SLOW_MS);
     const runKey = currentKey.current;
+    // The layer the tap was on (a confirmation, a form): if it closes once the action has
+    // answered, that close is its commit and backs its history entry out (§14.2 a).
+    const layer = commitLayer();
     startTransition(async () => {
       try {
         await latest.current(...args);
+        noteCommitted(layer);
       } catch (error) {
         if (!isNetworkError(error)) throw error;
         // Another item is on screen by now: its Retry must not re-send this one's request.

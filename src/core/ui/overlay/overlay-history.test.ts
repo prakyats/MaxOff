@@ -5,12 +5,16 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  carriedAddress,
   type CloseThenEnv,
   createCloseOverlaysThen,
   createWhenOnPageEntry,
   keepMarker,
+  NAV_PENDING,
   type PageEntryEnv,
+  shouldBackOut,
 } from "./overlay-history";
+import { NAV_PENDING_ATTRIBUTE } from "../navigation/progress";
 
 /**
  * `useOverlayHistory` rests on undocumented behaviour of the Next App Router, and on two race
@@ -127,15 +131,53 @@ describe("overlay-history wiring", () => {
     expect(body("reconcile")).toContain("pushState");
   });
 
-  it("pops only an Escape's own entry, one traversal at a time (§14.3 rule 4)", () => {
-    // Escape never starts a navigation, so backing its entry out cannot race one. It is counted
-    // only for an overlay that closes inside that same key event, and nothing is pushed or popped
-    // again until its popstate has landed (a second back in flight is absorbed by the browser).
-    expect(body("backOutEscaped")).toContain("shouldBackOutEscape({");
-    expect(body("backOutEscaped")).toContain("window.history.back()");
-    expect(body("closingOnEscape")).toContain(".event === escapeEvent");
-    expect(body("reconcile")).toContain("if (escapeBackInFlight) return;");
-    expect(body("onPopState")).toContain("if (escapeBackInFlight) {");
+  it("pops only a dismissed or committed layer's own entries, one traversal at a time (§14.2 a, §14.3)", () => {
+    // Escape, a way out (`[data-dismiss]`), the backdrop and a swipe start no navigation, so
+    // backing their entry out cannot race one. Each is counted only for an overlay that closes
+    // inside that same event, and nothing is pushed or popped again until its popstate has
+    // landed (a second back in flight is absorbed by the browser).
+    expect(body("backOutDismissed")).toContain("shouldBackOut({");
+    expect(body("backOutDismissed")).toContain("navigating: navigating(),");
+    expect(body("backOutDismissed")).toContain("window.history.back()");
+    expect(body("closingOnDismiss")).toContain(".event === dismissEvent");
+    expect(body("reconcile")).toContain("if (backOutInFlight) return;");
+    expect(body("onPopState")).toContain("if (backOutInFlight) {");
+    // The close that counts: a dismissal in its own event, or the layer a commit was noted on.
+    expect(hook).toContain(
+      "if (closingOnDismiss() || committedLayer === entry) backOutOwed = true;",
+    );
+  });
+
+  it("a way out is a [data-dismiss] control, never one inside a link, heard before the app", () => {
+    expect(body("onDismissClick")).toContain("closest(DISMISS_SELECTOR)");
+    expect(body("onDismissClick")).toContain('control.closest("a[href]")');
+    expect(body("startListening")).toContain(
+      'window.addEventListener("click", onDismissClick, true);',
+    );
+    for (const file of ["dialog", "sheet"]) {
+      const primitive = readFileSync(new URL(`../primitives/${file}.tsx`, import.meta.url), "utf8");
+      // The ✕ and the exported Close are ways out; the backdrop is noted as one.
+      expect(primitive, file).toContain('-close" data-dismiss=""');
+      expect(primitive, file).toContain("onLayerOutside(event, onPointerDownOutside)");
+    }
+    const alert = readFileSync(new URL("../primitives/alert-dialog.tsx", import.meta.url), "utf8");
+    expect(alert).toContain('data-dismiss=""');
+  });
+
+  it("a commit is noted by useAction after its action answered, and forgotten when navigation begins", () => {
+    const action = readFileSync(new URL("../action/use-action.ts", import.meta.url), "utf8");
+    expect(action).toContain("const layer = commitLayer();");
+    expect(action).toMatch(/await latest\.current\(\.\.\.args\);\s*noteCommitted\(layer\);/);
+    // Any pointer or key input, a popstate, and the app's two ways to navigate from a layer.
+    expect(body("onInput")).toContain("committedLayer = null;");
+    expect(body("onPopState")).toContain("committedLayer = null;");
+    expect(body("closeOverlaysThen")).toContain("committedLayer = null;");
+    expect(body("whenOnPageEntry")).toContain("committedLayer = null;");
+    // A run that saw a back press or a navigation from its layer before it answered notes none.
+    expect(body("noteCommitted")).toContain("epoch === leaveEpoch");
+    for (const name of ["onPopState", "closeOverlaysThen", "whenOnPageEntry"]) {
+      expect(body(name), name).toContain("leaveEpoch += 1;");
+    }
   });
 
   it("skips a spent entry instead of making a back press look ignored", () => {
@@ -314,5 +356,58 @@ describe("whenOnPageEntry (§14.2 d: an address rewritten after the overlays clo
     // A later back on that screen changes nothing.
     land();
     expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+describe("shouldBackOut (a dismissed or committed layer's spent entries go, §14.2 a)", () => {
+  // Asked only once a dismissal or a commit owes a back-out.
+  const base = {
+    pushedCount: 1,
+    openCount: 0,
+    onOwnEntry: true,
+    backPending: false,
+    navigating: false,
+  };
+
+  it("reads the navigation bar's own attribute (written out, not imported)", () => {
+    expect(NAV_PENDING).toBe(NAV_PENDING_ATTRIBUTE);
+  });
+
+  it("backs out every spent entry of ours above the layers still open, one at a time", () => {
+    expect(shouldBackOut(base)).toBe(true);
+    // A confirmation over a sheet: the confirmation's entry goes, the sheet's stays.
+    expect(shouldBackOut({ ...base, pushedCount: 2, openCount: 1 })).toBe(true);
+    // A select's spent entry under a form closed by Cancel: after one landing, one more.
+    expect(shouldBackOut({ ...base, pushedCount: 2, openCount: 0 })).toBe(true);
+  });
+
+  it("keeps the entry when the count already matches (a handoff, a Discard? in its place)", () => {
+    expect(shouldBackOut({ ...base, openCount: 1 })).toBe(false);
+    expect(shouldBackOut({ ...base, pushedCount: 0 })).toBe(false);
+  });
+
+  it("never off a page's own entry, never beside a traversal, never during a navigation", () => {
+    // A navigation committed: the entry on top is the new page's, not ours.
+    expect(shouldBackOut({ ...base, onOwnEntry: false })).toBe(false);
+    // `closeOverlaysThen` or `whenOnPageEntry` is already backing out.
+    expect(shouldBackOut({ ...base, backPending: true })).toBe(false);
+    // A link was tapped (`data-nav-pending`): a popstate now would make Next abandon it.
+    expect(shouldBackOut({ ...base, navigating: true })).toBe(false);
+  });
+});
+
+describe("carriedAddress (an address written over the layer is the page's, §14.2 d)", () => {
+  it("carries the screen's address down when it changed on the same screen", () => {
+    // The item sheet opened from `?item=` dropped it as it closed, on the layer's entry.
+    expect(carriedAddress("/clients/c/projects/p", "/clients/c/projects/p?item=1")).toBe(
+      "/clients/c/projects/p",
+    );
+    expect(carriedAddress("/tasks?view=board#x", "/tasks")).toBe("/tasks?view=board#x");
+  });
+
+  it("writes nothing when nothing changed, nothing was recorded, or the screen is another", () => {
+    expect(carriedAddress("/tasks", "/tasks")).toBeNull();
+    expect(carriedAddress(null, "/tasks")).toBeNull();
+    expect(carriedAddress("/tasks?view=board", "/calendar")).toBeNull();
   });
 });

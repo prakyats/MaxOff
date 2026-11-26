@@ -325,9 +325,8 @@ test.describe("installed: the back order of the claim form and the Owner's revie
     await dialog.getByLabel("What was it for?").fill("Lunch at the shoot");
     await dialog.getByRole("button", { name: "Add claim" }).click();
     await expect(dialog).toBeHidden();
-    // A dialog closed by its button leaves its entry spent (3.4 mechanics 5): start clean.
-    await page.goto("/my-day");
-    await page.goto("/leave/expenses");
+    // The form's commit backed its entry out, and the category select's (overlay-history, the
+    // v3.5 walk): nothing is left behind, so the stack below is My Day, then Expenses.
     await claimRows(page).first().getByRole("button", { name: "Withdraw" }).click();
     const withdraw = page.getByRole("alertdialog", { name: "Withdraw this claim?" });
     await expect(withdraw).toBeVisible();

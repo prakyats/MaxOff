@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { shouldBackOutEscape } from "@/core/ui/overlay/overlay-history";
+import { shouldBackOut } from "@/core/ui/overlay/overlay-history";
 
 import { isComposing, type KeyContext, keyIntent, type KeyLike, submitTarget } from "./keys";
 import { ANY_COARSE_QUERY, FINE_POINTER_QUERY, isFinePointer, isMacPlatform } from "./pointer";
@@ -204,26 +204,27 @@ describe("a laptop: a fine pointer that hovers, and no touch anywhere", () => {
 });
 
 describe("Escape backs its overlay's entry out (rule 4, overlay-history)", () => {
+  // Asked only once a dismissal (an Escape here) owes a back-out (`backOutDismissed`).
   const base = {
-    escapePops: 1,
     pushedCount: 1,
     openCount: 0,
     onOwnEntry: true,
     backPending: false,
+    navigating: false,
   };
 
   it("backs out a spent entry of ours left by an Escape", () => {
-    expect(shouldBackOutEscape(base)).toBe(true);
+    expect(shouldBackOut(base)).toBe(true);
     // A dialog over a sheet: Escape closes the dialog, the sheet's entry stays.
-    expect(shouldBackOutEscape({ ...base, pushedCount: 2, openCount: 1 })).toBe(true);
+    expect(shouldBackOut({ ...base, pushedCount: 2, openCount: 1 })).toBe(true);
   });
 
-  it("never when nothing is owed, nothing is spare, the entry is not ours, or a back is in flight", () => {
-    expect(shouldBackOutEscape({ ...base, escapePops: 0 })).toBe(false);
+  it("never when nothing is spare, the entry is not ours, a back is in flight or a navigation is under way", () => {
     // "Discard changes?" took the closed layer's place: the count is unchanged.
-    expect(shouldBackOutEscape({ ...base, openCount: 1 })).toBe(false);
-    expect(shouldBackOutEscape({ ...base, onOwnEntry: false })).toBe(false);
-    expect(shouldBackOutEscape({ ...base, backPending: true })).toBe(false);
+    expect(shouldBackOut({ ...base, openCount: 1 })).toBe(false);
+    expect(shouldBackOut({ ...base, onOwnEntry: false })).toBe(false);
+    expect(shouldBackOut({ ...base, backPending: true })).toBe(false);
+    expect(shouldBackOut({ ...base, navigating: true })).toBe(false);
   });
 });
 
@@ -244,7 +245,7 @@ describe("the shared controls carry the rules (wiring)", () => {
   it("an Escape is noted for overlay-history, after the caller's own handler", () => {
     const layer = read("./layer.ts");
     expect(layer).toContain("callerHandler?.(event);");
-    expect(layer).toContain("noteEscape(event);");
+    expect(layer).toContain("noteDismiss(event);");
   });
 
   it("Input and Textarea never hand autoFocus to the DOM: they focus on a laptop only", () => {

@@ -25,9 +25,10 @@ import { addISTDays, istInstant, todayIST } from "../src/core/time";
  *
  * Every screen with a `PageHeader` `back`, as the Owner (who reaches all of them), arrived:
  * (a) by drilling in from its parent; (b) by a direct load (a new tab); (c) from Today, which is
- * not its parent; (d) after an overlay was opened and closed by hand (the spent entry the owner's
- * no-op came from: the More sheet's ✕ on a phone, the account menu dismissed by a click outside
- * on a laptop); and on the screens with a view control, (e) after a view change. Then (f) without
+ * not its parent; (d) after an overlay was opened and closed by hand (where the owner's no-op came
+ * from: the More sheet's ✕ on a phone, which since the v3.5 walk backs its entry out as back
+ * would, and the account menu dismissed by a click outside on a laptop, which still leaves its
+ * entry spent); and on the screens with a view control, (e) after a view change. Then (f) without
  * the Navigation API (Safari before 26.2): the API is removed before the page loads, and one tap
  * still lands on the parent. WebKit is not installed on this machine nor on CI, so (f) is how the
  * no-API path (an older installed iPhone) is proved, in Chromium.
@@ -209,7 +210,10 @@ async function tapBack(
   await hydrated(page);
 }
 
-/** An overlay opened and dismissed by hand, leaving its spent history entry (§14.2 a). */
+/**
+ * An overlay opened and dismissed by hand (§14.2 a): on a phone the More sheet's ✕ (its entry is
+ * backed out), on a laptop the account menu by a click outside (its entry is left spent).
+ */
 async function openAndDismissOverlay(page: Page, phone: boolean): Promise<void> {
   if (phone) {
     await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
@@ -319,7 +323,8 @@ test.describe("without the Navigation API (an iPhone before Safari 26.2)", () =>
     await drillTo(page, "/settings/job-titles");
     await openAndDismissOverlay(page, phone);
     await tapBack(page, "/settings", "no API, after an overlay: still one tap");
-    // The overlay's spent entry was backed out first: the parent replaced the screen's own entry.
+    // No overlay entry is left above the screen (the ✕ backed it out, or the back control did
+    // first): the parent replaced the screen's own entry.
     await page.goBack();
     await expect(page).toHaveURL(exactly("/settings"));
   });
