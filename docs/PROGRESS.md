@@ -268,6 +268,8 @@
     - The release review is done (`docs/reviews/v4.5/release-review.md`).
     - The READY draft is in `docs/handoff/v45-ready-draft.md`.
   - **UPDATE 26 Nov ~12:15 IST (read this first):**
+    - **Owner's rule (26 Nov ~12:05 IST, via the advisor): talk to the ADVISOR, not the owner.** Every question, decision, status, READY and blocker goes to the advisor (session_015vyzMUD3jKaygKBakFdhKZ) with `send_message`. Never ask the owner in this session. Send each READY to the advisor; keep posting BUILDER on #89 before pushes as before.
+    - main moved to 0214c60. The current CI runs count for READY; take main again before each merge (advisor).
     - **v4.0** (`/home/user/wt/v40`, `phase-v40` cc06f05c):
       - main merged; the Owner pictures re-taken, with `owner/drive` on the Connect step; check green.
       - **Full CI 45765346675 is running.** When it's green, post v4.0's READY FOR OWNER on #89, per the 11:20 trigger's list: probe runs 44428827541 and 44430637647, plus the A/B table and "accepted by the owner, 19 Nov"; the walk script; the Google Cloud steps (#89 6985168606 and 6985390913); the release notes. Tell the advisor.
