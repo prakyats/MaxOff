@@ -3,6 +3,7 @@
 -- moved to them, with the count and the name (singular for one), linking to /approvals, written
 -- with no actor; an Admin with only open tasks gives no row; nobody else gets one.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(20);
 

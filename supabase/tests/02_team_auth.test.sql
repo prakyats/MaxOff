@@ -1,6 +1,7 @@
 -- 1.2 Auth: session_login for every role, and the Owner bootstrap. session_logout() went with the
 -- 2.x day gate (3c.1 contract migration); "Sign out of this device" is session_sign_out() (24).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(46);
 

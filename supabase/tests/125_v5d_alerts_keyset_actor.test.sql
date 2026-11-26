@@ -7,6 +7,7 @@
 -- the Owner and Admins read every actor's, Crew only the people on their visible tasks; a job's
 -- entry has none. Every role reads only their own entries; a signed-out caller is refused.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(25);
 

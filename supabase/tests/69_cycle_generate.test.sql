@@ -12,6 +12,7 @@
 -- the night is announced at 08:00, an Admin's own carry and a manual start arm nothing; a cycle armed after
 -- 08:00 waits for the next morning.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(61);
 
