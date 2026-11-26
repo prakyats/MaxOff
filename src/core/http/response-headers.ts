@@ -65,6 +65,103 @@ export function responseHeaders(appEnv: AppEnv | string | undefined): ResponseHe
     : [...SECURITY_HEADERS];
 }
 
+/** What the report-only policy is built from, all known at build time (the NEXT_PUBLIC_* values). */
+export interface CspSources {
+  appEnv: AppEnv | string | undefined;
+  /** `NEXT_PUBLIC_SUPABASE_URL`: the API and its Realtime socket. */
+  supabaseUrl: string | undefined;
+  /** `NEXT_PUBLIC_SENTRY_DSN`: where the browser sends errors, and where the reports go. */
+  sentryDsn: string | undefined;
+}
+
+/** An origin (`https://host[:port]`) from a URL, or null for anything that is not http(s). */
+function originOf(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sentry's endpoint for CSP reports, from the DSN (`https://<key>@<host>/<project>`): the same
+ * host the browser already sends errors to, with the environment so staging's reports stay apart.
+ */
+export function sentryCspReportUrl(
+  dsn: string | undefined,
+  appEnv: AppEnv | string | undefined,
+): string | null {
+  if (!dsn) return null;
+  try {
+    const parsed = new URL(dsn);
+    const project = parsed.pathname.replace(/^\/+|\/+$/g, "");
+    if (parsed.protocol !== "https:" || !parsed.username || !/^\d+$/.test(project)) return null;
+    const report = new URL(`${parsed.origin}/api/${project}/security/`);
+    report.searchParams.set("sentry_key", parsed.username);
+    if (appEnv) report.searchParams.set("sentry_environment", appEnv);
+    return report.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The full Content Security Policy, **report-only** (v7.5 Q7, owner 2026-11-26: report-only for a
+ * week, then enforced; `docs/handoff/v7.5-plan.md` §2.5). The browser blocks nothing: it reports
+ * what the policy would have blocked to Sentry, so the week shows whether the policy fits before
+ * it is enforced. `frame-ancestors` stays in the enforced `Content-Security-Policy` above (a
+ * report-only policy ignores it).
+ *
+ * What the browser loads: everything from the app's own origin (scripts, styles, fonts, the
+ * service worker, files through `/api/files`), plus the Supabase API and its Realtime socket, the
+ * presigned R2 uploads, Google's upload host (Drive hand-ins) and Sentry. `script-src` keeps
+ * `'unsafe-inline'` for now: Next writes each page's data as inline scripts, so a script policy
+ * without it needs per-request nonces, which is the enforcement step's work (the week's reports
+ * show whether anything else needs it). Off the deployed environments the local stack (Supabase,
+ * MinIO and the hold proxy on the loopback host) is allowed too.
+ */
+export function reportOnlyCspHeaders(sources: CspSources): ResponseHeader[] {
+  const supabase = originOf(sources.supabaseUrl);
+  const realtime = supabase?.replace(/^http/, "ws") ?? null;
+  const sentry = originOf(sources.sentryDsn);
+  const deployed = sources.appEnv === "staging" || sources.appEnv === "production";
+  const loopback = deployed
+    ? []
+    : ["http://127.0.0.1:*", "http://localhost:*", "ws://127.0.0.1:*", "ws://localhost:*"];
+  const connect = [
+    "'self'",
+    supabase,
+    realtime,
+    "https://*.r2.cloudflarestorage.com",
+    "https://www.googleapis.com",
+    sentry,
+    ...loopback,
+  ].filter((source): source is string => source !== null);
+  const report = sentryCspReportUrl(sources.sentryDsn, sources.appEnv);
+  const directives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    `connect-src ${[...new Set(connect)].join(" ")}`,
+    "media-src 'self' blob:",
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    ...(report ? [`report-uri ${report}`, "report-to csp"] : []),
+  ];
+  return [
+    { key: "Content-Security-Policy-Report-Only", value: directives.join("; ") },
+    ...(report ? [{ key: "Reporting-Endpoints", value: `csp="${report}"` }] : []),
+  ];
+}
+
 /**
  * Puts the same list on a response the proxy builds itself (3c.1). `next.config.ts`'s `headers()`
  * covers what Next renders, but on the Worker a redirect answered by `updateSession()` (no

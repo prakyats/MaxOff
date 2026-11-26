@@ -7,6 +7,7 @@ import {
   AUTH_LINK_ROUTE_SOURCE,
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
+  reportOnlyCspHeaders,
   responseHeaders,
 } from "./src/core/http/response-headers";
 import { appVersionFrom } from "./src/core/lib/app-version";
@@ -25,7 +26,15 @@ const { appEnv } = assertObservabilityEnv();
 // Security headers on every rendered response, plus `X-Robots-Tag: noindex` on staging
 // (ARCHITECTURE §18.3, `core/http/response-headers`). Resolved once at build time, like the
 // NEXT_PUBLIC_* values. Asserted against a real production build in `e2e/production.spec.ts`.
-const RESPONSE_HEADERS = responseHeaders(appEnv);
+// The full CSP, report-only for now (v7.5 Q7): built from the same build-time values.
+const RESPONSE_HEADERS = [
+  ...responseHeaders(appEnv),
+  ...reportOnlyCspHeaders({
+    appEnv,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  }),
+];
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

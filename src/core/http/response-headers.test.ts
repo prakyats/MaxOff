@@ -9,10 +9,12 @@ import {
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
   NOINDEX_HEADER,
+  reportOnlyCspHeaders,
   ROBOTS_DISALLOW_ALL,
   SECURITY_HEADERS,
   isNoindexEnvironment,
   responseHeaders,
+  sentryCspReportUrl,
 } from "./response-headers";
 
 describe("isNoindexEnvironment", () => {
@@ -79,5 +81,106 @@ describe("responseHeaders", () => {
 
   it("robots.txt on staging disallows everything", () => {
     expect(ROBOTS_DISALLOW_ALL).toBe("User-agent: *\nDisallow: /\n");
+  });
+});
+
+describe("the report-only CSP (v7.5 Q7)", () => {
+  const DSN = "https://abc123@o42.ingest.sentry.io/4507";
+  const policy = (sources: Parameters<typeof reportOnlyCspHeaders>[0]) =>
+    reportOnlyCspHeaders(sources).find(
+      (header) => header.key === "Content-Security-Policy-Report-Only",
+    )?.value ?? "";
+  const directive = (value: string, name: string) =>
+    value
+      .split("; ")
+      .find((part) => part.startsWith(`${name} `))
+      ?.slice(name.length + 1)
+      .split(" ") ?? [];
+
+  it("reports to Sentry's security endpoint for the DSN's project, per environment", () => {
+    expect(sentryCspReportUrl(DSN, "staging")).toBe(
+      "https://o42.ingest.sentry.io/api/4507/security/?sentry_key=abc123&sentry_environment=staging",
+    );
+    expect(sentryCspReportUrl(undefined, "production")).toBeNull();
+    expect(sentryCspReportUrl("not a url", "production")).toBeNull();
+    expect(sentryCspReportUrl("http://abc@o42.ingest.sentry.io/4507", "production")).toBeNull();
+    expect(sentryCspReportUrl("https://o42.ingest.sentry.io/4507", "production")).toBeNull();
+  });
+
+  it("is report-only: the enforced CSP stays frame-ancestors 'none' alone", () => {
+    const headers = reportOnlyCspHeaders({
+      appEnv: "production",
+      supabaseUrl: "https://ref.supabase.co",
+      sentryDsn: DSN,
+    });
+    expect(headers.map((header) => header.key)).toEqual([
+      "Content-Security-Policy-Report-Only",
+      "Reporting-Endpoints",
+    ]);
+    expect(SECURITY_HEADERS).toContainEqual({
+      key: "Content-Security-Policy",
+      value: "frame-ancestors 'none'",
+    });
+  });
+
+  it("allows the app's own origin, Supabase and its socket, R2 uploads, Google uploads and Sentry", () => {
+    const value = policy({
+      appEnv: "production",
+      supabaseUrl: "https://ref.supabase.co",
+      sentryDsn: DSN,
+    });
+    expect(directive(value, "default-src")).toEqual(["'self'"]);
+    expect(directive(value, "connect-src")).toEqual([
+      "'self'",
+      "https://ref.supabase.co",
+      "wss://ref.supabase.co",
+      "https://*.r2.cloudflarestorage.com",
+      "https://www.googleapis.com",
+      "https://o42.ingest.sentry.io",
+    ]);
+    for (const [name, sources] of [
+      ["object-src", ["'none'"]],
+      ["base-uri", ["'none'"]],
+      ["frame-src", ["'none'"]],
+      ["form-action", ["'self'"]],
+      ["worker-src", ["'self'"]],
+      ["img-src", ["'self'", "data:", "blob:"]],
+    ] as const) {
+      expect(directive(value, name), name).toEqual(sources);
+    }
+    expect(directive(value, "report-uri")).toEqual([sentryCspReportUrl(DSN, "production")]);
+    expect(directive(value, "report-to")).toEqual(["csp"]);
+  });
+
+  it("names the loopback host only off the deployed environments", () => {
+    for (const appEnv of ["staging", "production"]) {
+      expect(policy({ appEnv, supabaseUrl: undefined, sentryDsn: undefined })).not.toMatch(
+        /127\.0\.0\.1|localhost/,
+      );
+    }
+    for (const appEnv of ["local", undefined]) {
+      expect(
+        directive(
+          policy({ appEnv, supabaseUrl: "http://127.0.0.1:54331", sentryDsn: undefined }),
+          "connect-src",
+        ),
+      ).toEqual(
+        expect.arrayContaining([
+          "http://127.0.0.1:54331",
+          "ws://127.0.0.1:54331",
+          "http://127.0.0.1:*",
+        ]),
+      );
+    }
+  });
+
+  it("without a DSN there is nowhere to report: no reporting directives", () => {
+    const headers = reportOnlyCspHeaders({
+      appEnv: "local",
+      supabaseUrl: undefined,
+      sentryDsn: undefined,
+    });
+    expect(headers.map((header) => header.key)).toEqual(["Content-Security-Policy-Report-Only"]);
+    expect(headers[0]?.value).not.toMatch(/report-(uri|to)/);
   });
 });

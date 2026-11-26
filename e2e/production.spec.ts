@@ -44,6 +44,10 @@ test.describe("production build", () => {
       for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
         expect(headers[name], `${route} ${name}`).toBe(value);
       }
+      // The full CSP, report-only for now (v7.5 Q7); its sources are unit-tested.
+      expect(headers["content-security-policy-report-only"], `${route} report-only CSP`).toMatch(
+        /^default-src 'self'; .*object-src 'none'; base-uri 'none'/,
+      );
     });
   }
 
