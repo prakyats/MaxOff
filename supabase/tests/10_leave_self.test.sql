@@ -5,6 +5,7 @@
 -- leave_withdraw is 2.1's; leave_request_change was re-created in 2.3
 -- (20260924124326_leave_change_ended.sql) to refuse approved leave that has ended.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(58);
 
@@ -23,6 +24,11 @@ delete from public.activity_log;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

@@ -1012,6 +1012,19 @@ html:has([data-slot="bulk-bar"]) {
     --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 1rem);
   }
 }
+/* sonner's phone layout sets the list's left and right offsets *and* `width: 100%`, so the list
+ * (invisible, but there whenever a toast is) reached 16px past the right edge of the screen (v3.5,
+ * month-close.spec: a closed month's Set value sheet with "Price saved" up). The offsets alone
+ * give the width; the toast fills the list, so it stays where it was, 16px from each side.
+ * Doubled attribute: sonner appends its stylesheet after this one. */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-sonner-toaster] {
+    width: auto;
+  }
+  [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] {
+    width: 100%;
+  }
+}
 
 /* A page with a floating primary action or a sticky save bar gets room for it, so neither ever
  * covers the last row or the last field (ARCHITECTURE §14.1). In the utilities layer on purpose:

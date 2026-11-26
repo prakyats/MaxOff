@@ -7,6 +7,7 @@ import {
   type DayStatus,
   STATUS_LABELS,
 } from "./choices";
+import type { Half } from "./hours";
 
 /** `attendance_events.action` (DATA-MODEL §3). */
 export const ATTENDANCE_EVENT_ACTIONS = [
@@ -42,6 +43,40 @@ export type HistoryEvent = {
   at: string;
 };
 
+/**
+ * v2.0.1: the approved leave behind a day, as far as its label needs it: the linked request's half
+ * and comp (a half day, or a split day's morning: `leave_request_id`), and a split day's afternoon
+ * (`second_leave_request_id`). Null when no leave is linked.
+ */
+export type DayLeave = {
+  /** The linked half day's half off; null for a full day or an older half day. */
+  half: Half | null;
+  /** It used a comp credit (a ½ comp day). */
+  comp: boolean;
+  /** The afternoon of a day off made of two half days. */
+  second: { half: Half | null; comp: boolean } | null;
+};
+
+/**
+ * What a decided day was, in plain words (v2.0.1): "Off · ½ comp + ½ leave" for a split day (one
+ * comp half, one ordinary half; two ordinary halves are "Leave", two comp halves "Comp leave"),
+ * and a half day says its half: "Half day · morning off", "Half day · comp · afternoon off".
+ */
+export function dayStatusLabel(status: DayStatus, leave: DayLeave | null | undefined): string {
+  if (leave?.second && (status === "leave" || status === "comp_leave")) {
+    const comps = Number(leave.comp) + Number(leave.second.comp);
+    if (comps === 1) return "Off · ½ comp + ½ leave";
+    return STATUS_LABELS[comps === 2 ? "comp_leave" : "leave"];
+  }
+  if (status === "half_day" && leave) {
+    const parts: string[] = [STATUS_LABELS.half_day];
+    if (leave.comp) parts.push("comp");
+    if (leave.half) parts.push(`${leave.half} off`);
+    return parts.join(" · ");
+  }
+  return STATUS_LABELS[status];
+}
+
 /** One of the member's own attendance days, as the history needs it (`data/attendance.ts`). */
 export type HistoryDay = {
   id: string;
@@ -68,6 +103,8 @@ export type HistoryDay = {
   lateCleared?: boolean;
   /** v1.9 W4: how the day's last early-leave request ended, when it is one the day shows. */
   earlyLeave?: "approved" | "left_unanswered" | "corrected" | null;
+  /** v2.0.1: the leave linked to the day, for its label (`dayStatusLabel`). */
+  leave?: DayLeave | null;
 };
 
 /**
@@ -344,7 +381,7 @@ export function describeHistoryDay(
     return { status, standing: w.waiting, dotStatus: day.state, flags };
   }
 
-  const status = day.finalStatus ? STATUS_LABELS[day.finalStatus] : "Recorded";
+  const status = day.finalStatus ? dayStatusLabel(day.finalStatus, day.leave) : "Recorded";
   const last = [...day.events].reverse().find((event) => event.action === "corrected");
   const standing =
     day.state === "approved" ? "Approved" : last?.actor === "system" ? w.leaveApproved : w.changed;

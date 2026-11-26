@@ -10,6 +10,7 @@
 -- saved reports only, one a day at most (65: the window since the last digest), the zero skip, the preview per role, email_claim takes it first.
 -- (8) The schedule: digest_daily unscheduled, eod_report and digest_weekly every 5 minutes.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(109);
 
@@ -18,6 +19,11 @@ select plan(109);
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

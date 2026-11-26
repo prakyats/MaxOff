@@ -7,7 +7,8 @@ import type { Database } from "@/core/db/database.types";
 import { createServerSupabase } from "@/core/db/server";
 
 import type { PromptLeaveChoice } from "../domain/choices";
-import { eventActor, type HistoryDay, isEventAction } from "../domain/history";
+import { type DayLeave, eventActor, type HistoryDay, isEventAction } from "../domain/history";
+import type { Half } from "../domain/hours";
 import { type Month, monthRange } from "../domain/months";
 import type { OwnToday } from "../domain/today";
 
@@ -125,7 +126,7 @@ export async function rpcChooseLeaveToday(
 }
 
 const HISTORY_COLUMNS =
-  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, late_minutes, late_reason, late_cleared_at, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at), early:early_leave_requests(state, requested_at)";
+  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, late_minutes, late_reason, late_cleared_at, first:leave_requests!leave_request_id(type, half, credit_days), second:leave_requests!second_leave_request_id(half, credit_days), events:attendance_events(id, action, from_status, to_status, reason, actor_id, at), early:early_leave_requests(state, requested_at)";
 
 /** v1.9 W4: the early leave a day shows, its latest request that ended it (or was answered). */
 function earlyLeaveOf(
@@ -140,6 +141,27 @@ function earlyLeaveOf(
     )
     .sort((a, b) => b.requested_at.localeCompare(a.requested_at))[0];
   return (shown?.state as NonNullable<HistoryDay["earlyLeave"]> | undefined) ?? null;
+}
+
+/** A `half` column as the screens type it (checked morning | afternoon in the database). */
+function halfOf(value: string | null): Half | null {
+  return value === "morning" || value === "afternoon" ? value : null;
+}
+
+/**
+ * v2.0.1: the leave behind a day, for its label: the linked half day's half and comp, and a split
+ * day's afternoon. Read in the history's own query (two to-one embeds, no extra round trip).
+ */
+function dayLeaveOf(
+  first: { type: string; half: string | null; credit_days: number | null } | null,
+  second: { half: string | null; credit_days: number | null } | null,
+): DayLeave | null {
+  if (!first) return null;
+  return {
+    half: first.type === "half_day" ? halfOf(first.half) : null,
+    comp: first.type === "half_day" && first.credit_days !== null,
+    second: second ? { half: halfOf(second.half), comp: second.credit_days !== null } : null,
+  };
 }
 
 /**
@@ -178,6 +200,7 @@ export async function listDays(memberId: string, month: Month): Promise<HistoryD
     lateReason: row.late_reason,
     lateCleared: row.late_cleared_at !== null,
     earlyLeave: earlyLeaveOf(row.early),
+    leave: dayLeaveOf(row.first, row.second),
     events: row.events.flatMap((event) =>
       isEventAction(event.action)
         ? [

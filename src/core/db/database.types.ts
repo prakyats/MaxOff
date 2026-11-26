@@ -162,6 +162,7 @@ export type Database = {
           overtime_flag: boolean;
           overtime_reason: string | null;
           proposed_by_system: boolean;
+          second_leave_request_id: string | null;
           started_at: string | null;
           state: Database["public"]["Enums"]["attendance_state"];
           stay_until: string | null;
@@ -193,6 +194,7 @@ export type Database = {
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
+          second_leave_request_id?: string | null;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
           stay_until?: string | null;
@@ -224,6 +226,7 @@ export type Database = {
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
+          second_leave_request_id?: string | null;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
           stay_until?: string | null;
@@ -282,6 +285,13 @@ export type Database = {
             columns: ["member_id"];
             isOneToOne: false;
             referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_second_leave_request_id_fkey";
+            columns: ["second_leave_request_id"];
+            isOneToOne: false;
+            referencedRelation: "leave_requests";
             referencedColumns: ["id"];
           },
           {
@@ -1062,6 +1072,71 @@ export type Database = {
           },
         ];
       };
+      cycle_billing: {
+        Row: {
+          billed_on: string | null;
+          billing_status: Database["public"]["Enums"]["billing_status"];
+          created_at: string;
+          cycle_amount: number | null;
+          cycle_id: string;
+          note: string | null;
+          org_id: string;
+          project_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          billed_on?: string | null;
+          billing_status?: Database["public"]["Enums"]["billing_status"];
+          created_at?: string;
+          cycle_amount?: number | null;
+          cycle_id: string;
+          note?: string | null;
+          org_id: string;
+          project_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          billed_on?: string | null;
+          billing_status?: Database["public"]["Enums"]["billing_status"];
+          created_at?: string;
+          cycle_amount?: number | null;
+          cycle_id?: string;
+          note?: string | null;
+          org_id?: string;
+          project_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cycle_billing_cycle_id_fkey";
+            columns: ["cycle_id"];
+            isOneToOne: true;
+            referencedRelation: "project_cycles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cycle_billing_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cycle_billing_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cycle_billing_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
+          },
+        ];
+      };
       deliverable_templates: {
         Row: {
           archived_at: string | null;
@@ -1661,6 +1736,48 @@ export type Database = {
           },
         ];
       };
+      item_billing: {
+        Row: {
+          added: boolean;
+          created_at: string;
+          item_id: string;
+          org_id: string;
+          updated_at: string;
+          value: number | null;
+        };
+        Insert: {
+          added?: boolean;
+          created_at?: string;
+          item_id: string;
+          org_id: string;
+          updated_at?: string;
+          value?: number | null;
+        };
+        Update: {
+          added?: boolean;
+          created_at?: string;
+          item_id?: string;
+          org_id?: string;
+          updated_at?: string;
+          value?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "item_billing_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: true;
+            referencedRelation: "project_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "item_billing_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       item_reviews: {
         Row: {
           at: string;
@@ -1731,6 +1848,7 @@ export type Database = {
           half: string | null;
           id: string;
           member_id: string;
+          pair_id: string | null;
           reason: string | null;
           requests_cancellation: boolean;
           source: string;
@@ -1750,6 +1868,7 @@ export type Database = {
           half?: string | null;
           id?: string;
           member_id: string;
+          pair_id?: string | null;
           reason?: string | null;
           requests_cancellation?: boolean;
           source: string;
@@ -1769,6 +1888,7 @@ export type Database = {
           half?: string | null;
           id?: string;
           member_id?: string;
+          pair_id?: string | null;
           reason?: string | null;
           requests_cancellation?: boolean;
           source?: string;
@@ -2475,6 +2595,153 @@ export type Database = {
           },
         ];
       };
+      project_advances: {
+        Row: {
+          amount: number;
+          id: string;
+          note: string | null;
+          org_id: string;
+          project_id: string;
+          received_on: string;
+          recorded_at: string;
+          recorded_by: string;
+          return_note: string | null;
+          returned_by: string | null;
+          returned_on: string | null;
+        };
+        Insert: {
+          amount: number;
+          id?: string;
+          note?: string | null;
+          org_id: string;
+          project_id: string;
+          received_on: string;
+          recorded_at?: string;
+          recorded_by: string;
+          return_note?: string | null;
+          returned_by?: string | null;
+          returned_on?: string | null;
+        };
+        Update: {
+          amount?: number;
+          id?: string;
+          note?: string | null;
+          org_id?: string;
+          project_id?: string;
+          received_on?: string;
+          recorded_at?: string;
+          recorded_by?: string;
+          return_note?: string | null;
+          returned_by?: string | null;
+          returned_on?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_advances_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_advances_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_advances_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
+          },
+          {
+            foreignKeyName: "project_advances_recorded_by_fkey";
+            columns: ["recorded_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_advances_recorded_by_fkey";
+            columns: ["recorded_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_advances_returned_by_fkey";
+            columns: ["returned_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_advances_returned_by_fkey";
+            columns: ["returned_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_billing: {
+        Row: {
+          billing_category: Database["public"]["Enums"]["billing_category"] | null;
+          created_at: string;
+          cycle_amount: number | null;
+          fixed_amount: number | null;
+          org_id: string;
+          priced_from: string | null;
+          project_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          billing_category?: Database["public"]["Enums"]["billing_category"] | null;
+          created_at?: string;
+          cycle_amount?: number | null;
+          fixed_amount?: number | null;
+          org_id: string;
+          priced_from?: string | null;
+          project_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          billing_category?: Database["public"]["Enums"]["billing_category"] | null;
+          created_at?: string;
+          cycle_amount?: number | null;
+          fixed_amount?: number | null;
+          org_id?: string;
+          priced_from?: string | null;
+          project_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_billing_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_billing_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: true;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_billing_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: true;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
+          },
+        ];
+      };
       project_cycles: {
         Row: {
           created_at: string;
@@ -2576,6 +2843,13 @@ export type Database = {
             referencedRelation: "projects";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "project_cycles_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
+          },
         ];
       };
       project_item_blueprints: {
@@ -2629,6 +2903,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "projects";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_blueprints_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
           },
         ];
       };
@@ -2713,6 +2994,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "projects";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
           },
         ];
       };
@@ -2982,6 +3270,13 @@ export type Database = {
             referencedRelation: "projects";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "project_items_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
+          },
         ];
       };
       project_stages: {
@@ -3035,6 +3330,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "projects";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_stages_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_project_lines_v";
+            referencedColumns: ["project_id"];
           },
         ];
       };
@@ -3413,6 +3715,70 @@ export type Database = {
             columns: ["member_id"];
             isOneToOne: false;
             referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      revenue_overrides: {
+        Row: {
+          adjusted_value: number;
+          at: string;
+          by_id: string;
+          calculated_value: number;
+          id: string;
+          note: string;
+          org_id: string;
+          ref_id: string;
+          scope: string;
+          superseded_at: string | null;
+          superseded_note: string | null;
+        };
+        Insert: {
+          adjusted_value: number;
+          at?: string;
+          by_id: string;
+          calculated_value: number;
+          id?: string;
+          note: string;
+          org_id: string;
+          ref_id: string;
+          scope: string;
+          superseded_at?: string | null;
+          superseded_note?: string | null;
+        };
+        Update: {
+          adjusted_value?: number;
+          at?: string;
+          by_id?: string;
+          calculated_value?: number;
+          id?: string;
+          note?: string;
+          org_id?: string;
+          ref_id?: string;
+          scope?: string;
+          superseded_at?: string | null;
+          superseded_note?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "revenue_overrides_by_id_fkey";
+            columns: ["by_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "revenue_overrides_by_id_fkey";
+            columns: ["by_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "revenue_overrides_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -4741,6 +5107,28 @@ export type Database = {
           },
         ];
       };
+      item_values_v: {
+        Row: {
+          achieved: boolean | null;
+          client_id: string | null;
+          closed_not_achieved: boolean | null;
+          cycle_id: string | null;
+          in_potential: boolean | null;
+          item_id: string | null;
+          kind: string | null;
+          leaf_approved_at: string | null;
+          leaf_item_id: string | null;
+          leaf_state: Database["public"]["Enums"]["item_state"] | null;
+          method: string | null;
+          month: string | null;
+          org_id: string | null;
+          position: string | null;
+          project_id: string | null;
+          title: string | null;
+          value: number | null;
+        };
+        Relationships: [];
+      };
       member_directory: {
         Row: {
           avatar_file_id: string | null;
@@ -4802,8 +5190,133 @@ export type Database = {
           },
         ];
       };
+      revenue_advances_v: {
+        Row: {
+          advance_id: string | null;
+          amount: number | null;
+          client_id: string | null;
+          event: string | null;
+          month: string | null;
+          note: string | null;
+          on_date: string | null;
+          org_id: string | null;
+          project_id: string | null;
+          returned: boolean | null;
+        };
+        Relationships: [];
+      };
+      revenue_by_client_month_v: {
+        Row: {
+          achieved: number | null;
+          achieved_calculated: number | null;
+          billing_category: Database["public"]["Enums"]["billing_category"] | null;
+          client_id: string | null;
+          closed_not_achieved: number | null;
+          line_count: number | null;
+          month: string | null;
+          no_amount_count: number | null;
+          not_priced_count: number | null;
+          org_id: string | null;
+          potential: number | null;
+          remaining: number | null;
+        };
+        Relationships: [];
+      };
+      revenue_by_cycle_v: {
+        Row: {
+          achieved: number | null;
+          achieved_calculated: number | null;
+          added_count: number | null;
+          added_value: number | null;
+          amount: number | null;
+          billed_on: string | null;
+          billing_category: Database["public"]["Enums"]["billing_category"] | null;
+          billing_note: string | null;
+          billing_status: Database["public"]["Enums"]["billing_status"] | null;
+          client_id: string | null;
+          closed_not_achieved: number | null;
+          cycle_id: string | null;
+          done_count: number | null;
+          held: boolean | null;
+          label: string | null;
+          month: string | null;
+          not_priced_count: number | null;
+          org_id: string | null;
+          override_id: string | null;
+          period_end: string | null;
+          period_start: string | null;
+          plan_count: number | null;
+          potential: number | null;
+          project_id: string | null;
+          remaining: number | null;
+        };
+        Relationships: [];
+      };
+      revenue_project_lines_v: {
+        Row: {
+          achieved: number | null;
+          achieved_calculated: number | null;
+          advances_kept: number | null;
+          advances_returned: number | null;
+          amount: number | null;
+          billed_on: string | null;
+          billing_category: Database["public"]["Enums"]["billing_category"] | null;
+          billing_note: string | null;
+          billing_status: Database["public"]["Enums"]["billing_status"] | null;
+          client_id: string | null;
+          closed_not_achieved: number | null;
+          cycle_id: string | null;
+          delivery_date: string | null;
+          held: boolean | null;
+          month: string | null;
+          name: string | null;
+          org_id: string | null;
+          override_id: string | null;
+          potential: number | null;
+          project_id: string | null;
+          ready_to_complete: boolean | null;
+          state: Database["public"]["Enums"]["project_state"] | null;
+          was_due: boolean | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
+      advance_record: {
+        Args: {
+          amount: number;
+          note: string;
+          project_id: string;
+          received_on: string;
+        };
+        Returns: string;
+      };
+      advance_return: {
+        Args: { advance_id: string; note: string; returned_on: string };
+        Returns: boolean;
+      };
       app_open_report: {
         Args: { is_standalone: boolean; platform: string };
         Returns: boolean;
@@ -4824,8 +5337,10 @@ export type Database = {
       };
       attendance_decide: {
         Args: {
+          comp_half?: string;
           day_id: string;
           decision: string;
+          half?: string;
           reason?: string;
           status?: Database["public"]["Enums"]["day_status"];
         };
@@ -4986,6 +5501,28 @@ export type Database = {
           state: Database["public"]["Enums"]["attendance_state"];
           submitted_choice: Database["public"]["Enums"]["attendance_choice"];
         }[];
+      };
+      billing_mark: {
+        Args: {
+          billed: boolean;
+          billed_on: string;
+          cycle_ids: string[];
+          note: string;
+        };
+        Returns: number;
+      };
+      billing_set_cycle_amount: {
+        Args: { amount: number; cycle_id: string };
+        Returns: boolean;
+      };
+      billing_set_project: {
+        Args: {
+          amount: number;
+          category: Database["public"]["Enums"]["billing_category"];
+          project_id: string;
+          set_amount: boolean;
+        };
+        Returns: boolean;
       };
       bootstrap_owner: {
         Args: {
@@ -5352,6 +5889,10 @@ export type Database = {
         Args: { item_id: string };
         Returns: Database["public"]["Enums"]["item_state"];
       };
+      item_mark_done_and_complete: {
+        Args: { item_id: string };
+        Returns: Database["public"]["Enums"]["project_state"];
+      };
       item_reject: {
         Args: { item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
@@ -5411,6 +5952,10 @@ export type Database = {
         Args: { changes: Json; item_id: string };
         Returns: string[];
       };
+      item_value_set: {
+        Args: { item_id: string; value: number };
+        Returns: boolean;
+      };
       items_add_stage_groups: {
         Args: { item_ids: string[]; stage_groups: Json };
         Returns: number;
@@ -5445,7 +5990,9 @@ export type Database = {
       };
       leave_owner_edit: {
         Args: {
+          comp?: boolean;
           end_date: string;
+          half?: string;
           reason?: string;
           request_id: string;
           start_date: string;
@@ -5460,6 +6007,7 @@ export type Database = {
         Args: {
           cancel?: boolean;
           end_date?: string;
+          half?: string;
           reason?: string;
           request_id: string;
           start_date?: string;
@@ -5484,6 +6032,10 @@ export type Database = {
           reason?: string;
           start_date: string;
         };
+        Returns: string;
+      };
+      leave_submit_split: {
+        Args: { comp_half: string; reason?: string; work_date: string };
         Returns: string;
       };
       leave_withdraw: {
@@ -5658,6 +6210,10 @@ export type Database = {
           id: number;
           meta: Json;
         }[];
+      };
+      project_billing_read: {
+        Args: { cycle_id?: string; project_id: string };
+        Returns: Json;
       };
       project_blueprint_add: {
         Args: { project_id: string; title: string };
@@ -5894,6 +6450,20 @@ export type Database = {
           since: string;
           state: string;
         }[];
+      };
+      revenue_month_read: { Args: { month?: string }; Returns: Json };
+      revenue_override_clear: {
+        Args: { note: string; ref_id: string; scope: string };
+        Returns: boolean;
+      };
+      revenue_override_set: {
+        Args: {
+          adjusted_value: number;
+          note: string;
+          ref_id: string;
+          scope: string;
+        };
+        Returns: string;
       };
       session_bundle: {
         Args: never;
@@ -6193,6 +6763,8 @@ export type Database = {
       admin_step: "required" | "none" | "skipped";
       attendance_choice: "present" | "leave" | "half_day" | "comp_leave";
       attendance_state: "awaiting_choice" | "pending_review" | "approved" | "corrected";
+      billing_category: "retainer" | "project" | "additional_work";
+      billing_status: "not_billed" | "billed";
       carry_decision: "carry_forward" | "close" | "leave_pending";
       client_state: "draft" | "active" | "paused" | "inactive";
       cycle_state: "open" | "settled";
@@ -6356,6 +6928,8 @@ export const Constants = {
       admin_step: ["required", "none", "skipped"],
       attendance_choice: ["present", "leave", "half_day", "comp_leave"],
       attendance_state: ["awaiting_choice", "pending_review", "approved", "corrected"],
+      billing_category: ["retainer", "project", "additional_work"],
+      billing_status: ["not_billed", "billed"],
       carry_decision: ["carry_forward", "close", "leave_pending"],
       client_state: ["draft", "active", "paused", "inactive"],
       cycle_state: ["open", "settled"],

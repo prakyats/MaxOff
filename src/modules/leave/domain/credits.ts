@@ -83,7 +83,7 @@ export type CompDate = { date: string; availableDays: number };
  */
 export type CompBalance = { availableDays: number; useBy: string | null; dates?: CompDate[] };
 
-/** The dates a full (1 day) or a half comp day can be taken on. */
+/** The dates a full (1 day), a half comp day or a split day (½ comp + ½ leave) can be taken on. */
 export function compDatesFor(dates: readonly CompDate[], kind: CompLeaveKind): string[] {
   const needed = kind === "comp_full" ? 1 : 0.5;
   return dates.filter((entry) => entry.availableDays >= needed).map((entry) => entry.date);
@@ -133,17 +133,29 @@ export function describeCredit(
   };
 }
 
-/** The comp leave kinds the leave form may offer, given the balance (decision 16). */
-export type CompLeaveKind = "comp_full" | "comp_half";
+/**
+ * The comp leave kinds the leave form may offer, given the balance (decision 16). v2.0.1:
+ * `comp_split` is "Full day: ½ comp + ½ leave" (`leave_submit_split`), one date whose comp half
+ * draws ½ credit and whose other half is ordinary leave.
+ */
+export type CompLeaveKind = "comp_full" | "comp_half" | "comp_split";
 
 export function compKindsAvailable(balance: CompBalance): CompLeaveKind[] {
   const kinds: CompLeaveKind[] = [];
   if (balance.availableDays >= 1) kinds.push("comp_full");
   if (balance.availableDays >= 0.5) kinds.push("comp_half");
+  // The split day needs ½ credit valid on a working date: with the date list, on one of its dates.
+  if (
+    balance.availableDays >= 0.5 &&
+    (!balance.dates || compDatesFor(balance.dates, "comp_split").length > 0)
+  ) {
+    kinds.push("comp_split");
+  }
   return kinds;
 }
 
 export const COMP_KIND_LABELS: Record<CompLeaveKind, string> = {
   comp_full: "Comp leave (1 day)",
   comp_half: "Comp leave, half day (½)",
+  comp_split: "Full day: ½ comp + ½ leave",
 };

@@ -6,6 +6,7 @@
 -- preview against the apply, all or nothing, the answer asked once. Proved on TODAY-shape data: projects made
 -- the old way (project_create with plain stages), ticks and history kept. Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(107);
 
@@ -13,6 +14,11 @@ delete from public.deliverable_templates;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

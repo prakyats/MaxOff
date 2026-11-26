@@ -1,6 +1,7 @@
 -- Phase 3 review: custom-field values and brand colours and fonts are checked by the database, so
 -- the API cannot store what the app's forms would refuse (every path, allowed and denied).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(24);
 
@@ -20,6 +21,11 @@ delete from public.activity_log;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

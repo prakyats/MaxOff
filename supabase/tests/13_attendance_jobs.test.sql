@@ -5,6 +5,7 @@
 -- on a day still running). app.logout_not_recorded went with the 2.x gate (3c.1 contract
 -- migration); its successor app.end_not_recorded is 24's.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(64);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration
@@ -26,6 +27,11 @@ delete from public.activity_log;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

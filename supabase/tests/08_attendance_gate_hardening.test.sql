@@ -5,6 +5,7 @@
 -- as the system, the way attendance_start_day() and the prompt's leave choice do); the 2.x
 -- attendance_touch() is gone, and the two-connection proof of the start's lock is 09 (dblink).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(104);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration
@@ -26,6 +27,11 @@ delete from public.activity_log;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;
@@ -200,12 +206,12 @@ select is(pg_get_function_result('app.attendance_apply_leave(public.leave_reques
 select ok(
   has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_decide(uuid, text, text)', 'execute')
-  and has_function_privilege('authenticated', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
+  and has_function_privilege('authenticated', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text, text, boolean)', 'execute'),
   'authenticated may execute the re-created functions');
 select ok(
   not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_decide(uuid, text, text)', 'execute')
-  and not has_function_privilege('anon', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
+  and not has_function_privilege('anon', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text, text, boolean)', 'execute'),
   'anon may execute none of them');
 select ok(
   not has_function_privilege('authenticated', 'app.leave_supersede_gate(uuid, date, date, uuid, uuid)', 'execute')

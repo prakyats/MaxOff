@@ -19,3 +19,7 @@ patchedDependencies:
   # sonner's stylesheet comes from `sonner/dist/styles.css` in the `(app)` layout instead of a
   # 15 KB CSS string injected from JS on every signed-in route (v4.5; the patch file says more).
   sonner@2.0.8: patches/sonner@2.0.8.patch
+# Security floors for packages that come in through others (v2.0.1, `pnpm audit --prod`): undici
+# arrives through shadcn › @dotenvx/dotenvx, and < 7.30.1 has four high advisories.
+overrides:
+  "undici@<7.30.1": ^7.30.1

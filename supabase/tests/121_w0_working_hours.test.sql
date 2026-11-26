@@ -15,6 +15,7 @@
 --    Owner's read, and the switch off; then the day's edges (00:05 and 23:50 IST, a 00:00-23:59 day with no
 --    grace), which the e2e spec never runs in (X5). Neutral names only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(142);
 
@@ -23,6 +24,11 @@ delete from public.early_leave_requests;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

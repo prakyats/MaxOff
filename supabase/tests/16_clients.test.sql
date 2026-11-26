@@ -1,6 +1,7 @@
 -- 3.1 Clients: the five relations for every role (allowed and denied), the scope helpers, the
 -- protected columns, the activity policy, and every path of the lifecycle and contact functions.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(160);
 
@@ -20,6 +21,11 @@ delete from public.activity_log;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

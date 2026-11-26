@@ -856,7 +856,8 @@ export async function removeFieldDefinitions(keys: string[]): Promise<void> {
 /**
  * Removes a client a spec creates (3.1), with the rows the triggers made for it, every
  * definition scoped to it and, since phase 7, its client work (projects, stages, the item list,
- * cycles, items, their own stages, ticks and reviews; fixtures only: production deletes nothing, invariant 9).
+ * cycles, items, their own stages, ticks and reviews, and since v2.1 its billing rows; fixtures only:
+ * production deletes nothing, invariant 9).
  * Nothing to remove is fine.
  */
 export async function removeClientFixture(name: string): Promise<void> {
@@ -869,8 +870,22 @@ export async function removeClientFixture(name: string): Promise<void> {
       let items = await serviceSelect<{ id: string; carried_from_item_id: string | null }>(
         `project_items?project_id=eq.${projectId}&select=id,carried_from_item_id`,
       );
+      // v2.1 (9.1): the Owner's money rows point at the project, its cycles and its items with no
+      // cascade (a project with money is never deleted in production), so a fixture's go first.
+      const cycles = await serviceSelect<{ id: string }>(
+        `project_cycles?project_id=eq.${projectId}&select=id`,
+      );
+      if (cycles.length > 0) {
+        const cycleIds = cycles.map((cycle) => cycle.id).join(",");
+        await serviceRest(`revenue_overrides?ref_id=in.(${cycleIds})`, { method: "DELETE" });
+      }
+      await serviceRest(`revenue_overrides?ref_id=eq.${projectId}`, { method: "DELETE" });
+      await serviceRest(`project_advances?project_id=eq.${projectId}`, { method: "DELETE" });
+      await serviceRest(`cycle_billing?project_id=eq.${projectId}`, { method: "DELETE" });
+      await serviceRest(`project_billing?project_id=eq.${projectId}`, { method: "DELETE" });
       if (items.length > 0) {
         const ids = items.map((item) => item.id).join(",");
+        await serviceRest(`item_billing?item_id=in.(${ids})`, { method: "DELETE" });
         await serviceRest(`item_reviews?item_id=in.(${ids})`, { method: "DELETE" });
         await serviceRest(`project_item_stages?item_id=in.(${ids})`, { method: "DELETE" });
       }

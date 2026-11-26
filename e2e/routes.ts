@@ -36,6 +36,8 @@ export const STATIC_ROUTES: readonly StaticRoute[] = [
   { path: "/reports", roles: LEADS },
   { path: "/reports/end-of-day", roles: OWNER },
   { path: "/reports/month", roles: OWNER },
+  // v2.1 (9.2): the Owner's Revenue page.
+  { path: "/reports/revenue", roles: OWNER },
   { path: "/leave", roles: SELF },
   { path: "/leave/attendance", roles: SELF },
   { path: "/leave/extra-work", roles: SELF },

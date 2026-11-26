@@ -8,6 +8,7 @@
 -- (35) an Admin's suggestion without a client label is decided by the Owner only.
 -- (36) unread markers count only on the tasks the viewer is on or decides.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(60);
 
@@ -18,6 +19,11 @@ delete from public.task_reads;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

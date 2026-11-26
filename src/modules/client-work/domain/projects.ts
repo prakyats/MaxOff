@@ -123,6 +123,61 @@ export function readyToComplete(
   return done && !states.some((state) => state === "open" || state === "done");
 }
 
+/** What the two rules below read of a project: its repeat, its state and whether it is on hold. */
+export type CompletableProject = Pick<Project, "recurrence" | "state"> & { held: boolean };
+
+/**
+ * Kickoff 9 R1 (v2.1; WORKFLOWS §6 "One-time projects"): whether marking `itemId` done would leave
+ * a **one-time** project with nothing open, so its Mark done offers "Mark done and complete
+ * project" (`item_mark_done_and_complete`). True only when the project is working (open or in
+ * progress) and not on hold, the deliverable itself is open, and no other deliverable of the
+ * project is open or waiting (`done`): every other one is done, closed or carried, which
+ * `project_complete` accepts. `items` are the project's deliverables (its unfinished ones are
+ * enough). Never a repeating project: completing that is a choice, never a last step.
+ */
+export function isLastOpenOfOneTime(
+  project: CompletableProject,
+  itemId: string,
+  items: readonly { id: string; state: ItemState }[],
+): boolean {
+  if (project.recurrence !== "one_time" || project.held) return false;
+  if (project.state !== "open" && project.state !== "in_progress") return false;
+  if (!items.some((item) => item.id === itemId && item.state === "open")) return false;
+  return !items.some(
+    (item) => item.id !== itemId && (item.state === "open" || item.state === "done"),
+  );
+}
+
+/**
+ * A one-time project that reads "Ready to complete" right after a Mark done that did not complete
+ * it ("Mark done only", Today, a bulk tick): what the "All deliverables done" toast needs, and
+ * nothing else (never an amount).
+ */
+export type ReadyProject = { id: string; name: string; href: string };
+
+/** The projects among `projects` that now read "Ready to complete", as the toast's rows. */
+export function readyProjects(
+  projects: readonly (CompletableProject & {
+    id: string;
+    clientId: string;
+    name: string;
+    states: readonly ItemState[];
+  })[],
+): ReadyProject[] {
+  return projects
+    .filter(
+      (project) =>
+        !project.held &&
+        (project.state === "open" || project.state === "in_progress") &&
+        readyToComplete(project.recurrence, project.states),
+    )
+    .map((project) => ({
+      id: project.id,
+      name: project.name,
+      href: `/clients/${project.clientId}/projects/${project.id}`,
+    }));
+}
+
 function meterOf(
   cycle: CurrentCycleStates | undefined,
   today: ISODate | undefined,

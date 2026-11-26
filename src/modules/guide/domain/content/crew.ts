@@ -386,9 +386,23 @@ export const CREW_GUIDE: Guide = {
               kind: "note",
               text: "You can withdraw a request while it waits.",
             },
+            {
+              kind: "note",
+              text: 'One day can have its morning and its afternoon off as two half days, and each half can be a different kind: ½ comp leave in the morning and ½ leave in the afternoon, for example. If a half is already taken, MaxOff says which one: "You already have the morning off on 25 Nov. Request the afternoon instead."',
+            },
           ],
           link: { href: "/leave", label: "Open Leave" },
-          keywords: ["holiday", "time off", "day off", "vacation", "half day", "sick", "absent"],
+          keywords: [
+            "holiday",
+            "time off",
+            "day off",
+            "vacation",
+            "half day",
+            "sick",
+            "absent",
+            "morning",
+            "afternoon",
+          ],
         },
         {
           id: "comp-leave",
@@ -397,7 +411,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'When the Owner has granted you comp leave, "Request leave" also offers "Comp leave (1 day)" and "Comp leave, half day (½)". The hint tells you how much you have and the date to use it by.',
+              text: 'When the Owner has granted you comp leave, "Request leave" also offers "Comp leave (1 day)", "Comp leave, half day (½)" and "Full day: ½ comp + ½ leave". The hint tells you how much you have and the date to use it by.',
             },
             {
               kind: "steps",
@@ -413,12 +427,35 @@ export const CREW_GUIDE: Guide = {
               text: 'The Owner decides. Under your requests you see "Comp leave: N · use by …".',
             },
             {
+              kind: "steps",
+              steps: [
+                'Have half a day of comp leave and want the whole day off? Choose "Full day: ½ comp + ½ leave" and pick the Date.',
+                {
+                  text: 'Under "Comp half" (highlighted), choose "Comp in the morning" or "Comp in the afternoon". The other half is ordinary leave.',
+                  shot: "staff/request-split",
+                },
+                'Tap "Request full day".',
+              ],
+            },
+            {
+              kind: "next",
+              text: 'Your requests show one card, "Full day · ½ comp + ½ leave". The Owner approves or declines both halves together.',
+            },
+            {
               kind: "note",
-              text: "Comp leave cannot be changed. To move it, cancel it and request it again.",
+              text: "Comp leave cannot be changed. To move it, cancel it and request it again. Once a full day of ½ comp + ½ leave is approved, each half can be cancelled on its own; a cancelled comp half gives its ½ day back.",
             },
           ],
           link: { href: "/leave", label: "Open Leave" },
-          keywords: ["compensatory", "credit", "earned", "use by", "balance"],
+          keywords: [
+            "compensatory",
+            "credit",
+            "earned",
+            "use by",
+            "balance",
+            "split",
+            "half and half",
+          ],
         },
         {
           id: "change-leave",
@@ -433,6 +470,7 @@ export const CREW_GUIDE: Guide = {
                   shot: "staff/leave-list",
                 },
                 'Once it is approved and has not ended, tap "Change this leave" or ask to cancel.',
+                'A full day of ½ comp + ½ leave has a button for each half, such as "Ask to cancel the afternoon". On a phone, tap the card to see them.',
               ],
             },
             {

@@ -4,6 +4,7 @@
 -- the creator too (told once), refusals for the approver, another Admin, Crew and anon, and the unchanged recipients (the
 -- assignees; the Owner not told of an Admin's own task; never the actor).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(27);
 
@@ -11,6 +12,11 @@ delete from public.deliverable_templates;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

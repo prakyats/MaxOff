@@ -662,6 +662,11 @@ attendance_days      id, member_id, work_date date (IST), is_day_off bool,
                      overtime_flag bool, overtime_reason,
                      worked_on_leave bool ("1 day worked": Present approved on an approved-leave day),
                      leave_request_id null, created_at, updated_at, unique(member_id, work_date),
+                     second_leave_request_id null → leave_requests (v2.0.1, migration split_leave_days,
+                     expand-only: on a day where both halves are off through two half-day requests,
+                     the afternoon's; leave_request_id is then the morning's. check: needs
+                     leave_request_id and differs from it. Under protect_columns. A fully-off split
+                     day is `leave`, or `comp_leave` when both halves are comp: no new status)
                      started_at null, ended_at null, end_not_recorded bool (3b.1, expand-only:
                      the Start day and End day taps, and the 00:00 job's "end of day not
                      recorded"; check ended_at needs started_at and is not before it; all three
@@ -714,6 +719,12 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
                      -- new submitted row that supersedes the original; on approval the original AND
                      -- this row end cancelled, so "approved leave covering a date" is always
                      -- state = approved and nothing else
+                     pair_id uuid null (v2.0.1, migration split_leave_days, expand-only: the two
+                     halves of one "Full day: ½ comp + ½ leave" share it (leave_submit_split, or the
+                     Owner's split-day correction); check: a paired row is a half_day with its half;
+                     indexed where not null. The Owner decides a waiting pair together; once
+                     approved each half stands on its own. `half` and `pair_id` are under
+                     protect_columns since v2.0.1)
                      credit_days numeric(2,1) null (3b.2, expand-only: the comp leave credit this
                      request uses; check: null, or type = comp_leave with 1.0, or type = half_day
                      with 0.5. Set by leave_submit_comp() (1.0 / 0.5) and, since the 3c review, by
@@ -1076,6 +1087,15 @@ public.comp_leave_dates()       attendance.self, read (3b review): the working d
                                 no holiday) from today to the latest use-by date of the caller's free
                                 credits, each with the free days valid on it: (work_date,
                                 available_days). Empty with no free credit. What the leave form lists
+public.leave_submit_split(work_date, comp_half, reason default null)
+                                v2.0.1 (migration split_leave_days): attendance.self. "Full day: ½ comp +
+                                ½ leave" on ONE working date, today or later: two submitted half_day rows
+                                sharing a pair_id, comp_half (morning | afternoon) with credit_days 0.5
+                                (drawn oldest first and reserved, app.comp_credit_draw) and the other half
+                                as ordinary leave. The whole date must be free (CONFLICT with the half in
+                                the way named). VALIDATION: the comp half, a day off, the past, not enough
+                                comp leave. Audit 'submitted' (meta pair_id) and 'reserved'. Notifies the
+                                Owner once ("requested a full day: ½ comp + ½ leave"). Returns the pair_id
 app.holiday_release_comp()      AFTER INSERT / UPDATE OF date on holidays (3b review): every waiting or
                                 approved comp leave request (credit_days not null) covering the new
                                 date -> cancelled, decided_by = the Owner adding it, a reason naming
@@ -1117,6 +1137,52 @@ public.attendance_end_day(overtime_note default null, overtime_minutes default n
                                 ('overtime', the ended day's date, note, minutes) in the same
                                 transaction. Returns (day_id, work_date, note_id)
 ```
+
+**v2.0.1, halves (migration split_leave_days, pgTAP 150):**
+- **Conflicts are per half.** `app.leave_conflict(member, start, end, type, half, exclude, approved_only)`
+  replaces `app.leave_overlaps` / `app.leave_clash` in `leave_submit`, `leave_submit_comp`,
+  `leave_submit_split`, `leave_request_change`, `leave_decide` and `leave_owner_edit`: two half days
+  of one date never conflict when both name a half and the halves differ; a full day, the same half,
+  or a half day with no half (older rows) still does. `app.leave_conflict_message(clash, type, half)`
+  gives the words when a half is in the way ("You already have the morning off on 25 Nov. Request the
+  afternoon instead." / "…as a half day instead." / "You already have 25 Nov off. Request a change to
+  one of those requests instead."); a full-day clash keeps each function's earlier words.
+  `app.leave_label(r)` names the half in the Owner's clash text ("Half day (comp, morning), 25 Nov 2026").
+- **The day of a split date.** `app.leave_halves(member, d)` → (morning_id, afternoon_id), the approved
+  halves of a date. `app.leave_covering` gives a fully-off split date as the morning's row with type
+  `leave` (or `comp_leave` when both halves are comp) and no half, so the day opener, the absent
+  check, today's strip, working hours and their reminder tick treat it as a day off.
+  `app.attendance_settle_halves(member, d)` re-derives a system-held leave day from its approved
+  halves (both → leave / comp_leave with both links; one → half_day), called by
+  `app.attendance_apply_leave` for a half day; `app.attendance_open_day` links both halves;
+  `app.attendance_release_leave` releases a day linked through either column and, when the other half
+  still stands, makes the day that half day instead of asking again.
+- **Deciding.** `leave_decide` approves or rejects a waiting pair together (one reason, one member
+  notification, "Full day (½ comp + ½ leave) approved"); `leave_withdraw` withdraws a waiting pair
+  together. Once approved, each half is cancelled or changed on its own.
+- **Changing.** `leave_request_change(…, half default null)`: a change of a half day keeps the
+  original's half unless another is chosen; a cancellation carries it (both were dropped before).
+- **The Owner.** `leave_owner_edit(…, half default null, comp default null)`: a half day keeps the
+  original's half and its ½ comp (credit 0.5, drawn and used at once) unless the Owner says otherwise;
+  before v2.0.1 the edit dropped the half and turned a ½ comp day into ordinary leave.
+  `attendance_decide(…, half default null, comp_half default null)`: a correction to Half day names the
+  half off, and with comp_half the same half it is a ½ comp day; Leave with comp_half is a split day
+  (½ comp + ½ leave: two approved half days sharing a pair_id, the day linking both). Comp draws and
+  uses the member's credits valid on that date, as the full comp day does. A half-day or split correction **replaces** the
+  day's own halves: an approved request linked to the day and covering only that date is superseded
+  (its credit released) first, so a day corrected twice never books the date or the credit twice; a
+  waiting gate request is rejected, never approved as a split. Leave over several days stays.
+- **The Approvals badge** (`session_bundle().pending_requests`) counts a waiting pair as one request,
+  as Approvals lists it.
+- **The review's fixes (before the first push):** a correction of a split day never "matches" its
+  halves (a split day corrected to Half day, Leave or Comp leave supersedes both halves first and
+  gives their credit back); a day the Owner set from halves (a correction to a half or split day)
+  follows its halves when one is edited or the other approved later (`app.attendance_settle_halves`),
+  while any other Owner-decided day stays as decided; `attendance_own_today().leave_type` is the
+  day's own `leave` / `comp_leave` when it links two halves, so today's strip reads a day off.
+- **month_summary** counts a decided `leave` day linking one comp half and one ordinary half as ½ comp
+  and ½ additional leave, and as one of the half days; days_worked is unchanged.
+
 **Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_start_day()` (3b.1) takes the member's `leave:` lock before any row lock too, then looks for today's day and opens it under that lock (it derives the day from approved leave), so a phone and a laptop tapping Start day at the same instant produce one day (pgTAP `09`, two real connections); 2.2's `attendance_touch()`, with its own `touch:` lock in front of the `leave:` lock, went with the 3c.1 contract migration. pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order:** `app.absent_check()` and `app.end_not_recorded()` (3b.1; 2.5's `app.logout_not_recorded()` went with 3c.1) take each member's `leave:` lock before that member's rows (members in id order, so two overlapping runs cannot cross), and `app.attendance_open_day()` is called only under it (pgTAP `14`). The comp leave draw and settle (`app.comp_credit_draw`, `app.comp_credit_settle`) lock credit rows after the day and request rows, under the same `leave:` lock. Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
 
 ## 4. Clients
@@ -1680,16 +1746,89 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 **The calendar's reads (6.4, 2026-10-07; Kickoff 6 decisions 13–15):** no new table, column, function or policy. The page reads, as the signed-in member: `tasks` with an event date in the range (`listEventTasks`, now with `event_end_at`, `client_id` and `task_type_id`) and every open task (`listOpenTaskRows`, the Due list), `task_types` (now with `shows_on_calendar`), `holidays`, `org_settings.weekly_off_days`, `member_directory`, `client_labels`, and `leave_requests` in `approved` or `submitted` (a pending cancellation left out): their own for an Admin or Crew, everyone's for the Owner (`listLeaveBetween`, RLS). An Admin adds `member_availability()` over the range (`listAvailability`, in slices under the 1000-row limit): the `leave` fact and the `event_blocks` of everyone else. The rules are pure (`modules/calendar/domain`).
 
 ## 7. Money (all Owner-only tables)
-## 7. Money (all Owner-only tables)
+> **Built in 9.1 (v2.1 "Money in", Nov 2026; migration `money_tables`).** Rules: WORKFLOWS §6, kickoff 9 (decisions 1–11, 23, 24) as refreshed on 14 Nov 2026 (`docs/kickoff/phase-9-kickoff-refresh-2026-11-14.md`, OWNER ANSWERS) and the owner's answers of 18 Nov 2026 (R4 "added", Q1 for weekly retainers). ADR-0007 and its amendments.
+
+Enums: `billing_category` (`retainer | project | additional_work`), `billing_status` (`not_billed | billed`).
+
 ```
-project_billing      project_id pk, cycle_amount numeric null (recurring), fixed_amount numeric null (one-time)
-item_billing         item_id pk, value numeric                       -- explicit per-item value
-cycle_billing        cycle_id pk, billing_status, billed_on date, note
-revenue_overrides    id, scope ('cycle'|'project'), ref_id, calculated_value, adjusted_value,
-                     note, by_id, at, superseded_at null
-views (security invoker, Owner only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
+project_billing      project_id pk, org_id, billing_category null, cycle_amount numeric null, fixed_amount numeric null,
+                     priced_from date null, created_at, updated_at
+                     -- A row exists only once the Owner has set something. No row, or a null category = the
+                     -- default from recurrence (weekly / monthly -> retainer, one_time -> project; R6).
+                     -- cycle_amount: a retainer's default for new cycles. fixed_amount: a one-time project's
+                     -- lump sum. null = "No amount set" (flagged); 0 = "Not billable" (never flagged). Whole
+                     -- rupees (check), >= 0. cycle_amount only on weekly / monthly projects, fixed_amount only
+                     -- on one-time ones (enforced by billing_set_project).
+                     -- priced_from (Q1, "this month on"): the 1st of the IST month in which the first amount
+                     -- was entered; set once, never moved. A month before it reads "No amount set".
+cycle_billing        cycle_id pk, org_id, project_id, cycle_amount numeric null, billing_status default 'not_billed',
+                     billed_on date null, note null, created_at, updated_at
+                     -- Decision 3: each retainer cycle keeps its own amount. Written by (a) the AFTER INSERT
+                     -- trigger on project_cycles, which copies project_billing.cycle_amount when the project
+                     -- has one (no row is written for a project with no amount); (b) billing_set_project: the FIRST amount goes to every cycle whose
+                     -- period_start is on or after the 1st of the current IST month (Q1), a LATER change to the
+                     -- cycle current today and later ones; (c) billing_set_cycle_amount, one cycle alone.
+                     -- No row or a null amount = "No amount set". A one-time project's single cycle carries
+                     -- only the billing status of the project as a whole (decision 7).
+                     -- billed <=> billed_on is not null.
+item_billing         item_id pk, org_id, added boolean (default false), value numeric null, created_at, updated_at
+                     -- A retainer deliverable's own value; whole rupees, >= 0; refused on a one-time project.
+                     -- On a PLAN deliverable it comes off the top of the cycle's amount (decision 4): the sum
+                     -- of the plan's explicit values can't exceed the cycle's amount. On an ADDED deliverable
+                     -- (R4) it is the price on top, with no upper limit. value null = "back to the split" /
+                     -- "not priced": the row stays (nothing is deleted), set through item_value_set(item, null).
+revenue_overrides    id, org_id, scope ('cycle' | 'project'), ref_id, calculated_value, adjusted_value, note,
+                     by_id, at, superseded_at null, superseded_note null
+                     -- Decision 6: 'cycle' = a retainer cycle, 'project' = a one-time project. Adjusts Achieved
+                     -- only. One live row per (scope, ref_id) (partial unique index where superseded_at is
+                     -- null). A new override, or "Back to calculated" (note required), supersedes; never deleted.
+project_advances     id, org_id, project_id, amount numeric (whole rupees, > 0), received_on date,
+                     note null, recorded_by, recorded_at, returned_on date null, return_note null, returned_by null
+                     -- Decision 23: one-time projects only. Sum of advances not returned <= fixed_amount (and
+                     -- the amount can't go below it). Never Achieved: "Advances received" in the IST month of
+                     -- received_on, a return in the month of returned_on.
 ```
 All amounts are `numeric(12,2)` in INR.
+
+**Access (every table above):** RLS with **one** policy, `select` for `finance.view` in the caller's org (the Owner). **No insert, update or delete grant to anyone:** every write goes through a `finance.edit` function below. Each table has the audit trigger under **its own entity name** (`project_billing`, `cycle_billing`, …), which no Admin-readable `activity_log` policy matches. None is in the Realtime publication (pgTAP 46). **No money column, and no money in audit `meta`, on `projects`, `project_cycles` or `project_items`** (§5).
+
+**Plan or added (R4, owner 18 Nov 2026).** A deliverable is **in the plan** of its cycle when the cycle's item list made it: `app.cycle_create` (a new cycle with its list) or `app.cycle_copy_item_list` (the nightly copy for a client that became Active again). Every other retainer deliverable that was not carried in (`item_add`, `item_add_grouped`, `project_blueprint_add_to_cycle`) is **added**. The fact is recorded when the deliverable is written: the `AFTER INSERT` trigger `item_billing_mark_added` on `project_items` reads the functions on the call stack (their names only, so the server's message language does not matter) and, for an added one, writes `item_billing (added = true, value null)`. **No column on `project_items` stores it**, and the existing functions are unchanged. A path the trigger does not know counts as added, so it shows to the Owner as "not priced" instead of silently joining the split; pgTAP 144 pins every path. Deliverables that existed before the migration were marked by `created_at` later than their cycle's and a creator. A carried-in deliverable is neither: it is valued in its origin cycle. A one-time project's deliverables are never marked (one lump sum).
+
+**Q1 is a floor (review M1, migration `money_q1_clamp`):** the project's amount never reaches a cycle whose `period_start` is before `priced_from`: not at the first entry, not on a later change, not through the copy trigger (a back-filled earlier cycle copies nothing). Only `billing_set_cycle_amount` prices an earlier cycle, one at a time, on purpose. `revenue_project_lines_v` likewise shows a one-time project's amount as null in a month before `priced_from` (no back-fill). The over-amount check (`app.cycle_explicit_total`) counts exactly the rows `item_values_v` values as `explicit`. **The money functions check no project or month state** (corrections after completion, cancellation or a month's end are intended, R2); an override of a one-time project needs it completed.
+
+**The Revenue page's read:** `revenue_month_read(month date default null) returns jsonb` (security invoker, FORBIDDEN without `finance.view`; migration `money_revenue_month_read`, re-created in `money_reads_scoped`; pgTAP 146): one IST month (any day of it; null = this month): `month`, `this_month`, `months` (every month that has a retainer cycle or a one-time line), `cycles` (the month's retainer cycles with client and project names), `projects` (the one-time lines sitting in the month), `advances` (received and returned in the month). It finds the month's cycles first and values only those.
+
+**The retainer views are functions asked for everything (migration `money_reads_scoped`).** `app.item_values(p_cycle_ids uuid[])` and `app.revenue_cycles(p_cycle_ids uuid[])` hold the logic; `item_values_v` and `revenue_by_cycle_v` are `select … from app.item_values(null)` / `app.revenue_cycles(null)` with the same names and columns. A list of cycles values only those cycles' deliverables (the split is per cycle and a carried deliverable is followed from its origin cycle, so a whole cycle is always valued correctly alone); **null means every cycle, so a caller that has no cycle must pass an empty array, never null**. Both functions are **security invoker** (the tables' own `finance.view` policies apply) **and carry the `finance.view` gate themselves**; the views keep `security_invoker`. They are granted like every `app` function (authenticated and service_role, never anon). `revenue_month_read`, `project_billing_read` and `app.cycle_explicit_total` ask only for their own cycles. pgTAP 146 proves the scoped read equals the whole view for the same month, a carried deliverable included. All three names are in the money-lint list.
+
+**Not money, but beside it:** `item_mark_done_and_complete(item_id) returns project_state` (migration `item_mark_done_and_complete`, pgTAP 147; §5's transitions): for a **one-time** project's last open deliverable, `item_mark_done` and `project_complete` in one transaction (`items.tick` and `projects.complete`; the Owner or the client's Admin). Each keeps its own checks, history entry and notifications; if the project cannot be completed nothing is marked; a deliverable that is not open is refused. It reads and shows no amount; completing is what makes the lump sum count (WORKFLOWS §6).
+
+**The Billing section's read:** `project_billing_read(project_id, cycle_id default null) returns jsonb` (security invoker, FORBIDDEN without `finance.view`; migration `money_billing_read`, pgTAP 145): category and amount, a retainer cycle's figures and its added deliverables, or a one-time project's line and advances, in one trip.
+
+**Functions (all `finance.edit`, security definer, audited; refusals carry no amount):**
+```
+billing_set_project(project_id, amount numeric, set_amount boolean, category billing_category)
+billing_set_cycle_amount(cycle_id, amount numeric)                -- null = back to "No amount set"
+item_value_set(item_id, value numeric)                            -- null = back to the split / not priced
+advance_record(project_id, amount, received_on date, note) -> uuid
+advance_return(advance_id, returned_on date, note)
+billing_mark(cycle_ids uuid[], billed boolean, billed_on date, note)
+revenue_override_set(scope, ref_id, adjusted_value, note) -> uuid
+revenue_override_clear(scope, ref_id, note)
+```
+
+**Views (security invoker, select granted to `authenticated`; a non-Owner reads zero rows because the tables under them are Owner-only):**
+```
+item_values_v              one row per retainer deliverable valued in its ORIGIN cycle: kind (plan | added),
+                           value, method (explicit | split | added | not_priced | no_amount), in_potential,
+                           achieved, closed_not_achieved; month = the IST month the origin cycle starts in
+revenue_by_cycle_v         one row per retainer cycle: month, amount, potential, calculated and headline
+                           achieved (override), closed_not_achieved, added total, not-priced count, billing status
+revenue_project_lines_v    one row per one-time project: its month (delivery month; the current month while
+                           overdue; the completion month; the cancellation month), amount (null before
+                           priced_from), potential, achieved, was_due, ready_to_complete, held, advances
+revenue_advances_v         advances received and returned, each in its own IST month
+revenue_by_client_month_v  the two above summed by org, client, month and billing category
+```
 
 ### 7a. Expense claims (a member's own money; ADR-0007 amendment 2026-09-27, task 3b.3)
 Not business money and not in `modules/revenue`: a member's own reimbursement claims, read and written only through `modules/expenses` (lint: the relation name appears nowhere else in `src/`).

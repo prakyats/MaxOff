@@ -5,6 +5,7 @@
 -- Never email: everything else (comments, task changed, suggestions, approvals, the end-day
 -- reminder, information rows). The always-emailed kinds of decision 12 arrive with 5.3 / 5.4.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(9);
 
@@ -13,6 +14,11 @@ select plan(9);
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

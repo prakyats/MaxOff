@@ -47,7 +47,10 @@ export const approveDays = action(async (input: ApproveDaysInput): Promise<Resul
 export const correctDay = action(async (input: CorrectDayInput): Promise<Result<null>> => {
   const data = correctDaySchema.parse(input);
   await assertPermission("attendance.decide");
-  await repo.rpcCorrectDay(data.dayId, data.status, data.reason);
+  await repo.rpcCorrectDay(data.dayId, data.status, data.reason, {
+    half: data.half,
+    compHalf: data.compHalf,
+  });
   revalidateReview();
   dispatchPushSoon();
   return ok(null);

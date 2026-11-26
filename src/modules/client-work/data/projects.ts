@@ -998,6 +998,73 @@ export async function markItemDone(itemId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * "Mark done and complete project" (kickoff 9 R1, v2.1; `item_mark_done_and_complete`): a one-time
+ * project's last open deliverable is marked done and the project completed in one transaction.
+ * Refused, with nothing marked, for a repeating project (VALIDATION) or while another deliverable
+ * is still open (INVALID_STATE). Never an amount.
+ */
+export async function markItemDoneAndComplete(itemId: string): Promise<ProjectState> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("item_mark_done_and_complete", { item_id: itemId });
+  if (error) throw error;
+  return data as ProjectState;
+}
+
+/**
+ * The working one-time projects of these deliverables, each with all its deliverables' states:
+ * what `readyProjects` needs right after a Mark done to say "All deliverables done". Under the
+ * caller's RLS; a repeating project's deliverable ends at the first read (no row). Never money.
+ */
+export async function listOneTimeProjectsOf(itemIds: readonly string[]): Promise<
+  {
+    id: string;
+    clientId: string;
+    name: string;
+    recurrence: Project["recurrence"];
+    state: ProjectState;
+    held: boolean;
+    states: ItemState[];
+  }[]
+> {
+  if (itemIds.length === 0) return [];
+  const supabase = await createServerSupabase();
+  const projects = await byChunks(itemIds, async (ids) => {
+    const { data, error } = await supabase
+      .from("projects")
+      .select(
+        "id, client_id, name, recurrence, state, held_at, marked:project_items!project_items_project_id_fkey!inner(id)",
+      )
+      .eq("recurrence", "one_time")
+      .in("state", ["open", "in_progress"])
+      .in("marked.id", ids);
+    if (error) throw error;
+    return data;
+  });
+  const unique = [...new Map(projects.map((project) => [project.id, project])).values()];
+  if (unique.length === 0) return [];
+  const items = await byChunks(
+    unique.map((project) => project.id),
+    async (ids) => {
+      const { data, error } = await supabase
+        .from("project_items")
+        .select("project_id, state")
+        .in("project_id", ids);
+      if (error) throw error;
+      return data;
+    },
+  );
+  return unique.map((project) => ({
+    id: project.id,
+    clientId: project.client_id,
+    name: project.name,
+    recurrence: project.recurrence,
+    state: project.state,
+    held: project.held_at !== null,
+    states: items.filter((item) => item.project_id === project.id).map((item) => item.state),
+  }));
+}
+
 /** Send back (the Owner) or reopen (the client's Admin) a done item, with a reason (D3). */
 export async function reopenItem(itemId: string, reason: string): Promise<void> {
   const supabase = await createServerSupabase();

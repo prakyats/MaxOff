@@ -34,6 +34,24 @@ export const DAY_STATUSES = [
   "comp_leave",
 ] as const satisfies readonly DayStatus[];
 
+/**
+ * v2.0.1: what the Owner's Correct dialog offers: the day statuses, then **"Full day: ½ comp + ½
+ * leave"** (`split`), a day off made of a comp half and an ordinary half (`attendance_decide(…,
+ * 'leave', …, comp_half)`). Half day also takes which half is off and, optionally, ½ comp.
+ */
+export const SPLIT_DAY = "split";
+export const CORRECT_CHOICES = [...DAY_STATUSES, SPLIT_DAY] as const;
+export type CorrectChoice = (typeof CORRECT_CHOICES)[number];
+
+export const CORRECT_CHOICE_LABELS: Record<CorrectChoice, string> = {
+  present: "Present",
+  leave: "Leave",
+  half_day: "Half day",
+  comp_leave: "Comp leave",
+  absent: "Absent",
+  split: "Full day: ½ comp + ½ leave",
+};
+
 export const STATUS_LABELS: Record<DayStatus, string> = {
   present: "Present",
   leave: "Leave",
@@ -69,4 +87,26 @@ export function compLeaveOption(
     };
   }
   return { disabled: false, hint: `${name} has ${daysLabel(compDays)} of comp leave.` };
+}
+
+/**
+ * v2.0.1: whether the Correct dialog offers a ½ comp half (Half day's "Use ½ comp leave", and
+ * "Full day: ½ comp + ½ leave"): it draws ½ of the person's credit valid on that date
+ * (`attendance_decide(…, comp_half)`). Greyed out when the balance is known to be empty, unless the
+ * day already is a ½ comp day (re-correcting it to the same half creates nothing). `compDays` is
+ * null where the screen does not know it (Approvals): the database's refusal shows then.
+ */
+export function halfCompOption(
+  compDays: number | null,
+  alreadyComp: boolean,
+  name: string,
+): { disabled: boolean; hint: string | null } {
+  if (alreadyComp) return { disabled: false, hint: null };
+  if (compDays !== null && compDays < 0.5) {
+    return {
+      disabled: true,
+      hint: `${name} has no comp leave credit: grant one first from their Leave tab.`,
+    };
+  }
+  return { disabled: false, hint: `Uses ½ day of ${name}'s comp leave.` };
 }

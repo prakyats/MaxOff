@@ -1,0 +1,37 @@
+-- supabase/tests/lib/lock-job-tables.psql: included (`\ir lib/lock-job-tables.psql`) right after
+-- `begin;` by every pgTAP file that deletes members. Not a test itself (only `*.test.sql` runs).
+--
+-- Why: the scheduled jobs (pg_cron: the 23:59 / 00:00 IST attendance and cycle jobs, the */5
+-- reminders, hours, alerts, digests and end-of-day report) run in their own sessions. A job that
+-- inserted a row pointing at a member (an attendance day, a notification, an audit row) while a file
+-- deleted the members deadlocked with it around IST midnight (pgTAP 34, 25 Nov 2026).
+--
+-- What: every table those jobs write (their functions and the functions they call; checked against
+-- the catalog by 145_job_tables_locked), `activity_log` (the audit trigger) and `members` (every
+-- row's foreign key), in EXCLUSIVE mode, so a job's first write waits for this file's rollback.
+-- Plain reads are not blocked.
+--
+-- How, without ever deadlocking itself: all the locks are taken at once with NOWAIT inside a
+-- savepoint. If any one is held by a running job, the savepoint rolls back (releasing every lock
+-- just taken), the file waits 50 ms and asks again, so it never waits while holding a lock. A job
+-- runs for milliseconds; after 30 s it stops with an error that names the reason.
+\set job_tables 'public.members, public.activity_log, public.approval_reminder_sends, public.attendance_days, public.attendance_events, public.client_work_alerts, public.early_leave_requests, public.eod_reports, public.member_reachability, public.notification_deliveries, public.notifications, public.project_cycles, public.project_item_stage_list, public.project_items, public.task_reminders'
+select set_config('tests.job_tables', :'job_tables', true);
+do $lock$
+declare
+  attempt integer := 0;
+begin
+  loop
+    begin
+      execute format('lock table %s in exclusive mode nowait', current_setting('tests.job_tables'));
+      return;
+    exception when lock_not_available then
+      attempt := attempt + 1;
+      if attempt >= 600 then
+        raise exception 'lock-job-tables: a scheduled job held its tables for 30 s';
+      end if;
+      perform pg_sleep(0.05);
+    end;
+  end loop;
+end;
+$lock$;

@@ -6,6 +6,7 @@
 -- reason required, not twice, not a withdrawn claim), mark paid (dates, states), the audit
 -- actions and who reads them, and a receipt's visibility (app.file_visible).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(100);
 
@@ -24,6 +25,11 @@ delete from public.activity_log;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

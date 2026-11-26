@@ -14,16 +14,21 @@ import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { toastResult } from "@/core/ui/toast";
 
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
+import { completeProject } from "../actions/projects";
 import { itemCount, stageChoices } from "../domain/items";
 import { readyToMarkDone, solidMarkDoneId } from "../domain/deliverable";
 import { movedPosition } from "../domain/positions";
+import { type CompletableProject, isLastOpenOfOneTime } from "../domain/projects";
+import type { ItemState } from "../domain/types";
 import { orderDeliverables, type ItemView } from "../domain/views";
 
 import type { BulkEditKind } from "./bulk-edit-sheet";
+import type { CompletePromptTarget } from "./complete-prompt";
 import { deliverableColumns } from "./deliverable-columns";
 import { DeliverableRow } from "./deliverable-row";
 import { FinishedDeliverables } from "./finished-deliverables";
 import type { ItemPermissions } from "./item-sheet";
+import { toastReadyToComplete } from "./ready-toast";
 import { SelectToggle, useSelectMode } from "./select-mode";
 import { tickWithUndo } from "./tick-with-undo";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
@@ -53,6 +58,11 @@ const GroupStagesDialog = dynamic(
   () => import("./group-stages-dialog").then((module) => module.GroupStagesDialog),
   { ssr: false },
 );
+// Kickoff 9 R1: the last deliverable's "Mark done and complete project" sheet, on its first use.
+const CompletePrompt = dynamic(
+  () => import("./complete-prompt").then((module) => module.CompletePrompt),
+  { ssr: false },
+);
 const ConfirmDialog = dynamic(
   () => import("@/core/ui/composites/confirm-dialog").then((module) => module.ConfirmDialog),
   { ssr: false },
@@ -78,6 +88,13 @@ const ConfirmDialog = dynamic(
  * each, all or nothing). "Add item" adds to this
  * cycle (never a past one, decision 9). Nothing is reordered under the thumb: the server's list
  * arrives after each change.
+ *
+ * **A one-time project's last open deliverable** (kickoff 9 R1, v2.1; `completion`, for whoever
+ * may complete the project): its Mark done, on the row, in ⋯ or in the sheet, asks first
+ * (`CompletePrompt`: "Mark done and complete project" / "Mark done only"). Never the bulk "Mark N
+ * done". A mark that leaves the project with nothing open without completing it ("Mark done
+ * only", the bulk one) is followed by the "All deliverables done" toast, whose "Complete project"
+ * opens the same confirmation as the project's ⋯.
  */
 export function CycleItems({
   cycleId,
@@ -88,7 +105,19 @@ export function CycleItems({
   presets = [],
   openItemId = null,
   solidAllowed = true,
+  completion = null,
 }: {
+  /**
+   * The project as its completion rules read it, for a viewer who may complete it
+   * (`projects.complete`); null for anyone else. `unfinished` are the project's open and waiting
+   * deliverables, across its cycles.
+   */
+  completion?: {
+    projectId: string;
+    projectName: string;
+    project: CompletableProject;
+    unfinished: readonly { id: string; state: ItemState }[];
+  } | null;
   /**
    * The screen may carry a solid Mark done (E+): false while another solid control shows on
    * the same layer (the month-end "Keep extras" card's neutral solid Yes; §14.1).
@@ -128,6 +157,14 @@ export function CycleItems({
   // clear of the floating bar (unit U).
   const [barHeight, setBarHeight] = useState(0);
   const [failures, setErrors] = useState<Readonly<Record<string, string>>>({});
+  // R1: the last deliverable's prompt (kept while it closes), and Complete from the ready toast.
+  const [prompt, setPrompt] = useState<CompletePromptTarget | null>(null);
+  const [prompting, setPrompting] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const askComplete = () => {
+    setConfirmUsed(true);
+    setCompleting(true);
+  };
   const marks = useUndoSends({
     url: MARK_DONE_URL,
     body: (id) => ({ id }),
@@ -135,6 +172,7 @@ export function CycleItems({
     notDone: "It was not marked done.",
     tooLate: "Undo came too late: it was marked done.",
     toastKey: "item-done",
+    onReady: askComplete,
   });
   const errors = { ...failures, ...marks.errors };
   // Marked done and waiting for the server's list: faded, its action gone (while still open).
@@ -151,6 +189,25 @@ export function CycleItems({
   }
 
   function markDone(item: ItemView) {
+    // R1: the last open deliverable of a one-time project asks whether to complete it too.
+    if (
+      completion &&
+      isLastOpenOfOneTime(completion.project, item.id, completion.unfinished) &&
+      // One still inside its Undo window is not done yet: the project could not be completed.
+      !completion.unfinished.some((other) => other.id !== item.id && marks.held.has(other.id))
+    ) {
+      setPrompt({
+        itemId: item.id,
+        itemTitle: item.title,
+        projectName: completion.projectName,
+      });
+      setPrompting(true);
+      return;
+    }
+    markOnly(item);
+  }
+
+  function markOnly(item: Pick<ItemView, "id" | "title">) {
     if (selected.has(item.id)) {
       const next = new Set(selected);
       next.delete(item.id);
@@ -161,7 +218,7 @@ export function CycleItems({
 
   async function bulk(
     key: string,
-    send: () => ReturnType<typeof markItemsDone>,
+    send: () => ReturnType<typeof markItemsDone> | ReturnType<typeof tickStages>,
     verb: string,
   ): Promise<void> {
     setBusy(key);
@@ -174,6 +231,12 @@ export function CycleItems({
     toast(bulkSummary(result.data, verb));
     setErrors(Object.fromEntries(result.data.failed.map((row) => [row.id, row.message])));
     setSelected(new Set(result.data.failed.map((row) => row.id)));
+    // The bulk mark left this one-time project with nothing open: say so, with the way on.
+    const ready =
+      "ready" in result.data
+        ? result.data.ready.find((project) => project.id === completion?.projectId)
+        : undefined;
+    if (ready) toastReadyToComplete(ready, askComplete);
   }
 
   async function move(itemId: string, direction: "up" | "down") {
@@ -353,6 +416,29 @@ export function CycleItems({
               "marked done",
             )
           }
+        />
+      ) : null}
+      {confirmUsed && completion ? (
+        // "Complete project" from the "All deliverables done" toast: the ⋯ menu's confirmation.
+        <ConfirmDialog
+          open={completing}
+          onOpenChange={(next) => (next ? null : setCompleting(false))}
+          title={`Complete ${completion.projectName}?`}
+          description="It becomes read-only. You can reopen it later."
+          confirmLabel="Complete project"
+          onConfirm={async () => {
+            toastResult(await completeProject({ projectId: completion.projectId }), {
+              success: "Project completed",
+            });
+          }}
+        />
+      ) : null}
+      {prompt ? (
+        <CompletePrompt
+          target={prompt}
+          open={prompting}
+          onClose={() => setPrompting(false)}
+          onMarkOnly={() => markOnly({ id: prompt.itemId, title: prompt.itemTitle })}
         />
       ) : null}
       {grouping ? (

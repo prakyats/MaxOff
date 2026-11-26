@@ -8,6 +8,7 @@
 -- morning window (08:00 to before 08:30 IST); a run after an outage at 15:00 IST, or one at midnight,
 -- prompts and marks nothing, and the next 08:05 run prompts what is still undecided. Runs are at 08:05 IST.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(39);
 
@@ -16,6 +17,11 @@ select plan(39);
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;

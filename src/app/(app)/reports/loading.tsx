@@ -13,6 +13,7 @@ import {
   REPORT_LINES_CLASS,
   REPORT_ROW_CLASS,
   REPORTS_LIST_CLASS,
+  showsReport,
 } from "./list-row";
 import { MonthStripSkeleton } from "./month-strip-view";
 import { PeriodControls } from "./period-controls";
@@ -36,7 +37,7 @@ export default async function Loading() {
           {/* "‹Month› so far" (major change 7): the heading and its four tiles. */}
           <MonthStripSkeleton />
           <ul aria-hidden data-slot="loading-reports-list" className={REPORTS_LIST_CLASS}>
-            {OWNER_REPORTS.map((report) => (
+            {OWNER_REPORTS.filter((report) => showsReport(member.role, report)).map((report) => (
               <li key={report.key} className={REPORT_ROW_CLASS}>
                 <span className={REPORT_LINES_CLASS}>
                   <span className="flex h-5 items-center">

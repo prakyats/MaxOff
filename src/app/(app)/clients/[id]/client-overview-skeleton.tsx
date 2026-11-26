@@ -1,5 +1,8 @@
+import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+
+import { PROJECT_STATE_LABELS } from "@/modules/client-work";
 
 import type { SkeletonParts } from "../../skeleton-parts";
 
@@ -68,7 +71,14 @@ export function ClientOverviewSkeleton({
                   </span>
                 </span>
                 <span className={PROJECT_ROW_STATE}>
-                  <Skeleton className="h-5 w-16 rounded-full" />
+                  {/* The state chip itself with its words hidden, never a bar of a guessed width:
+                      the chip's width decides how wide the lines beside it are, so where the
+                      progress line wraps. "Open" is the state a project starts in (9ddc699c). */}
+                  <StatusBadge
+                    status="open"
+                    label={PROJECT_STATE_LABELS.open}
+                    className="bg-muted text-transparent select-none motion-safe:animate-pulse"
+                  />
                   <Skeleton className="size-4 rounded-sm" />
                 </span>
               </li>
