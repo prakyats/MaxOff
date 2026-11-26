@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import {
+  type BrowserContext,
+  type CDPSession,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 import { systemClock, todayIST } from "../src/core/time";
 import { mobileNavFor, PROFILE_NAV_ITEM } from "../src/core/ui/shell/nav";
@@ -344,16 +350,22 @@ function keptAddresses(page: Page): Promise<string[]> {
  * A finger on `target`'s centre: the browser's own touch input (trusted touchstart and touchend,
  * held `TAP_HOLD_MS`; the browser makes the click from them), as a phone's touchscreen sends it.
  */
-async function fingerTap(target: Locator): Promise<void> {
+/**
+ * A finger's tap through a DevTools session of its own, detached after it, unless the caller
+ * passes one it keeps: detaching a session resets Chromium's network emulation, so an offline
+ * test's tap came back online a moment after the finger lifted (CI 45721772197: "online event"
+ * 107 ms after the pointerdown, in a bare page too).
+ */
+async function fingerTap(target: Locator, session?: CDPSession): Promise<void> {
   const page = target.page();
   const box = await target.boundingBox();
   expect(box, "the target is on screen").not.toBeNull();
   const point = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
-  const input = await page.context().newCDPSession(page);
+  const input = session ?? (await page.context().newCDPSession(page));
   await input.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
   await page.waitForTimeout(TAP_HOLD_MS);
   await input.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await input.detach();
+  if (!session) await input.detach();
 }
 
 /** What a tap came to: the skeleton's time, and what happened when it never showed. */
@@ -1402,13 +1414,16 @@ test.describe("offline, a tab's tap draws no copy (v7.0)", () => {
         }
       }).observe(document.documentElement, { childList: true, subtree: true });
     });
+    // The tap's session is opened before going offline and kept until the end: a detach puts the
+    // browser back online (see `fingerTap`).
+    const input = await context.newCDPSession(page);
     await context.setOffline(true);
     try {
       // The page knows it is offline before the tap, as a phone that is offline does: the browser
       // flips `navigator.onLine` a moment after `setOffline`, and a tap inside that moment was
       // drawn and then taken back on the "offline" event (1 in 6 locally, CI 45696917642).
       await page.waitForFunction(() => !navigator.onLine);
-      await fingerTap(barLink(page, "/approvals"));
+      await fingerTap(barLink(page, "/approvals"), input);
       await page.waitForTimeout(800);
       // Read once the page settles (a document Next loads in full replaces the context).
       await recordOnFailure(
@@ -1422,6 +1437,7 @@ test.describe("offline, a tab's tap draws no copy (v7.0)", () => {
       );
     } finally {
       await context.setOffline(false);
+      await input.detach();
     }
   });
 });
