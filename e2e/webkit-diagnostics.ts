@@ -155,7 +155,23 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
     if (typeof doc.startViewTransition === "function") {
       const start = doc.startViewTransition.bind(doc);
       doc.startViewTransition = (update?: Parameters<typeof start>[0]) => {
-        note("view-transition", `start from=${callers()}`);
+        // CI 45752942623: 6.1 s blocked between this start and its update. What the browser has
+        // to photograph: the route's box, how many elements it holds, what is animating, and the
+        // clip the slide sets (slide.ts `clipLeavingRoute`).
+        const route = document.querySelector<HTMLElement>('#main > [data-slot="route"]');
+        const box = route?.getBoundingClientRect();
+        const running = document.getAnimations().map((animation) => {
+          const target = (animation.effect as KeyframeEffect | null)?.target;
+          const name =
+            (animation as CSSAnimation).animationName ??
+            (animation as CSSTransition).transitionProperty ??
+            "?";
+          return `${name}@${target instanceof Element ? target.tagName.toLowerCase() : "?"}`;
+        });
+        note(
+          "view-transition",
+          `start route=${box ? `${Math.round(box.width)}x${Math.round(box.height)} top=${Math.round(box.top)}` : "none"} elements=${route?.querySelectorAll("*").length ?? 0} clip=${route?.style.clipPath || "none"} scrollY=${Math.round(window.scrollY)} animations=${running.length}[${running.slice(0, 12).join(",")}] from=${callers()}`,
+        );
         const transition = start(update);
         void transition.updateCallbackDone.then(
           () => note("view-transition", "update done"),

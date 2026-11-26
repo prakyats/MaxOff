@@ -38,6 +38,26 @@ let named = false;
 const WATCHED = Symbol.for("maxoff.slide.watch");
 type StartViewTransition = typeof document.startViewTransition & { [WATCHED]?: true };
 
+/**
+ * The page a slide leaves, clipped to the screen for the browser's photograph of it (v7.0, CI
+ * 45752942623). A view transition snapshots the named route's whole box, every row of a long
+ * list included; WebKit painted a long `/tasks` for 6.1 s on CI, the main thread blocked and the
+ * new screen held back that long. `clip-path` paints only what is on screen and changes no
+ * layout: the page's height and scroll stay as they were, and nothing moves when it goes. It is
+ * set as the transition starts (never earlier: a page still in use is never clipped) and goes as
+ * soon as the update has run, so the new page is photographed whole and never inherits it.
+ */
+function clipLeavingRoute(): () => void {
+  const route = document.querySelector<HTMLElement>('#main > [data-slot="route"]');
+  if (route === null) return () => undefined;
+  const box = route.getBoundingClientRect();
+  const above = Math.max(0, -box.top);
+  const below = Math.max(0, box.bottom - window.innerHeight);
+  if (above === 0 && below === 0) return () => undefined;
+  route.style.clipPath = `inset(${above}px 0 ${below}px 0)`;
+  return () => route.style.removeProperty("clip-path");
+}
+
 function dropName(): void {
   // Never under a manual slide: `slideBack` owns the attribute until its transition finishes.
   if (sliding) return;
@@ -55,12 +75,13 @@ function watchTransitions(): void {
   if (typeof current !== "function" || current[WATCHED]) return;
   const real = current.bind(document);
   const watched: StartViewTransition = (arg: never) => {
+    if (!named || sliding) return real(arg);
+    named = false;
+    window.clearTimeout(clearTimer);
+    const unclip = clipLeavingRoute();
     const transition = real(arg);
-    if (named && !sliding) {
-      named = false;
-      window.clearTimeout(clearTimer);
-      void transition.ready.then(dropName, dropName);
-    }
+    void transition.updateCallbackDone.then(unclip, unclip);
+    void transition.ready.then(dropName, dropName);
     return transition;
   };
   watched[WATCHED] = true;
@@ -132,6 +153,7 @@ export function slideBack(back: () => void): void {
   sliding = true;
   window.clearTimeout(clearTimer);
   root.setAttribute(SLIDE_ATTRIBUTE, "back");
+  const unclip = clipLeavingRoute();
   const transition = document.startViewTransition(
     () =>
       new Promise<void>((resolve) => {
@@ -146,6 +168,7 @@ export function slideBack(back: () => void): void {
         back();
       }),
   );
+  void transition.updateCallbackDone.then(unclip, unclip);
   void transition.finished.finally(() => {
     root.removeAttribute(SLIDE_ATTRIBUTE);
     sliding = false;

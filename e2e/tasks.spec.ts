@@ -9,6 +9,7 @@ import {
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
+  hydrated,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -1102,6 +1103,67 @@ test.describe("staff tasks, installed: back closes each layer", () => {
         )
         .toBeNull();
       await expectBackStack(page, [{ url: /\/today$/ }]);
+    });
+
+    test("a long list's forward slide commits within a second, and back returns to the same place", async ({
+      page,
+    }, info) => {
+      // CI 45752942623 (WebKit): the slide's photograph of a long /tasks list blocked the main
+      // thread 6.1 s, holding the new task page back that long; the page it leaves is now clipped
+      // to the screen for it (slide.ts `clipLeavingRoute`).
+      const prefix = `Long ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      // The Owner's own tasks, each waiting for their "Task Noted": the Tasks tab's "Needs you",
+      // which shows them all (the list CI's shard had grown by then).
+      const ownerId = await memberIdOf(USERS.owner.email);
+      try {
+        for (let batch = 0; batch < 4; batch += 1) {
+          await Promise.all(
+            Array.from({ length: 10 }, (_, index) =>
+              ownerCreates({
+                title: `${prefix}${String(batch * 10 + index).padStart(2, "0")}`,
+                assignees: [ownerId],
+                primary: ownerId,
+                due: istInstant(workingDay(30), "18:00"),
+              }),
+            ),
+          );
+        }
+        await runInstalled(page);
+        await recordNavigation(page, info);
+        await page.goto("/tasks");
+        await hydrated(page);
+        const viewport = page.viewportSize()?.height ?? 0;
+        const route = page.locator('#main > [data-slot="route"]');
+        // The list is long: several screens of rows.
+        expect((await route.boundingBox())?.height ?? 0).toBeGreaterThan(viewport * 3);
+        const row = page
+          .locator('[data-slot="tasks-needs-rows"] [data-slot="task-row"]')
+          .filter({ hasText: `${prefix}30` });
+        await row.scrollIntoViewIfNeeded();
+        const scrolled = await page.evaluate(() => Math.round(window.scrollY));
+        expect(scrolled).toBeGreaterThan(viewport);
+
+        await row.getByRole("link").first().click();
+        await explainOnIphone(page, info, () =>
+          expect(page).toHaveURL(TASK_URL, { timeout: 1_000 }),
+        );
+        await expect(page.locator('[data-slot="route"]')).toHaveCount(1);
+
+        // Back: the list, at the place it was left (the clip changed no layout and no scroll).
+        await page.goBack();
+        await expect(page).toHaveURL(/\/tasks$/);
+        await expect(row).toBeVisible();
+        await expect
+          .poll(() => page.evaluate(() => Math.round(window.scrollY)), {
+            message: "the list comes back where it was left",
+          })
+          .toBe(scrolled);
+        // Nothing is left clipped.
+        await expect(route).not.toHaveAttribute("style", /clip-path/);
+      } finally {
+        await removeTasksTitled(prefix);
+      }
     });
 
     test("the reminders line: one row by default; back closes the open section, then the dialog; fits at 200%", async ({
