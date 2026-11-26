@@ -635,6 +635,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 800,
     alt: "Settings with Thresholds highlighted.",
   },
+  "owner/drive": {
+    src: "/guide/owner/drive.webp",
+    width: 1199,
+    height: 310,
+    alt: "Google Drive settings with Connect Google Drive highlighted.",
+  },
   "owner/thresholds": {
     src: "/guide/owner/thresholds.webp",
     width: 1199,

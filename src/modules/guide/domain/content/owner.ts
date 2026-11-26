@@ -1937,7 +1937,10 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               "Open Settings, then Google Drive.",
-              'Tap "Connect Google Drive". Google opens: choose the studio\'s account and allow access.',
+              {
+                text: 'Tap "Connect Google Drive" (highlighted). Google opens: choose the studio\'s account and allow access.',
+                shot: "owner/drive",
+              },
               'Google sends you back to MaxOff, which says "Google Drive is connected."',
             ),
             next(
