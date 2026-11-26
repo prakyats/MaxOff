@@ -352,15 +352,35 @@
     - `/upload`'s budget is down to 612 KB.
     - The worktree `/home/user/wt/v45move` is obsolete (branch `v45-main-move`, never pushed).
 
-  - **Next (after full CI on c57761b9):**
-    1. **The §7.3 Playwright flows** need a **fake Google**, since the Worker's own calls go to fixed URLs in `core/drive` (`google.ts`, `resumable.ts`, `connect.ts`).
-       - A base-URL override, honoured **only when `NEXT_PUBLIC_APP_ENV` is local or CI** (with a unit test that staging and production refuse it). Name: `GOOGLE_API_ORIGIN_FOR_TESTS`.
-       - A small fake server in `playwright.config.ts`'s webServers, like `e2e/hold-proxy.ts`. It answers the token refresh, `about`, folder create and `files.get`, opens resumable sessions on itself, takes chunked PUTs (counting bytes, answering 308 with Range), and returns final ids and md5s. Switches give 404/trashed, a 403 daily limit, and a mid-file drop.
-       - `uploadPageCsp` adds that origin to `connect-src` only when the override is on.
-       - The e2e seals the placeholder refresh token with the run's `DRIVE_TOKEN_KEY` (`encryptToken`).
-       - The flows: offline mid-file and resume with no byte sent twice; reload welcome-back plus a second context seeing nothing; space held, daily limit, rate limit and Retry; Removed in Drive (404 and trashed); no Drive call on the task page's load; Crew sees no folder link in the network log.
-    2. **The §7.4 pen test on staging** (manual checklist, test Gmail, no third-party traffic).
-    3. **The speed gate:** every route for every role (the shell changed), plus /login and /offline; paired against a preview of main; two runs; in my probe slot after v6.0 and v3.5, on the advisor's GO.
+  - **Done on phase-v45 (26 Nov, early IST):**
+    1. **The §7.3 flows** (daec390e) run against a fake Google (`e2e/fake-google.ts`). It is reached only through `GOOGLE_API_ORIGIN_FOR_TESTS`, which `core/drive/endpoints.ts` honours only when `NEXT_PUBLIC_APP_ENV` is local and the host is 127.0.0.1 or localhost (unit-tested). The flows: a chunked upload with I'm done; a mid-file drop resuming with no byte sent twice; the daily limit with a second device seeing nothing; and Removed in Drive. They are in the serial chain.
+    2. **Merging main 3d237d00** (#153's pgTAP lock list) needed two fixes (4196c4df):
+       - the upload jobs' tables joined `lib/lock-job-tables.psql`;
+       - unknown URLs got Next's bare 404, because there are two root layouts. A lowest-priority catch-all, `(main)/[...missing]`, calls `notFound()`. Full CI 45727023433 is green.
+    3. **The speed gate** (phase-v45 05eff5f4, paired with `main-maxoff-staging`, which is app-identical to main 3d237d00):
+       - **Owner:** run 1 failed 4 routes on last byte; run 2 passed (45705822651, 45707609851).
+       - **Admin:** /clients was slow in runs 1 and 2; run 3 passed (45709960724, 45712130629, 45714413849).
+       - **Crew:** /me was slow in runs 1 and 2; run 3 passed (45715543490, 45716830319, 45718181336).
+       - **The local same-machine A/B** (two production builds, 150 ms per call, 10 samples): every route for every role was within ±6 ms, with identical reads (admin 2,693/2,693; staff 1,310/1,310; owner 2,093/2,093).
+       - /offline is 3.9 vs 3.8 ms locally (it isn't in the probe).
+       - /today −14.1 KB first-load JS; /upload 582 KB, under its 612 KB budget.
+       - Advisor told "slot free".
+    4. **The §7.4 pen test on staging** is a dispatch-only Preview job, `upload-pentest` (`scripts/upload-pentest.mjs`; c5884f9a).
+       - Run 1 (45730522373) found two real issues, both fixed:
+         - **M4:** a NUL in a name answered 500. The API now refuses it as VALIDATION before the database.
+         - **M17:** `/upload` carried two CSPs on the Worker, because a `headers()` rule's CSP joins the proxy's there. The global CSP rule now skips `/upload` only (40866fed).
+       - **Run 2 (45733118056, 40866fed): PASS.** 67 PASS, 0 FAIL, 6 NOTE, 6 MANUAL.
+       - The X-Robots NOTE: `noindex` on `/upload` and `/login` alike is the preview address's own header.
+       - **MANUAL rows for the walk script:**
+         - M2: search Worker logs and Sentry for the run's minutes, and paste a staging link into WhatsApp once;
+         - M8: one upload push and its email;
+         - M15: how Drive shows eicar.com, page.html and picture.svg;
+         - M20: a near-full test Drive, and disconnect;
+         - M21: bin one file and delete another in the test Drive.
+       - **Follow-ups (not done):**
+         - plan J says `scripts/smoke-deploy.sh` "gains /upload checks". It has none yet, and it is part of the production pipeline, so it is the advisor's call;
+         - check J5 on staging's own address after the merge.
+  - **Next:**
     4. **The release review:** design critique, Impeccable audit, design-system, ux-copy, accessibility.
     5. **READY FOR OWNER:**
        - the walk script (phone and laptop uploads, the card, Removed in Drive, All files received on both paths, the toasts unchanged);
