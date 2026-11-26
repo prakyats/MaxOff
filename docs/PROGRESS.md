@@ -280,7 +280,8 @@
           - Update the guide text where it quotes the card.
           - Re-shoot `owner/drive` inside the 11:15–17:30 IST window, because the picture shows the card.
           - Then, with items 1–3: `pnpm check`, a full CI run, and tell the advisor.
-        - Answer each to the advisor with what was found and fixed.
+        - Answer each to the advisor with what was found and fixed. Then **tell the advisor when Back-after-Google is ready for the owner's installed-app check** (advisor, 26 Nov ~17:33 IST).
+        - **CI probe re-runs only on the advisor's slot GO.**
       Also left for v4.0: add its RELEASE-NOTES entry (the text is in that READY message) to `/home/user/wt/v40/docs/RELEASE-NOTES.md` before the merge, then check, BUILDER, push. ~~Originally: when it's green, post v4.0's READY FOR OWNER on #89, per the 11:20 trigger's list: probe runs 44428827541 and 44430637647, plus the A/B table and "accepted by the owner, 19 Nov"; the walk script; the Google Cloud steps (#89 6985168606 and 6985390913); the release notes. Tell the advisor.
       - Flag in v4.0's READY: the Drive card says "Not connected" twice (the heading, and the first words of its text).
     - **v4.5** (bad4fc39):
