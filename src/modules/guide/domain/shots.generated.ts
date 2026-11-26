@@ -317,6 +317,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 260,
     alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
   },
+  "admin/complete-prompt": {
+    src: "/guide/admin/complete-prompt.webp",
+    width: 560,
+    height: 192,
+    alt: "The question Complete the project too? on a one-time project's last deliverable, with Mark done and complete project highlighted and Mark done only beside it.",
+  },
   "admin/project-hold-menu": {
     src: "/guide/admin/project-hold-menu.webp",
     width: 1186,
@@ -593,6 +599,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 260,
     alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
   },
+  "owner/complete-prompt": {
+    src: "/guide/owner/complete-prompt.webp",
+    width: 560,
+    height: 192,
+    alt: "The question Complete the project too? on a one-time project's last deliverable, with Mark done and complete project highlighted and Mark done only beside it.",
+  },
   "owner/project-hold-menu": {
     src: "/guide/owner/project-hold-menu.webp",
     width: 1186,
@@ -628,6 +640,30 @@ export const GUIDE_SHOTS: Readonly<
     width: 576,
     height: 471,
     alt: "The Resume sheet listing a deliverable that needs a new date and one from an ended month with its choices, highlighted.",
+  },
+  "owner/billing-amount": {
+    src: "/guide/owner/billing-amount.webp",
+    width: 1184,
+    height: 292,
+    alt: "A monthly project's Billing section with the Set amount button highlighted.",
+  },
+  "owner/billing-advance": {
+    src: "/guide/owner/billing-advance.webp",
+    width: 1184,
+    height: 367,
+    alt: "A one-time project's Billing section with one advance received and the Record advance button highlighted.",
+  },
+  "owner/billing-price": {
+    src: "/guide/owner/billing-price.webp",
+    width: 1184,
+    height: 385,
+    alt: "A monthly project's Billing section: under Added this month, Extra poster says Not priced and its Set price button is highlighted.",
+  },
+  "owner/revenue": {
+    src: "/guide/owner/revenue.webp",
+    width: 1222,
+    height: 800,
+    alt: "The Revenue page for this month: Potential, Achieved and Remaining highlighted at the top, then Needs a look and each client's projects.",
   },
   "owner/send-back": {
     src: "/guide/owner/send-back.webp",
@@ -674,7 +710,7 @@ export const GUIDE_SHOTS: Readonly<
   "owner/reports": {
     src: "/guide/owner/reports.webp",
     width: 1220,
-    height: 515,
+    height: 582,
     alt: "Reports with the Month report highlighted.",
   },
   "owner/report-month-counts": {

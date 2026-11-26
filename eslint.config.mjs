@@ -25,9 +25,41 @@ const DB_ALLOWED_CORE_AREAS = [
 /** The only `core/` areas a module's `domain/` may import: pure helpers with no platform tie (ADR-0011). */
 const DOMAIN_ALLOWED_CORE_AREAS = ["time", "errors", "lib"];
 
-/** DATA-MODEL §7: money tables and views. Only `modules/revenue` (and `core/db`'s generated types) may name them. */
-const MONEY_RELATIONS =
-  "project_billing|item_billing|cycle_billing|revenue_overrides|project_advances|item_values_v|revenue_by_client_month_v|revenue_by_cycle_v";
+/**
+ * DATA-MODEL §7: the money tables, views and functions. Only `modules/revenue` (and `core/db`'s
+ * generated types) may name them. One entry per name; each is matched as a whole identifier, so
+ * a function that begins with a table's name (`project_billing_read`) needs its own entry.
+ */
+const MONEY_NAMES = [
+  // tables
+  "project_billing",
+  "item_billing",
+  "cycle_billing",
+  "revenue_overrides",
+  "project_advances",
+  // views
+  "item_values_v",
+  "revenue_by_client_month_v",
+  "revenue_by_cycle_v",
+  "revenue_project_lines_v",
+  "revenue_advances_v",
+  // functions (reads, then writes)
+  "project_billing_read",
+  "revenue_month_read",
+  "billing_set_project",
+  "billing_set_cycle_amount",
+  "item_value_set",
+  "advance_record",
+  "advance_return",
+  "billing_mark",
+  "revenue_override_set",
+  "revenue_override_clear",
+  // the views' own functions and the over-amount check (schema app; migration money_reads_scoped)
+  "item_values",
+  "revenue_cycles",
+  "cycle_explicit_total",
+];
+const MONEY_RELATIONS = MONEY_NAMES.join("|");
 
 const WALL_CLOCK_MESSAGE =
   "Don't read the wall clock here. Use todayIST()/systemClock from @/core/time (ADR-0008).";
@@ -269,10 +301,12 @@ const maxoffPlugin = {
 };
 
 const MONEY_MESSAGE =
-  "Money tables and views are read only through modules/revenue (CLAUDE.md invariant 2, ADR-0007).";
-// Word-bounded, so `.from("project_billing")`, `Tables<"item_billing">` and an embedded
-// select like "id, project_billing(amount)" all fail. Only string and template literals are
-// checked; identifiers (`row.project_billing`) are not, and pgTAP proves RLS behind them.
+  "Money tables, views and functions are named only inside modules/revenue (CLAUDE.md invariant 2, ADR-0007).";
+// Whole identifiers, so `.from("project_billing")`, `.rpc("revenue_month_read")`,
+// `Tables<"item_billing">`, "rpc/project_billing_read" and an embedded select like
+// "id, project_billing(amount)" all fail, while a longer name that only contains one
+// ("item_billing_mark_added") does not. Only string and template literals are checked;
+// identifiers (`row.project_billing`) are not, and pgTAP proves RLS behind them.
 const MONEY_PATTERN = `/(^|[^A-Za-z0-9_])(${MONEY_RELATIONS})([^A-Za-z0-9_]|$)/`;
 const MONEY_SELECTORS = [
   { selector: `Literal[value=${MONEY_PATTERN}]`, message: MONEY_MESSAGE },

@@ -22,6 +22,13 @@ export type GuideRole = "owner" | "admin" | "staff";
 export type DemoIds = {
   clientId: string;
   projectId: string;
+  /** "Launch video": a one-time project with its amount set and one advance received (v2.1). */
+  oneTimeProjectId: string;
+  /**
+   * "Monthly posts": a monthly project with its amount set and one deliverable added and not
+   * priced (v2.1). Its own project, so the other pictures' deliverable counts stay as they are.
+   */
+  pricedProjectId: string;
   /** "Festive campaign": a monthly project On hold, one deliverable's date passed, one from last month. */
   heldProjectId: string;
   staffId: string;
@@ -305,6 +312,36 @@ function holdShots(role: "owner" | "admin"): GuideShot[] {
       crop: layer,
       badge: 4,
       alt: "The Resume sheet of a task whose deadline passed, with the New deadline field highlighted.",
+    },
+    {
+      // v2.1 (kickoff 9 R1): the demo's one-time project has one deliverable, so it is its last:
+      // Mark done (in its ⋯ while stages are left, which asks first) opens "Complete the project
+      // too?". Nothing is tapped in it: the demo stays as it is for the pictures after.
+      id: `${role}/complete-prompt`,
+      path: (demo) => `/clients/${demo.clientId}/projects/${demo.oneTimeProjectId}`,
+      prepare: async (page) => {
+        await tap(page, "More for Launch film");
+        await page.getByRole("menuitem", { name: "Mark done…" }).click();
+        await page
+          .getByRole("alertdialog", { name: "Mark Launch film done?" })
+          .getByRole("button", { name: "Mark done", exact: true })
+          .click();
+        const ask = page.getByRole("dialog", { name: "Complete the project too?" });
+        await ask.waitFor();
+        // The confirmation before it has gone and the question has finished opening, so the
+        // crop is measured where the question rests.
+        await page.getByRole("alertdialog").waitFor({ state: "detached" });
+        await ask.evaluate((element) =>
+          Promise.all(
+            element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+          ),
+        );
+      },
+      highlight: (page) =>
+        layer(page).getByRole("button", { name: "Mark done and complete project" }),
+      crop: layer,
+      badge: 2,
+      alt: "The question Complete the project too? on a one-time project's last deliverable, with Mark done and complete project highlighted and Mark done only beside it.",
     },
     {
       id: `${role}/project-hold-menu`,
@@ -1128,6 +1165,48 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   ...holdShots("owner"),
+  // v2.1 (9.2): the Owner's Billing section, the project page's last. Owner pictures only.
+  {
+    id: "owner/billing-amount",
+    path: project,
+    highlight: (page) => slot(page, "billing-amount-set"),
+    badge: 2,
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A monthly project's Billing section with the Set amount button highlighted.",
+  },
+  {
+    id: "owner/billing-advance",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.oneTimeProjectId}`,
+    // The section is the page's last: the page scrolled to its end, so the advance's row is in
+    // and clear of the band at the bottom edge.
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "billing-advance-record"),
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A one-time project's Billing section with one advance received and the Record advance button highlighted.",
+  },
+  {
+    id: "owner/billing-price",
+    path: (demo) => `/clients/${demo.clientId}/projects/${demo.pricedProjectId}`,
+    prepare: (page) =>
+      page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }),
+      ),
+    highlight: (page) => slot(page, "billing-price-set"),
+    badge: 2,
+    crop: (page) => slot(page, "project-billing"),
+    alt: "A monthly project's Billing section: under Added this month, Extra poster says Not priced and its Set price button is highlighted.",
+  },
+  // v2.1 (9.2): Reports → Revenue, the month in rupees. The Owner's alone.
+  {
+    id: "owner/revenue",
+    path: "/reports/revenue",
+    highlight: (page) => slot(page, "revenue-summary"),
+    crop: main,
+    alt: "The Revenue page for this month: Potential, Achieved and Remaining highlighted at the top, then Needs a look and each client's projects.",
+  },
   {
     id: "owner/send-back",
     path: project,

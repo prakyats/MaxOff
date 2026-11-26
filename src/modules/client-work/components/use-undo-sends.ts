@@ -9,6 +9,10 @@ import { DelayedSends, UNDO_MS } from "@/core/ui/delayed-sends";
 import { postKeepalive } from "@/core/ui/keepalive";
 import { describeError } from "@/core/ui/toast";
 
+import type { ReadyProject } from "../domain/projects";
+
+import { toastReadyToComplete } from "./ready-toast";
+
 /** The route behind the delayed send: it outlives the page (a keepalive request). */
 export const MARK_DONE_URL = "/api/client-work/mark-done";
 
@@ -24,6 +28,11 @@ export type UndoSendConfig = {
   tooLate: string;
   /** Keeps each item's toast apart: "item-done". */
   toastKey: string;
+  /**
+   * "Complete project" on the "All deliverables done" toast (a one-time project's last
+   * deliverable marked done without completing it). Without it the toast opens the project.
+   */
+  onReady?: (project: ReadyProject) => void;
 };
 
 export type UndoSends = {
@@ -65,12 +74,21 @@ export function useUndoSends(config: UndoSendConfig): UndoSends {
         setErrors((shown) => ({ ...shown, [itemId]: message }));
         release(itemId);
       };
-      postKeepalive<null>(now.url, now.body(itemId)).then(
+      postKeepalive<{ ready?: ReadyProject | null } | null>(now.url, now.body(itemId)).then(
         (result) => {
           if (!result.ok) {
             const { title, description } = describeError(result.error);
             failed(description ?? title);
             return;
+          }
+          // The mark left a one-time project with nothing open: say so, with the way on.
+          const ready = result.data?.ready;
+          if (ready) {
+            toastReadyToComplete(ready, () => {
+              const { config: then, router: route } = latest.current;
+              if (then.onReady) then.onReady(ready);
+              else route.push(ready.href);
+            });
           }
           latest.current.router.refresh();
         },

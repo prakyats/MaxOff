@@ -14,8 +14,8 @@ import {
 import { addISTDays, istInstant, todayIST } from "../src/core/time";
 
 /**
- * The first wave of 20 routes, for each role that opens them (v2.0 X3 (a), ARCHITECTURE §19 "Six
- * connections"): the 16 paths in `ROUTES` and the four records in `RECORDS` (a task, a client, a
+ * The first wave of 21 routes, for each role that opens them (v2.0 X3 (a), ARCHITECTURE §19 "Six
+ * connections"): the 17 paths in `ROUTES` and the four records in `RECORDS` (a task, a client, a
  * project, a person). The other routes are not covered yet; their first wave is a v2.1 item
  * (ROADMAP, v2.1 "Reliable anywhere"). A Worker sets off at most six database requests at a time,
  * so a route whose first wave holds a seventh waits a whole extra round trip for it. Counted at
@@ -46,6 +46,8 @@ const ROUTES: { path: string; roles: readonly Role[] }[] = [
   { path: "/clients", roles: LEADS },
   { path: "/people", roles: LEADS },
   { path: "/reports", roles: LEADS },
+  // v2.1 (9.2): the Owner's Revenue page; its one money read starts after the permission check.
+  { path: "/reports/revenue", roles: ["owner"] },
   { path: "/leave", roles: ["admin", "staff"] },
   { path: "/leave/attendance", roles: ["admin", "staff"] },
   { path: "/leave/extra-work", roles: ["admin", "staff"] },

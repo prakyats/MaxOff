@@ -336,7 +336,7 @@ async function makeDemo(): Promise<DemoIds> {
       ...["Post 1", "Post 2"].map((title) => ({ title, stage_groups: design })),
     ],
   });
-  await rpc(admin, "project_create_grouped", {
+  const oneTimeProjectId = await rpc<string>(admin, "project_create_grouped", {
     client_id: client.id,
     name: "Launch video",
     recurrence: "one_time",
@@ -344,6 +344,42 @@ async function makeDemo(): Promise<DemoIds> {
     stage_groups: [{ label: null, stages: ["Script", "Shoot", "Edit"] }],
     deliverables: [{ title: "Launch film", stage_groups: null }],
   });
+  // v2.1 (9.2): the one-time project's amount and one advance, for the Owner's Billing pictures.
+  // The monthly project keeps "No amount set": its picture shows the first Set amount.
+  await rpc(owner, "billing_set_project", {
+    project_id: oneTimeProjectId,
+    amount: 60000,
+    set_amount: true,
+    category: null,
+  });
+  await rpc(owner, "advance_record", {
+    project_id: oneTimeProjectId,
+    amount: 30000,
+    received_on: todayIST(),
+    note: "On signing",
+  });
+  // v2.1 (9.2): a project of its own for "Price added deliverables" and the Revenue page: its
+  // amount set, then one deliverable added by the Admin, which waits for its price.
+  const pricedProjectId = await rpc<string>(admin, "project_create_grouped", {
+    client_id: client.id,
+    name: "Monthly posts",
+    recurrence: "monthly",
+    stage_groups: [{ label: null, stages: ["Draft", "Final"] }],
+    deliverables: ["Post A", "Post B", "Post C", "Post D"].map((title) => ({
+      title,
+      stage_groups: null,
+    })),
+  });
+  await rpc(owner, "billing_set_project", {
+    project_id: pricedProjectId,
+    amount: 40000,
+    set_amount: true,
+    category: null,
+  });
+  const [pricedCycle] = await serviceSelect<{ id: string }>(
+    `project_cycles?project_id=eq.${pricedProjectId}&select=id&order=period_start.desc&limit=1`,
+  );
+  await rpc(admin, "item_add", { cycle_id: pricedCycle?.id, title: "Extra poster" });
   const items = await serviceSelect<{ id: string; title: string }>(
     `project_items?project_id=eq.${projectId}&select=id,title&order=position`,
   );
@@ -502,6 +538,8 @@ async function makeDemo(): Promise<DemoIds> {
   return {
     clientId: client.id,
     projectId,
+    oneTimeProjectId,
+    pricedProjectId,
     heldProjectId,
     staffId,
     tasks: { notNoted, started, handedIn, checked, ownerOnly, held },
