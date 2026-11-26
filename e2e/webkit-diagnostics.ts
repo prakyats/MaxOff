@@ -168,6 +168,31 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
             "?";
           return `${name}@${target instanceof Element ? target.tagName.toLowerCase() : "?"}`;
         });
+        // CI 45760653719: still blocked 3.7 s on a small, clipped route with the create dialog
+        // open; a slide with no dialog did not block. Every blurred element and open dialog.
+        const blurred = [...document.querySelectorAll("body *")]
+          .filter((element) => {
+            const style = getComputedStyle(element) as CSSStyleDeclaration & {
+              webkitBackdropFilter?: string;
+            };
+            const filter = style.backdropFilter || style.webkitBackdropFilter || "none";
+            return filter !== "none";
+          })
+          .map((element) => {
+            const style = getComputedStyle(element) as CSSStyleDeclaration & {
+              webkitBackdropFilter?: string;
+            };
+            const rect = element.getBoundingClientRect();
+            return `${element.tagName.toLowerCase()}[${element.getAttribute("data-slot") ?? ""}] ${style.backdropFilter || style.webkitBackdropFilter} ${Math.round(rect.width)}x${Math.round(rect.height)}`;
+          });
+        const dialogs = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].map(
+          (element) =>
+            `${element.getAttribute("data-slot") ?? element.getAttribute("role")} state=${element.getAttribute("data-state") ?? (element.hasAttribute("data-open") ? "open" : element.hasAttribute("data-closed") ? "closed" : "?")}`,
+        );
+        note(
+          "view-transition",
+          `blurred=${blurred.length}[${blurred.join("; ")}] dialogs=[${dialogs.join("; ")}]`,
+        );
         note(
           "view-transition",
           `start route=${box ? `${Math.round(box.width)}x${Math.round(box.height)} top=${Math.round(box.top)}` : "none"} elements=${route?.querySelectorAll("*").length ?? 0} clip=${route?.style.clipPath || "none"} scrollY=${Math.round(window.scrollY)} animations=${running.length}[${running.slice(0, 12).join(",")}] from=${callers()}`,

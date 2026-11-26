@@ -673,6 +673,10 @@ test.describe("the bell and Alerts", () => {
     // Opening the run reads all three, not only the newest.
     await rowOf(page, "3 comments on Reel 9").getByRole("link").click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);
+    // The screen itself, not only its address: the tap's skeleton takes the address at 120 ms
+    // (v7.0, §14.2), and a goto while the move is still in flight aborts its fetch, which Next
+    // answers with a full load of the same address (CI 45760653719, WebKit).
+    await expectSettled(page);
     await expect.poll(() => unreadOf(staff)).toBe(1);
     await expect.poll(() => bellCount(page)).toBe(1);
     await page.goto("/notifications");

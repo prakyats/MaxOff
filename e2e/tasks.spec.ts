@@ -1715,3 +1715,59 @@ test.describe("tasks for the Owner", () => {
     expect(again).toHaveLength(2);
   });
 });
+
+/**
+ * TEMPORARY (v7.0 A/B, the advisor 26 Nov 2026; removed before READY FOR OWNER). tasks:1043 on
+ * WebKit: the main thread blocked 3.7–6.1 s between the Create slide's view transition and its
+ * update, with the create dialog (its overlay `backdrop-blur`) still on screen; a slide with no
+ * dialog did not block. The same Create, twice: as built, and with every `backdrop-filter` off.
+ * Each must commit within a second; a red one carries its timing and the WebKit record.
+ */
+test.describe("TEMP A/B: the create dialog's blur and the slide (iPhone only)", () => {
+  test.skip(({ browserName }) => browserName !== "webkit", "the block is WebKit's");
+  test.use({ storageState: storageStateFor("owner") });
+
+  for (const blur of [true, false] as const) {
+    test(`TEMP A/B: Create's slide commits within a second, blur ${blur ? "on" : "off"}`, async ({
+      page,
+    }, info) => {
+      const prefix = `TEMP blur ${blur ? "on" : "off"} ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      try {
+        await runInstalled(page);
+        await recordNavigation(page, info);
+        if (!blur) {
+          await page.addInitScript(() => {
+            const style = document.createElement("style");
+            style.textContent =
+              "* { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }";
+            document.addEventListener("DOMContentLoaded", () => document.head.append(style));
+          });
+        }
+        await page.goto("/tasks");
+        await hydrated(page);
+        const dialog = formDialog(page);
+        await page.getByRole("button", { name: "New task" }).click();
+        await dialog.getByLabel("Title").fill(`${prefix}task`);
+        await pick(
+          page,
+          dialog.getByLabel("Add a person"),
+          new RegExp(`^${escape(person("staff", info).name)}`),
+        );
+        await dialog.getByLabel("Deadline").fill(workingDay(17));
+        await expectTargets(page);
+        const started = performance.now();
+        await dialog.getByRole("button", { name: "Create task" }).click();
+        await explainOnIphone(page, info, () =>
+          expect(page, `blur ${blur ? "on" : "off"}`).toHaveURL(TASK_URL, { timeout: 1_000 }),
+        );
+        info.annotations.push({
+          type: "temp-blur-ab",
+          description: `blur ${blur ? "on" : "off"}: ${Math.round(performance.now() - started)} ms`,
+        });
+      } finally {
+        await removeTasksTitled(prefix);
+      }
+    });
+  }
+});
