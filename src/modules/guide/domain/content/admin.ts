@@ -77,6 +77,35 @@ export const ADMIN_GUIDE: Guide = {
           link: { href: "/me", label: "Open Me" },
           keywords: ["profile", "bell", "alerts", "me", "appearance", "dark", "theme"],
         },
+        {
+          id: "admin-two-step",
+          title: "Turn on two-step sign-in",
+          summary: "Optional: a code from your phone after your password.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Two-step sign-in asks for the 6-digit code your authenticator app shows (Google Authenticator, Microsoft Authenticator, 1Password…) after your password, so a leaked password alone can't open your account. It is your choice.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open Me. Under Sign-in, tap Turn on.",
+                "Tap “Set up the authenticator app”, then scan the QR code in your authenticator app, or type the key under it.",
+                "Enter the 6-digit code and tap Continue.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "Me → Sign-in says On, and every sign-in asks for the newest code. Turn off, in the same place, stops it.",
+            },
+            {
+              kind: "note",
+              text: "Lost your phone? Ask the Owner to remove your authenticator; your next sign-in then sets up the new phone.",
+            },
+          ],
+          link: { href: "/me", label: "Open Me" },
+          keywords: ["two-step", "2fa", "authenticator", "code", "sign in", "mfa", "security"],
+        },
       ],
     },
     {

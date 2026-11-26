@@ -30,6 +30,7 @@ import {
   taskTypeId,
   USERS,
 } from "./helpers";
+import { answerSecondStep } from "./totp";
 
 /**
  * The in-app guide's screenshots (ROADMAP 6b.14, Release 2), never part of `pnpm test:e2e` or CI
@@ -688,6 +689,8 @@ async function signInAs(context: BrowserContext, role: GuideRole): Promise<Page>
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).not.toHaveURL(/\/login/);
+  // v7.5 Q2: the Owner passes the second step (`e2e/totp.ts`).
+  if (/\/second-step/.test(new URL(page.url()).pathname)) await answerSecondStep(page, user.email);
   await expect(page.locator('[data-slot="page-header"]:visible')).toBeVisible();
   return page;
 }

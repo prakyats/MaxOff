@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { offersSecondStep } from "@/core/auth/second-step";
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { PageLoading } from "@/core/ui/composites/loading-state";
@@ -86,6 +87,8 @@ function PageRow({ slot }: { slot: string }) {
 export default async function Loading() {
   const member = await getCurrentMember();
   const ownPages = member !== null && can(member.role, "attendance.self");
+  // v7.5 Q2: the Owner's and an Admin's "Sign-in" section.
+  const secondStep = member !== null && offersSecondStep(member.role);
   return (
     <PageLoading title="Me" description={ME_DESCRIPTION} shape="detail">
       <div
@@ -163,6 +166,19 @@ export default async function Loading() {
             </CardContent>
           </Card>
         </Section>
+        {secondStep ? (
+          <Section slot="loading-me-sign-in" title="w-14">
+            <Card aria-hidden>
+              <CardContent>
+                <ControlRow
+                  lines={["w-56", "w-72"]}
+                  phoneLines={["w-40"]}
+                  control="h-11 w-24 md:h-8"
+                />
+              </CardContent>
+            </Card>
+          </Section>
+        ) : null}
         <Section slot="loading-me-help" title="w-10">
           <Card aria-hidden className="gap-0 py-0">
             <PageRow slot="loading-me-guide-link" />

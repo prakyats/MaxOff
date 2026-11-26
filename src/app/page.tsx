@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { LOGIN_PATH } from "@/core/auth/paths";
+import { LOGIN_PATH, SECOND_STEP_PATH } from "@/core/auth/paths";
 import { getSessionState, SIGN_OUT_INACTIVE_PATH } from "@/core/auth/server";
 import { homeFor } from "@/core/ui/shell/nav";
 
@@ -15,5 +15,6 @@ import { homeFor } from "@/core/ui/shell/nav";
 export default async function Home() {
   const state = await getSessionState();
   if (state.kind === "member") redirect(homeFor(state.member.role));
+  if (state.kind === "second-step") redirect(SECOND_STEP_PATH);
   redirect(state.kind === "inactive" ? SIGN_OUT_INACTIVE_PATH : LOGIN_PATH);
 }

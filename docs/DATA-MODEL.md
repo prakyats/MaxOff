@@ -318,6 +318,14 @@ members              id (= auth.users.id for a login; a fresh uuid for a freelan
                      role member_role, job_title_id null → list_items (1.3), status member_status,
                      engagement engagement ('permanent'; 4A, ADR-0013),
                      invited_at, joined_at, deactivated_at, created_at, updated_at
+                     -- second_step boolean not null default false (v7.5 Q2, owner 2026-11-26, migration
+                     -- v75_second_step, expand-only): this member's sign-in asks for an authenticator code
+                     -- (Supabase Auth TOTP, auth.mfa_factors). Set only by second_step_set(p_on) (security
+                     -- definer, the caller's own row, Owner and Admin only, and only from an aal2 session,
+                     -- so a password alone never changes it; audited by the members trigger). Read with the
+                     -- member row (getSessionState's MEMBER_ROW and session_early()'s member object). The
+                     -- Owner is asked whenever the environment requires it (OWNER_MFA_REQUIRED), whatever
+                     -- this says. No API column grant.
                      unique partial index (org_id) where role = 'owner'; unique index on lower(email)
                      -- 4A as built: the FK members.id → auth.users is gone (a freelancer has no auth
                      -- row; expand-only, nothing reads it); check members_email_matches_engagement:

@@ -9,6 +9,7 @@ import {
   signIn,
   USERS,
 } from "./helpers";
+import { answerSecondStep } from "./totp";
 import { wallClock } from "./run-state";
 
 /**
@@ -26,6 +27,9 @@ test.describe("signed out", () => {
     await page.getByLabel("Email").fill(USERS.owner.email);
     await page.getByLabel("Password", { exact: true }).fill(USERS.owner.password);
     await page.getByRole("button", { name: "Sign in" }).click();
+    // v7.5 Q2: the Owner passes the second step first, and `next` survives it.
+    await expect(page).toHaveURL(/\/second-step\?next=%2Fpeople$/);
+    await answerSecondStep(page, USERS.owner.email);
     await expect(page).toHaveURL(/\/people$/);
     await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
   });

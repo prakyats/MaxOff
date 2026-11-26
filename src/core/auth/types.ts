@@ -20,4 +20,6 @@ export type CurrentMember = {
   jobTitle: string | null;
   /** The member's photo (`files`, task 3.3), shown through `/api/files/<id>`; null = initials. */
   avatarFileId: string | null;
+  /** v7.5 Q2: their sign-in asks for an authenticator code (`members.second_step`). */
+  secondStep: boolean;
 };

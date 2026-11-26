@@ -2053,6 +2053,27 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["alerts", "unread", "mark all read"],
         },
         {
+          id: "owner-two-step",
+          title: "Sign in with a code from your phone",
+          summary: "Two-step sign-in is required for the Owner.",
+          blocks: [
+            text(
+              "After your password, MaxOff asks for the 6-digit code your authenticator app shows (Google Authenticator, Microsoft Authenticator, 1Password…). It is required for the Owner, so the money and everyone's records stay yours even if your password leaks.",
+            ),
+            steps(
+              "The first time, tap “Set up the authenticator app”.",
+              "In your authenticator app, add an account and scan the QR code, or type the key under it.",
+              "Enter the 6-digit code and tap Continue.",
+              "Every sign-in after that asks for the newest code.",
+            ),
+            note(
+              "Keep the key under the QR code in your password manager: a new phone can then be set up from it. Me → Sign-in shows that it is on.",
+            ),
+          ],
+          link: { href: "/me", label: "Open Me" },
+          keywords: ["two-step", "2fa", "authenticator", "code", "sign in", "mfa", "security"],
+        },
+        {
           id: "owner-no-access-note",
           title: "When someone keeps hitting “No access”",
           summary: "A morning note names anyone refused more than 20 times the day before.",

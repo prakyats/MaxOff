@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { expect, test, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
+import { answerSecondStep } from "./totp";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
@@ -48,6 +49,8 @@ export async function signIn(
   // The form shows any refusal. No allowance for a cold server: every route is warmed by the
   // `setup` project before a flow spec runs (`warm.setup.ts`, 2.6).
   await expect(page).not.toHaveURL(/\/login/);
+  // v7.5 Q2: the Owner (and anyone who turned it on) passes the second step (`e2e/totp.ts`).
+  if (/\/second-step/.test(new URL(page.url()).pathname)) await answerSecondStep(page, email);
   if (day === "start") await answerStartPrompt(page);
 }
 

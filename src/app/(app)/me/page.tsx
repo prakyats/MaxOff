@@ -6,6 +6,8 @@ import Link from "next/link";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { LogoutButton } from "@/core/auth/components/logout-button";
+import { SecondStepSwitch } from "@/core/auth/components/second-step-switch";
+import { offersSecondStep, ownerSecondStepRequired } from "@/core/auth/second-step";
 import { requireMember, withSessionUserId } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { EditableRecord } from "@/core/ui/composites/editable-record";
@@ -53,7 +55,8 @@ export const metadata: Metadata = { title: "Me" };
  * 3. **Your freelancers** (ADR-0013, an Admin who coordinates one);
  * 4. **Notifications**: this device ("Turn on here", 5.2), **Your devices** each with Remove
  *    (5.5, decision 5; red only in its confirmation), **Send a test notification**;
- * 5. **Appearance**: Light / Dark / System;
+ * 5. **Appearance**: Light / Dark / System; then **Sign-in** for the Owner and Admins: two-step
+ *    sign-in (v7.5 Q2);
  * 6. **Help**: How MaxOff works (6b.14), Your information (the privacy notice, v7.5 Q1), Reload app;
  * 7. **Sign out of this device**, last (kickoff 3b decision 1: it lives here only): a red
  *    outline, never solid, since nothing is destroyed, with its confirmation;
@@ -272,6 +275,20 @@ export default async function MePage({
             </CardContent>
           </Card>
         </MeSection>
+
+        {/* v7.5 Q2: two-step sign-in, for the Owner and Admins (Crew is not offered it). */}
+        {offersSecondStep(viewer.role) ? (
+          <MeSection title="Sign-in" slot="me-sign-in">
+            <Card>
+              <CardContent>
+                <SecondStepSwitch
+                  on={viewer.secondStep || (viewer.role === "owner" && ownerSecondStepRequired())}
+                  required={viewer.role === "owner" && ownerSecondStepRequired()}
+                />
+              </CardContent>
+            </Card>
+          </MeSection>
+        ) : null}
 
         {/* 6. Help. */}
         <Help />

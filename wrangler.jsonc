@@ -38,6 +38,10 @@
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging" }],
       "observability": { "enabled": true },
       "preview_urls": true,
+      // v7.5 Q2: the Owner's two-step sign-in is not required here until staging's Owner has set it
+      // up and its secret is in GitHub (STAGING_OWNER_TOTP_SECRET), so the speed probe and the guide
+      // pictures keep signing in. docs/runbooks/two-step-sign-in.md says when to turn it on.
+      "vars": { "OWNER_MFA_REQUIRED": "off" },
       "triggers": { "crons": ["30 21 * * *", "* * * * *"] },
     },
     // Production: deployed from a `v*` tag. Workers Paid (the account's plan, see staging).
@@ -51,8 +55,8 @@
     // certificate in the maxoff.in zone; the deploy token needs the zone permissions README
     // names, or the owner attaches it once in the dashboard under Workers → maxoff → Domains &
     // Routes). The workers.dev address stays ON only so `worker/index.js` can send it to the
-    // custom domain (308, path and query kept), keyed on `CANONICAL_HOST`: the one `vars`
-    // entry in this file, production-only by construction. Never add the bare `maxoff.in`,
+    // custom domain (308, path and query kept), keyed on `CANONICAL_HOST`: a `vars` entry of
+    // production alone, by construction. Never add the bare `maxoff.in`,
     // `www` or `mail.maxoff.in` here: the first two are reserved for a landing page, the
     // third belongs to Resend.
     "production": {
@@ -63,7 +67,9 @@
       "preview_urls": false,
       "workers_dev": true,
       "routes": [{ "pattern": "app.maxoff.in", "custom_domain": true }],
-      "vars": { "CANONICAL_HOST": "app.maxoff.in" },
+      // OWNER_MFA_REQUIRED (v7.5 Q2, owner 2026-11-26): the Owner's sign-in always asks for the
+      // authenticator code (core/auth/second-step.ts).
+      "vars": { "CANONICAL_HOST": "app.maxoff.in", "OWNER_MFA_REQUIRED": "on" },
       "triggers": { "crons": ["30 21 * * *", "* * * * *"] },
     },
   },

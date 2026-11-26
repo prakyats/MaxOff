@@ -370,6 +370,9 @@ export default defineConfig({
         // The fake push services the specs run are plain http on the loopback host: the sender
         // refuses those everywhere but here (5A review M2; never honoured in staging/production).
         PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1",
+        // v7.5 Q2: the Owner's two-step sign-in, as in production. The setup project sets up the
+        // local Owner's authenticator and keeps its key for the specs (e2e/totp.ts).
+        OWNER_MFA_REQUIRED: "on",
       },
     },
   ],

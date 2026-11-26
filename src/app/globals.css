@@ -25,6 +25,7 @@
   --color-brand: var(--brand);
   --color-logo: var(--logo);
   --color-logo-foreground: var(--logo-foreground);
+  --color-qr-surface: var(--qr-surface);
   --color-brand-foreground: var(--brand-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -174,6 +175,8 @@
   /* The logo tile is a fixed brand asset: same red in both themes, never overridden in .dark. */
   --logo: #c42126;
   --logo-foreground: #ffffff;
+  /* v7.5 Q2: the authenticator QR code's backing, white in both themes so a phone's camera reads it. */
+  --qr-surface: #ffffff;
   --destructive: #c42126;
   --destructive-foreground: #ffffff;
   --border: #e3e2dd;

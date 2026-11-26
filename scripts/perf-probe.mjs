@@ -17,6 +17,8 @@
 // SUPABASE_SECRET_KEY (the service key: the first active member of `--role` gets a session
 // through a magic link that is never sent; PROBE_EMAIL picks the member). **Staging only** with
 // a session; production only with `--no-signin` (the public routes, no key in the environment).
+// PROBE_TOTP_SECRET (v7.5 Q2): the member's authenticator key, for a member whose sign-in must pass
+// the second step (staging's Owner once STAGING_OWNER_TOTP_SECRET is set).
 // Read-only: every request is a GET (the sign-in itself is GoTrue's, on the staging project).
 //
 // Routes: the public ones, then every main signed-in route (`scripts/lib/perf-gate.mjs`:
@@ -75,6 +77,7 @@ import { performance } from "node:perf_hooks";
 import zlib from "node:zlib";
 
 import { judgeRun, median, pageProblem, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
+import { passSecondStep } from "./lib/totp.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -123,6 +126,9 @@ const env = {
   secretKey: process.env.SUPABASE_SECRET_KEY,
   email: process.env.PROBE_EMAIL,
   password: process.env.PROBE_PASSWORD,
+  // v7.5 Q2: the key of the signed-in member's authenticator (staging's Owner:
+  // STAGING_OWNER_TOTP_SECRET), so a session that must pass the second step does.
+  totpSecret: process.env.PROBE_TOTP_SECRET,
 };
 // Production is probed signed out only (`--no-signin`: the static asset, the 404, health, /login),
 // never with a session and never with a key in the environment.
@@ -157,6 +163,24 @@ if (signIn) {
 // Sign in: a session for one member, as the browser would hold it (the same cookie writer the
 // app uses, `@supabase/ssr`), then the ids the signed-in routes need.
 // ---------------------------------------------------------------------------------------------
+/**
+ * v7.5 Q2: the minted session through the second step (an `aal2` session), with the member's
+ * authenticator key from `PROBE_TOTP_SECRET`; the app then treats it as a full sign-in.
+ */
+async function secondStep(session) {
+  const { createClient } = require("@supabase/supabase-js");
+  const client = createClient(env.url, env.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const set = await client.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (set.error) throw new Error(`setSession failed: ${set.error.message}`);
+  // eslint-disable-next-line no-restricted-syntax -- an authenticator code is wall-clock time by definition
+  return passSecondStep(client, env.totpSecret, Date.now());
+}
+
 async function mintSession() {
   if (!env.url || !env.publishableKey) {
     throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required to sign in.");
@@ -551,7 +575,9 @@ async function main() {
   let memberRole = null;
   let who = "signed out";
   if (signIn) {
-    const { session, email } = await mintSession();
+    const minted = await mintSession();
+    const { email } = minted;
+    const session = env.totpSecret ? await secondStep(minted.session) : minted.session;
     cookie = await cookieHeaderFor(session);
     ({ role: memberRole, ids } = await pickIds(session));
     const [, payload] = session.access_token.split(".");

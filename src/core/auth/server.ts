@@ -18,7 +18,8 @@ import { displayName } from "@/core/lib/display-name";
 
 import { formatHomeHint, HOME_HINT_COOKIE } from "./home-hint";
 import { accessTokenFrom, unverifiedSubject } from "./warm";
-import { LOGIN_PATH } from "./paths";
+import { LOGIN_PATH, SECOND_STEP_PATH } from "./paths";
+import { needsSecondStep, ownerSecondStepRequired } from "./second-step";
 import { classifySessionError, SessionUnavailableError } from "./session-errors";
 import type { CurrentMember } from "./types";
 
@@ -30,11 +31,15 @@ export const SIGN_OUT_INACTIVE_PATH = "/auth/signout?reason=inactive";
  * - `inactive`: a session whose member row is missing, invited or deactivated. Every table is
  *   already closed to them (`app.current_member()` returns no row), and the app treats it as
  *   signed out: `requireMember()` ends the session through `/auth/signout`.
+ * - `second-step`: an active member whose session has not passed the second step it needs (v7.5
+ *   Q2, `second-step.ts`): nothing but `/second-step` is theirs until it has. `getCurrentMember()`
+ *   answers nobody for it, so every action refuses (UNAUTHENTICATED).
  * - `member`: an active member.
  */
 export type SessionState =
   | { kind: "none" }
   | { kind: "inactive"; userId: string }
+  | { kind: "second-step"; member: CurrentMember }
   | { kind: "member"; member: CurrentMember };
 
 /**
@@ -58,7 +63,8 @@ export type SessionState =
 export const getSessionState = cache(async (): Promise<SessionState> => {
   // The shell's read when this request's layout started it; the member row alone otherwise.
   const early = shellRead().early ?? startMemberRowRead();
-  const userId = await getSessionUserId();
+  const claims = await getSessionClaims();
+  const userId = claims?.sub ?? null;
   if (!userId) return { kind: "none" };
   const started = await early;
   const { data: row, error } =
@@ -71,20 +77,27 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
 
   if (!row || row.id !== userId || row.status !== "active") return { kind: "inactive", userId };
 
-  return {
-    kind: "member",
-    member: {
-      id: row.id,
-      email: row.email,
-      role: row.role,
-      name: displayName(row.full_name),
-      jobTitle: row.job_title?.name ?? null,
-      avatarFileId: row.avatar_file_id,
-    },
+  const member: CurrentMember = {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    name: displayName(row.full_name),
+    jobTitle: row.job_title?.name ?? null,
+    avatarFileId: row.avatar_file_id,
+    secondStep: row.second_step === true,
   };
+  // v7.5 Q2: the second step, from the verified token and the row already read (no extra read).
+  const secondStep = needsSecondStep({
+    role: row.role,
+    secondStep: member.secondStep,
+    aal: claims?.aal,
+    ownerRequired: ownerSecondStepRequired(),
+  });
+  return secondStep ? { kind: "second-step", member } : { kind: "member", member };
 });
 
-const MEMBER_ROW = "id, email, full_name, role, status, avatar_file_id, job_title:list_items(name)";
+const MEMBER_ROW =
+  "id, email, full_name, role, status, avatar_file_id, second_step, job_title:list_items(name)";
 
 function readMemberRow(supabase: Pick<ServerSupabase, "from">, id: string) {
   return supabase.from("members").select(MEMBER_ROW).eq("id", id).maybeSingle();
@@ -258,10 +271,23 @@ export async function readBeforeCheck<T>(
  * before it renders anything the reads returned.
  */
 export const getSessionUserId = cache(async (): Promise<string | null> => {
-  const supabase = await createServerSupabase();
-  const claims = await readClaims(supabase);
-  return claims?.claims.sub ?? null;
+  return (await getSessionClaims())?.sub ?? null;
 });
+
+/**
+ * The verified session's subject and assurance level (`aal`: `aal2` once the second step has
+ * passed, v7.5 Q2), once per request: the same `getClaims()` check `getSessionUserId` stands on.
+ */
+export const getSessionClaims = cache(
+  async (): Promise<{ sub: string; aal: string | null } | null> => {
+    const supabase = await createServerSupabase();
+    const data = await readClaims(supabase);
+    const sub = data?.claims.sub;
+    if (!sub) return null;
+    const aal = (data.claims as { aal?: unknown }).aal;
+    return { sub, aal: typeof aal === "string" ? aal : null };
+  },
+);
 
 /**
  * Runs a read keyed by the viewer's id without waiting for the member row:
@@ -309,6 +335,7 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
 export async function requireMember(): Promise<CurrentMember> {
   const state = await getSessionState();
   if (state.kind === "member") return state.member;
+  if (state.kind === "second-step") redirect(SECOND_STEP_PATH);
   redirect(state.kind === "inactive" ? SIGN_OUT_INACTIVE_PATH : LOGIN_PATH);
 }
 
@@ -379,4 +406,16 @@ export async function getRealtimeAuth(): Promise<RealtimeAuth | null> {
     token: session.access_token,
     expiresIn: expiresAt === null ? null : expiresAt - Math.floor(systemClock().getTime() / 1000),
   };
+}
+
+/**
+ * Whether the signed-in person has a verified authenticator app (v7.5 Q2): `/second-step` then asks
+ * for its code, else it sets one up. Supabase Auth's own record (one round trip: `getUser()`), read
+ * only on that page.
+ */
+export async function hasVerifiedAuthenticator(): Promise<boolean> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) throw error;
+  return data.all.some((factor) => factor.factor_type === "totp" && factor.status === "verified");
 }

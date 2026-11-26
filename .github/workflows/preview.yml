@@ -715,6 +715,9 @@ jobs:
           SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          # v7.5 Q2: staging's Owner's authenticator key, once the Owner has added it (empty until
+          # then: staging's OWNER_MFA_REQUIRED stays off until it exists).
+          PROBE_TOTP_SECRET: ${{ inputs.role == 'owner' && secrets.STAGING_OWNER_TOTP_SECRET || '' }}
           TARGET: ${{ steps.names.outputs.target }}
           LABEL: ${{ steps.names.outputs.label }}
           SAMPLES: ${{ inputs.samples }}

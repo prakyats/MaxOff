@@ -10,7 +10,8 @@ import type { MemberRole } from "@/core/permissions";
 import { homeFor } from "@/core/ui/shell/nav";
 
 import { verifyAuthLink } from "./links";
-import { LOGIN_PATH, safeNextPath, signInLanding, WELCOME_PATH } from "./paths";
+import { LOGIN_PATH, SECOND_STEP_PATH, safeNextPath, signInLanding, WELCOME_PATH } from "./paths";
+import { needsSecondStep, ownerSecondStepRequired } from "./second-step";
 import {
   type ConfirmLinkInput,
   confirmLinkSchema,
@@ -42,11 +43,18 @@ async function memberStatus(supabase: ServerSupabase) {
   return data;
 }
 
-/** The caller's own role (RLS shows an active member their own row). */
-async function ownRole(supabase: ServerSupabase, userId: string): Promise<MemberRole> {
-  const { data, error } = await supabase.from("members").select("role").eq("id", userId).single();
+/** The caller's own role and second-step choice (RLS shows an active member their own row). */
+async function ownRole(
+  supabase: ServerSupabase,
+  userId: string,
+): Promise<{ role: MemberRole; secondStep: boolean }> {
+  const { data, error } = await supabase
+    .from("members")
+    .select("role, second_step")
+    .eq("id", userId)
+    .single();
   if (error) throw error;
-  return data.role;
+  return { role: data.role, secondStep: data.second_step };
 }
 
 /**
@@ -54,7 +62,10 @@ async function ownRole(supabase: ServerSupabase, userId: string): Promise<Member
  * Returns the role, and sets the home hint from it (2.7): the caller redirects straight to the
  * role's home, and the next cold start's `/` is answered by the proxy.
  */
-async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): Promise<MemberRole> {
+async function recordLoginOrSignOut(
+  supabase: ServerSupabase,
+  userId: string,
+): Promise<{ role: MemberRole; secondStep: boolean }> {
   if ((await memberStatus(supabase)) !== "active") {
     await supabase.auth.signOut({ scope: "local" });
     throw new AppError("FORBIDDEN", INACTIVE_MESSAGE);
@@ -64,9 +75,9 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
     await supabase.auth.signOut({ scope: "local" });
     throw error;
   }
-  const role = await ownRole(supabase, userId);
-  await setHomeHint(userId, role);
-  return role;
+  const own = await ownRole(supabase, userId);
+  await setHomeHint(userId, own.role);
+  return own;
 }
 
 /** Whether the caller is a new joiner whose walkthrough is still open (5.5, owner 2026-10-06, 2). */
@@ -82,7 +93,18 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  const role = await recordLoginOrSignOut(supabase, data.user.id);
+  const { role, secondStep } = await recordLoginOrSignOut(supabase, data.user.id);
+  // v7.5 Q2: a password alone is not a sign-in for the Owner (or anyone who turned the second step
+  // on): straight to the code, carrying `next`, instead of home and a redirect from there.
+  if (
+    needsSecondStep({ role, secondStep, aal: "aal1", ownerRequired: ownerSecondStepRequired() })
+  ) {
+    const safe = safeNextPath(next);
+    redirect(
+      safe ? `${SECOND_STEP_PATH}?next=${encodeURIComponent(safe)}` : SECOND_STEP_PATH,
+      RedirectType.replace,
+    );
+  }
   // Straight to the role's home (not through `/`, one hop fewer, 2.7); the optional `next`
   // wins when it is a safe path; a new joiner with an unfinished walkthrough lands on the
   // welcome screen, on any device (owner 2026-10-06; before, only in the installed iPhone app).
@@ -168,9 +190,9 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
     redirect(WELCOME_PATH, RedirectType.replace);
   }
 
-  const role = await ownRole(supabase, userId);
+  const { role } = await ownRole(supabase, userId);
   await setHomeHint(userId, role);
-  // A reset password signs in too: a new joiner with an unfinished walkthrough lands on the
+  // A reset password signs in too (the Owner then passes the second step from home, v7.5 Q2): a new joiner with an unfinished walkthrough lands on the
   // welcome screen (owner 2026-10-06), everyone else home. Replace: the set-password screen is
   // one-time and never stays in the back stack (§14.2 e).
   redirect(

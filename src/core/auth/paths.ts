@@ -67,3 +67,10 @@ export function signInLanding(input: {
 }): string {
   return safeNextPath(input.next) ?? (input.walkthroughUnfinished ? WELCOME_PATH : input.home);
 }
+
+/**
+ * The second step of a sign-in (v7.5 Q2): the authenticator code, or setting the app up. Needs the
+ * password's session, so it is not public; `requireMember()` sends a member here while their session
+ * still lacks it (`second-step.ts`).
+ */
+export const SECOND_STEP_PATH = "/second-step";
