@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 
 import {
+  holdNextRefresh,
   hydrated,
   insertAs,
   memberIdOf,
@@ -222,6 +223,61 @@ test.describe("a message arrives while scrolled: the page stays where it is", ()
       await serviceDelete(`notifications?id=eq.${id}`);
     }
   });
+});
+
+/**
+ * A view switch, then a live refresh with a layer closing under it (CI 26 Nov, task-page:1103,
+ * two runs of shard 4 in three). After the view's hand-written address the router's tree still
+ * has the old page key, so the first refresh's answer mismatches and Next retries it from the
+ * server's tree. A back while that refresh is out (the History sheet closed: a popstate, a
+ * router restore) changes the router's tree first; Next then drops the seeded retry for a plain
+ * refresh of the stale tree, which mismatches a second time in a row and becomes a full load.
+ * The live refresh is held at the network here, so the close lands inside it every time.
+ */
+test("a view switch, then a live refresh while a layer closes: the page stays, on its view", async ({
+  page,
+}, info) => {
+  test.skip(laptop(info), "the phone's views (Details is a view on a phone)");
+  // Expected to fail until the fix lands (advisor, 26 Nov): option D (keep Next's tree key in
+  // step with the view write) is ruled out, since it makes every view switch fetch; option A
+  // (Next patch: a dropped seeded retry is not a second mismatch) widens the owner's 3 Nov patch
+  // scope and waits on his decision. Remove this line with that fix; it must then pass.
+  test.fail(
+    true,
+    "a refresh dropped by a layer's restore after a view switch hard-loads (Next 16.3.5)",
+  );
+  const title = `Live under a layer ${info.project.name}`;
+  const taskId = await longTask(info, title, 56);
+  await page.goto(`/tasks/${taskId}`);
+  await hydrated(page);
+  await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
+  await expect(page.locator("html")).toHaveAttribute("data-live", "on");
+
+  await tab(page, "details").click();
+  await expect(panel(page, "details")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+
+  const held = await holdNextRefresh(page, `/tasks/${taskId}`);
+  const id = await notifyOwner(`${title} message`);
+  try {
+    // The live refresh is out (held at the network) when the layer opens and closes.
+    await held.held;
+    await page.locator('[data-slot="history-open"]:visible').click();
+    const sheet = page.locator('[data-slot="review-sheet"]:has([data-slot="history-sheet"])');
+    await expect(sheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    held.release();
+    await held.answered;
+    const fetches = watchScreenFetches(page);
+    await expect(page.locator("html")).not.toHaveAttribute("data-nav-pending");
+    await refreshSettled(page, fetches, -1);
+    await expect(panel(page, "details")).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+  } finally {
+    held.release();
+    await serviceDelete(`notifications?id=eq.${id}`);
+  }
 });
 
 /**
