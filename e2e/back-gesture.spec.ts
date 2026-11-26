@@ -108,6 +108,8 @@ test.describe("overlays close on back", () => {
     // A later page on top (hydrated: its own first history write is not taken for the back's
     // navigation): one back press leaves it for /today, never swallowed.
     await page.goto("/calendar");
+    // Back once the app is live: pressed while Next's hydration writes its history, the back was
+    // taken for that write (fix-goback-guard).
     await hydrated(page);
     await expectBackStack(page, [{ url: /\/today$/ }]);
   });
