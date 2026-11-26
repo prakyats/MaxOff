@@ -6,6 +6,16 @@
 > Keep it short: current state, what's next, and anything the next session must know.
 
 ## Current state
+- **STOPPED (Thu 26 Nov 2026, 14:22 UTC, owner's instruction via the advisor). v3.0 builder handoff: resume only when the advisor says so.**
+  - **`phase-v30-reports`:** head `e078b4606f25ab5541e002e0c314db8032a62dd3`, clean. The walk fixes (steps 6, 7, 8, 9, 12, 13) are in; full CI 45777794458 is green (#89 7186629550). The advisor approved step 12's wording. Migration `20261126071201_v30_stage_name_spelling` is unique across every branch.
+  - **`fix-phone-inp`:** (a)+(b) measured (19 → 8 of 300 runs over 200 ms, worst 416 → 248 ms); the advisor said to ship it as is. (c) is in Ideas. Head `26c79165fbcf9209ab7269ff4635a471b8fc59d3` (main merged in). **Full CI run 45838102759 was dispatched at 14:20 UTC and left running** (not cancelled). Its result is still to be read. The scheduled check for it is disabled (`trig_0186Gt8wLL8wxQZUM54xhUcp`).
+  - **Local:** only the local stack. The local DB was used for e2e runs; `pnpm db:reset` before the next `pnpm check`. Nothing touches production or staging.
+  - **Next, in order, on resume:**
+    1. Read run 45838102759. If green, send the advisor the run and the 40-char head so they open the PR. If red, fix the cause.
+    2. Wait for the advisor's GO for the v3.0 probe: `/reports*` as Owner and Admin, plus a sample of drill-downs for every role, paired with the main preview under the two-run rule, one dispatch at a time. Post the table on #89.
+    3. Then post READY FOR OWNER again on #89 with the probe table, for the owner to re-check walk steps 6, 8 and 13.
+    4. Before the advisor merges v3.0 (after v2.5), merge `origin/main` into `phase-v30-reports` again.
+
 - **v3.0 walk fixes (Thu 26 Nov 2026, builder; `phase-v30-reports`).** The Owner's walk found 12 pass, 1 fail. Every fix is below; `fix-phone-inp` is paused until this branch is green again.
   - **6 (must-fix):** a custom range over the limit keeps its **latest** days ending at To (it kept the first days from From, so 1 Jan 2024 – today showed zeros), and says "Showing … (up to a year)" under the dates (`parsePeriod` → `clipped`, `clippedWords`). The Admin's 92-day range does the same. Unit tests, guide lines (Owner People, Admin Reports).
   - **7:** new migration `20261126071201_v30_stage_name_spelling` (a new body for `report_stage_durations`, expand-only): the shown name is the period's most common spelling, a tie going to one neither all lower case nor all capitals. pgTAP 144 is now 50 tests.
