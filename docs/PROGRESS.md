@@ -276,7 +276,10 @@
         1. After returning from Google, the walker's tab showed the old state until a reload. Confirm the return lands on Settings with "Google Drive is connected" without a reload, both in the same tab and when another MaxOff tab is open. If another open tab stays stale, consider a refresh on focus or visibility.
         2. "Disconnecting…" took about 5–8 s. If the Google revoke call runs in series, revoke after marking disconnected, or show the result first.
         3. Reconnect appears only in the "Needs reconnecting" state (while connected: Use another account and Disconnect). Confirm that, and that a test covers it.
-        - Wording: "Not connected" and "Connected" each show twice. The advisor recommends dropping the repeated word from the body text; wait for the owner's answer via the advisor.
+        - **Wording, the owner's answer (26 Nov ~12:55 IST): drop the repeated word.** "Not connected" and "Connected" stay as the headings only. The body text starts with the explanation itself, e.g. "Connect the studio's Google account…" and "MaxOff will archive…".
+          - Update the guide text where it quotes the card.
+          - Re-shoot `owner/drive` inside the 11:15–17:30 IST window, because the picture shows the card.
+          - Then, with items 1–3: `pnpm check`, a full CI run, and tell the advisor.
         - Answer each to the advisor with what was found and fixed.
       Also left for v4.0: add its RELEASE-NOTES entry (the text is in that READY message) to `/home/user/wt/v40/docs/RELEASE-NOTES.md` before the merge, then check, BUILDER, push. ~~Originally: when it's green, post v4.0's READY FOR OWNER on #89, per the 11:20 trigger's list: probe runs 44428827541 and 44430637647, plus the A/B table and "accepted by the owner, 19 Nov"; the walk script; the Google Cloud steps (#89 6985168606 and 6985390913); the release notes. Tell the advisor.
       - Flag in v4.0's READY: the Drive card says "Not connected" twice (the heading, and the first words of its text).
