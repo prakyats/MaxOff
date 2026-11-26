@@ -8,7 +8,7 @@ import { AppError, action, ok, type Result } from "@/core/errors";
 import { homeFor } from "@/core/ui/shell/nav";
 
 import { safeNextPath } from "./paths";
-import { offersSecondStep, ownerSecondStepRequired } from "./second-step";
+import { offersSecondStep, ownerSecondStepRequired, totpSwitchedOff } from "./second-step";
 import { getSessionState } from "./server";
 
 /**
@@ -20,6 +20,18 @@ import { getSessionState } from "./server";
 
 const FRIENDLY_NAME = "MaxOff";
 const CODE_MESSAGE = "Enter the 6-digit code from your authenticator app.";
+/**
+ * Authenticator apps are switched off for this Supabase project (its dashboard: TOTP enrol or verify
+ * disabled). Said plainly instead of a generic error, so nobody is left retrying in a loop; the
+ * Owner's fix is in docs/runbooks/two-step-sign-in.md ("Locked out").
+ */
+const TOTP_OFF_MESSAGE =
+  "Two-step sign-in can't be used right now: authenticator apps are switched off for MaxOff. The Owner can switch them on in Supabase (Authentication → Multi-Factor).";
+/** GoTrue's error, with "switched off" said plainly. */
+function authError(error: { code?: string | undefined }): unknown {
+  return totpSwitchedOff(error.code) ? new AppError("INVALID_STATE", TOTP_OFF_MESSAGE) : error;
+}
+
 const WRONG_CODE_MESSAGE =
   "That code didn't work. Check the time on your phone is right, then try the newest code.";
 
@@ -68,7 +80,7 @@ export const startSecondStepSetup = action(
       factorType: "totp",
       friendlyName: FRIENDLY_NAME,
     });
-    if (error) throw error;
+    if (error) throw authError(error);
     return ok({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
   },
 );
@@ -97,7 +109,7 @@ export const verifySecondStep = action(
     if (error && error.code === "mfa_verification_failed") {
       throw new AppError("VALIDATION", undefined, { fieldErrors: { code: [WRONG_CODE_MESSAGE] } });
     }
-    if (error) throw error;
+    if (error) throw authError(error);
     const { error: flagError } = await supabase.rpc("second_step_set", { p_on: true });
     if (flagError) throw flagError;
     redirect(safeNextPath(data.next) ?? homeFor(member.role));

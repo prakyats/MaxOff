@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { needsSecondStep, offersSecondStep, ownerSecondStepRequired } from "./second-step";
+import {
+  needsSecondStep,
+  offersSecondStep,
+  ownerSecondStepRequired,
+  totpSwitchedOff,
+} from "./second-step";
 
 describe("needsSecondStep (v7.5 Q2)", () => {
   const base = { secondStep: false, aal: "aal1", ownerRequired: true } as const;
@@ -45,6 +50,16 @@ describe("offersSecondStep and the environment's flag", () => {
     expect(ownerSecondStepRequired({ OWNER_MFA_REQUIRED: "on" })).toBe(true);
     for (const value of [undefined, "", "off", "ON", "true", "1"]) {
       expect(ownerSecondStepRequired({ OWNER_MFA_REQUIRED: value })).toBe(false);
+    }
+  });
+});
+
+describe("totpSwitchedOff", () => {
+  it("knows GoTrue's two answers for authenticator apps switched off, and nothing else", () => {
+    expect(totpSwitchedOff("mfa_totp_enroll_not_enabled")).toBe(true);
+    expect(totpSwitchedOff("mfa_totp_verify_not_enabled")).toBe(true);
+    for (const code of [undefined, "mfa_verification_failed", "mfa_phone_enroll_not_enabled"]) {
+      expect(totpSwitchedOff(code)).toBe(false);
     }
   });
 });

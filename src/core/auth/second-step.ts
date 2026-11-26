@@ -31,3 +31,12 @@ export function ownerSecondStepRequired(
 ): boolean {
   return env.OWNER_MFA_REQUIRED === "on";
 }
+
+/**
+ * GoTrue's answer when authenticator apps are switched off for the project (TOTP enrol or verify
+ * disabled in the Supabase dashboard): set-up and the code step then say so plainly, never "try
+ * again" (docs/runbooks/two-step-sign-in.md, "Locked out").
+ */
+export function totpSwitchedOff(code: string | undefined): boolean {
+  return code === "mfa_totp_enroll_not_enabled" || code === "mfa_totp_verify_not_enabled";
+}

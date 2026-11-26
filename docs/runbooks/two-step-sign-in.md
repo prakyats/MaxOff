@@ -61,19 +61,51 @@ Until step 5, staging's Owner is asked for the code only because the switch in s
 probe answers it with the key once the secret exists. Before then the probe would fail on that account, so
 do step 3 straight after step 1.
 
-## 4. A lost or replaced phone
+## 4. Lost phone, or locked out
 
-**An Admin's:**
-1. The Owner opens Supabase → the project → **Authentication → Users** → the Admin → **MFA factors** →
-   delete the authenticator _(unverified: the menu names)_.
+Everything here is done by the **Owner in a dashboard**. No builder runs SQL against production
+(CLAUDE.md), and nobody needs to.
+
+**An Admin's lost phone:**
+1. Supabase → the project → **Authentication → Users** → the Admin → **MFA factors** → delete the
+   authenticator _(unverified: the menu names)_.
 2. At their next sign-in the Admin sets up the new phone, because two-step sign-in is still on for them.
 
-**The Owner's own:**
-- With the key in your password manager: add it to the new phone's authenticator, and sign in as usual.
-- Without it: Supabase → **Authentication → Users** → yourself → delete the authenticator, then sign in.
-  The app sets up the new phone.
-- Then follow `incident.md` → "A lost phone or a stolen account": change the password, and end the other
-  sessions.
+**The Owner's own lost phone:**
+- **With the key** in your password manager: add it to the new phone's authenticator app, and sign in as
+  usual. Nothing else is needed.
+- **Without the key:**
+  1. On a computer, sign in to supabase.com (your Supabase account, not MaxOff) → `maxoff-production` →
+     **Authentication → Users** → your email → **MFA factors** → delete the authenticator _(unverified)_.
+  2. Sign in to MaxOff with your password. With no authenticator left, the app shows **Set up two-step
+     sign-in**: set up the new phone (keep the key this time).
+  3. Then follow `incident.md` → "A lost phone or a stolen account": change the password, and end the other
+     sessions.
+
+**"Two-step sign-in can't be used right now: authenticator apps are switched off for MaxOff."**
+- This shows when production requires your second step (`OWNER_MFA_REQUIRED=on`) but Supabase's TOTP is
+  switched off (step 1 not done, or switched off since).
+- The app says so, both on set-up and on the code step, instead of letting you retry in a loop.
+- **The fix:** Supabase → `maxoff-production` → **Authentication → Multi-Factor** → TOTP enabled for
+  enrolment and verification → Save, then sign in again.
+- **If the dashboard cannot be reached:** roll the Worker back in Cloudflare (Workers & Pages → `maxoff`
+  → Deployments → the release before v7.5 → Rollback). That release has no second step; tell the advisor
+  session the same day (CLAUDE.md, "a bad release is fixed the same day").
+
+**Signed out everywhere and the password forgotten too:** "Forgot your password?" on `/login` works as
+before. The second step follows the new password.
+
+## Known limits (v7.5 security review)
+
+- **The database does not check the second step** (ADR-0018, draft). A password alone still opens the API
+  (PostgREST, Realtime) to that member's RLS; the app's screens and actions are closed to it.
+- **A code can be used twice within its 30 seconds.** GoTrue accepted the same TOTP code for two sessions in
+  one window (local probe, 26 Nov 2026), and there is no setting that changes this. The risk is low: a code
+  needs the password first and lives about 30 s. MaxOff does not build its own check. Each verify upgrades
+  only the session that sent it (GoTrue's challenge is bound to that session's token), so one verify never
+  counts for another session.
+- **Two browsers verifying the same factor at the same moment can fail** inside GoTrue (a deadlock: the
+  challenge answers 500). The app shows an error, never "wrong code"; tapping Continue again works.
 
 ## Related
 

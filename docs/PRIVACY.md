@@ -30,9 +30,9 @@ is the studio's business records, not a person's.
 
 ## What happens at the end of a period
 
-**Nothing is deleted before v8.0, and nothing is deleted automatically today.**
-- Each period gets its own scheduled job only **after v8.0**, once the lawyer has checked the wording. That
-  job is a separate task with its own plan, tests and the owner's approval.
+**Nothing is deleted before v8.0, and nothing is deleted automatically today. Any automatic deletion needs an ADR and the owner's explicit OK before it is built** (invariant 9: nothing is destroyed, and only the Owner deletes permanently; advisor, 26 Nov 2026). It is not part of v7.5.
+- A job for a period comes only **after v8.0**, once the lawyer has checked the wording, and only with an ADR
+  and the owner's explicit OK. It is a separate task with its own plan and tests.
 - Any removal follows invariant 9 (CLAUDE.md): archived first, with a reason and a history row, and a
   permanent delete only by the Owner.
 - A member's own requests (to see, correct or remove what is kept) go to the Owner: the notice says "Contact the
