@@ -83,6 +83,8 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   expense_decided: "other",
   // 5.4: someone the Owner cannot reach (about a person, like coordinator_missing).
   member_unreachable: "other",
+  // v7.5 Q6: someone hit "No access" more than 20 times yesterday (the Owner's morning note).
+  access_refusals: "other",
   // 6.5: the Owner's end-of-day report is ready (its own group: a report, not a nudge).
   eod_report_ready: "reports",
   // 6.5: the weekly digest is email only and never pushed; named so the map stays complete.

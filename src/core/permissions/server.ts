@@ -2,6 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 
+import { recordAccessRefusal } from "@/core/activity/refusals";
 import { type CurrentMember, getCurrentMember, requireMember } from "@/core/auth/server";
 import { AppError } from "@/core/errors";
 
@@ -15,7 +16,8 @@ import type { PermissionKey } from "./keys";
  * with the keys (`?for=`), so the screen names what was blocked ("Clients are for the Owner and
  * Admins", `blockedLine`).
  * Returns the member so the page can render for them. RLS is the real gate: this only avoids
- * showing a screen that would come back empty.
+ * showing a screen that would come back empty. A bounce to /forbidden is counted against the member
+ * (v7.5 Q6, `core/activity/refusals.ts`); a redirect to the role's own counterpart (`instead`) is not.
  */
 export async function requirePermission(
   permission: PermissionKey | readonly PermissionKey[],
@@ -34,6 +36,8 @@ export async function requirePermission(
     // The keys travel with the bounce, so No access can name what was blocked (V5b-D).
     const keys: readonly PermissionKey[] =
       typeof permission === "string" ? [permission] : permission;
+    // Counted against them (v7.5 Q6): a screen they cannot open. Never in the way of the answer.
+    await recordAccessRefusal().catch(() => undefined);
     redirect(`/forbidden?for=${keys.join(",")}`);
   }
   return member;

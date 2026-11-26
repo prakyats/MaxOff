@@ -13,3 +13,4 @@ export {
   SESSION_UNAVAILABLE_DIGEST,
   type BoundaryCopy,
 } from "./boundary";
+export { noteRefusal, onRefusal } from "./refusals";

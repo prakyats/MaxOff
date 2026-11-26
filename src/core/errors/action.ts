@@ -6,6 +6,7 @@ import { captureException } from "@/core/observability/capture";
 import { AppError, type FieldErrors } from "./app-error";
 import { isAuthError, mapAuthError } from "./auth";
 import { isPostgresError, mapPostgresError } from "./postgres";
+import { noteRefusal } from "./refusals";
 import { type Result, failFrom } from "./result";
 
 function zodFieldErrors(error: ZodError): FieldErrors {
@@ -47,6 +48,8 @@ export type ActionFn<Args extends unknown[], T> = (...args: Args) => Promise<Res
  * `Result` and never throws a raw error to the UI. Next.js's own control-flow
  * throws (`redirect()`, `notFound()`) are re-thrown untouched.
  *
+ * A FORBIDDEN is counted against the signed-in member first (v7.5 Q6, `refusals.ts`).
+ *
  * An unexpected error (INTERNAL) is reported to Sentry through the scrubber and the log line
  * carries only the code and the Sentry event id. The raw cause never reaches Workers Logs:
  * a PostgREST error can quote the failing row (ARCHITECTURE §18.2). In `next dev`, where the
@@ -59,6 +62,8 @@ export function action<Args extends unknown[], T>(fn: ActionFn<Args, T>): Action
     } catch (error) {
       unstable_rethrow(error);
       const appError = toAppError(error);
+      // A refusal is counted against the signed-in member (v7.5 Q6, `refusals.ts`).
+      if (appError.code === "FORBIDDEN") await noteRefusal();
       if (appError.code === "INTERNAL") {
         const eventId = captureException(appError.cause ?? appError);
         console.error(`[action] INTERNAL (sentry event ${eventId})`);

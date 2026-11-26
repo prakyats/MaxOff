@@ -15,7 +15,7 @@
 -- savepoint. If any one is held by a running job, the savepoint rolls back (releasing every lock
 -- just taken), the file waits 50 ms and asks again, so it never waits while holding a lock. A job
 -- runs for milliseconds; after 30 s it stops with an error that names the reason.
-\set job_tables 'public.members, public.activity_log, public.approval_reminder_sends, public.attendance_days, public.attendance_events, public.client_work_alerts, public.early_leave_requests, public.eod_reports, public.member_reachability, public.notification_deliveries, public.notifications, public.project_cycles, public.project_item_stage_list, public.project_items, public.task_reminders'
+\set job_tables 'public.members, public.activity_log, public.access_refusals, public.approval_reminder_sends, public.attendance_days, public.attendance_events, public.client_work_alerts, public.early_leave_requests, public.eod_reports, public.member_reachability, public.notification_deliveries, public.notifications, public.project_cycles, public.project_item_stage_list, public.project_items, public.task_reminders'
 select set_config('tests.job_tables', :'job_tables', true);
 do $lock$
 declare

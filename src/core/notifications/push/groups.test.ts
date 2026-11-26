@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { GROUPED_KINDS, NOTIFY_GROUPS, notifyGroupFor } from "./groups";
 
-/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind, v1.9 W3's approval reminder, v1.9 W0's five working-hours kinds, v1.9 W7's four On hold kinds; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
+/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind, v1.9 W3's approval reminder, v1.9 W0's five working-hours kinds, v1.9 W7's four On hold kinds, v7.5's access_refusals; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
 const KINDS = [
   "absent_proposed",
+  "access_refusals",
   "approval_reminder",
   "approvals_moved",
   "attendance_decided",

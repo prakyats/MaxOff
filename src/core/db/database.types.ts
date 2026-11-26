@@ -3,6 +3,58 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      access_refusals: {
+        Row: {
+          day: string;
+          first_at: string;
+          last_at: string;
+          member_id: string;
+          noted_at: string | null;
+          org_id: string;
+          refusals: number;
+        };
+        Insert: {
+          day: string;
+          first_at?: string;
+          last_at?: string;
+          member_id: string;
+          noted_at?: string | null;
+          org_id: string;
+          refusals?: number;
+        };
+        Update: {
+          day?: string;
+          first_at?: string;
+          last_at?: string;
+          member_id?: string;
+          noted_at?: string | null;
+          org_id?: string;
+          refusals?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "access_refusals_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "access_refusals_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "access_refusals_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       activity_log: {
         Row: {
           action: string;
@@ -4631,6 +4683,8 @@ export type Database = {
       };
     };
     Functions: {
+      access_refusal_note: { Args: never; Returns: undefined };
+      access_refusals_daily: { Args: { p_now: string }; Returns: number };
       app_open_report: {
         Args: { is_standalone: boolean; platform: string };
         Returns: boolean;

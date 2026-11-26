@@ -7,6 +7,7 @@ import { action, toAppError } from "./action";
 import { AppError } from "./app-error";
 import { ERROR_MESSAGES, isErrorCode } from "./codes";
 import { mapPostgresError } from "./postgres";
+import { noteRefusal, onRefusal } from "./refusals";
 import { fail, ok } from "./result";
 
 vi.mock("next/navigation", () => ({
@@ -206,5 +207,47 @@ describe("action", () => {
       throw new Error("NEXT_REDIRECT");
     });
     await expect(redirecting()).rejects.toThrow("NEXT_REDIRECT");
+  });
+});
+
+describe("refusals (v7.5 Q6)", () => {
+  afterEach(() => onRefusal(async () => undefined));
+
+  it("an action that ends FORBIDDEN counts one refusal, from its own check or the database's", async () => {
+    const record = vi.fn(async () => undefined);
+    onRefusal(record);
+    await action(async () => {
+      throw new AppError("FORBIDDEN");
+    })();
+    expect(record).toHaveBeenCalledTimes(1);
+    // A transition function's refusal (app.fail('FORBIDDEN')) arrives as a Postgres error.
+    await action(async () => {
+      throw { code: "P0001", message: "FORBIDDEN", details: "Not yours" };
+    })();
+    expect(record).toHaveBeenCalledTimes(2);
+  });
+
+  it("nothing else is a refusal: other failures and successes count nothing", async () => {
+    const record = vi.fn(async () => undefined);
+    onRefusal(record);
+    for (const code of ["UNAUTHENTICATED", "NOT_FOUND", "VALIDATION", "CONFLICT"] as const) {
+      await action(async () => {
+        throw new AppError(code);
+      })();
+    }
+    await action(async () => ok(1))();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it("a failed count never changes the answer", async () => {
+    onRefusal(async () => {
+      throw new Error("database away");
+    });
+    await expect(noteRefusal()).resolves.toBeUndefined();
+    await expect(
+      action(async () => {
+        throw new AppError("FORBIDDEN");
+      })(),
+    ).resolves.toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
   });
 });

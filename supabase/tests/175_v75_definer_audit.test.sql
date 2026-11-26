@@ -34,6 +34,8 @@ insert into api_app values
 -- The public functions the app calls through the API (each checks its caller itself).
 create temporary table api_public (name text primary key) on commit drop;
 insert into api_public values
+  -- v7.5 Q6: a refusal counted against the caller (migration v75_access_refusals).
+  ('access_refusal_note'),
   ('app_open_report'), ('attendance_ask_leave_early'), ('attendance_choose_leave_today'),
   ('attendance_decide'), ('attendance_end_day'), ('attendance_end_not_recorded_yesterday'),
   ('attendance_flag_overtime'), ('attendance_flag_overtime_today'), ('attendance_hours_today'),

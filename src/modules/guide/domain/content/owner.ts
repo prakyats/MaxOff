@@ -2053,6 +2053,24 @@ export const OWNER_GUIDE: Guide = {
           keywords: ["alerts", "unread", "mark all read"],
         },
         {
+          id: "owner-no-access-note",
+          title: "When someone keeps hitting “No access”",
+          summary: "A morning note names anyone refused more than 20 times the day before.",
+          blocks: [
+            text(
+              "MaxOff counts each time someone is sent to “No access”, or an action they try is refused because it isn't theirs. If one person is refused more than 20 times in a day, you get one note the next morning, after the morning summary.",
+            ),
+            text(
+              "For one person it reads like “Ravi hit “No access” 34 times yesterday” and opens their profile. For several, it lists each with their count and opens People.",
+            ),
+            note(
+              "An old link or a bookmark to a screen they can't use often explains it. If it doesn't, ask them, and check what changed in their history.",
+            ),
+          ],
+          link: { href: "/notifications", label: "Open Alerts" },
+          keywords: ["no access", "refused", "forbidden", "security", "probe"],
+        },
+        {
           id: "owner-push",
           title: "Turn on push notifications",
           summary: "Set it up once on each device, from Me.",

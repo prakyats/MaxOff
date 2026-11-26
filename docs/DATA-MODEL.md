@@ -405,6 +405,16 @@ session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤
                      -- session_sign_out() (3b.1). ip_hash = salted SHA-256 of the client IP
                      -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
                      -- RLS: own rows; all for attendance.view_all
+access_refusals      member_id → members (cascade), org_id → organizations (cascade), day date (IST),
+                     refusals int (> 0, default 1), first_at, last_at, noted_at null; pk (member_id, day)
+                     -- v7.5 Q6 (owner 2026-11-26, migration v75_access_refusals): how often a member was
+                     -- refused FORBIDDEN on an IST day. Written only by access_refusal_note() (the server
+                     -- calls it for each refusal it answers a signed-in member: a page's bounce to
+                     -- /forbidden in requirePermission, an action ending FORBIDDEN in action(); no
+                     -- argument, so a member counts only against themselves) and access_refusals_daily()
+                     -- (sets noted_at). RLS on with no policy and no API grant: service_role only. A
+                     -- security record, kept 1 year like sign-in records (docs/PRIVACY.md); no audit
+                     -- trigger (every write is a count going up).
 push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint unique, p256dh, auth, user_agent,
                      created_at, last_seen_at,
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
@@ -1826,6 +1836,9 @@ notification_kinds   kind pk, actionable bool, always_email bool, description   
                      -- such kind is owner_digest (actionable false, always_email true): the Owner's 08:00
                      -- IST morning summary, written by public.digest_daily() (pg_cron) directly, not
                      -- through app.notify(), with read_at set at insert and no push delivery.
+                     -- access_refusals (v7.5 Q6, migration v75_access_refusals): actionable false,
+                     -- always_email false, in_app true. One row a morning to the Owner naming whoever was
+                     -- refused more than 20 times the day before (access_refusals_daily, 08:11 IST).
 notifications        id, org_id, recipient_id → members (cascade), actor_id null → members (set null),
                      kind → notification_kinds, title (≤ 200), body null (≤ 2000), link null (an app route,
                      '/…', ≤ 500), entity null, entity_id null (together or neither), payload jsonb
