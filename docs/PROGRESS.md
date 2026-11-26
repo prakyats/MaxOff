@@ -263,6 +263,26 @@
 6. **V5a item 6b, the "only when unused" Delete kinds: DECIDED by the owner directly (22 Oct, "any reference counts as used": history, archived or deleted rows, paid or closed claims, a job title someone once held, old custom-field values, a task type named only by an archived or deleted template, a draft's contact, note, file, task label or request) and BUILT in V5e (item 6c) for task types, job titles, expense categories, custom fields, draft clients and contacts as a real row delete (DATA-MODEL §2 "The Owner-only Delete of what was never used"). The original question, for the record:** The rule lists task types, job titles, expense categories, custom fields, draft clients and contacts, "only when unused", but "unused" is not settled for any of them: (a) **does history count?** A job title once held by someone and since changed, an expense category on a past (paid) claim, a custom field whose values sit only in old activity diffs, a draft client's own creation history: if a deleted row's name is later needed to read that history, a real delete loses it (the "(deleted)" label approach would need a soft state on each of these tables too); (b) **do archived or deleted rows count?** A task type referenced only by an archived or deleted task template (whose foreign key stays); a contact on a draft client; (c) **draft clients:** is a draft with contacts, notes, files, a task label or a request "used"? Recommended: treat any reference at all, history included, as "used" (so Delete is offered only to a row nothing has ever pointed at), with a soft deleted state like templates so names in history keep reading; awaiting the owner.
 
 ## In-progress handoff
+- **HANDOFF, v7.5: STOPPED (Thu 26 Nov 2026, ~14:20 UTC, the owner's instruction relayed by the advisor session_015vyzMUgXy4TaM5bDuVMZze; builder session_015vyzMTctfAgPaxzaaLJmNh; branch `phase-v75`, head = this commit, on top of `6e060261`).** Nothing is uncommitted. The stack was local only.
+  - **State:**
+    - The code is complete. Full CI is green on `8d5f91b7` (run 45770490598, attempt 2; the 313 ms `instant-skeleton:529` miss is accepted as the known slow-runner case).
+    - Every commit since is docs or test-only, `pnpm check` green:
+      - `80911513` and `15c5cbf1`: TOTP is enabled in both Supabase projects (the Owner's confirmation of 26 Nov), recorded in plan §7, runbook `two-step-sign-in.md` §1 and the security review.
+      - `6e060261`: `guide-screenshots` marks the privacy notice read, so Today and My Day pictures don't show the one-time card. The guide config has no global setup.
+    - Reports go to the advisor through send_message; READY posts go on #89. Renovate's onboarding PR #163 is not touched.
+  - **Disabled for the stop:** the one-shot scheduled task `trig_014QRYL2BzqdgKp5UnFHZugv` ("v7.5 guide pictures (IST window)", 27 Nov 06:00 UTC). Re-enable it with `update_trigger` (enabled = true, and a new `run_once_at` inside 11:15–17:30 IST if 27 Nov 06:00 UTC has passed), or run its steps by hand.
+  - **Next, in order, after the advisor says resume:**
+    1. **Guide pictures, inside 11:15–17:30 IST:**
+       - `pnpm db:reset`, then a full `pnpm guide:screenshots`.
+       - Keep only the pictures v7.5 changes: Me (the Sign-in section, the "Your information" row), and Today / My Day if they differ.
+       - `git checkout` the ones that only re-encode.
+       - `pnpm check`, then commit.
+       - The new guide topics are text only.
+    2. **Owner step (the advisor batches it to him):** staging Owner TOTP set-up, then `STAGING_OWNER_TOTP_SECRET` in the **staging environment's** secrets (#89 7186238677). Then flip staging's `OWNER_MFA_REQUIRED` to `on` in `wrangler.jsonc`.
+    3. **Speed gate, in the probe slot (last: after v2.5, v3.0, v7.0 and v4.5; the advisor sends GO):**
+       - every route for every role, paired against the `main` preview, under the two-run rule;
+       - the India check (Today and My Day changed, and the CSP header is on every response).
+    4. **READY FOR OWNER on #89**, with the probe table. It states plainly that two-step sign-in guards MaxOff's screens and actions, not the API, until ROADMAP 10.3a / ADR-0018.
 - **v7.5 after the owner's answers (2026-11-26, builder; `phase-v75`; the decisions are plan §6 and #89 7182181355).** Done and pushed:
   - `176f5e0a`: §6 recorded; `docs/runbooks/secret-rotation.md` (Q5: only on suspicion); `cloudflare-security.md` (Q4, the Owner's dashboard steps); `renovate.json` (Q3), with Preview skipping `renovate/**`.
   - `db24e6da`: Q7, the report-only CSP (`reportOnlyCspHeaders`, `e2e/csp.spec.ts`).
