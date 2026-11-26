@@ -158,8 +158,7 @@ export default async function ApprovalsPage() {
     tasks.length === 0;
 
   return (
-    // The screen's mark for the tap drawings (v7.0): the route holds Approvals once this is in.
-    <div data-slot="approvals-page" className="contents">
+    <>
       <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader
         title="Approvals"
@@ -212,7 +211,12 @@ export default async function ApprovalsPage() {
           </div>
         </ApprovalScreen>
       )}
-    </div>
+      {/* The screen's mark for the tap drawings (v7.0): the route holds Approvals once this is
+          in. Last and empty, never the page's first element: Next scrolls a new page to its first
+          element with a box, and a `display: contents` wrapper has none, so a tab arrived where
+          the last one was left (`motion.spec` "each tab root", bisected to 48527cb3). */}
+      <span data-slot="approvals-page" hidden />
+    </>
   );
 }
 
