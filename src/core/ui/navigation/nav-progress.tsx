@@ -50,6 +50,12 @@ const IDLE_CANCEL_MS = 600;
 const DONE_MS = 300;
 /** A `beforeunload` that did not unload (a `tel:` link, a download) is forgotten after this. */
 const UNLOAD_GRACE_MS = 2_000;
+/**
+ * A screen still on its way in `main`: a route's skeleton (`loading-state`), or one the app drew
+ * itself on the tap (`tap-skeleton`, a task row's: it moves the address before the router has
+ * drawn anything, so the move alone is not arrival).
+ */
+const SKELETON = 'main :is([data-slot="loading-state"], [data-slot="tap-skeleton"])';
 /** Anything that owns the screen while open: the status line waits until it has closed. */
 const OVERLAY = '[role="dialog"], [role="alertdialog"]';
 
@@ -134,9 +140,9 @@ export function NavProgressBar() {
  *   (`router.push`/`replace`, a redirect), by watching `fetch`, and back or forward to **another
  *   address** (`popstate`). Closing a sheet or dialog is a history move back to the same address,
  *   so it never starts the bar;
- * - **finishes** it once the address has changed and no route skeleton (`loading-state`) is left
- *   in `main`, or at most `NAV_SETTLE_MS` after the destination's fetch has answered (a section
- *   that loads on its own may keep a skeleton); a fetch that ends without an address change
+ * - **finishes** it once the address has changed and no skeleton (`SKELETON`) is left in `main`,
+ *   or at most `NAV_SETTLE_MS` after the destination's fetch has answered (a section that loads
+ *   on its own may keep a skeleton); a fetch that ends without an address change
  *   finishes it too when it was a refresh, or once the router has committed after it or it
  *   failed (`navigationDone`: the router acted on the answer and stayed, so the bar always ends);
  * - **stands down** quietly when a tap turns out not to navigate (the unsaved-changes guard held
@@ -208,7 +214,7 @@ export function NavProgress() {
         if (moved && !movedAt) movedAt = t;
         const done = navigationDone({
           moved,
-          skeleton: document.querySelector('main [data-slot="loading-state"]') !== null,
+          skeleton: document.querySelector(SKELETON) !== null,
           track,
           unloading,
           sinceAnswered: settledAt ? t - settledAt : 0,

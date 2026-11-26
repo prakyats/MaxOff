@@ -49,6 +49,8 @@ const STORAGE_SPECS = /storage\.spec\.ts$/;
 const CLIENTS_SPECS = /clients\.spec\.ts$/;
 const SELECT_SPECS = /select\.spec\.ts$/;
 const EXTRA_WORK_SPECS = /extra-work\.spec\.ts$/;
+/** v2.0.1: flexible comp leave, the split day (one seeded Crew member per project). */
+const SPLIT_LEAVE_SPECS = /split-leave\.spec\.ts$/;
 const EXPENSES_SPECS = /expenses\.spec\.ts$/;
 const MONTH_SUMMARY_SPECS = /month-summary\.spec\.ts$/;
 const TAP_FEEDBACK_SPECS = /tap-feedback\.spec\.ts$/;
@@ -80,6 +82,12 @@ const GUIDE_SPECS = /guide\.spec\.ts$/;
 // v1.9 W8: On hold's sheets and chips, installed back at both phone widths.
 const ON_HOLD_SPECS = /on-hold\.spec\.ts$/;
 const VIEW_SCROLL_SPECS = /view-scroll\.spec\.ts$/;
+// v2.1 (9.2): the Owner's Billing section and its sheets, and the Admin's page without it.
+const BILLING_SPECS = /billing\.spec\.ts$/;
+// v2.1 (9.2): the Owner's Revenue page, and an Admin kept away from it.
+const REVENUE_SPECS = /revenue\.spec\.ts$/;
+// v2.1 (kickoff 9 R1): a one-time project's last deliverable, "Mark done and complete project".
+const COMPLETE_PROMPT_SPECS = /complete-prompt\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
 const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
@@ -225,6 +233,8 @@ export default defineConfig({
       // And the instant skeleton (P2, ADR-0014): a tap on a cold Worker, installed, at both widths.
       // And the likely-next prefetch (P2 item 6): rows prefetched near the top, at both widths.
       // And a view switch then a live refresh keeps the scroll (v1.9, the Next patch): both widths.
+      // And the Owner's Billing section (v2.1, 9.2): its rows, sheets and skeleton at both widths.
+      // And the Owner's Revenue page (v2.1, 9.2): its figures, controls and the Admin kept away.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -244,6 +254,7 @@ export default defineConfig({
         CLIENTS_SPECS,
         SELECT_SPECS,
         EXTRA_WORK_SPECS,
+        SPLIT_LEAVE_SPECS,
         EXPENSES_SPECS,
         MONTH_SUMMARY_SPECS,
         TAP_FEEDBACK_SPECS,
@@ -276,6 +287,9 @@ export default defineConfig({
         GUIDE_SPECS,
         ON_HOLD_SPECS,
         VIEW_SCROLL_SPECS,
+        BILLING_SPECS,
+        REVENUE_SPECS,
+        COMPLETE_PROMPT_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

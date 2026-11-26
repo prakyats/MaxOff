@@ -82,6 +82,14 @@ export const MEMBER_ROUTES = [
   { name: "/clients", path: "/clients", roles: LEADS, landmark: ["client-items-link"] },
   { name: "/people", path: "/people", roles: LEADS, landmark: ["data-table"] },
   { name: "/reports", path: "/reports", roles: LEADS, landmark: ["reports-list", "work-report"] },
+  // v2.1: the Owner's Revenue page (finance.view). A release older than v2.1 answers 404 for it, which
+  // makes that baseline unusable, so the route is then judged on its own cap alone.
+  {
+    name: "/reports/revenue",
+    path: "/reports/revenue",
+    roles: ["owner"],
+    landmark: ["revenue-summary", "revenue-error"],
+  },
   { name: "/leave", path: "/leave", roles: ["admin", "staff"], landmark: ["leave-balance"] },
   {
     name: "/leave/attendance",
@@ -166,6 +174,34 @@ export function planMemberRoutes(role, ids) {
     );
     return { name: route.name, path, ...(route.landmark ? { landmark: route.landmark } : {}) };
   });
+}
+
+/**
+ * `--also "/people/:person/leave,/people/:person/attendance"` (v2.0.1, observation): extra
+ * signed-in paths for one run, outside the gate's route list, with the same `:id` placeholders.
+ * A placeholder this member has no record for is a skipped row; a path must start with "/".
+ * @param {string | null | undefined} list comma-separated paths
+ * @param {Ids} ids
+ * @returns {{ name: string, path?: string, skip?: string }[]}
+ */
+export function planExtraRoutes(list, ids) {
+  if (!list) return [];
+  return list
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => {
+      if (!entry.startsWith("/"))
+        throw new Error(`--also takes paths that start with "/": ${entry}`);
+      const missing = [...entry.matchAll(/:([A-Za-z]+)/g)]
+        .map((match) => match[1])
+        .filter((key) => !ids[/** @type {IdKey} */ (key)]);
+      if (missing.length > 0) return { name: entry, skip: `no ${missing[0]} this member can see` };
+      const path = entry.replace(/:([A-Za-z]+)/g, (_, key) =>
+        String(ids[/** @type {IdKey} */ (key)]),
+      );
+      return { name: entry, path };
+    });
 }
 
 /**

@@ -15,6 +15,11 @@ select plan(125);
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;
+delete from public.revenue_overrides;
+delete from public.project_advances;
+delete from public.item_billing;
+delete from public.cycle_billing;
+delete from public.project_billing;
 delete from public.project_items;
 delete from public.project_cycles;
 delete from public.project_item_blueprints;
@@ -116,7 +121,10 @@ select has_type('public', 'project_state', 'project_state exists');
 select has_type('public', 'cycle_state', 'cycle_state exists');
 select has_type('public', 'item_state', 'item_state exists');
 select has_type('public', 'carry_decision', 'carry_decision exists');
-select hasnt_type('public', 'billing_category', 'no billing category in phase 7 (amendment C: money, phase 9)');
+select ok(not exists (select 1 from information_schema.columns c
+                      where c.table_schema = 'public' and c.table_name in ('projects', 'project_cycles', 'project_items')
+                        and c.udt_name = 'billing_category'),
+  'no billing category on a project, cycle or deliverable (amendment C: it is money, in phase 9''s Owner-only tables)');
 select enum_has_labels('public', 'recurrence', array['one_time', 'weekly', 'monthly'], 'recurrence values (DATA-MODEL §0)');
 select enum_has_labels('public', 'item_state', array['open', 'done', 'approved', 'cancelled', 'carried'], 'item_state values');
 select enum_has_labels('public', 'carry_decision', array['carry_forward', 'close', 'leave_pending'], 'carry_decision values');

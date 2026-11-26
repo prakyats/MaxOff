@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { compLeaveOption, PROMPT_LEAVE_CHOICES } from "../domain/choices";
+import {
+  compLeaveOption,
+  CORRECT_CHOICE_LABELS,
+  CORRECT_CHOICES,
+  halfCompOption,
+  PROMPT_LEAVE_CHOICES,
+} from "../domain/choices";
 import { chooseLeaveTodaySchema, submitNoteSchema } from "../domain/schemas";
 import {
   dayLabel,
@@ -343,5 +349,26 @@ describe("compLeaveOption (3c review: the Owner's comp leave uses a credit)", ()
 
   it("stays choosable with no hint where the balance is unknown (Approvals): the database refuses", () => {
     expect(compLeaveOption(null, null, "Asha")).toEqual({ disabled: false, hint: null });
+  });
+});
+
+describe("the Correct dialog's halves (v2.0.1)", () => {
+  it("offers the split day last, in plain words", () => {
+    expect(CORRECT_CHOICES.at(-1)).toBe("split");
+    expect(CORRECT_CHOICE_LABELS.split).toBe("Full day: ½ comp + ½ leave");
+  });
+
+  it("greys a ½ comp half out without ½ day of credit, unless the day already is one", () => {
+    expect(halfCompOption(0, false, "Asha")).toEqual({
+      disabled: true,
+      hint: "Asha has no comp leave credit: grant one first from their Leave tab.",
+    });
+    expect(halfCompOption(0, true, "Asha")).toEqual({ disabled: false, hint: null });
+    expect(halfCompOption(0.5, false, "Asha")).toEqual({
+      disabled: false,
+      hint: "Uses ½ day of Asha's comp leave.",
+    });
+    // Approvals does not know the balance: the database's refusal shows instead.
+    expect(halfCompOption(null, false, "Asha").disabled).toBe(false);
   });
 });
