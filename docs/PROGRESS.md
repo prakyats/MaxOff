@@ -284,7 +284,8 @@
       - The Owner's upload pictures are made and wired; the Admin's two re-taken.
       - `smoke-deploy.sh` has the `/upload` checks (it passed locally against a production build). **READY says "touches the production smoke script".**
       - The RELEASE-NOTES v4.5 entry is marked "ships in the combined release after v4.5".
-      - **Full CI 45766064706 is running.**
+      - **Full CI 45766064706, attempt 1: shards 1 and 3 died before any test ran.** Supabase could not start: "failed to bind host port 0.0.0.0:54322: address already in use" on the runner. **Attempt 2** (the one allowed re-run of the failed jobs) was started 26 Nov ~12:55 IST. If it fails again, that is real: root-cause it.
+      - **`send_message` to the advisor now fails:** "elevated_session_untrusted_device: the session you named needs proof of a trusted device". The v4.0 walk-follow-up acknowledgement was NOT delivered. Ask the user to relay it, or post on #89 instead.
     - **v4.5, still to do before READY:**
       1. **The same-machine A/B**, scoped below (re-probe results): a task without and with uploads, /today and /people (Owner and Admin), Crew /calendar, /me, /leave and "a task", each with a read-log diff.
          - The bar: within the gate, or a named and fixed cause.
