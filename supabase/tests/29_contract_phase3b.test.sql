@@ -5,6 +5,7 @@
 -- where they were: 07 (open_day), 11 (attendance_today_detail), 13 (absent_check), 15
 -- (attendance_flag_overtime_today), 24 (attendance_own_today, attendance_start_day).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(34);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration

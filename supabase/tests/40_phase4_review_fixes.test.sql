@@ -11,6 +11,7 @@
 -- L2    payload bounds: stages, assignees, reminder rules, warnings and their details.
 -- L4    a tick on a ticked stage keeps the first one.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(88);
 

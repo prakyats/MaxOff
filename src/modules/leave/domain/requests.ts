@@ -3,6 +3,22 @@ import { formatIST, istDayStart } from "@/core/time";
 
 export type LeaveType = Enums<"leave_type">;
 export type LeaveState = Enums<"leave_state">;
+/** Which half of a half day is off (v1.9 W4); older half days have none. */
+export type LeaveHalf = "morning" | "afternoon";
+export const LEAVE_HALVES = ["morning", "afternoon"] as const satisfies readonly LeaveHalf[];
+export const HALF_LABELS: Record<LeaveHalf, string> = {
+  morning: "Morning",
+  afternoon: "Afternoon",
+};
+/** The other half of the same date: a split day's ordinary half is the comp half's opposite. */
+export function otherHalf(half: LeaveHalf): LeaveHalf {
+  return half === "morning" ? "afternoon" : "morning";
+}
+/** A database `half` (text, checked morning | afternoon) as the screens type it. */
+export function toHalf(value: string | null | undefined): LeaveHalf | null {
+  return value === "morning" || value === "afternoon" ? value : null;
+}
+
 /** Where a request came from (DATA-MODEL §3): the form, the day gate, or the Owner's own edit. */
 export type LeaveSource = "form" | "attendance" | "owner";
 
@@ -63,6 +79,14 @@ export type OwnLeaveRequest = {
   hasOpenChange: boolean;
   /** The comp leave credit it uses (3b.2): 1 for a comp day, 0.5 for a half comp day, else null. */
   creditDays: number | null;
+  /** Which half of a half day is off (v1.9 W4); null for a full day and older half days. */
+  half: LeaveHalf | null;
+  /**
+   * v2.0.1: the two halves of one "Full day: ½ comp + ½ leave" share it (`leave_submit_split`, or
+   * the Owner's split-day correction). While they wait they are one unit; once approved each half
+   * stands on its own.
+   */
+  pairId: string | null;
 };
 
 export type LeaveRequestActions = { withdraw: boolean; change: boolean; cancel: boolean };
@@ -125,15 +149,40 @@ export function leaveDayCount(startDate: string, endDate: string): number {
   return days + 1;
 }
 
-/** "Leave · 3 days", "Half day", "Half day · comp" (a half comp day, 3b.2), "Comp leave · 1 day". */
+/**
+ * "Leave · 3 days", "Half day · morning off", "Half day · comp · afternoon off" (a half comp day,
+ * 3b.2; the half since v2.0.1), "Comp leave · 1 day". An older half day with no half recorded is
+ * "Half day" or "Half day · comp".
+ */
 export function leaveTitle(
-  request: Pick<OwnLeaveRequest, "type" | "startDate" | "endDate"> & { creditDays?: number | null },
+  request: Pick<OwnLeaveRequest, "type" | "startDate" | "endDate"> & {
+    creditDays?: number | null;
+    half?: LeaveHalf | null;
+  },
 ): string {
   if (request.type === "half_day") {
-    return request.creditDays ? `${LEAVE_TYPE_LABELS.half_day} · comp` : LEAVE_TYPE_LABELS.half_day;
+    const parts: string[] = [LEAVE_TYPE_LABELS.half_day];
+    if (request.creditDays) parts.push("comp");
+    if (request.half) parts.push(`${request.half} off`);
+    return parts.join(" · ");
   }
   const count = leaveDayCount(request.startDate, request.endDate);
   return `${LEAVE_TYPE_LABELS[request.type]} · ${count} ${count === 1 ? "day" : "days"}`;
+}
+
+/**
+ * "leave", "comp leave", "half day · comp · morning off": what a request is, inside a sentence
+ * ("Now: half day · morning off on …"). Only a half day needs more than its type's word.
+ */
+export function leaveWhat(
+  request: Pick<OwnLeaveRequest, "type" | "startDate" | "endDate"> & {
+    creditDays?: number | null;
+    half?: LeaveHalf | null;
+  },
+): string {
+  return request.type === "half_day"
+    ? leaveTitle(request).toLowerCase()
+    : LEAVE_TYPE_LABELS[request.type].toLowerCase();
 }
 
 /**
@@ -195,4 +244,99 @@ export function leaveStateLabel(
 ): string {
   if (request.requestsCancellation && request.state === "cancelled") return "Leave cancelled";
   return LEAVE_STATE_LABELS[request.state];
+}
+
+// v2.0.1 "Flexible comp leave": a split day asked for in one go -----------------------------------
+
+/** The two halves of one split day, morning first, as one card shows them. */
+export type LeavePair = { pairId: string; halves: OwnLeaveRequest[] };
+
+/** One card of the requests list: a request, or the two halves of a split day together. */
+export type LeaveListEntry =
+  | { kind: "single"; id: string; request: OwnLeaveRequest }
+  | { kind: "pair"; id: string; pair: LeavePair };
+
+const HALF_ORDER: Record<LeaveHalf, number> = { morning: 0, afternoon: 1 };
+
+/**
+ * The list's cards, in the page's order: the two halves of a split day (one `pair_id`) become one
+ * card where the first of them stood. A half whose partner is not on this page (the page ends
+ * between them) stays a card of its own, so nothing is hidden.
+ */
+export function groupLeavePairs(requests: readonly OwnLeaveRequest[]): LeaveListEntry[] {
+  const byPair = new Map<string, OwnLeaveRequest[]>();
+  for (const request of requests) {
+    if (!request.pairId) continue;
+    byPair.set(request.pairId, [...(byPair.get(request.pairId) ?? []), request]);
+  }
+  const entries: LeaveListEntry[] = [];
+  const placed = new Set<string>();
+  for (const request of requests) {
+    const halves = request.pairId ? byPair.get(request.pairId) : undefined;
+    if (!request.pairId || !halves || halves.length < 2) {
+      entries.push({ kind: "single", id: request.id, request });
+      continue;
+    }
+    if (placed.has(request.pairId)) continue;
+    placed.add(request.pairId);
+    const sorted = [...halves].sort(
+      (a, b) => HALF_ORDER[a.half ?? "morning"] - HALF_ORDER[b.half ?? "morning"],
+    );
+    entries.push({
+      kind: "pair",
+      id: request.pairId,
+      pair: { pairId: request.pairId, halves: sorted },
+    });
+  }
+  return entries;
+}
+
+/** "Full day · ½ comp + ½ leave": a split day's card (WORKFLOWS §2 "Settled in v2.0.1"). */
+export const PAIR_TITLE = "Full day · ½ comp + ½ leave";
+
+/** "Morning · ½ comp", "Afternoon · ½ leave": one half's line on the card. */
+export function pairHalfLine(request: Pick<OwnLeaveRequest, "half" | "creditDays">): string {
+  const half = request.half ? HALF_LABELS[request.half] : LEAVE_TYPE_LABELS.half_day;
+  return `${half} · ${request.creditDays ? "½ comp" : "½ leave"}`;
+}
+
+/**
+ * The pair's one state for the card's glance: the halves' own while they agree (they always do
+ * while waiting, and once decided together), "One half approved" once one half was cancelled or
+ * changed on its own and the other still stands.
+ */
+export function pairState(pair: LeavePair): { status: LeaveState; label: string } {
+  const [first] = pair.halves;
+  const state = first?.state ?? "submitted";
+  if (pair.halves.every((half) => half.state === state)) {
+    return { status: state, label: LEAVE_STATE_LABELS[state] };
+  }
+  if (pair.halves.some((half) => half.state === "approved")) {
+    return { status: "approved", label: "One half approved" };
+  }
+  return { status: state, label: LEAVE_STATE_LABELS[state] };
+}
+
+/**
+ * What the member may do with a split day (mirrors `leave_withdraw` / `leave_request_change`):
+ * **Withdraw** while it waits, one call for both halves (any waiting half's id: the function
+ * withdraws its partner); once approved, each half on its own, as `leaveRequestActions()` says
+ * for that half (ask to cancel either; change only the ordinary half, a comp half is cancelled
+ * and asked for again).
+ */
+export function leavePairActions(
+  pair: LeavePair,
+  today: string,
+): {
+  withdrawId: string | null;
+  halves: { request: OwnLeaveRequest; actions: LeaveRequestActions }[];
+} {
+  const waiting = pair.halves.find((half) => leaveRequestActions(half, today).withdraw);
+  return {
+    withdrawId: waiting?.id ?? null,
+    halves: pair.halves.map((request) => ({
+      request,
+      actions: { ...leaveRequestActions(request, today), withdraw: false },
+    })),
+  };
 }

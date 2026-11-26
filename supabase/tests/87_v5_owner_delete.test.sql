@@ -5,6 +5,7 @@
 -- before their date. Per role: the Owner allowed; an Admin and a Crew member FORBIDDEN; anon no
 -- privilege. Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(68);
 

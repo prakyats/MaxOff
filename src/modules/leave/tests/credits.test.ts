@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compBalanceWords,
   balanceLine,
+  COMP_KIND_LABELS,
   compLeaveLine,
   type CompCredit,
   compDateLabel,
@@ -17,6 +18,7 @@ import {
 import {
   grantCompLeaveSchema,
   requestCompLeaveSchema,
+  requestSplitLeaveSchema,
   revokeCompLeaveSchema,
 } from "../domain/schemas";
 
@@ -84,11 +86,50 @@ describe("comp leave credits (PRODUCT §4.3a, kickoff 3b decisions 14-17)", () =
 
   it("offers comp leave in the leave form only with a credit (decision 16)", () => {
     expect(compKindsAvailable({ availableDays: 0, useBy: null })).toEqual([]);
-    expect(compKindsAvailable({ availableDays: 0.5, useBy: "2026-09-30" })).toEqual(["comp_half"]);
+    expect(compKindsAvailable({ availableDays: 0.5, useBy: "2026-09-30" })).toEqual([
+      "comp_half",
+      "comp_split",
+    ]);
     expect(compKindsAvailable({ availableDays: 1, useBy: "2026-09-30" })).toEqual([
       "comp_full",
       "comp_half",
+      "comp_split",
     ]);
+  });
+
+  it("offers the split day (½ comp + ½ leave) only with ½ credit valid on a working date (v2.0.1)", () => {
+    const withDates = (dates: { date: string; availableDays: number }[]) =>
+      compKindsAvailable({ availableDays: 0.5, useBy: "2026-09-30", dates });
+    expect(withDates([{ date: "2026-09-25", availableDays: 0.5 }])).toContain("comp_split");
+    // The credit is there, but no working day is left before its use-by date.
+    expect(withDates([])).toEqual(["comp_half"]);
+    expect(COMP_KIND_LABELS.comp_split).toBe("Full day: ½ comp + ½ leave");
+    expect(
+      compDatesFor(
+        [
+          { date: "2026-09-25", availableDays: 0.5 },
+          { date: "2026-09-26", availableDays: 1 },
+        ],
+        "comp_split",
+      ),
+    ).toEqual(["2026-09-25", "2026-09-26"]);
+  });
+
+  it("asks a split day for its date and the comp half, nothing chosen for them (v2.0.1)", () => {
+    const schema = requestSplitLeaveSchema(TODAY, "2026-09-30");
+    expect(schema.parse({ date: "2026-09-25", compHalf: "afternoon", reason: " " })).toEqual({
+      date: "2026-09-25",
+      compHalf: "afternoon",
+      reason: null,
+    });
+    const none = schema.safeParse({ date: "2026-09-25", compHalf: null });
+    expect(none.success).toBe(false);
+    expect(none.error?.issues.map((issue) => [issue.path.join("."), issue.message])).toEqual([
+      ["compHalf", "Choose which half is comp leave."],
+    ]);
+    expect(schema.safeParse({ date: "2026-09-25", compHalf: "evening" }).success).toBe(false);
+    expect(schema.safeParse({ date: "2026-09-19", compHalf: "morning" }).success).toBe(false);
+    expect(schema.safeParse({ date: "2026-10-01", compHalf: "morning" }).success).toBe(false);
   });
 
   it("checks the request's date against today and the use-by date", () => {

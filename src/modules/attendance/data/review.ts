@@ -118,6 +118,14 @@ export async function rpcCorrectDay(
   dayId: string,
   status: DayStatus,
   reason: string,
+  /**
+   * v2.0.1: which half was off (a half day) and which half is comp leave (a ½ comp day: the same
+   * half; a split day: status `leave`); `attendance_decide` refuses any other combination.
+   */
+  halves: { half: "morning" | "afternoon" | null; compHalf: "morning" | "afternoon" | null } = {
+    half: null,
+    compHalf: null,
+  },
 ): Promise<void> {
   const supabase = await createServerSupabase();
   await withDeadlockRetry(async () => {
@@ -126,6 +134,8 @@ export async function rpcCorrectDay(
       decision: "correct",
       status,
       reason,
+      ...(halves.half ? { half: halves.half } : {}),
+      ...(halves.compHalf ? { comp_half: halves.compHalf } : {}),
     });
     if (error) throw error;
   });

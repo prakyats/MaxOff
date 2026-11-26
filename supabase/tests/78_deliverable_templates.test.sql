@@ -7,6 +7,7 @@
 -- an item list, a tick, a date, a note and history, saved as a template with nothing on it changed.
 -- Every name here is neutral: nothing is pre-defined.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(77);
 

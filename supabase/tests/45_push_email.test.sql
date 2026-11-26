@@ -6,6 +6,7 @@
 --    per-person one only, retries never re-counted, not_configured never counted;
 -- 4. email_record: sent, retry with the push backoff, failed; service_role only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(55);
 

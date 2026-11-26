@@ -7,6 +7,7 @@
 -- room between them; and the permissions unchanged per role (Owner, the client's Admin, another Admin
 -- NOT_FOUND, Crew FORBIDDEN, anon no privilege). app.position_between. Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(22);
 

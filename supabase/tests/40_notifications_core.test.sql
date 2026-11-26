@@ -10,6 +10,7 @@
 -- holiday releasing comp leave, a deactivated coordinator, the combined hand-over, no amount in
 -- an expense row, the 23:59 job's one row, the 20:30 reminder once per day.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(217);
 

@@ -6,6 +6,7 @@
 -- reason required, not twice, not a withdrawn claim), mark paid (dates, states), the audit
 -- actions and who reads them, and a receipt's visibility (app.file_visible).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(100);
 

@@ -1,4 +1,5 @@
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(67);
 

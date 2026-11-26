@@ -5,6 +5,7 @@
 -- the caller's last read (their own, written for a freelancer included, never count; a
 -- coordinator's reads are their own). Each role, allowed and denied.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(47);
 

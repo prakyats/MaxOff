@@ -3,6 +3,7 @@
 -- told when app.task_skip_admin_step moves a waiting task to them; app.task_visible_to follows the
 -- phase 4 review's visibility (a demoted creator, a deactivated freelancer's coordinator).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(50);
 

@@ -10,6 +10,7 @@
 -- (engagement, a coordinator's freelancers), the audit trigger's on_behalf_of and the
 -- workload_warning_threshold default.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(121);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration

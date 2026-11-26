@@ -244,6 +244,9 @@ Built after v1.8 ships and after 6b.20 (b)'s small release, one unit at a time, 
   - `notifications.spec.ts:483` [mobile]: a strict-mode locator matched two nav badges;
   - `working-hours.spec.ts:187`: CI must not run it in the first 16 minutes of the IST day.
 
+### v2.0.1 "Flexible comp leave" (owner 23 and 25 Nov 2026; advisor brief #89 7105109291)
+- [x] **One unit [C]:** two half days per date in any comp / ordinary mix; "Full day: ½ comp + ½ leave" in one request (decided together while waiting, each half alone once approved); the split day's attendance (leave / comp_leave linking both halves) and month summary (½ comp + ½ additional leave); every path with halves (approve, reject, withdraw, cancel, ask to cancel, the Owner's Edit and Correct, holiday release, credit release); the half kept by a change and by the Owner's Edit (fixed). Migration `split_leave_days`, pgTAP 150, `split-leave.spec.ts`, the guide. Release notes v2.0.1.
+
 ### v2.0 "Fast and settled": units (advisor, 2026-11-05; owner: "proceed", one builder)
 Owner, 2026-11-05: after v2.0 there are no more big changes to the number of screens; only revenue (phase 9) and the Drive link (8.5) remain. v2.0 makes the app feel **extremely fast for day-to-day use**, and the speed gate is stricter for it.
 - [x] **X0 [C] Start:** the branch from `main` at v1.9.0 (`phase-v2` for the preview); PROGRESS; a `main-preview` baseline at v1.9.0.

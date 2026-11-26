@@ -6,6 +6,7 @@
 -- correction to Present, the Owner's cancellation, an edit of a member's own comp request, the
 -- release on comp → plain leave, the holiday trigger on an Owner-set comp date, and month_summary.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(62);
 
