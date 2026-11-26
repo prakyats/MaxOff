@@ -68,6 +68,35 @@ Write which version was saved in the table at the end.
 The block ends by itself after the duration. To lift it at once, disable the rule in the same page, then
 enable it again. Tell the Owner, and consider raising the rate.
 
+## A second rule: the upload link's API (v4.5, plan C1–C2)
+
+The public upload page (`/upload`) calls `/api/upload/*` with no sign-in, from anyone who has a link. The
+app already limits it per network:
+
+- 10 bad links a minute refuse the network for 15 minutes;
+- 60 link opens a minute;
+- 1,200 calls a minute in all.
+
+It counts in the database, keyed by an HMAC of the IP the Worker sees. A WAF rule stops a flood at the edge, before the Worker and the database spend anything.
+
+| Field | Value _(a proposal: the Owner decides; tune it on staging)_ |
+|---|---|
+| Rule name | `MaxOff upload API: per-IP limit` |
+| Expression | `(http.host eq "app.maxoff.in" and http.request.method eq "POST" and starts_with(http.request.uri.path, "/api/upload/"))` |
+| Counted by | IP |
+| Rate | **600 requests per 1 minute**. A real upload of hundreds of files makes a few hundred calls spread over minutes; the app's own cap is 1,200. |
+| Action | **Block** |
+| Duration | **10 minutes** |
+
+**On the Free plan** (one rate-limiting rule, a 10-second period): keep the sign-in rule. Its counts
+(3 per 10 seconds) would cut off a real upload, so the upload API cannot share it. The upload API then
+relies on the app's own limits above, which pen test M1 proved on staging. Write the choice in the
+table below.
+
+The click-steps are the same as above, with this rule's values. To prove it without hurting anyone,
+check Security → Events for the rule's name after the next real upload: it should show **no** blocks.
+
+## Related
 ## Related
 
 - Supabase Auth's own limit stays on (README "Hosted auth settings": 30 sign-ins per 5 minutes per IP).
@@ -75,6 +104,6 @@ enable it again. Tell the Owner, and consider raising the rate.
 
 ## Rule saved
 
-| Date | Version (full / Free plan / path only) | By |
+| Date | Rule and version (sign-in: full / Free plan / path only; upload API: saved / not on this plan) | By |
 |---|---|---|
 | | | |
