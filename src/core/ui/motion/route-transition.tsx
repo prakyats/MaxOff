@@ -1,8 +1,15 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useSyncExternalStore, ViewTransition } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useSyncExternalStore,
+  ViewTransition,
+} from "react";
 
+import { takeDrill } from "./drill-top";
 import { NAV_BACK, NAV_FORWARD } from "./nav-types";
 import { routeKey } from "./route-key";
 import { canSlide, slideCommitted, subscribeSlide } from "./slide";
@@ -39,6 +46,10 @@ export function RouteTransition({ children }: { children: ReactNode }) {
   // loses its name now (one that did loses it as the transition captures, `slide.ts`).
   useEffect(() => {
     slideCommitted();
+  }, [pathname]);
+  // A drill-down's screen opens at its top, before it paints (`drill-top.ts`).
+  useLayoutEffect(() => {
+    if (takeDrill(pathname)) window.scrollTo(0, 0);
   }, [pathname]);
   return (
     <ViewTransition key={routeKey(pathname)} enter={motion} exit={motion} default="none">

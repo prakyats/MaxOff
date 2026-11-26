@@ -8,7 +8,7 @@
 -- past month (March 2025), so the file holds on any day. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(50);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -238,6 +238,10 @@ select is((select longest_days from stages where project_id is null and stage_ke
 select is((select project_name from stages where project_id = pg_temp.fx('proj') and stage_key = 'edit'), 'Report project 144',
   'per project: the project''s own row, with its name');
 select ok(not exists (select 1 from stages where stage_key = 'old'), 'an archived stage never counts');
+select is((select stage_name from stages where project_id is null and stage_key = 'shoot'), 'Shoot',
+  'shown name: on a tie, never the all-lower-case spelling ("Shoot", not "shoot"; owner walk step 7)');
+select is((select stage_name from stages where project_id = pg_temp.fx('proj') and stage_key = 'edit'), 'Edit',
+  'shown name: on a tie, never the all-capitals spelling ("Edit", not "EDIT")');
 select is((select stage_key from stages where project_id is null order by median_days desc limit 1), 'edit', 'slowest first');
 
 -- 6. Client work -------------------------------------------------------------------------------------

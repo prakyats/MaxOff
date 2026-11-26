@@ -10,12 +10,13 @@ import {
   periodLabel,
   previousPeriod,
   weekOf,
-} from "@/modules/reports";
+} from "../domain/work-report";
 
 /**
  * A report's period (6.3; v3.0 the Owner's reports too): Week · Month · Custom, a pager for a week or a month, and what
  * is shown. View controls: `ViewLink`s replace the entry, so one back leaves the report
- * (ARCHITECTURE §14.2 d). `period` null: the loading skeleton (the same control, nothing chosen).
+ * (ARCHITECTURE §14.2 d). `period` null: the same control with nothing chosen; a loading screen
+ * draws `PendingPeriodControls` instead, which reads the period from the address.
  */
 export function PeriodControls({
   period,

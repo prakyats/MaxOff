@@ -6,6 +6,8 @@ import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
+  PeriodControls,
+  clippedWords,
   CARD_GRID_CLASS,
   ClientWorkCard,
   type ClientWorkFacts,
@@ -18,7 +20,6 @@ import {
 
 import { CLIENT_WORK_DESCRIPTION } from "../copy";
 import { CustomRange } from "../custom-range";
-import { PeriodControls } from "../period-controls";
 import { ClientWorkSkeleton } from "./client-work-skeleton";
 
 export const metadata: Metadata = { title: "Client work" };
@@ -56,7 +57,13 @@ export default async function ClientWorkReportPage({
       <PeriodControls period={period} today={today} base={BASE} />
       {period.kind === "custom" ? (
         <div className="mb-4">
-          <CustomRange from={period.from} to={period.to} today={today} base={BASE} />
+          <CustomRange
+            from={period.from}
+            to={period.to}
+            today={today}
+            base={BASE}
+            note={clippedWords(period, OWNER_CUSTOM_MAX_DAYS)}
+          />
         </div>
       ) : null}
       <Suspense fallback={<ClientWorkSkeleton />}>

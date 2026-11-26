@@ -12,6 +12,8 @@ import {
   monthOf,
 } from "@/modules/attendance";
 import {
+  PeriodControls,
+  clippedWords,
   AttendanceFacts,
   CARD_GRID_CLASS,
   type DelayFact,
@@ -34,7 +36,6 @@ import type { TeamMember } from "@/modules/team";
 import { readDirectory } from "../../tasks/reads";
 import { PEOPLE_DESCRIPTION } from "../copy";
 import { CustomRange } from "../custom-range";
-import { PeriodControls } from "../period-controls";
 import { attendanceLines } from "./attendance-lines";
 import { PeopleSkeleton } from "./people-skeleton";
 
@@ -78,7 +79,13 @@ export default async function PeopleReportPage({
       <PeriodControls period={period} today={today} base={BASE} />
       {period.kind === "custom" ? (
         <div className="mb-4">
-          <CustomRange from={period.from} to={period.to} today={today} base={BASE} />
+          <CustomRange
+            from={period.from}
+            to={period.to}
+            today={today}
+            base={BASE}
+            note={clippedWords(period, OWNER_CUSTOM_MAX_DAYS)}
+          />
         </div>
       ) : null}
       <div className="flex min-w-0 flex-col gap-6" data-slot="people-report">

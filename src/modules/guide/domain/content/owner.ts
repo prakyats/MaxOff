@@ -885,6 +885,9 @@ export const OWNER_GUIDE: Guide = {
             note(
               "Completed counts tasks you approved, for every person on them. People with no tasks in the period are named in one line under the cards.",
             ),
+            note(
+              "A Custom range can be up to a year, in every Owner report. A longer one shows its latest year, ending on the To date, and the line under the dates says which days are shown.",
+            ),
           ],
           link: { href: "/reports/people", label: "Open People" },
           keywords: ["people report", "completed", "on time", "revision", "late tasks", "delays"],

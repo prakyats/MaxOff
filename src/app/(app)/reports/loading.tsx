@@ -15,13 +15,13 @@ import {
   REPORTS_LIST_CLASS,
 } from "./list-row";
 import { MonthStripSkeleton } from "./month-strip-view";
-import { PeriodControls } from "./period-controls";
+import { PendingPeriodControls } from "@/modules/reports/components/pending-period-controls";
 
 /**
  * Reports: the Owner's month strip (major change 7) and list of reports (3b.4: Month first, rows like Settings), traced in the
  * page's own list and row geometry (`list-row.ts`): each a line for the label over the
  * description's lines (its own words, unseen, so it wraps as the page does), and the arrow;
- * an Admin's work report (6.3), traced: the period control (nothing chosen yet) and its pager row,
+ * an Admin's work report (6.3), traced: the period control (the period the address asks for) and its pager row,
  * the four KPI cards, and the load list's heading. The `(app)` layout already read the member for
  * this request (`cache()`).
  */
@@ -62,7 +62,7 @@ export default async function Loading() {
   return (
     <>
       <PageHeader title="Reports" description={ADMIN_REPORT_DESCRIPTION} />
-      <PeriodControls period={null} today={todayIST()} />
+      <PendingPeriodControls today={todayIST()} />
       <div
         role="status"
         aria-busy="true"

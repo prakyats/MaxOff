@@ -45,7 +45,13 @@ describe("the period (week, month, custom; the last period beside it)", () => {
       from: "2026-10-01",
       to: TODAY,
     });
-    expect(parsePeriod({ from: "2026-01-01", to: "2026-10-01" }, TODAY).to).toBe("2026-04-02");
+    // Too long: the latest 92 days, ending at To (owner walk, v3.0 step 6).
+    expect(parsePeriod({ from: "2026-01-01", to: "2026-10-01" }, TODAY)).toEqual({
+      kind: "custom",
+      from: "2026-07-02",
+      to: "2026-10-01",
+      clipped: true,
+    });
     expect(parsePeriod({ from: "2026-10-05", to: "2026-10-01" }, TODAY)).toEqual(weekOf(TODAY));
   });
 

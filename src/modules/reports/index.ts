@@ -6,6 +6,7 @@
  */
 export {
   acknowledgementLag,
+  clippedWords,
   countWords,
   CUSTOM_MAX_DAYS,
   OWNER_CUSTOM_MAX_DAYS,
@@ -101,3 +102,4 @@ export {
   StageOverall,
   StageProjectCard,
 } from "./components/owner-reports";
+export { PeriodControls } from "./components/period-controls";

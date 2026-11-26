@@ -36,7 +36,7 @@ const AREAS: Partial<Record<PermissionKey, string>> = {
   "attendance.self": "Attendance and leave are",
   "attendance.view_all": "Everyone's attendance is",
   "expenses.decide": "Expense decisions are",
-  "reports.all": "Reports are",
+  "reports.all": "This report is",
   "reports.scoped": "Reports are",
 };
 

@@ -6,7 +6,7 @@ import {
   type ActivityEntry,
 } from "../domain/activity";
 import { activeStages, stageChoices } from "../domain/items";
-import { sitLongest } from "../domain/kpis";
+import { sitLongest, sitWords } from "../domain/kpis";
 import {
   addItemStageSchema,
   createGroupedProjectSchema,
@@ -115,7 +115,11 @@ describe("Tick ‹stage› on N with groups (6b)", () => {
       cycles: [{ id: "c", periodStart: null }],
       now: new Date("2026-10-03T00:00:00Z"),
     });
-    expect(rows.map((r) => r.stage).sort()).toEqual(["Phase A · Edit", "Phase B · Edit"]);
+    expect(rows.map((r) => r.stage).sort()).toEqual(["Edit (Phase A)", "Edit (Phase B)"]);
+    // The sentence never reads as two stages (owner walk, v3.0 step 12).
+    expect(sitWords({ stage: "Collect info (Edit stage)", count: 4, medianDays: 26 })).toBe(
+      "4 waiting at Collect info (Edit stage) · median 26 days",
+    );
   });
 });
 

@@ -15,7 +15,13 @@ import {
   type StageFact,
   stageWords,
 } from "../domain/owner-reports";
-import { OWNER_CUSTOM_MAX_DAYS, parsePeriod, periodHref, weekOf } from "../domain/work-report";
+import {
+  clippedWords,
+  OWNER_CUSTOM_MAX_DAYS,
+  parsePeriod,
+  periodHref,
+  weekOf,
+} from "../domain/work-report";
 
 const TODAY = "2026-11-25";
 
@@ -35,14 +41,36 @@ function facts(over: Partial<PersonFacts> = {}): PersonFacts {
 }
 
 describe("the Owner's report periods (v3.0, decision 12)", () => {
-  it("a custom range runs up to 366 days for the Owner and 92 for the Admin", () => {
+  it("a too-long custom range keeps its latest days: 366 for the Owner, 92 for the Admin", () => {
     const range = { from: "2025-11-01", to: "2026-11-20" };
     expect(parsePeriod(range, TODAY, OWNER_CUSTOM_MAX_DAYS)).toEqual({
       kind: "custom",
-      from: "2025-11-01",
-      to: "2026-11-01",
+      from: "2025-11-20",
+      to: "2026-11-20",
+      clipped: true,
     });
-    expect(parsePeriod(range, TODAY).to).toBe("2026-01-31");
+    expect(parsePeriod(range, TODAY)).toMatchObject({ from: "2026-08-21", to: "2026-11-20" });
+  });
+
+  it("over a year ending today shows the last year and says so (owner walk, step 6)", () => {
+    const period = parsePeriod(
+      { from: "2024-01-01", to: "2026-11-26" },
+      TODAY,
+      OWNER_CUSTOM_MAX_DAYS,
+    );
+    expect(period).toEqual({ kind: "custom", from: "2025-11-25", to: "2026-11-25", clipped: true });
+    expect(clippedWords(period, OWNER_CUSTOM_MAX_DAYS)).toBe(
+      "Showing 25 Nov 2025 – 25 Nov 2026 (up to a year)",
+    );
+    const admin = parsePeriod({ from: "2026-01-01", to: "2026-11-20" }, TODAY);
+    expect(clippedWords(admin, 92)).toBe("Showing 21 Aug 2026 – 20 Nov 2026 (up to 92 days)");
+    const whole = parsePeriod(
+      { from: "2026-11-01", to: "2026-11-20" },
+      TODAY,
+      OWNER_CUSTOM_MAX_DAYS,
+    );
+    expect(whole.clipped).toBeUndefined();
+    expect(clippedWords(whole, OWNER_CUSTOM_MAX_DAYS)).toBeNull();
   });
 
   it("the Owner's reports open on this month; the Admin's on this week", () => {

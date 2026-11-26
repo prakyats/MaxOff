@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { DrillLink } from "@/core/ui/composites/drill-link";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import {
@@ -318,12 +319,14 @@ export function ClientWorkCard({ row, revenue }: { row: ClientWorkFacts; revenue
     >
       <h3 className="truncate text-sm font-semibold">
         {row.clientId ? (
-          <Link
+          // A drill-down (§14.2 b): the client opens at its top, sliding in like every detail
+          // (owner walk, v3.0 step 8: a plain link left the window where the report was).
+          <DrillLink
             href={`/clients/${row.clientId}`}
-            className="pressable focus-visible:ring-ring -my-3 flex min-h-11 items-center rounded-sm outline-none hover:underline focus-visible:ring-2"
+            className="focus-visible:ring-ring -my-3 flex min-h-11 items-center rounded-sm outline-none hover:underline focus-visible:ring-2"
           >
             {row.clientName}
-          </Link>
+          </DrillLink>
         ) : (
           row.clientName
         )}

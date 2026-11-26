@@ -1,6 +1,18 @@
 import { expect, test } from "./fixtures";
 
-import { hydrated, pageHeader, storageStateFor } from "./helpers";
+import {
+  hydrated,
+  memberIdOf,
+  pageHeader,
+  removeClientFixture,
+  rpcAs,
+  serviceInsert,
+  serviceSelect,
+  serviceUpdate,
+  storageStateFor,
+  USERS,
+} from "./helpers";
+import { todayIST } from "../src/core/time";
 
 /**
  * The Owner's reports (v3.0, 9.3; PRODUCT §4.13; kickoff 9 decisions 12–14, the refresh's R7 and
@@ -33,6 +45,48 @@ test.describe("the Owner's reports", () => {
     await expect(pageHeader(page).getByRole("heading", { name: "People" })).toBeVisible();
   });
 
+  test("a client's name opens the client at its top, from anywhere down the report (owner walk, step 8)", async ({
+    page,
+  }, info) => {
+    const name = `Report scroll client ${info.project.name}`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+      client_id: client.id,
+    });
+    const project = await rpcAs<string>(USERS.admin.email, USERS.admin.password, "project_create", {
+      client_id: client.id,
+      name: "Report scroll project",
+      recurrence: "monthly",
+      stages: [],
+      items: ["Report scroll reel"],
+    });
+    await serviceUpdate(`project_items?project_id=eq.${project}`, { planned_date: todayIST() });
+    try {
+      await page.goto("/reports/client-work?period=month");
+      await hydrated(page);
+      const link = page.locator(`[data-client="${client.id}"] a[href="/clients/${client.id}"]`);
+      await expect(link).toBeVisible();
+      // A report long enough to tap a client far down it (the walk's phone had many clients).
+      await page.evaluate(() => {
+        const main = document.getElementById("main");
+        if (main) main.style.paddingBottom = "2000px";
+      });
+      await page.evaluate(() => window.scrollTo(0, 600));
+      await link.click();
+      await expect(page).toHaveURL(new RegExp(`/clients/${client.id}$`));
+      await expect(pageHeader(page).getByRole("heading", { name })).toBeVisible();
+      await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+    } finally {
+      await removeClientFixture(name);
+    }
+  });
+
   test("People: opens on the month with each employee's attendance; the week has none; cards by name", async ({
     page,
   }) => {
@@ -43,9 +97,11 @@ test.describe("the Owner's reports", () => {
     await expect(report.locator('[data-slot="person-attendance"]')).toHaveCount(0);
 
     await page.goto("/reports/people");
-    await expect(page.locator('[data-slot="report-period"] [aria-current="page"]')).toHaveText(
-      "Month",
-    );
+    // `:visible`: while the page streams, its loading screen's switch (which shows the period
+    // from the address too, walk step 9) is still in the document beside it.
+    await expect(
+      page.locator('[data-slot="report-period"]:visible [aria-current="page"]'),
+    ).toHaveText("Month");
     const employees = page.locator('[data-slot="people-block"][data-engagement="permanent"]');
     await expect(employees).toBeVisible();
     const cards = employees.locator('[data-slot="person-card"]');

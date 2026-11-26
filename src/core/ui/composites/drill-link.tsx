@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ComponentProps, MouseEvent } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { markDrill } from "@/core/ui/motion/drill-top";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
 import { nameSlide } from "@/core/ui/motion/slide";
 import { useLessData } from "@/core/ui/navigation/less-data";
@@ -38,6 +39,9 @@ export function DrillLink({
         // The slide's name beside the type: the type alone is lost when the tap lands while the
         // screen is still hydrating (`slide.ts`).
         nameSlide("forward");
+        // It opens at its top (`drill-top.ts`).
+        const to = typeof props.href === "string" ? props.href : props.href.pathname;
+        if (to) markDrill(to);
       }}
     />
   );

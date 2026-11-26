@@ -27,7 +27,13 @@ export const ENGAGEMENT_LABELS: Record<Engagement, string> = {
 
 // The period -------------------------------------------------------------------------------------------
 
-export type Period = { kind: "week" | "month" | "custom"; from: ISODate; to: ISODate };
+export type Period = {
+  kind: "week" | "month" | "custom";
+  from: ISODate;
+  to: ISODate;
+  /** A custom range longer than allowed, cut to its latest days (the screen says so). */
+  clipped?: true;
+};
 
 /** The longest custom range of the Admin's report (a quarter): it reads every hand-in in it. */
 export const CUSTOM_MAX_DAYS = 92;
@@ -83,8 +89,11 @@ export function parsePeriod(
   const to = one("to");
   if (isISODate(from) && isISODate(to) && from <= to && from <= today) {
     const end = to > today ? today : to;
-    const limit = addISTDays(from, maxDays - 1);
-    return { kind: "custom", from, to: end > limit ? limit : end };
+    // Too long: keep the latest `maxDays` ending at To (the recent days are the ones asked about).
+    const start = addISTDays(end, -(maxDays - 1));
+    return start > from
+      ? { kind: "custom", from: start, to: end, clipped: true }
+      : { kind: "custom", from, to: end };
   }
   const at = one("at");
   const anchor = isISODate(at) && at <= today ? at : today;
@@ -124,6 +133,17 @@ export function periodLabel(period: Period, today: ISODate): string {
     return period.from === monthOf(today).from ? "This month" : day(period.from, "MMMM yyyy");
   }
   return `${day(period.from, "d MMM")} – ${day(period.to, "d MMM")}`;
+}
+
+/**
+ * The line under a custom range that was too long (owner walk, v3.0 step 6): "Showing 26 Nov 2025
+ * – 26 Nov 2026 (up to a year)". Null when the range was shown whole.
+ */
+export function clippedWords(period: Period, maxDays: number): string | null {
+  if (!period.clipped) return null;
+  const day = (date: ISODate) => formatIST(istDayStart(date), "d MMM yyyy");
+  const limit = maxDays >= 365 ? "up to a year" : `up to ${maxDays} days`;
+  return `Showing ${day(period.from)} – ${day(period.to)} (${limit})`;
 }
 
 /**

@@ -1,7 +1,5 @@
 import { istDayStart, toISTDate, type ISODate } from "@/core/time";
 
-import { groupStageLabel } from "@/core/lib/stage-groups";
-
 import { stagesByItem } from "./items";
 import type { Cycle, Item, ItemStage } from "./types";
 
@@ -102,9 +100,12 @@ export function sitLongest(input: {
         ? istDayStart(periodStart).getTime()
         : Date.parse(item.createdAt);
     const days = Math.max(0, (input.now.getTime() - since) / DAY_MS);
-    // A stage in a named group is "Group · Stage" (6b): the same name in two groups is two rows.
-    // v3.0 (R7): names match ignoring case ("Edit" and "edit" are one row), shown as first seen.
-    const name = groupStageLabel(stage.groupLabel, stage.name);
+    // A stage in a named group is its own row (6b): the same name in two groups is two rows. In
+    // this sentence the group goes in brackets, "Collect info (Edit stage)": its "·" already
+    // parts the count from the median, so "Edit stage · Collect info" read as two stages (owner
+    // walk, v3.0 step 12). v3.0 (R7): names match ignoring case ("Edit" and "edit" are one row),
+    // shown as first seen.
+    const name = stage.groupLabel === null ? stage.name : `${stage.name} (${stage.groupLabel})`;
     const key = name.toLocaleLowerCase("en-IN");
     const group = groups.get(key) ?? { stage: name, days: [] };
     group.days.push(days);
@@ -117,7 +118,7 @@ export function sitLongest(input: {
     );
 }
 
-/** "8 waiting at Edit · median 3 days". */
+/** "8 waiting at Edit · median 3 days"; in a named group "4 waiting at Collect info (Edit stage) · …". */
 export function sitWords(row: SitRow): string {
   // W6 (v1.8 V4): whole days, never "20.2".
   const days = Math.round(row.medianDays);

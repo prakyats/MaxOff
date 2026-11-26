@@ -1,14 +1,14 @@
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { DelayReportSkeleton, ReportHeading } from "@/modules/reports";
+import { PendingPeriodControls } from "@/modules/reports/components/pending-period-controls";
+import { OWNER_CUSTOM_MAX_DAYS, DelayReportSkeleton, ReportHeading } from "@/modules/reports";
 
 import { PEOPLE_DESCRIPTION } from "../copy";
-import { PeriodControls } from "../period-controls";
 import { PeopleSkeleton } from "./people-skeleton";
 
 /**
- * The people report, traced (ARCHITECTURE §14.1): the same header, the period switch (nothing
- * chosen yet) and its pager row, the "Tasks by person" heading (its own words) over four person cards of the
+ * The people report, traced (ARCHITECTURE §14.1): the same header, the period switch (the period the
+ * address asks for) and its pager row, the "Tasks by person" heading (its own words) over four person cards of the
  * card's own shape with the attendance block (the report opens on this month), then the delays' heading and
  * its three pattern cards.
  */
@@ -21,7 +21,12 @@ export default function Loading() {
         description={PEOPLE_DESCRIPTION}
         help={PEOPLE_DESCRIPTION}
       />
-      <PeriodControls period={null} today={todayIST()} base="/reports/people" />
+      <PendingPeriodControls
+        today={todayIST()}
+        base="/reports/people"
+        maxDays={OWNER_CUSTOM_MAX_DAYS}
+        fallback="month"
+      />
       <div className="flex min-w-0 flex-col gap-6" data-slot="loading-people-route-sections">
         <div className="flex min-w-0 flex-col gap-2">
           <ReportHeading id="loading-people-title">Tasks by person</ReportHeading>

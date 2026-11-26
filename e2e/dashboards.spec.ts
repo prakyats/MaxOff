@@ -1241,10 +1241,13 @@ test.describe("the Admin's work report (6.3)", () => {
       "href",
       "/tasks/all?overdue=overdue",
     );
-    await expect(page.locator('[data-slot="report-period-label"]')).toHaveText("This week");
+    await expect(page.locator('[data-slot="report-period-label"]:visible')).toHaveText("This week");
     await expect(page.locator('[data-slot="report-load"]')).toBeVisible();
     // The custom range: two dates and Show.
-    await page.locator('[data-slot="report-period"]').getByRole("link", { name: "Custom" }).click();
+    await page
+      .locator('[data-slot="report-period"]:visible')
+      .getByRole("link", { name: "Custom" })
+      .click();
     await expect(page.locator('[data-slot="custom-range"]')).toBeVisible();
   });
 
@@ -1256,11 +1259,13 @@ test.describe("the Admin's work report (6.3)", () => {
     await signIn(page, admin(info), PASSWORD);
     await page.goto("/reports");
     await hydrated(page);
-    const period = page.locator('[data-slot="report-period"]');
+    const period = page.locator('[data-slot="report-period"]:visible');
     await period.getByRole("link", { name: "Month" }).click();
     await expect(page).toHaveURL(/period=month/);
     await page.getByRole("link", { name: "Previous month" }).click();
-    await expect(page.locator('[data-slot="report-period-label"]')).not.toHaveText("This month");
+    await expect(page.locator('[data-slot="report-period-label"]:visible')).not.toHaveText(
+      "This month",
+    );
     await period.getByRole("link", { name: "Week" }).click();
     await expect(page).toHaveURL(/period=week/);
     await expectBackStack(page, [{ url: /\/today$/ }]);

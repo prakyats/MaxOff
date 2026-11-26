@@ -800,9 +800,9 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Reports (under More on a phone).",
-                "Choose Week, Month or Custom.",
+                "Choose Week, Month or Custom. A Custom range can be up to 92 days; a longer one shows its latest 92 days, and the line under the dates says which.",
                 "Read the four cards.",
-                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others. Where deliverables wait counts stages with the same name together, whatever their capitals.",
+                "Scroll to Deliverables for your clients’ deliverables. A card with nothing to show yet (On time, Cycle progress, where deliverables wait) folds into one quiet line under the others. Where deliverables wait counts stages with the same name together, whatever their capitals; a stage in a named group shows its group in brackets, as “Collect info (Edit stage)”.",
                 "Scroll to Who is loaded this week to see who has the most due.",
               ],
             },

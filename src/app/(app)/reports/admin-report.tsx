@@ -2,8 +2,11 @@ import type { CurrentMember } from "@/core/auth/server";
 import { systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
+  PeriodControls,
   acknowledgementLag,
+  clippedWords,
   countWords,
+  CUSTOM_MAX_DAYS,
   ENGAGEMENTS,
   type Engagement,
   hoursWords,
@@ -40,7 +43,6 @@ import { readClientProgress } from "../today/reads";
 import { ADMIN_REPORT_DESCRIPTION } from "./copy";
 import { CustomRange } from "./custom-range";
 import { OnHoldLine } from "./on-hold-line";
-import { PeriodControls } from "./period-controls";
 
 /** "A", "A and B", "A, B and C". */
 function listWords(names: readonly string[]): string {
@@ -127,7 +129,12 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
       <PeriodControls period={period} today={today} />
       {period.kind === "custom" ? (
         <div className="mb-4">
-          <CustomRange from={period.from} to={period.to} today={today} />
+          <CustomRange
+            from={period.from}
+            to={period.to}
+            today={today}
+            note={clippedWords(period, CUSTOM_MAX_DAYS)}
+          />
         </div>
       ) : null}
       <div className="flex min-w-0 flex-col gap-6" data-slot="work-report">
