@@ -273,7 +273,7 @@
     - [ ] **Re-probe (advisor, 26 Nov 02:27 UTC), because the header split and the 404 catch-all touch every response.** Full probe per role, paired with `baseline_url=https://main-maxoff-staging.pixoraclips.workers.dev`, two-run rule.
       - **Owner run 1 dispatched: 45742940716.** Then Owner run 2 if any route fails, then Admin and Crew.
       - **Check before each dispatch that no other perf-probe is queued or running; this session holds the slot.**
-      - `/upload` is not in the probe: it is a new route and main answers 404 there, so there is no baseline. Tell the advisor and propose a probe row in a later release.
+      - `/upload` is not in the probe: it is a new route and main answers 404 there, so there is no baseline. **Advisor (02:32 UTC):** add the probe row in a later release (it is in Ideas below). READY gives `/upload`'s own warm TTFB and last byte from the preview as a standalone figure. This container cannot reach `*.workers.dev`, so time it from a runner: a few timed GETs of `/upload` in a Preview job step, or a one-off `curl -w` step in the pen-test job.
       - Message the advisor (session_015vyzMUD3jKaygKBakFdhKZ) **"slot free"** when done.
       - Also mention v7.0's Chrome trace in the READY speed section: sonner's import-time CSS injection forced a 70 ms style recalc (a 120 ms task on /people). The sonner patch removes it, so tap→skeleton should improve.
     - [ ] **`scripts/smoke-deploy.sh`: add `/upload` checks** (advisor yes, read-only GETs only):
@@ -1129,6 +1129,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
   3. The bad-link block check reads `upload_rate_hits` directly. A small "check only" function would be cleaner.
   4. After a week, `done` falls back to the browser's Drive id (Google forgot the session), checked against the same folder and size.
   5. No Playwright yet for the public API: add a header and refusal spec with the screens unit.
+- **perf-probe: add `/upload` as a public row** (advisor 26 Nov). Do it once main has the route, so there is a baseline. v4.5 reports it standalone.
 - **Watch: `e2e/dashboards.spec.ts:261`** ("a change heard just before leaving My Day never re-reads the screen it moved to", desktop) failed once, in full CI 45733114516 on phase-v45 40866fed. Two `/leave` RSC fetches were seen instead of one. It passed in the full runs on 4196c4df (45727023433) and on b6dc039d (45739534774); not root-caused. That commit changed no Realtime, My Day or navigation code (a header-rule split, a public-API body check, the pen test). If it fails again anywhere, root-cause it: two non-prefetch fetches of the moved-to screen means a re-read slipped past the guard.
 - **v4.5, from the 26 Nov architecture review (not fixed in v4.5):**
   - `spaceGuard(process.env)` (`uploads/data/service.ts`) reads `NEXT_PUBLIC_APP_ENV` through a parameter. The build does not inline it, so on the Worker the "never in production" gate sees it unset. Production is safe today only because it has no `UPLOAD_SPACE_*` vars. Fix it the way `core/drive/endpoints.ts` now does (a literal `process.env.NEXT_PUBLIC_APP_ENV` default).
