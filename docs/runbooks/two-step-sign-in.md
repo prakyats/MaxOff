@@ -16,6 +16,10 @@ correct this file.
 
 ## 1. Before the release reaches production: turn TOTP on in Supabase (once per project)
 
+**Done 26 Nov 2026:** the Owner confirmed, with screenshots, TOTP (App Authenticator) enabled on
+`Maxoff-production` and `maxoff-staging`, Phone MFA disabled, at most 10 factors. The steps stay here
+for a new project or a check.
+
 For **both** projects (`maxoff-production`, then `maxoff-staging`):
 
 1. supabase.com → the project → **Authentication → Multi-Factor** _(unverified; on some dashboards:
