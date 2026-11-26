@@ -146,14 +146,18 @@ const SLOW_MOVES: {
   {
     name: "a bar tab",
     from: "/today",
-    held: /\/today$/,
+    held: /\/tasks$/,
     at: /\/tasks$/,
     hold: (page) => holdScreen(page, "/tasks"),
-    // With the tab's drawing ready, as a phone open a moment has it (v7.0): the drawn skeleton
+    // With the tab's drawing made, as a phone open a moment has it (v7.0): the drawn skeleton
     // must still leave the 8 s line and the 25 s Retry in place (CI 45721772197).
     ready: (page) => tapDrawingsReady(page),
     tap: (page) => bottomTab(page, "/tasks"),
-    drawn: async () => {},
+    // The drawn path (the app's copy puts the tab's address in the history, home → a tab).
+    drawn: async (page) => {
+      await page.clock.runFor(500);
+      await expect(page.locator('#main > [data-slot="tap-skeleton"]')).toBeVisible();
+    },
     arrived: (page) => pageHeader(page).getByRole("heading", { name: "Tasks" }),
   },
   {
@@ -297,18 +301,23 @@ test.describe("the pressed state while the screen arrives", () => {
 });
 
 /**
- * The tap drawings are in (`html[data-tap-drawings]` ready or done, v7.0). With the page's clock
- * installed they come only as it moves: they are made at idle moments, which the clock fakes.
+ * Every tap drawing is made (`html[data-tap-drawings]` "done", v7.0), so the screen tapped to has
+ * its drawing when the 120 ms timer looks. With the page's clock installed the drawings come only
+ * as it moves (they are made at idle moments, which the clock fakes), and a screen's drawing code
+ * arrives over the network in real time: the clock is stepped while the wait runs in real time.
+ * "ready" alone was not enough: the code could land after the paused clock's 120 ms, so the copy
+ * went up in some runs and not others (CI 45817905697).
  */
 async function tapDrawingsReady(page: Page): Promise<void> {
-  for (let step = 0; step < 40; step += 1) {
-    const state = await page.evaluate(() =>
-      document.documentElement.getAttribute("data-tap-drawings"),
-    );
-    if (state === "ready" || state === "done") return;
-    await page.clock.runFor(250);
-  }
-  throw new Error("the tap drawings never came (html[data-tap-drawings])");
+  await expect
+    .poll(
+      async () => {
+        await page.clock.runFor(250);
+        return html(page).getAttribute("data-tap-drawings");
+      },
+      { message: "every tap drawing is made (html[data-tap-drawings])" },
+    )
+    .toBe("done");
 }
 
 test.describe("navigation shows it is on its way", () => {

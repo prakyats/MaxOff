@@ -9,8 +9,10 @@ import { hydrated, runInstalled, storageStateFor } from "./helpers";
  * runs with reduced motion: a headless runner renders view transitions with no GPU, and a slide
  * blocked WebKit's main thread 0.35–4.5 s there (`playwright.config.ts`). This spec turns motion
  * back on for its own page and checks, at each view transition's start, that the slide is named:
- * the direction on `<html>` (`data-nav-slide`), and the route the browser photographs carrying the
- * slide's view-transition name and class (`globals.css`, `slide.ts`). **It never times the
+ * the direction on `<html>` (`data-nav-slide`), and the route the browser photographs carrying a
+ * view-transition name and the slide's class (`globals.css`, `slide.ts`). The name is React's own
+ * when its `<ViewTransition>` starts the slide (`_t_0_`, CI 45817905697) and `route` when the
+ * attribute does (`slideBack`), so any name counts; `none` or none at all is the route not moving. **It never times the
  * slide**: how fast it runs on CI's WebKit says nothing about a phone. The slides themselves are
  * checked on Chromium (`motion.spec`), their feel on a real iPhone in the owner's walk.
  */
@@ -39,6 +41,13 @@ async function recordSlideStarts(page: Page) {
 const slideStarts = (page: Page) =>
   page.evaluate(() => (window as unknown as { __slideStarts?: SlideStart[] }).__slideStarts ?? []);
 
+/** The first start that slid `slide` with the route named, or undefined. */
+async function namedStart(page: Page, slide: string): Promise<SlideStart | undefined> {
+  return (await slideStarts(page)).find(
+    (start) => start.slide === slide && start.name !== "" && start.name !== "none",
+  );
+}
+
 test.describe("the drill-down slide is set up on WebKit", () => {
   test.skip(({ browserName }) => browserName !== "webkit", "WebKit's own check");
   test.use({ storageState: storageStateFor("owner") });
@@ -57,17 +66,17 @@ test.describe("the drill-down slide is set up on WebKit", () => {
     // The move is waited for, never timed: CI's WebKit has no GPU for the transition.
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/, { timeout: 20_000 });
     await expect
-      .poll(() => slideStarts(page), { message: "the forward slide was named" })
-      .toContainEqual(expect.objectContaining({ slide: "forward", name: "route" }));
-    const forward = (await slideStarts(page)).find((start) => start.slide === "forward");
+      .poll(() => namedStart(page, "forward"), { message: "the forward slide named the route" })
+      .toBeDefined();
+    const forward = await namedStart(page, "forward");
     if (forward?.className !== null) expect(forward?.className).toContain("nav-forward");
 
     await page.locator('[data-slot="page-back"]:visible').click();
     await expect(page).toHaveURL(/\/today\/people$/, { timeout: 20_000 });
     await expect
-      .poll(() => slideStarts(page), { message: "the back slide was named" })
-      .toContainEqual(expect.objectContaining({ slide: "back", name: "route" }));
-    const back = (await slideStarts(page)).find((start) => start.slide === "back");
+      .poll(() => namedStart(page, "back"), { message: "the back slide named the route" })
+      .toBeDefined();
+    const back = await namedStart(page, "back");
     if (back?.className !== null) expect(back?.className).toContain("nav-back");
   });
 });

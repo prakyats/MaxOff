@@ -87,7 +87,9 @@ const IPHONE_SPECS = [
   WORKING_DAY_SPECS,
   DASHBOARDS_SPECS,
   TASKS_SPECS,
-  LEAVE_SPECS,
+  // leave.spec alone: LEAVE_SPECS also matches split-leave.spec, whose seeded people are one per
+  // Chromium project (`split-<project>@maxoff.local`), none for this one (CI 45817905697).
+  /\/leave\.spec\.ts$/,
   NOTIFICATIONS_SPECS,
   BACK_GESTURE_SPECS,
   /\/slide-setup\.spec\.ts$/,
