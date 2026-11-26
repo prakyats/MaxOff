@@ -32,6 +32,8 @@ const BASE: OwnLeaveRequest = {
   original: null,
   hasOpenChange: false,
   creditDays: null,
+  half: null,
+  pairId: null,
 };
 const request = (patch: Partial<OwnLeaveRequest>): OwnLeaveRequest => ({ ...BASE, ...patch });
 

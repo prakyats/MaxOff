@@ -33,6 +33,7 @@ import {
   type Viewpoint,
 } from "../domain/history";
 
+import { SPLIT_DAY } from "../domain/choices";
 import { canAddNote, type NoteDay } from "../domain/notes";
 
 import { CorrectDayDialog, type CorrectTarget } from "./correct-day-dialog";
@@ -92,6 +93,25 @@ export function AttendanceHistory({
       workDate: day.workDate,
       current: day.finalStatus ?? day.submittedChoice,
       leaveType: leaveStatusOf(day),
+      // v2.0.1: a half day starts from its half and its ½ comp, so saving it as it is changes nothing.
+      ...(day.finalStatus === "half_day" && day.leave
+        ? { currentHalf: day.leave.half, currentComp: day.leave.comp }
+        : {}),
+      // v2.0.1: a day off as two halves; ½ comp + ½ leave starts from "Full day: ½ comp + ½ leave"
+      // and its comp half, so saving it unchanged books nothing twice.
+      ...(day.leave?.second
+        ? {
+            split: true,
+            ...(day.leave.comp !== day.leave.second.comp
+              ? {
+                  current: SPLIT_DAY,
+                  currentHalf: day.leave.comp
+                    ? (day.leave.half ?? "morning")
+                    : (day.leave.second.half ?? "afternoon"),
+                }
+              : {}),
+          }
+        : {}),
       compDays: owner.compDays ?? null,
     });
   };

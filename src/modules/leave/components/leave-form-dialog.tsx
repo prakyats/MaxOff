@@ -3,7 +3,6 @@
 import { Suspense, use, useEffect, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
-import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -28,7 +27,12 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError, toastResult } from "@/core/ui/toast";
 
-import { requestCompLeave, requestLeave, requestLeaveChange } from "../actions/leave";
+import {
+  requestCompLeave,
+  requestLeave,
+  requestLeaveChange,
+  requestSplitLeave,
+} from "../actions/leave";
 import {
   COMP_KIND_LABELS,
   type CompBalance,
@@ -44,17 +48,20 @@ import {
   LEAVE_TYPES,
   leaveDates,
   leaveDayCount,
+  type LeaveHalf,
   type LeaveType,
+  leaveWhat,
   type MemberLeaveType,
+  otherHalf,
   type OwnLeaveRequest,
 } from "../domain/requests";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
 
-type Half = "morning" | "afternoon";
+import { HalfChoice, type HalfOption } from "./half-choice";
 
 /** Morning off / Afternoon off (v1.9 W4, the working-hours sample §4). */
-const HALF_OPTIONS: readonly { value: Half; label: string; hint: string }[] = [
+const HALF_OPTIONS: readonly HalfOption[] = [
   {
     value: "morning",
     label: "Morning off",
@@ -66,6 +73,18 @@ const HALF_OPTIONS: readonly { value: Half; label: string; hint: string }[] = [
     hint: "End your day after lunch. No need to ask to leave early",
   },
 ];
+
+/** v2.0.1 "Full day: ½ comp + ½ leave": which half is comp leave (the other is ordinary leave). */
+const COMP_HALF_OPTIONS: readonly HalfOption[] = [
+  { value: "morning", label: "Comp in the morning" },
+  { value: "afternoon", label: "Comp in the afternoon" },
+];
+
+/** "The afternoon is ordinary leave.": what the half that is not comp becomes. */
+function splitNote(compHalf: LeaveHalf | null): string {
+  if (!compHalf) return "The other half is ordinary leave.";
+  return `The ${otherHalf(compHalf)} is ordinary leave.`;
+}
 
 /** What the "Kind of leave" select offers: the three leave types, plus comp leave with a credit. */
 type Kind = LeaveType | CompLeaveKind;
@@ -102,7 +121,7 @@ export function LeaveFormDialog({
           <DialogTitle>{original ? "Change this leave" : "Request leave"}</DialogTitle>
           <DialogDescription>
             {original
-              ? `Now: ${LEAVE_TYPE_LABELS[original.type].toLowerCase()} on ${leaveDates(original.startDate, original.endDate)}. It stays as it is until the Owner decides.`
+              ? `Now: ${leaveWhat(original)} on ${leaveDates(original.startDate, original.endDate)}. It stays as it is until the Owner decides.`
               : "The Owner approves or declines it. You can withdraw it while it waits."}
           </DialogDescription>
         </DialogHeader>
@@ -123,7 +142,7 @@ export function LeaveFormDialog({
 /** "3 days", "½ day": the length of what is being asked for; nothing while the range is unset. */
 function leaveLength(kind: Kind, startDate: string, endDate: string): string | null {
   if (kind === "half_day" || kind === "comp_half") return daysLabel(0.5);
-  if (kind === "comp_full") return daysLabel(1);
+  if (kind === "comp_full" || kind === "comp_split") return daysLabel(1);
   if (!startDate || !endDate || endDate < startDate) return null;
   return daysLabel(leaveDayCount(startDate, endDate));
 }
@@ -171,41 +190,47 @@ function LeaveForm({
   const [startDate, setStartDate] = useState(original?.startDate ?? today);
   const [endDate, setEndDate] = useState(original?.endDate ?? today);
   const [reason, setReason] = useState("");
-  // v1.9 W4 (the working-hours sample §4): a new half day asks which half; the first card is
-  // chosen, as the sample shows it. A change keeps the original's half (none is sent).
-  const [half, setHalf] = useState<Half>("morning");
+  // v1.9 W4 (the working-hours sample §4): a half day asks which half; the first card is chosen,
+  // as the sample shows it. v2.0.1: a change asks too, starting from the original's half, and
+  // sends the one chosen (the function keeps the original's only when none is sent).
+  const [half, setHalf] = useState<LeaveHalf>(original?.half ?? "morning");
+  // v2.0.1: "Full day: ½ comp + ½ leave" asks which half is comp; nothing is chosen for them.
+  const [compHalf, setCompHalf] = useState<LeaveHalf | null>(null);
   const [error, setError] = useState<ResultError | null>(null);
-  const isComp = kind === "comp_full" || kind === "comp_half";
-  const asksHalf = !original && (kind === "half_day" || kind === "comp_half");
+  const isSplit = kind === "comp_split";
+  const isComp = kind === "comp_full" || kind === "comp_half" || isSplit;
+  const asksHalf = kind === "half_day" || kind === "comp_half";
   const singleDate = kind === "half_day" || isComp;
   // Comp leave picks from the working days it can cover (3b review): a weekly day off or a
   // holiday is never offered. Without the list (it failed to load) the date field stays.
   const compDates = isComp && comp.dates ? compDatesFor(comp.dates, kind) : null;
+  /** The one transition this form asks for: a split day, comp leave, a change, or leave. */
+  function send() {
+    if (isSplit) return requestSplitLeave({ date: startDate, compHalf, reason });
+    if (isComp) {
+      return requestCompLeave({
+        date: startDate,
+        halfDay: kind === "comp_half",
+        reason,
+        half: kind === "comp_half" ? half : null,
+      });
+    }
+    const dates = { type: kind as MemberLeaveType, startDate, ...(singleDate ? {} : { endDate }) };
+    const chosenHalf = kind === "half_day" ? half : null;
+    if (original) {
+      return requestLeaveChange({
+        ...dates,
+        reason,
+        requestId: original.id,
+        originalStart: original.startDate,
+        half: chosenHalf,
+      });
+    }
+    return requestLeave({ ...dates, reason, half: chosenHalf });
+  }
   const action = useAction(
     async () => {
-      const result = isComp
-        ? await requestCompLeave({
-            date: startDate,
-            halfDay: kind === "comp_half",
-            reason,
-            half: kind === "comp_half" ? half : null,
-          })
-        : original
-          ? await requestLeaveChange({
-              type: kind as MemberLeaveType,
-              startDate,
-              ...(singleDate ? {} : { endDate }),
-              reason,
-              requestId: original.id,
-              originalStart: original.startDate,
-            })
-          : await requestLeave({
-              type: kind as MemberLeaveType,
-              startDate,
-              ...(singleDate ? {} : { endDate }),
-              reason,
-              half: kind === "half_day" ? half : null,
-            });
+      const result = await send();
       if (result.ok) {
         toastResult(result, {
           success: original ? "Change sent to the Owner" : "Leave requested",
@@ -224,7 +249,7 @@ function LeaveForm({
 
   function chooseKind(next: Kind) {
     setKind(next);
-    if (next === "comp_full" || next === "comp_half") {
+    if (next === "comp_full" || next === "comp_half" || next === "comp_split") {
       const offered = comp.dates ? compDatesFor(comp.dates, next) : null;
       if (offered && !offered.includes(startDate)) setStartDate(offered[0] ?? "");
     }
@@ -242,6 +267,13 @@ function LeaveForm({
   const fieldErrors = error?.fieldErrors ?? {};
   const summary = error && !error.fieldErrors ? describeError(error) : null;
   const dateError = fieldErrors.startDate ?? fieldErrors.date;
+  const submitLabel = original
+    ? "Send change"
+    : isSplit
+      ? "Request full day"
+      : asksHalf
+        ? "Request half day"
+        : "Request leave";
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
@@ -343,33 +375,26 @@ function LeaveForm({
         ) : null}
       </div>
       {asksHalf ? (
-        <fieldset className="flex flex-col gap-2" data-slot="half-choice">
-          <legend className="mb-1 text-sm font-medium">Which half?</legend>
-          {HALF_OPTIONS.map((option) => (
-            <label
-              key={option.value}
-              data-slot="half-option"
-              className={cn(
-                "border-border bg-card flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border px-4 py-2.5",
-                "has-[:checked]:border-strong has-[:checked]:bg-strong/5 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-3",
-              )}
-            >
-              <input
-                type="radio"
-                name="half"
-                value={option.value}
-                checked={half === option.value}
-                onChange={() => setHalf(option.value)}
-                className="accent-strong mt-0.5 size-5 shrink-0"
-              />
-              <span className="flex flex-col">
-                <span className="font-medium">{option.label}</span>
-                <span className="text-muted-foreground text-sm">{option.hint}</span>
-              </span>
-            </label>
-          ))}
-          {fieldErrors.half ? <ErrorText alert={false}>{fieldErrors.half[0]}</ErrorText> : null}
-        </fieldset>
+        <HalfChoice
+          legend="Which half?"
+          name="half"
+          options={HALF_OPTIONS}
+          value={half}
+          onChange={setHalf}
+          error={fieldErrors.half?.[0]}
+        />
+      ) : null}
+      {isSplit ? (
+        <HalfChoice
+          legend="Comp half"
+          name="compHalf"
+          slot="comp-half-choice"
+          options={COMP_HALF_OPTIONS}
+          value={compHalf}
+          onChange={setCompHalf}
+          note={splitNote(compHalf)}
+          error={fieldErrors.compHalf?.[0]}
+        />
       ) : null}
       <FormField label="Reason (optional)" error={fieldErrors.reason}>
         {(control) => (
@@ -401,7 +426,7 @@ function LeaveForm({
           pending={pending}
           pendingLabel={original ? "Sending change…" : "Sending request…"}
         >
-          {original ? "Send change" : asksHalf ? "Request half day" : "Request leave"}
+          {submitLabel}
         </Button>
       </DialogFooter>
     </form>
