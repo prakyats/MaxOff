@@ -41,7 +41,9 @@ export function isUploadApiPath(pathname: string): boolean {
 export const UPLOAD_PAGE_PATH = "/upload";
 
 export function isUploadPagePath(pathname: string): boolean {
-  return pathname === UPLOAD_PAGE_PATH;
+  // Any case: Next's header matcher is case-insensitive, so `/Upload` also skips the global CSP
+  // rule (`EVERY_PATH_BUT_UPLOAD_PAGE`) and must get the proxy's strict one (review, 26 Nov).
+  return pathname.toLowerCase() === UPLOAD_PAGE_PATH;
 }
 
 export function isPublicPath(pathname: string): boolean {

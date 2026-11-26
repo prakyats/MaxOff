@@ -11,8 +11,13 @@ export type GoogleOrigins = { oauth: string; api: string };
 
 export function googleOrigins(
   env: Readonly<Record<string, string | undefined>> = process.env,
+  // Written out as `process.env.NEXT_PUBLIC_APP_ENV` so the build inlines it: on the Worker the
+  // variable exists only at build time, and a read through `env` would find it unset ("local").
+  appEnvValue: string | undefined = env === process.env
+    ? process.env.NEXT_PUBLIC_APP_ENV
+    : env.NEXT_PUBLIC_APP_ENV,
 ): GoogleOrigins {
-  const appEnv = env.NEXT_PUBLIC_APP_ENV?.trim() || "local";
+  const appEnv = appEnvValue?.trim() || "local";
   const fake = env.GOOGLE_API_ORIGIN_FOR_TESTS?.trim();
   if (appEnv !== "local" || !fake) return GOOGLE;
   try {

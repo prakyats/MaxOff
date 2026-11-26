@@ -88,6 +88,14 @@ describe("the warm-up passes straight through (P2)", () => {
     expect(claims).not.toHaveBeenCalled();
   });
 
+  it("/Upload in any case gets the upload page's own strict CSP (review, 26 Nov)", async () => {
+    for (const path of ["/Upload", "/UPLOAD"]) {
+      const csp = (await updateSession(request(path))).headers.get("content-security-policy");
+      expect(csp, path).toContain("default-src 'none'");
+      expect(csp, path).toContain("frame-ancestors 'none'");
+    }
+  });
+
   it("/upload: the page itself is public, with no session read, no cookie and no redirect", async () => {
     const session = `base64-${Buffer.from(JSON.stringify({ access_token: "a.b.c" })).toString("base64url")}`;
     for (const cookie of [null, `sb-127-auth-token=${session}`]) {

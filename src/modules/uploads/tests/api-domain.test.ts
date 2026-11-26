@@ -10,6 +10,7 @@ import {
   registerBodySchema,
   secondsUntil,
   startBodySchema,
+  hasNul,
 } from "../domain/api";
 import { toUploadCard, toUploaderSheet } from "../domain/card";
 import {
@@ -210,5 +211,21 @@ describe("the network a rate limit counts (plan C1-C2, review pass 2)", () => {
     expect(rateNetwork("2001:0DB8:85a3:0000:ffff::1")).toBe("2001:db8:85a3:0::/64");
     expect(rateNetwork("2001:db8::1")).toBe("2001:db8:0:0::/64");
     expect(rateNetwork("::1")).toBe("0:0:0:0::/64");
+  });
+});
+
+describe("hasNul (pen test M4)", () => {
+  const nul = String.fromCharCode(0);
+  it("finds a NUL in any string or key, at any depth", () => {
+    expect(hasNul({ name: "Sam" })).toBe(false);
+    expect(hasNul({ name: `Sa${nul}m` })).toBe(true);
+    expect(hasNul({ [`k${nul}`]: 1 })).toBe(true);
+    expect(hasNul([1, [2, [`x${nul}`]]])).toBe(true);
+  });
+  it("walks a body nested as deep as 64 KB allows without overflowing (review, 26 Nov)", () => {
+    const escapedNul = "\\" + "u0000"; // JSON's own escape, as a body carries it
+    const deep = JSON.parse(`${"[".repeat(32_000)}"${escapedNul}"${"]".repeat(32_000)}`);
+    expect(hasNul(deep)).toBe(true);
+    expect(hasNul(JSON.parse(`${"[".repeat(32_000)}${"]".repeat(32_000)}`))).toBe(false);
   });
 });

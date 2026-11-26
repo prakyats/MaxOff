@@ -29,4 +29,11 @@ describe("Google's addresses (the e2e's fake Google is a local run's only)", () 
     expect(googleOrigins({ GOOGLE_API_ORIGIN_FOR_TESTS: "https://evil.example" })).toEqual(REAL);
     expect(googleOrigins({ GOOGLE_API_ORIGIN_FOR_TESTS: "not a url" })).toEqual(REAL);
   });
+  it("the deployed app's environment is the build's, not the Worker's runtime variables", () => {
+    // On the Worker NEXT_PUBLIC_APP_ENV is set at build time only: the build value decides.
+    const env = { GOOGLE_API_ORIGIN_FOR_TESTS: "http://127.0.0.1:1" };
+    expect(googleOrigins(env, "production")).toEqual(REAL);
+    expect(googleOrigins(env, "staging")).toEqual(REAL);
+    expect(googleOrigins(env, undefined).api).toBe("http://127.0.0.1:1");
+  });
 });

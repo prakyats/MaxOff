@@ -193,10 +193,21 @@ export const NUL_MESSAGE =
  * one, so such a name would fail in the database as INTERNAL; the API refuses it first.
  */
 export function hasNul(value: unknown): boolean {
-  if (typeof value === "string") return value.includes(NUL);
-  if (Array.isArray(value)) return value.some(hasNul);
-  if (value !== null && typeof value === "object") {
-    return Object.entries(value).some(([key, item]) => key.includes(NUL) || hasNul(item));
+  // An explicit stack, never recursion: a 64 KB body can nest ~32,000 deep, and the walk runs
+  // before any rate limit (review, 26 Nov), so a recursive one could be made to overflow.
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const item = stack.pop();
+    if (typeof item === "string") {
+      if (item.includes(NUL)) return true;
+    } else if (Array.isArray(item)) {
+      for (const entry of item) stack.push(entry);
+    } else if (item !== null && typeof item === "object") {
+      for (const [key, entry] of Object.entries(item)) {
+        if (key.includes(NUL)) return true;
+        stack.push(entry);
+      }
+    }
   }
   return false;
 }
