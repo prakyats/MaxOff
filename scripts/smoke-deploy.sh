@@ -13,6 +13,12 @@
 #      src/core/http/response-headers.ts): cache-control no-store, x-robots-tag noindex,
 #      referrer-policy no-referrer. The GET verifies nothing, so a never-issued token is safe to
 #      send (e2e/warm.setup.ts warms the same URL).
+#   5. The public upload page (v4.5, plan J; advisor 26 Nov, read-only GETs only): GET /upload
+#      answers 200, never a 5xx, with exactly one Content-Security-Policy (its own nonce policy;
+#      on the Worker a second, joined one once slipped in: pen test M17), and GET on its API
+#      (/api/upload/resolve) is refused (405), not a 500. A link's token is in the URL's #fragment,
+#      which no request carries, so every token, bad or good, is this same GET; nothing is POSTed,
+#      so no counter moves.
 #
 # Only curl. Exit 1 on the first failure, naming it.
 set -euo pipefail
@@ -109,5 +115,21 @@ esac
 [ "$(header "$confirm_headers" referrer-policy)" = "no-referrer" ] \
   || fail "/auth/confirm must be referrer-policy: no-referrer, got '$(header "$confirm_headers" referrer-policy)'"
 echo "smoke: the Continue page's headers ok"
+
+# 5. The public upload page: answers, one CSP of its own; its API refuses a GET.
+upload_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 "$origin/upload")"
+[ "$upload_status" = "200" ] || fail "$origin/upload answered $upload_status, expected 200 (the upload page)"
+upload_headers="$(headers_of "$origin/upload")"
+csp_lines="$(printf '%s\n' "$upload_headers" | grep -c '^content-security-policy:' || true)"
+[ "$csp_lines" = "1" ] || fail "/upload must carry exactly one content-security-policy header, got $csp_lines"
+upload_csp="$(header "$upload_headers" content-security-policy)"
+case "$upload_csp" in
+  *,*) fail "/upload's content-security-policy holds more than one policy: '$upload_csp'" ;;
+  *"default-src 'none'"*"frame-ancestors 'none'"*) ;;
+  *) fail "/upload's content-security-policy is not the upload page's own: '$upload_csp'" ;;
+esac
+api_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 "$origin/api/upload/resolve")"
+[ "$api_status" = "405" ] || fail "GET $origin/api/upload/resolve answered $api_status, expected 405 (POST only)"
+echo "smoke: the upload page ok"
 
 echo "smoke: all checks passed for $origin"

@@ -344,7 +344,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/upload-get": {
     src: "/guide/admin/upload-get.webp",
     width: 848,
-    height: 176,
+    height: 196,
     alt: "A task's Uploads card before any link, with Get upload link highlighted.",
   },
   "admin/upload-card": {
@@ -628,6 +628,24 @@ export const GUIDE_SHOTS: Readonly<
     width: 576,
     height: 471,
     alt: "The Resume sheet listing a deliverable that needs a new date and one from an ended month with its choices, highlighted.",
+  },
+  "owner/upload-get": {
+    src: "/guide/owner/upload-get.webp",
+    width: 848,
+    height: 196,
+    alt: "A task's Uploads card before any link, with Get upload link highlighted.",
+  },
+  "owner/upload-card": {
+    src: "/guide/owner/upload-card.webp",
+    width: 870,
+    height: 517,
+    alt: "The Uploads card with three people sending files; Alex's row, marked Stuck, is highlighted.",
+  },
+  "owner/upload-received": {
+    src: "/guide/owner/upload-received.webp",
+    width: 432,
+    height: 342,
+    alt: "The All files received sheet: the files and people, a file still uploading, and its button highlighted.",
   },
   "owner/send-back": {
     src: "/guide/owner/send-back.webp",

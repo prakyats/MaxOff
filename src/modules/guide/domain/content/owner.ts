@@ -633,10 +633,19 @@ export const OWNER_GUIDE: Guide = {
               "Every task's Work view has an Uploads card for you (and for the task's Admins). Make a link there and send it to a freelancer or camera operator: they open it, type their name and send files straight into the task's folder in the studio's Google Drive, with no login. The files never pass through MaxOff. The studio's Drive must be connected first (Settings, then Google Drive).",
             ),
             steps(
-              "Open the task. In Work, tap Get upload link on the Uploads card.",
+              {
+                text: "Open the task. In Work, tap Get upload link (highlighted) on the Uploads card.",
+                shot: "owner/upload-get",
+              },
               "Tap Copy link and send it to whoever has the files.",
-              "Watch the card: one row per person, with their files, data sent and last activity. Tap a row to see that person's files, their device, and the IP address they sent from (only you see the IP).",
-              "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received and confirm.",
+              {
+                text: "Watch the card: one row per person, with their files, data sent and last activity. Tap a row (highlighted) to see that person's files, their device, and the IP address they sent from (only you see the IP).",
+                shot: "owner/upload-card",
+              },
+              {
+                text: "When everything is in, check the list and the Drive folder (Open the folder in Drive), then tap All files received and confirm (highlighted).",
+                shot: "owner/upload-received",
+              },
             ),
             next(
               "All files received stops the link. On your own task it also marks it Done; on a freelancer's task you coordinate, Done for them; otherwise the task's primary owner is told \"Files received: mark it done\".",

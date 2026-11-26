@@ -4,6 +4,33 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v4.5: Upload link
+
+**Ships in the combined release after v4.5** (owner decision, 26 Nov 2026: one production release covering v2.0.1 to v4.5; v4.0 and v4.5 are its last parts). Branch `phase-v45`.
+
+### What the Owner and Admins will notice
+- **An Uploads card on a task's Work view.** It appears for the Owner and for the Admins who look after the task.
+  - **Get upload link** makes a private link; **Copy link** sends it to a freelancer or camera operator.
+  - They open it on a phone or laptop, type their name and send files, or whole folders, straight into the task's folder in the studio's Google Drive. There is no login, and the files never pass through MaxOff.
+- **The card shows who is sending and how far they have got.** Tap a person to see their files: done, still uploading, "Removed in Drive" if someone deleted it there, and "Check before opening" on programs and web pages.
+- **All files received** stops the link. On your own task it also completes the task. Otherwise the task's primary owner is told "Files received: mark it done".
+  - **Stop link** is in the card's ⋯ menu; a stopped card offers **Make a new link**.
+- **New notices:** someone not on the task sending files (at most five a day per link, then one summary); a file waiting for room in the studio's Drive; Google's daily upload limit reached.
+
+### What the Crew will notice
+- Nothing on their own screens. A Crew primary owner gets one new notice: "Files received for ‹task›: mark it done".
+
+### What happens on its own
+- A link stops by itself when the task is Done or cancelled.
+- MaxOff checks a file in Drive only when someone opens that uploader's list (at most once every 10 minutes).
+- Old rate-limit counters are cleared daily.
+
+### Before the tag (the Owner, in the combined release's pre-tag checklist)
+- The Cloudflare rate-limit rule on `/api/upload/*` (`docs/runbooks/cloudflare-rate-limit.md`, a second rule; on the Free plan the app's own limits stand alone).
+- Accept the leftover risks on #89 (A9/E5, B3, D, B1, S7).
+- Staging uses a test override of the space guard (S7); production ignores it.
+- **This release touches the production smoke script:** `scripts/smoke-deploy.sh` gains read-only `/upload` checks.
+
 ## v2.0: fast and settled
 
 **Released Sat 14 Nov 2026, about 12:40 IST** (tag `v2.0` on `main` 6e9f19cc, PR #143; the Owner approved the production deploy, run 43569568961: 14 migrations applied, smoke checks passed). The tag is `v2.0`, not `v2.0.0`.
