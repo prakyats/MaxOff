@@ -6,8 +6,10 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ## v2.0.1: flexible comp leave
 
-**Not released yet.** Branch `claude/lucid-turing-sfdv10` (from `main` 6e89d173); READY FOR OWNER on #89 when CI
-and the speed gate are green. One expand-only migration, `split_leave_days`.
+**Ships in one combined release with v2.1 to v4.5 (owner, 26 Nov 2026, #89 7182409206);** no `v2.0.1` tag of its
+own. Walk passed on `91b22fb1`, speed gate by the same-machine A/B (method accepted), India check waived for this
+part (owner, 26 Nov, #89 7182356694). PR #151 (branch `claude/lucid-turing-sfdv10`). One expand-only migration,
+`split_leave_days`.
 
 The owner's words (23 and 25 Nov 2026): "make the requirements as flexible as possible so people can make use of
 their comp leave, half day or full day; if it's a half-day comp leave, the other half can be their normal leave."
