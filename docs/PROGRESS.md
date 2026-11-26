@@ -285,6 +285,16 @@
       1. v4.0 first (worktree `/home/user/wt/v40`, its PROGRESS "Left, in order" step 1): `pnpm guide:screenshots -g "owner"`, put `shot: "owner/drive"` back, then check, BUILDER, push, full CI, and v4.0's READY.
       2. Then v4.5: `GUIDE_ONLY=owner/upload-get,owner/upload-card,owner/upload-received pnpm guide:screenshots`, and put the shot ids back on the `owner-upload-link` steps (`src/modules/guide/domain/content/owner.ts`). The guide wording changed today ("camera operator", "primary owner"), so check whether the Admin's upload topics have shots to re-take too.
     - [ ] `pnpm check`, BUILDER on #89 **before** every push (one docs push went out before its note today), push, full CI, then post READY from the draft. Fill in HEAD_SHA, FULL_CI_RUN, GUIDE_SHOTS and PENTEST_TIME (about 01:30 UTC, 26 Nov).
+    - [ ] **Owner decision (#89, relayed 26 Nov 04:13 UTC): ONE combined production release** covering v2.0.1 → v4.5.
+      - Merge order: #151, #158/#160, #152, v2.5, v3.0, v3.5, then v4.0 and v4.5 (last).
+      - Mark v4.5's RELEASE-NOTES entry **"ships in the combined release after v4.5"**.
+      - READY's owner steps (the WAF rule, the rate limits, the S7 note) go into the combined release's **pre-tag checklist**. Say so in READY.
+      - The order stays: re-probe → 11:20 pictures → v4.0 READY → v4.5 READY.
+      - **Probe slot:** v2.5 is next after this re-probe (ahead of v7.0). Send "slot free" when done.
+    - **Re-probe status (04:15 UTC):**
+      - Owner run 1, 45742940716: FAIL on last byte, TTFB under the cap. /people +193 ms, a task +162 ms, a person +112 ms; /today passed.
+      - Owner run 2, then Admin and Crew (each with a second run if the first fails), chained in a background job. The gate lines go to `scratchpad/reprobe-<role>-<n>.md`; read them with `gh run view <id> --log` if the scratchpad is gone.
+      - A route slower twice → the local same-machine A/B (`scratchpad/ab/delay-proxy.mjs`; worktrees `/home/user/wt/abmain` on main and `/home/user/wt/abv40` re-pointed to the v4.5 head; rebuild both; 150 ms per call, 10 samples).
   - **Decisions this session:**
     - **The fake Google** is honoured only by a local build and only at loopback addresses; the gate reads the build-inlined `NEXT_PUBLIC_APP_ENV`.
     - **The 404 is a catch-all, `(main)/[...missing]`,** not the experimental `global-not-found`.
