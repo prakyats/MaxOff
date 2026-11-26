@@ -7,6 +7,8 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
 
 import {
   animationsSettled,
+  answerStartPrompt,
+  createFromNewProject,
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
@@ -1770,4 +1772,75 @@ test.describe("TEMP A/B: the create dialog's blur and the slide (iPhone only)", 
       }
     });
   }
+});
+
+/**
+ * TEMPORARY (v7.0, the advisor 26 Nov 2026; removed before READY FOR OWNER with the A/B above).
+ * The other two create dialogs that slide to what they made: whether their dialog is still on
+ * the page when the slide starts (the record's `dialogs=` at the view transition's start) and
+ * whether WebKit holds the slide for it, as the task form did. Each must arrive within a second.
+ */
+test.describe("TEMP measure: New client and New project slides (iPhone only)", () => {
+  test.skip(({ browserName }) => browserName !== "webkit", "the block is WebKit's");
+  test.use({ storageState: storageStateFor("admin") });
+
+  test("TEMP measure: New client's slide commits within a second", async ({ page }, info) => {
+    const name = `TEMP client ${info.project.name}`;
+    await removeClientFixture(name);
+    try {
+      await runInstalled(page);
+      await recordNavigation(page, info);
+      await page.goto("/clients");
+      await answerStartPrompt(page);
+      await hydrated(page);
+      await page.getByRole("button", { name: "New client" }).click();
+      const dialog = page.getByRole("dialog", { name: "New client" });
+      await dialog.getByLabel("Client name").fill(name);
+      await dialog.getByRole("button", { name: "Create client" }).click();
+      await explainOnIphone(page, info, () =>
+        expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/, { timeout: 1_000 }),
+      );
+    } finally {
+      await removeClientFixture(name);
+    }
+  });
+
+  test("TEMP measure: New project's slide commits within a second", async ({ page }, info) => {
+    const name = `TEMP project client ${info.project.name}`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+      client_id: client.id,
+    });
+    try {
+      await runInstalled(page);
+      await recordNavigation(page, info);
+      await page.goto(`/clients/${client.id}/projects`);
+      await answerStartPrompt(page);
+      await hydrated(page);
+      await page.getByRole("button", { name: "New project" }).click();
+      const dialog = page.getByRole("dialog", { name: "New project" });
+      await dialog.getByLabel("Project name").fill("TEMP reels");
+      await dialog.locator('[data-slot="new-project-next"]').click();
+      await dialog.getByLabel("Deliverable name").fill("Reel");
+      await dialog.getByLabel("How many").fill("1");
+      await dialog
+        .locator('[data-slot="add-deliverables"]')
+        .getByRole("button", { name: "Add", exact: true })
+        .click();
+      await createFromNewProject(dialog);
+      await explainOnIphone(page, info, () =>
+        expect(page).toHaveURL(new RegExp(`/clients/${client.id}/projects/[0-9a-f-]{36}$`), {
+          timeout: 1_000,
+        }),
+      );
+    } finally {
+      await removeClientFixture(name);
+    }
+  });
 });
