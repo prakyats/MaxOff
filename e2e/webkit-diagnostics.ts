@@ -72,7 +72,18 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
       if (!rsc) return fetchOriginal(input, init);
       const url = new URL(href, location.href);
       const tag = `${url.pathname}${headers.get("next-router-prefetch") ? " (prefetch)" : ""}`;
-      note("rsc-out", tag);
+      // Who sent it (CI 45721772197: were the prefetches the commit waited on Next's own Link or
+      // our likely-prefetch scheduler?): the calling frames' chunk files and positions.
+      const from = (new Error().stack ?? "")
+        .split("\n")
+        .slice(2, 8)
+        .map((frame) => {
+          const match = /([^/\s(]+\.js)[^:]*:(\d+):(\d+)/.exec(frame);
+          const name = /^\s*(?:at )?([^\s@(]+)[\s@(]/.exec(frame)?.[1] ?? "";
+          return match ? `${name}@${match[1]}:${match[2]}:${match[3]}` : frame.trim().slice(0, 40);
+        })
+        .join(" < ");
+      note("rsc-out", `${tag} from=${from}`);
       try {
         const response = await fetchOriginal(input, init);
         note("rsc-in", `${tag} ${response.status}`);
@@ -109,6 +120,22 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
       });
     if (document.documentElement) watch();
     else document.addEventListener("DOMContentLoaded", watch);
+    // Our likely-prefetch scheduler asks through `router.prefetch()`; a <Link>'s own prefetch
+    // goes straight to Next's internal scheduler. Each call is noted, so an rsc-out prefetch
+    // with no call just before it was a <Link>'s.
+    const wrapRouter = window.setInterval(() => {
+      const router = (window as unknown as { next?: { router?: Record<string, unknown> } }).next
+        ?.router;
+      if (!router || typeof router.prefetch !== "function") return;
+      window.clearInterval(wrapRouter);
+      const prefetch = (router.prefetch as (href: string, options?: unknown) => unknown).bind(
+        router,
+      );
+      router.prefetch = (href: string, options?: unknown) => {
+        note("router.prefetch", String(href));
+        return prefetch(href, options);
+      };
+    }, 50);
   });
 }
 
