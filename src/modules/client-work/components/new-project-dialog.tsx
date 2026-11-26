@@ -267,6 +267,10 @@ export function NewProjectDialog({
       leaving.current = true;
       const href = `/clients/${clientId}/projects/${result.data.id}`;
       const go = () => {
+        // The dialog has done its job: it goes before the slide starts, so the browser's
+        // photograph of the page it leaves holds no dialog (v7.0, CI 45783088755, WebKit: the
+        // open dialog and its blurred backdrop held the slide 0.95 s, as the task form's did).
+        onClose();
         nameSlide("forward");
         router.push(href, { transitionTypes: [NAV_FORWARD] });
       };
