@@ -268,7 +268,7 @@
     - The release review is done (`docs/reviews/v4.5/release-review.md`).
     - The READY draft is in `docs/handoff/v45-ready-draft.md`.
   - **UPDATE 26 Nov ~12:15 IST (read this first):**
-    - **Owner's rule (26 Nov ~12:05 IST, via the advisor): talk to the ADVISOR, not the owner.** Every question, decision, status, READY and blocker goes to the advisor (session_015vyzMUD3jKaygKBakFdhKZ) with `send_message`. Never ask the owner in this session. Send each READY to the advisor; keep posting BUILDER on #89 before pushes as before.
+    - **Owner's rule (26 Nov ~12:05 IST, via the advisor): talk to the ADVISOR, not the owner.** Every question, decision, status, READY and blocker goes to the advisor (NOW session_015vyzMUgXy4TaM5bDuVMZze) with `send_message`. Never ask the owner in this session. Send each READY to the advisor; keep posting BUILDER on #89 before pushes as before.
     - main moved to 0214c60. The current CI runs count for READY; take main again before each merge (advisor).
     - **v4.0** (`/home/user/wt/v40`, `phase-v40` cc06f05c):
       - main merged; the Owner pictures re-taken, with `owner/drive` on the Connect step; check green.
@@ -289,7 +289,8 @@
       - The RELEASE-NOTES v4.5 entry is marked "ships in the combined release after v4.5".
       - **Full CI 45766064706, attempt 1: shards 1 and 3 died before any test ran.** Supabase could not start: "failed to bind host port 0.0.0.0:54322: address already in use" on the runner. **Attempt 2** (the one allowed re-run of the failed jobs) was started 26 Nov ~12:55 IST. If it fails again, that is real: root-cause it.
       - **Attempt 2: GREEN (all jobs).** v4.5 full CI on bad4fc39 = 45766064706.
-      - **NEW CHANNEL (advisor, 26 Nov ~13:37 IST):** post every report, READY, question and blocker as a comment on GitHub issue #89 starting with **"BUILDER (vX.Y) → ADVISOR"**. Do not use send_message (it is refused) and do not ask the owner to relay. The acknowledgement of the v4.0 walk follow-ups was posted there (#89 comment 7186224751).
+      - **NEWEST (26 Nov ~17:32 IST): the advisor has moved to a NEW session, `session_015vyzMUgXy4TaM5bDuVMZze`** ("MaxOff advisor (from 26 Nov handoff)"). Report to it with send_message; it accepts builder messages. READY posts still go on #89. The handoff is #89 7191479473. This supersedes the #89-only channel below.
+      - (superseded) **NEW CHANNEL (advisor, 26 Nov ~13:37 IST):** post every report, READY, question and blocker as a comment on GitHub issue #89 starting with **"BUILDER (vX.Y) → ADVISOR"**. Do not use send_message (it is refused) and do not ask the owner to relay. The acknowledgement of the v4.0 walk follow-ups was posted there (#89 comment 7186224751).
       - (old) **`send_message` to the advisor now fails:** "elevated_session_untrusted_device: the session you named needs proof of a trusted device". The v4.0 walk-follow-up acknowledgement was NOT delivered. Ask the user to relay it, or post on #89 instead.
     - **v4.5, still to do before READY:**
       1. **The same-machine A/B**, scoped below (re-probe results): a task without and with uploads, /today and /people (Owner and Admin), Crew /calendar, /me, /leave and "a task", each with a read-log diff.
