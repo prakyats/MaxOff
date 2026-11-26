@@ -537,6 +537,10 @@ function TaskForm({
         onLeave();
         const href = `/tasks/${result.data.id}`;
         closeOverlaysThen(() => {
+          // The form has done its job: it goes before the slide starts, so the browser's
+          // photograph of the page it leaves holds no dialog (v7.0, CI 45766969643, WebKit: the
+          // open dialog and its blurred backdrop held the slide 1.7 s; without the blur 0.7 s).
+          onClose();
           nameSlide("forward");
           router.push(href, { transitionTypes: [NAV_FORWARD] });
         });
