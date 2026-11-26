@@ -46,15 +46,26 @@ export type SummaryLine = {
   emphasis?: boolean;
 };
 
+/**
+ * The half days that were half worked, from the server's own figures: days worked beyond the
+ * present days, in halves (a half day, or a ½ comp day, worked its other half). Not `halfDays`:
+ * since v2.0.1 a split day (½ comp + ½ leave, nothing worked) is one of the month's half days, and
+ * a ½ comp day never was, so "Days worked"'s detail would name halves nobody worked.
+ */
+export function workedHalfDays(summary: Pick<MonthSummary, "daysWorked" | "presentDays">): number {
+  return Math.max(0, Math.round((summary.daysWorked - summary.presentDays) * 2));
+}
+
 /** The lines of PRODUCT §4.18's table, in its order. */
 export function summaryLines(summary: MonthSummary): SummaryLine[] {
+  const workedHalves = workedHalfDays(summary);
   const lines: SummaryLine[] = [
     { key: "working", label: "Working days", value: dayFigure(summary.workingDays) },
     {
       key: "worked",
       label: "Days worked",
       value: dayFigure(summary.daysWorked),
-      detail: `${summary.presentDays} present · ${summary.halfDays} half ${summary.halfDays === 1 ? "day" : "days"}`,
+      detail: `${summary.presentDays} present · ${workedHalves} half ${workedHalves === 1 ? "day" : "days"}`,
     },
     // W6 (v1.8 V4): three labelled rows, never "0 · 0 · 10" to decode.
     { key: "leave", label: "Leave", value: dayFigure(summary.leaveDays) },

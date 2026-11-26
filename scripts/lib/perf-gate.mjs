@@ -88,7 +88,7 @@ export const MEMBER_ROUTES = [
     name: "/reports/revenue",
     path: "/reports/revenue",
     roles: ["owner"],
-    landmark: ["revenue-figures"],
+    landmark: ["revenue-summary", "revenue-error"],
   },
   // v3.5: last IST month on Revenue (an ended month: its header's close link and, once closed, the
   // saved figures) and its close screen. `:endedMonth` is `lastMonthIST()`, never a fixed month.
@@ -102,7 +102,7 @@ export const MEMBER_ROUTES = [
     roles: ["owner"],
     needs: ["endedMonth"],
     what: "ended month",
-    landmark: ["revenue-figures"],
+    landmark: ["revenue-summary", "revenue-error"],
   },
   {
     name: "/reports/close (last month)",
@@ -218,6 +218,34 @@ export function planMemberRoutes(role, ids) {
     );
     return { name: route.name, path, ...(route.landmark ? { landmark: route.landmark } : {}) };
   });
+}
+
+/**
+ * `--also "/people/:person/leave,/people/:person/attendance"` (v2.0.1, observation): extra
+ * signed-in paths for one run, outside the gate's route list, with the same `:id` placeholders.
+ * A placeholder this member has no record for is a skipped row; a path must start with "/".
+ * @param {string | null | undefined} list comma-separated paths
+ * @param {Ids} ids
+ * @returns {{ name: string, path?: string, skip?: string }[]}
+ */
+export function planExtraRoutes(list, ids) {
+  if (!list) return [];
+  return list
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => {
+      if (!entry.startsWith("/"))
+        throw new Error(`--also takes paths that start with "/": ${entry}`);
+      const missing = [...entry.matchAll(/:([A-Za-z]+)/g)]
+        .map((match) => match[1])
+        .filter((key) => !ids[/** @type {IdKey} */ (key)]);
+      if (missing.length > 0) return { name: entry, skip: `no ${missing[0]} this member can see` };
+      const path = entry.replace(/:([A-Za-z]+)/g, (_, key) =>
+        String(ids[/** @type {IdKey} */ (key)]),
+      );
+      return { name: entry, path };
+    });
 }
 
 /**

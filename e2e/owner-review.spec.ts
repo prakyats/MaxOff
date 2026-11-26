@@ -260,6 +260,8 @@ test("Review → Correct asks for a reason the person will read", async ({ page 
   const dialog = page.locator('[data-slot="dialog-content"]');
   await dialog.getByRole("combobox", { name: "The day was" }).click();
   await page.getByRole("option", { name: "Half day", exact: true }).click();
+  // v2.0.1: a half day names the half that was off.
+  await dialog.getByLabel("Afternoon off").check();
   await expect(dialog).toContainText(`${nameOf("fix", info)} will see this reason.`);
   await dialog.getByRole("button", { name: "Save correction" }).click();
   await expect(dialog.locator('[data-slot="field-error"]')).toBeVisible();

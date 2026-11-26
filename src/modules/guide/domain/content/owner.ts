@@ -261,6 +261,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "Approve gives a 6-second Undo. The review also links to the person's leave page.",
             ),
+            text(
+              'A full day of ½ comp + ½ leave is one row, such as "Full day · ½ comp (morning) + ½ leave": Approve or Reject decides both halves. A half day says which half is off, such as "Half day · comp · afternoon off".',
+            ),
             note("A reason is required to reject a request."),
           ],
           link: { href: "/approvals", label: "Open Approvals" },
@@ -320,8 +323,8 @@ export const OWNER_GUIDE: Guide = {
                 shot: "owner/person-leave",
               },
               'To take it back, tap "Revoke".',
-              'On approved leave, tap "Edit" to change it ("Edit this leave").',
-              'Tap "Cancel leave" to cancel it.',
+              'On approved leave, tap "Edit" to change it ("Edit this leave"). A half day asks "Which half is off?" and offers "Use ½ comp leave for this half".',
+              'Tap "Cancel leave" to cancel it. A full day of ½ comp + ½ leave has each half\'s own Edit and Cancel, such as "Cancel the morning"; a cancelled comp half gives its ½ day back.',
             ),
             next("A change adds a history entry beside the original. Nothing is deleted."),
             note("Revoke needs a reason."),
@@ -344,6 +347,9 @@ export const OWNER_GUIDE: Guide = {
               'Enter the right details and save. Times use the 12-hour clock, such as "9:30 am"; an empty time reads "Choose a time".',
             ),
             next("The original stays in the history. A correction sits alongside it."),
+            text(
+              'For leave, Correct can set a Half day (it asks "Which half was off?"), "Use ½ comp leave for this half", or "Full day: ½ comp + ½ leave" with the comp half. A day like that reads "Off · ½ comp + ½ leave".',
+            ),
             text(
               'Rows carry no buttons: tap a day to open it. A day still waiting for you shows the green "Approve as present" (or absent) beside "Correct…": the same approval as on Approvals. A row also says "Late 22 min · “Traffic”" or "Left early, not answered" when that happened. On a working day, a start or end time that was never recorded reads "Not recorded" (today\'s end shows "—" while the day is still open).',
             ),
@@ -1659,7 +1665,10 @@ export const OWNER_GUIDE: Guide = {
               'Every line says "Not billed" or "Billed 3 Dec", and "Adjusted" when you changed its Achieved by hand.',
             ),
             steps(
-              'To mark the month billed in one go, tap "Mark all 3 billed" under the three figures. It counts the lines of the month, in the category you are looking at, that are not billed yet and have something to bill: a line with no amount set or at ₹0 is left out, a line on hold is included. A line billed on another screen meanwhile keeps its own date and note.',
+              {
+                text: 'To mark the month billed in one go, tap "Mark all 3 billed" under the three figures (highlighted). It counts the lines of the month, in the category you are looking at, that are not billed yet and have something to bill: a line with no amount set or at ₹0 is left out, a line on hold is included. A line billed on another screen meanwhile keeps its own date and note.',
+                shot: "owner/revenue-mark-all",
+              },
               'Check "Date billed" (today unless you change it; it can\'t be in the future) and tap "Mark 3 billed". Each line then reads "Billed" with that day.',
             ),
             steps(
@@ -1840,7 +1849,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               "Open the project and scroll down to Billing. On a monthly or weekly project, pick the month with the month tabs first.",
-              'Tap "Mark billed".',
+              { text: 'Tap "Mark billed" (highlighted).', shot: "owner/billing-billed" },
               '"Date billed" starts as today; change it if you sent the invoice earlier (it can\'t be in the future). Add a note if you like, such as the invoice number, and tap "Mark billed".',
             ),
             next('The row reads "Billed on 3 Dec · Invoice 42".'),
@@ -1864,7 +1873,10 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               "Open the project and scroll down to Billing. On a monthly or weekly project, pick the month first.",
-              'In the Achieved row, tap "Adjust".',
+              {
+                text: 'In the Achieved row, tap "Adjust" (highlighted).',
+                shot: "owner/billing-adjust",
+              },
               'Type the achieved amount in whole rupees and a note saying why (the note is required), then tap "Save adjustment".',
             ),
             next(
@@ -1897,7 +1909,10 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               'Open the project, pick the month, scroll down to Billing and tap "Planned deliverables" to open the list.',
-              'Tap "Set value" on the deliverable.',
+              {
+                text: 'Tap "Set value" on the deliverable (highlighted).',
+                shot: "owner/billing-planned",
+              },
               'Type its value in whole rupees and tap "Save value".',
             ),
             next(
@@ -1917,10 +1932,10 @@ export const OWNER_GUIDE: Guide = {
           title: "See a project's Billing history",
           summary: "Every change to a project's money, who made it and when.",
           blocks: [
-            steps(
-              "Open the project and scroll down to Billing.",
-              'Tap "Billing history" to open it.',
-            ),
+            steps("Open the project and scroll down to Billing.", {
+              text: 'Tap "Billing history" to open it: the changes, newest first (highlighted).',
+              shot: "owner/billing-history",
+            }),
             next(
               'The newest 20 changes, newest first: each with its day and time, who made it, and what changed, such as "Amount set to ₹10,000 (was ₹8,000)", "Marked billed on 3 Dec", "Advance ₹30,000 received", "Adjusted to ₹9,000: Discount agreed" or "Price of Reel 2 set to ₹2,000". Tap "Show older" for the 20 before them.',
             ),
@@ -1941,9 +1956,10 @@ export const OWNER_GUIDE: Guide = {
             text(
               'The last line of Today\'s main list (above "This week" on a phone) reads, for example, "November · ₹ ••• achieved of ₹ ••• · Show". The amounts are hidden, so they are not on screen when someone looks over your shoulder.',
             ),
-            steps(
-              "Tap the line: the figures are fetched at that moment (a short grey bar while they come) and shown; tap it again to hide them.",
-            ),
+            steps({
+              text: "Tap the line (highlighted): the figures are fetched at that moment (a short grey bar while they come) and shown; tap it again to hide them.",
+              shot: "owner/today-revenue",
+            }),
             next(
               'It then reads "November · ₹45,000 achieved of ₹1,20,000 · Hide". "2 not priced" means deliverables added this month still need a price; "1 with no amount" is a project of the month without an amount. Tap "Open Revenue" for the whole month.',
             ),

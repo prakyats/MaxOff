@@ -205,7 +205,11 @@ insert into app_internal values
   ('month_snapshot_figures'), ('month_revenue_changes'), ('month_waiting'),
   -- v3.5 U6: the reminder's months and words, called only inside month_close_reminder() and the weekly
   -- digest (migration v35_month_reminder, pgTAP 167)
-  ('month_close_reminder'), ('month_close_reminder_line');
+  ('month_close_reminder'), ('month_close_reminder_line'),
+  -- v2.0.1: per-half leave conflicts, their message and label, the two halves of a date and the
+  -- day settled from them (migration split_leave_days, pgTAP 150)
+  ('leave_conflict'), ('leave_conflict_message'), ('leave_label'), ('leave_halves'),
+  ('attendance_settle_halves');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -226,7 +230,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 149::bigint,
+             and p.proname in (select name from app_internal)), 154::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

@@ -12,10 +12,17 @@
 -- notification goes to the Owner alone with no amount in its title, body or payload.
 -- EXPAND-ONLY: one notification kind, two new functions, three functions re-created with the same
 -- signatures and grants. Append-only: never edit once applied.
+--
+-- Version 20261125160001, not ...160000 (advisor, 26 Nov 2026, #89): ...160000 is v7.0's
+-- v70_stay_plans_clear_late, recorded on staging first, so this file was renamed before it was applied
+-- anywhere. Staging applies it out of order (after v2.5's 20261125220000 and v3.5's revenue migrations), so
+-- every statement is safe to run there: the kind's insert skips an existing row, every function is
+-- `create or replace`, and revenue_month_read is the same body v3.5's 20261125200040 re-applies.
 
 insert into public.notification_kinds (kind, actionable, always_email, in_app, description) values
   ('deliverable_not_priced', false, false, true,
-   'A deliverable was added to a retainer cycle that has an amount, so it is not priced (the Owner; never an amount)');
+   'A deliverable was added to a retainer cycle that has an amount, so it is not priced (the Owner; never an amount)')
+on conflict (kind) do nothing;
 
 create or replace function app.item_billing_mark_added()
 returns trigger
@@ -222,7 +229,7 @@ end;
 $$;
 
 -- The Owner's Billing history of one project (Q7): the money tables' audit rows, newest first.
-create function public.project_billing_history(project_id uuid, limit_count integer default 50)
+create or replace function public.project_billing_history(project_id uuid, limit_count integer default 50)
 returns jsonb
 language plpgsql
 stable
@@ -279,7 +286,7 @@ comment on function public.project_billing_history(uuid, integer) is
   'v2.5 (finance.view, security invoker; Q7): the Owner''s Billing history of one project: the money tables'' audit rows (amounts, values, advances, adjustments, billed), newest first, at most 200.';
 
 -- The Owner's Today line (R5): this IST month's four figures and the two counts that need a look.
-create function public.revenue_month_totals()
+create or replace function public.revenue_month_totals()
 returns jsonb
 language plpgsql
 stable

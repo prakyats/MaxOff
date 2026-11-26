@@ -79,6 +79,7 @@ import {
   lastMonthIST,
   median,
   pageProblem,
+  planExtraRoutes,
   planMemberRoutes,
   summaryLine,
 } from "./lib/perf-gate.mjs";
@@ -596,6 +597,8 @@ async function main() {
     { name: "/api/warm", path: "/api/warm", auth: true },
     { name: "/login", path: "/login", auth: false },
     ...(cookie ? planMemberRoutes(memberRole, ids).map((r) => ({ ...r, auth: true })) : []),
+    // `--also` (observation): extra signed-in paths, e.g. a person's Leave tab (planExtraRoutes).
+    ...(cookie ? planExtraRoutes(args.also, ids).map((r) => ({ ...r, auth: true })) : []),
   ];
   const routes = plan.filter((route) => route.path !== undefined);
 
