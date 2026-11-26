@@ -30,3 +30,16 @@
   
   Each keeps the gate, the CPU factor and the 200 ms limit. The spec's taps land 1–2 s after load, inside these tasks.
 - **Then:** 20 runs of `phone-inp.spec` before and after (`--repeat-each 20 --project=mobile`), with the INP per tap from the annotations.
+
+## Options (a) and (b), done here (26 Nov 2026)
+- **(a)** `LiveUpdatesLazy` imports the Realtime client in an idle moment (at most 2.5 s), not straight from its effect. Nothing is lost: the first join already catches up (`catchUpRefreshes`).
+- **(b)** The date-fns/`Intl` chunk comes from `StartDayPromptLazy` (`AfterPage`, every screen) → `day-actions` → date-fns-tz. Every after-page part and the live bell now go through one queue (`core/ui/lazy/idle-queue.ts`): each in its own idle callback, the next only once the previous import has settled. The two heavy evaluations never land in one busy stretch.
+- **Proof, local, `--repeat-each 20 --workers=1 --project=mobile` (300 runs, the worst tap of each run):**
+
+  | | fails (> 200 ms) | p50 | p90 | max |
+  |---|---|---|---|---|
+  | before (cause 1 fixed only) | 19 / 300 | 120 | 184 | 416 |
+  | after (a) + (b) | 8 / 300 | 120 | 176 | 248 |
+
+  The worst cases left are the Owner's and an Admin's `/today → /approvals` (2 each), each 208–248 ms. `instant-skeleton` cold-Worker: 106 of 106 passed (6 repeats, one worker). `pnpm check` green; first-load JS budgets unchanged.
+- **Open:** (c), the after-page renders, only if the advisor wants the last 8.

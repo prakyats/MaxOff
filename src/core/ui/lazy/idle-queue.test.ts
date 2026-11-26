@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("whenIdle: the after-page parts, one idle moment each (phone-inp (b))", () => {
@@ -7,14 +6,17 @@ describe("whenIdle: the after-page parts, one idle moment each (phone-inp (b))",
   beforeEach(() => {
     vi.resetModules();
     idle = [];
-    window.requestIdleCallback = ((run: () => void) => {
-      idle.push(run);
-      return idle.length;
-    }) as typeof window.requestIdleCallback;
+    // A stand-in window: only the idle callback the queue asks for.
+    vi.stubGlobal("window", {
+      requestIdleCallback: (run: () => void) => {
+        idle.push(run);
+        return idle.length;
+      },
+    });
   });
 
   afterEach(() => {
-    Reflect.deleteProperty(window, "requestIdleCallback");
+    vi.unstubAllGlobals();
   });
 
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
