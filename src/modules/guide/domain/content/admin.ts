@@ -1462,11 +1462,38 @@ export const ADMIN_GUIDE: Guide = {
               text: "A banner reads “Completed: read-only.” Every change is refused until you reopen the project.",
             },
             {
+              kind: "text",
+              text: "A one-time project can be finished with its last deliverable. A monthly or weekly project never asks.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "On the project page, tap Mark done on the last open deliverable.",
+                {
+                  text: "It asks “Complete the project too?”. Tap Mark done and complete project (highlighted) to do both at once; it has no Undo.",
+                  shot: "admin/complete-prompt",
+                },
+                "Or tap Mark done only: the deliverable is marked as usual, with its Undo, and the project stays open.",
+              ],
+            },
+            {
+              kind: "text",
+              text: "If the last deliverable is marked done another way (from Today, with Mark N done, or with Mark done only), nothing is lost: a message says “All deliverables done” with a Complete project button, and the project reads “Ready to complete” on its page and in the client’s project list until you complete it.",
+            },
+            {
               kind: "note",
               text: "A completed or cancelled project is read-only. Reopen project… brings it back.",
             },
           ],
-          keywords: ["complete", "cancel", "read-only", "reopen project"],
+          keywords: [
+            "complete",
+            "cancel",
+            "read-only",
+            "reopen project",
+            "last deliverable",
+            "ready to complete",
+            "mark done and complete",
+          ],
         },
         {
           id: "admin-project-hold",

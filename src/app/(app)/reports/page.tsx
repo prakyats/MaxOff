@@ -27,6 +27,7 @@ import {
   REPORT_LINES_CLASS,
   REPORT_ROW_CLASS,
   REPORTS_LIST_CLASS,
+  showsReport,
 } from "./list-row";
 
 export const metadata: Metadata = { title: "Reports" };
@@ -74,7 +75,7 @@ export default async function ReportsPage({
         <OnHoldSection held={held} />
       </Suspense>
       <ul data-slot="reports-list" className={REPORTS_LIST_CLASS}>
-        {OWNER_REPORTS.map((report) => (
+        {OWNER_REPORTS.filter((report) => showsReport(viewer.role, report)).map((report) => (
           <li key={report.key}>
             <DrillLink
               href={report.href}

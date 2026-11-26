@@ -28,6 +28,7 @@ const ROUTES = [
   "/people",
   "/reports",
   "/reports/month",
+  "/reports/revenue",
   "/settings",
   "/settings/company",
   "/settings/custom-fields",
