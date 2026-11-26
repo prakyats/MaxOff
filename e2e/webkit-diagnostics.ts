@@ -43,7 +43,7 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
     const events: NavEvent[] = [];
     const note = (kind: string, detail: string) => {
       events.push({ at: Math.round(performance.now() - started), kind, detail });
-      if (events.length > 300) events.splice(0, events.length - 300);
+      if (events.length > 600) events.splice(0, events.length - 600);
     };
     (window as unknown as { __navEvents: NavEvent[] }).__navEvents = events;
     const keys = (state: unknown) =>
@@ -108,6 +108,136 @@ export async function recordNavigation(page: Page, info: TestInfo): Promise<void
         throw error;
       }
     };
+    // v7.0 tasks:1043 (the advisor, 26 Nov): the commit came 6.6 s after the last RSC byte, so
+    // what else can hold it? Each candidate below is recorded, none changes behaviour.
+    const nativeTimeout = window.setTimeout.bind(window);
+    const callers = (skip = 2) =>
+      (new Error().stack ?? "")
+        .split("\n")
+        .slice(skip, skip + 4)
+        .map((frame) => {
+          const match = /([^/\s(]+\.js)[^:]*:(\d+):(\d+)/.exec(frame);
+          const name = /^\s*(?:at )?([^\s@(]+)[\s@(]/.exec(frame)?.[1] ?? "";
+          return match ? `${name}@${match[1]}:${match[2]}:${match[3]}` : frame.trim().slice(0, 40);
+        })
+        .join(" < ");
+    // (1)-(3) Every non-RSC resource the page loads (scripts, CSS, fonts, images), with the
+    // browser's own times, relative to the same zero as every other line.
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
+          if (entry.name.includes("_rsc=")) continue;
+          if (entry.initiatorType === "fetch" || entry.initiatorType === "xmlhttprequest") continue;
+          const path = new URL(entry.name, location.href).pathname;
+          note(
+            "resource",
+            `${entry.initiatorType} ${path} start+${Math.round(entry.startTime - started)} end+${Math.round(entry.responseEnd - started)} bytes=${entry.transferSize}`,
+          );
+        }
+      }).observe({ type: "resource", buffered: false });
+    } catch {
+      note("resource", "(no PerformanceObserver for resources)");
+    }
+    // (3) Fonts.
+    const fonts = document.fonts as FontFaceSet | undefined;
+    if (fonts) {
+      fonts.addEventListener("loading", () => note("fonts", `loading status=${fonts.status}`));
+      fonts.addEventListener("loadingdone", () =>
+        note("fonts", `loadingdone status=${fonts.status}`),
+      );
+      fonts.addEventListener("loadingerror", () =>
+        note("fonts", `loadingerror status=${fonts.status}`),
+      );
+    }
+    // (3) View transitions: when one is asked for, when its update ran, and when it was ready
+    // and finished.
+    const doc = document;
+    if (typeof doc.startViewTransition === "function") {
+      const start = doc.startViewTransition.bind(doc);
+      doc.startViewTransition = (update?: Parameters<typeof start>[0]) => {
+        note("view-transition", `start from=${callers()}`);
+        const transition = start(update);
+        void transition.updateCallbackDone.then(
+          () => note("view-transition", "update done"),
+          (error: unknown) => note("view-transition", `update failed ${String(error)}`),
+        );
+        void transition.ready.then(
+          () => note("view-transition", "ready"),
+          (error: unknown) => note("view-transition", `ready failed ${String(error)}`),
+        );
+        void transition.finished.then(
+          () => note("view-transition", "finished"),
+          () => note("view-transition", "finished (rejected)"),
+        );
+        return transition;
+      };
+    } else {
+      note("view-transition", "(no document.startViewTransition)");
+    }
+    // (5) Timers: every setTimeout still pending, with its delay and who set it; and the main
+    // thread's own gaps (a 100 ms heartbeat that came late by more than 250 ms).
+    const pending = new Map<number, { at: number; delay: number; from: string }>();
+    const timeoutOriginal = window.setTimeout.bind(window);
+    const clearOriginal = window.clearTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, delay?: number, ...rest: unknown[]) => {
+      const from = callers(3);
+      const at = Math.round(performance.now() - started);
+      const id: number = timeoutOriginal(
+        (...args: unknown[]) => {
+          pending.delete(id);
+          if (typeof handler === "function") (handler as (...a: unknown[]) => void)(...args);
+        },
+        delay,
+        ...rest,
+      );
+      pending.set(id, { at, delay: Number(delay ?? 0), from });
+      return id;
+    }) as typeof window.setTimeout;
+    window.clearTimeout = ((id?: number) => {
+      if (id !== undefined) pending.delete(id);
+      clearOriginal(id);
+    }) as typeof window.clearTimeout;
+    const pendingTimers = () =>
+      [...pending.values()]
+        .map((timer) => `set+${timer.at} delay=${timer.delay} from=${timer.from}`)
+        .join(" | ") || "(none)";
+    (window as unknown as { __pendingTimers: () => string }).__pendingTimers = pendingTimers;
+    let beat = performance.now();
+    const heartbeat = () => {
+      const now = performance.now();
+      if (now - beat > 350) note("main-thread", `heartbeat ${Math.round(now - beat)} ms apart`);
+      beat = now;
+      nativeTimeout(heartbeat, 100);
+    };
+    nativeTimeout(heartbeat, 100);
+    // While a move is pending, once a second: which timers are waiting.
+    const tick = () => {
+      if (document.documentElement?.hasAttribute("data-nav-pending"))
+        note("timers", `pending: ${pendingTimers()}`);
+      nativeTimeout(tick, 1000);
+    };
+    nativeTimeout(tick, 1000);
+    // (6) The create dialog's close: its animations and transitions starting and ending.
+    const where = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return "?";
+      const slot = target.closest("[data-slot]")?.getAttribute("data-slot") ?? "";
+      const role = target.closest("[role]")?.getAttribute("role") ?? "";
+      return `${target.tagName.toLowerCase()}${slot ? `[${slot}]` : ""}${role ? ` in ${role}` : ""}`;
+    };
+    for (const kind of ["animationstart", "animationend", "animationcancel"] as const)
+      window.addEventListener(
+        kind,
+        (event) =>
+          note(kind, `${(event as AnimationEvent).animationName} on ${where(event.target)}`),
+        true,
+      );
+    for (const kind of ["transitionstart", "transitionend", "transitioncancel"] as const)
+      window.addEventListener(
+        kind,
+        (event) =>
+          note(kind, `${(event as TransitionEvent).propertyName} on ${where(event.target)}`),
+        true,
+      );
     const watch = () =>
       new MutationObserver(() =>
         note(
@@ -143,13 +273,21 @@ async function navigationRecord(page: Page): Promise<string> {
   const events = await page
     .evaluate(() => {
       const list = (window as unknown as { __navEvents?: NavEvent[] }).__navEvents ?? [];
-      return { list, length: history.length, url: location.href };
+      const timers = (window as unknown as { __pendingTimers?: () => string }).__pendingTimers;
+      return {
+        list,
+        length: history.length,
+        url: location.href,
+        fonts: document.fonts?.status ?? "(none)",
+        timers: timers ? timers() : "(not recorded)",
+      };
     })
     .catch(() => null);
   if (!events) return "(the page could not be read)";
   const network = networkTimes.get(page) ?? [];
   return [
-    `url=${events.url} history.length=${events.length}`,
+    `url=${events.url} history.length=${events.length} fonts=${events.fonts}`,
+    `pending timers now: ${events.timers}`,
     ...events.list.map((event) => `+${event.at}ms ${event.kind} ${event.detail}`),
     ...(network.length > 0
       ? ["--- network (RSC, browser's own times) ---", ...network.slice(-40)]
