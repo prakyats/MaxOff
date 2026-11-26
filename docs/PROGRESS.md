@@ -267,6 +267,26 @@
     - The staging pen test passes (run 2, 45733118056).
     - The release review is done (`docs/reviews/v4.5/release-review.md`).
     - The READY draft is in `docs/handoff/v45-ready-draft.md`.
+  - **UPDATE 26 Nov ~12:15 IST (read this first):**
+    - **v4.0** (`/home/user/wt/v40`, `phase-v40` cc06f05c):
+      - main merged; the Owner pictures re-taken, with `owner/drive` on the Connect step; check green.
+      - **Full CI 45765346675 is running.** When it's green, post v4.0's READY FOR OWNER on #89, per the 11:20 trigger's list: probe runs 44428827541 and 44430637647, plus the A/B table and "accepted by the owner, 19 Nov"; the walk script; the Google Cloud steps (#89 6985168606 and 6985390913); the release notes. Tell the advisor.
+      - Flag in v4.0's READY: the Drive card says "Not connected" twice (the heading, and the first words of its text).
+    - **v4.5** (bad4fc39):
+      - The Owner's upload pictures are made and wired; the Admin's two re-taken.
+      - `smoke-deploy.sh` has the `/upload` checks (it passed locally against a production build). **READY says "touches the production smoke script".**
+      - The RELEASE-NOTES v4.5 entry is marked "ships in the combined release after v4.5".
+      - **Full CI 45766064706 is running.**
+    - **v4.5, still to do before READY:**
+      1. **The same-machine A/B**, scoped below (re-probe results): a task without and with uploads, /today and /people (Owner and Admin), Crew /calendar, /me, /leave and "a task", each with a read-log diff.
+         - The bar: within the gate, or a named and fixed cause.
+         - The Uploads card's cost is reported separately; if its read is in series with the first wave, make it parallel or fetch it after first paint.
+      2. **`/upload`'s standalone warm TTFB and last byte** from a runner (this container can't reach `*.workers.dev`).
+      3. **READY v4.5** from `docs/handoff/v45-ready-draft.md`:
+         - the advisor's wording for Admin /clients and Crew /me (first probe), plus the re-probe tables and the A/B;
+         - the v7.0 sonner trace;
+         - "touches the production smoke script";
+         - the pre-tag checklist items.
   - **Checklist:**
     - [x] §7.3 flows (fake Google), the 404 catch-all, the pgTAP lock list, the NUL refusal, the single CSP on /upload, and the architecture and design review fixes.
     - [x] Speed gate run 1 (05eff5f4): accepted by the advisor with a wording correction. READY must say: **"Admin /clients and Crew /me were slower twice in CI preview runs; closed by the same-machine A/B with identical reads (±6 ms), the method the owner accepted for v4.0"**. Put both tables in and flag those two routes. The draft still says "nothing slow twice" for the Owner only (that part is right). Fix the Admin and Crew wording.
