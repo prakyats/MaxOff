@@ -5,6 +5,7 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { GUIDE_SHOTS } from "../src/modules/guide/domain/shots.generated";
+import { PRIVACY_NOTICE_VERSION } from "../src/modules/privacy/domain/notice";
 import {
   type AdminDay,
   type CrewDay,
@@ -675,8 +676,28 @@ function assertDaytime(): void {
   }
 }
 
+/**
+ * v7.5 Q1: everyone has read the privacy notice, as the team has after its first day, so the home
+ * screens show their steady state, not the one-time card (`e2e/global-setup.ts` does the same for
+ * the flow tests; this config has no global setup).
+ */
+async function markPrivacyNoticeRead(): Promise<void> {
+  const members = await serviceSelect<{ id: string; org_id: string }>("members?select=id,org_id");
+  const rows = members.map((member) => ({
+    member_id: member.id,
+    org_id: member.org_id,
+    version: PRIVACY_NOTICE_VERSION,
+  }));
+  await serviceRest("privacy_notice_reads?on_conflict=member_id", {
+    method: "POST",
+    headers: { prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify(rows),
+  });
+}
+
 test.beforeAll(async () => {
   assertDaytime();
+  await markPrivacyNoticeRead();
   demo = await makeDemo();
 });
 
