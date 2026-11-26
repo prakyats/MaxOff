@@ -4,6 +4,7 @@
 -- another Admin (NOT_FOUND / nothing read), Crew (FORBIDDEN / nothing read), a deactivated Admin
 -- (UNAUTHENTICATED), anon (no privilege).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(133);
 

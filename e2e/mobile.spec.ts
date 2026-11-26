@@ -1045,3 +1045,30 @@ test.describe("the MaxOff mark on a top-level tab (owner 2026-10-21)", () => {
     ).toHaveCount(1);
   });
 });
+
+test.describe("a toast fits the phone", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  // sonner's phone CSS gave its toast list both side offsets and `width: 100%`, so the list
+  // reached 16px past the right edge whenever a toast was up (v3.5, CI: month-close.spec at
+  // 375 and 430). `globals.css` lets the offsets set the width; the toast keeps its place.
+  test("with a toast up, nothing reaches past the right edge, and the toast sits 16px in from each side", async ({
+    page,
+  }) => {
+    await page.goto("/settings/company");
+    await expectSettled(page);
+    // Saving the name as it stands changes nothing but still says so.
+    await page.getByRole("button", { name: "Save company" }).click();
+    const toast = page.locator("[data-sonner-toast]", { hasText: "Company profile saved" });
+    await expect(toast).toBeVisible();
+    await animationsSettled(page);
+
+    await expectNoHorizontalScroll(page);
+    const width = page.viewportSize()?.width ?? 0;
+    const box = await toast.boundingBox();
+    expect(Math.round(box?.x ?? 0), "16px from the left edge").toBe(16);
+    expect(Math.round((box?.x ?? 0) + (box?.width ?? 0)), "16px from the right edge").toBe(
+      width - 16,
+    );
+  });
+});

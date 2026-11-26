@@ -11,6 +11,7 @@
 --       decides an Admin's; an Admin decides a Staff member's;
 -- (L1)  the last active task type is never archived, by any writer.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(55);
 

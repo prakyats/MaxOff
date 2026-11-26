@@ -7,6 +7,7 @@
 -- (6) The band (app.push_band, push_status_own): no device → band; on but nothing received →
 -- band; a delivered device → no band; failing → band again; revoked and iPhone reasons; own only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(61);
 

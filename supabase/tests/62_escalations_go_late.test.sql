@@ -3,6 +3,7 @@
 -- task still open and overdue on the same deadline; the not-noted ones: still not noted); a before-due, Due
 -- now, overdue or event reminder whose moment passed over an hour ago is skipped, never sent late.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(14);
 
