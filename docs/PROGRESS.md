@@ -315,7 +315,9 @@
         - **A/B scope:**
           - the task with and without uploads, /today and /people (Owner and Admin);
           - Crew /calendar and Crew "a task";
-          - a read-log diff for each.
+          - a read-log diff for each;
+          - **plus Crew /me and /leave** (advisor 05:01 UTC).
+        - **The bar for READY:** every case within the gate, or a named and fixed cause. The Uploads card's cost is reported separately, as v4.5's new read.
       - A route slower twice → the local same-machine A/B (`scratchpad/ab/delay-proxy.mjs`; worktrees `/home/user/wt/abmain` on main and `/home/user/wt/abv40` re-pointed to the v4.5 head; rebuild both; 150 ms per call, 10 samples).
   - **Decisions this session:**
     - **The fake Google** is honoured only by a local build and only at loopback addresses; the gate reads the build-inlined `NEXT_PUBLIC_APP_ENV`.
