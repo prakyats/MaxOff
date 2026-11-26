@@ -87,6 +87,28 @@ export const UPLOAD_PAGE_ROUTE_HEADERS: readonly ResponseHeader[] = [
 ];
 
 /**
+ * Every path but `/upload` (v4.5, pen test M17). The upload page's CSP is per request, set by the
+ * proxy with a nonce; on the Worker a `headers()` rule's CSP does not replace the proxy's but joins
+ * it ("…, frame-ancestors 'none'": a second policy), so the global CSP rule skips that one path.
+ * Next's own path matcher reads it (`next.config.ts`; `response-headers.test.ts`).
+ */
+export const EVERY_PATH_BUT_UPLOAD_PAGE = "/:path((?!upload$).*)";
+
+/**
+ * The build's global rules: every header on every path, with the CSP on every path but the
+ * upload page (`EVERY_PATH_BUT_UPLOAD_PAGE`). The route rules that replace some of these come after.
+ */
+export function globalHeaderRules(
+  list: readonly ResponseHeader[],
+): { source: string; headers: ResponseHeader[] }[] {
+  const isCsp = (header: ResponseHeader) => header.key.toLowerCase() === "content-security-policy";
+  return [
+    { source: "/:path*", headers: list.filter((header) => !isCsp(header)) },
+    { source: EVERY_PATH_BUT_UPLOAD_PAGE, headers: list.filter(isCsp) },
+  ];
+}
+
+/**
  * The upload page's Content-Security-Policy (v4.5, plan J1): scripts only from this origin or with
  * this request's nonce (Next puts it on its own scripts when the request carries this header),
  * connections only to this origin and to Google's upload API, nothing framed, no forms, no plugins.

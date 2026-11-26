@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
+
 import { APP_ENVS } from "@/core/observability/env";
 
 import {
   applyResponseHeaders,
   AUTH_LINK_ROUTE_HEADERS,
   AUTH_LINK_ROUTE_SOURCE,
+  EVERY_PATH_BUT_UPLOAD_PAGE,
+  globalHeaderRules,
   UPLOAD_API_ROUTE_HEADERS,
   UPLOAD_API_ROUTE_SOURCE,
   FILE_ROUTE_CSP,
@@ -105,5 +109,32 @@ describe("responseHeaders", () => {
 
   it("robots.txt on staging disallows everything", () => {
     expect(ROBOTS_DISALLOW_ALL).toBe("User-agent: *\nDisallow: /\n");
+  });
+});
+
+describe("globalHeaderRules (v4.5, pen test M17)", () => {
+  // Next's own matcher, as it reads a `headers()` source (strict, case-insensitive).
+  const matches = (source: string, path: string) =>
+    getPathMatch(source, { strict: true })(path) !== false;
+
+  it("the global CSP rule covers every path but the upload page", () => {
+    for (const path of ["/", "/login", "/today", "/tasks/abc", "/uploads", "/api/upload/start"]) {
+      expect(matches(EVERY_PATH_BUT_UPLOAD_PAGE, path), path).toBe(true);
+    }
+    expect(matches(EVERY_PATH_BUT_UPLOAD_PAGE, "/upload")).toBe(false);
+  });
+
+  it("keeps every header: all but the CSP on every path, the CSP on its own rule", () => {
+    for (const env of APP_ENVS) {
+      const list = responseHeaders(env);
+      const [all, csp] = globalHeaderRules(list);
+      expect(all!.source).toBe("/:path*");
+      expect(csp!.source).toBe(EVERY_PATH_BUT_UPLOAD_PAGE);
+      expect([...all!.headers, ...csp!.headers]).toEqual(expect.arrayContaining([...list]));
+      expect(all!.headers.length + csp!.headers.length).toBe(list.length);
+      expect(csp!.headers).toEqual([
+        { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+      ]);
+    }
   });
 });

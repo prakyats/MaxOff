@@ -7,6 +7,7 @@ import {
   AUTH_LINK_ROUTE_SOURCE,
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
+  globalHeaderRules,
   UPLOAD_API_ROUTE_HEADERS,
   UPLOAD_API_ROUTE_SOURCE,
   UPLOAD_PAGE_ROUTE_HEADERS,
@@ -42,7 +43,7 @@ const nextConfig: NextConfig = {
   // The file route's stricter CSP and the auth link page's headers come after the global rule
   // on purpose: the last rule to set a header wins.
   headers: async () => [
-    { source: "/:path*", headers: RESPONSE_HEADERS },
+    ...globalHeaderRules(RESPONSE_HEADERS),
     { source: FILE_ROUTE_SOURCE, headers: [FILE_ROUTE_CSP] },
     { source: AUTH_LINK_ROUTE_SOURCE, headers: [...AUTH_LINK_ROUTE_HEADERS] },
     { source: UPLOAD_API_ROUTE_SOURCE, headers: [...UPLOAD_API_ROUTE_HEADERS] },
