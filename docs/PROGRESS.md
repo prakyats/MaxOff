@@ -251,6 +251,56 @@
 6. **V5a item 6b, the "only when unused" Delete kinds: DECIDED by the owner directly (22 Oct, "any reference counts as used": history, archived or deleted rows, paid or closed claims, a job title someone once held, old custom-field values, a task type named only by an archived or deleted template, a draft's contact, note, file, task label or request) and BUILT in V5e (item 6c) for task types, job titles, expense categories, custom fields, draft clients and contacts as a real row delete (DATA-MODEL §2 "The Owner-only Delete of what was never used"). The original question, for the record:** The rule lists task types, job titles, expense categories, custom fields, draft clients and contacts, "only when unused", but "unused" is not settled for any of them: (a) **does history count?** A job title once held by someone and since changed, an expense category on a past (paid) claim, a custom field whose values sit only in old activity diffs, a draft client's own creation history: if a deleted row's name is later needed to read that history, a real delete loses it (the "(deleted)" label approach would need a soft state on each of these tables too); (b) **do archived or deleted rows count?** A task type referenced only by an archived or deleted task template (whose foreign key stays); a contact on a draft client; (c) **draft clients:** is a draft with contacts, notes, files, a task label or a request "used"? Recommended: treat any reference at all, history included, as "used" (so Delete is offered only to a row nothing has ever pointed at), with a soft deleted state like templates so names in history keep reading; awaiting the owner.
 
 ## In-progress handoff
+
+- **HANDOFF v4.5 "Upload link" (26 Nov 2026 ~08:05 IST, builder; branch `phase-v45`, worktree `/home/user/wt/v45`).**
+  - **The plan:** the advisor's mandate. Finish v4.5 to READY FOR OWNER:
+    - the security fixes;
+    - the §7.3 flows;
+    - the §7.4 pen test on staging;
+    - the speed gate;
+    - the release review;
+    - the guide pictures;
+    - the READY post.
+  - **State:**
+    - Head is this checkpoint, on top of beeefd8d.
+    - Full CI on b6dc039d (45739534774) is green on all jobs.
+    - The staging pen test passes (run 2, 45733118056).
+    - The release review is done (`docs/reviews/v4.5/release-review.md`).
+    - The READY draft is in `docs/handoff/v45-ready-draft.md`.
+  - **Checklist:**
+    - [x] §7.3 flows (fake Google), the 404 catch-all, the pgTAP lock list, the NUL refusal, the single CSP on /upload, and the architecture and design review fixes.
+    - [x] Speed gate run 1 (05eff5f4): accepted by the advisor with a wording correction. READY must say: **"Admin /clients and Crew /me were slower twice in CI preview runs; closed by the same-machine A/B with identical reads (±6 ms), the method the owner accepted for v4.0"**. Put both tables in and flag those two routes. The draft still says "nothing slow twice" for the Owner only (that part is right). Fix the Admin and Crew wording.
+    - [ ] **Re-probe (advisor, 26 Nov 02:27 UTC), because the header split and the 404 catch-all touch every response.** Full probe per role, paired with `baseline_url=https://main-maxoff-staging.pixoraclips.workers.dev`, two-run rule.
+      - **Owner run 1 dispatched: 45742940716.** Then Owner run 2 if any route fails, then Admin and Crew.
+      - **Check before each dispatch that no other perf-probe is queued or running; this session holds the slot.**
+      - `/upload` is not in the probe: it is a new route and main answers 404 there, so there is no baseline. Tell the advisor and propose a probe row in a later release.
+      - Message the advisor (session_015vyzMUD3jKaygKBakFdhKZ) **"slot free"** when done.
+      - Also mention v7.0's Chrome trace in the READY speed section: sonner's import-time CSS injection forced a 70 ms style recalc (a 120 ms task on /people). The sonner patch removes it, so tap→skeleton should improve.
+    - [ ] **`scripts/smoke-deploy.sh`: add `/upload` checks** (advisor yes, read-only GETs only):
+      - `/upload` answers 200;
+      - the `content-security-policy` header is present exactly once (one header, no comma-joined second policy);
+      - a bad token gets the not-found page, not a 500. The token is in the `#fragment`, so the server always serves the page; instead check that POST is not used and that `GET /upload` is not a 5xx.
+      - Change nothing else in the pipeline. READY must say **"touches the production smoke script"**.
+    - [ ] **11:20 IST (a check-in is scheduled):**
+      1. v4.0 first (worktree `/home/user/wt/v40`, its PROGRESS "Left, in order" step 1): `pnpm guide:screenshots -g "owner"`, put `shot: "owner/drive"` back, then check, BUILDER, push, full CI, and v4.0's READY.
+      2. Then v4.5: `GUIDE_ONLY=owner/upload-get,owner/upload-card,owner/upload-received pnpm guide:screenshots`, and put the shot ids back on the `owner-upload-link` steps (`src/modules/guide/domain/content/owner.ts`). The guide wording changed today ("camera operator", "primary owner"), so check whether the Admin's upload topics have shots to re-take too.
+    - [ ] `pnpm check`, BUILDER on #89 **before** every push (one docs push went out before its note today), push, full CI, then post READY from the draft. Fill in HEAD_SHA, FULL_CI_RUN, GUIDE_SHOTS and PENTEST_TIME (about 01:30 UTC, 26 Nov).
+  - **Decisions this session:**
+    - **The fake Google** is honoured only by a local build and only at loopback addresses; the gate reads the build-inlined `NEXT_PUBLIC_APP_ENV`.
+    - **The 404 is a catch-all, `(main)/[...missing]`,** not the experimental `global-not-found`.
+    - **The global CSP rule skips `/upload` only** (`EVERY_PATH_BUT_UPLOAD_PAGE`). The proxy treats `/upload` in any letter case as the upload page.
+    - **A NUL anywhere in a public API body is refused as VALIDATION;** it does not count as a bad link.
+    - **The pen test is a dispatch-only Preview job.** M1 runs last on purpose: it blocks the runner's network for 15 minutes.
+    - **"All files received" is Forest only when its sheet marks Done.**
+  - **Gotchas:**
+    - **The Write and Bash tools turn `\u202A`–`\u202E` escapes into literal characters.** Build them with `String.fromCharCode` or check with `grep -P`.
+    - **Single specs:** run `pnpm exec playwright test <files> e2e/auth.setup.ts --project=setup --project=<proj> --no-deps --workers=1`. The chain projects otherwise pull in the whole suite.
+    - **The container can't reach `*.workers.dev`.** Staging checks run as Preview jobs.
+    - **Locally the public API's Origin must be `localhost`,** not 127.0.0.1.
+    - **A local pen-test run leaves the network blocked for 15 minutes.** Clear `upload_rate_hits`.
+    - **The bare `noindex` on preview addresses is Cloudflare's own header.**
+  - **Open:** the watch item `dashboards.spec.ts:261` (Ideas / tech debt). It failed once and is not root-caused.
+
 - **v4.5 screens unit, part A: the Uploads card (25 Nov 2026, `phase-v45`).** The server side is green: full CI 45662191402 on 8ef55c10.
   - **Built:**
     - `modules/uploads/components/uploads-card-body.tsx` (the markup, no hooks), `uploads-card-lazy.tsx` and `uploads-card.tsx` (the live card: Get upload link, Copy link, ⋯ Make a new link and Stop link with a named red confirm, uploader rows with chips, the closed card, the bands, All files received with its sheet and the late reason);
