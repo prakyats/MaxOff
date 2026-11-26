@@ -19,6 +19,14 @@
  * CSS draws at once, so a tap on a slow connection never looks dead (§14.2 i). `NavProgress`
  * finishes it when the new screen is there.
  *
+ * **A press the page swapped out from under the pointer still moves (fix-held-press-back,
+ * 26 Nov 2026), before hydration and after it.** A loading screen's back control (or a view
+ * control, a tab, the bell) is replaced by the page's when the page streams in, and a mouse press
+ * that went down on one and came up on the other fired no click. The script notes the enhanced link
+ * a press goes down on; when the press comes up on a replacement of the same kind and address and
+ * the pressed one has left the page, it clicks the replacement once, unless the browser's own click
+ * reaches it first (`replaysPress` in `press-replay.ts` decides; its source is carried in).
+ *
  * It also registers an empty passive `touchstart` listener: without one, iOS Safari never applies
  * `:active`, and the pressed state (`pressable`, `globals.css`) would not show on an iPhone.
  */
@@ -34,6 +42,7 @@ import {
   VIEW_LINK_ATTRIBUTE,
 } from "./attributes";
 import { backSteps } from "./moves";
+import { PRESS_REPLAY_WAIT_MS, replaysPress } from "./press-replay";
 import {
   NAV_DONE_ATTRIBUTE,
   NAV_PENDING_ATTRIBUTE,
@@ -136,7 +145,16 @@ function dropTap(){if(tapTimer!==null){clearInterval(tapTimer);tapTimer=null}}
 if(window.addEventListener)window.addEventListener("pagehide",dropTap);
 function holdTap(b){if(tapTimer!==null)return;var key=b.getAttribute("${HOLD_TAP_ATTRIBUTE}"),started=Date.now(),at=location.href;tapTimer=setInterval(function(){try{if(location.href!==at){dropTap();return}var el=sameButton(b,key);if(el&&el.hasAttribute("${LIVE_ATTRIBUTE}")){dropTap();if(!neverHeld(el))el.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS})dropTap()}catch(err){dropTap()}},${HELD_TAP_POLL_MS})}
 function hold(a,kind,move,href,steps){if(held)return;held=true;var started=Date.now();var timer=setInterval(function(){try{var link=sameLink(a,kind,href);if(link&&link.hasAttribute("${LIVE_ATTRIBUTE}")){clearInterval(timer);held=false;link.click();return}if(Date.now()-started>=${PRE_HYDRATION_WAIT_MS}){clearInterval(timer);held=false;perform(move,href,steps)}}catch(err){clearInterval(timer);held=false;perform(move,href,steps)}},${HELD_TAP_POLL_MS})}
+var replaysPress=${replaysPress.toString()};
+function linkKind(a){if(!a||!a.getAttribute)return null;var slot=a.getAttribute("data-slot");if(slot==="page-back")return "back";if(slot==="${HEADER_BELL_SLOT}")return "bell";if(a.hasAttribute("${VIEW_LINK_ATTRIBUTE}"))return "view";if(a.hasAttribute("${TAB_ATTRIBUTE}")&&a.closest&&a.closest("[${TAB_HOME_ATTRIBUTE}]"))return "tab";return null}
+function linkIn(el){return el&&el.closest?el.closest("a[href]"):null}
+function pressEnd(e,a){if(!a)return null;return{button:e.button,modified:!!(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey),kind:linkKind(a),href:a.href,excluded:!!((a.target&&a.target!=="_self")||a.hasAttribute("download")||(a.closest&&a.closest("${NEVER_HELD}")))}}
+var press=null,replay=null;
+d.addEventListener("pointerdown",function(e){try{press=null;replay=null;if(e.isPrimary===false)return;var a=linkIn(e.target),end=pressEnd(e,a);if(end&&end.kind)press={link:a,end:end}}catch(err){press=null}},true);
+d.addEventListener("pointercancel",function(){press=null},true);
+d.addEventListener("pointerup",function(e){try{var p=press;press=null;if(!p||e.isPrimary===false)return;var t=linkIn(d.elementFromPoint?d.elementFromPoint(e.clientX,e.clientY):e.target);if(!t||t===p.link)return;if(!replaysPress(p.end,pressEnd(e,t),p.link.isConnected!==false))return;replay=t;setTimeout(function(){if(replay!==t)return;replay=null;if(t.isConnected!==false)t.click()},e.pointerType==="mouse"?0:${PRESS_REPLAY_WAIT_MS})}catch(err){replay=null}},true);
 d.addEventListener("click",function(e){try{
+if(replay){var c=linkIn(e.target);if(c&&(c===replay||(c.href===replay.href&&linkKind(c)===linkKind(replay))))replay=null}
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
 var b=e.target&&e.target.closest?e.target.closest("[${HOLD_TAP_ATTRIBUTE}]"):null;
 if(b&&(neverHeld(b)||e.target.closest("${INTERACTIVE}")!==b))b=null;

@@ -14,6 +14,7 @@ import {
   TAB_TOP_ATTRIBUTE,
   VIEW_LINK_ATTRIBUTE,
 } from "./pre-hydration";
+import { PRESS_REPLAY_WAIT_MS } from "./press-replay";
 import { NAV_PENDING_ATTRIBUTE, NAV_TARGET_ATTRIBUTE, startsNavigation } from "./progress";
 
 const ORIGIN = "https://maxoff.test";
@@ -56,15 +57,24 @@ function page({
   standalone?: boolean;
 } = {}) {
   let listener: ((event: object) => void) | undefined;
+  /** The press listeners (`pointerdown`, `pointerup`, `pointercancel`), all in the capture phase. */
+  const pointer: Record<string, (event: object) => void> = {};
+  /** The link under the pointer when a press comes up (`document.elementFromPoint`). */
+  let underPointer: FakeAnchor | null = null;
   const htmlAttributes: Record<string, string> = {};
   const findable: FakeAnchor[] = [];
   const document = {
     addEventListener: (type: string, fn: (event: object) => void, options: unknown) => {
-      // The iOS `:active` listener is passive; the tap listener runs in the capture phase.
-      if (type !== "click") return;
+      // The iOS `:active` listener is passive; the tap and press listeners run in the capture phase.
+      if (type === "touchstart") return;
       expect(options).toBe(true);
-      listener = fn;
+      if (type === "click") listener = fn;
+      else pointer[type] = fn;
     },
+    elementFromPoint: () =>
+      underPointer && {
+        closest: (selector: string) => (selector === "a[href]" ? underPointer : null),
+      },
     documentElement: {
       setAttribute: (name: string, value: string) => (htmlAttributes[name] = value),
       removeAttribute: (name: string) => delete htmlAttributes[name],
@@ -207,9 +217,35 @@ function page({
           ? "push"
           : "none";
 
+  /** A press going down on `anchor` (a mouse's primary button unless `event` says otherwise). */
+  const pressDown = (anchor: FakeAnchor | null, event: object = {}) =>
+    pointer.pointerdown!({
+      button: 0,
+      isPrimary: true,
+      pointerType: "mouse",
+      target: { closest: (selector: string) => (selector === "a[href]" ? anchor : null) },
+      ...event,
+    });
+  /** The press coming up over `anchor` (whatever the page has drawn there by then). */
+  const pressUp = (anchor: FakeAnchor | null, event: object = {}) => {
+    underPointer = anchor;
+    pointer.pointerup!({
+      button: 0,
+      isPrimary: true,
+      pointerType: "mouse",
+      clientX: 10,
+      clientY: 10,
+      ...event,
+    });
+  };
+  const pressCancel = () => pointer.pointercancel!({});
+
   return {
     anchorFor,
     tap,
+    pressDown,
+    pressUp,
+    pressCancel,
     buttonFor,
     tapButton,
     findable,
@@ -596,6 +632,141 @@ describe("the navigation progress bar starts on the tap (§14.2 i)", () => {
     expect(startsNavigation({ ...here, pathname: "/today" }, here)).toBe(true);
     expect(startsNavigation(here, here)).toBe(false);
     expect(startsNavigation({ ...here, origin: "https://x.test" }, here)).toBe(false);
+  });
+});
+
+describe("a press the page swapped out from under the pointer (fix-held-press-back)", () => {
+  /** A press that went down on `before`, which the page then replaced with `after`. */
+  function swappedPress(
+    link: FakeLink,
+    {
+      live = true,
+      down = {},
+      up = {},
+      release = link,
+    }: { live?: boolean; down?: object; up?: object; release?: FakeLink } = {},
+  ) {
+    const doc = page();
+    const before = doc.anchorFor(link, live);
+    const after = doc.anchorFor(release, live);
+    doc.pressDown(before, down);
+    before.isConnected = false;
+    doc.pressUp(after, up);
+    return { doc, before, after };
+  }
+
+  it("clicks the replacement once, at once, for a mouse press across the swap", () => {
+    const { after } = swappedPress(BACK);
+    vi.advanceTimersByTime(0);
+    expect(after.click).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS * 2);
+    expect(after.click).toHaveBeenCalledTimes(1);
+  });
+
+  it("before hydration, the replayed click is held like any tap, and moves once", () => {
+    const { doc, after } = swappedPress(BACK, { live: false });
+    vi.advanceTimersByTime(0);
+    expect(after.click).toHaveBeenCalledTimes(1);
+    expect(doc.move(), "held, not loaded").toBe("none");
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(doc.move()).toBe("replace");
+    expect(doc.replacedWith()).toBe(`${ORIGIN}/people`);
+  });
+
+  it("replays a view control, a tab and the bell the same way", () => {
+    for (const link of [VIEW, tab("/tasks"), BELL]) {
+      const { after } = swappedPress(link);
+      vi.advanceTimersByTime(0);
+      expect(after.click, link.href).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("a touch waits for the browser's own click, and adds none when it comes: one move", () => {
+    const { doc, after } = swappedPress(BACK, {
+      down: { pointerType: "touch" },
+      up: { pointerType: "touch" },
+    });
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS - 1);
+    expect(after.click).not.toHaveBeenCalled();
+    doc.tap(after);
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS * 2);
+    expect(after.click).not.toHaveBeenCalled();
+  });
+
+  it("a touch the browser did not answer is replayed once the wait is over", () => {
+    const { after } = swappedPress(BACK, {
+      down: { pointerType: "touch" },
+      up: { pointerType: "touch" },
+    });
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS - 1);
+    expect(after.click).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(after.click).toHaveBeenCalledTimes(1);
+  });
+
+  it("never when the pressed link is still on the page: the browser answers it", () => {
+    const doc = page();
+    const link = doc.anchorFor(BACK, true);
+    const other = doc.anchorFor(BACK, true);
+    doc.pressDown(link);
+    doc.pressUp(other);
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS);
+    expect(other.click).not.toHaveBeenCalled();
+  });
+
+  it("never for another button, a modifier key, or a press that comes up elsewhere", () => {
+    const refusals = [
+      swappedPress(BACK, { down: { button: 1 } }),
+      swappedPress(BACK, { up: { button: 2 } }),
+      swappedPress(BACK, { down: { ctrlKey: true } }),
+      swappedPress(BACK, { up: { metaKey: true } }),
+      swappedPress(BACK, { up: { shiftKey: true } }),
+      swappedPress(BACK, { down: { altKey: true } }),
+      swappedPress(BACK, { release: { ...BACK, href: "/today" } }),
+      swappedPress(BACK, { release: BELL }),
+      swappedPress({ href: "/people", attributes: {} }),
+    ];
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS);
+    for (const { after } of refusals) expect(after.click).not.toHaveBeenCalled();
+  });
+
+  it("never for a press on a button (no link under it)", () => {
+    const doc = page();
+    const after = doc.anchorFor(BACK, true);
+    doc.pressDown(null);
+    doc.pressUp(after);
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS);
+    expect(after.click).not.toHaveBeenCalled();
+  });
+
+  it("never after the press was cancelled (a scroll)", () => {
+    const doc = page();
+    const before = doc.anchorFor(BACK, true);
+    const after = doc.anchorFor(BACK, true);
+    doc.pressDown(before);
+    before.isConnected = false;
+    doc.pressCancel();
+    doc.pressUp(after);
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS);
+    expect(after.click).not.toHaveBeenCalled();
+  });
+
+  it("at most one move per press: a second release without a new press replays nothing", () => {
+    const { doc, after } = swappedPress(BACK);
+    vi.advanceTimersByTime(0);
+    doc.pressUp(after);
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS);
+    expect(after.click).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the replay when a new press starts before it ran", () => {
+    const { doc, after } = swappedPress(BACK, {
+      down: { pointerType: "touch" },
+      up: { pointerType: "touch" },
+    });
+    doc.pressDown(doc.anchorFor(VIEW, true), { pointerType: "touch" });
+    vi.advanceTimersByTime(PRESS_REPLAY_WAIT_MS);
+    expect(after.click).not.toHaveBeenCalled();
   });
 });
 

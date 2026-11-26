@@ -44,7 +44,7 @@ const MOTION_SPECS = /motion\.spec\.ts$/;
 const REFRESH_SPECS = /refresh\.spec\.ts$/;
 // The back control persisting across its header streaming in (fix-stable-back) is a pre-hydration
 // tap too: the same two phone widths.
-const PRE_HYDRATION_SPECS = /(pre-hydration|stable-back)\.spec\.ts$/;
+const PRE_HYDRATION_SPECS = /(pre-hydration|stable-back|held-press)\.spec\.ts$/;
 const EDIT_PATTERN_SPECS = /edit-pattern\.spec\.ts$/;
 const CUSTOM_FIELDS_SPECS = /custom-fields\.spec\.ts$/;
 const STORAGE_SPECS = /storage\.spec\.ts$/;
