@@ -2,20 +2,7 @@
 
 import { type ComponentType, type ReactNode, useEffect, useState } from "react";
 
-/** The longest an import waits for the browser to be idle (a busy page still gets its parts). */
-const IDLE_WAIT_MS = 2_000;
-/** Where the browser cannot say when it is idle (Safari): a short wait after the page instead. */
-const NO_IDLE_WAIT_MS = 200;
-
-/** Runs `run` once the browser is idle; the returned function cancels it. */
-function whenIdle(run: () => void): () => void {
-  if (typeof window.requestIdleCallback === "function") {
-    const handle = window.requestIdleCallback(run, { timeout: IDLE_WAIT_MS });
-    return () => window.cancelIdleCallback(handle);
-  }
-  const timer = window.setTimeout(run, NO_IDLE_WAIT_MS);
-  return () => window.clearTimeout(timer);
-}
+import { whenIdle } from "./idle-queue";
 
 /**
  * A client part loaded **right after the page** rather than with it (ARCHITECTURE §19, "What
@@ -49,14 +36,14 @@ export function AfterPage<P extends object>({
   const [Loaded, setLoaded] = useState<ComponentType<P> | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const start = () => {
+    const start = () =>
       load().then(
         (component) => {
           if (!cancelled) setLoaded(() => component);
         },
         () => undefined,
       );
-    };
+    // Its own idle moment, after the page's other parts (`idle-queue.ts`).
     const stop = whenIdle(start);
     return () => {
       cancelled = true;
