@@ -754,6 +754,14 @@ test("the carry screen: carry forward in bulk, close one with a reason", async (
   await expect
     .poll(async () => itemState(await itemId(projectId, nameOf(info, "drop"))))
     .toBe("cancelled");
+  // The dialog closes on the action's answer and backs its history entry out (overlay-history):
+  // reload once that has landed, not while the traversal is still under way.
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(() =>
+      page.evaluate(() => (history.state as Record<string, unknown> | null)?.maxoffOverlay ?? null),
+    )
+    .toBeNull();
   await page.reload();
   await hydrated(page);
   await page.getByRole("button", { name: "Carry 1 forward" }).click();

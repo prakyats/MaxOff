@@ -1,6 +1,6 @@
 "use client";
 
-import { noteEscape } from "@/core/ui/overlay/overlay-history";
+import { noteDismiss } from "@/core/ui/overlay/overlay-history";
 
 import { firstField } from "./dom";
 import { isComposing } from "./keys";
@@ -27,7 +27,22 @@ export function onLayerEscape(
     event.preventDefault();
     return;
   }
-  noteEscape(event);
+  noteDismiss(event);
+}
+
+/**
+ * A tap outside an open dialog or sheet (its backdrop). The caller's own handler runs first and
+ * may keep it open (`preventDefault`). Otherwise it closes as the back gesture would: its history
+ * entry is backed out. Radix closes it inside the pointer (or, on touch, the click) event under
+ * way, which `noteDismiss` marks (the outside event itself is Radix's own, dispatched inside it).
+ */
+export function onLayerOutside<E extends Event>(
+  event: E,
+  callerHandler: ((event: E) => void) | undefined,
+): void {
+  callerHandler?.(event);
+  if (event.defaultPrevented) return;
+  noteDismiss();
 }
 
 /** A search box with text: its own Escape empties it (the table's search, rule 6). */

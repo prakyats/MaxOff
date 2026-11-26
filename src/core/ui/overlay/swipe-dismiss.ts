@@ -2,6 +2,8 @@
 
 import { type PointerEvent, type MouseEvent, useRef } from "react";
 
+import { noteDismiss } from "./overlay-history";
+
 /**
  * Swipe down to close a bottom sheet (ARCHITECTURE §14.2 i, first built for the phone Select
  * sheet in the 3B review fixes). No gesture library: a pointer drag on the sheet that moves it
@@ -87,6 +89,8 @@ export function useSwipeDismiss(onDismiss: () => void) {
       swallowClick.current = true;
       const element = event.currentTarget;
       if (swipeDismisses(current.dy, event.timeStamp - current.t)) {
+        // A dismissal, like back: the sheet's history entry is backed out (`overlay-history`).
+        noteDismiss(event.nativeEvent);
         onDismiss();
       } else {
         settle(element);
