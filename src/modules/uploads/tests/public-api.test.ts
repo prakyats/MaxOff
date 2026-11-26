@@ -24,7 +24,7 @@ import { DriveApiError } from "@/core/drive/google";
 import { DriveUnavailableError } from "@/core/drive/upload-session";
 
 import { handleUploadApi, type PublicDeps, type UploadEndpoint } from "../actions/public-api";
-import { BAD_LINK_MESSAGE } from "../domain/api";
+import { BAD_LINK_MESSAGE, NUL_MESSAGE } from "../domain/api";
 import { deviceKeyHash, rateKeyHash, linkKeyBytes, tokenHash } from "../domain/token";
 import { DEVICE_KEY, fakeService, fakeSessionGoogle, KEY_BASE64, TOKEN } from "./fakes";
 
@@ -253,6 +253,32 @@ describe("the upload API: the request itself (plan C7, J)", () => {
     ).toBe(415);
     expect(svc.resolve).not.toHaveBeenCalled();
     expect(svc.register).not.toHaveBeenCalled();
+  });
+
+  it("a NUL in any name, path or key is VALIDATION, before the database (pen test M4)", async () => {
+    const svc = fakeService();
+    const nul = String.fromCharCode(0);
+    const bodies: [UploadEndpoint, Record<string, unknown>][] = [
+      ["register", { deviceKey: DEVICE_KEY, name: `Sam${nul}` }],
+      ["start", { deviceKey: DEVICE_KEY, name: `clip${nul}.mov`, relativePath: "", sizeBytes: 10 }],
+      [
+        "start",
+        { deviceKey: DEVICE_KEY, name: "clip.mov", relativePath: `Day 1${nul}`, sizeBytes: 10 },
+      ],
+      ["start", { deviceKey: DEVICE_KEY, name: "clip.mov", sizeBytes: 10, [`x${nul}`]: 1 }],
+    ];
+    for (const [endpoint, body] of bodies) {
+      const response = await handleUploadApi(endpoint, call(endpoint, body), deps(svc));
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        ok: false,
+        error: { code: "VALIDATION", message: NUL_MESSAGE },
+      });
+    }
+    expect(svc.register).not.toHaveBeenCalled();
+    expect(svc.fileStart).not.toHaveBeenCalled();
+    // A NUL is not a bad link: the network's bad-link count is untouched.
+    expect(svc.rateHit).not.toHaveBeenCalledWith("bad_link", expect.anything(), expect.anything());
   });
 
   it("a malformed device key is VALIDATION, before the database", async () => {

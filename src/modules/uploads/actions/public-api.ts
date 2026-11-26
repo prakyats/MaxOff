@@ -18,6 +18,8 @@ import { type Clock, systemClock, todayIST } from "@/core/time";
 
 import {
   BAD_LINK_MESSAGE,
+  hasNul,
+  NUL_MESSAGE,
   cleanIp,
   rateNetwork,
   type DoneAnswer,
@@ -424,11 +426,15 @@ async function readJson(request: Request): Promise<{ body: unknown } | { refused
   if (text === null) {
     return { refused: answer(fail("VALIDATION", "This request is too large."), 413) };
   }
+  let body: unknown;
   try {
-    return { body: JSON.parse(text) as unknown };
+    body = JSON.parse(text) as unknown;
   } catch {
     return { refused: answer(fail("VALIDATION", "Send JSON.")) };
   }
+  // Pen test M4: a NUL would reach Postgres and fail as INTERNAL; it is refused here instead.
+  if (hasNul(body)) return { refused: answer(fail("VALIDATION", NUL_MESSAGE)) };
+  return { body };
 }
 
 /** The body as text, or null past `max` bytes (the stream is cancelled there). */

@@ -182,6 +182,25 @@ export function rateNetwork(ip: string | null): string {
     .join(":")}::/64`;
 }
 
+const NUL = String.fromCharCode(0);
+
+/** What the uploader is told when a name holds a character no file system makes (pen test M4). */
+export const NUL_MESSAGE =
+  "A name here has a character that can't be saved. Rename it and try again.";
+
+/**
+ * Any key or string anywhere in a request body holds a NUL (pen test M4). Postgres text can't hold
+ * one, so such a name would fail in the database as INTERNAL; the API refuses it first.
+ */
+export function hasNul(value: unknown): boolean {
+  if (typeof value === "string") return value.includes(NUL);
+  if (Array.isArray(value)) return value.some(hasNul);
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value).some(([key, item]) => key.includes(NUL) || hasNul(item));
+  }
+  return false;
+}
+
 /**
  * The uploader's IP as Cloudflare reports it (`cf-connecting-ip`), when it looks like one;
  * anything else is no IP. Kept for 90 days on the uploader's rows only (plan G2, I3), never
