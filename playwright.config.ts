@@ -90,6 +90,7 @@ const IPHONE_SPECS = [
   LEAVE_SPECS,
   NOTIFICATIONS_SPECS,
   BACK_GESTURE_SPECS,
+  /\/slide-setup\.spec\.ts$/,
 ];
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
@@ -322,7 +323,14 @@ export default defineConfig({
       name: "mobile-iphone",
       dependencies: ["setup"],
       testMatch: IPHONE_SPECS,
-      use: { ...devices["iPhone 13"] },
+      // Reduced motion (v7.0, the advisor 26 Nov 2026): headless WebKit on a CI runner renders a
+      // view transition with no GPU, and a drill-down's slide blocked its main thread 0.35–4.5 s
+      // (CI 45752942623 to 45792304261; a real iPhone composites it on the GPU). So no slide runs
+      // here; `slide-setup.spec` turns motion back on for its own page and checks the slide is set
+      // up on WebKit (its names and direction) without timing it, the motion specs check the
+      // slides themselves on Chromium at 375 and 430, and the owner's walk checks their feel on a
+      // real iPhone (ARCHITECTURE §14.2 j).
+      use: { ...devices["iPhone 13"], contextOptions: { reducedMotion: "reduce" } },
     },
     {
       // "Approve all" (2.4) acts on every waiting row, other specs' included, so it runs alone,

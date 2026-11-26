@@ -27,6 +27,7 @@ import {
   streamedHeights,
 } from "./helpers";
 import { recordOnFailure } from "./failure-record";
+import { rscRequestKind, type RscRequestKind } from "./rsc-request";
 import { explainOnIphone, isIphone, recordNavigation } from "./webkit-diagnostics";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 import { WEEK_ROWS_SHOWN } from "../src/modules/dashboards/domain/week";
@@ -308,8 +309,13 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(page).toHaveURL(/\/my-day$/);
     await hydrated(page);
     await expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on");
-    // Every screen fetch of /leave from the tap on: the move's own, and any re-read after it.
-    const fetches: string[] = [];
+    // Every screen fetch of /leave from the tap on, with what it asks for (`rscRequestKind`): the
+    // move's own and Next's follow-up for the dynamic data the committed move still lacks
+    // (`spawnDynamicRequests`, CI 45777256059) mark a segment below the root; a re-read of the
+    // screen (`router.refresh()`) marks the root.
+    const fetches: { kind: RscRequestKind | null }[] = [];
+    // Every `router.refresh()` while on /leave: our re-read itself, from either live channel.
+    const refreshes: string[] = [];
     // CI-only: a second /leave fetch (CI 45678861249), never locally. On failure the error carries
     // every screen fetch with its time and the router state it was sent from (a refresh sends the
     // screen it stood on, a move the one it left), and the page's focus and visibility changes.
@@ -319,11 +325,18 @@ test.describe("Crew: My Day (6.1)", () => {
     page.on("request", (request) => {
       const headers = request.headers();
       if (headers["rsc"] !== "1" || headers["next-router-prefetch"]) return;
-      const tree = decodeURIComponent(headers["next-router-state-tree"] ?? "").slice(0, 160);
-      timeline.push(`${at()} rsc ${new URL(request.url()).pathname} from-tree=${tree}`);
+      const header = headers["next-router-state-tree"];
+      const tree = decodeURIComponent(header ?? "");
+      timeline.push(
+        `${at()} rsc ${new URL(request.url()).pathname} kind=${rscRequestKind(header) ?? "unknown"} tree=${tree}`,
+      );
     });
     page.on("console", (message) => {
-      if (message.text().startsWith("[record]")) timeline.push(`${at()} ${message.text()}`);
+      if (!message.text().startsWith("[record]")) return;
+      timeline.push(`${at()} ${message.text()}`);
+      if (/^\[record\] router\.refresh\(.*\) at \/leave /.test(message.text())) {
+        refreshes.push(message.text());
+      }
     });
     await page.evaluate(() => {
       // Who re-reads (CI 45711005375: the second /leave fetch was a refresh sent from /leave's
@@ -374,7 +387,7 @@ test.describe("Crew: My Day (6.1)", () => {
         !headers["next-router-prefetch"] &&
         new URL(request.url()).pathname === "/leave"
       )
-        fetches.push(request.url());
+        fetches.push({ kind: rscRequestKind(headers["next-router-state-tree"]) });
     });
     // A change to their own task is heard, and the screen is left before its re-read is due.
     await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
@@ -388,7 +401,15 @@ test.describe("Crew: My Day (6.1)", () => {
     // Past the re-read's moment (400 ms after the event) and its answer.
     await page.waitForTimeout(1_500);
     await recordOnFailure(
-      async () => expect(fetches, "the move's own fetch, and no re-read after it").toHaveLength(1),
+      async () => {
+        expect(fetches.length, "the move's own fetch").toBeGreaterThanOrEqual(1);
+        // A re-read: the root marked, or a tree that cannot be read (counted, never excused).
+        expect(
+          fetches.filter((fetch) => fetch.kind === "refresh" || fetch.kind === null),
+          "no re-read of the screen moved to",
+        ).toHaveLength(0);
+        expect(refreshes, "no router.refresh() on the screen moved to").toHaveLength(0);
+      },
       async () => timeline.join("\n"),
     );
   });
