@@ -16,8 +16,28 @@ type NavEvent = { at: number; kind: string; detail: string };
  * call (the state's keys), every `popstate`, every RSC fetch (its address, when it left and when
  * it answered) and each change of `html[data-nav-pending]`. Install before the `goto`.
  */
+/**
+ * The network's own times for each RSC request (Playwright's `request.timing()`, from the
+ * browser's network stack, not the page): when it was sent and when the response's first and last
+ * bytes came. Beside the page's own record it says whether a body was slow from the server or slow
+ * to be read in the page (CI 45721772197: four prefetch bodies the page read 5.7 s late).
+ */
+const networkTimes = new WeakMap<Page, string[]>();
+
 export async function recordNavigation(page: Page, info: TestInfo): Promise<void> {
   if (!isIphone(info)) return;
+  const lines: string[] = [];
+  networkTimes.set(page, lines);
+  page.on("requestfinished", (request) => {
+    const url = new URL(request.url());
+    const headers = request.headers();
+    if (headers["rsc"] !== "1" && !url.search.includes("_rsc=")) return;
+    const timing = request.timing();
+    const prefetch = headers["next-router-prefetch"] ? " (prefetch)" : "";
+    lines.push(
+      `${url.pathname}${prefetch} sent@${Math.round(timing.startTime)} firstByte+${Math.round(timing.responseStart)} lastByte+${Math.round(timing.responseEnd)} (epoch ms; + is ms after sent)`,
+    );
+  });
   await page.addInitScript(() => {
     const started = performance.now();
     const events: NavEvent[] = [];
@@ -100,9 +120,13 @@ async function navigationRecord(page: Page): Promise<string> {
     })
     .catch(() => null);
   if (!events) return "(the page could not be read)";
+  const network = networkTimes.get(page) ?? [];
   return [
     `url=${events.url} history.length=${events.length}`,
     ...events.list.map((event) => `+${event.at}ms ${event.kind} ${event.detail}`),
+    ...(network.length > 0
+      ? ["--- network (RSC, browser's own times) ---", ...network.slice(-40)]
+      : []),
   ].join("\n");
 }
 
