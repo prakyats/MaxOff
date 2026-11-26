@@ -294,6 +294,14 @@
     - **Re-probe status (04:15 UTC):**
       - Owner run 1, 45742940716: FAIL on last byte, TTFB under the cap. /people +193 ms, a task +162 ms, a person +112 ms; /today passed.
       - Owner run 2, then Admin and Crew (each with a second run if the first fails), chained in a background job. The gate lines go to `scratchpad/reprobe-<role>-<n>.md`; read them with `gh run view <id> --log` if the scratchpad is gone.
+      - Owner run 2, 45753861240: FAIL. /today +188, a task +119, a client +100.
+      - Admin run 1, 45754716719: FAIL. /today +159, /leave +104, /leave/extra-work +51, /settings/templates +59, a task +118.
+      - Admin run 2 (45755557821), then Crew, chained in the background.
+      - **"A task" was slower twice for the Owner, and again for the Admin.** The probe picks the NEWEST task (`perf-probe.mjs:249`, `order=created_at.desc&limit=1`). On staging that is one of the pen test's throwaway Owner tasks, full of uploaders and files. On v4.5 it renders the Uploads card with all of them; on main there is no card. So the pair is not like for like.
+      - **The next session closes "a task" (and any other route slower twice) with the local same-machine A/B:**
+        - a task with no uploads on both builds (must be within the gate);
+        - a task with uploads, reported as v4.5's new cost.
+        - Report both to the advisor; don't waive either.
       - A route slower twice → the local same-machine A/B (`scratchpad/ab/delay-proxy.mjs`; worktrees `/home/user/wt/abmain` on main and `/home/user/wt/abv40` re-pointed to the v4.5 head; rebuild both; 150 ms per call, 10 samples).
   - **Decisions this session:**
     - **The fake Google** is honoured only by a local build and only at loopback addresses; the gate reads the build-inlined `NEXT_PUBLIC_APP_ENV`.
