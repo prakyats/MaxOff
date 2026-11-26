@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   dayTimes,
   approveDayLabel,
+  dayStatusLabel,
   dayTimesLine,
   describeEvent,
   describeHistoryDay,
@@ -313,5 +314,52 @@ describe("months", () => {
       next: null,
     });
     expect(historyMonth(undefined, { first: "2026-10", current: "2026-09" }).month).toBe("2026-09");
+  });
+});
+
+describe("a day's leave in its label (v2.0.1)", () => {
+  const decided = (patch: Partial<HistoryDay>) => describeHistoryDay({ ...DAY, ...patch }).status;
+
+  it("reads a split day of ½ comp + ½ leave as one day off of both", () => {
+    const leave = {
+      half: "morning" as const,
+      comp: true,
+      second: { half: "afternoon" as const, comp: false },
+    };
+    expect(decided({ finalStatus: "leave", leave })).toBe("Off · ½ comp + ½ leave");
+    // The comp half in the afternoon reads the same.
+    expect(
+      decided({
+        finalStatus: "leave",
+        leave: { ...leave, comp: false, second: { half: "afternoon", comp: true } },
+      }),
+    ).toBe("Off · ½ comp + ½ leave");
+    // Two ordinary halves are a leave day, two comp halves a comp leave day.
+    expect(
+      decided({
+        finalStatus: "leave",
+        leave: { ...leave, comp: false, second: { half: "afternoon", comp: false } },
+      }),
+    ).toBe("Leave");
+    expect(
+      decided({
+        finalStatus: "comp_leave",
+        leave: { ...leave, second: { half: "afternoon", comp: true } },
+      }),
+    ).toBe("Comp leave");
+  });
+
+  it("says which half of a half day was off, and a ½ comp day", () => {
+    expect(dayStatusLabel("half_day", { half: "morning", comp: false, second: null })).toBe(
+      "Half day · morning off",
+    );
+    expect(dayStatusLabel("half_day", { half: "afternoon", comp: true, second: null })).toBe(
+      "Half day · comp · afternoon off",
+    );
+    // An older half day with no half recorded, and a day with no leave linked.
+    expect(dayStatusLabel("half_day", { half: null, comp: false, second: null })).toBe("Half day");
+    expect(dayStatusLabel("half_day", null)).toBe("Half day");
+    expect(dayStatusLabel("leave", { half: null, comp: false, second: null })).toBe("Leave");
+    expect(decided({ finalStatus: "present" })).toBe("Present");
   });
 });

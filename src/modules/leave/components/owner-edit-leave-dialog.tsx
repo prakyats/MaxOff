@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import type { ResultError } from "@/core/errors";
@@ -8,6 +8,7 @@ import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
+import { Checkbox } from "@/core/ui/primitives/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/core/ui/primitives/dialog";
 import { DateInput } from "@/core/ui/primitives/date-time-input";
+import { Label } from "@/core/ui/primitives/label";
 import {
   Select,
   SelectContent,
@@ -32,10 +34,20 @@ import {
   LEAVE_TYPE_LABELS,
   LEAVE_TYPES,
   leaveDates,
+  type LeaveHalf,
   type LeaveType,
+  leaveWhat,
   type OwnLeaveRequest,
 } from "../domain/requests";
-import { keptDatesNote, ownerCompLeaveOption } from "../domain/review";
+import { keptDatesNote, ownerCompLeaveOption, ownerHalfCompOption } from "../domain/review";
+
+import { HalfChoice, type HalfOption } from "./half-choice";
+
+/** v2.0.1: which half of a half day is off, in the Owner's edit. */
+const HALF_OPTIONS: readonly HalfOption[] = [
+  { value: "morning", label: "Morning off" },
+  { value: "afternoon", label: "Afternoon off" },
+];
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { displayName } from "@/core/lib/display-name";
@@ -46,6 +58,9 @@ import { displayName } from "@/core/lib/display-name";
  * decided keep that decision, and the toast names them (2.2 follow-up a, closed in 2.4). Comp
  * leave is one date and draws one of the person's credits (3c review), so it is greyed out when
  * `compDays` says there is none; the database stays the rule and its refusal shows in the alert.
+ * v2.0.1: a half day says **which half is off** and may **use ½ comp leave**; both start from the
+ * original (its half, and whether it was a ½ comp day), so saving without touching them keeps
+ * them. This is also how the Owner changes one half of an approved split day.
  */
 export function OwnerEditLeaveDialog({
   request,
@@ -63,10 +78,19 @@ export function OwnerEditLeaveDialog({
   const [startDate, setStartDate] = useState(request.startDate);
   const [endDate, setEndDate] = useState(request.endDate);
   const [reason, setReason] = useState("");
+  // A half day's half and ½ comp start from the original's; a full day made a half day starts on
+  // the morning, as the leave form does.
+  const [half, setHalf] = useState<LeaveHalf | null>(
+    request.type === "half_day" ? request.half : "morning",
+  );
+  const [halfComp, setHalfComp] = useState(request.type === "half_day" && !!request.creditDays);
   const [error, setError] = useState<ResultError | null>(null);
+  const compId = useId();
   // A half day and comp leave are one date: no "Last day", and none is sent.
   const singleDate = type === "half_day" || type === "comp_leave";
   const comp = ownerCompLeaveOption(compDays, request, displayName(memberName));
+  const isHalf = type === "half_day";
+  const halfCompOption = ownerHalfCompOption(compDays, request, displayName(memberName), halfComp);
   const action = useAction(async () => {
     const result = await ownerEditLeave({
       requestId: request.id,
@@ -74,6 +98,7 @@ export function OwnerEditLeaveDialog({
       startDate,
       ...(singleDate ? {} : { endDate }),
       reason,
+      ...(isHalf ? { half, comp: halfComp && !halfCompOption.disabled } : {}),
     });
     if (!result.ok) {
       setError(result.error);
@@ -100,9 +125,8 @@ export function OwnerEditLeaveDialog({
           <DialogHeader>
             <DialogTitle>Edit this leave</DialogTitle>
             <DialogDescription>
-              Now: {LEAVE_TYPE_LABELS[request.type].toLowerCase()} on{" "}
-              {leaveDates(request.startDate, request.endDate)}. Days you already decided keep that
-              decision.
+              Now: {leaveWhat(request)} on {leaveDates(request.startDate, request.endDate)}. Days
+              you already decided keep that decision.
             </DialogDescription>
           </DialogHeader>
           {summary ? (
@@ -174,6 +198,41 @@ export function OwnerEditLeaveDialog({
               </FormField>
             )}
           </div>
+          {isHalf ? (
+            <>
+              <HalfChoice
+                legend="Which half is off?"
+                name="half"
+                options={HALF_OPTIONS}
+                value={half}
+                onChange={setHalf}
+                error={fieldErrors.half?.[0]}
+              />
+              <div className="flex flex-col gap-1">
+                <div className="flex min-h-11 items-center gap-3">
+                  <Checkbox
+                    id={compId}
+                    checked={halfComp && !halfCompOption.disabled}
+                    disabled={halfCompOption.disabled}
+                    onCheckedChange={(checked) => setHalfComp(checked === true)}
+                    aria-describedby={halfCompOption.hint ? `${compId}-hint` : undefined}
+                  />
+                  <Label htmlFor={compId} className="leading-snug">
+                    Use ½ comp leave for this half
+                  </Label>
+                </div>
+                {halfCompOption.hint ? (
+                  <p
+                    id={`${compId}-hint`}
+                    data-slot="edit-half-comp-hint"
+                    className="text-muted-foreground text-sm"
+                  >
+                    {halfCompOption.hint}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
           <FormField
             label="Reason (optional)"
             hint={`${memberName} will see this reason.`}

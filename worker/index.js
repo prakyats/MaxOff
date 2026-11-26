@@ -6,6 +6,7 @@
 // is what `pnpm build:worker` produced.
 import openNext from "../.open-next/worker.js";
 import { canonicalRedirectUrl } from "../src/core/http/canonical-host.ts";
+import { isImageOptimizerRequest } from "../src/core/http/image-optimizer.ts";
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from "../.open-next/worker.js";
 
@@ -46,6 +47,15 @@ const worker = {
       return new Response(null, {
         status: 308,
         headers: { ...REDIRECT_HEADERS, Location: target },
+      });
+    }
+    // The image optimizer is closed (v2.0.1, `src/core/http/image-optimizer.ts`): OpenNext would
+    // answer `/_next/image` itself, before the Next server and without reading
+    // `images.unoptimized`, so it is refused here, first.
+    if (isImageOptimizerRequest(request.url)) {
+      return new Response("Not found", {
+        status: 404,
+        headers: { ...REDIRECT_HEADERS, "Content-Type": "text/plain; charset=utf-8" },
       });
     }
     return openNext.fetch(request, env, ctx);

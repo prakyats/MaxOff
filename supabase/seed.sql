@@ -210,7 +210,12 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000121', 'skel-admin-mobile@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000122', 'skel-staff-mobile@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000123', 'skel-admin-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Admin (mobile-lg)', null, 'admin', 'active'),
-  ('20000000-0000-4000-8000-000000000124', 'skel-staff-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000124', 'skel-staff-mobile-lg@maxoff.local', 'skel-local-password', 'Test Skeleton Crew (mobile-lg)', null, 'staff', 'active'),
+  -- v2.0.1: flexible comp leave (e2e/split-leave.spec.ts), a Crew member per project: the spec
+  -- clears their credits, leave and days itself, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000125', 'split-desktop@maxoff.local', 'split-local-password', 'Test Split Leave (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000126', 'split-mobile@maxoff.local', 'split-local-password', 'Test Split Leave (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000127', 'split-mobile-lg@maxoff.local', 'split-local-password', 'Test Split Leave (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

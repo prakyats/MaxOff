@@ -15,8 +15,16 @@ import { TaskPageSkeleton } from "./task-page-skeleton";
  * looks as before (the installed app's slide); over it, still well inside the 300 ms promise.
  */
 export const TASK_TAP_SKELETON_AFTER_MS = 120;
-/** The longest the drawn skeleton stays while the router has drawn nothing for the task. */
+/**
+ * How long the drawn skeleton stays while the router has drawn nothing for the task, unless the
+ * navigation is still under way then (`capped`): the progress bar's "Still loading" and Retry
+ * (§14.2 i, 8 s and 25 s) belong to that navigation, so it is never given up under them.
+ */
 const TASK_TAP_SKELETON_MAX_MS = 25_000;
+/** The status line's Retry, and anything else on it: it acts on the move, so it never leaves it. */
+const NAV_STATUS = '[data-slot="nav-progress-status"]';
+/** `html[data-tap-drawings="ready"]`: the skeletons are drawn, so a task tap can draw one. */
+const DRAWINGS_ATTRIBUTE = "data-tap-drawings";
 /** A sheet's own history entry (`core/ui/overlay/overlay-history`): never copied onto ours. */
 const OVERLAY_MARKER = "maxoffOverlay";
 
@@ -48,6 +56,8 @@ let tap: (TaskTap & { from: string; pending: boolean; route: Element | null }) |
 let pushed = false;
 let timer: number | undefined;
 let cap: number | undefined;
+/** The cap has passed with the navigation still under way: given up once it stands down. */
+let capped = false;
 /** The skeleton drawn into `#main`, and where the screen tapped from was scrolled. */
 let drawn: { node: HTMLElement; origin: string; scrollY: number } | null = null;
 
@@ -71,6 +81,7 @@ function clear(): void {
   watch = null;
   tap = null;
   pushed = false;
+  capped = false;
   undraw();
 }
 
@@ -89,6 +100,7 @@ function ours(): boolean {
 
 /** Nothing came at all: the copy goes, and our entry with it while the router has not used it. */
 function giveUp(): void {
+  if (tap === null) return;
   const stillOurs = ours() && window.location.pathname === tap?.pathname;
   clear();
   if (stillOurs) window.history.back();
@@ -146,7 +158,16 @@ function show(): void {
   main.append(node);
   main.setAttribute("data-tap-skeleton", "");
   window.scrollTo(0, 0);
-  cap = window.setTimeout(giveUp, TASK_TAP_SKELETON_MAX_MS);
+  cap = window.setTimeout(capReached, TASK_TAP_SKELETON_MAX_MS);
+}
+
+/**
+ * The cap's turn: with the navigation still under way (its progress bar, Still loading, Retry) the
+ * copy stays and goes when it stands down (`check`); with none left, now.
+ */
+function capReached(): void {
+  if (document.documentElement.hasAttribute(NAV_PENDING)) capped = true;
+  else giveUp();
 }
 
 /** What a tap can act on outside the copy (the shell's bars stay live while it is up). */
@@ -171,12 +192,30 @@ function leave(control: Element): void {
   window.history.back();
 }
 
+/**
+ * A link to the task being answered: the same move again, never a way out of it (Retry clicks the
+ * tapped row again, `NavProgress`). The router then replaces our entry, as for any link to the
+ * address it is on.
+ */
+function again(control: Element): boolean {
+  if (!(control instanceof HTMLAnchorElement) || tap === null) return false;
+  const target = taskTapTarget(control.getAttribute("href") ?? "", window.location.origin);
+  return target?.pathname === tap.pathname;
+}
+
 function onClick(event: MouseEvent): void {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
     return;
   }
   const control = event.target instanceof Element ? event.target.closest(CONTROL) : null;
-  if (control !== null && drawn !== null && ours() && !drawn.node.contains(control)) {
+  if (
+    control !== null &&
+    drawn !== null &&
+    ours() &&
+    !drawn.node.contains(control) &&
+    !control.closest(NAV_STATUS) &&
+    !again(control)
+  ) {
     event.preventDefault();
     event.stopImmediatePropagation();
     leave(control);
@@ -220,6 +259,8 @@ function check(): void {
     route.firstElementChild !== null &&
     route.querySelector('[aria-busy="true"]') === null;
   if (routeHasTaskScreen() || drewScreen || (at !== tap.from && at !== tap.pathname)) clear();
+  // Past the cap, the navigation has stood down with nothing drawn for the task: given up.
+  else if (capped && !pending) giveUp();
   // Before the skeleton went up only: once the task's address is in the history the progress bar
   // finishes (the address moved; a task's loading screen is not one it waits on, as when the
   // router draws it), and the navigation is still on its way. A stand-down is
@@ -261,7 +302,11 @@ function listen(): void {
  * (`#main[data-tap-skeleton]`, globals.css). It goes as soon as the route holds the task's screen
  * (the router's skeleton, the page, or a finished screen such as not found), when the address goes
  * anywhere else, on back, or when the navigation stands down on the old screen before the copy
- * went up (a guard, a failed fetch), which then comes back where it was. **History (§14.2):** the
+ * went up (a guard, a failed fetch), which then comes back where it was. While it is up the
+ * progress bar counts it as the screen's skeleton, so it waits for the task as for the route's own
+ * (`NavProgress`): "Still loading" and Retry come at 8 s, a full load at 25 s, and the copy is not
+ * given up under them (`capReached`). Retry, and the tapped row clicked again, are the same move,
+ * never a way out of it (`again`). **History (§14.2):** the
  * task's address is the drill-down's one entry, put there with Next's own state so the router's
  * commit replaces it; back returns to the screen tapped from; a tap on the bars while the router
  * has drawn nothing undoes the task first (`leave`). A tap that opens a sheet or another screen
@@ -292,6 +337,8 @@ export function TaskTapSkeleton({ manages }: { manages: boolean }) {
         drawings.set(view.dataset.tapView as TaskView, drawing.cloneNode(true) as Element);
     }
     drawnFor = manages;
+    // A task tapped from now on gets its skeleton (specs wait on this, `tap-feedback.spec`).
+    document.documentElement.setAttribute(DRAWINGS_ATTRIBUTE, "ready");
   }, [draws, manages, offscreen]);
   if (!draws) return null;
   return createPortal(

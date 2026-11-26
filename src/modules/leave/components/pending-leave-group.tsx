@@ -21,6 +21,7 @@ import {
   keptDatesNote,
   pendingLeaveDetail,
   type PendingLeave,
+  pendingPairHalves,
   pendingLeaveStatus,
   pendingLeaveSubtitle,
   pendingLeaveTitle,
@@ -36,6 +37,8 @@ const APPROVE_URL = "/api/approvals/approve";
  * member will read); the dialog is held here, beside the sheet, so back closes it first
  * (ARCHITECTURE §14.2 a). A clash with leave already approved comes back on the row with the
  * message naming it; the sheet links to the person's leave, where the Owner cancels or edits it.
+ * v2.0.1: a waiting split day ("Full day · ½ comp (morning) + ½ leave") is one row
+ * (`listPendingRequests` merges its halves): its one Approve or Reject decides both halves.
  */
 export function PendingLeaveGroup({
   requests,
@@ -130,6 +133,9 @@ export function PendingLeaveGroup({
             <ReviewFacts
               facts={[
                 { label: "Dates", value: leaveDates(review.startDate, review.endDate) },
+                ...(review.pair
+                  ? [{ label: "Halves", value: pendingPairHalves(review.pair.compHalf) }]
+                  : []),
                 ...(review.original
                   ? [
                       {
@@ -155,7 +161,7 @@ export function PendingLeaveGroup({
         title={rejecting ? `Reject ${displayName(rejecting.memberName)}'s request?` : "Reject"}
         description={
           rejecting
-            ? `${pendingLeaveTitle(rejecting)} on ${leaveDates(rejecting.startDate, rejecting.endDate)}. ${rejecting.memberName} will see this reason.`
+            ? `${pendingLeaveTitle(rejecting)} on ${leaveDates(rejecting.startDate, rejecting.endDate)}.${rejecting.pair ? " Both halves are rejected." : ""} ${rejecting.memberName} will see this reason.`
             : undefined
         }
         label="Reason"

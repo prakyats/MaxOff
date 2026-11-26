@@ -2,8 +2,10 @@ import { formatIST, istDayStart } from "@/core/time";
 
 import { daysLabel } from "./credits";
 import {
+  HALF_LABELS,
   LEAVE_TYPE_LABELS,
   leaveDates,
+  type LeaveHalf,
   type LeaveSource,
   type LeaveState,
   leaveTitle,
@@ -35,20 +37,61 @@ export type PendingLeave = {
   /** The approved leave this one changes or cancels, as it stands now. */
   original: { type: LeaveType; startDate: string; endDate: string; state: LeaveState } | null;
   /** v1.9 W4: which half of a half day (older requests: none). */
-  half?: "morning" | "afternoon" | null;
+  half?: LeaveHalf | null;
+  /** v2.0.1: the split day this half belongs to (`leave_requests.pair_id`). */
+  pairId?: string | null;
+  /**
+   * v2.0.1: set when this row stands for a whole waiting split day ("Full day: ½ comp + ½ leave",
+   * `mergePendingPairs`): the half that is comp, and the other half's request. Approve or Reject
+   * on this row's id decides both (`leave_decide` does it), so the other half is never sent.
+   */
+  pair?: { compHalf: LeaveHalf; partnerId: string } | null;
 };
 
-/** "Leave · 3 days", "Cancel leave · 2 days", "Change to half day". */
+/**
+ * v2.0.1: a waiting split day is **one** row (WORKFLOWS §2: the Owner decides it as one): the two
+ * halves sharing a `pair_id` become the comp half's row, marked with `pair`, in the comp half's
+ * place. A half whose partner is not waiting (a holiday cancelled the comp half) stays a row of
+ * its own, so nothing waiting is hidden.
+ */
+export function mergePendingPairs(requests: readonly PendingLeave[]): PendingLeave[] {
+  const byPair = new Map<string, PendingLeave[]>();
+  for (const request of requests) {
+    if (request.pairId)
+      byPair.set(request.pairId, [...(byPair.get(request.pairId) ?? []), request]);
+  }
+  return requests.flatMap((request): PendingLeave[] => {
+    const halves = request.pairId ? (byPair.get(request.pairId) ?? []) : [];
+    if (halves.length !== 2) return [request];
+    const lead = halves.find((half) => half.creditDays) ?? halves[0];
+    const partner = halves.find((half) => half !== lead);
+    if (request !== lead || !lead?.half || !partner) return [];
+    return [{ ...request, pair: { compHalf: lead.half, partnerId: partner.id } }];
+  });
+}
+
+/** "Full day · ½ comp (morning) + ½ leave": a waiting split day's one row. */
+export function pendingPairTitle(compHalf: LeaveHalf): string {
+  return `Full day · ½ comp (${compHalf}) + ½ leave`;
+}
+
+/** "Leave · 3 days", "Cancel leave · 2 days", "Change to half day · morning off". */
 export function pendingLeaveTitle(request: PendingLeave): string {
+  if (request.pair) return pendingPairTitle(request.pair.compHalf);
   if (request.requestsCancellation) return `Cancel ${leaveTitle(request).toLowerCase()}`;
   if (request.original) return `Change to ${leaveTitle(request).toLowerCase()}`;
   return leaveTitle(request);
 }
 
-/** "Asha · 12 – 14 Oct 2026". */
+/** "Asha · 12 – 14 Oct 2026" (the title says which half, v2.0.1). */
 export function pendingLeaveSubtitle(request: PendingLeave): string {
-  const half = request.half ? ` · ${HALF_WORDS[request.half]}` : "";
-  return `${request.memberName} · ${leaveDates(request.startDate, request.endDate)}${half}`;
+  return `${request.memberName} · ${leaveDates(request.startDate, request.endDate)}`;
+}
+
+/** "Comp in the morning, leave in the afternoon": a split day's fact in the Review sheet. */
+export function pendingPairHalves(compHalf: LeaveHalf): string {
+  const other = compHalf === "morning" ? "afternoon" : "morning";
+  return `${HALF_LABELS[compHalf]} is comp leave (½ credit), the ${other} ordinary leave`;
 }
 
 /** v1.9 W4: a half day's half, as the Owner reads it. */
@@ -60,6 +103,9 @@ const HALF_WORDS = { morning: "morning off", afternoon: "afternoon off" } as con
  * Mon 12 Oct". The dates say how many days, so no count; short enough never to be cut short.
  */
 export function pendingLeaveDetail(request: PendingLeave): string {
+  if (request.pair) {
+    return `${pendingPairTitle(request.pair.compHalf)} · ${shortDates(request.startDate, request.endDate)}`;
+  }
   const kind =
     request.type === "half_day" && request.creditDays
       ? `${LEAVE_TYPE_LABELS.half_day} · comp`
@@ -91,6 +137,7 @@ export function pendingLeaveStatus(request: PendingLeave): string {
 
 /** "Approved Asha's leave", for the Undo toast. */
 export function approvedLeaveLabel(request: PendingLeave, name: string): string {
+  if (request.pair) return `Approved ${name}'s full day`;
   if (request.requestsCancellation) return `Cancelled ${name}'s leave`;
   return `Approved ${name}'s ${LEAVE_TYPE_LABELS[request.type].toLowerCase()}`;
 }
@@ -164,4 +211,26 @@ export function ownerCompLeaveOption(
     return { disabled: true, hint: `${name} has no comp leave credit: grant one first.` };
   }
   return { disabled: false, hint: `${name} has ${daysLabel(compDays)} of comp leave.` };
+}
+
+/**
+ * v2.0.1: whether the Owner's edit offers **Use ½ comp leave** on a half day
+ * (`leave_owner_edit(…, comp)`): it draws ½ of the person's credit, after the request's own credit
+ * goes back, so a request that already used a credit (a ½ comp day, or a comp day made a half day)
+ * can always keep it; otherwise it needs ½ day free. `compDays` is the person's balance today, or
+ * undefined where the screen does not know it (the database's refusal then shows in the alert).
+ */
+export function ownerHalfCompOption(
+  compDays: number | undefined,
+  request: Pick<OwnLeaveRequest, "creditDays">,
+  name: string,
+  checked: boolean,
+): { disabled: boolean; hint: string | null } {
+  if (request.creditDays) {
+    return { disabled: false, hint: checked ? `${name}'s comp credit stays with the day.` : null };
+  }
+  if (compDays !== undefined && compDays < 0.5) {
+    return { disabled: true, hint: `${name} has no comp leave credit: grant one first.` };
+  }
+  return { disabled: false, hint: checked ? `Uses ½ day of ${name}'s comp leave.` : null };
 }

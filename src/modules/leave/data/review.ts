@@ -4,12 +4,14 @@ import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
 import { displayName } from "@/core/lib/display-name";
 
-import { type PendingLeave, sortPendingLeave } from "../domain/review";
+import { mergePendingPairs, type PendingLeave, sortPendingLeave } from "../domain/review";
 import {
   LEAVE_SOURCES,
   type LeaveSource,
   type LeaveState,
+  type LeaveHalf,
   type LeaveType,
+  toHalf,
 } from "../domain/requests";
 
 /**
@@ -21,7 +23,7 @@ import {
 const PENDING_LIMIT = 200;
 
 const PENDING_COLUMNS =
-  "id, member_id, type, start_date, end_date, reason, source, requests_cancellation, created_at, credit_days, half, member:members!member_id(full_name, avatar_file_id), original:leave_requests!supersedes_id(type, start_date, end_date, state)";
+  "id, member_id, type, start_date, end_date, reason, source, requests_cancellation, created_at, credit_days, half, pair_id, member:members!member_id(full_name, avatar_file_id), original:leave_requests!supersedes_id(type, start_date, end_date, state)";
 
 function toSource(value: string): LeaveSource {
   if ((LEAVE_SOURCES as readonly string[]).includes(value)) return value as LeaveSource;
@@ -30,7 +32,10 @@ function toSource(value: string): LeaveSource {
 
 /**
  * Every request waiting for the Owner, oldest first. Gate requests (`source = attendance`) are
- * left out: they are decided with their day, in the Attendance group (WORKFLOWS §2).
+ * left out: they are decided with their day, in the Attendance group (WORKFLOWS §2). v2.0.1: a
+ * waiting split day (two halves sharing a `pair_id`) is one item (`mergePendingPairs`), here and
+ * on the Owner's Today, so one Approve or Reject decides it and "Approve all" never sends a half
+ * twice.
  */
 export async function listPendingRequests(): Promise<PendingLeave[]> {
   const supabase = await createServerSupabase();
@@ -43,39 +48,42 @@ export async function listPendingRequests(): Promise<PendingLeave[]> {
     .limit(PENDING_LIMIT);
   if (error) throw error;
   return sortPendingLeave(
-    data.map((row): PendingLeave => {
-      // A self-embed on the row's own foreign key: one object or null (see data/leave.ts).
-      const embedded = row.original as unknown;
-      const original = (Array.isArray(embedded) ? (embedded[0] ?? null) : embedded) as {
-        type: LeaveType;
-        start_date: string;
-        end_date: string;
-        state: LeaveState;
-      } | null;
-      return {
-        id: row.id,
-        memberId: row.member_id,
-        memberName: displayName(row.member?.full_name),
-        memberAvatarFileId: row.member?.avatar_file_id ?? null,
-        type: row.type,
-        startDate: row.start_date,
-        endDate: row.end_date,
-        reason: row.reason,
-        source: toSource(row.source),
-        requestsCancellation: row.requests_cancellation,
-        createdAt: row.created_at,
-        creditDays: row.credit_days === null ? null : Number(row.credit_days),
-        half: row.half === "morning" || row.half === "afternoon" ? row.half : null,
-        original: original
-          ? {
-              type: original.type,
-              startDate: original.start_date,
-              endDate: original.end_date,
-              state: original.state,
-            }
-          : null,
-      };
-    }),
+    mergePendingPairs(
+      data.map((row): PendingLeave => {
+        // A self-embed on the row's own foreign key: one object or null (see data/leave.ts).
+        const embedded = row.original as unknown;
+        const original = (Array.isArray(embedded) ? (embedded[0] ?? null) : embedded) as {
+          type: LeaveType;
+          start_date: string;
+          end_date: string;
+          state: LeaveState;
+        } | null;
+        return {
+          id: row.id,
+          memberId: row.member_id,
+          memberName: displayName(row.member?.full_name),
+          memberAvatarFileId: row.member?.avatar_file_id ?? null,
+          type: row.type,
+          startDate: row.start_date,
+          endDate: row.end_date,
+          reason: row.reason,
+          source: toSource(row.source),
+          requestsCancellation: row.requests_cancellation,
+          createdAt: row.created_at,
+          creditDays: row.credit_days === null ? null : Number(row.credit_days),
+          half: toHalf(row.half),
+          pairId: row.pair_id,
+          original: original
+            ? {
+                type: original.type,
+                startDate: original.start_date,
+                endDate: original.end_date,
+                state: original.state,
+              }
+            : null,
+        };
+      }),
+    ),
   );
 }
 
@@ -119,6 +127,9 @@ export async function rpcOwnerEdit(input: {
   startDate: string;
   endDate: string;
   reason: string | null;
+  /** v2.0.1, a half day only: which half is off, and a ½ comp day; null keeps the original's. */
+  half?: LeaveHalf | null;
+  comp?: boolean | null;
 }): Promise<string[]> {
   const supabase = await createServerSupabase();
   return withDeadlockRetry(async () => {
@@ -128,6 +139,8 @@ export async function rpcOwnerEdit(input: {
       start_date: input.startDate,
       end_date: input.endDate,
       ...(input.reason ? { reason: input.reason } : {}),
+      ...(input.type === "half_day" && input.half ? { half: input.half } : {}),
+      ...(input.type === "half_day" && typeof input.comp === "boolean" ? { comp: input.comp } : {}),
     });
     if (error) throw error;
     return data[0]?.kept_dates ?? [];
