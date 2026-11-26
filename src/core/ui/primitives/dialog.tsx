@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
-import { onLayerEscape, onLayerOpenFocus } from "@/core/ui/keyboard/layer";
+import { onLayerEscape, onLayerOpenFocus, onLayerOutside } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
@@ -41,7 +41,8 @@ function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.
 }
 
 function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+  // A way out: closing by it backs the layer's entry out (`overlay-history`, §14.2 a).
+  return <DialogPrimitive.Close data-slot="dialog-close" data-dismiss="" {...props} />;
 }
 
 function DialogOverlay({
@@ -67,6 +68,7 @@ function DialogContent({
   ref,
   onEscapeKeyDown,
   onOpenAutoFocus,
+  onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -92,11 +94,13 @@ function DialogContent({
         // does (ARCHITECTURE §14.3 rules 4 and 5).
         onEscapeKeyDown={(event) => onLayerEscape(event, onEscapeKeyDown)}
         onOpenAutoFocus={(event) => onLayerOpenFocus(event, onOpenAutoFocus)}
+        // A tap on the backdrop closes it as back would: its entry is backed out (§14.2 a).
+        onPointerDownOutside={(event) => onLayerOutside(event, onPointerDownOutside)}
       >
         <div data-slot="dialog-handle" aria-hidden className={MODAL_HANDLE} />
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
+          <DialogPrimitive.Close data-slot="dialog-close" data-dismiss="" asChild>
             <Button
               variant="ghost"
               className="absolute top-1 right-1 md:top-2 md:right-2"

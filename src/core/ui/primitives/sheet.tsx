@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
-import { onLayerEscape, onLayerOpenFocus } from "@/core/ui/keyboard/layer";
+import { onLayerEscape, onLayerOpenFocus, onLayerOutside } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
@@ -36,7 +36,8 @@ function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.T
 }
 
 function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
-  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
+  // A way out: closing by it backs the layer's entry out (`overlay-history`, §14.2 a).
+  return <SheetPrimitive.Close data-slot="sheet-close" data-dismiss="" {...props} />;
 }
 
 function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
@@ -69,6 +70,7 @@ function SheetContent({
   ref,
   onEscapeKeyDown,
   onOpenAutoFocus,
+  onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
@@ -99,10 +101,12 @@ function SheetContent({
         // does (ARCHITECTURE §14.3 rules 4 and 5).
         onEscapeKeyDown={(event) => onLayerEscape(event, onEscapeKeyDown)}
         onOpenAutoFocus={(event) => onLayerOpenFocus(event, onOpenAutoFocus)}
+        // A tap on the backdrop closes it as back would: its entry is backed out (§14.2 a).
+        onPointerDownOutside={(event) => onLayerOutside(event, onPointerDownOutside)}
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close data-slot="sheet-close" asChild>
+          <SheetPrimitive.Close data-slot="sheet-close" data-dismiss="" asChild>
             <Button variant="ghost" className="absolute top-3 right-3" size="icon-sm">
               <XIcon />
               <span className="sr-only">Close</span>

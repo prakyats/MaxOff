@@ -102,10 +102,11 @@ test.describe("overlays close on back", () => {
 
     await sheet.getByRole("button", { name: "Close" }).click();
     await expect(sheet).toBeHidden();
+    // Its ✕ backs its entry out, as the back gesture would have (the v3.5 walk, 26 Nov 2026).
+    await expect.poll(() => overlayMarker(page), { message: "no spent entry" }).toBeNull();
 
-    // The entry the sheet opened over is left behind spent — it cannot be popped on close
-    // without cancelling a navigation started from inside an overlay. `onPopState` skips it,
-    // so one back press still leaves /today rather than being silently swallowed.
+    // A later page on top (hydrated: its own first history write is not taken for the back's
+    // navigation): one back press leaves it for /today, never swallowed.
     await page.goto("/calendar");
     // Back once the app is live: pressed while Next's hydration writes its history, the back was
     // taken for that write (fix-goback-guard).
@@ -113,7 +114,9 @@ test.describe("overlays close on back", () => {
     await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
-  test("reopening reuses the spent entry instead of stacking more", async ({ page }) => {
+  test("reopening and closing by its ✕ never stacks entries: the next back leaves", async ({
+    page,
+  }) => {
     await page.goto("/today");
     const more = page.locator('[data-slot="bottom-nav"] [data-nav="more"]');
     const sheet = page.locator('[data-slot="more-sheet"]');
@@ -123,13 +126,12 @@ test.describe("overlays close on back", () => {
       await expect(sheet).toBeVisible();
       await sheet.getByRole("button", { name: "Close" }).click();
       await expect(sheet).toBeHidden();
+      // Each close backs its entry out: the page's own entry is the current one again.
+      await expect.poll(() => overlayMarker(page), { message: "no spent entry" }).toBeNull();
     }
 
-    // Dismissing by its ✕ leaves one spent entry, and it carries the same URL as the page, so
-    // the first back press is absorbed: it lands on /today again. The point of this test is
-    // that three open/dismiss cycles still cost exactly one absorbed press, not three — the
-    // spent entry is reused rather than a new one pushed each time.
-    await expectBackStack(page, [{ url: /\/today$/ }]);
+    // Three open/close cycles cost no back press at all: nothing stacked, nothing left behind,
+    // so the very first back leaves /today (as after Escape or the back gesture).
     await page.goBack();
     await expect(page).not.toHaveURL(/\/today$/);
   });
@@ -240,6 +242,54 @@ test.describe("installed: overlays and view controls", () => {
         { closes: dialog, url: /\/settings\/days-off$/ },
         { url: /\/settings$/ },
       ]);
+    });
+
+    // The owner's v3.5 walk (26 Nov 2026, steps 8 and 22): a layer closed by its own button left
+    // its entry behind, and the next back landed on the same screen doing nothing. Closed by its
+    // way out (Cancel, ✕), by the backdrop or by its commit, it now goes as back would have.
+    test("/settings/days-off: the Add holiday dialog closed by Cancel; the next back leaves", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/days-off");
+      await hydrated(page);
+      await page.getByRole("button", { name: "Add holiday" }).click();
+      const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+      await expect.poll(() => overlayMarker(page), { message: "no spent entry" }).toBeNull();
+
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
+    test("/settings/days-off: the Add holiday dialog closed by its ✕, then by the backdrop; the next back leaves", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/days-off");
+      await hydrated(page);
+      const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+
+      await page.getByRole("button", { name: "Add holiday" }).click();
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect.poll(() => overlayMarker(page), { message: "no spent entry (✕)" }).toBeNull();
+
+      // A tap on the dimmed page above the bottom sheet.
+      await page.getByRole("button", { name: "Add holiday" }).click();
+      await expect(dialog).toBeVisible();
+      await animationsSettled(page);
+      await page.locator('[data-slot="dialog-overlay"]').click({ position: { x: 20, y: 20 } });
+      await expect(dialog).toBeHidden();
+      await expect
+        .poll(() => overlayMarker(page), { message: "no spent entry (backdrop)" })
+        .toBeNull();
+
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
     });
 
     test("/settings/thresholds: editing the quiet hours adds no history; back returns to Settings", async ({
@@ -433,6 +483,44 @@ test.describe("installed: overlays and view controls", () => {
       await serviceRest(`list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}`, {
         method: "DELETE",
       });
+    });
+
+    test("/settings/job-titles: the same Delete closed by its commit leaves no entry; the next back leaves (v3.5 walk)", async ({
+      page,
+    }, info) => {
+      // A confirmation that runs a server action and then closes itself, with no navigation.
+      const name = `Back committed (${info.project.name})`;
+      const where = `list_items?list_key=eq.job_title&name=eq.${encodeURIComponent(name)}`;
+      await serviceRest(where, { method: "DELETE" });
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      await serviceInsert("list_items", {
+        org_id: org?.id,
+        list_key: "job_title",
+        name,
+        position: "y8",
+      });
+      try {
+        await runInstalled(page);
+        await page.goto("/settings");
+        await page.goto("/settings/job-titles");
+        await hydrated(page);
+        const row = page.locator('[data-slot="list-item"]', { hasText: name });
+        await row.getByRole("button", { name: `Actions for ${name}` }).click();
+        const sheet = page.getByRole("dialog", { name, exact: true });
+        await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+        const confirm = page.getByRole("alertdialog", { name: `Delete job title “${name}”?` });
+        await expect(confirm).toBeVisible();
+        const commit = confirm.getByRole("button", { name: `Delete ${name}` });
+        await expect(commit).toBeEnabled();
+        await commit.click();
+        await expect(confirm).toBeHidden();
+        await expect(row).toHaveCount(0);
+        await expect.poll(() => overlayMarker(page), { message: "no spent entry" }).toBeNull();
+
+        await expectBackStack(page, [{ url: /\/settings$/ }]);
+      } finally {
+        await serviceRest(where, { method: "DELETE" });
+      }
     });
   });
 

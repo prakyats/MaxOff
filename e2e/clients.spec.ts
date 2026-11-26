@@ -308,9 +308,10 @@ test.describe("the Owner", () => {
     await archive.getByRole("button", { name: "Archive Meera Rao" }).click();
     await expect(page.getByText("Meera Rao is archived")).toBeVisible();
 
-    // A dialog closed by its button leaves its history entry spent (1.5, overlay-history), so the
-    // client is opened directly rather than by a back press that would land here first.
-    await page.goto(`/clients/${id}`);
+    // The confirmation's commit backed its entry out, and the select's picked on the way
+    // (overlay-history, the v3.5 walk): one back returns to the client, as after the back gesture.
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/clients/${id}$`));
     await expect(rows.filter({ hasText: "Arjun Das" })).toContainText("Primary");
     // An archived contact leaves the list for the collapsed "Archived (1)" at its foot.
     await expect(rows.filter({ hasText: "Meera Rao" })).toHaveCount(0);

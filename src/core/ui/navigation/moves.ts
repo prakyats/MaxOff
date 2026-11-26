@@ -12,8 +12,8 @@
  * `paths` are the pathnames of this origin's history entries up to and including the current one
  * (the Navigation API's `entries()` to `currentEntry.index`), or null without the API. The
  * entries just beneath that share the current pathname are **this screen's own**: an overlay's
- * spent entry (a sheet, a dialog or a select closed by its button leaves one, `overlay-history`)
- * or a view that wrote its address there. Going back one entry landed on one of them, so the tap
+ * spent entry (a select's pick or a menu item leaves one; a layer closed by its own button no
+ * longer does since the v3.5 walk, `overlay-history`) or a view that wrote its address there. Going back one entry landed on one of them, so the tap
  * changed nothing (found on Settings → Stage presets after Add preset's Cancel). They are stepped
  * over: the page beneath them is the real previous page.
  *

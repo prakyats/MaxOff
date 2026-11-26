@@ -727,8 +727,7 @@ test.describe("a failed action never retries onto another item", () => {
     await expect(dialog).toBeHidden();
 
     // The review sheet is still A's, beneath: close it, then open B.
-    // Its own Close: a dialog closed by its button leaves its entry spent (PROGRESS, 3.4
-    // mechanics 5), so a key or a back here would land on that spent entry first.
+    // Its own Close (the dialog's Keep it backed its entry out, overlay-history).
     await expect(sheet).toBeVisible();
     await sheet.getByRole("button", { name: "Close" }).click();
     await expect(sheet).toBeHidden();
@@ -781,8 +780,7 @@ test.describe("a failed action never retries onto another item", () => {
       await expect(decide.locator('[data-slot="action-failed"]')).toBeVisible();
       await decide.getByRole("button", { name: "Cancel" }).click();
       await expect(decide).toBeHidden();
-      // A's review sheet is beneath: its own Close (a dialog closed by its button leaves its
-      // entry spent, PROGRESS 3.4 mechanics 5).
+      // A's review sheet is beneath: its own Close (the dialog's Cancel backed its entry out).
       await expect(sheet).toBeVisible();
       await sheet.getByRole("button", { name: "Close" }).click();
       await expect(sheet).toBeHidden();
