@@ -67,7 +67,9 @@ describe("loading.tsx coverage", () => {
 
   it.each(routes)("%s renders its title bar while loading", (route) => {
     // Without a header you cannot tell which screen you are on mid-load. A route whose own
-    // layout draws the header (and awaits nothing) keeps it painted while the page loads.
+    // layout draws the header (and awaits nothing) keeps it painted while the page loads: a
+    // `PageHeader`, or the record pages' `DetailHeader` (a `PageHeader`), which a person's
+    // layout draws at once so its back control is never swapped (fix-stable-back).
     const source = loadingSource(route);
     const layouts = route
       .split("/")
@@ -75,7 +77,8 @@ describe("loading.tsx coverage", () => {
       .filter((file) => existsSync(file))
       .map((file) => readFileSync(file, "utf8"));
     expect(
-      /PageLoading|PageHeader/.test(source) || layouts.some((l) => l.includes("<PageHeader")),
+      /PageLoading|PageHeader/.test(source) ||
+        layouts.some((l) => /<(PageHeader|DetailHeader)\b/.test(l)),
     ).toBe(true);
   });
 

@@ -3,7 +3,7 @@ import { type ReactNode, Suspense } from "react";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { DetailHeader, PageHeader } from "@/core/ui/composites/page-header";
+import { DetailHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { getTodayPeople, PersonTodayLine, PersonTodayLineSkeleton } from "@/modules/attendance";
@@ -40,10 +40,12 @@ const BACK = {
  * Deactivate and the rest, owner decision 2026-09-25). For the Owner, the person's today sits in
  * one line above the tabs (6.2: state, start and end, overtime; Kickoff 6 decision 7).
  *
- * It awaits only the route's id and the viewer (already read for the shell): the header and
- * tabs stream in behind a skeleton of themselves (the tab bar's for the Owner, who nearly always
- * gets one), so a drill-down from People paints this screen's shape at once. Each view's
- * `loading.tsx` traces only the view.
+ * It awaits only the route's id and the viewer (already read for the shell): the header is drawn
+ * at once with its back control, and only its name, job title, status and ⋯ stream in, each
+ * behind a skeleton of itself; the today line and tabs stream behind theirs (the tab bar's for
+ * the Owner, who nearly always gets one). So a drill-down from People paints this screen's shape
+ * at once, and the back control is one element from the first paint. Each view's `loading.tsx`
+ * traces only the view.
  */
 export default async function PersonLayout({
   children,
@@ -55,62 +57,43 @@ export default async function PersonLayout({
   const [{ id }, viewer] = await Promise.all([params, requirePermission("team.view")]);
   // The Owner's today line reads the board (`cache()`d): started with the header's reads.
   if (can(viewer.role, "attendance.view_all")) startEarly(getTodayPeople());
+  const hasMenu = can(viewer.role, "activity.view_all") || can(viewer.role, "team.manage");
   return (
     <>
       <Suspense fallback={null}>
         <RecordReadReceipt entity="members" id={id} />
       </Suspense>
-      <Suspense
-        fallback={
-          <>
-            <PageHeader
-              title={<Skeleton className="h-5 w-40" />}
-              back={BACK}
-              status={<Skeleton className="h-5 w-16 rounded-full" />}
-              menu={
-                can(viewer.role, "team.manage") ? (
-                  <>
-                    <Skeleton aria-hidden className="size-11 rounded-lg" />
-                    <Skeleton aria-hidden className="size-11 rounded-lg" />
-                  </>
-                ) : undefined
-              }
-            />
-            {can(viewer.role, "attendance.view_all") ? (
-              <>
-                <PersonTodayLineSkeleton />
-                <TabsSkeleton />
-              </>
-            ) : null}
-          </>
-        }
-      >
-        <PersonHeader id={id} />
-      </Suspense>
-      {children}
-    </>
-  );
-}
-
-async function PersonHeader({ id }: { id: string }) {
-  const { viewer, person } = await loadPerson(id);
-  return (
-    <>
       {/* FINAL 6 / PP-person-1: back · name · status chip, then the History clock (the Owner's:
-          the audit log is his to read) and ⋯. The history is read only when it opens. */}
+          the audit log is his to read) and ⋯. The history is read only when it opens.
+          The header itself, its back control and the bell are drawn at once and never swapped:
+          only the parts that need the person stream in, each behind a skeleton of itself. A tap
+          on back while the person loads (before hydration too) lands on the element that stays,
+          so it is never lost to the swap (fix-stable-back, 26 Nov 2026). */}
       <DetailHeader
-        title={person.fullName}
-        description={person.jobTitle ?? undefined}
+        title={
+          <Suspense fallback={<Skeleton className="h-5 w-40" />}>
+            <PersonName id={id} />
+          </Suspense>
+        }
+        description={
+          <Suspense fallback={null}>
+            <PersonJobTitle id={id} />
+          </Suspense>
+        }
         back={BACK}
-        status={<StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />}
+        status={
+          <Suspense fallback={<Skeleton className="h-5 w-16 rounded-full" />}>
+            <PersonStatus id={id} />
+          </Suspense>
+        }
         menu={
-          can(viewer.role, "activity.view_all") || can(viewer.role, "team.manage") ? (
+          hasMenu ? (
             <>
-              {can(viewer.role, "activity.view_all") ? (
-                <PersonHistoryButton memberId={person.id} />
-              ) : null}
+              {can(viewer.role, "activity.view_all") ? <PersonHistoryButton memberId={id} /> : null}
               {can(viewer.role, "team.manage") ? (
-                <PersonMenu member={person} viewerId={viewer.id} />
+                <Suspense fallback={<Skeleton aria-hidden className="size-11 rounded-lg" />}>
+                  <PersonMenuFor id={id} />
+                </Suspense>
               ) : null}
             </>
           ) : undefined
@@ -119,13 +102,53 @@ async function PersonHeader({ id }: { id: string }) {
         // text the bell wraps to a second row rather than pushing the bar past the screen's edge.
         className="flex-wrap"
       />
-      {showsHistory(viewer, person) ? (
-        <>
-          {/* Their today in one line above the tabs (6.2, Kickoff 6 decision 7): the Owner's only. */}
-          {can(viewer.role, "attendance.view_all") ? <PersonToday id={person.id} /> : null}
-          <PersonTabs memberId={person.id} />
-        </>
-      ) : null}
+      <Suspense
+        fallback={
+          can(viewer.role, "attendance.view_all") ? (
+            <>
+              <PersonTodayLineSkeleton />
+              <TabsSkeleton />
+            </>
+          ) : null
+        }
+      >
+        <PersonViews id={id} />
+      </Suspense>
+      {children}
+    </>
+  );
+}
+
+/** The header's parts that need the person: one `loadPerson` read (`cache()`d) for all of them. */
+async function PersonName({ id }: { id: string }) {
+  const { person } = await loadPerson(id);
+  return person.fullName;
+}
+
+async function PersonJobTitle({ id }: { id: string }) {
+  const { person } = await loadPerson(id);
+  return person.jobTitle ?? null;
+}
+
+async function PersonStatus({ id }: { id: string }) {
+  const { person } = await loadPerson(id);
+  return <StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />;
+}
+
+async function PersonMenuFor({ id }: { id: string }) {
+  const { viewer, person } = await loadPerson(id);
+  return <PersonMenu member={person} viewerId={viewer.id} />;
+}
+
+/** The person's today line and tab bar (the Owner's, once the person has history to show). */
+async function PersonViews({ id }: { id: string }) {
+  const { viewer, person } = await loadPerson(id);
+  if (!showsHistory(viewer, person)) return null;
+  return (
+    <>
+      {/* Their today in one line above the tabs (6.2, Kickoff 6 decision 7): the Owner's only. */}
+      {can(viewer.role, "attendance.view_all") ? <PersonToday id={person.id} /> : null}
+      <PersonTabs memberId={person.id} />
     </>
   );
 }
