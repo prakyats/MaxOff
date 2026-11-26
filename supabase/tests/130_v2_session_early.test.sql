@@ -59,6 +59,8 @@ create function pg_temp.member_as_read() returns jsonb language sql stable as $$
   select jsonb_build_object(
     'id', m.id, 'email', m.email, 'full_name', m.full_name, 'role', m.role, 'status', m.status,
     'avatar_file_id', m.avatar_file_id,
+    -- v7.5 Q2: whether the member's sign-in asks for an authenticator code.
+    'second_step', m.second_step,
     'job_title', (select jsonb_build_object('name', li.name) from public.list_items li where li.id = m.job_title_id))
   from public.members m where m.id = auth.uid()
   union all select 'null'::jsonb

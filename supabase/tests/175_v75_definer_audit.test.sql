@@ -38,6 +38,8 @@ insert into api_public values
   ('access_refusal_note'),
   -- v7.5 Q1: the caller confirms reading the privacy notice (migration v75_privacy_notice).
   ('privacy_notice_read'),
+  -- v7.5 Q2: the caller's own two-step switch, from an aal2 session (migration v75_second_step).
+  ('second_step_set'),
   ('app_open_report'), ('attendance_ask_leave_early'), ('attendance_choose_leave_today'),
   ('attendance_decide'), ('attendance_end_day'), ('attendance_end_not_recorded_yesterday'),
   ('attendance_flag_overtime'), ('attendance_flag_overtime_today'), ('attendance_hours_today'),

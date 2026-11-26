@@ -2031,6 +2031,7 @@ export type Database = {
           org_id: string;
           phone: string | null;
           role: Database["public"]["Enums"]["member_role"];
+          second_step: boolean;
           status: Database["public"]["Enums"]["member_status"];
           updated_at: string;
         };
@@ -2048,6 +2049,7 @@ export type Database = {
           org_id?: string;
           phone?: string | null;
           role: Database["public"]["Enums"]["member_role"];
+          second_step?: boolean;
           status?: Database["public"]["Enums"]["member_status"];
           updated_at?: string;
         };
@@ -2065,6 +2067,7 @@ export type Database = {
           org_id?: string;
           phone?: string | null;
           role?: Database["public"]["Enums"]["member_role"];
+          second_step?: boolean;
           status?: Database["public"]["Enums"]["member_status"];
           updated_at?: string;
         };
@@ -5736,6 +5739,7 @@ export type Database = {
           state: string;
         }[];
       };
+      second_step_set: { Args: { p_on: boolean }; Returns: undefined };
       session_bundle: {
         Args: never;
         Returns: {
