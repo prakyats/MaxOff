@@ -5,6 +5,7 @@
 -- release, one alert each for whoever is still unreachable. A state change after the release
 -- restarts that person's clock as before.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(11);
 

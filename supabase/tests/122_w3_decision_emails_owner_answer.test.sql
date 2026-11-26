@@ -4,6 +4,7 @@
 -- work note, an expense claim marked paid. A declined extra work note, a revoked grant and a rejected
 -- claim keep the fallback. Nobody here has push; the dispatcher's queue is the proof.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(12);
 

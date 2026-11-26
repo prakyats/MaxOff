@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   createContext,
   type ReactNode,
+  type RefObject,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -221,7 +222,7 @@ export function TaskTabs({ context }: { context: TaskTabsContext }) {
   const { view, choose, desktop, openChat, unread, stuck, setBand } = useTaskView();
   const bar = useRef<HTMLDivElement>(null);
   const shown = shownView(view, desktop === true);
-  usePublishedHeaderHeight();
+  usePublishedHeaderHeight(bar);
 
   // Keep the chosen view in sight when the bar scrolls (large text).
   useEffect(() => {
@@ -345,13 +346,26 @@ function useStuckBar(node: HTMLDivElement | null, active: boolean): boolean {
 /**
  * The title bar's height, published for the sticky views' bar to sit right under it (a long
  * title takes two lines, and large text grows it).
+ *
+ * **The task page's own title bar**, found from its views' bar (`inside`), never the first one in
+ * the document (CI 45707707755): a task tapped while the router has drawn nothing draws its
+ * skeleton's copy into `#main` outside React (`TaskTapSkeleton`), and a route the router commits
+ * after it lands after it, so the first title bar was the copy's. The copy goes as soon as the page
+ * is in, its observed bar was then 0 px tall, and the views' bar stuck at the top of the screen,
+ * under the title bar, for as long as the task stayed open. A bar that is not drawn (its route
+ * hidden while the copy is up) publishes nothing: the observer answers again once it is drawn.
  */
-function usePublishedHeaderHeight(): void {
+function usePublishedHeaderHeight(inside: RefObject<HTMLElement | null>): void {
   useLayoutEffect(() => {
-    const header = document.querySelector<HTMLElement>('[data-slot="page-header"]');
+    const header = inside.current
+      ?.closest('[data-slot="task-page"]')
+      ?.querySelector<HTMLElement>('[data-slot="page-header"]');
     if (!header) return;
     const root = document.documentElement;
-    const publish = () => root.style.setProperty("--app-page-header-h", `${header.offsetHeight}px`);
+    const publish = () => {
+      if (header.offsetHeight === 0) return;
+      root.style.setProperty("--app-page-header-h", `${header.offsetHeight}px`);
+    };
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(header);
@@ -359,5 +373,5 @@ function usePublishedHeaderHeight(): void {
       observer.disconnect();
       root.style.removeProperty("--app-page-header-h");
     };
-  }, []);
+  }, [inside]);
 }

@@ -10,6 +10,7 @@
 --   4. no path: tables, views, functions, activity_log, notifications for everyone but the Owner.
 -- Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(192);
 

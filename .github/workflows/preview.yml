@@ -15,11 +15,14 @@
 #
 # Previews run against the **staging** Supabase project with the staging environment's
 # variables. The preview build itself never runs migrations; the `staging-migrations` job at the
-# bottom of this file does, **before** the build, on every push to a `phase-*` branch, through
+# bottom of this file does, **before** the build, on every push to a `phase-*` branch **and on a
+# push or manual preview of any branch that adds a migration** (advisor 2026-11-26: a `claude/*`
+# branch previewed for hours against a staging without its migration), through
 # scripts/staging-migrations.sh: it lists the linked project's migrations and applies only what
 # staging is missing, also while staging holds another open branch's (seconds when nothing is
-# pending, robust against an earlier failed run). Other branches, and a run
-# where that job failed, preview against a database that lacks them, and the PR comment says so.
+# pending, robust against an earlier failed run). The `migration plan` job decides
+# (scripts/lib/migration-plan.mjs, unit-tested); `migrations check` **fails the run, and no
+# preview is built,** when the branch adds migrations and that job did not succeed.
 # The manual dispatch stays as the fallback. Staging only: production migrations go out with a
 # `v*` tag (deploy.yml), never from here.
 #
@@ -51,6 +54,9 @@ on:
           - notifications-removal-dry-run
           - push-band-count
           - perf-probe
+          - image-probe
+          - today-tail
+          - today-local
       samples:
         description: "perf-probe: samples per route and connection kind"
         type: string
@@ -92,15 +98,65 @@ permissions:
   contents: read
 
 jobs:
-  preview:
-    name: preview
-    # After the migrations, so the build previews against the schema it was written for. A
-    # skipped migrations job (another branch, or a manual preview) does not block the preview.
-    needs: [staging-migrations]
+  # Which run applies staging's missing migrations (scripts/lib/migration-plan.mjs): reads git
+  # only, holds no secret and joins no concurrency group, so a branch without migrations never
+  # queues behind (or displaces) a staging deploy.
+  migration-plan:
+    name: migration plan
+    if: github.event_name == 'push' || contains(fromJSON('["preview", "staging-migrations"]'), inputs.job)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      added: ${{ steps.plan.outputs.added }}
+      apply: ${{ steps.plan.outputs.apply }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Count this branch's migrations and decide
+        id: plan
+        env:
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          node scripts/migration-plan.mjs
+
+  # A branch that adds migrations previews only once this run's `staging migrations` succeeded:
+  # otherwise this fails, loudly, and the preview is not built (previewMayBuild).
+  migrations-check:
+    name: migrations check
+    needs: [migration-plan, staging-migrations]
     if: >-
       always()
       && (github.event_name == 'push' || inputs.job == 'preview')
-      && contains(fromJSON('["success", "skipped"]'), needs.staging-migrations.result)
+      && needs.migration-plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: The staging database has this branch's migrations
+        env:
+          ADDED: ${{ needs.migration-plan.outputs.added }}
+          MIGRATIONS: ${{ needs.staging-migrations.result }}
+        run: node scripts/migration-plan.mjs --check "$ADDED" "$MIGRATIONS"
+
+  preview:
+    name: preview
+    # After the migrations, so the build previews against the schema it was written for. A
+    # skipped migrations job (a branch without migrations of its own) does not block the preview;
+    # a branch that adds migrations builds only after they were applied (`migrations check`).
+    needs: [staging-migrations, migrations-check]
+    if: >-
+      always()
+      && (github.event_name == 'push' || inputs.job == 'preview')
+      && needs.migrations-check.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
@@ -349,14 +405,14 @@ jobs:
           fi
 
   # Automatic on every push to a `phase-*` branch (process change 2026-09-26, owner decision;
-  # manual-only since task 2.0), and still available by hand for any branch. It moves the staging
-  # schema only when staging is missing a local migration, and staging is shared: the migrations
-  # stay there until the branch merges. Production is never in scope.
+  # manual-only since task 2.0), on a push or manual preview of any branch that adds a migration
+  # (advisor 2026-11-26), and still available by hand for any branch (`migration plan` decides).
+  # It moves the staging schema only when staging is missing a local migration, and staging is
+  # shared: the migrations stay there until the branch merges. Production is never in scope.
   staging-migrations:
     name: staging migrations
-    if: >-
-      (github.event_name == 'push' && startsWith(github.ref_name, 'phase-'))
-      || (github.event_name == 'workflow_dispatch' && inputs.job == 'staging-migrations')
+    needs: [migration-plan]
+    if: needs.migration-plan.outputs.apply == 'true'
     runs-on: ubuntu-latest
     outputs:
       applied: ${{ steps.push.outputs.applied }}
@@ -540,6 +596,202 @@ jobs:
           pnpm supabase --agent no link --project-ref "$SUPABASE_PROJECT_REF"
           pnpm supabase --agent no db query --linked "select * from public.push_band_census()" | tee "$RUNNER_TEMP/band.txt"
           { echo "### People and devices the band would ask to \"Check notifications reach you\" on staging (read-only)"; echo; echo '```'; cat "$RUNNER_TEMP/band.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+
+  # Image probe (v2.0.1, `src/core/http/image-optimizer.ts`): is the image optimizer's route
+  # answering? next ≤ 16.4.0 had a remote code execution and an SSRF in `/_next/image`. By hand
+  # only: Actions → Preview → Run workflow → this branch → `image-probe`. One signed-out GET of a
+  # local icon through `/_next/image` on staging (what `main` deployed), on the `main` preview and
+  # on this branch's preview; it prints only the status code and the content type. Read-only, no
+  # session, no secret, and never production: the addresses are staging's workers.dev ones,
+  # worked out from the staging environment's own URL as the perf probe does.
+  image-probe:
+    name: image probe (staging)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'image-probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - name: GET /_next/image on staging, the main preview and this branch's preview
+        env:
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STAGING_URL:-}" ]; then
+            echo "::error::NEXT_PUBLIC_APP_URL is not set in the staging GitHub environment."
+            exit 1
+          fi
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          case "$host" in
+            *.workers.dev) ;;
+            *) echo "::error::Staging's address '$host' is not a workers.dev host; this probe reads staging only." >&2; exit 1 ;;
+          esac
+          worker="${host%%.*}"
+          subdomain="${host#*.}"
+          # The same alias rule as the preview job, for this branch's preview address.
+          branch="$GITHUB_REF_NAME"
+          alias="$(printf '%s' "$branch" | tr -c 'a-zA-Z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | tr 'A-Z' 'a-z')"
+          case "$alias" in [a-z]*) ;; *) alias="b-$alias" ;; esac
+          max=$(( 63 - ${#worker} - 1 ))
+          if [ "${#alias}" -gt "$max" ]; then
+            suffix="$(printf '%s' "$branch" | sha1sum | cut -c1-6)"
+            alias="$(printf '%s' "$alias" | cut -c1-"$(( max - 7 ))" | sed 's/-*$//')-$suffix"
+          fi
+          path='/_next/image?url=/icons/icon-192.png&w=64&q=75'
+          {
+            echo "### \`GET $path\` (signed out, no redirects followed)"
+            echo
+            echo "| Where | Address | Status | Content-Type |"
+            echo "|---|---|---|---|"
+          } >>"$GITHUB_STEP_SUMMARY"
+          for target in "staging (main, deployed)|https://${host}" "main preview|https://main-${worker}.${subdomain}" "this branch's preview|https://${alias}-${worker}.${subdomain}"; do
+            label="${target%%|*}"; base="${target#*|}"
+            answer="$(curl -sS -o /dev/null --max-redirs 0 --max-time 20 -w '%{http_code}|%{content_type}' "${base}${path}" || echo "000|request failed")"
+            code="${answer%%|*}"; type="${answer#*|}"
+            echo "${label}: ${code} ${type:-(none)}"
+            echo "| ${label} | ${base} | ${code} | ${type:-(none)} |" >>"$GITHUB_STEP_SUMMARY"
+          done
+
+  # Today tail (v2.0.1, 25 Nov: the Owner's /today errored on this branch's preview, digest only):
+  # the staging Worker's own error for a page. By hand only: Actions → Preview → Run workflow →
+  # this branch → `today-tail`. It tails the staging Worker (every version, previews included)
+  # while the perf probe signs in as the staging Owner and reads this branch's preview once, then
+  # prints only the requests that threw or logged an error: the path without its query, the
+  # exceptions' names and messages, and the error log lines, each cut to 600 characters. Never a
+  # header, a cookie or a token (they are not selected). Read-only: the probe only reads screens.
+  # Staging only: the staging environment's own credentials and addresses.
+  today-tail:
+    name: today tail (staging)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'today-tail'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: perf-probe
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Tail the staging Worker while the Owner reads this branch's preview (errors only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          case "$host" in
+            *.workers.dev) ;;
+            *) echo "::error::Staging's address '$host' is not a workers.dev host; this reads staging only." >&2; exit 1 ;;
+          esac
+          worker="${host%%.*}"
+          subdomain="${host#*.}"
+          branch="$GITHUB_REF_NAME"
+          alias="$(printf '%s' "$branch" | tr -c 'a-zA-Z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | tr 'A-Z' 'a-z')"
+          case "$alias" in [a-z]*) ;; *) alias="b-$alias" ;; esac
+          max=$(( 63 - ${#worker} - 1 ))
+          if [ "${#alias}" -gt "$max" ]; then
+            suffix="$(printf '%s' "$branch" | sha1sum | cut -c1-6)"
+            alias="$(printf '%s' "$alias" | cut -c1-"$(( max - 7 ))" | sed 's/-*$//')-$suffix"
+          fi
+          target="https://${alias}-${worker}.${subdomain}"
+          pnpm exec wrangler tail --env staging --format json >"$RUNNER_TEMP/tail.json" 2>"$RUNNER_TEMP/tail.err" &
+          tail_pid=$!
+          sleep 20
+          node scripts/perf-probe.mjs --base "$target" --role owner --samples 1 --label "today-tail" >/dev/null 2>&1 || true
+          sleep 10
+          kill "$tail_pid" 2>/dev/null || true
+          wait "$tail_pid" 2>/dev/null || true
+          echo "tail events: $(jq -s 'length' "$RUNNER_TEMP/tail.json" 2>/dev/null || echo 0)"
+          jq -c '
+            select(((.exceptions // []) | length) > 0 or ([(.logs // [])[] | select(.level == "error")] | length) > 0)
+            | {
+                outcome,
+                path: ((.event.request.url // "") | sub("^https?://[^/]+"; "") | sub("\\?.*$"; "")),
+                exceptions: [(.exceptions // [])[] | {name, message: ((.message // "") | tostring | .[0:600])}],
+                errors: [(.logs // [])[] | select(.level == "error") | (.message | tostring | .[0:600])]
+              }' "$RUNNER_TEMP/tail.json" | tee "$RUNNER_TEMP/tail-errors.txt" | head -60
+          { echo "### Staging Worker errors while the Owner read \`$target\`"; echo; echo '```'; head -60 "$RUNNER_TEMP/tail-errors.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+
+  # Today, rendered on the runner (v2.0.1, 25 Nov; `wrangler tail` does not see a preview
+  # version's requests): this branch built as staging builds it, started with `next start` on
+  # the runner against the staging database, and read once by the perf probe signed in as the
+  # staging Owner (the probe signs in to localhost too). It prints Next's own server error lines
+  # for any render that failed: the message and its stack, never a header or a token. By hand
+  # only: Actions → Preview → Run workflow → this branch → `today-local`. Read-only, as the probe.
+  today-local:
+    name: today local (staging data)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'today-local'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: perf-probe
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build as staging builds it, pointed at the runner's own address
+        env:
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: pnpm build
+      - name: Start it, read it as the staging Owner, print the server's errors
+        env:
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          pnpm start --port 3000 >"$RUNNER_TEMP/server.log" 2>&1 &
+          server_pid=$!
+          for i in $(seq 1 60); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login)" = 200 ] && break
+            sleep 2
+          done
+          # The Owner, with a person's Leave and Attendance tabs; then an Admin, whose /leave and
+          # /leave/attendance read the same leave requests and days.
+          node scripts/perf-probe.mjs --base http://127.0.0.1:3000 --role owner --samples 1 --label "today-local" \
+            --also "/people/:person/leave,/people/:person/attendance" >"$RUNNER_TEMP/probe.out" 2>&1 || true
+          node scripts/perf-probe.mjs --base http://127.0.0.1:3000 --role admin --samples 1 --label "today-local" \
+            >>"$RUNNER_TEMP/probe.out" 2>&1 || true
+          # Status per route, from the probe's own table (no headers, no cookies).
+          grep -E "^\| *(/|a |static|404)" "$RUNNER_TEMP/probe.out" | cut -c1-200 || true
+          kill "$server_pid" 2>/dev/null || true
+          echo "server log lines: $(wc -l <"$RUNNER_TEMP/server.log")"
+          # Next prints a failed server render as "⨯ <error>" followed by its stack and digest.
+          # No match is the good outcome: grep exits 1 then, which must not fail the step.
+          grep -n -A24 -E '⨯|Error:|digest' "$RUNNER_TEMP/server.log" | cut -c1-400 | head -150 >"$RUNNER_TEMP/errors.txt" || true
+          [ -s "$RUNNER_TEMP/errors.txt" ] || echo "No server errors." >"$RUNNER_TEMP/errors.txt"
+          cat "$RUNNER_TEMP/errors.txt"
+          { echo "### Server errors while the staging Owner read this branch, built on the runner"; echo; echo '```'; head -150 "$RUNNER_TEMP/errors.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
 
   # Perf probe (unit P, 2026-10-15; ARCHITECTURE §19 "Measuring the Worker"). By hand only:
   # Actions → Preview → Run workflow → this branch → `perf-probe`. It times what the Worker

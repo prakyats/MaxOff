@@ -1,6 +1,7 @@
 -- Phase 3 review: the client close reason is the Owner's (client_close_reasons), never in the
 -- activity entry the client's Admin reads; and the deactivation reason still stays the Owner's.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(22);
 

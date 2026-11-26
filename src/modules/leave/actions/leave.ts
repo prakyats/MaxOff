@@ -18,6 +18,8 @@ import {
   type RequestLeaveInput,
   requestIdSchema,
   requestLeaveSchema,
+  type RequestSplitLeaveInput,
+  requestSplitLeaveSchema,
   type WithdrawLeaveInput,
   withdrawLeaveSchema,
 } from "../domain/schemas";
@@ -55,6 +57,24 @@ export const requestCompLeave = action(
     const balance = await getCompBalance(member.id);
     const data = requestCompLeaveSchema(todayIST(), balance.useBy).parse(input);
     await repo.rpcSubmitComp(data);
+    revalidateLeave();
+    dispatchPushSoon();
+    return ok(null);
+  },
+);
+
+/**
+ * v2.0.1 "Full day: ½ comp + ½ leave" (WORKFLOWS §2 "Settled in v2.0.1"): one working date, the
+ * comp half drawing ½ credit and the other half ordinary leave, asked for in one go.
+ * `leave_submit_split()` is the rule (the credit, the working day, the whole date free).
+ */
+export const requestSplitLeave = action(
+  async (input: RequestSplitLeaveInput): Promise<Result<null>> => {
+    requestSplitLeaveSchema(todayIST(), null).parse(input);
+    const member = await assertPermission("attendance.self");
+    const balance = await getCompBalance(member.id);
+    const data = requestSplitLeaveSchema(todayIST(), balance.useBy).parse(input);
+    await repo.rpcSubmitSplit(data);
     revalidateLeave();
     dispatchPushSoon();
     return ok(null);

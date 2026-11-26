@@ -4,7 +4,7 @@ import { addISTDays } from "@/core/time";
 
 import { LEAVE_MAX_DAYS, LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH } from "./limits";
 
-import { LEAVE_TYPES, MEMBER_LEAVE_TYPES } from "./requests";
+import { LEAVE_HALVES, LEAVE_TYPES, MEMBER_LEAVE_TYPES } from "./requests";
 
 const reason = z
   .string()
@@ -17,7 +17,7 @@ const isoDate = (message: string) => z.iso.date({ error: message });
 
 /** Which half of a half day (v1.9 W4): morning off or afternoon off; none for older requests. */
 const half = z
-  .enum(["morning", "afternoon"], { error: "Choose Morning off or Afternoon off." })
+  .enum(LEAVE_HALVES, { error: "Choose Morning off or Afternoon off." })
   .nullable()
   .default(null);
 
@@ -138,6 +138,46 @@ export function requestCompLeaveSchema(today: string, useBy: string | null) {
 }
 export type RequestCompLeaveInput = z.input<ReturnType<typeof requestCompLeaveSchema>>;
 
+/**
+ * v2.0.1 "Full day: ½ comp + ½ leave" (`leave_submit_split`): one date, today or later and on or
+ * before the use-by date (the database checks the credit and the working day), the half that is
+ * comp leave (required: the other half is ordinary leave), an optional reason.
+ */
+export function requestSplitLeaveSchema(today: string, useBy: string | null) {
+  return z
+    .object({
+      date: isoDate("Choose the day."),
+      // Nothing is chosen for them (the form starts empty), so null comes in and is refused.
+      compHalf: z
+        .enum(LEAVE_HALVES, { error: "Choose which half is comp leave." })
+        .nullable()
+        .transform((value, ctx) => {
+          if (value === null) {
+            ctx.addIssue({ code: "custom", message: "Choose which half is comp leave." });
+            return z.NEVER;
+          }
+          return value;
+        }),
+      reason,
+    })
+    .superRefine((value, ctx) => {
+      if (value.date < today) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["date"],
+          message: "Leave cannot start in the past.",
+        });
+      } else if (useBy !== null && value.date > useBy) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["date"],
+          message: "Comp leave must be taken on or before its use-by date.",
+        });
+      }
+    });
+}
+export type RequestSplitLeaveInput = z.input<ReturnType<typeof requestSplitLeaveSchema>>;
+
 /** The request a change, cancellation or withdrawal refers to. */
 export const requestIdSchema = z.object({
   requestId: z.uuid(),
@@ -183,6 +223,9 @@ export type OwnerCancelLeaveInput = z.input<typeof ownerCancelLeaveSchema>;
 /**
  * The Owner's edit of approved leave (`leave_owner_edit`): any dates, past included (WORKFLOWS
  * §2), so only the order of the ends is checked here. The reason is optional, as in the function.
+ * v2.0.1: a half day says which half is off (`half`) and whether it is a ½ comp day (`comp`, which
+ * draws ½ credit); null keeps the original's (the function's default), and neither is sent for a
+ * full day.
  */
 export const ownerEditLeaveSchema = z
   .object({
@@ -191,6 +234,11 @@ export const ownerEditLeaveSchema = z
     startDate: isoDate("Choose the first day."),
     endDate: isoDate("Choose the last day.").optional(),
     reason,
+    half: z
+      .enum(LEAVE_HALVES, { error: "Choose Morning off or Afternoon off." })
+      .nullable()
+      .default(null),
+    comp: z.boolean().nullable().default(null),
   })
   .transform((value) => ({
     ...value,
@@ -199,10 +247,16 @@ export const ownerEditLeaveSchema = z
       value.type === "half_day" || value.type === "comp_leave" || !value.endDate
         ? value.startDate
         : value.endDate,
+    half: value.type === "half_day" ? value.half : null,
+    comp: value.type === "half_day" ? value.comp : null,
   }))
   .refine((value) => value.endDate >= value.startDate, {
     path: ["endDate"],
     message: "The last day is before the first day.",
+  })
+  .refine((value) => !(value.comp === true && value.half === null), {
+    path: ["half"],
+    message: "Choose Morning off or Afternoon off for a ½ comp day.",
   });
 export type OwnerEditLeaveInput = z.input<typeof ownerEditLeaveSchema>;
 

@@ -2,8 +2,8 @@
 --   * billing_mark_unbilled: the Revenue page's "Mark all N billed" marks only the lines still not
 --     billed. billing_mark overwrites a line's day and note, so a page left open could re-mark a line
 --     the Owner had billed elsewhere since; this one leaves a billed line exactly as it is and counts
---     only the lines it changed. The same checks as billing_mark (finance.edit, the caller's org, at
---     most 200, no day in the future, NOT_FOUND when an id is not the caller's).
+--     only the lines it changed. The same checks as billing_mark (finance.edit, the caller's org, no
+--     day in the future, NOT_FOUND when an id is not the caller's), at most 2,000 lines in one call.
 --   * project_billing_history: the five money tables' rows are found branch by branch, each by its
 --     own list of ids (UNION ALL), so activity_log_entity_idx (entity, entity_id, at desc) serves each
 --     branch. The OR'ed filter of v2.5 read every money row of the organisation (EXPLAIN on volume,
@@ -13,9 +13,15 @@
 -- Money stays the Owner's alone (invariant 2): each function is FORBIDDEN without finance.view /
 -- finance.edit. EXPAND-ONLY: one new function; two functions re-created with the same signatures and
 -- grants. Append-only: never edit once applied.
+--
+-- Version 20261125170001, not ...170000 (advisor, 26 Nov 2026, #89): ...170000 is v7.0's
+-- v70_comment_key_grant, recorded on staging first, so this file was renamed before it was applied
+-- anywhere. Staging applies it out of order, after 20261125220000_billing_mark_unbilled_one_call, so
+-- billing_mark_unbilled here is already that file's body (one call of up to 2,000 lines) and
+-- `create or replace`: in either order the function ends the same. Every function here is safe to run again.
 
 -- "Mark all N billed": Billed on a day (default today IST), only where the line is not billed yet.
-create function public.billing_mark_unbilled(cycle_ids uuid[], billed_on date)
+create or replace function public.billing_mark_unbilled(cycle_ids uuid[], billed_on date)
 returns integer
 language plpgsql
 security definer
@@ -35,8 +41,8 @@ begin
   if v_ids is null then
     perform app.fail('VALIDATION', 'Nothing to mark.');
   end if;
-  if cardinality(v_ids) > 200 then
-    perform app.fail('VALIDATION', 'Mark at most 200 at a time.');
+  if cardinality(v_ids) > 2000 then
+    perform app.fail('VALIDATION', 'Mark at most 2,000 at a time.');
   end if;
   if v_on > app.today_ist() then
     perform app.fail('VALIDATION', 'The billed date can''t be in the future.');

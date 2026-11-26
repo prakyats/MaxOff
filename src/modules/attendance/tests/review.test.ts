@@ -437,8 +437,49 @@ describe("correctDaySchema: a correction always asks for a reason", () => {
     expect(correctDaySchema.parse({ dayId: id, status: "absent", reason: " Not in " })).toEqual({
       dayId: id,
       status: "absent",
+      half: null,
+      compHalf: null,
       reason: "Not in",
     });
+  });
+  it("maps a half day, a ½ comp day and a split day onto attendance_decide's arguments (v2.0.1)", () => {
+    const parse = (input: Record<string, unknown>) =>
+      correctDaySchema.parse({ dayId: id, reason: "Was off", ...input });
+    expect(parse({ status: "half_day", half: "morning" })).toMatchObject({
+      status: "half_day",
+      half: "morning",
+      compHalf: null,
+    });
+    // ½ comp: the comp half is the half that is off.
+    expect(parse({ status: "half_day", half: "afternoon", comp: true })).toMatchObject({
+      status: "half_day",
+      half: "afternoon",
+      compHalf: "afternoon",
+    });
+    // "Full day: ½ comp + ½ leave": status leave with the comp half, no half off.
+    expect(parse({ status: "split", half: "morning" })).toMatchObject({
+      status: "leave",
+      half: null,
+      compHalf: "morning",
+    });
+    // Anything else sends neither, whatever came with it.
+    expect(parse({ status: "leave", half: "morning", comp: true })).toMatchObject({
+      status: "leave",
+      half: null,
+      compHalf: null,
+    });
+    expect(parse({ status: "present", half: "morning" })).toMatchObject({
+      half: null,
+      compHalf: null,
+    });
+  });
+  it("needs the half for a half day and a split day", () => {
+    const fields = (status: string) =>
+      correctDaySchema
+        .safeParse({ dayId: id, status, reason: "Was off" })
+        .error?.issues.map((issue) => [issue.path.join("."), issue.message]);
+    expect(fields("half_day")).toEqual([["half", "Choose which half was off."]]);
+    expect(fields("split")).toEqual([["half", "Choose which half is comp leave."]]);
   });
   it("refuses no status and a missing reason, with the field's own message", () => {
     const result = correctDaySchema.safeParse({ dayId: id, status: "", reason: " " });

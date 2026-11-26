@@ -13,6 +13,12 @@ v4.5. **Each later release's builder adds its own section below** (what each rol
 order, its walk). Release candidate: the `main` commit with v4.5 merged, named in #89's READY FOR OWNER post. The
 Owner tags it.
 
+Where each part stands:
+- **v2.0.1** (#151, merged): walk passed on `91b22fb1`; speed gate by the same-machine A/B (method accepted);
+  India check waived for this part (owner, 26 Nov, #89 7182356694).
+- **v2.1** (#152, merged): walk passed; full CI green on the merged head (45768280461).
+- **v2.5** (its PR): walk to come.
+
 What follows covers v2.0.1, the fixes, v2.1 and v2.5.
 
 Revenue (phase 9) arrives whole: the Owner enters what each project is worth, sees the month's money, keeps track
@@ -101,11 +107,13 @@ opens); `/calendar` and `/tasks` within ±10 ms of `main` for the Owner and an A
 5. `20261125120000_item_mark_done_and_complete` (v2.1)
 6. `20261125121658_split_leave_days` (v2.0.1; leave only, independent of the money migrations around it)
 7. `20261125130000_money_reads_scoped` (v2.1)
-8. `20261125160000_revenue_every_day` (v2.5; the one data write is the `deliverable_not_priced` notification kind)
-9. `20261125170000_revenue_every_day_review` (v2.5)
+8. `20261125160001_revenue_every_day` (v2.5; the one data write is the `deliverable_not_priced` notification kind)
+9. `20261125170001_revenue_every_day_review` (v2.5)
 10. `20261125220000_billing_mark_unbilled_one_call` (v2.5)
 
 No v2.5 migration needs v2.1's to have run in production first; they apply in order in one deploy.
+v2.5's first two were renamed from `…160000` / `…170000` (they clashed with v7.0's versions; renamed before
+they were applied anywhere). A unit test now fails on any two migrations with one version.
 
 ### Rolling back to v2.0
 The database stays; only the Worker goes back, and nothing needs switching off first. v2.0's code never reads the

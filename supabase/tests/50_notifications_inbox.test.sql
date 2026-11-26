@@ -4,6 +4,7 @@
 -- or a new IST day starts a new entry; "Unread" forms runs among unread rows only; paged over
 -- entries. Every role reads only their own; a signed-out caller is refused.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(16);
 

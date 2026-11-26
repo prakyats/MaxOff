@@ -7,6 +7,7 @@
 -- 4. push_test_claim: a 30 s cooldown, checked and stamped before the send (S2);
 -- 5. the guard messages say "Crew" (M4).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(49);
 

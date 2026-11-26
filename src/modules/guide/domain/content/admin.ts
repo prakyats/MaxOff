@@ -225,7 +225,7 @@ export const ADMIN_GUIDE: Guide = {
               steps: [
                 "Open Me, then Attendance & leave.",
                 "On the Leave requests tab, tap Request leave.",
-                "Choose the Kind of leave: Leave, Half day or Comp leave.",
+                "Choose the Kind of leave: Leave, Half day or Comp leave. With half a day of comp leave you can also choose “Full day: ½ comp + ½ leave” and pick which half is comp.",
                 "If you have comp leave, the line above the dates says how much is left. Pick the Date, or the First day and Last day (an empty one reads “Choose a date”; tap it to open the calendar); MaxOff shows how long it is under them, such as “2 days”.",
                 "Add a reason if you like (it is optional) and send it.",
               ],
@@ -236,7 +236,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Comp leave appears in the list only when you have credit to use.",
+              text: "Comp leave appears in the list only when you have credit to use. One day can have its morning and its afternoon off as two half days of different kinds; MaxOff says which half is already taken.",
             },
           ],
           link: { href: "/leave", label: "Open Attendance & leave" },

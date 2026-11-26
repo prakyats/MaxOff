@@ -158,6 +158,7 @@ export type Database = {
           overtime_flag: boolean;
           overtime_reason: string | null;
           proposed_by_system: boolean;
+          second_leave_request_id: string | null;
           started_at: string | null;
           state: Database["public"]["Enums"]["attendance_state"];
           stay_until: string | null;
@@ -185,6 +186,7 @@ export type Database = {
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
+          second_leave_request_id?: string | null;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
           stay_until?: string | null;
@@ -212,6 +214,7 @@ export type Database = {
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
+          second_leave_request_id?: string | null;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
           stay_until?: string | null;
@@ -256,6 +259,13 @@ export type Database = {
             columns: ["member_id"];
             isOneToOne: false;
             referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_second_leave_request_id_fkey";
+            columns: ["second_leave_request_id"];
+            isOneToOne: false;
+            referencedRelation: "leave_requests";
             referencedColumns: ["id"];
           },
           {
@@ -1710,6 +1720,7 @@ export type Database = {
           half: string | null;
           id: string;
           member_id: string;
+          pair_id: string | null;
           reason: string | null;
           requests_cancellation: boolean;
           source: string;
@@ -1729,6 +1740,7 @@ export type Database = {
           half?: string | null;
           id?: string;
           member_id: string;
+          pair_id?: string | null;
           reason?: string | null;
           requests_cancellation?: boolean;
           source: string;
@@ -1748,6 +1760,7 @@ export type Database = {
           half?: string | null;
           id?: string;
           member_id?: string;
+          pair_id?: string | null;
           reason?: string | null;
           requests_cancellation?: boolean;
           source?: string;
@@ -5147,8 +5160,10 @@ export type Database = {
       };
       attendance_decide: {
         Args: {
+          comp_half?: string;
           day_id: string;
           decision: string;
+          half?: string;
           reason?: string;
           status?: Database["public"]["Enums"]["day_status"];
         };
@@ -5752,7 +5767,9 @@ export type Database = {
       };
       leave_owner_edit: {
         Args: {
+          comp?: boolean;
           end_date: string;
+          half?: string;
           reason?: string;
           request_id: string;
           start_date: string;
@@ -5767,6 +5784,7 @@ export type Database = {
         Args: {
           cancel?: boolean;
           end_date?: string;
+          half?: string;
           reason?: string;
           request_id: string;
           start_date?: string;
@@ -5791,6 +5809,10 @@ export type Database = {
           reason?: string;
           start_date: string;
         };
+        Returns: string;
+      };
+      leave_submit_split: {
+        Args: { comp_half: string; reason?: string; work_date: string };
         Returns: string;
       };
       leave_withdraw: {

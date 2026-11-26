@@ -4,6 +4,7 @@
 -- day off or a holiday, comp_leave_dates(), a holiday on a comp leave date cancelling the request
 -- and giving the credit back, and the idempotent standalone grant.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(67);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration

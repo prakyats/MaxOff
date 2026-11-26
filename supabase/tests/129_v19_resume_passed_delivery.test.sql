@@ -5,6 +5,7 @@
 -- (optional, as before), a recurring project (unaffected; a delivery date still refused), for the Owner
 -- and the client's Admin; another Admin NOT_FOUND, Crew FORBIDDEN, anon no privilege.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(24);
 

@@ -7,6 +7,7 @@
 -- stage, even with a Posted stage), one history row, and every role (Owner, the client's Admin, another
 -- Admin NOT_FOUND, Crew FORBIDDEN, anon no privilege). Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(28);
 

@@ -4,6 +4,7 @@
 -- cap; a person's always-emailed rows of one run are one batch, counted once; a fallback email is
 -- on its own. Run as the dispatcher (service_role); no API role may claim.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(17);
 

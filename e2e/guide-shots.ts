@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { addISTDays, todayIST } from "../src/core/time";
-import { openMoreOptions } from "./helpers";
+import { memberIdOf, openMoreOptions, serviceInsert, serviceSelect, USERS } from "./helpers";
 
 /**
  * The in-app guide's screenshots, one entry per picture (ROADMAP 6b.14, Release 2). Read by
@@ -47,6 +47,13 @@ export type DemoIds = {
     held: string;
   };
 };
+
+/** The last day of a date's month ("2026-11-30"): when a credit granted that day expires. */
+function lastDayOfMonth(date: string): string {
+  const [y, m] = date.split("-").map(Number) as [number, number, number];
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${date.slice(0, 7)}-${String(last).padStart(2, "0")}`;
+}
 
 export type GuideShot = {
   /** "<role>/<name>": the picture is `public/guide/<role>/<name>.webp`. */
@@ -497,6 +504,43 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     crop: layer,
     badge: 3,
     alt: "The Request leave form for a half day, with Which half? and its Morning off and Afternoon off cards highlighted.",
+  },
+  {
+    // v2.0.1: "Full day: ½ comp + ½ leave" needs half a day of comp leave; the demo has none, so
+    // this picture grants it first (once: a second run finds it).
+    id: "staff/request-split",
+    path: "/leave",
+    prepare: async (page) => {
+      const memberId = await memberIdOf(USERS.staff.email);
+      const credits = await serviceSelect<{ id: string }>(
+        `comp_leave_credits?member_id=eq.${memberId}&revoked_at=is.null&select=id`,
+      );
+      if (credits.length === 0) {
+        const [owner] = await serviceSelect<{ id: string }>(
+          `members?email=eq.${encodeURIComponent(USERS.owner.email)}&select=id`,
+        );
+        const today = todayIST();
+        await serviceInsert("comp_leave_credits", {
+          member_id: memberId,
+          days: 0.5,
+          granted_by: owner?.id,
+          granted_on: today,
+          expires_on: lastDayOfMonth(today),
+          note: "Worked late on the shoot",
+        });
+        await page.reload();
+      }
+      await tap(page, "Request leave");
+      await layer(page).getByLabel("Kind of leave").click();
+      await page.getByRole("option", { name: "Full day: ½ comp + ½ leave" }).click();
+      await layer(page).getByLabel("Date").click();
+      await page.getByRole("option").first().click();
+      await layer(page).getByLabel("Comp in the morning").check();
+    },
+    highlight: (page) => layer(page).getByRole("group", { name: "Comp half" }),
+    crop: layer,
+    badge: 2,
+    alt: "The Request leave form for a full day of ½ comp + ½ leave, with Comp half and its Comp in the morning and Comp in the afternoon cards highlighted.",
   },
   {
     id: "staff/leave-list",
