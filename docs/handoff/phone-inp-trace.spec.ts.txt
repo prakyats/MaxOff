@@ -1,0 +1,74 @@
+import { writeFileSync } from "node:fs";
+
+import { expect, test } from "./fixtures";
+
+import { hydrated, storageStateFor } from "./helpers";
+
+// Throwaway (not committed): the owner's /tasks → More → /clients row tap at 375 px, CPU ×4, with a
+// CPU profile around the tap and each Event Timing entry's phases (input delay, processing, the
+// next paint).
+const OUT = process.env.TRACE_OUT ?? "/tmp";
+
+test.use({ storageState: storageStateFor("owner") });
+
+for (let run = 1; run <= Number(process.env.TRACE_RUNS ?? 3); run++) {
+  test(`trace ${run}`, async ({ page }, info) => {
+    test.skip(info.project.name !== "mobile", "375 only");
+    await page.addInitScript(() => {
+      const w = window as unknown as { __ev: unknown[]; __long: unknown[] };
+      w.__ev = [];
+      w.__long = [];
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries() as PerformanceEventTiming[]) {
+          if (!e.interactionId) continue;
+          w.__ev.push({
+            name: e.name,
+            id: e.interactionId,
+            start: Math.round(e.startTime),
+            dur: Math.round(e.duration),
+            inputDelay: Math.round(e.processingStart - e.startTime),
+            processing: Math.round(e.processingEnd - e.processingStart),
+            presentation: Math.round(e.startTime + e.duration - e.processingEnd),
+            target: (e.target as Element | null)?.outerHTML?.slice(0, 80) ?? null,
+          });
+        }
+      }).observe({ type: "event", durationThreshold: 16, buffered: true } as PerformanceObserverInit);
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          w.__long.push({ start: Math.round(e.startTime), dur: Math.round(e.duration) });
+        }
+      }).observe({ type: "longtask", buffered: true });
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    await page.goto("/tasks");
+    await hydrated(page);
+    await expect(page.locator('[data-slot="loading-state"]')).toHaveCount(0);
+    await page.locator('[data-slot="bottom-nav"] button').first().tap();
+    const row = page.locator('[data-slot="more-sheet"] a[href="/clients"]');
+    await expect(row).toBeVisible();
+    await page.waitForTimeout(400);
+    const tapAt = await page.evaluate(() => performance.now());
+    const browser = page.context().browser()!;
+    await browser.startTracing(page, {
+      path: `${OUT}/inp-${run}.trace.json`,
+      categories: [
+        "devtools.timeline",
+        "disabled-by-default-devtools.timeline",
+        "blink.user_timing",
+        "latencyInfo",
+        "disabled-by-default-v8.cpu_profiler",
+      ],
+    });
+    await row.tap();
+    await page.waitForURL((url) => url.pathname === "/clients", { timeout: 30_000 });
+    await hydrated(page);
+    await page.waitForTimeout(600);
+    await browser.stopTracing();
+    const data = await page.evaluate(() => {
+      const w = window as unknown as { __ev: unknown[]; __long: unknown[] };
+      return { ev: w.__ev, long: w.__long };
+    });
+    writeFileSync(`${OUT}/inp-${run}.json`, JSON.stringify({ tapAt, ...data }, null, 1));
+  });
+}

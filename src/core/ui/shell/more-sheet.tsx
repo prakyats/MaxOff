@@ -3,7 +3,7 @@
 import { ChevronRightIcon, CircleHelpIcon, CircleUserIcon, SunMoonIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type MouseEvent, type ReactNode, useRef, useState } from "react";
+import { type MouseEvent, type ReactNode, startTransition, useRef, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import {
@@ -69,7 +69,12 @@ export function MoreSheet({
   const follow = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.defaultPrevented || event.metaKey || event.ctrlKey) return;
     if (!tabs?.handles(href)) {
-      close();
+      // The Link navigates in a transition; the sheet closes in the same one, after the tap has
+      // painted. Closed inside the click (a discrete, synchronous render), its exit re-rendered
+      // the sheet and Radix's Presence read getComputedStyle, a forced style recalc of the whole
+      // page underneath, before the browser could paint the tap: 40–60 ms at CPU ×4, the row
+      // tap's INP up to 232 ms in CI (phone-inp.spec, 26 Nov 2026).
+      startTransition(close);
       return;
     }
     event.preventDefault();
