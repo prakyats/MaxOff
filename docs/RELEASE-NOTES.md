@@ -4,6 +4,26 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v3.0: Reports (ships in the combined release after v4.5)
+
+**Not tagged on its own** (owner decision, #89, 26 Nov 2026): v3.0 ships in one combined production release covering v2.0.1 → v4.5. It merges to `main` after v2.5 and before v3.5. The owner walks it on its own preview (`docs/handoff/v3.0-owner-walk-script.md`). Branch `phase-v30-reports`; full CI 45624218411 green; speed gate PASS for the Owner and an Admin (`docs/handoff/v3.0-ready-checklist.md`).
+
+### What the Owner will notice
+- **Three new reports under More → Reports: People, Stage durations and Client work.** Each one opens on this month and has Week · Month · Custom (up to a year). Back returns to Reports.
+- **People:** a card per person, in name order, with freelancers in their own block. Each card shows tasks completed, on time, revision loops, the time to the first hand-in, how quickly tasks are noted, and what is open and overdue now. In the Month view it also shows days worked, additional and comp leave, late days, early leaves and half days. Nothing is ranked or coloured. Below the cards, "Late and overdue tasks" counts the late tasks by person, by type and by client, each with its late reason.
+- **Stage durations:** how long each deliverable stage took, from the stage before it. Same-named stages count together whatever their capitals ("Edit" and "edit"): first across every project, then per project, slowest first.
+- **Client work:** each client's deliverables for the period: planned and done, on time, done in the period, overdue now, on hold now and projects completed, with the totals first. No amounts yet; revenue joins this report later.
+- **The guide** has a topic for each report.
+
+### What Admins will notice
+- In their report, "Where deliverables wait longest" now counts stage names that differ only in capitals as one line. Nothing else changes; the new reports are the Owner's.
+
+### What the Crew will notice
+- Nothing.
+
+### After the release
+- Nothing runs on its own. The reports are counted live when opened.
+
 ## v2.0: fast and settled
 
 **Released Sat 14 Nov 2026, about 12:40 IST** (tag `v2.0` on `main` 6e9f19cc, PR #143; the Owner approved the production deploy, run 43569568961: 14 migrations applied, smoke checks passed). The tag is `v2.0`, not `v2.0.0`.
