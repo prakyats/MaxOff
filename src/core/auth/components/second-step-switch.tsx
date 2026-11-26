@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
-import { buttonVariants } from "@/core/ui/primitives/button-variants";
 import { toastResult } from "@/core/ui/toast";
 
 import { SECOND_STEP_PATH } from "../paths";
@@ -52,13 +51,11 @@ export function SecondStepSwitch({ on, required }: { on: boolean; required: bool
           <ActionStatus action={action} />
         </div>
       ) : (
-        <Link
-          href={`${SECOND_STEP_PATH}?setup=1`}
-          data-slot="me-second-step-on"
-          className={buttonVariants({ variant: "secondary" })}
-        >
-          Turn on
-        </Link>
+        <Button asChild variant="secondary">
+          <Link href={`${SECOND_STEP_PATH}?setup=1`} data-slot="me-second-step-on">
+            Turn on
+          </Link>
+        </Button>
       )}
     </div>
   );

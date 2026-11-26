@@ -40,6 +40,8 @@ insert into api_public values
   ('privacy_notice_read'),
   -- v7.5 Q2: the caller's own two-step switch, from an aal2 session (migration v75_second_step).
   ('second_step_set'),
+  -- v2.0.1 (main 0214c60, migration split_leave_days): a split leave request, the caller's own.
+  ('leave_submit_split'),
   ('app_open_report'), ('attendance_ask_leave_early'), ('attendance_choose_leave_today'),
   ('attendance_decide'), ('attendance_end_day'), ('attendance_end_not_recorded_yesterday'),
   ('attendance_flag_overtime'), ('attendance_flag_overtime_today'), ('attendance_hours_today'),

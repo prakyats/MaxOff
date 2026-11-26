@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { expect, test, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
-import { answerSecondStep } from "./totp";
+import { answerSecondStep, passSecondStepOver } from "./totp";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
@@ -983,7 +983,13 @@ export async function ownSession(page: Page, email: string, password: string): P
     body: JSON.stringify({ email, password }),
   });
   expect(answer.ok, `sign-in for ${email}`).toBe(true);
-  const session = (await answer.json()) as { access_token: string };
+  // v7.5 Q2: the Owner's session passes the second step, as the saved one did (`e2e/totp.ts`).
+  const session = await passSecondStepOver(
+    url,
+    apikey,
+    email,
+    (await answer.json()) as { access_token: string },
+  );
   const claims = JSON.parse(
     Buffer.from(session.access_token.split(".")[1] ?? "", "base64url").toString("utf8"),
   ) as { session_id?: string };

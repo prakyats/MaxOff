@@ -1,7 +1,8 @@
 # ADR-0018 (DRAFT, not accepted): the database checks the second step
 
-**Status:** draft for the advisor and the owner (v7.5, 26 Nov 2026). The advisor decided that v7.5 checks
-two-step sign-in in the app only and that a database check is a follow-up with its own plan and tests.
+**Status:** draft (v7.5, 26 Nov 2026). **Owner decision (a), 26 Nov 2026 (#89):** v7.5 ships the app-level
+check, and this is the very next security item after v7.5 (ROADMAP 10.3a). It is accepted once its plan and
+tests are written.
 
 ## Context
 

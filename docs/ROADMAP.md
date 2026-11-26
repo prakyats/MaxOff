@@ -380,6 +380,16 @@ Exit: everything in PRODUCT §4 **except the items deferred past the launch** is
 - [ ] **10.2** [Q] UX polish: keyboard shortcuts, empty and loading states, mobile pass, accessibility fixes
   - *Done early in phase 6 (owner's walk fix 2, 2026-10-08), not the audit:* the laptop keyboard rules in the shared controls (ARCHITECTURE §14.3): the chat composer's Enter / Shift+Enter, Enter submits a one-line field's form (a destructive submit only takes focus), Ctrl/⌘+Enter in a textarea, Escape closes the top sheet or dialog as back would and is Cancel in an EditableRecord, the first field focused on open on a laptop only, the table search's Enter and Escape, and the quiet hints. **Still for 10.2:** the full audit of every screen's keyboard use (tab order, shortcuts per screen, focus after each action, the calendar's keys included).
 - [ ] **10.3** [H] Security review: RLS audit, money isolation, storage, auth, headers/CSP, rate limits, dependency audit **+ a privacy check for India's DPDP Act 2023** (owner note 2026-10-12): MaxOff holds team members' personal data (attendance, phone numbers, leave, expense receipts), so add a short in-app privacy notice for team members (what is kept, why, for how long, who to contact), a written retention rule per kind of record, and confirm it with a lawyer. Checked the same day against a list of common app legal traps (age gates, fonts loaded from Google, session replay, marketing emails, auto-renewal, DMCA): none apply today (invite-only adults, self-hosted fonts, no replay, transactional email only, no checkout, no public uploads); revisit if sign-ups, marketing email or payments are ever added
+- [ ] **10.3a** [H] **The database checks the second step (ADR-0018)**. Owner decision (a), 26 Nov 2026 (#89): v7.5 ships two-step sign-in checked by the app, and this is **the very next security item after v7.5**.
+  - Today a password alone still opens the API (PostgREST, Realtime) to that member's RLS; the code guards only MaxOff's screens and actions (`docs/reviews/v7.5-security-review.md` L1).
+  - The plan (`docs/decisions/0018-draft-database-second-step.md`):
+    - `app.current_member()` returns no member for a session that owes the second step (`aal` not `aal2` while the Owner is required, or `members.second_step` is on);
+    - the environment's flag moves from the Worker's var into the database, so the app and the database agree;
+    - the few policies that read `auth.uid()` directly move onto the helper;
+    - pgTAP covers every table and transition function at aal1 and aal2 for each role (plan §2.2's matrix, twice), and Realtime gets the same helper;
+    - a speed check on every route;
+    - a written recovery (the Supabase dashboard), since a mistake locks the Owner out of every table.
+  - Needs ADR-0018 accepted first.
 - [ ] **10.4** [C] Performance: slow query review, indexes, bundle size, pagination
 - [ ] **10.5** [C] Full launch: import existing clients and projects, finish the user guide, second restore drill
 

@@ -1,7 +1,7 @@
 import { ShieldCheckIcon } from "lucide-react";
 import Link from "next/link";
 
-import { buttonVariants } from "@/core/ui/primitives/button-variants";
+import { Button } from "@/core/ui/primitives/button";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 
 /**
@@ -21,9 +21,9 @@ export function PrivacyCard() {
             Read what MaxOff keeps about you, who can see it, and for how long.
           </p>
         </div>
-        <Link href="/me/privacy" className={buttonVariants({ variant: "secondary" })}>
-          Read it
-        </Link>
+        <Button asChild variant="secondary">
+          <Link href="/me/privacy">Read it</Link>
+        </Button>
       </CardContent>
     </Card>
   );

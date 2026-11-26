@@ -48,3 +48,42 @@ export async function answerSecondStep(page: Page, email: string): Promise<void>
   await page.locator('[data-slot="second-step-continue"]').click();
   await expect(page).not.toHaveURL(/\/second-step/);
 }
+
+/**
+ * A password session (GoTrue's grant, as `ownSession` makes one) taken through the second step over
+ * GoTrue's API, when a key is kept for `email`: its verified factor, a challenge, the code. The
+ * answer is the same session at `aal2` (same `session_id`), in the grant's own shape. Without a kept
+ * key the session is returned as it is (that member owes no second step).
+ */
+export async function passSecondStepOver<T extends { access_token: string }>(
+  url: string,
+  apikey: string,
+  email: string,
+  session: T,
+): Promise<T> {
+  const key = keyFor(email);
+  if (!key) return session;
+  const headers = {
+    apikey,
+    authorization: `Bearer ${session.access_token}`,
+    "content-type": "application/json",
+  };
+  const user = (await (await fetch(`${url}/user`, { headers })).json()) as {
+    factors?: { id: string; factor_type: string; status: string }[];
+  };
+  const factor = user.factors?.find((f) => f.factor_type === "totp" && f.status === "verified");
+  if (!factor) return session;
+  const challenge = (await (
+    await fetch(`${url}/factors/${factor.id}/challenge`, { method: "POST", headers })
+  ).json()) as { id: string };
+  const verified = await fetch(`${url}/factors/${factor.id}/verify`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      challenge_id: challenge.id,
+      code: totpCode(key, systemClock().getTime()),
+    }),
+  });
+  expect(verified.ok, `the second step for ${email}`).toBe(true);
+  return (await verified.json()) as T;
+}
