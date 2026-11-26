@@ -302,6 +302,11 @@
         - a task with no uploads on both builds (must be within the gate);
         - a task with uploads, reported as v4.5's new cost.
         - Report both to the advisor; don't waive either.
+      - **Advisor (04:44 UTC):**
+        1. Finish Admin run 2 and Crew, then send **"slot free" at once**. v2.5 is next and gates the release. The A/B is local and needs no slot.
+        2. The A/B also covers **/today and /people for Owner and Admin** (/today failed +188 and +159), with a **read-log diff** (the delay proxy's path logs).
+        3. The task with uploads is a real new cost: report its last-byte delta and the reads it adds. **If the Uploads card's read is in series with the task page's first wave, make it parallel or fetch it after first paint, before READY.** Same pattern as v2.5's /today fix.
+        4. Ideas: pin the probe to a seeded, fixed task (below).
       - A route slower twice → the local same-machine A/B (`scratchpad/ab/delay-proxy.mjs`; worktrees `/home/user/wt/abmain` on main and `/home/user/wt/abv40` re-pointed to the v4.5 head; rebuild both; 150 ms per call, 10 samples).
   - **Decisions this session:**
     - **The fake Google** is honoured only by a local build and only at loopback addresses; the gate reads the build-inlined `NEXT_PUBLIC_APP_ENV`.
@@ -1147,6 +1152,7 @@ Gain (before − after, cold median): round 1 = **62 ms**, round 2 = **145 ms**,
   3. The bad-link block check reads `upload_rate_hits` directly. A small "check only" function would be cleaner.
   4. After a week, `done` falls back to the browser's Drive id (Google forgot the session), checked against the same folder and size.
   5. No Playwright yet for the public API: add a header and refusal spec with the screens unit.
+- **perf-probe picks the newest task** (`scripts/perf-probe.mjs:249`), so a run's own test data (the v4.5 pen test's tasks full of uploads) skews "a task". Pin the probe to a seeded, fixed task (advisor 26 Nov, a later tooling fix).
 - **perf-probe: add `/upload` as a public row** (advisor 26 Nov). Do it once main has the route, so there is a baseline. v4.5 reports it standalone.
 - **Watch: `e2e/dashboards.spec.ts:261`** ("a change heard just before leaving My Day never re-reads the screen it moved to", desktop) failed once, in full CI 45733114516 on phase-v45 40866fed. Two `/leave` RSC fetches were seen instead of one. It passed in the full runs on 4196c4df (45727023433) and on b6dc039d (45739534774); not root-caused. That commit changed no Realtime, My Day or navigation code (a header-rule split, a public-API body check, the pen test). If it fails again anywhere, root-cause it: two non-prefetch fetches of the moved-to screen means a re-read slipped past the guard.
 - **v4.5, from the 26 Nov architecture review (not fixed in v4.5):**
