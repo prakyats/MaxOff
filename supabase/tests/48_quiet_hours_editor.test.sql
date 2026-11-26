@@ -4,6 +4,7 @@
 -- Crew) and a signed-out caller change nothing. The change is audited, and push_quiet() follows
 -- the new window at once (it reads the row when it runs).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(14);
 

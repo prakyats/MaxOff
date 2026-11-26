@@ -11,6 +11,9 @@
 -- it); L6 the thin spots (a non-Owner reads reviews and warnings, the coordinator unticks, cancel
 -- from submitted / admin_approved, the Owner comments).
 begin;
+-- The scheduled jobs' tables first (lib/lock-job-tables.psql): a job that wrote a row pointing at a
+-- member while this file deleted the members deadlocked with it around IST midnight.
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(69);
 

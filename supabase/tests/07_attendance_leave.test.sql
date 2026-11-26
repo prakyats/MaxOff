@@ -5,6 +5,7 @@
 -- migration: a day is opened by app.attendance_open_day(member, date) (as the system here, the way
 -- attendance_start_day() and the prompt's leave choice call it).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(236);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration
@@ -931,7 +932,9 @@ select is(
   'cancelled', 'the Owner grants the cancellation');
 select pg_temp.as_system();
 select results_eq(
-  $$ select state::text, count(*) from public.leave_requests where member_id = pg_temp.fx('worker') group by 1 $$,
+  -- Ordered: results_eq compares rows in order, and a hash aggregate returns its groups in any order
+  -- (seen as "have: (rejected,1) want: (cancelled,2)" whenever the planner chose one).
+  $$ select state::text, count(*) from public.leave_requests where member_id = pg_temp.fx('worker') group by 1 order by 1 $$,
   $$ values ('cancelled', 2::bigint), ('rejected', 1::bigint) $$,
   'the original and the cancellation end cancelled; nothing is approved any more');
 select results_eq(

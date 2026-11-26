@@ -9,6 +9,7 @@ import {
   lastMonthIST,
   MEMBER_ROUTES,
   median,
+  pageProblem,
   planMemberRoutes,
   NOT_GATED,
   SLOWER_PCT_FLOOR_MS,
@@ -258,10 +259,17 @@ describe("the routes", () => {
     expect(owner.find((r) => r.name === "/reports/revenue (last month)")).toEqual({
       name: "/reports/revenue (last month)",
       path: "/reports/revenue?month=2026-10",
+      landmark: ["revenue-figures"],
     });
     expect(owner.find((r) => r.name === "/reports/close (last month)")).toEqual({
       name: "/reports/close (last month)",
       path: "/reports/close/2026-10",
+      landmark: [
+        "month-close-waiting",
+        "month-close-nothing-waiting",
+        "month-close-reason",
+        "month-close-versions",
+      ],
     });
     for (const role of ["admin", "staff"] as const) {
       for (const name of ["/reports/revenue (last month)", "/reports/close (last month)"]) {
@@ -303,6 +311,7 @@ describe("lastMonthIST (the month before today's IST month)", () => {
     expect(owner.find((r) => r.name === "a project")).toEqual({
       name: "a project",
       path: "/clients/c2/projects/p1",
+      landmark: ["project-page"],
     });
     expect(owner.find((r) => r.name === "a person")).toEqual({
       name: "a person",
@@ -316,5 +325,78 @@ describe("lastMonthIST (the month before today's IST month)", () => {
       expect(crew.find((r) => r.name === name)?.skip, name).toBe("the Crew can't open it");
     }
     expect(planMemberRoutes("admin", ids).find((r) => r.name === "/leave")?.path).toBe("/leave");
+  });
+});
+
+/**
+ * Timing alone is not a pass (advisor 2026-11-26): v2.0.1's Owner /today answered with its error
+ * screen on staging, and the probe read it as faster.
+ */
+describe("the page check", () => {
+  const page = '<main><div data-slot="day-columns"></div></main>';
+
+  it("passes the page with its landmark, and with any one of several", () => {
+    expect(pageProblem(page, ["day-columns"])).toBeNull();
+    expect(pageProblem('<ul data-slot="work-report">', ["reports-list", "work-report"])).toBeNull();
+    expect(pageProblem(page)).toBeNull();
+  });
+
+  it("fails the error screen, whatever else the body holds", () => {
+    expect(
+      pageProblem(`${page}<div data-slot="error-state">This page couldn't load</div>`, [
+        "day-columns",
+      ]),
+    ).toBe("the error screen");
+  });
+
+  it("fails a part React streamed as failed, but not Next's own redirect", () => {
+    expect(pageProblem(`${page}<!--$!--><template data-dgst="1234567"></template>`)).toMatch(
+      /failed/,
+    );
+    expect(pageProblem(`${page}<script>$RX("B:0","1234567")</script>`)).toMatch(/failed/);
+    expect(pageProblem(`${page}<script>$RX("B:0")</script>`)).toMatch(/failed/);
+    expect(
+      pageProblem(`${page}<template data-dgst="NEXT_REDIRECT;replace;/today;307;"></template>`),
+    ).toBeNull();
+    // A part that renders only in the browser (`ssr: false`): every healthy page has one.
+    expect(
+      pageProblem(
+        `${page}<!--$!--><template data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING"></template>`,
+      ),
+    ).toBeNull();
+    expect(
+      pageProblem(`${page}<template data-dgst="NEXT_HTTP_ERROR_FALLBACK;404"></template>`),
+    ).toMatch(/failed/);
+  });
+
+  it("fails a page without its landmark (only the loading screen, or another screen)", () => {
+    expect(pageProblem('<div data-slot="loading-today"></div>', ["day-columns"])).toBe(
+      'no [data-slot="day-columns"]',
+    );
+  });
+
+  it("gives every signed-in screen a landmark (the JSON diagnostics aside)", () => {
+    const missing = MEMBER_ROUTES.filter(
+      (route) => !route.path.startsWith("/diagnostics/") && !(route.landmark?.length ?? 0),
+    ).map((route) => route.name);
+    expect(missing).toEqual([]);
+    const plan = planMemberRoutes("owner", { task: "t1" });
+    expect(plan.find((route) => route.name === "a task")).toMatchObject({
+      landmark: ["task-facts"],
+    });
+  });
+
+  it("a route that is not the page fails, fast or not, and is never a baseline", () => {
+    const fast = { name: "/today", warmP50: 90, warmTotalP50: 120 };
+    const broken = { ...fast, contentOk: false, content: "the error screen (10 of 10 samples)" };
+    const judged = judgeRoute(broken, { name: "/today", warmP50: 400, warmTotalP50: 900 });
+    expect(judged.verdict).toBe("FAIL");
+    expect(judged.reasons).toContain("page: the error screen (10 of 10 samples)");
+    // Staging erroring is no yardstick: the candidate is not judged against it.
+    const vsBroken = judgeRoute({ ...fast, warmTotalP50: 2000 }, { ...broken, warmTotalP50: 120 });
+    expect(vsBroken.baselineTotalP50).toBeUndefined();
+    // Even a route whose timing is never judged fails when it is not the page.
+    const name = [...NOT_GATED][0]!;
+    expect(judgeRoute({ ...broken, name }).verdict).toBe("FAIL");
   });
 });

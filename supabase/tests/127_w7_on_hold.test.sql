@@ -8,6 +8,7 @@
 -- cycle_generate, client_work_alerts, cycle_close_prompt) and the reads that count overdue, and who is
 -- notified for each actor. Every name here is neutral.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(196);
 

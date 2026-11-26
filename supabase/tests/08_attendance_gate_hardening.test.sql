@@ -5,6 +5,7 @@
 -- as the system, the way attendance_start_day() and the prompt's leave choice do); the 2.x
 -- attendance_touch() is gone, and the two-connection proof of the start's lock is 09 (dblink).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(104);
 -- v1.9 W4: these checks are of the day without working hours (on by default since migration

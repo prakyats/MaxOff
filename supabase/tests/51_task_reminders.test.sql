@@ -6,6 +6,7 @@
 -- leave held to the next working day and brought back as one message or dropped; half days and
 -- weekly days off pause nothing), the acknowledgement repeats and the not-noted escalations.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(56);
 

@@ -10,6 +10,7 @@
 -- (ADR-0010: submission previews outlive the local original), and an upload 6 days old can no
 -- longer be attached, so nothing the cleanup is about to take can be referenced.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(18);
 

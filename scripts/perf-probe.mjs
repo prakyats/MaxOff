@@ -25,7 +25,9 @@
 // the member's role can't open, or a record it has none of, is a "skipped" row in the table.
 //
 // The speed gate (`scripts/lib/perf-gate.mjs` holds the thresholds): a route fails when its
-// warm TTFB p50 is above 600 ms, when it answered with another status than its own, or, with a
+// warm TTFB p50 is above 600 ms, when it answered with another status than its own, when its
+// HTML is not the page (`pageProblem`, advisor 2026-11-26: the error screen, a part React streamed
+// as failed, or none of the route's `landmark` slots; an error screen answers fast), or, with a
 // staging compare, when it is slower than staging by more than 100 ms, or by more than 10 % and at
 // least 50 ms (more than 10 % under 50 ms is a WARN, shown but not failing; /api/warm is shown
 // and never judged; see scripts/lib/perf-gate.mjs). The
@@ -72,7 +74,14 @@ import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
 import zlib from "node:zlib";
 
-import { judgeRun, lastMonthIST, median, planMemberRoutes, summaryLine } from "./lib/perf-gate.mjs";
+import {
+  judgeRun,
+  lastMonthIST,
+  median,
+  pageProblem,
+  planMemberRoutes,
+  summaryLine,
+} from "./lib/perf-gate.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -277,7 +286,7 @@ async function pickIds(session) {
 // One request, timed from this process: connection phases from the socket's events, the first
 // byte from the response headers, the whole body from `end`.
 // ---------------------------------------------------------------------------------------------
-function request(url, { agent, headers, trace = false }) {
+function request(url, { agent, headers, trace = false, landmark }) {
   return new Promise((resolve, reject) => {
     const start = performance.now();
     let connected = 0;
@@ -305,20 +314,26 @@ function request(url, { agent, headers, trace = false }) {
       let arrivedAt = 0;
       inflate?.on("data", (text) => chunks.push({ at: arrivedAt, chunk: text }));
       inflate?.on("error", () => undefined);
+      // The whole body, for the page check (`pageProblem`): read after the timing is taken.
+      const body = [];
       res.on("data", (chunk) => {
         arrivedAt = performance.now() - start;
+        body.push(chunk);
         if (bytes < BODY_HEAD_BYTES) head.push(chunk.subarray(0, BODY_HEAD_BYTES - bytes));
         bytes += chunk.length;
         if (inflate) inflate.write(chunk);
         else chunks?.push({ at: arrivedAt, chunk });
       });
       res.on("end", () => {
+        // The last byte, before anything is decoded: the check never adds to the time.
+        const total = performance.now() - start;
         const serverTiming = res.headers["server-timing"] ?? "";
         const done = () =>
           resolve({
             status: res.statusCode,
             ttfb,
-            total: performance.now() - start,
+            total,
+            page: pageCheck(res, Buffer.concat(body), landmark),
             connect: reused ? 0 : secured || connected,
             reused,
             bytes,
@@ -354,6 +369,33 @@ function request(url, { agent, headers, trace = false }) {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Whether a 2xx HTML answer is the page (`pageProblem`, advisor 2026-11-26: an error screen
+ * answers fast). Null when it is, or when there is nothing to check (not HTML, not 2xx, or a
+ * route with no `landmark` given, which still gets the error-screen check when it is HTML).
+ */
+function pageCheck(res, raw, landmark) {
+  const type = String(res.headers["content-type"] ?? "");
+  if (landmark === undefined || !type.includes("text/html")) return null;
+  if (res.statusCode < 200 || res.statusCode >= 300) return null;
+  const encoding = String(res.headers["content-encoding"] ?? "");
+  let html;
+  try {
+    html = (
+      encoding === "br"
+        ? zlib.brotliDecompressSync(raw)
+        : encoding === "gzip"
+          ? zlib.gunzipSync(raw)
+          : encoding === "deflate"
+            ? zlib.inflateSync(raw)
+            : raw
+    ).toString("utf8");
+  } catch {
+    return "the body could not be decoded";
+  }
+  return pageProblem(html, landmark);
+}
 
 /**
  * Where a streamed page's time goes after its first byte (`--trace-route`, v2.0 X6, the advisor
@@ -436,6 +478,7 @@ function failed(error) {
     timing: {},
     location: null,
     head: "",
+    page: null,
   };
 }
 
@@ -575,9 +618,11 @@ async function main() {
     for (const route of routes) {
       for (const at of turn(i)) {
         const agent = new Agent({ keepAlive: false });
-        const r = await request(at + route.path, { agent, headers: headersFor(route) }).catch(
-          failed,
-        );
+        const r = await request(at + route.path, {
+          agent,
+          headers: headersFor(route),
+          landmark: route.landmark ?? (route.auth ? [] : undefined),
+        }).catch(failed);
         agent.destroy();
         results.push({
           ...diagnose(r, route, at, "fresh"),
@@ -603,6 +648,7 @@ async function main() {
           agent: keep.get(at),
           headers: headersFor(route),
           trace: route.name === traceRoute,
+          landmark: route.landmark ?? (route.auth ? [] : undefined),
         }).catch(failed);
         results.push({
           ...diagnose(r, route, at, "warm"),
@@ -741,6 +787,15 @@ function report(
       path: route.path,
       statusOk: rows.every((r) => statusOk(route, r.status)),
       statuses: [...new Set(rows.map((r) => r.status))].join("/"),
+      // Every sample was the page itself (`pageProblem`), not an error screen that answered fast.
+      contentOk: rows.every((r) => !r.page),
+      ...(rows.some((r) => r.page)
+        ? {
+            content: `${[...new Set(rows.filter((r) => r.page).map((r) => r.page))].join("; ")} (${
+              rows.filter((r) => r.page).length
+            } of ${rows.length} samples)`,
+          }
+        : {}),
       warmP50: median(reused.map((r) => r.ttfb)),
       // The last byte, the finished page (option A, owner 2026-11-11): judged against staging.
       warmTotalP50: median(reused.map((r) => r.total)),

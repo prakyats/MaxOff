@@ -7,6 +7,7 @@
 -- editors' lock is the existing one (until completed or cancelled); old rows with equal keys are
 -- renumbered; a task nobody moved keeps every row. Neutral names only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(58);
 

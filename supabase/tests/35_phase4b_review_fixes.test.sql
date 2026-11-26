@@ -6,6 +6,7 @@
 -- S7 an archived task type is refused only when it is chosen (create, or a change to it), never on
 -- an edit of a task that already has it.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(30);
 

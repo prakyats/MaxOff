@@ -1676,6 +1676,7 @@ export const OWNER_GUIDE: Guide = {
               `Only the Owner sees the Revenue page. Admins and ${CREW} have no Revenue row in Reports and cannot open it.`,
             ),
           ],
+          link: { href: "/reports/revenue", label: "Open Revenue" },
           keywords: [
             "revenue",
             "potential",

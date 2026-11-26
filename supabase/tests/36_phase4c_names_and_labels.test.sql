@@ -9,6 +9,7 @@
 --      or changed (create and edit, the Owner and an Admin with their own client alike); a task
 --      labelled before keeps its label and stays editable.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(43);
 

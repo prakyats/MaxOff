@@ -1,6 +1,7 @@
 -- 1.4 follow-ups: list_item_move() for every role, and app.is_working_day() with no single
 -- organization in scope.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(25);
 

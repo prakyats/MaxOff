@@ -6,6 +6,7 @@
 -- Crew (FORBIDDEN), a deactivated Admin (UNAUTHENTICATED), anon (no EXECUTE). WORKFLOWS §9's rows.
 -- Dates are computed from app.today_ist(), so the file holds on any day.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(293);
 

@@ -6,6 +6,7 @@
 -- TODAY-shape data too (a template and a project made the old way, with ticks, a date, a note and
 -- history), with nothing existing changed. Every name here is neutral: nothing is pre-defined.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(174);
 

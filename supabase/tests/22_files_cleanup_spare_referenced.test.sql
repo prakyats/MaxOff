@@ -2,6 +2,7 @@
 -- file cannot be attached again, one upload is attached in one place only, and the archived branch
 -- of file_cleanup_candidates spares a referenced file and a preview whose original is referenced.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(10);
 

@@ -8,6 +8,7 @@
 --     since the last digest sent, capped at seven, so moving the digest day later or earlier in the
 --     week sends on the first occurrence of the new day, never skipping a week.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(37);
 

@@ -1,6 +1,7 @@
 -- Phase 1 review hardening: the deactivation reason is hidden from the person it is about, and
 -- the API role can update only the columns each screen edits.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(25);
 

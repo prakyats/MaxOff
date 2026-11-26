@@ -9,6 +9,7 @@
 -- ordinary rows, capped as ordinary. (5) owner_digest_preview: the Owner only, writes nothing.
 -- (6) The 08:00 IST pg_cron job.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(48);
 

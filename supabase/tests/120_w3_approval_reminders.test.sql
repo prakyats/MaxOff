@@ -10,6 +10,7 @@
 -- expense claim is no_email and never queued for email even without push; a corrected or rejected one
 -- keeps the fallback; other kinds are untouched. Neutral names only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(77);
 

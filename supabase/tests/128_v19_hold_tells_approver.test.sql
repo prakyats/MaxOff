@@ -4,6 +4,7 @@
 -- the creator too (told once), refusals for the approver, another Admin, Crew and anon, and the unchanged recipients (the
 -- assignees; the Owner not told of an Admin's own task; never the actor).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(27);
 

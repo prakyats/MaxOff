@@ -5,6 +5,7 @@
 -- saved reports, overdue now live). Dates are computed from app.today_ist(), so the file holds on
 -- any day. Realtime's publication is 46's.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(32);
 

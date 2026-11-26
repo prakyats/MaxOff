@@ -2,6 +2,7 @@
 -- (PERMISSIONS ¹ ²), the guard (type immutable once a value exists; entity, key and scope fixed;
 -- options shape) and the activity policy.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(57);
 

@@ -15,6 +15,7 @@
 --    Owner's read, and the switch off; then the day's edges (00:05 and 23:50 IST, a 00:00-23:59 day with no
 --    grace), which the e2e spec never runs in (X5). Neutral names only.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(142);
 

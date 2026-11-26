@@ -4,6 +4,7 @@
 -- Owner), item_reopen on a legacy done item, and the activity reads returning only described entries
 -- (S7: item_last_changes' cap and roles, project_activity for a deactivated Admin).
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(52);
 

@@ -6,6 +6,7 @@
 -- nothing else is widened: a replaced (archived) photo, a loose upload, an expense receipt and a
 -- client logo the viewer could not read before stay unreadable.
 begin;
+\ir lib/lock-job-tables.psql
 create extension if not exists pgtap with schema extensions;
 select plan(35);
 
