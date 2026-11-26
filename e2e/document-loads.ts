@@ -2,6 +2,8 @@ import { type BrowserContext, type Page, type Request } from "@playwright/test";
 
 import { systemClock } from "../src/core/time";
 
+import { TraversalAllowance } from "./traversal-allowance";
+
 /**
  * The reload guard (owner 2026-10-01, after two CI runs lost a view switch and a back slide to a
  * full page load): **a signed-in screen never loads a whole new document unless the test asked
@@ -11,7 +13,8 @@ import { systemClock } from "../src/core/time";
  *
  * How it tells the two apart: every main-frame navigation request is a document load; the ones
  * the test triggers itself (`page.goto`, `page.reload`, `page.goBack`/`goForward` across one, a
- * popup's first page) are counted as expected while that call is in flight. Everything else is
+ * popup's first page) are counted as expected while that call is in flight, plus the one load of
+ * a traversal Playwright resolved before its document load began (`traversal-allowance.ts`). Everything else is
  * a surprise, and the test fails at its end naming each one, with what led up to it: the router
  * fetches and server actions of the last seconds, every console error, Next's own "Falling back
  * to browser navigation" line when its RSC fetch failed, and the last tap on a link (kept in
@@ -100,7 +103,8 @@ export class DocumentLoadWatcher {
     const expectAround = <T>(run: () => Promise<T>) => {
       this.expecting.set(page, (this.expecting.get(page) ?? 0) + 1);
       return run().finally(() => {
-        // The navigation's requests have all been reported by the time its promise settles.
+        // The navigation's requests have all been reported by the time its promise settles,
+        // except a traversal resolved early (`traverse` below).
         this.expecting.set(page, (this.expecting.get(page) ?? 1) - 1);
       });
     };
@@ -108,16 +112,28 @@ export class DocumentLoadWatcher {
     page.goto = (url, options) => expectAround(() => originalGoto(url, options));
     const originalReload = page.reload.bind(page);
     page.reload = (options) => expectAround(() => originalReload(options));
+    // A traversal Playwright resolved `null` on a same-document write of the page it left (Next's
+    // hydration `replaceState`): its real load of the target entry starts after the call, and is
+    // let through once, strictly (`TraversalAllowance`, fix-goback-guard).
+    const traversal = new TraversalAllowance();
+    const traverse = <T>(delta: -1 | 1, run: () => Promise<T>) =>
+      expectAround(async () => {
+        const target = await crossDocumentTarget(page, delta);
+        const response = await run();
+        if (response === null && target) traversal.grant(target, systemClock().getTime());
+        return response;
+      });
     const originalBack = page.goBack.bind(page);
-    page.goBack = (options) => expectAround(() => originalBack(options));
+    page.goBack = (options) => traverse(-1, () => originalBack(options));
     const originalForward = page.goForward.bind(page);
-    page.goForward = (options) => expectAround(() => originalForward(options));
+    page.goForward = (options) => traverse(1, () => originalForward(options));
 
     page.on("request", (request) => {
       if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
         const url = request.url();
         const expected =
           (this.expecting.get(page) ?? 0) > 0 ||
+          traversal.take(url, systemClock().getTime()) ||
           popupFirstLoad ||
           BOUNCE.test(url) ||
           this.allowed.some((pattern) => pattern.test(url));
@@ -182,6 +198,30 @@ export class DocumentLoadWatcher {
     }
     return reports;
   }
+}
+
+/**
+ * The URL of the history entry `delta` steps away when it is another document (Chromium's
+ * Navigation API; null elsewhere, or when the entry shares this document, as an overlay's does:
+ * a same-document traversal loads nothing, so nothing is granted for it).
+ */
+async function crossDocumentTarget(page: Page, delta: -1 | 1): Promise<string | null> {
+  return page
+    .evaluate((step) => {
+      const navigation = (
+        window as unknown as {
+          navigation?: {
+            currentEntry: { index: number } | null;
+            entries(): { url: string | null; sameDocument: boolean }[];
+          };
+        }
+      ).navigation;
+      const index = navigation?.currentEntry?.index;
+      if (!navigation || index === undefined) return null;
+      const entry = navigation.entries()[index + step];
+      return entry && !entry.sameDocument ? entry.url : null;
+    }, delta)
+    .catch(() => null);
 }
 
 function isRouterFetch(request: Request): boolean {
