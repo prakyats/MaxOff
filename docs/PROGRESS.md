@@ -267,6 +267,15 @@
     - The staging pen test passes (run 2, 45733118056).
     - The release review is done (`docs/reviews/v4.5/release-review.md`).
     - The READY draft is in `docs/handoff/v45-ready-draft.md`.
+  - **STOPPED (owner's instruction via the advisor, 26 Nov ~19:50 IST).** Start nothing until the advisor says "resume".
+    - **Safe checkpoint:** no A/B, CI dispatch, probe or local DB job was running or half-done.
+    - **Heads:**
+      - `phase-v40` = cc06f05c: full CI 45765346675 green; v4.0's READY was sent.
+      - `phase-v45` = this commit: full CI 45766064706 green on bad4fc39 (only docs commits since).
+    - **On resume, in order:**
+      1. v4.0's walk fixes (the three checks below, plus the headings-only wording), re-shoot `owner/drive` in the 11:15–17:30 IST window, RELEASE-NOTES, check, full CI, then tell the advisor when Back-after-Google is ready for the owner's installed-app check.
+      2. v4.5's same-machine A/B (scope below) and `/upload`'s timing, then READY on #89.
+      - Report each result to the advisor (`session_015vyzMUgXy4TaM5bDuVMZze`) with its run ID and head SHA. Probe re-runs only on the advisor's slot GO.
   - **UPDATE 26 Nov ~12:15 IST (read this first):**
     - **Owner's rule (26 Nov ~12:05 IST, via the advisor): talk to the ADVISOR, not the owner.** Every question, decision, status, READY and blocker goes to the advisor (NOW session_015vyzMUgXy4TaM5bDuVMZze) with `send_message`. Never ask the owner in this session. Send each READY to the advisor; keep posting BUILDER on #89 before pushes as before.
     - main moved to 0214c60. The current CI runs count for READY; take main again before each merge (advisor).
